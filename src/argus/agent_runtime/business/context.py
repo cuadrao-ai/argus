@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal, Protocol
@@ -44,6 +45,7 @@ class AuthorizedBusinessContext:
     message_id: UUID
     received_at: datetime
     channel: Literal["web", "whatsapp"]
+    begin_reply: Callable[[], str | None]
     language: str = "es-419"
 
     def __post_init__(self) -> None:

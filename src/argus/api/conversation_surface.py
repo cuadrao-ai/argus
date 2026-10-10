@@ -16,6 +16,7 @@ existing ones still works.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 from uuid import UUID
@@ -190,6 +191,7 @@ def authorized_business_turn_context(
     message_id: str,
     received_at: datetime,
     channel: Literal["web", "whatsapp"],
+    begin_reply: Callable[[], str | None],
     language: str = "es-419",
 ) -> AuthorizedBusinessContext:
     from argus.agent_runtime.business.context import AuthorizedBusinessContext
@@ -207,5 +209,6 @@ def authorized_business_turn_context(
         message_id=UUID(message_id),
         received_at=received_at,
         channel=channel,
+        begin_reply=begin_reply,
         language=language,
     )

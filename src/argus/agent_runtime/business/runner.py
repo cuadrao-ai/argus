@@ -86,9 +86,8 @@ class BusinessTurnRunner:
                 )
                 for draft_id in sorted(touched_ids)
             ]
-        if turn.reply_text is not None:
-            reply = turn.reply_text
-        else:
+        reply = context.begin_reply()
+        if reply is None:
             reply = await self.interpreter.acompose_business(
                 {
                     "message": message,

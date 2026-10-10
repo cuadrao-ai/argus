@@ -31,6 +31,19 @@ class Actions:
         self.drafts = {}
         self.calls = []
         self.refusal = None
+        self.composition_started = False
+        self.reply_text = None
+
+    def begin_reply(self):
+        if self.reply_text is not None:
+            return self.reply_text
+        if self.composition_started:
+            raise RuntimeError("business_reply_outcome_unknown")
+        self.composition_started = True
+        return None
+
+    def save_reply(self, text):
+        self.reply_text = text
 
     def plan_for_turn(self, context, key, *, lease):
         self.calls.append("read_plan")
@@ -119,6 +132,7 @@ def turn_context():
         message_id=uuid4(),
         received_at=now,
         channel="whatsapp",
+        begin_reply=actions.begin_reply,
     )
     return turn, context, actions
 
@@ -143,8 +157,9 @@ async def test_graph_persists_plan_before_executor_and_replay_does_not_reinterpr
     runner = BusinessTurnRunner(interpreter=interpreter)
     message = "Pagué  850\npor materiales"
     result = await runner.run(context=context, turn=turn, message=message)
+    actions.save_reply(result.reply_text)
     replay = await runner.run(context=context, turn=turn, message=message)
-    assert interpreter.interpret_count == 1
+    assert interpreter.interpret_count == interpreter.compose_count == 1
     assert actions.calls.index("persist_plan") < actions.calls.index("execute:0")
     assert len(actions.drafts) == len(actions.receipts) == len(actions.sources) == 1
     assert next(iter(actions.sources.values())).text == message
@@ -286,3 +301,24 @@ def test_business_tool_arguments_cannot_supply_authority_or_approval():
     for field in ("actor_id", "space_id", "grant_id", "approve"):
         with pytest.raises(ValueError):
             declaration.validate_arguments({field: str(uuid4())})
+
+
+@pytest.mark.asyncio
+async def test_interrupted_reply_composition_never_blindly_repeats_provider_call(
+    turn_context,
+):
+    turn, context, actions = turn_context
+    interpreter = Interpreter(proposal)
+
+    async def failed_composer(payload):
+        interpreter.compose_count += 1
+        raise RuntimeError("simulated_provider_interruption")
+
+    interpreter.acompose_business = failed_composer
+    runner = BusinessTurnRunner(interpreter=interpreter)
+    with pytest.raises(RuntimeError, match="simulated_provider_interruption"):
+        await runner.run(context=context, turn=turn, message="Pagué 850")
+    with pytest.raises(RuntimeError, match="business_reply_outcome_unknown"):
+        await runner.run(context=context, turn=turn, message="Pagué 850")
+    assert interpreter.interpret_count == interpreter.compose_count == 1
+    assert len(actions.drafts) == len(actions.receipts) == 1
