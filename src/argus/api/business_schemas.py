@@ -138,7 +138,10 @@ class BusinessExpense(_Wire):
     amount: str
     currency: str
     category_id: str | None
-    account_id: str
+    account_id: str | None
+    funding: Literal["owner_funds"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     occurred_on: date
     receipt_id: str | None
 
