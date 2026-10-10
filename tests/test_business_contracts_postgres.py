@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from argus.domain.business.contracts.actions import MAX_TURN_ACTIONS
@@ -522,3 +523,159 @@ def test_human_receipt_retains_immutable_actor_without_a_turn(
         " where idempotency_key=%s",
         (key,),
     ).fetchone() == (actor_provenance(client), None)
+
+
+def add_revision(
+    db: Connection, client: dict[str, str], source_ids: list[str | None]
+) -> None:
+    db.execute(
+        "insert into public.business_draft_revisions"
+        " (space_id,draft_id,version,actor,after_facts,source_ids)"
+        " values (%s,%s,1,%s,'{}',%s::uuid[])",
+        (client["id"], client["draft"], Jsonb(actor_provenance(client)), source_ids),
+    )
+
+
+def test_revision_rejects_foreign_missing_or_null_sources(
+    db: Connection, client: dict[str, str], users: dict[str, str]
+) -> None:
+    foreign_source = add_source(db, space(db, users["other"]))
+    local_source = add_source(db, client["id"])
+    db.execute("set local role service_role")
+    for source_id in (foreign_source, fake.uuid4(), None):
+        with (
+            pytest.raises(errors.ForeignKeyViolation, match="revision_source_not_found"),
+            db.transaction(),
+        ):
+            add_revision(db, client, [local_source, source_id])
+    add_revision(db, client, [local_source])
+
+
+def test_direct_source_erasure_preserves_history_but_parent_deletion_cascades(
+    db: Connection, client: dict[str, str]
+) -> None:
+    source_id = add_source(db, client["id"])
+    db.execute(
+        "insert into public.business_draft_sources (space_id,draft_id,source_id)"
+        " values (%s,%s,%s)",
+        (client["id"], client["draft"], source_id),
+    )
+    add_revision(db, client, [source_id])
+    db.execute("set local role service_role")
+    with (
+        pytest.raises(errors.CheckViolation, match="business_evidence_immutable"),
+        db.transaction(),
+    ):
+        db.execute("delete from public.business_sources where id=%s", (source_id,))
+    assert (
+        db.execute(
+            "select count(*) from public.business_sources where id=%s", (source_id,)
+        ).fetchone()[0]
+        == 1
+    )
+    assert (
+        db.execute(
+            "select count(*) from public.business_draft_sources where source_id=%s",
+            (source_id,),
+        ).fetchone()[0]
+        == 1
+    )
+    assert db.execute(
+        "select source_ids from public.business_draft_revisions where draft_id=%s",
+        (client["draft"],),
+    ).fetchone()[0] == [UUID(source_id)]
+    db.execute("delete from public.spaces where id=%s", (client["id"],))
+    assert (
+        db.execute(
+            "select count(*) from public.business_sources where id=%s", (source_id,)
+        ).fetchone()[0]
+        == 0
+    )
+    assert (
+        db.execute(
+            "select count(*) from public.business_draft_revisions where draft_id=%s",
+            (client["draft"],),
+        ).fetchone()[0]
+        == 0
+    )
+
+
+def test_answered_attachment_allows_existing_account_deletion_order(
+    db: Connection, client: dict[str, str]
+) -> None:
+    connection_id = connection(db, client["owner"], client["id"])
+    source_id = str(
+        db.execute(
+            "insert into public.business_sources"
+            " (space_id,kind,channel,source_key,connection_id,received_at)"
+            " values (%s,'attachment','web',%s,%s,now()) returning id",
+            (client["id"], fake.sha256(), connection_id),
+        ).fetchone()[0]
+    )
+    db.execute(
+        "insert into public.business_questions"
+        " (space_id,draft_id,field,asked_of,channel,state,prompt,allowed_answers,answer_source_id)"
+        " values (%s,%s,'amount','accountant','web','answered',%s,ARRAY['known'],%s)",
+        (client["id"], client["draft"], fake.sentence(), source_id),
+    )
+    add_revision(db, client, [source_id])
+    db.execute("set local role service_role")
+    db.execute(
+        "delete from public.financial_source_connections where user_id = %s",
+        (client["owner"],),
+    )
+    assert (
+        db.execute(
+            "select count(*) from public.business_questions where draft_id=%s",
+            (client["draft"],),
+        ).fetchone()[0]
+        == 0
+    )
+    assert (
+        db.execute(
+            "select count(*) from public.business_sources where id=%s", (source_id,)
+        ).fetchone()[0]
+        == 0
+    )
+    db.execute("reset role")
+    db.execute("select set_config('argus.locked_history_writer', 'deletion', true)")
+    db.execute(
+        "select argus_private.deletion_finish(%s, %s)", (client["owner"], fake.sha256())
+    )
+    db.execute("delete from auth.users where id=%s", (client["owner"],))
+    assert (
+        db.execute(
+            "select count(*) from public.spaces where id=%s", (client["id"],)
+        ).fetchone()[0]
+        == 0
+    )
+    assert (
+        db.execute(
+            "select count(*) from public.business_draft_revisions where draft_id=%s",
+            (client["draft"],),
+        ).fetchone()[0]
+        == 0
+    )
+
+
+@pytest.mark.parametrize(
+    "command", [{"action": "business_read_context"}, {}, {"action": "unknown"}]
+)
+def test_no_turn_receipt_is_reserved_for_human_commands(
+    db: Connection, client: dict[str, str], command: dict
+) -> None:
+    db.execute("set local role service_role")
+    with pytest.raises(errors.CheckViolation), db.transaction():
+        db.execute(
+            "insert into public.business_action_receipts"
+            " (space_id,actor_id,actor,idempotency_key,input_hash,command)"
+            " values (%s,%s,%s,%s,%s,%s)",
+            (
+                client["id"],
+                client["owner"],
+                Jsonb(actor_provenance(client)),
+                fake.sha256(),
+                fake.sha256(),
+                Jsonb(command),
+            ),
+        )

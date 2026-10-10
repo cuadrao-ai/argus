@@ -354,3 +354,22 @@ def test_receipt_provenance_is_required_and_bound_to_actual_actor(
     del payload["actor"]
     with pytest.raises(ValidationError):
         ActionReceipt.model_validate(payload)
+
+
+def test_agent_receipt_requires_a_persisted_turn(dossier: BusinessDossier) -> None:
+    actor = dossier.history[0].actor
+    payload = {
+        "space_id": dossier.space_id,
+        "actor_id": actor.actor_id,
+        "actor": actor,
+        "idempotency_key": fake.sha256(),
+        "input_hash": fake.sha256(),
+        "command": {"action": "business_read_context"},
+        "created_at": dossier.sources[0].received_at,
+    }
+    with pytest.raises(ValidationError, match="persisted turn plan"):
+        ActionReceipt.model_validate(payload)
+    receipt = ActionReceipt.model_validate(
+        {**payload, "turn_key": fake.sha256(), "action_index": 0}
+    )
+    assert receipt.action_index == 0

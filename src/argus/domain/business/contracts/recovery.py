@@ -75,4 +75,9 @@ class ActionReceipt(Contract):
             raise ValueError("receipt provenance must match the actual actor")
         if (self.turn_key is None) != (self.action_index is None):
             raise ValueError("turn key and action index must be supplied together")
+        if self.turn_key is None and self.command.action not in {
+            "review_draft",
+            "approve_expense",
+        }:
+            raise ValueError("agent action receipts require their persisted turn plan")
         return self
