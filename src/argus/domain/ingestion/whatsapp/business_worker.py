@@ -261,12 +261,16 @@ class BusinessWhatsAppWorker:
                     turn is None or self.has_consent(captured.space_id, captured.owner_id)
                 ),
             )
-            if claim.state == "waiting_for_window" and context is not None:
+            if claim.state == "waiting_for_window":
+                if context is not None:
+                    await asyncio.to_thread(
+                        self.actions.mark_turn_waiting_for_window,
+                        context,
+                        captured.turn_key,
+                        lease=lease,
+                    )
                 await asyncio.to_thread(
-                    self.actions.mark_turn_waiting_for_window,
-                    context,
-                    captured.turn_key,
-                    lease=lease,
+                    self.delivery.wait_for_window, captured, lease=lease
                 )
             if claim.state != "sending":
                 return

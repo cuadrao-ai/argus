@@ -73,12 +73,6 @@ class BusinessDeliveryStore:
                 (captured.envelope.sent_at,),
             ).fetchone()[0]
             if not inside:
-                connection.execute(
-                    "update public.whatsapp_outbox set state='waiting_for_window'"
-                    " where provider_message_key=%s and state='pending'",
-                    (captured.message_key,),
-                )
-                BusinessTurnStore.require_lease(connection, lease)
                 return DeliveryClaim("waiting_for_window")
             connection.execute(
                 "update public.whatsapp_outbox set state='sending',attempted_at=clock_timestamp()"
@@ -128,6 +122,19 @@ class BusinessDeliveryStore:
                 (captured.message_key,),
             ).fetchone():
                 self._phase(connection, captured.turn_key, "reply_sent")
+            BusinessTurnStore.require_lease(connection, lease)
+
+    def wait_for_window(self, captured: CapturedText, *, lease: SenderLease) -> None:
+        with self.pool.connection() as connection, connection.transaction():
+            BusinessTurnStore.require_lease(connection, lease)
+            connection.execute(
+                "update public.whatsapp_outbox o set state='waiting_for_window'"
+                " from public.whatsapp_inbound_messages i"
+                " where o.provider_message_key=i.provider_message_key and o.provider_message_key=%s"
+                " and i.destination_space_id=%s and i.sender_hash=%s and o.state='pending'"
+                " and clock_timestamp()>=i.sent_at+interval '24 hours'",
+                (captured.message_key, lease.space_id, bytes.fromhex(lease.sender_hash)),
+            )
             BusinessTurnStore.require_lease(connection, lease)
 
     def suppress(self, captured: CapturedText, *, lease: SenderLease) -> None:

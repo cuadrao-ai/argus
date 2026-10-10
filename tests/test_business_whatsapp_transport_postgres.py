@@ -502,3 +502,24 @@ async def test_shutdown_cancellation_persists_unknown_and_releases_sender_lease(
     )
     assert replacement is not None and replacement.fence == turn.lease_fence + 1
     world.turns.release(replacement)
+
+
+@pytest.mark.asyncio
+async def test_interruption_marking_questions_waiting_recovers_without_recomposing(
+    world, monkeypatch
+):
+    message = world.message(sent_at=datetime.now(timezone.utc) - timedelta(hours=25))
+    world.captures.capture(message)
+    original = world.actions.mark_turn_waiting_for_window
+
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("synthetic interruption before question update")
+
+    monkeypatch.setattr(world.actions, "mark_turn_waiting_for_window", interrupted)
+    await world.worker(synthetic_consent=True).run_once()
+    assert world.states(message) == [("pending",)]
+    monkeypatch.setattr(world.actions, "mark_turn_waiting_for_window", original)
+    await world.worker(synthetic_consent=True).run_once()
+    assert world.states(message) == [("waiting_for_window",)]
+    assert world.actions.waiting == [world.keys.message(message.id).hex()]
+    assert world.executor.compositions == 1 and not world.transport.messages
