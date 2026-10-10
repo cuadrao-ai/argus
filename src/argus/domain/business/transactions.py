@@ -92,6 +92,8 @@ class GrantImportStore:
         if user_id != self.context.owner_id or scope != self.context.scope:
             raise ActionError("not_found", "business_record_not_found")
         with transaction(self.authority, self.context, self.capability) as tx:
-            legacy = LegacyImportTransaction(tx.connection, tx.context)
+            legacy = LegacyImportTransaction(
+                tx.connection, tx.context.owner_id, tx.context.scope
+            )
             yield legacy
             legacy.verify_links()

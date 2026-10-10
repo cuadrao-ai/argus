@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 from psycopg import Connection
 
-from argus.domain.business.authority import ActionContext, ActionError
+from argus.domain.business.authority import ActionError
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent, Observation
+from argus.domain.ingestion.reconcile.store import ImportStore, ImportTx
 from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+from argus.domain.owner_scope import BusinessSpace, OwnerScope
 
 
 class LegacyImportTransaction(_PostgresTx):
-    def __init__(self, connection: Connection, context: ActionContext) -> None:
-        super().__init__(connection, context.owner_id, context.scope)
-        self.context = context
+    def __init__(self, connection: Connection, user_id: str, scope: OwnerScope) -> None:
+        super().__init__(connection, user_id, scope)
         self.changed_events: set[str] = set()
         self.changed_connections: set[str] = set()
 
@@ -51,11 +55,28 @@ class LegacyImportTransaction(_PostgresTx):
             " and typed.resolution ? 'business' and typed.id<>e.id"
             " and (e.id=any(%s::uuid[]) or o.connection_id=any(%s::uuid[])) limit 1",
             (
-                self.context.actor.space_id,
-                self.context.owner_id,
+                self._space,
+                self._user,
                 list(self.changed_events),
                 list(self.changed_connections),
             ),
         )
         if conflicts:
             raise ActionError("invalid_input", "business_action_required")
+
+
+@contextmanager
+def legacy_transaction(
+    store: ImportStore, user_id: str, *, scope: OwnerScope
+) -> Iterator[ImportTx]:
+    with store.transaction(user_id, scope=scope) as tx:
+        if (
+            isinstance(scope, BusinessSpace)
+            and isinstance(tx, _PostgresTx)
+            and not isinstance(tx, LegacyImportTransaction)
+        ):
+            guarded = LegacyImportTransaction(tx._c, user_id, scope)
+            yield guarded
+            guarded.verify_links()
+        else:
+            yield tx
