@@ -47,6 +47,7 @@ class MoneyActivityResponse(BaseModel):
     reason: str | None
     recorded_at: datetime
     recorded_by: str | None
+    funding: Literal["owner_funds"] | None = None
     legs: list[MoneyLegResponse]
 
 

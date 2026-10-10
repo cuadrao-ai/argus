@@ -30,6 +30,11 @@ from argus.api.business import (
     require_business_person,
     require_business_surface,
 )
+from argus.api.business_drafts import (
+    action_problem,
+    receipt_detail,
+    require_legacy_receipt_write,
+)
 from argus.api.business_schemas import (
     BusinessAccount,
     BusinessExpense,
@@ -59,6 +64,7 @@ from argus.api.documents import (
     read_document_upload,
 )
 from argus.api.financial_accounts import domain_problem
+from argus.domain.business.authority import ActionError
 from argus.domain.business.service import BusinessError
 from argus.domain.business.spaces import Space, default_space_name
 from argus.domain.ingestion.connections import ConnectionNotFound
@@ -90,11 +96,18 @@ router = APIRouter(
     dependencies=[Depends(require_business_surface), Depends(_no_store)],
 )
 _CONFLICTS = frozenset(
-    {"receipt_not_prepared", "import_already_accepted", "import_accept_in_progress"}
+    {
+        "receipt_not_prepared",
+        "draft_not_prepared",
+        "import_already_accepted",
+        "import_accept_in_progress",
+    }
 )
 
 
 def _problem(request: Request, error: Exception) -> HTTPException:
+    if isinstance(error, ActionError):
+        return action_problem(request, error.result)
     if isinstance(error, (ConnectionNotFound, EventNotFound)):
         return problem(
             request,
@@ -276,7 +289,7 @@ def get_receipt(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        return context.service.receipt(context.scope, receipt_id).detail()
+        return receipt_detail(context, context.service.receipt(context.scope, receipt_id))
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -313,6 +326,7 @@ async def prepare_receipt(
     try:
         if consent != "true":
             raise DocumentServiceError("document_extraction_consent_required")
+        require_legacy_receipt_write(context, receipt_id)
         context.service.queue(context.scope, receipt_id)
         await dispatch_preparation(
             context.service.documents,
@@ -337,13 +351,14 @@ async def review_receipt(
 
     service, scope = context.service, context.scope
     try:
+        require_legacy_receipt_write(context, receipt_id)
         version = await service.start_entry(
             scope, receipt_id, body.version, body.fields.get("account_id")
         )
         reviewed = await run_in_threadpool(
             service.review, scope, receipt_id, version, body.fields
         )
-        return reviewed.detail()
+        return receipt_detail(context, reviewed)
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -358,9 +373,11 @@ def confirm_receipt(
 ) -> dict[str, Any]:
     key = _required_idempotency_key(request, idempotency_key)
     try:
-        return context.service.confirm(
-            context.scope, receipt_id, body.version, key
-        ).detail()
+        if getattr(request.app.state, "financial_accounts_pool", None) is not None:
+            raise BusinessError("draft_not_prepared")
+        return receipt_detail(
+            context, context.service.confirm(context.scope, receipt_id, body.version, key)
+        )
     except Exception as error:
         raise _problem(request, error) from None
 

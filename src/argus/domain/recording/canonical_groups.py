@@ -1,8 +1,8 @@
 """Resolve exact logical activity revisions before applying caller visibility."""
 
 from collections.abc import Collection, Iterable
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from psycopg import Connection
 
@@ -12,6 +12,9 @@ from .errors import AccountNotFound
 from .loop import ExpenseRecord, ExpenseRevision
 from .money_postgres import load_owner
 from .repository import StoredAccount
+
+if TYPE_CHECKING:
+    from .owner_funds import OwnerFundedExpense
 
 Leg = tuple[StoredAccount, ExpenseRecord, ExpenseRevision]
 History = dict[str, dict[int, list[Leg]]]
@@ -41,6 +44,7 @@ class ResolvedGroups:
     current: dict[str, int]
     history: History
     owners: dict[str, str]
+    owner_funded: list["OwnerFundedExpense"] = field(default_factory=list)
 
     def current_visible(self, account_ids: Collection[str]) -> dict[str, int]:
         return {
@@ -59,6 +63,7 @@ class VisibleAccounts(list):
     def __init__(self, records: list[StoredAccount], canonical: ResolvedGroups):
         super().__init__(records)
         self.canonical = canonical
+        self.owner_funded = canonical.owner_funded
 
 
 def resolve(
@@ -171,7 +176,10 @@ def projected(canonical: ResolvedGroups, money: Any, now: Any) -> ResolvedGroups
         for aid, mutation in money.mutations.items()
         if mutation.record.current.active
     )
-    return resolve(records, headers.values(), memberships)
+    return replace(
+        resolve(records, headers.values(), memberships),
+        owner_funded=canonical.owner_funded,
+    )
 
 
 def owner_closure(connection: Connection, owner_ids: Collection[str]) -> list[str]:
@@ -218,6 +226,11 @@ def load(
         on m.activity_id=g.id and m.user_id=g.user_id
         where g.user_id=any(%s::uuid[])
         and not exists (
+            select 1 from public.financial_activity_memberships f
+            join public.financial_records r on r.id=f.record_id and r.user_id=f.record_owner_id
+            where f.activity_id=g.id and f.user_id=g.user_id and r.account_id is null
+        )
+        and not exists (
             select 1 from public.financial_activity_memberships o
             join public.financial_records r
             on r.id=o.record_id and r.user_id=coalesce(o.record_owner_id,o.user_id)
@@ -246,4 +259,11 @@ def load(
                     str(record_owner),
                 )
             )
-    return resolve(records, headers.values(), memberships)
+    from dataclasses import replace
+
+    from .owner_funds_postgres import load as load_funded
+
+    return replace(
+        resolve(records, headers.values(), memberships),
+        owner_funded=load_funded(connection, owner_ids, scope),
+    )

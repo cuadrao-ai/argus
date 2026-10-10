@@ -47,7 +47,8 @@ def expenses(
             "amount_minor": item["amount_minor"],
             "currency": item["currency"],
             "category_id": item["category_id"],
-            "account_id": item["legs"][0]["account_id"],
+            "account_id": item["legs"][0]["account_id"] if item["legs"] else None,
+            **({"funding": item["funding"]} if item.get("funding") else {}),
             "occurred_on": occurred_on(item),
             "receipt_id": receipt_of.get(item["activity_id"]),
         }
