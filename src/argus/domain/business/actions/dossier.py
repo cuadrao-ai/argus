@@ -18,7 +18,7 @@ from argus.domain.business.contracts.dossier import (
     SourceEvidence,
     UnsettledApproval,
 )
-from argus.domain.business.contracts.facts import BusinessFacts, Known, OwnerFunding
+from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.reconcile.model import EventNotFound
 
@@ -63,8 +63,6 @@ def blockers(facts: BusinessFacts) -> list[Blocker]:
         result.append(
             Blocker(code="business_allocation_unsupported", field="business_share")
         )
-    if isinstance(facts.funding, Known) and isinstance(facts.funding.value, OwnerFunding):
-        result.append(Blocker(code="owner_funds_unsupported", field="funding"))
     return result
 
 

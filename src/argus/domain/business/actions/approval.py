@@ -21,9 +21,10 @@ from argus.domain.business.contracts.actions import (
     OutcomeUnknown,
     Refused,
 )
+from argus.domain.business.contracts.facts import OwnerFunding
 from argus.domain.business.transactions import transaction
 from argus.domain.ingestion.reconcile.recording import _NOT_WRITTEN
-from argus.domain.recording.money_schemas import MoneyRequest
+from argus.domain.recording.money_schemas import MoneyRequest, OwnerFunds
 
 if TYPE_CHECKING:
     from argus.domain.business.actions.service import BusinessActions
@@ -39,9 +40,15 @@ def reviewed_request(
             raise ActionError("invalid_input", view.blockers[0].code)
         validate_facts(tx, view.facts)
     facts = view.facts
+    funding = facts.funding.value
     draft = MoneyRequest(
         kind="expense",
-        account_id=str(facts.funding.value.account_id),
+        owner_funding=OwnerFunds(
+            owner_space_id=context.actor.space_id, currency=facts.currency.value
+        )
+        if isinstance(funding, OwnerFunding)
+        else None,
+        account_id=None if isinstance(funding, OwnerFunding) else str(funding.account_id),
         amount=facts.amount.value,
         occurred_at=datetime.combine(
             facts.occurred_on.value, time(0), tzinfo=ZoneInfo("America/Santo_Domingo")

@@ -240,7 +240,7 @@ def test_lease_loss_and_source_collision_do_not_write(actions):
         )
 
 
-def ready(service, context):
+def ready(service, context, *, owner_funds=False):
     from argus.domain.recording.repository import NewAccount
 
     account = service.imports.money.repository.create(
@@ -262,7 +262,9 @@ def ready(service, context):
                 "amount": "850",
                 "currency": "DOP",
                 "occurred_on": "2026-10-01",
-                "funding": {"kind": "business_account", "account_id": account},
+                "funding": {"kind": "owner_funds"}
+                if owner_funds
+                else {"kind": "business_account", "account_id": account},
                 "business_share": {"kind": "all"},
             }.items()
         }
@@ -657,7 +659,11 @@ def test_receipt_candidate_bridge_preserves_ambiguity(
     legacy_id = None
     if legacy is not None:
         with service.authority.pool.connection() as db:
-            legacy_id = drafts[0] if legacy == "same" else UUID(event(db, context.owner_id, str(context.actor.space_id)))
+            legacy_id = (
+                drafts[0]
+                if legacy == "same"
+                else UUID(event(db, context.owner_id, str(context.actor.space_id)))
+            )
             observation(db, context.owner_id, str(legacy_id), receipt)
     with transaction(service.authority, context) as tx:
         selected, actual_ambiguity = draft_for_receipt(tx, UUID(receipt), legacy_id)
@@ -856,6 +862,68 @@ def test_atomic_store_guard_blocks_distinct_legacy_and_typed_receipt_candidates(
             db.execute(
                 "select count(*) from public.financial_import_events where owner_space_id=%s",
                 (context.actor.space_id,),
+            ).fetchone()[0]
+            == 1
+        )
+
+
+def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatch):
+    from argus.domain.business.contracts.actions import ApproveExpense
+    from argus.domain.recording.money_reads import current_activities
+    from argus.domain.recording.schemas import account_response
+
+    service, context, _ = actions
+    draft = ready(service, context, owner_funds=True)
+    money = service.imports.money
+    before = [
+        account_response(row)
+        for row in money.accounts.list_accounts(
+            user_id=context.owner_id, scope=context.scope
+        )
+    ]
+    assert service.dossier(context, draft).approval_available
+    request = ApproveExpense(version=1, action="record_expense")
+    original = money.write
+
+    def interrupted(**kwargs):
+        result = original(**kwargs)
+        assert result["activity"]["funding"] == "owner_funds"
+        assert result["activity"]["legs"] == []
+        raise ConnectionError("Synthetic lost acknowledgement after MoneyService commit")
+
+    monkeypatch.setattr(money, "write", interrupted)
+    assert (
+        service.approve(context, draft, request, "owner-paid").outcome
+        == "outcome_unknown"
+    )
+    unsettled = service.dossier(context, draft)
+    assert unsettled.review_state == "accepting"
+    assert unsettled.approval_result.status == "outcome_unknown"
+    monkeypatch.setattr(money, "write", original)
+    result = service.approve(context, draft, request, "owner-paid")
+    assert result.outcome == "applied", result
+    assert service.approve(context, draft, request, "owner-paid") == result
+    accounts = money.accounts.list_accounts(user_id=context.owner_id, scope=context.scope)
+    assert [account_response(row) for row in accounts] == before
+    activities = current_activities(accounts)
+    assert len(activities) == 1
+    assert activities[0]["activity_id"] == str(result.activity_id)
+    assert activities[0]["funding"] == "owner_funds"
+    assert activities[0]["legs"] == []
+    assert activities[0]["amount_minor"] == 85000
+    view = service.dossier(context, draft)
+    assert view.approval_result.reviewed_version == 1
+    assert view.approval_result.actor.actor_id == context.actor.actor_id
+    with service.authority.pool.connection() as db:
+        assert db.execute(
+            "select account_id,funding,currency from public.financial_records"
+            " where user_id=%s and record_kind='expense'",
+            (context.owner_id,),
+        ).fetchall() == [(None, "owner_funds", "DOP")]
+        assert (
+            db.execute(
+                "select count(*) from public.financial_activity_receipts where user_id=%s",
+                (context.owner_id,),
             ).fetchone()[0]
             == 1
         )
