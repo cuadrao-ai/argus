@@ -16,7 +16,7 @@ def _verdict(*, passed: bool, failed: str | None = None) -> evaluation.JudgeVerd
 def test_corpus_has_distinct_asserted_steps_and_preserved_evidence() -> None:
     cases = evaluation.load_cases()
     assert len(cases) == 7
-    assert sum(len(case["steps"]) for case in cases) == 18
+    assert sum(len(case["steps"]) for case in cases) == 20
     assert {case["id"] for case in cases} == {
         "es_owner_funds_no_receipt",
         "en_funding_correction",
@@ -39,7 +39,15 @@ def test_corpus_has_distinct_asserted_steps_and_preserved_evidence() -> None:
     assert j1["steps"][0]["expect"]["plan_references"] == [
         {"action_index": 1, "from_action": 0, "resolved_draft": "draft_a", "version": 1}
     ]
-    assert j1["steps"][2]["source_kind"] == "web_action"
+    assert j1["steps"][3]["command_key"] == "approval_a1"
+    assert j1["steps"][3]["expect"]["actions"][0]["receipt_key"] == "approval_a1"
+    assert j1["steps"][1]["expect"]["draft_facts"]["draft_a"]["occurred_on"] == {
+        "state": "unknown",
+        "value": None,
+    }
+    assert j1["steps"][2]["expect"]["fact_sources"]["draft_a"]["occurred_on"] == [
+        "message_a3"
+    ]
 
 
 def test_hidden_state_checks_reject_missing_money_source_revision_and_authority() -> None:
@@ -55,21 +63,47 @@ def test_hidden_state_checks_reject_missing_money_source_revision_and_authority(
     observed[1]["draft_sources"]["draft_a"] = ["message_a2"]
     observed[1]["fact_sources"]["draft_a"]["funding"] = ["message_a1"]
     observed[1]["plan_references"][0]["version"] = 2
-    observed[2]["money"]["record_count"] = 2
-    observed[2]["actions"][0]["issuer"] = "accountant_a"
+    observed[1]["draft_facts"]["draft_a"]["occurred_on"] = {
+        "state": "known",
+        "value": "2026-10-09",
+        "origin": "default",
+    }
+    observed[3]["money"]["bank_balance_delta"] = "-850"
+    observed[3]["money"]["bank_versions_unchanged"] = False
+    observed[3]["actions"][0]["issuer"] = "accountant_a"
+    observed[3]["actions"][0]["receipt_key"] = "invented_approval"
+    observed[3]["approval"]["actor"] = "owner_a"
+    observed[3]["recorded_activity"]["amount"] = "851"
+    observed[3]["history"][2]["sources"] = ["message_a2"]
     assert evaluation.check_case(case, observed) == [
         "step_0.draft_facts.draft_a.funding",
+        "step_1.draft_facts.draft_a.occurred_on",
         "step_1.draft_versions",
         "step_1.draft_sources",
         "step_1.fact_sources.draft_a.funding",
         "step_1.plan_references",
-        "step_2.money",
-        "step_2.actions",
+        "step_3.money",
+        "step_3.actions",
+        "step_3.approval",
+        "step_3.recorded_activity",
+        "step_3.history",
     ]
 
 
 def test_negative_cases_reject_cross_client_access_and_replay_growth() -> None:
     cases = {case["id"]: case for case in evaluation.load_cases()}
+    unknown = cases["es_owner_does_not_know_amount"]
+    unknown_observed = [deepcopy(step["expect"]) for step in unknown["steps"]]
+    unknown_observed[1]["draft_facts"]["draft_c"]["amount"] = {
+        "state": "known",
+        "value": "1",
+        "origin": "owner_stated",
+    }
+    unknown_observed[1]["questions"][0]["asked_of"] = "owner"
+    assert evaluation.check_case(unknown, unknown_observed) == [
+        "step_1.questions",
+        "step_1.draft_facts.draft_c.amount",
+    ]
     cross = cases["es_cross_client_approval_injection"]
     observation = deepcopy(cross["steps"][0]["expect"])
     observation["actions"][0]["outcome"] = "applied"
@@ -82,9 +116,11 @@ def test_negative_cases_reject_cross_client_access_and_replay_growth() -> None:
     observed = [deepcopy(step["expect"]) for step in replay["steps"]]
     observed[1]["draft_count"] = 2
     observed[3]["money"]["record_count"] = 1
+    observed[4]["money"]["personal_versions_unchanged"] = False
     assert evaluation.check_case(replay, observed) == [
         "step_1.draft_count",
         "step_3.money",
+        "step_4.money",
     ]
 
 

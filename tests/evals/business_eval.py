@@ -80,6 +80,25 @@ def load_cases(directory: Path = CASE_DIR) -> list[dict[str, Any]]:
                     raise ValueError(f"incomplete expected state: {case['id']}")
                 if expected["draft_count"] != len(expected.get("draft_versions", {})):
                     raise ValueError(f"draft count mismatch: {case['id']}")
+                if set(expected["money"]) != {
+                    "record_count",
+                    "bank_balance_delta",
+                    "personal_balance_delta",
+                    "bank_versions_unchanged",
+                    "personal_versions_unchanged",
+                }:
+                    raise ValueError(f"incomplete money assertion: {case['id']}")
+                if expected["money"]["record_count"] and (
+                    "recorded_activity" not in expected
+                    or (expected.get("approval") or {}).get("status") != "recorded"
+                    or not any(
+                        action.get("name") == "approve_expense"
+                        and action.get("receipt_key")
+                        and action.get("outcome") in {"applied", "replayed"}
+                        for action in expected["actions"]
+                    )
+                ):
+                    raise ValueError(f"recorded expense lacks human proof: {case['id']}")
             cases.append(case)
     if not cases:
         raise ValueError("no business cases")
@@ -154,6 +173,15 @@ def check_step(expected: dict[str, Any], observed: dict[str, Any]) -> list[str]:
         and observed.get("plan_references") != expected["plan_references"]
     ):
         failures.append("plan_references")
+    for key in (
+        "blockers",
+        "approval_available",
+        "approval",
+        "recorded_activity",
+        "history",
+    ):
+        if key in expected and observed.get(key) != expected[key]:
+            failures.append(key)
     return failures
 
 
@@ -191,7 +219,7 @@ def score_runtime_capture(
         adapter_provenance
         and all(
             adapter_provenance.get(key)
-            for key in ("capture_id", "db_namespace", "graph_executor_run_id")
+            for key in ("capture_id", "db_namespace", "graph_run_id")
         )
         and adapter_provenance.get("candidate_sha") == candidate_sha
     )

@@ -12,25 +12,29 @@ for free fixture validation and mutation checks. This command makes no model,
 WhatsApp, or database calls. Its green result shows that the assertions detect
 altered synthetic observations. It is not runtime or hosted evidence.
 
-Each scripted step names its trusted actor, channel, immutable source alias,
+Each scripted step names its trusted actor, channel, source or command key,
 owner message or human web command, and expected saved projection. The projection
 checks draft count, revision, facts and fact source links, open questions,
 durable action outcomes with actor, grant and issuer, visible sources, money
-record count and balance delta. The adapter must map generated database IDs to
-the fixture aliases. `web_action` identifies the canonical submitted human
-review or approval command. It must not be labeled as an agent proposal.
+record count, bank and Personal balance deltas, and account versions. The adapter
+must map generated database IDs to the fixture aliases. Human review writes a
+`web_action` source and factual revision. Human approval writes an immutable
+action receipt and approval result, without changing factual source history.
 
 The pending T1/W1 adapter takes a case's ordered steps and trusted sender scope,
-runs each through the real LangGraph turn and declared Business executor against
-an isolated database namespace, then reads back the persisted dossier, action
+runs owner messages through the real LangGraph turn and declared Business
+executor, and submits human web commands through BusinessActions. It uses an
+isolated database namespace, then reads back the persisted dossier, action
 receipts, MoneyService records and balances after each step. It must obtain
 Business data through a current grant-scoped service projection. Direct
 DataAPI reads cannot supply Business rows. It must also return OpenRouter route
 receipts, exact candidate revision, model IDs, cost and latency. No fixture
 expectation can serve as its observed state. Until that adapter exists and the
 root coordinator authorizes its call budget, the live E1 gate is unavailable.
-The scorecard requires the adapter's capture ID, database namespace, graph and
-executor run ID, and matching candidate SHA before it can report a pass.
+The scorecard requires the adapter's capture ID, database namespace, actual
+LangGraph run ID, and matching candidate SHA before it can report a pass. The
+adapter reads actor, grant and issuer from scoped `business_action_receipts`
+and reads bank balances and versions through the canonical MoneyService.
 
 `business_eval.py` holds the deterministic comparator and a structured reply
 rubric through the existing OpenRouter adapter. The fixed first judge is

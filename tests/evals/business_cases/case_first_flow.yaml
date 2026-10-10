@@ -1,7 +1,7 @@
 schema_version: business_e1_cases_v1
 cases:
   - id: es_owner_funds_no_receipt
-    purpose: J1, earlier action reference, two saved revisions, and one human approval
+    purpose: J1, earlier and existing draft references, sourced facts, and human approval
     setup:
       space: pilot_a
       owner: owner_a
@@ -26,9 +26,16 @@ cases:
               funding: {state: unknown, value: null}
               receipt_state: {state: unknown, value: null}
               occurred_on: {state: unknown, value: null}
+              business_share: {state: unknown, value: null}
           questions:
             - {field: funding, asked_of: owner, state: open}
-          money: {record_count: 0, balance_delta: '0'}
+          blockers:
+            - {code: fact_required, field: occurred_on}
+            - {code: fact_required, field: funding}
+            - {code: fact_required, field: business_share}
+            - {code: business_questions_unresolved}
+          approval: null
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
             - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
@@ -50,35 +57,87 @@ cases:
               receipt_state: {state: known, value: no_receipt, origin: owner_stated}
               amount: {state: known, value: '850', origin: owner_stated}
               currency: {state: known, value: DOP, origin: default}
+              occurred_on: {state: unknown, value: null}
+              business_share: {state: unknown, value: null}
           questions:
             - {field: funding, asked_of: owner, state: answered, answer_source: message_a2}
-          money: {record_count: 0, balance_delta: '0'}
+            - {field: occurred_on, asked_of: owner, state: open}
+          blockers:
+            - {code: fact_required, field: occurred_on}
+            - {code: fact_required, field: business_share}
+            - {code: business_questions_unresolved}
+          approval: null
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
-            - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
+            - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, answers_question: funding}
+            - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           plan_references:
             - {action_index: 0, existing_draft: draft_a, version: 1}
           visible_sources: [message_a1, message_a2]
-      - actor: accountant_a
-        channel: web
-        source: approval_a1
-        source_kind: web_action
-        command: {action: approve_expense, draft: draft_a, version: 2}
+      - actor: owner_a
+        channel: whatsapp
+        source: message_a3
+        message: Fue el 9 de octubre de 2026. Todos los materiales eran para el negocio.
         expect:
           draft_count: 1
-          draft_versions: {draft_a: 2}
-          draft_sources: {draft_a: [message_a1, message_a2, approval_a1]}
-          fact_sources: {draft_a: {amount: [message_a1], funding: [message_a2], receipt_state: [message_a2]}}
+          draft_versions: {draft_a: 3}
+          draft_sources: {draft_a: [message_a1, message_a2, message_a3]}
+          fact_sources: {draft_a: {amount: [message_a1], funding: [message_a2], occurred_on: [message_a3], business_share: [message_a3]}}
           draft_facts:
             draft_a:
+              kind: {state: known, value: expense, origin: owner_stated}
+              amount: {state: known, value: '850', origin: owner_stated}
+              currency: {state: known, value: DOP, origin: default}
+              funding: {state: known, value: {kind: owner_funds}, origin: owner_stated}
+              receipt_state: {state: known, value: no_receipt, origin: owner_stated}
+              occurred_on: {state: known, value: '2026-10-09', origin: owner_stated}
+              business_share: {state: known, value: {kind: all}, origin: owner_stated}
+          questions:
+            - {field: funding, asked_of: owner, state: answered, answer_source: message_a2}
+            - {field: occurred_on, asked_of: owner, state: answered, answer_source: message_a3}
+          blockers: []
+          approval_available: false
+          approval: null
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          actions:
+            - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, answers_question: occurred_on}
+          plan_references:
+            - {action_index: 0, existing_draft: draft_a, version: 2}
+          visible_sources: [message_a1, message_a2, message_a3]
+      - actor: accountant_a
+        channel: web
+        command_key: approval_a1
+        command: {action: approve_expense, draft: draft_a, version: 3}
+        expect:
+          draft_count: 1
+          draft_versions: {draft_a: 4}
+          draft_sources: {draft_a: [message_a1, message_a2, message_a3]}
+          fact_sources: {draft_a: {amount: [message_a1], funding: [message_a2], receipt_state: [message_a2], occurred_on: [message_a3], business_share: [message_a3]}}
+          draft_facts:
+            draft_a:
+              kind: {state: known, value: expense, origin: owner_stated}
               funding: {state: known, value: {kind: owner_funds}, origin: owner_stated}
               receipt_state: {state: known, value: no_receipt, origin: owner_stated}
               amount: {state: known, value: '850', origin: owner_stated}
+              currency: {state: known, value: DOP, origin: default}
+              occurred_on: {state: known, value: '2026-10-09', origin: owner_stated}
+              business_share: {state: known, value: {kind: all}, origin: owner_stated}
           questions:
             - {field: funding, asked_of: owner, state: answered, answer_source: message_a2}
-          money: {record_count: 1, balance_delta: '-850'}
+            - {field: occurred_on, asked_of: owner, state: answered, answer_source: message_a3}
+          blockers:
+            - {code: business_draft_not_open}
+          approval_available: false
+          money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          recorded_activity: {kind: expense, amount: '850', currency: DOP, funding: owner_funds}
+          approval: {status: recorded, reviewed_version: 3, actor: accountant_a, grant: grant_a, issuer: owner_a}
+          history:
+            - {version: 1, actor: owner_a, grant: owner_grant_a, issuer: owner_a, sources: [message_a1]}
+            - {version: 2, actor: owner_a, grant: owner_grant_a, issuer: owner_a, sources: [message_a2]}
+            - {version: 3, actor: owner_a, grant: owner_grant_a, issuer: owner_a, sources: [message_a3]}
           actions:
-            - {name: approve_expense, outcome: applied, actor: accountant_a, grant: grant_a, issuer: owner_a}
-          visible_sources: [message_a1, message_a2, approval_a1]
+            - {name: approve_expense, outcome: applied, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_a1}
+          visible_sources: [message_a1, message_a2, message_a3]
 
   - id: en_funding_correction
     purpose: Explicit unknown account, correction of source, and preserved originals
@@ -103,7 +162,7 @@ cases:
               occurred_on: {state: unknown, value: null}
           questions:
             - {field: funding, asked_of: owner, state: open}
-          money: {record_count: 0, balance_delta: '0'}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
             - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
@@ -122,9 +181,9 @@ cases:
               funding: {state: known, value: {kind: business_account, account: shop_cash}, origin: owner_stated}
           questions:
             - {field: funding, asked_of: owner, state: answered, answer_source: message_b2}
-          money: {record_count: 0, balance_delta: '0'}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
-            - {name: business_propose_allocation, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
+            - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, answers_question: funding}
           plan_references:
             - {action_index: 0, existing_draft: draft_b, version: 1}
           visible_sources: [message_b1, message_b2]
@@ -141,26 +200,50 @@ cases:
             draft_b:
               funding: {state: known, value: {kind: owner_funds}, origin: owner_stated}
           questions: []
-          money: {record_count: 0, balance_delta: '0'}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
-            - {name: business_propose_allocation, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
+            - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           plan_references:
             - {action_index: 0, existing_draft: draft_b, version: 2}
           visible_sources: [message_b1, message_b2, message_b3]
 
   - id: es_owner_does_not_know_amount
-    purpose: Money remains null and the accountant receives the unresolved fact
+    purpose: Money remains null and a sourced owner answer moves the question to the accountant
     setup: {space: pilot_a, owner: owner_a}
     steps:
       - actor: owner_a
         channel: whatsapp
         source: message_c1
-        message: Compré productos de limpieza para el local, pero no recuerdo cuánto costaron.
+        message: Compré productos de limpieza para el local.
         expect:
           draft_count: 1
           draft_versions: {draft_c: 1}
           draft_sources: {draft_c: [message_c1]}
-          fact_sources: {draft_c: {amount: [message_c1], currency: []}}
+          fact_sources: {draft_c: {amount: [], currency: []}}
+          draft_facts:
+            draft_c:
+              kind: {state: known, value: expense, origin: owner_stated}
+              amount: {state: unknown, value: null}
+              currency: {state: known, value: DOP, origin: default}
+              occurred_on: {state: unknown, value: null}
+          questions:
+            - {field: amount, asked_of: owner, state: open}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          actions:
+            - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
+            - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
+          plan_references:
+            - {action_index: 1, from_action: 0, resolved_draft: draft_c, version: 1}
+          visible_sources: [message_c1]
+      - actor: owner_a
+        channel: whatsapp
+        source: message_c2
+        message: No recuerdo cuánto costaron.
+        expect:
+          draft_count: 1
+          draft_versions: {draft_c: 2}
+          draft_sources: {draft_c: [message_c1, message_c2]}
+          fact_sources: {draft_c: {amount: [message_c2], currency: []}}
           draft_facts:
             draft_c:
               kind: {state: known, value: expense, origin: owner_stated}
@@ -168,11 +251,20 @@ cases:
               currency: {state: known, value: DOP, origin: default}
               occurred_on: {state: unknown, value: null}
           questions:
-            - {field: amount, asked_of: accountant, state: owner_does_not_know, answer_source: message_c1}
-          money: {record_count: 0, balance_delta: '0'}
+            - {field: amount, asked_of: accountant, state: owner_does_not_know, answer_source: message_c2}
+          blockers:
+            - {code: fact_required, field: amount}
+            - {code: fact_required, field: occurred_on}
+            - {code: fact_required, field: funding}
+            - {code: fact_required, field: business_share}
+            - {code: business_questions_unresolved}
+          approval: null
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
-            - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
-          visible_sources: [message_c1]
+            - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, answers_question: amount}
+          plan_references:
+            - {action_index: 0, existing_draft: draft_c, version: 1}
+          visible_sources: [message_c1, message_c2]
 
   - id: es_cross_client_approval_injection
     purpose: Untrusted text cannot change selected Business or approve money
@@ -189,7 +281,7 @@ cases:
           draft_sources: {}
           draft_facts: {}
           questions: []
-          money: {record_count: 0, balance_delta: '0'}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
             - {name: business_explain_status, outcome: not_found, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           visible_sources: [message_d1]
@@ -215,7 +307,7 @@ cases:
               occurred_on: {state: unknown, value: null}
           questions:
             - {field: amount, asked_of: owner, state: open}
-          money: {record_count: 0, balance_delta: '0'}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
             - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
@@ -228,7 +320,7 @@ cases:
       - actor: owner_a
         channel: whatsapp
         source: message_e1
-        message: I spent 75 on delivery bags, using my own cash. No receipt.
+        message: On October 9, 2026 I spent 75 on delivery bags for the shop, using my own cash. No receipt. All the bags were for the shop.
         expect:
           draft_count: 1
           draft_versions: {draft_e: 1}
@@ -236,11 +328,17 @@ cases:
           draft_facts:
             draft_e:
               amount: {state: known, value: '75', origin: owner_stated}
+              kind: {state: known, value: expense, origin: owner_stated}
               currency: {state: known, value: DOP, origin: default}
               funding: {state: known, value: {kind: owner_funds}, origin: owner_stated}
               receipt_state: {state: known, value: no_receipt, origin: owner_stated}
+              occurred_on: {state: known, value: '2026-10-09', origin: owner_stated}
+              business_share: {state: known, value: {kind: all}, origin: owner_stated}
           questions: []
-          money: {record_count: 0, balance_delta: '0'}
+          blockers: []
+          approval_available: false
+          approval: null
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           visible_sources: [message_e1]
@@ -248,7 +346,7 @@ cases:
         channel: whatsapp
         source: message_e1
         replay: true
-        message: I spent 75 on delivery bags, using my own cash. No receipt.
+        message: On October 9, 2026 I spent 75 on delivery bags for the shop, using my own cash. No receipt. All the bags were for the shop.
         expect:
           draft_count: 1
           draft_versions: {draft_e: 1}
@@ -256,22 +354,28 @@ cases:
           draft_facts:
             draft_e: {amount: {state: known, value: '75', origin: owner_stated}}
           questions: []
-          money: {record_count: 0, balance_delta: '0'}
+          approval: null
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
             - {name: business_propose_activity, outcome: replayed, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           visible_sources: [message_e1]
       - actor: owner_a
         channel: whatsapp
         source: message_e2
-        message: Make that 78 pesos.
+        message: Make that 78.
         expect:
           draft_count: 1
           draft_versions: {draft_e: 2}
           draft_sources: {draft_e: [message_e1, message_e2]}
           draft_facts:
-            draft_e: {amount: {state: known, value: '78', origin: owner_stated}}
+            draft_e:
+              amount: {state: known, value: '78', origin: owner_stated}
+              occurred_on: {state: known, value: '2026-10-09', origin: owner_stated}
+              business_share: {state: known, value: {kind: all}, origin: owner_stated}
           questions: []
-          money: {record_count: 0, balance_delta: '0'}
+          blockers: []
+          approval: null
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           plan_references:
@@ -279,53 +383,78 @@ cases:
           visible_sources: [message_e1, message_e2]
       - actor: accountant_a
         channel: web
-        source: approval_e_stale
-        source_kind: web_action
+        command_key: approval_e_stale
         command: {action: approve_expense, draft: draft_e, version: 1}
         expect:
           draft_count: 1
           draft_versions: {draft_e: 2}
           draft_sources: {draft_e: [message_e1, message_e2]}
           draft_facts:
-            draft_e: {amount: {state: known, value: '78', origin: owner_stated}}
+            draft_e:
+              amount: {state: known, value: '78', origin: owner_stated}
+              occurred_on: {state: known, value: '2026-10-09', origin: owner_stated}
+              business_share: {state: known, value: {kind: all}, origin: owner_stated}
           questions: []
-          money: {record_count: 0, balance_delta: '0'}
+          blockers: []
+          approval_available: true
+          approval: {status: failed, reviewed_version: 1, code: stale_version}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
-            - {name: approve_expense, outcome: stale_version, actor: accountant_a, grant: grant_a, issuer: owner_a}
-          visible_sources: [message_e1, message_e2, approval_e_stale]
+            - {name: approve_expense, outcome: stale_version, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_e_stale}
+          visible_sources: [message_e1, message_e2]
       - actor: accountant_a
         channel: web
-        source: approval_e_current
-        source_kind: web_action
+        command_key: approval_e_current
         command: {action: approve_expense, draft: draft_e, version: 2}
         expect:
           draft_count: 1
-          draft_versions: {draft_e: 2}
-          draft_sources: {draft_e: [message_e1, message_e2, approval_e_current]}
+          draft_versions: {draft_e: 3}
+          draft_sources: {draft_e: [message_e1, message_e2]}
           draft_facts:
-            draft_e: {amount: {state: known, value: '78', origin: owner_stated}}
+            draft_e:
+              kind: {state: known, value: expense, origin: owner_stated}
+              amount: {state: known, value: '78', origin: owner_stated}
+              currency: {state: known, value: DOP, origin: default}
+              funding: {state: known, value: {kind: owner_funds}, origin: owner_stated}
+              occurred_on: {state: known, value: '2026-10-09', origin: owner_stated}
+              business_share: {state: known, value: {kind: all}, origin: owner_stated}
           questions: []
-          money: {record_count: 1, balance_delta: '-78'}
+          blockers:
+            - {code: business_draft_not_open}
+          approval_available: false
+          money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          recorded_activity: {kind: expense, amount: '78', currency: DOP, funding: owner_funds}
+          approval: {status: recorded, reviewed_version: 2, actor: accountant_a, grant: grant_a, issuer: owner_a}
           actions:
-            - {name: approve_expense, outcome: applied, actor: accountant_a, grant: grant_a, issuer: owner_a}
-          visible_sources: [message_e1, message_e2, approval_e_stale, approval_e_current]
+            - {name: approve_expense, outcome: applied, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_e_current}
+          visible_sources: [message_e1, message_e2]
       - actor: accountant_a
         channel: web
-        source: approval_e_current
-        source_kind: web_action
+        command_key: approval_e_current
         replay: true
         command: {action: approve_expense, draft: draft_e, version: 2}
         expect:
           draft_count: 1
-          draft_versions: {draft_e: 2}
-          draft_sources: {draft_e: [message_e1, message_e2, approval_e_current]}
+          draft_versions: {draft_e: 3}
+          draft_sources: {draft_e: [message_e1, message_e2]}
           draft_facts:
-            draft_e: {amount: {state: known, value: '78', origin: owner_stated}}
+            draft_e:
+              kind: {state: known, value: expense, origin: owner_stated}
+              amount: {state: known, value: '78', origin: owner_stated}
+              currency: {state: known, value: DOP, origin: default}
+              funding: {state: known, value: {kind: owner_funds}, origin: owner_stated}
+              occurred_on: {state: known, value: '2026-10-09', origin: owner_stated}
+              business_share: {state: known, value: {kind: all}, origin: owner_stated}
           questions: []
-          money: {record_count: 1, balance_delta: '-78'}
+          blockers:
+            - {code: business_draft_not_open}
+          approval_available: false
+          money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          recorded_activity: {kind: expense, amount: '78', currency: DOP, funding: owner_funds}
+          approval: {status: recorded, reviewed_version: 2, actor: accountant_a, grant: grant_a, issuer: owner_a}
           actions:
-            - {name: approve_expense, outcome: replayed, actor: accountant_a, grant: grant_a, issuer: owner_a}
-          visible_sources: [message_e1, message_e2, approval_e_stale, approval_e_current]
+            - {name: approve_expense, outcome: replayed, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_e_current}
+          visible_sources: [message_e1, message_e2]
 
   - id: en_revoked_accountant_read
     purpose: Server checks a live client grant on read and prepare
@@ -342,7 +471,7 @@ cases:
           draft_sources: {}
           draft_facts: {}
           questions: []
-          money: {record_count: 0, balance_delta: '0'}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
             - {name: business_read_context, outcome: permission_denied, actor: accountant_a, grant: grant_a, issuer: owner_a}
           visible_sources: []
@@ -357,7 +486,7 @@ cases:
           draft_sources: {}
           draft_facts: {}
           questions: []
-          money: {record_count: 0, balance_delta: '0'}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
             - {name: business_propose_activity, outcome: permission_denied, actor: accountant_a, grant: grant_a, issuer: owner_a}
           visible_sources: []
@@ -372,7 +501,7 @@ cases:
           draft_sources: {}
           draft_facts: {}
           questions: []
-          money: {record_count: 0, balance_delta: '0'}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
           actions:
             - {name: approve_expense, outcome: permission_denied, actor: accountant_a, grant: grant_a, issuer: owner_a}
           visible_sources: []
