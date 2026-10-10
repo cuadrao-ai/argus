@@ -1,5 +1,5 @@
 import type { BusinessAccount } from "@/lib/business-api";
-import type { BusinessFacts, BusinessFactField } from "@/lib/business-dossier";
+import type { BusinessFacts, BusinessFactField, BusinessFiscalField } from "@/lib/business-dossier";
 import { formatDay, formatMoney } from "./business-format";
 
 export function presentBusinessFact(
@@ -26,4 +26,11 @@ export function presentBusinessFact(
   if (key === "amount") return facts.currency.state === "known" ? formatMoney(String(fact.value), facts.currency.value, locale) : String(fact.value);
   if (key === "occurred_on") return formatDay(String(fact.value), locale);
   return labels.value?.(key, String(fact.value)) ?? String(fact.value);
+}
+
+export function presentFiscalFact(key: BusinessFiscalField, facts: BusinessFacts, locale: string, labels: { unknown: string; ownerUnknown: string; notRecorded: string }): string {
+  const fact = facts.fiscal?.[key];
+  if (!fact) return labels.notRecorded;
+  if (fact.state !== "known") return fact.state === "owner_does_not_know" ? labels.ownerUnknown : labels.unknown;
+  return key === "itbis" && facts.currency.state === "known" ? formatMoney(fact.value, facts.currency.value, locale) : fact.value;
 }

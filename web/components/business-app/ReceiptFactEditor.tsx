@@ -30,6 +30,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
   };
   const scalar = (key: "counterparty" | "occurred_on" | "amount" | "currency" | "category_id") => (patch[key] ?? facts[key]).value ?? "";
   const setScalar = (key: "counterparty" | "occurred_on" | "amount" | "currency" | "category_id", value: string) => set(key, value ? { state: "known", value } : { state: "unknown", value: null });
+  const kind = patch.kind ?? facts.kind;
   const funding = patch.funding ?? facts.funding;
   const fundingValue = funding.state === "owner_does_not_know" ? "owner_does_not_know" : funding.state !== "known" ? "" : funding.value.kind === "owner_funds" ? "owner_funds" : `account:${funding.value.account_id}`;
   const share = patch.business_share ?? facts.business_share;
@@ -40,6 +41,11 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
 
   return (
     <form onSubmit={(event) => { event.preventDefault(); if (!cannotSave) onSave(patch); }} className="space-y-4" aria-label={t("business.dossier.edit", "Edit details")}>
+      <label className="block text-[13px] text-black/65 dark:text-white/65">{label("kind")}<select className={inputClass} value={kind.value ?? ""} disabled={disabled} onChange={(event) => {
+        if (event.target.value === "expense") set("kind", { state: "known", value: "expense" });
+        else if (!event.target.value) set("kind", { state: "unknown", value: null });
+        else if (facts.kind.state === "known" && event.target.value === facts.kind.value) set("kind", { state: "known", value: facts.kind.value });
+      }}><option value="">{choose}</option><option value="expense">{t("business.dossier.kind.expense", "Expense")}</option>{facts.kind.state === "known" && facts.kind.value !== "expense" ? <option value={facts.kind.value}>{t(`business.dossier.kind.${facts.kind.value}`, facts.kind.value)}</option> : null}</select></label>
       <label className="block text-[13px] text-black/65 dark:text-white/65">{label("counterparty")}<input className={inputClass} value={scalar("counterparty")} disabled={disabled} onChange={(event) => setScalar("counterparty", event.target.value)} autoComplete="off" /></label>
       <div className="grid grid-cols-2 gap-3">
         <label className="text-[13px] text-black/65 dark:text-white/65">{label("occurred_on")}<input type="date" className={inputClass} value={scalar("occurred_on")} disabled={disabled} onChange={(event) => setScalar("occurred_on", event.target.value)} /></label>

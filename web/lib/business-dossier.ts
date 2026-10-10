@@ -24,6 +24,9 @@ export type BusinessSourceEvidence =
   | { id: string; kind: "web_action"; channel: "web"; received_at: string; text: string }
   | { id: string; kind: "attachment"; channel: "web" | "whatsapp"; received_at: string; connection_id: string; filename: string | null; media_type: string };
 
+export type BusinessFiscalField = keyof NonNullable<BusinessFacts["fiscal"]>;
+export const BUSINESS_FISCAL_FIELDS: BusinessFiscalField[] = ["rnc", "ncf", "ecf", "itbis"];
+
 export type BusinessFactField = Exclude<keyof BusinessFacts, "fiscal">;
 export type BusinessFactInput<T> = { state: "known"; value: T } | { state: "unknown" | "owner_does_not_know"; value: null };
 export type BusinessFactPatch = { [K in BusinessFactField]?: BusinessFactInput<NonNullable<BusinessFacts[K]["value"]>> };

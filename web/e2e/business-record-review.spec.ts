@@ -6,7 +6,7 @@ async function capture(page: Page, name: string) {
   const directory = process.env.CUADRAO_RECORD_EVIDENCE_DIR;
   if (!directory) return;
   await page.screenshot({ path: `${directory}/${name}.png`, fullPage: true });
-  const facts = page.getByTestId("receipt-current-facts").getByText("How it was paid", { exact: true });
+  const facts = page.getByTestId("receipt-current-facts").getByText(/^(How it was paid|Cómo se pagó)$/);
   if (await facts.count()) {
     await facts.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${directory}/${name}-current-facts.png`, fullPage: true });
@@ -53,6 +53,76 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(page.getByRole("region", { name: "Web review actions" })).toBeVisible();
       await capture(page, `approved-history-${viewport.width}`);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+
+    test("unknown activity can be reviewed as expense before separate approval", async ({ page }) => {
+      await openRecord(page, dossierFixtureIds.unknownKind);
+      await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
+      await page.getByRole("button", { name: "Edit details", exact: true }).click();
+      await page.getByRole("combobox", { name: "Activity", exact: true }).selectOption("expense");
+      await page.getByRole("button", { name: "Save review details", exact: true }).click();
+      await expect(page.getByText("Revision 3", { exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toBeEnabled();
+      await expect(page.getByText("Recorded", { exact: true })).toHaveCount(0);
+      await page.getByTestId("receipt-history").locator("summary").click();
+      const change = page.getByTestId("receipt-history").locator("li").first();
+      await expect(change).toContainText("Unknown");
+      await expect(change).toContainText("Expense");
+      await expect(change).toContainText("Ana Peña");
+      await expect(page.getByRole("region", { name: "Web review actions" })).toBeVisible();
+    });
+
+    test("fiscal facts and before-after changes stay readable in Spanish", async ({ page }) => {
+      await openRecord(page, dossierFixtureIds.fiscal, "es-419");
+      const fiscal = page.getByTestId("receipt-fiscal-facts");
+      await expect(fiscal).toContainText("Datos fiscales");
+      await expect(fiscal).toContainText("RNC");
+      await expect(fiscal).toContainText("131999888");
+      await expect(fiscal).toContainText("B0100000099");
+      await expect(fiscal).toContainText("e-CF");
+      await expect(fiscal).toContainText("El dueño no sabe");
+      await expect(fiscal).toContainText("526.27");
+      await expect(fiscal).toContainText("Verificado");
+      await expect(fiscal).toContainText("sin verificar");
+      await page.getByTestId("receipt-history").locator("summary").click();
+      const history = page.getByTestId("receipt-history");
+      await expect(history).toContainText("B0100000098");
+      await expect(history).toContainText("B0100000099");
+      await expect(history).toContainText("100.01");
+      await expect(history).toContainText("526.27");
+      await expect(history).toContainText("Sin verificar → Verificado");
+      await fiscal.scrollIntoViewIfNeeded();
+      await capture(page, `fiscal-spanish-${viewport.width}`);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+
+    test("proposal-only original text is labelled as an agent proposal in Spanish", async ({ page }) => {
+      await openRecord(page, dossierFixtureIds.proposal, "es-419");
+      const proposal = page.getByRole("region", { name: "Propuestas del agente" });
+      await expect(proposal).toContainText("Propuesta: gasto de 3,450 DOP");
+      await expect(page.getByRole("region", { name: "Mensajes originales" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toBeVisible();
+      await proposal.scrollIntoViewIfNeeded();
+      await capture(page, `proposal-spanish-${viewport.width}`);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+
+    test("Spanish unknown funding saves and waits for explicit human approval", async ({ page }) => {
+      await openRecord(page, dossierFixtureIds.unknown, "es-419");
+      await expect(page.getByTestId("receipt-current-facts")).toContainText("Predeterminada · sin verificar");
+      await capture(page, `unknown-funding-spanish-${viewport.width}`);
+      await page.getByRole("button", { name: "Editar detalles", exact: true }).click();
+      await page.getByRole("combobox", { name: "Cómo se pagó", exact: true }).selectOption("account:acct-ops");
+      await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
+      await expect(page.getByText("Revisión 3", { exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toBeEnabled();
+      await expect(page.getByText("Registrado", { exact: true })).toHaveCount(0);
+      await capture(page, `ready-approval-spanish-${viewport.width}`);
+      await page.getByRole("button", { name: "Aprobar gasto", exact: true }).click();
+      await expect(page.getByText("Se registró un gasto tras aprobar la revisión 3.", { exact: true })).toBeVisible();
+      await page.getByTestId("receipt-history").locator("summary").click();
+      await expect(page.getByTestId("receipt-history")).toContainText("Permiso otorgado por Lucía Mateo");
+      await capture(page, `approved-history-spanish-${viewport.width}`);
     });
 
     test("unknown money is not rendered as zero", async ({ page }) => {
@@ -153,6 +223,26 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByText("Recorded", { exact: true })).toHaveCount(0);
   });
 
+  test("uncertain save stays locked until a status read resolves the saved revision", async ({ page }) => {
+    await openRecord(page, dossierFixtureIds.saveUnknown);
+    await page.getByRole("button", { name: "Edit details", exact: true }).click();
+    await page.getByRole("textbox", { name: "Merchant or person", exact: true }).fill("Reviewed merchant");
+    await page.getByRole("button", { name: "Save review details", exact: true }).click();
+    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("outcome isn't known");
+    await expect(page.getByRole("button", { name: "Save review details", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toBeDisabled();
+    await page.getByRole("button", { name: "Check current record", exact: true }).click();
+    await expect(page.getByText("Revision 3", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toBeEnabled();
+    await expect(page.getByTestId("receipt-current-facts")).toContainText("Reviewed merchant");
+    await page.getByTestId("receipt-history").locator("summary").click();
+    await expect(page.getByTestId("receipt-history").locator("li")).toHaveCount(3);
+    await page.getByRole("button", { name: "Edit details", exact: true }).click();
+    await page.getByRole("textbox", { name: "Merchant or person", exact: true }).fill("New correction");
+    await page.getByRole("button", { name: "Save review details", exact: true }).click();
+    await expect(page.getByText("Revision 4", { exact: true })).toBeVisible();
+  });
+
   test("income is not relabeled as an expense", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.income);
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
@@ -166,3 +256,17 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Fecha de actividad");
   });
 });
+
+for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
+  test(`Spanish authority evidence: ${scenario}`, async ({ page }) => {
+    await openRecord(page, dossierFixtureIds[scenario], "es-419");
+    await page.getByRole("button", { name: "Aprobar gasto", exact: true }).click();
+    const alert = page.getByTestId("workspace-panel-region").getByRole("alert");
+    await expect(alert).toBeVisible();
+    if (scenario === "stale") await expect(alert).toContainText("Este registro cambió");
+    if (scenario === "denied") await expect(alert).toContainText("acceso actual");
+    if (scenario === "outcomeUnknown") await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toBeDisabled();
+    else await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toHaveCount(0);
+    await capture(page, `${scenario}-spanish`);
+  });
+}

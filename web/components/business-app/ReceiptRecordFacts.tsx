@@ -2,15 +2,16 @@
 
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
-import type { BusinessDossier, BusinessFactField } from "@/lib/business-dossier";
+import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessFactField } from "@/lib/business-dossier";
 import { useCategoryLabel } from "./business-ui";
-import { presentBusinessFact } from "./receipt-fact-presentation";
+import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 
 const VISIBLE_FIELDS: BusinessFactField[] = ["kind", "counterparty", "occurred_on", "amount", "currency", "category_id", "funding", "business_share", "receipt_state"];
 
 export default function ReceiptRecordFacts({ dossier, accounts }: { dossier: BusinessDossier; accounts: BusinessAccount[] }) {
   const { t, i18n } = useTranslation();
   const categoryLabel = useCategoryLabel();
+  const fiscal = dossier.facts.fiscal;
   const labels = {
     unknown: t("business.dossier.unknown", "Unknown"),
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),
@@ -40,6 +41,19 @@ export default function ReceiptRecordFacts({ dossier, accounts }: { dossier: Bus
           </div>
         );
       })}
+      {fiscal ? <div className="col-span-2 border-t border-black/10 pt-5 dark:border-white/10" data-testid="receipt-fiscal-facts">
+        <dt className="mb-4 text-[14px] font-medium text-black/80 dark:text-white/80">{t("business.dossier.fiscal_details", "Fiscal details")}</dt>
+        <dd><dl className="grid grid-cols-2 gap-x-4 gap-y-5">
+          {BUSINESS_FISCAL_FIELDS.map((key) => {
+            const fact = fiscal[key];
+            return <div key={key} className="min-w-0">
+              <dt className="text-[12px] font-medium text-black/55 dark:text-white/55">{t(`business.dossier.field.${key}`, key)}</dt>
+              <dd className="mt-1.5 break-words text-[15px] text-black/85 dark:text-white/85">{presentFiscalFact(key, dossier.facts, i18n.resolvedLanguage ?? "en", { ...labels, notRecorded: t("business.dossier.not_recorded", "Not recorded") })}</dd>
+              <p className="mt-1 text-[12px] text-black/55 dark:text-white/55">{fact.state === "known" && fact.verified ? t("business.dossier.verified", "Verified") : fact.state === "known" ? t(`business.dossier.origin.${fact.origin}`, t("business.dossier.not_verified", "Not verified")) : t("business.dossier.not_verified", "Not verified")}</p>
+            </div>;
+          })}
+        </dl></dd>
+      </div> : null}
     </dl>
   );
 }

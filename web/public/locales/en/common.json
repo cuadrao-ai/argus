@@ -2187,6 +2187,8 @@
       "not_verified": "Not verified",
       "needs_resolution": "Needs a decision before approval",
       "messages": "Original messages",
+      "proposals": "Agent proposals",
+      "fiscal_details": "Fiscal details",
       "web_actions": "Web review actions",
       "submitted_action": "Original submitted action",
       "web_message": "Web message",
@@ -2244,7 +2246,11 @@
         "category_id": "Category",
         "funding": "How it was paid",
         "business_share": "Business share",
-        "receipt_state": "Receipt"
+        "receipt_state": "Receipt",
+        "rnc": "RNC",
+        "ncf": "NCF",
+        "ecf": "e-CF",
+        "itbis": "ITBIS"
       },
       "origin": {
         "extracted": "Read from source · not verified",

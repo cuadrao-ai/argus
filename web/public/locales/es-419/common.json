@@ -2187,6 +2187,8 @@
       "not_verified": "Sin verificar",
       "needs_resolution": "Necesita una decisión antes de aprobar",
       "messages": "Mensajes originales",
+      "proposals": "Propuestas del agente",
+      "fiscal_details": "Datos fiscales",
       "web_actions": "Revisiones en la web",
       "submitted_action": "Acción enviada originalmente",
       "web_message": "Mensaje web",
@@ -2244,7 +2246,11 @@
         "category_id": "Categoría",
         "funding": "Cómo se pagó",
         "business_share": "Parte del negocio",
-        "receipt_state": "Recibo"
+        "receipt_state": "Recibo",
+        "rnc": "RNC",
+        "ncf": "NCF",
+        "ecf": "e-CF",
+        "itbis": "ITBIS"
       },
       "origin": {
         "extracted": "Leído de la fuente · sin verificar",

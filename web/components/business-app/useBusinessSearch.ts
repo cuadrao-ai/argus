@@ -56,7 +56,7 @@ export function useBusinessSearch({
               id: expense.id,
               icon: Banknote,
               title: expense.merchant ?? t("business.expenses.no_merchant", "Expense"),
-              detail: line(formatDay(expense.occurred_on, locale), nickname.get(expense.account_id)),
+              detail: line(formatDay(expense.occurred_on, locale), expense.account_id ? nickname.get(expense.account_id) : null),
               amount: formatMoney(expense.amount, expense.currency, locale),
               open: () => {
                 if (expense.receipt_id) {

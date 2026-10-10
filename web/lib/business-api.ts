@@ -87,9 +87,10 @@ export async function getBusinessDossier(draftId: string): Promise<BusinessDossi
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/dossier`);
 }
 
-export async function reviewBusinessDraft(draftId: string, version: number, facts: BusinessFactPatch): Promise<BusinessDossier> {
+export async function reviewBusinessDraft(draftId: string, version: number, facts: BusinessFactPatch, idempotencyKey: string): Promise<BusinessDossier> {
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/review`, {
     method: "PATCH",
+    headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, facts }),
   });
 }
@@ -139,7 +140,8 @@ export type BusinessExpense = {
   amount: DecimalString;
   currency: CurrencyCode;
   category_id: string | null;
-  account_id: string;
+  account_id: string | null;
+  funding?: "owner_funds";
   occurred_on: string;
   receipt_id: string | null;
 };

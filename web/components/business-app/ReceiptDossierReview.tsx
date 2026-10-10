@@ -28,6 +28,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
   const [dirty, setDirty] = useState(false);
   const [checking, setChecking] = useState(false);
   const inFlight = useRef(false);
+  const reviewRequest = useRef<{ version: number; facts: BusinessFactPatch; key: string } | null>(null);
   const approvalKey = useRef<{ version: number; key: string } | null>(null);
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
       setUnavailable(false);
       if (operation.kind === "uncertain") {
         const resolved = operation.action === "save" ? next.version > operation.version : next.approval_result?.status === "recorded" || next.approval_result?.status === "failed";
-        if (resolved) { setOperation({ kind: "idle" }); setEditing(false); setDirty(false); setProblem(null); }
+        if (resolved) { reviewRequest.current = null; setOperation({ kind: "idle" }); setEditing(false); setDirty(false); setProblem(null); }
       } else { setProblem(null); setEditing(false); setDirty(false); }
     } catch {
       setUnavailable(true);
@@ -59,13 +60,18 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
   };
 
   const write = async (action: "save" | "approve", facts?: BusinessFactPatch) => {
-    if (!dossier || inFlight.current || operation.kind !== "idle") return;
+    if (!dossier || inFlight.current || operation.kind !== "idle" || action === "save" && !facts) return;
     inFlight.current = true;
     setOperation({ kind: action === "save" ? "saving" : "approving" });
     setProblem(null);
     try {
       let next: BusinessDossier;
-      if (action === "save" && facts) next = await source.reviewDraft(draftId, dossier.version, facts);
+      if (action === "save" && facts) {
+        reviewRequest.current = { version: dossier.version, facts, key: randomId() };
+        const request = reviewRequest.current;
+        next = await source.reviewDraft(draftId, request.version, request.facts, request.key);
+        reviewRequest.current = null;
+      }
       else {
         if (approvalKey.current?.version !== dossier.version) approvalKey.current = { version: dossier.version, key: randomId() };
         next = await source.approveDraft(draftId, dossier.version, approvalKey.current.key);
@@ -77,6 +83,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
       reload();
     } catch (error) {
       const { code, status } = error as { code?: string; status?: number };
+      if (status && status >= 400 && status < 500) reviewRequest.current = null;
       if (code === "stale_version") {
         setOperation({ kind: "idle" });
         setProblem(t("business.dossier.stale", "This record changed. Open the current revision and review it before taking another action."));

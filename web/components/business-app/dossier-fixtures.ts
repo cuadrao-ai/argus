@@ -11,6 +11,10 @@ export const dossierFixtureIds = {
   unknownAmount: "10000000-0000-4000-8000-000000000007",
   income: "10000000-0000-4000-8000-000000000008",
   unprepared: "10000000-0000-4000-8000-000000000009",
+  unknownKind: "10000000-0000-4000-8000-000000000010",
+  fiscal: "10000000-0000-4000-8000-000000000011",
+  proposal: "10000000-0000-4000-8000-000000000012",
+  saveUnknown: "10000000-0000-4000-8000-000000000013",
 } as const;
 
 const sourceId = "20000000-0000-4000-8000-000000000001";
@@ -24,7 +28,7 @@ const actor: BusinessActor = {
   issuer_display_name: "Lucía Mateo",
 };
 const unknown = <T>(): BusinessFact<T> => ({ state: "unknown", value: null, origin: null, verified: false, source_ids: [] });
-const known = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "owner_stated", verified: false, source_ids: [sourceId] });
+const known = <T>(value: T): Extract<BusinessFact<T>, { state: "known" }> => ({ state: "known", value, origin: "owner_stated", verified: false, source_ids: [sourceId] });
 
 export function createDossierFixtures(accounts: BusinessAccount[]) {
   const currency: BusinessFacts["currency"] = { state: "known", value: "DOP", origin: "default", verified: false, source_ids: [] };
@@ -43,7 +47,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const dossiers = new Map<string, BusinessDossier>();
   for (const [name, id] of Object.entries(dossierFixtureIds)) {
     const ready = name !== "unknown" && name !== "unknownAmount";
-    const current: BusinessFacts = { ...facts, category_id: { ...known("other"), origin: "member_set", source_ids: [reviewSourceId] }, funding: ready ? { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "member_set", source_ids: [reviewSourceId] } : unknown(), amount: name === "unknownAmount" ? unknown() : facts.amount, kind: name === "income" ? known("income") : facts.kind };
+    const current: BusinessFacts = { ...facts, category_id: { ...known("other"), origin: "member_set", source_ids: [reviewSourceId] }, funding: ready ? { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "member_set", source_ids: [reviewSourceId] } : unknown(), amount: name === "unknownAmount" ? unknown() : facts.amount, kind: name === "unknownKind" ? unknown() : name === "income" ? known("income") : facts.kind };
     dossiers.set(id, {
       draft_id: id,
       space_id: "50000000-0000-4000-8000-000000000001",
@@ -56,11 +60,18 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       questions: ready ? [] : [{ id: "60000000-0000-4000-8000-000000000001", draft_id: id, field: "funding", asked_of: "accountant", channel: "web", state: "open", prompt: "How was this paid?", allowed_answers: ["known", "owner_does_not_know"], answer_source_id: null, created_at: "2026-10-10T14:22:00Z" }],
       history: [{ draft_id: id, version: 1, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo via Cuadrao" }, before: null, after: facts, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:21:00Z" }, { draft_id: id, version: 2, actor, before: facts, after: current, source_ids: [reviewSourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }],
       capabilities: name === "readOnly" ? ["read"] : ["read", "prepare", "approve"],
-      blockers: ready ? name === "income" ? [{ code: "unsupported_kind", field: "kind" }] : [] : [{ code: "unknown_funding", field: "funding" }, ...(name === "unknownAmount" ? [{ code: "missing_fields", field: "amount" as const }] : [])],
-      approval_available: ready && name !== "readOnly" && name !== "income",
+      blockers: ready ? name === "unknownKind" ? [{ code: "missing_fields", field: "kind" }] : name === "income" ? [{ code: "unsupported_kind", field: "kind" }] : [] : [{ code: "unknown_funding", field: "funding" }, ...(name === "unknownAmount" ? [{ code: "missing_fields", field: "amount" as const }] : [])],
+      approval_available: ready && name !== "readOnly" && name !== "income" && name !== "unknownKind",
       approval_result: null,
     });
   }
+  const fiscalDossier = dossiers.get(dossierFixtureIds.fiscal)!;
+  const fiscalBefore: BusinessFacts = { ...fiscalDossier.facts, receipt_state: known("fiscal_receipt"), fiscal: { rnc: unknown(), ncf: known("B0100000098"), ecf: unknown(), itbis: known("100.01") } };
+  const fiscalAfter: BusinessFacts = { ...fiscalBefore, fiscal: { rnc: known("131999888"), ncf: known("B0100000099"), ecf: { state: "owner_does_not_know", value: null, origin: "owner_stated", verified: false, source_ids: [sourceId] }, itbis: { state: "known", value: "526.27", origin: "matched", verified: true, source_ids: [sourceId] } } };
+  dossiers.set(fiscalDossier.draft_id, { ...fiscalDossier, facts: fiscalAfter, sources: [{ id: sourceId, kind: "message", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", text: "El RNC es 131999888, el NCF es B0100000099 y el ITBIS es 526.27. No sé el e-CF." }], history: [{ draft_id: fiscalDossier.draft_id, version: 2, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo via Cuadrao" }, before: fiscalBefore, after: fiscalAfter, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }] });
+  const proposalDossier = dossiers.get(dossierFixtureIds.proposal)!;
+  dossiers.set(proposalDossier.draft_id, { ...proposalDossier, facts: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } }, sources: [{ id: sourceId, kind: "agent_proposal", channel: "web", received_at: "2026-10-10T14:20:00Z", text: "Propuesta: gasto de 3,450 DOP en Ferretería La Esquina para pintura del taller. Revisar antes de aprobar." }], history: [{ ...proposalDossier.history[0], after: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } } }] });
+  const reviewReceipts = new Map<string, { input: string; result: BusinessDossier }>();
   const fail = (status: number, code: string): never => { throw Object.assign(new Error(code), { status, code }); };
   const get = (id: string) => {
     const found = dossiers.get(id);
@@ -95,7 +106,11 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       return id;
     },
     dossier: async (id: string) => id === dossierFixtureIds.unprepared ? fail(409, "draft_not_prepared") : get(id),
-    reviewDraft: async (id: string, version: number, patch: BusinessFactPatch) => {
+    reviewDraft: async (id: string, version: number, patch: BusinessFactPatch, key: string) => {
+      if (!key) fail(422, "idempotency_key_required");
+      const input = JSON.stringify({ id, version, facts: patch });
+      const prior = reviewReceipts.get(key);
+      if (prior) return prior.input === input ? structuredClone(prior.result) : fail(409, "idempotency_conflict");
       const current = get(id);
       if (!current.capabilities.includes("prepare")) fail(403, "permission_denied");
       if (current.version !== version) fail(409, "stale_version");
@@ -106,8 +121,11 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         next.questions = next.questions.map((question) => question.field === "funding" ? { ...question, state: "answered", answer_source_id: actionSourceId } : question);
         next.blockers = next.blockers.filter((blocker) => blocker.field !== "funding");
       }
-      next.approval_available = next.blockers.length === 0 && next.capabilities.includes("approve");
+      if (next.facts.kind.state === "known" && next.facts.kind.value === "expense") next.blockers = next.blockers.filter((blocker) => blocker.field !== "kind");
+      next.approval_available = next.blockers.length === 0 && next.capabilities.includes("approve") && next.facts.kind.state === "known" && next.facts.kind.value === "expense";
       dossiers.set(id, next);
+      reviewReceipts.set(key, { input, result: get(id) });
+      if (id === dossierFixtureIds.saveUnknown && version === 2) throw new TypeError("Synthetic saved response interrupted");
       return get(id);
     },
     approveDraft: async (id: string, version: number) => {
