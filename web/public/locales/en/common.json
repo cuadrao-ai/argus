@@ -1469,6 +1469,7 @@
       "name_placeholder": "Name",
       "submit": "Sign up",
       "loading": "Creating account...",
+      "new_account_cuadrao": "New to Cuadrao?",
       "new_account": "New to Argus?",
       "password_requirement": "At least 8 characters.",
       "confirmation_title": "Check your email",
