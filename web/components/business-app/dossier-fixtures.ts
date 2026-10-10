@@ -10,6 +10,7 @@ export const dossierFixtureIds = {
   outcomeUnknown: "10000000-0000-4000-8000-000000000006",
   unknownAmount: "10000000-0000-4000-8000-000000000007",
   income: "10000000-0000-4000-8000-000000000008",
+  unprepared: "10000000-0000-4000-8000-000000000009",
 } as const;
 
 const sourceId = "20000000-0000-4000-8000-000000000001";
@@ -69,29 +70,31 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   return {
     createReceiptDraft: (receipt: ReceiptDetail) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
-      const scalar = (value: string | null): BusinessFact<string> => value ? known(value) : unknown();
+      const reviewed = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });
+      const scalar = (value: string | null): BusinessFact<string> => value ? reviewed(value) : unknown();
       const current: BusinessFacts = {
-        kind: known("expense"),
+        kind: reviewed("expense"),
         amount: scalar(receipt.amount),
         currency: scalar(receipt.currency),
         occurred_on: scalar(receipt.occurred_on),
         counterparty: scalar(receipt.merchant),
-        funding: receipt.account_id ? known({ kind: "business_account", account_id: receipt.account_id }) : unknown(),
-        business_share: known({ kind: "all" }),
-        receipt_state: known("informal_receipt"),
+        funding: receipt.account_id ? reviewed({ kind: "business_account", account_id: receipt.account_id }) : unknown(),
+        business_share: reviewed({ kind: "all" }),
+        receipt_state: reviewed("informal_receipt"),
         category_id: scalar(receipt.category_id),
         fiscal: null,
       };
       const source = { id: sourceId, kind: "attachment" as const, channel: receipt.channel, received_at: receipt.received_at, connection_id: receipt.id, filename: receipt.filename, media_type: receipt.media_type };
+      const action = { id: reviewSourceId, kind: "web_action" as const, channel: "web" as const, received_at: receipt.received_at, text: JSON.stringify({ version: receipt.version - 1, fields: { merchant: receipt.merchant, amount: receipt.amount, currency: receipt.currency, occurred_on: receipt.occurred_on, account_id: receipt.account_id, category_id: receipt.category_id } }) };
       dossiers.set(id, {
         draft_id: id, space_id: receipt.space_id, space_name: receipt.space_name, accounts: receipt.accounts,
-        capabilities: receipt.capabilities, version: 1, review_state: "open", facts: current, sources: [source], questions: [],
-        history: [{ draft_id: id, version: 1, actor, before: null, after: current, source_ids: [sourceId], turn_key: null, created_at: receipt.received_at }],
+        capabilities: receipt.capabilities, version: 1, review_state: "open", facts: current, sources: [source, action], questions: [],
+        history: [{ draft_id: id, version: 1, actor, before: null, after: current, source_ids: [reviewSourceId], turn_key: null, created_at: receipt.received_at }],
         blockers: [], approval_available: true, approval_result: null,
       });
       return id;
     },
-    dossier: async (id: string) => get(id),
+    dossier: async (id: string) => id === dossierFixtureIds.unprepared ? fail(409, "draft_not_prepared") : get(id),
     reviewDraft: async (id: string, version: number, patch: BusinessFactPatch) => {
       const current = get(id);
       if (!current.capabilities.includes("prepare")) fail(403, "permission_denied");

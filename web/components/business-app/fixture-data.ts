@@ -5,7 +5,7 @@ import type {
   ReceiptDetail,
   ReceiptReviewFields,
 } from "@/lib/business-api";
-import { createDossierFixtures } from "./dossier-fixtures";
+import { createDossierFixtures, dossierFixtureIds } from "./dossier-fixtures";
 import { normalizeSearchText } from "@/lib/search-text";
 import type { BusinessDataSource } from "./business-data";
 
@@ -98,6 +98,8 @@ function seedReceipts(): ReceiptDetail[] {
     receipt({
       id: "rcpt-papeleria",
       status: "review_ready",
+      draft_id: dossierFixtureIds.unprepared,
+      enterable: false,
       filename: "papeleria-oct.pdf",
       media_type: "application/pdf",
       received_at: daysAgo(1),
@@ -447,7 +449,7 @@ export function createFixtureBusinessDataSource(
         version: current.version + 1,
         missing_fields: missing(merged),
       };
-      return replace({ ...reviewed, draft_id: createReceiptDraft(reviewed) });
+      return replace({ ...reviewed, draft_id: current.draft_id === dossierFixtureIds.unprepared ? current.draft_id : createReceiptDraft(reviewed) });
     },
     confirmReceipt: async (id, version) => {
       await delay(400);

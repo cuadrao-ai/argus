@@ -73,6 +73,31 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByText("Your permission allows viewing this record.", { exact: true })).toBeVisible();
   });
 
+  test("an untyped legacy candidate retains corrected receipt details and its source", async ({ page }) => {
+    await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
+    await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: true });
+    await page.goto("/dev/business-preview?receipt=rcpt-papeleria");
+    await expect(page.getByLabel("Merchant", { exact: true })).toHaveValue("Papelería Central");
+    await expect(page.getByTestId("receipt-review-amount")).toHaveValue("980.50");
+    await expect(page.getByTestId("receipt-original-source")).toBeVisible();
+    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("prepared record isn't available");
+    await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
+    await page.getByTestId("receipt-review-amount").fill("1020.75");
+    await page.getByRole("button", { name: "Save review details", exact: true }).click();
+    await expect(page.getByTestId("receipt-review-amount")).toHaveValue("1,020.75");
+    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("prepared record isn't available");
+    await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
+  });
+
+  test("a direct untyped draft shows the preparation blocker without guessing a receipt", async ({ page }) => {
+    await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
+    await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: true });
+    await page.goto(`/dev/business-preview?draft=${dossierFixtureIds.unprepared}`);
+    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("prepared record isn't available");
+    await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("receipt-original-source")).toHaveCount(0);
+  });
+
   test("a zero total cannot be submitted after entering a valid partial business share", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.ready);
     await page.getByRole("button", { name: "Edit details", exact: true }).click();

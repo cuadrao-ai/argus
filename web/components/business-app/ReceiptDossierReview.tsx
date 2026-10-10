@@ -17,7 +17,7 @@ import { cardClass, LoadingRows, primaryButtonClass, secondaryButtonClass } from
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
 
-export default function ReceiptDossierReview({ draftId }: { draftId: string }) {
+export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftId: string; onUnprepared?: () => void }) {
   const { t, i18n } = useTranslation();
   const { source, openPanel, reload } = useBusiness();
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
@@ -32,9 +32,15 @@ export default function ReceiptDossierReview({ draftId }: { draftId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    source.dossier(draftId).then((next) => { if (!cancelled) setDossier(next); }).catch(() => { if (!cancelled) setUnavailable(true); });
+    source.dossier(draftId).then((next) => { if (!cancelled) setDossier(next); }).catch((error: unknown) => {
+      if (cancelled) return;
+      if ((error as { code?: string }).code === "draft_not_prepared") {
+        if (onUnprepared) onUnprepared();
+        else setProblem(t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing."));
+      } else setUnavailable(true);
+    });
     return () => { cancelled = true; };
-  }, [draftId, source]);
+  }, [draftId, onUnprepared, source, t]);
 
   const refresh = async () => {
     setChecking(true);

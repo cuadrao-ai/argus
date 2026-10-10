@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowLeft, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ReceiptDossierReview from "./ReceiptDossierReview";
@@ -53,6 +53,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const [problem, setProblem] = useState<string | null>(null);
   const [amountInvalid, setAmountInvalid] = useState(false);
   const [amountError, setAmountError] = useState<string | null>(null);
+  const [unprepared, setUnprepared] = useState(false);
+  const retainReceipt = useCallback(() => setUnprepared(true), []);
   useEffect(() => {
     let cancelled = false;
     source
@@ -85,9 +87,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     );
   }
   if (!detail || !draft) return <LoadingRows rows={4} />;
-  if (detail.draft_id) return <ReceiptDossierReview draftId={detail.draft_id} />;
-  const incompleteBridge = detail.status === "review_ready" && !detail.enterable;
-  const locked = confirmed || incompleteBridge || uncertainVersion !== null || !detail.capabilities.includes("prepare") || (detail.version === 0 && !detail.enterable);
+  if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} />;
+  const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
+  const locked = confirmed || uncertainVersion !== null || !detail.capabilities.includes("prepare") || (detail.version === 0 && !detail.enterable);
 
   const changedFields = (): Partial<ReceiptReviewFields> =>
     Object.fromEntries(
@@ -123,6 +125,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     try {
       await source.prepareReceipt(detail.id);
       show(await source.receipt(detail.id));
+      setUnprepared(false);
       reload();
     } catch {
       setProblem(t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again."));
@@ -141,6 +144,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       const changes = changedFields();
       const reviewed = await source.saveReview(detail.id, detail.version, changes);
       show(reviewed);
+      setUnprepared(false);
       reload();
     } catch (error) {
       const { code, status } = error as { code?: string; status?: number };
@@ -166,6 +170,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     try {
       const next = await source.receipt(detail.id);
       show(next);
+      setUnprepared(false);
       if (uncertainVersion !== null && next.version > uncertainVersion) {
         setUncertainVersion(null);
         setProblem(null);
@@ -214,7 +219,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
         <ReceiptSourcePreview detail={detail} />
 
         <div className="space-y-4">
-          {incompleteBridge ? <p role="alert" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p> : null}
+          {incompleteBridge ? <div className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p>{uncertainVersion === null ? <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}</div> : null}
           {detail.status === "needs_attention" ? (
             <div role="alert" data-testid="receipt-attention" className={`${cardClass} text-[14px] text-black/75 dark:text-white/75`}>
               <p className="flex gap-2.5">
@@ -358,7 +363,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               <button
                 type="button"
                 className={primaryButtonClass}
-                disabled={busy !== null || missing.length > 0 || amountInvalid || waitingForAi || locked}
+                disabled={busy !== null || missing.length > 0 || amountInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
                 onClick={() => void save()}
               >
                 {busy === "save" ? t("business.review.confirming", "Saving…") : t("business.dossier.save", "Save review details")}
