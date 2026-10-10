@@ -16,7 +16,16 @@ existing ones still works.
 
 from __future__ import annotations
 
+from datetime import datetime
+from typing import TYPE_CHECKING, Literal
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from argus.agent_runtime.business.context import (
+        AuthorizedBusinessContext,
+        BusinessActionService,
+    )
+    from argus.domain.business.contracts.recovery import DurableTurn, SenderLease
 
 from fastapi import Depends, HTTPException, Request
 
@@ -169,3 +178,34 @@ def message_conversation_id(*, user_id: str, message_id: str) -> str | None:
     if canonical is None:
         return None
     return gateway.message_conversation_id(user_id=user_id, message_id=canonical)
+
+
+def authorized_business_turn_context(
+    *,
+    actions: BusinessActionService,
+    user_id: str,
+    space_id: str,
+    turn: DurableTurn,
+    lease: SenderLease,
+    message_id: str,
+    received_at: datetime,
+    channel: Literal["web", "whatsapp"],
+    language: str = "es-419",
+) -> AuthorizedBusinessContext:
+    from argus.agent_runtime.business.context import AuthorizedBusinessContext
+    from argus.domain.business.contracts.authority import TrustedActor
+
+    actor = TrustedActor(
+        actor_id=UUID(user_id), actor_kind="owner_via_agent", space_id=UUID(space_id)
+    )
+    authorization = actions.resolve_actor(actor)
+    return AuthorizedBusinessContext(
+        actions=actions,
+        authorization=authorization,
+        turn_key=turn.turn_key,
+        lease=lease,
+        message_id=UUID(message_id),
+        received_at=received_at,
+        channel=channel,
+        language=language,
+    )
