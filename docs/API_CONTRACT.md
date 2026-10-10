@@ -8837,6 +8837,112 @@ nothing is sent outside the service window.
 
 ### Business pilot (default-off)
 
+#### Hosted Business contract foundation (October 10, 2026)
+
+This assigned contract is implemented as domain types under
+`argus.domain.business.contracts` and persistence migration
+`20261010223000_business_contract_foundation.sql`. It does not claim that the
+handlers, agent declarations, WhatsApp worker or web wiring below are delivered.
+The existing pilot behavior remains documented after this section. The hosted
+adapter must adopt this contract before exposing the new flow.
+
+The canonical draft is `financial_import_events`. Its `resolution.business`
+contains `{schema_version: 1, facts: BusinessFacts}`. No other table owns current
+facts. Every fact is `known` with a typed value, origin, verification flag and
+source IDs, or explicitly `unknown`/`owner_does_not_know` with null value and
+`verified: false`. An explicit unknown masks older extraction in every legacy
+projection. Only currency may default, to DOP with `origin: default` and
+`verified: false`. There is no default activity date, account, kind or fiscal
+treatment. Exact money values cross the wire as decimal strings.
+
+The first recording flow supports expense approval. Income remains a distinct
+draft kind and is never coerced to expense. Other kinds remain draft proposals.
+`funding={kind: owner_funds}` records one expense only after human approval. It
+must not debit a Business bank account or decide whether capital or debt is owed.
+Post-recording corrections are refused with `recorded_correction_unsupported`;
+this slice defines no reversal or supersession policy.
+
+The seven model action names remain `business_read_context`,
+`business_propose_activity`, `business_attach_source`,
+`business_propose_allocation`, `business_find_related`, `business_ask` and
+`business_explain_status`. They are Business-only read/prepare actions. Their
+arguments contain no actor, space, grant, approval, money write or fiscal
+decision. Trusted invocation context supplies actor and authorized client.
+The domain action service re-resolves live capabilities and scopes every draft,
+source, question, account and match ID. A role name never grants permission.
+
+The existing record view gains `GET /business/drafts/{draft_id}/dossier`.
+`draft_id` always identifies `financial_import_events`, never a connection.
+Existing `ReceiptDetail` gains `draft_id: UUID | null` as an explicit bridge
+after preparation and the trusted `RecordContext` fields `space_id`, `space_name`,
+`accounts: BusinessAccount[]`, and `capabilities: (read|prepare|approve)[]`.
+Both receipt detail and dossier derive these from the record's client and live
+grant. Direct links never bootstrap a viewer's own Business space or fall back to
+that space's accounts. The owner can still prepare or enter an unprepared receipt
+using its authorized account choices and prepare capability. A saved unprepared
+receipt has no Business dossier and keeps
+its prepare/hand-entry flow (`draft_not_prepared`, 409 when preparation is needed).
+Its legacy version is not an approval version. The same record panel accepts
+a typed receipt target or draft target; the existing
+`/biz?receipt=<connection-id>` and new `/biz?draft=<draft-id>` preserve that
+distinction. There is no fallback lookup guessing which kind a UUID names.
+`BusinessDossier` returns
+`space_id`, `space_name`, same-client `accounts`, `draft_id`, `version`,
+`review_state`, typed `facts`, `sources`, `questions`,
+immutable before/after `history`, live `capabilities`, `blockers`,
+`approval_available`, and `approval_result`. Sources expose original text or the
+existing authorized attachment connection, channel and receipt time; receipt
+time does not become activity date. A human form submission has source kind
+`web_action`, channel `web`, and immutable canonical submitted command text in
+`text` (1–20,000 characters). The server derives its stable source key from the
+scoped idempotent command and assigns `member_set` fact provenance with the
+actual human actor; browser requests never supply source IDs or provenance.
+It is neither extracted evidence nor an agent proposal. Questions can reference
+that web action as their answer source. Questions carry stable IDs, field, recipient,
+channel, state, prompt and allowed answer states. History includes readable actor
+and issuer labels with grant provenance, time and before/after facts. A failed
+history read is an error, never an empty successful history.
+
+`PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
+and `Idempotency-Key`. `POST /business/drafts/{draft_id}/approve` takes
+`{version, action: "record_expense"}` and `Idempotency-Key`. Both return the
+authoritative dossier. Human review and approval are separate from model actions.
+The existing `/source` route applies the same live read grant. Foreign resource
+IDs return 404 without revealing existence; a readable in-scope record with a
+missing write capability returns 403. Stale versions and same-key/different-input
+requests return 409; invalid facts or unresolved approval blockers return 422.
+An uncertain financial effect is `outcome_unknown`, not success or safe retry.
+
+Every mutation persists canonical normalized input hash and outcome under its
+idempotency key. A same-input replay returns its recorded result. A changed
+input conflicts. Grant and expected-version checks and the acceptance claim
+share one SQL transaction. The current recording path commits that claim before
+MoneyService writes; this is not one SQL transaction spanning money. Recovery
+uses the stored canonical MoneyService request/key and converges to one effect.
+
+Agent turns persist the typed action plan before any writes, together with
+server-derived `plan_actor: ActorProvenance` metadata outside the model plan.
+Its actor ID must match the turn actor and its grant snapshot cannot change.
+Every action receipt, including a human web command without a turn, stores its
+immutable actual `actor: ActorProvenance`; a planned action must match its
+plan actor snapshot. Resume rechecks that same live grant and refuses revocation
+rather than substituting a different current grant. Each action receipt
+is keyed by `turn_key + action_index` within the trusted client/actor scope.
+Per `(space, sender)` durable leases use monotonic fences and arrival ordering.
+A worker with an expired/replaced fence cannot commit. Persisted model and reply
+states distinguish pending, completed and unknown outcomes. An unknown model
+call or outbound delivery must be reconciled before another attempt.
+
+The first foundation defines direct explicit client-scoped grants to named
+humans, with actual actor and issuer provenance. It issues no grants or owner
+backfill. Firm-to-human delegation remains blocked on a real firm identity and
+issuer policy; an opaque invented firm identifier is not authority. A grant for
+client A never grants client B. Source, history and dossier projections are
+server-only, resolved through live grants on every read. No portfolio route or
+new top-level review UI is introduced.
+
+#### Existing pilot behavior
+
 Off unless `ARGUS_BUSINESS_PILOT_ENABLED` and `ARGUS_INGESTION_ENABLED` are
 both true. While either is off every route below answers 404
 `business_unavailable`; the pilot flag is checked before authentication. With
