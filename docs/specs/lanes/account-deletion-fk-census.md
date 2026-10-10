@@ -164,6 +164,10 @@ Every uuid column whose name marks a person or a membership, or that has a forei
 | `beta_invitations.created_by` | yes | `auth.users` SET NULL |
 | `beta_invite_quota_grants.granted_by` | yes | `auth.users` SET NULL |
 | `beta_invite_quota_grants.user_id` | no | `auth.users` CASCADE |
+| `business_action_receipts.actor_id` | no | `auth.users` CASCADE |
+| `business_client_grants.grantee_id` | no | `auth.users` CASCADE |
+| `business_client_grants.issuer_id` | no | `auth.users` CASCADE |
+| `business_turns.actor_id` | no | `auth.users` CASCADE |
 | `chat_turn_lifecycles.user_id` | no | `profiles` CASCADE |
 | `collection_strategies.user_id` | no | `profiles` CASCADE |
 | `collections.user_id` | no | `profiles` CASCADE |
@@ -398,6 +402,29 @@ Every foreign key into `auth.users`, or into a table `auth.users` reaches, group
 | `financial_record_revisions` | `reversal_of_activity_id, reversal_of_revision, reversal_of_owner_id` | `financial_activity_revisions` | NO ACTION | NO ACTION | initially deferred | Composite owner key, ON UPDATE NO ACTION, deferrable: move the parent and its children to the new owner in place, in one transaction, keeping ids and revisions. The new id must still reach `auth.users` through the parent. | Catalog only. The probes had no rows here | **Seed it in the lane test.** It's NO ACTION and deferred, and the probe had no rows. If another owner's reversal points at the person's activity, it fails at commit, and only at commit. |
 | `financial_records` | `account_id, user_id` | `financial_accounts` | CASCADE | NO ACTION | deferrable | Composite owner key, ON UPDATE NO ACTION, deferrable: move the parent and its children to the new owner in place, in one transaction, keeping ids and revisions. The new id must still reach `auth.users` through the parent. | Cascades 11 | None. The person's own money data goes at step 7, but only after step 5 has kept what other people need. |
 | `spaces` | `created_by` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is `not null`. | Catalog only. The probes had no rows here | None. The person's Business space goes at step 7, and its rows cascade with it. |
+
+### Business drafts, authority and durable turns
+
+The October 10 C0 catalog adds sixteen foreign keys, all nondeferrable `ON DELETE CASCADE` / `ON UPDATE NO ACTION`. The Business-specific PostgreSQL tests separately prove source-connection deletion before canonical import deletion, answered-source cleanup and parent cascades. They do not authorize shared-client re-keying or a new retention exception.
+
+| Table | Column(s) | References | On delete | On update | Deferrable | Re-key to a placeholder | Plain delete, live probe | Lane 6 must |
+|---|---|---|---|---|---|---|---|---|
+| `business_action_receipts` | `actor_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the actual actor at step 7; do not substitute a historical actor. |
+| `business_action_receipts` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the Business space at step 7. |
+| `business_action_receipts` | `turn_key, space_id, actor_id` | `business_turns` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with its canonical turn at step 7; human receipts without a turn follow their actor or space. |
+| `business_client_grants` | `grantee_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove the named human grant when its grantee is deleted at step 7; do not transfer authority. |
+| `business_client_grants` | `issuer_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove the grant when its issuer is deleted at step 7; do not substitute an issuer. |
+| `business_client_grants` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove all client grants with the Business space at step 7. |
+| `business_draft_revisions` | `draft_id, space_id` | `financial_import_events` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the canonical import event; immutable revisions allow parent deletion. |
+| `business_draft_sources` | `draft_id, space_id` | `financial_import_events` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the canonical import event; no orphaned draft-source relationship. |
+| `business_draft_sources` | `source_id, space_id` | `business_sources` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with its source during step 2 or space deletion at step 7. |
+| `business_questions` | `answer_source_id, space_id` | `business_sources` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Delete the answered question with its source at step 2; never null or rewrite answered provenance. |
+| `business_questions` | `draft_id, space_id` | `financial_import_events` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with its canonical import event; no orphaned question. |
+| `business_sender_leases` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove worker ownership with the Business space at step 7. |
+| `business_sources` | `connection_id, space_id` | `financial_source_connections` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Existing step 2 source-connection deletion cascades attachments and answered questions before import events. Direct source deletion remains denied. |
+| `business_sources` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Delete message, web-action and other original evidence with its Business space at step 7; no retention exception. |
+| `business_turns` | `actor_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the actual actor at step 7, including its indexed action receipts. |
+| `business_turns` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the Business space at step 7, including its indexed action receipts. |
 
 ### Connected sources and documents
 
