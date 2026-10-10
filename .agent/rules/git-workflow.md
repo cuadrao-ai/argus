@@ -5,9 +5,21 @@ description: Conventional commits, branch naming, monorepo coordination, feature
 
 # Git Workflow Rule
 
-## Trunk-Based Development
+## Current integration workflow
 
-Argus follows **trunk-based development** with short-lived feature branches.
+Read root `AGENTS.md`, `docs/DOCUMENTATION_AUTHORITY.md` and the explicitly
+assigned package before branch or PR actions. Ordinary Cuadrao work starts from
+a freshly fetched `origin/codex/private-alpha-next`, with its SHA recorded.
+Target worker PRs at `codex/private-alpha-next`. Merge newer integration one-way
+into the worker before READY and audit semantic overlap. Do not rebase a
+published or evidenced lane. The named coordinator owns the serialized merge
+slot and acts only under the scoped grant. No production deployment follows
+from an integration merge.
+
+## Legacy Argus trunk policy
+
+The following main policy remains for separately authorized legacy Argus
+promotion. It does not select main as the current Cuadrao base or merge target.
 
 1. **Short-Lived Branches**: Branches should ideally live for less than 48 hours.
 2. **Protected Main**: The `main` branch is protected. Direct commits are forbidden.
@@ -71,7 +83,7 @@ Categorize PRs using these labels for better organization:
 
 1. **API Contract Changes First**: If updating API schema (Pydantic), commit that separately with scope `docs(api-contract)` before backend/frontend implementation PRs.
 2. **Parallel PRs OK**: Backend (`feat/api-...`) and frontend (`feat/web-...`) can have open PRs simultaneously against same issue. Merge API contract PR first, then both can merge together.
-3. **Feature Flags**: Use `NEXT_PUBLIC_<FLAG_NAME>` convention (e.g., `NEXT_PUBLIC_FEATURE_MULTI_ASSET`). Commit flag to `web/.env.example` so it's discoverable.
+3. **Feature Flags**: Frontend public flags use `NEXT_PUBLIC_<FLAG_NAME>` (e.g., `NEXT_PUBLIC_FEATURE_MULTI_ASSET`). Document them in `web/.env.local.example`. Backend flags belong in root `.env.example`. Hosted configuration follows the release contract.
 4. **Environment Consistency**: Backend + frontend must be able to run together after `setup.sh`. Commit `.env.example` files (never actual secrets).
 
 ## PR Process
@@ -79,7 +91,8 @@ Categorize PRs using these labels for better organization:
 1. Pass `/verify` before opening PR.
 2. Reference issue number in PR title and body.
 3. One logical change per PR — avoid mega-PRs (but related backend + frontend changes can be in one PR if they touch the API contract).
-4. If PR touches API schema, include link to `docs/api/api_contract.md` update.
-5. Squash merge to main.
+4. If PR touches API schema, include the `docs/API_CONTRACT.md` update.
+5. Land only into the assigned target with the coordinator's recorded authority.
+   Main promotion and production deployment require their separate founder grants.
 
 See: `.agent/workflows/pr.md` for full PR workflow, `.agent/skills/monorepo-patterns/SKILL.md` for coordination details.

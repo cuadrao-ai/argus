@@ -20,7 +20,7 @@ globs: ["src/**/*.py", "web/**/*.ts", "web/**/*.tsx"]
 8. Form validation: Use `zod` schema + `react-hook-form` for all user input.
 9. API types: Mirror backend Pydantic schemas in TypeScript interfaces (e.g., `BacktestRequest` in both).
 10. Client-side errors: Handle with React Query error boundaries + user-friendly UI messages (no console errors).
-11. Mock data: Use `web/lib/mockData.ts` (Faker) for development, toggle with `NEXT_PUBLIC_MOCK_API` env var.
+11. Mock data: Use existing frontend fixtures and mocked API clients in tests. Follow the operating reference for fast Dev Mode. The old `web/lib/mockData.ts` and `NEXT_PUBLIC_MOCK_API` notes are historical, not a current module or toggle.
 
 ## Shared Standards
 

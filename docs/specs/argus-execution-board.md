@@ -1,9 +1,100 @@
 # Argus private iPhone execution manifest
 
-**Updated:** October 9, 2026.
+**Updated:** October 10, 2026. Bounded hosted Business assignment added.
 **Execution state:** Consumer PR #937 is merged with accepted simulator evidence and green pre-merge CI. Build 3455 is installed; hosted manual-money acceptance remains open. The current Consumer assignment below supersedes the older sequencing only for this lane. The [October 4 code checkpoint](../reports/2026-10-04-cuadrao-code-integration-landing.md) retains its historical evidence.
 **Product owner:** [MVEE](argus-minimum-viable-ecosystem-experience.md).
 **Authority and onboarding:** [DOCUMENTATION_AUTHORITY](../DOCUMENTATION_AUTHORITY.md).
+
+## Business hosted invite-only build October 10, 2026
+
+The [22:13 UTC founder grant](argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant)
+authorizes the bounded hosted Business build, clean integration merges and
+staging only. The root coordinator owns the sole merge slot and staging
+actions. Tracker [#942](https://github.com/lagarcess/argus/issues/942) retains the
+larger flows. Related first-flow issues are #943, #944, #946, #947 and #948.
+C0 is a build step under that tracker, not another name for issue #943.
+
+The fetched starting integration is `77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`,
+the landed [#953](https://github.com/lagarcess/argus/pull/953) documentation
+checkpoint. The [Business execution spec](lanes/cuadrao-business-agent-execution-spec.md)
+owns C0-first order and J1 to J3. The [lane handoff](../handoffs/cuadrao-business-lane.md)
+records retained implementation and exclusions. No runtime slice or customer
+journey is claimed delivered by this assignment record.
+
+These are collaboration roles in the root task. They are not new UI-visible
+Codex lane threads. All listed worktrees start from the recorded integration.
+
+| Owner | Exclusive worktree or evidence role | Current assignment and dependency |
+| --- | --- | --- |
+| `/root/shared_context` | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010` | Repair the shared startup index, preserve full instructions, correct stale pointers, and record current decisions and assignments. Documentation only. |
+| `/root/runtime_shape_astra` and `/root/runtime_shape_sol` | Read-only design grounding | Inspect the integrated runtime and sandbox dependency candidates. Propose the smallest C0-first contract. They publish no code or shared contract edits. |
+| `/root/design_grounding` | Read-only existing UI and Mobbin grounding | Identify the current accountant flow and bounded interaction needs. No UI or product copy edits. |
+| Runtime writer, not yet assigned | `/tmp/cuadrao-hosted-runtime-20261010` | Await the chosen C0 contract and an exclusive file assignment. No implied dispatch from this row. |
+| Web writer, not yet assigned | `/tmp/cuadrao-hosted-web-20261010` | Await the chosen API/data contract and exclusive UI assignment. No implied dispatch from this row. |
+| `/root` | `/tmp/cuadrao-hosted-verification-20261010` | Assemble and independently verify the exact candidate. Own merge and staging actions under the grant. Record semantic overlap, CI and compatibility before each landing. |
+| Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` | Existing P0 inventory and private handoff | Retain read-only sandbox dependency inventory and decision reconciliation. Identify missing dependencies and their owners. Do not publish the sandbox wholesale. |
+
+The first hosted acceptance joins a permitted owner's WhatsApp transaction and
+its follow-up facts to one traceable record in the authorized accountant web
+view. Cover varied natural-language transactions, explicit unknowns, correction,
+source preservation, revision history, duplicate delivery and human approval
+through the current grant. "Pagué 850" is one example. Do not use phrase or
+regex intent gates. A synthetic or laptop test supports engineering verification,
+but cannot close hosted customer acceptance. Do not close all seven flows or
+claim all J1 to J3 shipped from the first proof.
+
+The deployment candidate must identify the actual staging service revision,
+Business web API binding, permitted sender, verified callback and WABA
+subscription, current sender-to-Business linking and authorized readback.
+The coordinator confirmed `cuadrao-api-staging` at
+`cad1cbe1ec27ff89c08eadbec31718a0e627383c`, on the integration branch with
+`autoDeploy` off. The selected workspace contains that staging API and the
+main API/web. It has no separate staging web. These observations do not prove
+the new Business flow or authorize main exposure. #941 remains the real WhatsApp activation prerequisite. Its controlled test
+connectivity must be distinguished from general public onboarding.
+
+The [22:22 UTC continuation](argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant)
+approves workspace `tea-d5rdkfk9c44c73e7a1ig` and names the runtime model
+choices. The later continuation selects Grok 4.3 as the first evaluation
+judge and prohibits Astra development runtime or judge API calls. Calibrate
+known-good and known-bad cases and retain deterministic state assertions.
+The [22:32 UTC development-key grant](argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant)
+supersedes the $5 test cap and pending-development-limit call hold. Use only the
+existing development `OPENROUTER_API_KEY`, until its conservative allowance is
+exhausted or its expiry at `2026-10-12T02:21:00Z`. Do not swap to a registered
+or guest key or rotate credentials. The coordinator's safe read gives
+$72.567644643 before concurrent usage, from $300 less total usage
+$227.432355357. The larger provider monthly-remaining figure is not all
+spending authority. Refresh usage before calls and subtract outstanding work.
+Only the root coordinator controls live calls, reservations, concurrency and
+token bounds. Judges, fallbacks and retries share this allowance. Synthetic
+data only. No live call has occurred; C0, runtime and evaluations are not ready.
+Sonnet 5.5 is a potential stretch choice that needs a demonstrated need and
+fresh confirmation. It is not an automatic judge or runtime fallback.
+
+First acceptance uses one owner, one authorized accountant and one Business
+at a time. The coordinator sequences a direct named-accountant per-business
+grant within that existing milestone. Full firm-to-human delegation remains an
+L11 roadmap requirement, not a blocker for the first bounded flow or a completed
+capability. Do not invent a firm identity. Isolated synthetic test grants are
+authorized. Real persistent grants and named live testers still require actual
+business authorization and concrete scoped setup confirmation.
+New paid services, credentials, expanded grants and security settings also need
+that confirmation. The root coordinator owns the hosted
+web delivery choice because no separate staging web exists. Tonight's target
+is online verification, contingent on the build, staging web setup and candidate
+acceptance. The existing staging-only deployment grant remains; new costs and
+access expansion still need concrete scoped confirmation.
+Retain #925 at `1426404d82ade9ac1eaed255b0e68ed7db9d4a1a` and the sandbox at
+`df208f7ec2379cd84efd55eea0deb685d67c5360` as exclusions. T1 defines any needed
+tool filter through the canonical catalog, without depending on #925's wording
+or eval guard. Model-facing changes still need their committed scorecards.
+
+Stop affected work for missing dependency contracts, duplicate writers,
+unauthorized live or hosted actions, uncertain external outcomes, or scope
+expansion. Continue independent authorized work. Consumer native acceptance and
+Apple TestFlight holds remain. Consumer compatibility must pass. No main or
+production promotion, public signup, marketing or legal launch is in scope.
 
 ## Consumer assignment: October 9 founder direction
 
