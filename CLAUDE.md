@@ -1,5 +1,7 @@
 # Argus Claude Review Contract
 
+@AGENTS.md
+
 Read `AGENTS.md` first. Use [documentation authority](docs/DOCUMENTATION_AUTHORITY.md)
 to identify the approved experience and assigned scope. Review the ecosystem
 against the MVEE and implementation changes against their technical contracts;

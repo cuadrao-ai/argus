@@ -1,7 +1,8 @@
 # Argus documentation authority
 
 **Updated:** September 29, 2026. Private iPhone direction and financial-loop landing.
-**Business design pointer added:** October 6, 2026. See the working guide below.
+**Business assignment reconciled:** October 10, 2026. See the hosted Business
+decision and assignment below. The September mobile lock retains its scope.
 Current delivered work, remaining scope and action authority live in the
 [execution manifest](specs/argus-execution-board.md), not in this ownership guide.
 **Purpose:** Help an agent distinguish approved product direction, existing technical contracts, historical rationale, and authorized implementation work.
@@ -15,6 +16,12 @@ Current delivered work, remaining scope and action authority live in the
 5. Read the [private iPhone execution manifest](specs/argus-execution-board.md) for
    current landed work, authorized actions, dependencies, ownership and acceptance.
 6. Read the explicitly assigned package or slice. For a Wave 1 assignment, start with [its README](specs/wave-1/README.md) and the package's existing gates. A roadmap or brainstorm does not assign work by itself.
+
+For Business work, read the [hosted beta and build grant](specs/argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant)
+and the [current assignment](specs/argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+before interpreting a dated hold. That assignment is a bounded exception for
+Business integration and staging. It does not restart Consumer mobile work,
+authorize Apple TestFlight or change public signup or marketing publication.
 
 ## One owner per kind of decision
 
@@ -45,7 +52,7 @@ This package does not assign implementation or add launch gates.
 
 The MVEE is the single detailed owner of the approved ecosystem. Its section 1.1 locks the audience and near-term financial emphasis; section 12 includes partner invitations and personal/household views. Sections 3–5 define surfaces and information ingestion. Sections 8–9 distinguish boundaries and open decisions. Section 11 defines pain-point coverage and the reinforcing loop.
 
-The product remains one connected Argus experience that carries forward existing chat, calculations, research, and historical comparisons. These capabilities are not gated behind debt repayment. The design direction retains the Argus visual identity. Native iOS/Android plus web and their [interface stacks](ARCHITECTURE.md#approved-platform-direction) are approved. The latest [MVEE delivery lock](specs/argus-minimum-viable-ecosystem-experience.md#12-private-iphone-delivery-the-immediate-finish-line) prioritizes the physical iPhone over the internet, preserves the existing web, freezes the web remake, and records the deferred agentic runtime. The [execution manifest](specs/argus-execution-board.md) owns the proposed sequence and unassigned work. Detailed contracts still need their scoped implementation assignments.
+The product remains one connected Argus experience that carries forward existing chat, calculations, research, and historical comparisons. These capabilities are not gated behind debt repayment. The design direction retains the Argus visual identity. Native iOS/Android plus web and their [interface stacks](ARCHITECTURE.md#approved-platform-direction) are approved. The September [MVEE delivery lock](specs/argus-minimum-viable-ecosystem-experience.md#12-private-iphone-delivery-the-immediate-finish-line) prioritizes the physical iPhone over the internet, preserves the existing web, freezes the general web remake, and records the deferred consumer agentic runtime. The later [hosted Business decision](specs/argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant) and its bounded assignment govern that Business flow. The [execution manifest](specs/argus-execution-board.md) owns the proposed sequence and unassigned work. Detailed contracts still need their scoped implementation assignments.
 
 “Locked” means founder-approved direction. It does not mean implemented, validated market demand, a final schema, a model instruction change, or permission to deploy.
 
@@ -99,7 +106,7 @@ Retired strategy narratives now live in `docs/archive/`, with compatibility poin
 
 ## Wave 1 reconciliation boundary
 
-The private iPhone execution manifest supplies the current delivery map and records explicit assignments and landed work. It does not itself restart Wave 1 or any stopped lane. Applicable technical and release gates still apply when a package is explicitly assigned; historical package sequencing does not override current founder authority or the iPhone priority.
+The private iPhone execution manifest supplies the current delivery map and records explicit assignments and landed work. It does not itself restart Wave 1 or any stopped lane. Applicable technical and release gates still apply when a package is explicitly assigned; historical package sequencing does not override current founder authority or the named lane's priority.
 
 In particular, Wave 1's two-audience landing, limited navigation, hidden account/upload/budget surfaces, and earlier onboarding assumptions are package-era choices, not permanent limits on the ecosystem. A temporary shipping subset may still be appropriate, but the assigned spec must say so explicitly. Before implementing a conflicting experience requirement, reconcile that package with the founder-approved MVEE and record what is retained, revised, or deferred. Do not expose unfinished surfaces just because they are approved in the vision.
 
