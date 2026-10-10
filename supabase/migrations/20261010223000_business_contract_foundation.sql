@@ -133,7 +133,7 @@ create table public.business_questions (
     foreign key (draft_id, space_id)
         references public.financial_import_events(id, owner_space_id) on delete cascade,
     foreign key (answer_source_id, space_id)
-        references public.business_sources(id, space_id),
+        references public.business_sources(id, space_id) on delete cascade,
     check (state not in ('answered', 'owner_does_not_know') or answer_source_id is not null),
     check (state <> 'owner_does_not_know' or asked_of = 'accountant')
 );
@@ -218,7 +218,9 @@ create table public.business_action_receipts (
     unique (turn_key, action_index),
     foreign key (turn_key, space_id, actor_id)
         references public.business_turns(turn_key, space_id, actor_id) on delete cascade,
-    check ((turn_key is null) = (action_index is null))
+    check ((turn_key is null) = (action_index is null)),
+    check (turn_key is not null or
+        (command->>'action' in ('review_draft', 'approve_expense')) is true)
 );
 create index business_action_receipts_actor_idx on public.business_action_receipts(actor_id);
 
@@ -235,9 +237,29 @@ $$;
 create trigger business_revision_immutable before update or delete
     on public.business_draft_revisions for each row
     execute function argus_private.business_immutable_evidence();
-create trigger business_source_immutable before update
+create trigger business_source_immutable before update or delete
     on public.business_sources for each row
     execute function argus_private.business_immutable_evidence();
+
+create function argus_private.business_revision_sources_scoped()
+returns trigger language plpgsql set search_path = '' as $$
+declare
+    source_id uuid;
+begin
+    for source_id in select unnest(new.source_ids) order by 1 loop
+        perform 1 from public.business_sources s
+         where s.id = source_id and s.space_id = new.space_id
+         for key share;
+        if not found then
+            raise exception 'business_revision_source_not_found' using errcode = '23503';
+        end if;
+    end loop;
+    return new;
+end;
+$$;
+create trigger business_revision_sources_scoped before insert
+    on public.business_draft_revisions for each row
+    execute function argus_private.business_revision_sources_scoped();
 
 create function argus_private.business_plan_immutable()
 returns trigger language plpgsql set search_path = '' as $$
@@ -319,5 +341,6 @@ revoke all on sequence public.business_turns_arrival_sequence_seq
 grant usage, select on sequence public.business_turns_arrival_sequence_seq to service_role;
 
 revoke all on function argus_private.business_immutable_evidence(),
-    argus_private.business_plan_immutable(), argus_private.business_receipt_plan_required()
+    argus_private.business_plan_immutable(), argus_private.business_receipt_plan_required(),
+    argus_private.business_revision_sources_scoped()
     from public, anon, authenticated;
