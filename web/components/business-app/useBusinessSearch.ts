@@ -7,7 +7,7 @@ import type { WorkspaceSearch } from "@/components/chat/ChatWorkspace";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDataSource } from "./business-data";
 import { formatDay, formatMoney, periodContaining, type Period } from "./business-format";
-import { useStatusLabel } from "./business-ui";
+import { useCategoryLabel, useStatusLabel } from "./business-ui";
 import type { BusinessPanelState } from "./BusinessWorkspace";
 
 /**
@@ -30,6 +30,7 @@ export function useBusinessSearch({
 }): WorkspaceSearch {
   const { t, i18n } = useTranslation();
   const statusLabel = useStatusLabel();
+  const categoryLabel = useCategoryLabel();
   const locale = i18n.resolvedLanguage ?? "en";
 
   return useMemo<WorkspaceSearch>(() => {
@@ -56,7 +57,7 @@ export function useBusinessSearch({
               id: expense.id,
               icon: Banknote,
               title: expense.merchant ?? t("business.expenses.no_merchant", "Expense"),
-              detail: line(formatDay(expense.occurred_on, locale), expense.account_id ? nickname.get(expense.account_id) : null),
+              detail: line(formatDay(expense.occurred_on, locale), categoryLabel(expense.category_id), expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : expense.account_id ? nickname.get(expense.account_id) : null),
               amount: formatMoney(expense.amount, expense.currency, locale),
               open: () => {
                 if (expense.receipt_id) {
@@ -84,5 +85,5 @@ export function useBusinessSearch({
         ];
       },
     };
-  }, [accounts, chatAvailable, locale, openPanel, setPeriod, source, statusLabel, t]);
+  }, [accounts, categoryLabel, chatAvailable, locale, openPanel, setPeriod, source, statusLabel, t]);
 }

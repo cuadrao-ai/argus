@@ -74,7 +74,7 @@ export default function BusinessExpensesPanel() {
                   {expense.merchant ?? t("business.expenses.no_merchant", "Expense")}
                 </span>
                 <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
-                  {[formatDay(expense.occurred_on, locale), categoryLabel(expense.category_id), expense.account_id ? accounts.get(expense.account_id)?.nickname : null]
+                  {[formatDay(expense.occurred_on, locale), categoryLabel(expense.category_id), expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : expense.account_id ? accounts.get(expense.account_id)?.nickname : null]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>

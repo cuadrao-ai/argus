@@ -15,6 +15,7 @@ export const dossierFixtureIds = {
   fiscal: "10000000-0000-4000-8000-000000000011",
   proposal: "10000000-0000-4000-8000-000000000012",
   saveUnknown: "10000000-0000-4000-8000-000000000013",
+  saveConcurrent: "10000000-0000-4000-8000-000000000014",
 } as const;
 
 const sourceId = "20000000-0000-4000-8000-000000000001";
@@ -114,6 +115,12 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const current = get(id);
       if (!current.capabilities.includes("prepare")) fail(403, "permission_denied");
       if (current.version !== version) fail(409, "stale_version");
+      if (id === dossierFixtureIds.saveConcurrent && version === 2) {
+        const otherSourceId = "20000000-0000-4000-8000-000000000014";
+        const otherFacts: BusinessFacts = { ...current.facts, counterparty: { state: "known", value: "Other human correction", origin: "member_set", verified: false, source_ids: [otherSourceId] } };
+        dossiers.set(id, { ...current, version: 3, facts: otherFacts, sources: [...current.sources, { id: otherSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T14:31:00Z", text: JSON.stringify({ version, facts: { counterparty: { state: "known", value: "Other human correction" } } }) }], history: [...current.history, { draft_id: id, version: 3, actor: { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" }, before: current.facts, after: otherFacts, source_ids: [otherSourceId], turn_key: null, created_at: "2026-10-10T14:31:00Z" }] });
+        throw new TypeError("Synthetic request interrupted before write; another human advanced the draft");
+      }
       const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
       const updated = Object.fromEntries(Object.entries(patch).map(([key, fact]) => [key, { ...fact, origin: "member_set", verified: false, source_ids: [actionSourceId] }])) as Partial<BusinessFacts>;
       const next: BusinessDossier = { ...current, version: current.version + 1, facts: { ...current.facts, ...updated }, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, facts: patch }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: { ...current.facts, ...updated }, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };

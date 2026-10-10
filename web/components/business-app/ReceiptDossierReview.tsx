@@ -50,8 +50,9 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
       setDossier(next);
       setUnavailable(false);
       if (operation.kind === "uncertain") {
-        const resolved = operation.action === "save" ? next.version > operation.version : next.approval_result?.status === "recorded" || next.approval_result?.status === "failed";
+        const resolved = operation.action === "approve" && (next.approval_result?.status === "recorded" || next.approval_result?.status === "failed");
         if (resolved) { reviewRequest.current = null; setOperation({ kind: "idle" }); setEditing(false); setDirty(false); setProblem(null); }
+        else if (operation.action === "save") setProblem(t("business.dossier.save_unconfirmed", "The current revision does not confirm that your save completed. Your edits are retained; saving and approval remain paused."));
       } else { setProblem(null); setEditing(false); setDirty(false); }
     } catch {
       setUnavailable(true);
@@ -139,9 +140,10 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
         </div>
         <div className="space-y-4">
           <div className={cardClass}>
-            <div className="mb-5 flex items-center justify-between gap-3"><h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.current_details", "Current details")}</h3>{canPrepare && mutable && !editing ? <button type="button" onClick={() => setEditing(true)} className="min-h-11 rounded-full px-2 text-[13px] font-medium text-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/65">{t("business.dossier.edit", "Edit details")}</button> : null}</div>
-            {editing && canPrepare ? <ReceiptFactEditor key={dossier.version} facts={dossier.facts} accounts={accounts} currencies={[...new Set([...accounts.map((account) => account.currency), ...(currency ? [currency] : [])])]} disabled={!mutable} onChange={setDirty} onSave={(facts) => void write("save", facts)} onCancel={() => { setEditing(false); setDirty(false); }} /> : <ReceiptRecordFacts dossier={dossier} accounts={accounts} />}
+            <div className="mb-5 flex items-center justify-between gap-3"><h3 className="text-[14px] font-medium text-black dark:text-white">{(operation.kind === "uncertain" && operation.action === "save" ? t("business.dossier.pending_details", "Your unconfirmed edits") : t("business.dossier.current_details", "Current details"))}</h3>{canPrepare && mutable && !editing ? <button type="button" onClick={() => setEditing(true)} className="min-h-11 rounded-full px-2 text-[13px] font-medium text-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/65">{t("business.dossier.edit", "Edit details")}</button> : null}</div>
+            {editing && canPrepare ? <ReceiptFactEditor key={operation.kind === "uncertain" && operation.action === "save" ? operation.version : dossier.version} facts={dossier.facts} accounts={accounts} currencies={[...new Set([...accounts.map((account) => account.currency), ...(currency ? [currency] : [])])]} disabled={!mutable} onChange={setDirty} onSave={(facts) => void write("save", facts)} onCancel={() => { setEditing(false); setDirty(false); }} /> : <ReceiptRecordFacts dossier={dossier} accounts={accounts} />}
           </div>
+          {editing && operation.kind === "uncertain" && operation.action === "save" ? <div className={cardClass}><h3 className="mb-5 text-[14px] font-medium text-black dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
           {dossier.blockers.length ? <div className={`${cardClass} text-[13px] text-black/70 dark:text-white/70`}><p className="font-medium">{t("business.dossier.before_approval", "Before approval")}</p><ul className="mt-2 space-y-2">{dossier.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}>{t(`business.dossier.blocker.${blocker.code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))}{blocker.field ? ` · ${t(`business.dossier.field.${blocker.field}`, blocker.field)}` : ""}</li>)}</ul></div> : null}
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}

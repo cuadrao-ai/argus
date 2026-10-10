@@ -223,20 +223,42 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByText("Recorded", { exact: true })).toHaveCount(0);
   });
 
-  test("uncertain save stays locked until a status read resolves the saved revision", async ({ page }) => {
-    await openRecord(page, dossierFixtureIds.saveUnknown);
+  for (const scenario of ["saveUnknown", "saveConcurrent"] as const) {
+    test(`uncertain save retains its correction after status read: ${scenario}`, async ({ page }) => {
+      await openRecord(page, dossierFixtureIds[scenario], "es-419");
+      await page.getByRole("button", { name: "Editar detalles", exact: true }).click();
+      const merchant = page.getByRole("textbox", { name: "Comercio o persona", exact: true });
+      await merchant.fill("My retained correction");
+      await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
+      await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("resultado de la acción");
+      await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
+      await expect(page.getByText("Revisión 3", { exact: true })).toBeVisible();
+      await expect(merchant).toHaveValue("My retained correction");
+      await expect(merchant).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Guardar detalles de revisión", exact: true })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toBeDisabled();
+      await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("Tus cambios se conservan");
+      await expect(page.getByTestId("receipt-current-facts")).toContainText(scenario === "saveUnknown" ? "My retained correction" : "Other human correction");
+      await page.getByTestId("receipt-history").locator("summary").click();
+      await expect(page.getByTestId("receipt-history").locator("li")).toHaveCount(3);
+      if (scenario === "saveConcurrent") await expect(page.getByTestId("receipt-history")).toContainText("Elena Reyes");
+      await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
+      await expect(page.getByText("Revisión 3", { exact: true })).toBeVisible();
+      await expect(merchant).toHaveValue("My retained correction");
+      await capture(page, `uncertain-${scenario}-spanish`);
+    });
+  }
+
+  test("acknowledged own save settles and a status read preserves its canonical revision", async ({ page }) => {
+    await openRecord(page, dossierFixtureIds.ready);
     await page.getByRole("button", { name: "Edit details", exact: true }).click();
-    await page.getByRole("textbox", { name: "Merchant or person", exact: true }).fill("Reviewed merchant");
+    await page.getByRole("textbox", { name: "Merchant or person", exact: true }).fill("Acknowledged correction");
     await page.getByRole("button", { name: "Save review details", exact: true }).click();
-    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("outcome isn't known");
-    await expect(page.getByRole("button", { name: "Save review details", exact: true })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toBeDisabled();
-    await page.getByRole("button", { name: "Check current record", exact: true }).click();
     await expect(page.getByText("Revision 3", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("receipt-current-facts")).toContainText("Acknowledged correction");
+    await page.getByRole("button", { name: "Check current record", exact: true }).click();
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toBeEnabled();
-    await expect(page.getByTestId("receipt-current-facts")).toContainText("Reviewed merchant");
-    await page.getByTestId("receipt-history").locator("summary").click();
-    await expect(page.getByTestId("receipt-history").locator("li")).toHaveCount(3);
+    await expect(page.getByTestId("receipt-current-facts")).toContainText("Acknowledged correction");
     await page.getByRole("button", { name: "Edit details", exact: true }).click();
     await page.getByRole("textbox", { name: "Merchant or person", exact: true }).fill("New correction");
     await page.getByRole("button", { name: "Save review details", exact: true }).click();
