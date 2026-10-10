@@ -1,15 +1,3 @@
-"""Business pilot wiring: the default-off gate and each request's scope.
-
-Default-off behind ``ARGUS_BUSINESS_PILOT_ENABLED`` and nested inside ingestion,
-since every Business receipt is a document draft and an import. Document intake
-off stops only upload and preparation; what the owner saved stays readable and
-their review, confirm and hand entry keep working. The flag is
-checked first, before authentication, so an off surface is a 404 to everyone.
-The scope always comes from ``resolve_business_scope``, never from the client.
-Until the person starts their space every Business route except the space
-routes answers 404 ``business_space_missing``.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -27,6 +15,7 @@ from argus.api.documents import (
 from argus.api.ingestion import IngestionContext, require_ingestion_context
 from argus.api.whatsapp import whatsapp_runtime
 from argus.domain.business.config import business_pilot_enabled
+from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.service import BusinessService
 from argus.domain.business.spaces import SpaceStore
@@ -75,6 +64,7 @@ def require_business_person(
 class BusinessContext:
     scope: BusinessScope
     service: BusinessService
+    record_context: RecordContext | None = None
 
 
 def _captured(person_id: str) -> frozenset[str]:
@@ -95,9 +85,14 @@ def _context(
     ):
         raise unavailable_problem(request)
     scope = resolve_business_scope(spaces, user_id)
-    if scope is None:
+    if scope is None and not (
+        request.path_params.get("receipt_id")
+        and getattr(request.app.state, "financial_accounts_pool", None)
+    ):
         raise space_missing_problem(request)
-    return BusinessContext(scope, BusinessService(documents, hub.sink, _captured))
+    from argus.api.business_drafts import scoped_legacy
+
+    return scoped_legacy(request, documents, hub, user_id, scope)
 
 
 def require_business(

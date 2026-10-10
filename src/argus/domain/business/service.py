@@ -393,6 +393,13 @@ class BusinessService:
     ) -> dict[str, Any]:
         """A manual expense through the canonical money service."""
 
+        from argus.domain.recording.repository import InMemoryFinancialAccountRepository
+
+        if not isinstance(self.accounts._repository, InMemoryFinancialAccountRepository):
+            raise ReconcileError(
+                "human_approval_required", "Review and approve the expense draft first."
+            )
+
         request = MoneyRequest(
             kind="expense",
             account_id=entered["account_id"],

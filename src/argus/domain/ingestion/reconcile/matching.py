@@ -22,6 +22,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
+from argus.domain.business.contracts.facts import BusinessResolution, legacy_projection
 from argus.domain.ingestion.reconcile.model import ImportEvent, Observation
 
 MATCH_WINDOW_DAYS = 5
@@ -120,21 +121,31 @@ def event_facts(
             observation_facts(o, links) for o in observations if o.live and o is not first
         )
     r = {**event.resolution, **recorded_facts(event.resolution.get("accepted"))}
+    business = event.resolution.get("business")
+    projected = (
+        legacy_projection(BusinessResolution.model_validate(business).facts)
+        if business is not None
+        else {}
+    )
 
     def pick(name: str) -> Any:
+        if name in projected:
+            return projected[name]
         if r.get(name) is not None:
             return r[name]
         return next(
             (getattr(f, name) for f in ordered if getattr(f, name) is not None), None
         )
 
-    amount = r.get("amount")
-    occurred = r.get("occurred_on")
+    amount = pick("amount")
+    occurred = pick("occurred_on")
     return Facts(
-        amount=Decimal(amount) if amount is not None else pick("amount"),
+        amount=Decimal(amount) if amount is not None else None,
         currency=pick("currency"),
         direction=pick("direction"),
-        occurred_on=date.fromisoformat(occurred) if occurred else pick("occurred_on"),
+        occurred_on=(
+            date.fromisoformat(occurred) if isinstance(occurred, str) else occurred
+        ),
         account_id=pick("account_id"),
         mask=pick("mask"),
         kind=pick("kind"),
