@@ -19,7 +19,7 @@ globs:
 ## Frontend (TypeScript)
 
 8. **Unit tests**: Use Vitest (via Bun) for component testing. Test user interactions, not implementation details.
-9. **Mock API in tests**: Set `NEXT_PUBLIC_MOCK_API=true` in test env, then test components using mock endpoints (no real API calls).
+9. **Mock API in tests**: Use the existing Vitest fixtures and mocked API clients. Make no real API calls. `NEXT_PUBLIC_MOCK_API` is a historical note, not a current test toggle.
 10. **Form validation**: Test with zod schemas + react-hook-form; verify error messages render correctly.
 11. **Integration tests**: Test critical workflows end-to-end:
     - Login flow (auth + session persistence)
@@ -28,8 +28,8 @@ globs:
 
 ## Shared
 
-12. **API Contract Testing**: Backend tests must cover all request/response shapes defined in `docs/api_contract.md`. Frontend tests must consume those same types.
-13. **No hardcoded test data**: Use Faker (Python) or `web/lib/mockData.ts` (frontend Faker) for realistic data.
+12. **API Contract Testing**: Backend tests must cover all request/response shapes defined in `docs/API_CONTRACT.md`. Frontend tests must consume those same types.
+13. **No hardcoded test data**: Use Faker in Python and existing frontend test fixtures for realistic data. The old `web/lib/mockData.ts` pointer is historical; no current module exists at that path.
 14. **Rate limit tests**: Include tests for all 4 tiers (free, pro, pro+, enterprise) + quota resets.
 
 ---

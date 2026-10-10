@@ -11,7 +11,15 @@ the [Business handoff](../../handoffs/cuadrao-business-lane.md), and the
 dated checkpoint. Later founder continuations in the scope document supersede
 its local-work pause, but do not prove that every requested outcome was delivered.
 
-## Current documentation assignment
+## Current hosted Business assignment
+
+The [October 10 hosted decision](../argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant)
+and [execution manifest assignment](../argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+own the later bounded integration and staging work. Read them and the current
+Business handoff before acting. #953 has landed; its documentation assignment
+below is complete. It does not dispatch new runtime or web work.
+
+## Historical documentation assignment
 
 1. Fetch `origin/codex/private-alpha-next` and record its SHA.
 2. Reconcile #900 and #910 with current integration and the recorded continuations.
@@ -41,7 +49,7 @@ records their PRs. Do not recreate those changes.
 
 **October 10, 2026 update.** The founder approved the Business agent direction later the same day. The [Business agent execution spec](cuadrao-business-agent-execution-spec.md) now owns the Business build order, the proposed agent contract and the decisions. Where this document says "Business chat stays off" or that the agent audit approves no model-facing implementation, that spec takes priority. Business chat is part of the future agent implementation. This PR changes documents only. It turns on in hosted environments for pilot businesses, through server flags, after J1 passes and the founder approves. Each model-facing change still needs a committed scorecard.
 
-Business chat stays off. This assignment changes no code, schema, flag, UI copy,
+This completed documentation assignment changed no code, schema, flag, UI copy,
 provider setup, or model instruction. It includes no paid calls, hosted actions,
 phone work, main promotion, or broad UI pass.
 
