@@ -13,6 +13,7 @@ from typing import Any, get_args
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from argus.domain.business.contracts.facts import BusinessResolution, legacy_projection
 from argus.domain.ingestion.connections import (
     LIVE,
     ConnectionNotFound,
@@ -185,9 +186,11 @@ class ReconciliationService(Recording):
         now = self.clock()
         with self.store.transaction(user_id, scope=scope) as tx:
             source = tx.event(event_id)
+            self._require_legacy(source)
             if source.version != version:
                 raise StaleEvent()
             target = tx.event(into_event_id)
+            self._require_legacy(target)
             if target.version != into_version:
                 raise StaleEvent()
             if "dismissed" in (source.state, target.state):
@@ -270,6 +273,7 @@ class ReconciliationService(Recording):
         now = self.clock()
         with self.store.transaction(user_id, scope=scope) as tx:
             event = tx.event(event_id)
+            self._require_legacy(event)
             if event.version != version:
                 raise StaleEvent()
             if event.state != "dismissed":
@@ -290,6 +294,7 @@ class ReconciliationService(Recording):
         now = self.clock()
         with self.store.transaction(user_id, scope=scope) as tx:
             event = tx.event(event_id)
+            self._require_legacy(event)
             if event.version != version:
                 raise StaleEvent()
             duplicates.forget(tx, event, now)
@@ -311,6 +316,11 @@ class ReconciliationService(Recording):
     def _view(
         self, tx: ImportTx, event: ImportEvent, context: _ViewContext
     ) -> dict[str, Any]:
+        if "business" in event.resolution:
+            facts = BusinessResolution.model_validate(event.resolution["business"]).facts
+            event = replace(
+                event, resolution={**event.resolution, **legacy_projection(facts)}
+            )
         observations = tx.observations(event.id)
         facts = event_facts(event, observations, context.links)
         unlinked: list[str] = []
@@ -332,8 +342,16 @@ class ReconciliationService(Recording):
             account_shared=shared,
         )
 
+    @staticmethod
+    def _require_legacy(event: ImportEvent) -> None:
+        if "business" in event.resolution:
+            raise ReconcileError(
+                "business_action_required", "Use the Business draft review."
+            )
+
     def _editable(self, tx: ImportTx, event_id: str, version: int) -> ImportEvent:
         event = tx.event(event_id)
+        self._require_legacy(event)
         if event.version != version:
             raise StaleEvent()
         if event.state != "open":
