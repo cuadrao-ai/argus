@@ -4,6 +4,43 @@ This folder contains the private-alpha measurement eval harness. Cases live as
 data fixtures, and the harness asserts typed runtime outcomes instead of exact
 assistant phrasing.
 
+## Business E1 fixture gate
+
+The separate Business corpus is in `business_cases/case_first_flow.yaml`.
+Run `PYTHONPATH=src:web poetry run pytest tests/evals/test_business_eval.py -q --no-cov`
+for free fixture validation and mutation checks. This command makes no model,
+WhatsApp, or database calls. Its green result shows that the assertions detect
+altered synthetic observations. It is not runtime or hosted evidence.
+
+Each scripted step names its trusted actor, channel, immutable source alias,
+owner message or human web command, and expected saved projection. The projection
+checks draft count, revision, facts and fact source links, open questions,
+durable action outcomes with actor, grant and issuer, visible sources, money
+record count and balance delta. The adapter must map generated database IDs to
+the fixture aliases. `web_action` identifies the canonical submitted human
+review or approval command. It must not be labeled as an agent proposal.
+
+The pending T1/W1 adapter takes a case's ordered steps and trusted sender scope,
+runs each through the real LangGraph turn and declared Business executor against
+an isolated database namespace, then reads back the persisted dossier, action
+receipts, MoneyService records and balances after each step. It must obtain
+Business data through a current grant-scoped service projection. Direct
+DataAPI reads cannot supply Business rows. It must also return OpenRouter route
+receipts, exact candidate revision, model IDs, cost and latency. No fixture
+expectation can serve as its observed state. Until that adapter exists and the
+root coordinator authorizes its call budget, the live E1 gate is unavailable.
+The scorecard requires the adapter's capture ID, database namespace, graph and
+executor run ID, and matching candidate SHA before it can report a pass.
+
+`business_eval.py` holds the deterministic comparator and a structured reply
+rubric through the existing OpenRouter adapter. The fixed first judge is
+`x-ai/grok-4.3`. `rubric_calibration.yaml` supplies known-good and known-bad
+Spanish and English examples. Missing or skipped runtime and judge receipts
+remain unavailable in the Business scorecard; fixture checks never produce a
+live pass. The approved runtime candidates are `anthropic/claude-haiku-5.5`,
+`openai/gpt-6-luna-pro`, and `deepseek/deepseek-v4.1-flash`. Catalog availability
+does not measure their latency or reliability.
+
 ## Test Tiers
 
 - **Mocked harness - every change (free, no API calls):**
