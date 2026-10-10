@@ -31,6 +31,7 @@ from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
+from argus.domain.ingestion.whatsapp.business_worker import BusinessWhatsAppWorker
 from argus.domain.ingestion.whatsapp.config import (
     WhatsAppSettings,
     load_whatsapp_settings,
@@ -126,6 +127,7 @@ class DocumentsDestination:
 class WhatsAppRuntime:
     intake: WhatsAppIntake
     settings: WhatsAppSettings
+    worker: BusinessWhatsAppWorker | None = None
 
 
 _runtime: WhatsAppRuntime | None = None
@@ -148,6 +150,7 @@ def build_whatsapp(
     store,  # noqa: ANN001
     client: httpx.AsyncClient,
     app_origin: str | None = None,
+    pool=None,
 ) -> WhatsAppRuntime:
     access_token = settings.access_token.get_secret_value()
     max_bytes = load_document_extraction_settings().max_bytes
@@ -159,9 +162,24 @@ def build_whatsapp(
             phone_number_id=settings.phone_number_id,
             graph_api_version=settings.graph_api_version,
         )
+    worker = None
+    keys = WhatsAppKeys(settings.sender_key.get_secret_value())
+    if pool is not None and documents.hub.box is not None:
+        from argus.api.whatsapp_worker import build_worker
+
+        worker = build_worker(
+            pool,
+            box=documents.hub.box,
+            keys=keys,
+            transport=transport,
+            enabled=lambda: business_pilot_enabled()
+            and load_whatsapp_settings().intake_ready
+            and load_document_extraction_settings().enabled,
+            send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
+        )
     intake = WhatsAppIntake(
         store=store,
-        keys=WhatsAppKeys(settings.sender_key.get_secret_value()),
+        keys=keys,
         media=GraphMedia(
             client=client,
             access_token=access_token,
@@ -173,8 +191,9 @@ def build_whatsapp(
         transport=transport,
         app_origin=app_origin,
         max_bytes=max_bytes,
+        capture_text=worker.captures.capture if worker is not None else None,
     )
-    return WhatsAppRuntime(intake, settings)
+    return WhatsAppRuntime(intake, settings, worker)
 
 
 def start_whatsapp(app: object) -> None:
@@ -205,6 +224,7 @@ def start_whatsapp(app: object) -> None:
                 store=store,
                 client=httpx.AsyncClient(),
                 app_origin=(os.getenv("ARGUS_APP_ORIGIN") or "").strip() or None,
+                pool=pool if api_state.PERSISTENCE_MODE == "supabase" else None,
             )
         )
     except Exception as exc:
