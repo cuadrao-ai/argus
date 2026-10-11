@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from .actions import ActionOutcome, Command, TurnPlan
+from .actions import ActionOutcome, Command, IncomeApprovalCommand, TurnPlan
 from .authority import ActorProvenance
 from .facts import Contract
 
@@ -75,9 +75,14 @@ class ActionReceipt(Contract):
             raise ValueError("receipt provenance must match the actual actor")
         if (self.turn_key is None) != (self.action_index is None):
             raise ValueError("turn key and action index must be supplied together")
+        if isinstance(self.command, IncomeApprovalCommand) and (
+            self.turn_key is not None or self.actor.actor_kind != "member"
+        ):
+            raise ValueError("income approval requires a human command without a turn")
         if self.turn_key is None and self.command.action not in {
             "review_draft",
             "approve_expense",
+            "approve_income",
         }:
             raise ValueError("agent action receipts require their persisted turn plan")
         return self
