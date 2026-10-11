@@ -1,5 +1,3 @@
-"""Guard coverage of readout composers and Business declaration descriptions."""
-
 import json
 from pathlib import Path
 
