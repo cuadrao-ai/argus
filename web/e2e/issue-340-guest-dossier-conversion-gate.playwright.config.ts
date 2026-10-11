@@ -51,6 +51,7 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_URL: "https://test-project.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
       NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN: "argus-local-browser-qa",
+      NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY: "",
       NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY: "",
     },
   },

@@ -296,12 +296,14 @@ describe("shared CAPTCHA acquisition UX", () => {
     const originalNodeEnv = process.env.NODE_ENV;
     const originalLocalToken =
       process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
+    const originalCuadraoSiteKey = process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
     const originalTurnstileSiteKey =
       process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
     const originalApiUrl = process.env.NEXT_PUBLIC_ARGUS_API_URL;
     process.env.NODE_ENV = "production";
     delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
     delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
+    delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
     process.env.NEXT_PUBLIC_ARGUS_API_URL =
       "https://api.argus.example/api/v1";
     try {
@@ -319,6 +321,11 @@ describe("shared CAPTCHA acquisition UX", () => {
       } else {
         process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN =
           originalLocalToken;
+      }
+      if (originalCuadraoSiteKey === undefined) {
+        delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
+      } else {
+        process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY = originalCuadraoSiteKey;
       }
       if (originalTurnstileSiteKey === undefined) {
         delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;

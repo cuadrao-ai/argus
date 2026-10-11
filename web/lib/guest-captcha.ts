@@ -111,11 +111,13 @@ export function guestCaptchaPlanForEnvironment(input: {
   apiUrl: string | undefined;
   localQaToken: string | undefined;
   turnstileSiteKey: string | undefined;
+  cuadraoTurnstileSiteKey?: string;
   browserCaptchaToken?: string | null;
 }): GuestCaptchaPlan {
   const token = guestCaptchaTokenForEnvironment(input);
   if (token) return { kind: "token", token };
-  const siteKey = input.turnstileSiteKey?.trim() ?? "";
+  const siteKey =
+    input.cuadraoTurnstileSiteKey?.trim() || input.turnstileSiteKey?.trim() || "";
   if (input.nodeEnv === "production" && siteKey) {
     return { kind: "turnstile", siteKey };
   }
@@ -130,6 +132,7 @@ function guestCaptchaPlan(
     apiUrl: process.env.NEXT_PUBLIC_ARGUS_API_URL,
     localQaToken: process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN,
     turnstileSiteKey: process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY,
+    cuadraoTurnstileSiteKey: process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY,
     browserCaptchaToken,
   });
 }
