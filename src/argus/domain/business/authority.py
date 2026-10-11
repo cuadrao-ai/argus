@@ -46,6 +46,10 @@ class Authorization:
             raise ActionError("permission_denied", "business_permission_denied")
 
 
+def _profile_label(display_name: str | None, username: str | None) -> str:
+    return (display_name or "").strip() or (username or "").strip() or "Member"
+
+
 def authorize(
     connection: Connection,
     actor: TrustedActor,
@@ -55,10 +59,8 @@ def authorize(
         cursor.execute(
             """select g.id, g.issuer_id, g.capabilities,
                 s.created_by::text as owner_id, s.name,
-                coalesce(nullif(btrim(p.display_name), ''),
-                    nullif(btrim(p.username), ''), 'Member') as actor_name,
-                coalesce(nullif(btrim(i.display_name), ''),
-                    nullif(btrim(i.username), ''), 'Member') as issuer_name
+                p.display_name as actor_name, p.username as actor_username,
+                i.display_name as issuer_name, i.username as issuer_username
             from public.business_client_grants g
             join public.spaces s on s.id=g.space_id
             join auth.users u on u.id=g.grantee_id
@@ -86,10 +88,12 @@ def authorize(
         provenance=ActorProvenance(
             actor_id=actor.actor_id,
             actor_kind=actor.actor_kind,
-            display_name=row["actor_name"],
+            display_name=_profile_label(row["actor_name"], row["actor_username"]),
             grant_id=row["id"],
             issuer_id=row["issuer_id"],
-            issuer_display_name=row["issuer_name"],
+            issuer_display_name=_profile_label(
+                row["issuer_name"], row["issuer_username"]
+            ),
         ),
         capabilities=capabilities,
     )

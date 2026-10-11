@@ -23,6 +23,13 @@ pytestmark = shared.pytestmark
         ("   ", "existing_handle", "existing_handle"),
         (None, None, "Member"),
         ("   ", "   ", "Member"),
+        ("\t", None, "Member"),
+        ("\n", "existing_handle", "existing_handle"),
+        ("\t\n\r\f\v ", "\nexisting_handle\t", "existing_handle"),
+        (None, "\t\n\r\f\v ", "Member"),
+        ("\t María 李 \n\r\f\v", None, "María 李"),
+        ("\u00a0María 李\u2003", None, "María 李"),
+        ("\u00a0\u2003", "existing_handle", "existing_handle"),
     ],
 )
 def test_actor_and_issuer_labels_use_existing_profile_identity(
