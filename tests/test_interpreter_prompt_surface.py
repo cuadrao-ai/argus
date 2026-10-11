@@ -1,10 +1,16 @@
-"""Guard coverage of the two readout composers without widening other APIs."""
+"""Guard coverage of readout composers and Business declaration descriptions."""
 
+import json
 from pathlib import Path
 
 import pytest
+from argus.agent_runtime.business.interpretation import business_interpretation_prompt
+from argus.domain.business.tools.declarations import get_business_declarations
 
-from tests.interpreter_prompt_surface import model_facing_surface
+from tests.interpreter_prompt_surface import (
+    BUSINESS_DECLARATION_OWNER,
+    model_facing_surface,
+)
 
 
 def _write(root: Path, name: str, source: str) -> None:
@@ -111,3 +117,59 @@ def build():
     assert model_facing_surface(tmp_path)[owner] != first[owner]
     _write(tmp_path, owner, source.replace("Implementation detail", "Private helper"))
     assert model_facing_surface(tmp_path)[owner] == first[owner]
+
+
+def _business_declaration_source() -> str:
+    root = Path(__file__).resolve().parents[1]
+    return (root / BUSINESS_DECLARATION_OWNER).read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "description",
+    [declaration.description for declaration in get_business_declarations()],
+)
+def test_each_business_tool_description_changes_its_fingerprint(
+    tmp_path: Path, description: str
+) -> None:
+    source = _business_declaration_source()
+    literal = json.dumps(description)
+    assert source.count(literal) == 1
+    _write(tmp_path, BUSINESS_DECLARATION_OWNER, source)
+    first = model_facing_surface(tmp_path)
+    assert first[BUSINESS_DECLARATION_OWNER]["entries"] == 7
+    changed = source.replace(literal, json.dumps(description + " Changed wording."))
+    _write(tmp_path, BUSINESS_DECLARATION_OWNER, changed)
+    assert (
+        model_facing_surface(tmp_path)[BUSINESS_DECLARATION_OWNER]
+        != first[BUSINESS_DECLARATION_OWNER]
+    )
+
+
+@pytest.mark.parametrize(
+    "unmeasured", ["business_context_required", "business.action", "business_action"]
+)
+def test_business_handler_and_card_text_do_not_change_prompt_fingerprint(
+    tmp_path: Path, unmeasured: str
+) -> None:
+    source = _business_declaration_source()
+    literal = json.dumps(unmeasured)
+    assert literal in source
+    _write(tmp_path, BUSINESS_DECLARATION_OWNER, source)
+    first = model_facing_surface(tmp_path)
+    _write(
+        tmp_path,
+        BUSINESS_DECLARATION_OWNER,
+        source.replace(literal, json.dumps(unmeasured + "_changed")),
+    )
+    assert model_facing_surface(tmp_path) == first
+
+
+def test_measured_business_descriptions_reach_the_actual_prompt(tmp_path: Path) -> None:
+    declarations = get_business_declarations()
+    assert len(declarations) == 7
+    prompt = business_interpretation_prompt({})[0]["content"]
+    assert all(declaration.description in prompt for declaration in declarations)
+    _write(tmp_path, BUSINESS_DECLARATION_OWNER, _business_declaration_source())
+    assert model_facing_surface(tmp_path)[BUSINESS_DECLARATION_OWNER]["entries"] == len(
+        declarations
+    )
