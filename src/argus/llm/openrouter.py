@@ -885,22 +885,20 @@ def _json_schema_payload(
     schema_name: str,
     profile: OpenRouterProfile,
 ) -> dict[str, object]:
+    schema = schema_model.model_json_schema()
     openai_document = profile.task == "document_extraction" and model.startswith("openai/")
     sampling_parameters = (
         {} if openai_document or openrouter_model_tier_for_task(profile.task) == "readout"
         else model_policy.model_sampling_parameters(model, profile.temperature)
     )
-    if model.startswith("anthropic/"):
-        # Anthropic strict structured outputs reject core shapes of our
-        # schemas (numeric bounds, any-typed values, open objects such as
-        # extra_parameters), so every native json_schema call 400s. Embed the
-        # schema in a system message instead; client-side pydantic validation
-        # and the candidate retry loop own correctness either way.
+    if model_policy.uses_schema_message(model, schema, projected=openai_document):
+        # Native grammar eligibility never changes the canonical schema.
+        # Prompt-schema responses still require exact local typed validation.
         schema_message = {
             "role": "system",
             "content": (
                 _SCHEMA_IN_PROMPT_INSTRUCTION
-                + json.dumps(schema_model.model_json_schema())
+                + json.dumps(schema)
             ),
         }
         payload: dict[str, object] = {
@@ -909,6 +907,8 @@ def _json_schema_payload(
             **sampling_parameters,
             "max_tokens": profile.max_tokens,
         }
+        if model.startswith("openai/"):
+            payload["provider"] = {"require_parameters": True}
         _apply_reasoning_for_structured_artifact(payload, profile)
         return payload
     payload = {
@@ -919,7 +919,7 @@ def _json_schema_payload(
             "json_schema": {
                 "name": schema_name,
                 "strict": True,
-                "schema": _document_wire_schema(schema_model.model_json_schema()) if openai_document else schema_model.model_json_schema(),
+                "schema": _document_wire_schema(schema) if openai_document else schema,
             },
         },
         "provider": {"require_parameters": True},
