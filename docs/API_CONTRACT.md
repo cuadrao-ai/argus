@@ -8855,8 +8855,34 @@ projection. Only currency may default, to DOP with `origin: default` and
 `verified: false`. There is no default activity date, account, kind or fiscal
 treatment. Exact money values cross the wire as decimal strings.
 
-The first recording flow supports expense approval. Income remains a distinct
-draft kind and is never coerced to expense. Other kinds remain draft proposals.
+The existing recording flow supports expense approval. The M1 income extension
+adds the human-only `ApproveIncome` request `{version, action: "record_income"}`
+and server `IncomeApprovalCommand` `{action: "approve_income", draft_id, request}`.
+Its version is an exact positive JSON integer; booleans, strings and floats are
+rejected. It belongs only to the human command union, never `BusinessAction` or
+`TurnPlan`. The existing draft approval route is the intended adapter for both
+explicit commands; handler, readiness and MoneyService adoption are separate
+Actions work until verified. `record_expense` retains its existing wire behavior
+and cannot approve an income draft; `record_income` cannot approve an expense.
+Income is never coerced to expense. Other kinds remain draft proposals.
+
+Income approval uses the current canonical facts, original sources and exact
+reviewed revision, with the same live named `approve` grant and human provenance.
+Readiness requires known income kind, positive amount, currency, activity date,
+and an explicit eligible receiving Business account belonging to that client.
+Unknown account or other material facts remain blockers; no account, category,
+income source, receipt or allocation is invented. Existing Business allocation
+and unresolved-question checks still apply. `owner_funds` cannot fund income.
+An expense category is not silently relabeled as an income source; the sole
+MoneyService validates applicable fields and receiving-account eligibility.
+The command contains no replacement facts, account or caller authority.
+
+Income receipts preserve the existing scoped key/hash/result contract. Replay
+uses the same original actor/grant/issuer, target and revision; drift conflicts,
+revocation denies, and a concurrent edit remains stale. The permission/version
+check and acceptance claim commit before the canonical MoneyService effect;
+recovery uses the persisted request/key, with no second ledger or blind retry
+of an unknown effect. Recorded-income amendment remains unsupported.
 `funding={kind: owner_funds}` records one expense only after human approval. It
 must not debit a Business bank account or decide whether capital or debt is owed.
 Post-recording corrections are refused with `recorded_correction_unsupported`;
