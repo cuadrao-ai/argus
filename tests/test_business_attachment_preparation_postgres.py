@@ -104,14 +104,15 @@ def bind(prepared, target=None):
     return service.capture_attachment_preparation(context, UUID(cid), target=target)
 
 
-def finish(prepared):
-    service, context, _, cid, holder, _ = prepared
+def finish(prepared, digest=None):
+    service, context, _, cid, holder, batch = prepared
     return service.prepare_attachment(
         user_id=context.owner_id,
         connection_id=cid,
         scope=context.scope,
         holder=holder,
         attempt_id=None,
+        expected_batch_sha256=canonical_input_hash(batch) if digest is None else digest,
     )
 
 
@@ -275,3 +276,75 @@ def test_completion_recheck_rolls_back_draft_and_receipt(prepared, monkeypatch, 
             ).fetchone()[0]
             == 0
         )
+
+
+def test_wrong_well_formed_batch_digest_refuses_before_writes(prepared):
+    service, context, _, _, _, batch = prepared
+    binding = bind(prepared)
+    changed = batch.model_copy(
+        update={"metadata": {**batch.metadata, "extra": "changed"}}
+    )
+    for digest in ("f" * 64, canonical_input_hash(changed)):
+        with pytest.raises(ActionError, match="business_preparation_batch_changed"):
+            finish(prepared, digest)
+    with service.authority.pool.connection() as db:
+        assert (
+            db.execute(
+                "select count(*) from public.business_action_receipts where idempotency_key=%s",
+                (str(binding.binding_id),),
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            db.execute(
+                "select count(*) from public.business_draft_revisions where space_id=%s",
+                (context.actor.space_id,),
+            ).fetchone()[0]
+            == 0
+        )
+
+
+def test_new_grant_does_not_rescue_revoked_original(prepared):
+    service, context, grant, _, _, _ = prepared
+    bind(prepared)
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where id=%s",
+            (grant,),
+        )
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values (%s,%s,%s,array['read','prepare'])",
+            (context.actor.space_id, context.actor.actor_id, context.owner_id),
+        )
+    with pytest.raises(ActionError):
+        finish(prepared)
+
+
+def test_disconnected_source_refuses_completion(prepared):
+    service, _, _, cid, _, _ = prepared
+    bind(prepared)
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.financial_source_connections set status='disconnected' where id=%s",
+            (cid,),
+        )
+    with pytest.raises(ActionError):
+        finish(prepared)
+
+
+def test_nonexistent_target_refuses_binding(prepared):
+    with pytest.raises(ActionError):
+        bind(prepared, ExistingDraft(draft_id=uuid4(), version=1))
+
+
+def test_accepted_target_refuses_completion(prepared):
+    service, context, _, _, _, _ = prepared
+    draft_id, version = create(service, context)
+    bind(prepared, ExistingDraft(draft_id=draft_id, version=version))
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.financial_import_events set state='accepted' where id=%s",
+            (draft_id,),
+        )
+    with pytest.raises(ActionError, match="recorded_correction_unsupported"):
+        finish(prepared)

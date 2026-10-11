@@ -129,7 +129,7 @@ def test_receipt_projection_keeps_unknown_fiscal_and_verified_values(
         amount="250.50",
         currency="DOP",
         kind_hint="expense",
-        merchant="Extracted shop",
+        merchant="Owner named shop",
     )
     batch = ExtractionBatch(
         complete=True,
@@ -165,3 +165,65 @@ def test_receipt_projection_keeps_unknown_fiscal_and_verified_values(
     assert after.amount.source_ids == (source_id,)
     assert after.fiscal.rnc.state == "unknown"
     assert after.fiscal.itbis.state == "unknown"
+
+
+@pytest.mark.parametrize("field", ["amount", "fiscal"])
+@pytest.mark.parametrize("origin", ["extracted", "matched", "owner_stated", "member_set"])
+@pytest.mark.parametrize("incoming", ["absent", "equal", "conflict"])
+def test_existing_receipt_facts_are_never_silently_replaced(
+    checked, monkeypatch, field, origin, incoming
+):
+    from argus.domain.business.actions import mutations, sources
+    from argus.domain.business.contracts.actions import ExistingDraft
+    from argus.domain.business.contracts.facts import BusinessFacts
+    from argus.domain.ingestion.contract import ImportCandidate, SourceRef
+    from argus.domain.ingestion.documents.models import ExtractionBatch, ReceiptDetails
+
+    _, tx, binding, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    prior_fact = {
+        "state": "known",
+        "value": "250.5",
+        "origin": origin,
+        "verified": False,
+        "source_ids": [str(uuid4())],
+    }
+    prior = BusinessFacts.model_validate(
+        {"amount": prior_fact} if field == "amount" else {"fiscal": {"itbis": prior_fact}}
+    )
+    value = None if incoming == "absent" else "250.50" if incoming == "equal" else "300"
+    candidate = ImportCandidate(
+        source=SourceRef(
+            source="statement",
+            connection_id=draft.connection_id,
+            external_id=draft.sha256,
+            observed_at=draft.created_at,
+        ),
+        evidence="transaction",
+        direction="outflow",
+        amount=value if field == "amount" else "1000",
+        currency="DOP",
+    )
+    batch = ExtractionBatch(
+        complete=True,
+        readable=True,
+        candidates=(candidate,),
+        receipt=ReceiptDetails(itbis=value if field == "fiscal" else None),
+    )
+    event = mutations.new_candidate(str(binding.owner_id), draft.created_at)
+    monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
+    monkeypatch.setattr(mutations, "event_at", lambda *args: event)
+    monkeypatch.setattr(mutations, "facts_of", lambda *args: prior)
+    save = Mock()
+    monkeypatch.setattr(mutations, "save_revision", save)
+    target = ExistingDraft(draft_id=event.id, version=1)
+    if incoming == "conflict":
+        with pytest.raises(ActionError, match="receipt_requires_review"):
+            mutations.prepare_attachment(tx, target, batch, draft, binding.actor)
+        save.assert_not_called()
+    else:
+        mutations.prepare_attachment(tx, target, batch, draft, binding.actor)
+        after = save.call_args.args[3]
+        assert (after.amount if field == "amount" else after.fiscal.itbis) == (
+            prior.amount if field == "amount" else prior.fiscal.itbis
+        )

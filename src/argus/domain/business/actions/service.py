@@ -457,6 +457,7 @@ class BusinessActions:
         scope: OwnerScope,
         holder: str,
         attempt_id: str | None,
+        expected_batch_sha256: str,
     ) -> ActionOutcome:
         binding, context = self._attachment_context(user_id, connection_id, scope)
         with transaction(self.authority, context, "prepare") as tx:
@@ -475,9 +476,12 @@ class BusinessActions:
                 for candidate in batch.candidates
             ):
                 raise ActionError("invalid_input", "business_preparation_source_changed")
-            command = PrepareAttachmentCommand(
-                binding=binding, batch_sha256=canonical_input_hash(batch)
-            )
+            saved_digest = canonical_input_hash(batch)
+            if expected_batch_sha256 != saved_digest:
+                raise ActionError(
+                    "idempotency_conflict", "business_preparation_batch_changed"
+                )
+            command = PrepareAttachmentCommand(binding=binding, batch_sha256=saved_digest)
             key = str(binding.binding_id)
             saved = plans.receipt(tx, key, command)
             if saved is not None:
@@ -485,6 +489,8 @@ class BusinessActions:
                 if result.outcome not in {"applied", "replayed"}:
                     raise ActionError("invalid_input", "business_preparation_unsettled")
                 return result
+            if binding.target is not None:
+                mutations.event_at(tx, binding.target)
             plans.start_receipt(tx, key, command)
             result = mutations.prepare_attachment(
                 tx, binding.target, batch, draft, binding.actor

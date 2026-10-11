@@ -313,13 +313,8 @@ def prepare_attachment(
         uncertain.add("counterparty")
     if "direction" in uncertain:
         uncertain.add("kind")
-    facts = (before or BusinessFacts()).model_dump(mode="json")
+    facts = BusinessFacts().model_dump(mode="json")
     for name, value in values.items():
-        existing = getattr(before, name) if before else None
-        if existing is not None and (
-            existing.verified or existing.origin in {"owner_stated", "member_set"}
-        ):
-            continue
         known = value is not None and name not in uncertain
         facts[name] = {
             "state": "known" if known else "unknown",
@@ -328,14 +323,29 @@ def prepare_attachment(
             "verified": False,
             "source_ids": [str(source_id)],
         }
-    fiscal = fiscal_facts_from_receipt(batch.receipt, source_id=source_id).model_dump(
-        mode="json"
-    )
-    if before and before.fiscal:
-        for name in fiscal:
-            prior = getattr(before.fiscal, name)
-            if prior.verified or prior.origin in {"owner_stated", "member_set"}:
-                fiscal[name] = prior.model_dump(mode="json")
-    facts["fiscal"] = fiscal
+    facts["fiscal"] = fiscal_facts_from_receipt(
+        batch.receipt, source_id=source_id
+    ).model_dump(mode="json")
+    facts = BusinessFacts.model_validate(facts).model_dump(mode="json")
+    if before is not None:
+        merged = before.model_dump(mode="json")
+        for name in values:
+            merged[name] = _retain_or_fill(merged[name], facts[name])
+        if merged["fiscal"] is None:
+            merged["fiscal"] = facts["fiscal"]
+        else:
+            for name, incoming in facts["fiscal"].items():
+                merged["fiscal"][name] = _retain_or_fill(merged["fiscal"][name], incoming)
+        facts = merged
     after = BusinessFacts.model_validate(facts)
     return save_revision(tx, event, before, after, (source_id,), actor, None)
+
+
+def _retain_or_fill(prior: dict, incoming: dict) -> dict:
+    if incoming["state"] != "known":
+        return prior
+    if prior["state"] == "unknown":
+        return incoming
+    if prior["state"] == "known" and prior["value"] == incoming["value"]:
+        return prior
+    raise ActionError("invalid_input", "receipt_requires_review")

@@ -516,7 +516,10 @@ class DocumentsService:
             ):
                 raise DocumentServiceError("document_lease_lost", retryable=True)
             if business:
+                from argus.domain.business.contracts.actions import canonical_input_hash
+
                 self.business_actions.prepare_attachment(
+                    expected_batch_sha256=canonical_input_hash(batch),
                     user_id=user_id,
                     connection_id=connection_id,
                     scope=scope,
