@@ -1,6 +1,6 @@
 # Argus private iPhone execution manifest
 
-**Updated:** October 11, 2026 coordinator checkpoint through canonical #961 landing and local connected Business proof, with live quality and hosted gates pending under the October 10 23:37 UTC owner-handoff continuation.
+**Updated:** October 11, 2026 coordinator checkpoint through #963 landing and bounded manual-note allocation; live quality and hosted gates remain pending under the October 10 23:37 UTC owner-handoff continuation.
 **Execution state:** Consumer PR #937 is merged with accepted simulator evidence and green pre-merge CI. Build 3455 is installed; hosted manual-money acceptance remains open. The current Consumer assignment below supersedes the older sequencing only for this lane. The [October 4 code checkpoint](../reports/2026-10-04-cuadrao-code-integration-landing.md) retains its historical evidence.
 **Product owner:** [MVEE](argus-minimum-viable-ecosystem-experience.md).
 **Authority and onboarding:** [DOCUMENTATION_AUTHORITY](../DOCUMENTATION_AUTHORITY.md).
@@ -50,7 +50,7 @@ Only `/root` serializes reconciliation, merge, live calls and staging.
 
 The exact boundary-ownership continuation LANDED through #960 at
 integration `52ce3620a729b2d8fb80d3bdfe99fdddeae19931`, reviewed tree
-`0a4279fc0be5b72efada7c516dcb3b92d4d62a37`. Current canonical integration
+`0a4279fc0be5b72efada7c516dcb3b92d4d62a37`. The retained integration checkpoint
 `39c5322d5e2a3d6470d1dbd2d3661e557a824f14` LANDED #961 BoundDraft on parent
 `598e1c3db0ff58108f8cfd83fa37c579dc11054d`, tree
 `71fc8f9eafdc4cfb4b10e2dc6b242259ce9d69f3`. Its
@@ -63,13 +63,25 @@ preserving all profiles and behavior, with no new module/framework or budget
 bypass. The bounded capability follow-up and E1 fake-transport reconciliation remain
 PENDING, as do actual quality, judge, consent and hosted gates.
 
+#962 shared context LANDED at `479cc10918db57b454fff27c9c6b9b453bdfa4a6`,
+source `d0605ce6e1c76113f60064705f8d1dd35f43405f`; its
+[postmerge CI 38110738783](https://github.com/lagarcess/argus/actions/runs/38110738783)
+and [smoke 38110738798](https://github.com/lagarcess/argus/actions/runs/38110738798)
+fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/962#issuecomment-6106294794)).
+Current fetched integration is `7ac57b6d7ebb4940f7c13c3bb0ee5c392a1f2da8`,
+#963 LANDED from reviewed source `09a84ba20282d1509eaf8b5e5de8476d31dc92b1`
+on parent 479cc, tree `8e1c5a920618047c89f6e837babf962f25d77bce`.
+[Postmerge CI 38119452790](https://github.com/lagarcess/argus/actions/runs/38119452790)
+and [smoke 38119452833](https://github.com/lagarcess/argus/actions/runs/38119452833)
+are PENDING at this checkpoint, not passing evidence.
+
 | Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
-| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; retained owner source `3cc1ee9d03982e198bfe836aaf9b2141f2fef8c7`, authorized canonical #961 import `265caad5f3cfd15e88baf042ffde2e5836c403ab` | #954, #958 and #960 LANDED; current four-path E1/C0 ownership allocation PENDING independent review. Authored scope is ownership metadata and these two docs only. |
-| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, original source `2cf078c323816ca01e3a7022306ab9e52b7ec475`, current display-label repair `9bbdeb8783d851b02113defc6a78eb651fcefd86` | C0 #955 and server BoundDraft #961 LANDED. Source-backed full-name presentation repair passed 63/63 actual Postgres tests (28 new and 35 Actions/bound-reference); independent whitespace follow-up review CLEAR. Publication remains separate. It changes no grants, schema or historical data. |
-| `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, reviewed source `76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c` | #959 LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`; postmerge CI38107050284 and smoke38107050280 succeeded. #961 subsequently LANDED server BoundDraft. Business quality/hosted acceptance remain pending. |
+| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; retained owner source `d0605ce6e1c76113f60064705f8d1dd35f43405f`, authorized #963 import `c05475a4d0771fe400db6a7f81c4b2c23230fe30` | #954, #958, #960 and #962 LANDED; current eight-path manual-note allocation PENDING independent review. Authored scope is ownership metadata and these two docs only. |
+| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, original source `2cf078c323816ca01e3a7022306ab9e52b7ec475`, retained label repair `9bbdeb8783d851b02113defc6a78eb651fcefd86`, current clean source `09a84ba20282d1509eaf8b5e5de8476d31dc92b1` | #955, #961 and label repair #963 LANDED; #963 postmerge CI/smoke PENDING. Earlier 63/63 local Postgres proof retained. Assigned manual CaptureNote contract/recovery/70000 migration and SQL proof before Actions; this restoration remains PENDING and changes no approval authority. |
+| `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, retained reviewed source `76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c`, current clean reconciliation `935beb3642d5ad12daab28ceeb78885147cb3639` (tree equals 479cc) | #959 LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`; postmerge CI38107050284 and smoke38107050280 succeeded. Assigned manual capture/list implementation and generated OpenAPI after C0 freeze; restoration PENDING. #961 subsequently LANDED server BoundDraft. Business quality/hosted acceptance remain pending. |
 | M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | LANDED PR #957 as eb62ad5e, reviewed tree b0c7c44c with parent0ebfd08e. Prior bounded fix retained; postmerge CI38099618928/smoke38099618926 SUCCESS (terminal comment6104002935). No new semantics grant. |
-| `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
+| `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56`, current clean `0d8afb73e040f80a6df271435cac4a4aa29b8749` | Actual visible replay and app captures active. Manual-capture UI depends on backend freeze; no new UI path assigned here. LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
 | `/root/accountant_ui_review` / preserved capture and search audit | Read-only original human approvals and preserved sandbox `df208f7ec2379cd84efd55eea0deb685d67c5360` | Assigned a bounded source/decision/coverage audit of five approved unpublished outcomes. This is no implementation writer assignment; root assigns bounded restoration after the audit. |
 | `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, retained guard `1a904bd00862998d0f97da6b4d92ea1666725730`, scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1`, generic product policy `a9b9756481a054479696309ece1a352f25d7262a`, current schema-eligibility source `b922a642452f2d759f44688c8dcf7a55eeba1f8c` | PENDING integration/live scorecard/fingerprint. Latest reported broader run 764 PASS/two real FAIL, both unmeasured Business gates. E1 owns generic fake-transport reconciliation; earlier be33 17 harness failures are not counted in this latest run. Preserve 25 legacy entries and `last_measured` exactly; no waiver or quality pass. |
 | `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING root graft/integration; final full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
@@ -146,9 +158,50 @@ C0's new source/fact contracts are LANDED; they do not implement those missing
 UX/channel families. The old manual-note dead-end is SUPERSEDED by the current
 C0 draft flow. `/root/accountant_ui_review` now audits the five approved
 outcomes read-only against their original source/decision and current coverage.
-Root then assigns bounded reconciliation with the existing capture,
-presentation and authority owners; this record dispatches no implementation
-writer or wholesale sandbox promotion.
+Root now assigns only the bounded manual-note package below to the existing C0
+and Actions owners. The coverage audit and other four families remain PENDING;
+this promotes neither the sandbox wholesale nor a broad UI restoration.
+
+### Bounded manual-note restoration allocation
+
+Root approved the [retained saved-note outcome](../handoffs/cuadrao-business-lane.md#retained-approved-capture-and-search-outcomes)
+for a first human manual-text command linked to the canonical dossier. This
+package is PENDING implementation, review and acceptance. C0 freezes human
+`CaptureNote` with optional existing-draft/version reference in `Command`, never
+model `BusinessAction`/`TurnPlan`, and the narrowly admitted no-turn receipt.
+C0 alone writes `tests/business/test_contracts.py`, `docs/API_CONTRACT.md` and
+`docs/DATA_MODEL.md` for this slice. Root reserves
+`supabase/migrations/20261011070000_business_manual_capture_command.sql` for C0;
+the pre-allocation check found no filename/timestamp collision in canonical 7ac
+or 122 registered migration directories. C0 adds only `src/argus/domain/business/contracts/recovery.py`, that migration and
+`tests/test_business_manual_capture_contract_postgres.py` to its existing scope.
+There is no database application grant to a worker.
+
+Actions adds exactly `src/argus/domain/business/actions/captures.py`,
+`src/argus/api/business_manual_schemas.py`,
+`src/argus/api/routers/business_manual.py`,
+`tests/business/test_actions_capture_api.py` and
+`tests/test_business_manual_capture_postgres.py`. Actions alone writes generated
+`docs/api/openapi.yaml`, its existing financial router/service, and mutations
+only for canonical candidate-constructor reuse. Freeze C0 before Actions and
+OpenAPI, then serialize UI contract work with its current owner.
+
+The frozen contract must preserve original text, server-resolved current grant
+and actor, exact existing-draft revision, immutable source linkage and atomic
+source/candidate/revision/command receipt. Replay returns the same identity;
+input drift, stale append, revoked and cross-client access must reject. Use
+unknown facts, no Money/balance write, model call or fake agent turn. Search/list
+requires live read authority. This first slice creates or appends to an open
+draft; accepted-record amendment and grant-only new-client creation remain
+outside it. Do not infer a client or bootstrap a grant. Capture alone is not
+recording or full saved-note acceptance.
+
+All five retained approved families remain PENDING, including note search/UI,
+attachment continuity and email/hover/upload recovery outside this slice.
+Business spec3.3 still requires **X1 and CSV plus Excel with funding and receipts
+now**. Export/X1 need their bounded assignments; they are not reclassified as
+later K1, implemented or silently omitted. Live T1 measurements remain failed/
+unmeasured; judge choice, consent and hosted acceptance remain pending.
 
 Register the lane's explicit owned files in
 [branch ownership](../../.agent/ownership/branch_ownership.json), using
@@ -331,8 +384,8 @@ balance/version movement, and HTTP 404 outside the named grant. The Spanish
 `es-419` fresh browser and database readback passed with retained screenshot
 `output/playwright/connected-flow-spanish-approved.png`. It proves a local
 synthetic first flow, not phone, hosted WhatsApp, live calibrated quality,
-consent or customer acceptance. The generic `Member` actor label remains a
-presentation defect. C0's bounded source-backed full-name repair at
+consent or customer acceptance. The earlier readback showed a generic `Member` actor label. Its bounded repair
+has now LANDED through #963; fresh visible validation remains separate. C0's bounded source-backed full-name repair at
 `9bbdeb8783d851b02113defc6a78eb651fcefd86` passed 63/63 actual
 Postgres tests (28 new and 35 Actions/bound-reference); independent
 whitespace follow-up review is CLEAR. C0 alone owns

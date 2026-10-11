@@ -1,7 +1,17 @@
 # Cuadrao Business lane handoff
 
 **Current October 11 coordinator checkpoint.** Canonical integration is
-`39c5322d5e2a3d6470d1dbd2d3661e557a824f14`: #961 BoundDraft LANDED
+`7ac57b6d7ebb4940f7c13c3bb0ee5c392a1f2da8`: #963 label repair LANDED from
+reviewed source `09a84ba20282d1509eaf8b5e5de8476d31dc92b1`, parent 479cc,
+tree `8e1c5a920618047c89f6e837babf962f25d77bce`. Its
+[postmerge CI38119452790](https://github.com/lagarcess/argus/actions/runs/38119452790)
+and [smoke38119452833](https://github.com/lagarcess/argus/actions/runs/38119452833)
+remain PENDING. #962 source `d0605ce6e1c76113f60064705f8d1dd35f43405f` LANDED
+at `479cc10918db57b454fff27c9c6b9b453bdfa4a6`; postmerge
+[CI38110738783](https://github.com/lagarcess/argus/actions/runs/38110738783) and
+[smoke38110738798](https://github.com/lagarcess/argus/actions/runs/38110738798)
+fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/962#issuecomment-6106294794)).
+The retained integration `39c5322d5e2a3d6470d1dbd2d3661e557a824f14`: #961 BoundDraft LANDED
 on parent `598e1c3db0ff58108f8cfd83fa37c579dc11054d`, tree
 `71fc8f9eafdc4cfb4b10e2dc6b242259ce9d69f3`. Its
 [postmerge smoke 38108733609](https://github.com/lagarcess/argus/actions/runs/38108733609)
@@ -136,8 +146,9 @@ Personal balance/version movements, and HTTP 404 outside the named grant.
 The fresh Spanish (`es-419`) browser and database readback passed and retained
 `output/playwright/connected-flow-spanish-approved.png`. This verifies a local
 synthetic first flow, not a phone, hosted WhatsApp delivery, calibrated live
-quality, consent or customer readiness. The observed generic `Member` actor
-display label remains a presentation defect; C0's bounded full-name repair
+quality, consent or customer readiness. The earlier readback showed a generic `Member` actor
+display label; its bounded repair has now LANDED through #963, with fresh visible
+validation separate; C0's bounded full-name repair
 at `9bbdeb8783d851b02113defc6a78eb651fcefd86` passed 63/63 actual
 Postgres tests (28 new and 35 Actions/bound-reference tests); its independent
 whitespace follow-up review is CLEAR. It changes no grants,
@@ -281,7 +292,7 @@ that temporary grant standing authority for a new hosted cutover.
 | --- | --- | --- |
 | Email grouping and attachment context | `84730a0a5`, `9a14080d4`, evidence `eb7818b03` | PENDING: one attachment row with accessible email context; raw EML is not a second approvable receipt. Current UI message display does not restore email envelope/attachment grouping. |
 | Search dossier hover, touch and keyboard | `4ea00e4e2`, `1019f9c9e`, `63e116bd4`, tests `7666b8bf5` | PENDING: hover and saved-note preview remain absent in UI `7667ee1e`/`17d972bc`; click/Enter proof does not close hover. Preserve existing touch/keyboard behavior against new C0 dossier shapes. |
-| Saved manual notes | `effca690f`, restart proof `e4890166a` | PENDING web sparse-note entry, search and original-text continuity. Old `manual_capture_review_unavailable` dead-end is SUPERSEDED by current C0 draft/review flow. Capture alone changes neither balances nor expenses. |
+| Saved manual notes | `effca690f`, restart proof `e4890166a` | PENDING: bounded C0/Actions human CaptureNote backend allocation approved; sparse-note UI, search, original-text and later attachment continuity still need implementation/acceptance. Old `manual_capture_review_unavailable` dead-end is SUPERSEDED by current C0 draft/review flow. Capture alone changes neither balances nor expenses. |
 | Seven web formats and per-file recovery | `025fed4b0`, `26e0a35f5`, `7f8ac97dc`, `680409585`, byte proof `530114e69` | PENDING TXT/CSV/XLSX/EML and queue/retry beyond baseline PDF/JPEG/PNG. Seven counts JPEG and PNG separately. Preserve original bytes, per-file failure/siblings, safe recovery and Personal format policy. |
 | Email receiving, business routing and download retry | `eef83a5b4`, `5e435be86`, `3b02f4dc7`, `7f2f7426e`, `4bc4a7579` | PENDING signed receipt, exact configured recipient mapping, immutable business binding and bounded retry through current authority. Prior one-recipient local proof does not establish multi-customer or hosted readiness. |
 
@@ -289,10 +300,24 @@ Every abbreviated commit above resolves uniquely to a preserved source object
 under the sandbox head. C0 contracts are LANDED as #955; these channel and UX
 outcomes remain PENDING until their own implementation/acceptance evidence.
 `/root/accountant_ui_review` now owns a read-only source/decision/coverage audit
-of these five approved outcomes. Root coordinates existing capture,
-presentation, API/data and authority owners after that audit before assigning
-bounded restoration writers. This audit assigns no implementation writer or
-broad UI pass and does not promote the sandbox wholesale.
+of these five approved outcomes. Root has now assigned only the first manual-note
+backend package to existing C0/Actions owners; it does not close any of the five
+families or promote the sandbox wholesale. C0 clean source is `09a84ba20282d1509eaf8b5e5de8476d31dc92b1`;
+Actions clean reconciliation is `935beb3642d5ad12daab28ceeb78885147cb3639`, whose tree
+equals 479cc. The [manifest's bounded allocation](../specs/argus-execution-board.md#bounded-manual-note-restoration-allocation)
+reserves 70000 for C0 and assigns eight exact new allow paths. C0 alone freezes
+human Command/recovery, shared contract tests and API/data docs; Actions alone
+implements capture/list and generates OpenAPI afterward. Atomic immutable
+original/source/revision/receipt, live server-resolved grants, replay and denial
+proof precede acceptance. No worker DB/provider/deploy grant follows.
+
+UI owner at `0d8afb73e040f80a6df271435cac4a4aa29b8749` has actual visible replay/app
+captures active; manual UI work awaits backend freeze and exact allocation.
+No model action or fake turn replaces a human note command. Open-draft capture
+changes no Money/balance; accepted-record amendments and grant-only new-client
+creation are outside this first slice. Spec 3.3 **X1 and CSV/Excel with funding
+and receipts remain required now**, separately pending bounded assignments.
+T1 failed/unmeasured quality, judge choice, consent and hosted gates remain open.
 
 Counsel's exact original six-rule approval source remains UNKNOWN. Later direct
 human grant/model direction supersedes old rigid-custodian/role maps, fixed
