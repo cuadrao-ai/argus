@@ -6,7 +6,7 @@ on parent `598e1c3db0ff58108f8cfd83fa37c579dc11054d`, tree
 `71fc8f9eafdc4cfb4b10e2dc6b242259ce9d69f3`. Its
 [postmerge smoke 38108733609](https://github.com/lagarcess/argus/actions/runs/38108733609)
 succeeded; [required CI 38108733535](https://github.com/lagarcess/argus/actions/runs/38108733535)
-is pending at this checkpoint. #959 Actions LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`
+also succeeded ([terminal #961 evidence](https://github.com/lagarcess/argus/pull/961#issuecomment-6105153549)). #959 Actions LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`
 with [postmerge CI 38107050284](https://github.com/lagarcess/argus/actions/runs/38107050284)
 and [smoke 38107050280](https://github.com/lagarcess/argus/actions/runs/38107050280)
 successful. #960 boundary allocation LANDED at `52ce3620a729b2d8fb80d3bdfe99fdddeae19931`,
@@ -118,8 +118,9 @@ The E1 funding-follow-up oracle/source reconciliation is retained at
 `4038a181838fcbe85653e1b3dcad06f453b0b3b7`, fixture digest
 `b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`.
 Its narrow review and 24 free tests passed. Current E1 head
-`cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205` is under root corpus
-Postgres proof; no completed result is claimed. Live quality remains PENDING.
+`cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205` passed root corpus
+Postgres proof 8/8, zero skips, covering all seven cases and foreign denial.
+Live quality remains PENDING.
 The earlier held-out Haiku capture remains FAILED and
 is not retroactively relabeled. E1 alone owns two additional existing-harness
 paths for generic full-schema fake transport reconciliation:
@@ -137,8 +138,9 @@ The fresh Spanish (`es-419`) browser and database readback passed and retained
 synthetic first flow, not a phone, hosted WhatsApp delivery, calibrated live
 quality, consent or customer readiness. The observed generic `Member` actor
 display label remains a presentation defect; C0's bounded full-name repair
-at `9bbdeb8783d851b02113defc6a78eb651fcefd86` retains the prior 75-offline
-proof; 14 Postgres tests and independent review remain PENDING. It changes no grants,
+at `9bbdeb8783d851b02113defc6a78eb651fcefd86` passed 63/63 actual
+Postgres tests (28 new and 35 Actions/bound-reference tests); its independent
+whitespace follow-up review is CLEAR. It changes no grants,
 schema or historical backfill.
 
 The [latest approved evaluation direction](../specs/argus-decision-log.md#october-11-2026-product-derived-evaluation-and-replaceable-model-configuration)
@@ -286,8 +288,11 @@ that temporary grant standing authority for a new hosted cutover.
 Every abbreviated commit above resolves uniquely to a preserved source object
 under the sandbox head. C0 contracts are LANDED as #955; these channel and UX
 outcomes remain PENDING until their own implementation/acceptance evidence.
-Root coordinates existing capture, presentation, API/data and authority owners
-before any bounded restoration. No new writer or broad UI pass is assigned here.
+`/root/accountant_ui_review` now owns a read-only source/decision/coverage audit
+of these five approved outcomes. Root coordinates existing capture,
+presentation, API/data and authority owners after that audit before assigning
+bounded restoration writers. This audit assigns no implementation writer or
+broad UI pass and does not promote the sandbox wholesale.
 
 Counsel's exact original six-rule approval source remains UNKNOWN. Later direct
 human grant/model direction supersedes old rigid-custodian/role maps, fixed
