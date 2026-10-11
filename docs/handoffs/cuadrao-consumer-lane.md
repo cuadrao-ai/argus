@@ -61,11 +61,17 @@ staging MVEE acceptance is green. Green CI alone does not satisfy that gate.
 Repository `lagarcess/argus` uses `codex/private-alpha-next` for integration.
 The October 11 local merge `4a953d7e9c07b7b7d057506bb0b630287b6585b9`
 reconciles integration `e465c2fe4bf7e2749215bc677a1fa225adab384c`.
-Native source still matches the tested Core revision
-`40ff4967040c854ca5dd0764115227544011a6e2` through handoff commit `769654e23`.
+Native product source still matches the tested Core revision
+`40ff4967040c854ca5dd0764115227544011a6e2` through handoff commit `fec08feba`.
+The later test-only Search and Budget repairs are committed locally at
+`f9dae47a562e0c660d5c60d67506d0903ac02fea`, with their separate verification
+record below. Native product source is unchanged at that commit.
 The later fetched snapshot `53d2a234bf9e73537537c24a8d35ba1e537827c1` is not
 yet merged locally. Final integration checks and draft publication remain pending
 with the coordinator.
+The incoming integration delta has no iOS edits, but includes shared
+`financial_accounts.py` and dependency changes. Native source parity does not
+establish the result of that backend reconciliation.
 Refresh remote state before acting; a dated snapshot is not the current tip.
 
 | PR | Recorded state | Meaning |
@@ -137,13 +143,34 @@ Search captures distinguish loading from the later settled result.
   and money APIs. This does not prove hosted CAPTCHA or production sign-in.
 
 The [20:00 UTC Core continuation](../reports/evidence/consumer-core-checkpoint-20261011/core-continuation-20261011/README.md)
-adds two passes and two failures, with zero skips, on the unchanged `40ff49670`
-native build. Money input/cancellation and retained Home after relaunch passed.
-Account archive/restore and Search stopped during fresh sign-in before their
-financial checks. The configured local CAPTCHA server at port 59485 was not
-listening. Its public-test-key fixture was left stopped under the current auth
-limits. The app is signed out; Budget, Goal and retry were not rerun in that
-continuation. Earlier passing evidence keeps its original source and time.
+initially added two passes and two failures, with zero skips, on the unchanged
+`40ff49670` native build. Money input/cancellation and retained Home after
+relaunch passed. Account archive/restore and Search stopped during fresh
+sign-in because the configured local CAPTCHA fixture was not listening.
+That initial signed-out snapshot remains preserved.
+
+The [later fixture-restored checks](../reports/evidence/consumer-core-checkpoint-20261011/fixture-restored-20261011/README.md)
+used the same approved local public-test-key fixture at port 59485. Account
+archive/restore then passed. Search reached the real editors but failed its
+returned-row amount assertion after saving an income correction. Canonical
+staging Search readback shows revision 2 and DOP 27.00. A later simulator check
+confirmed DOP +27.00 on the same activity row. The full Budget continuation
+passed its money steps but failed when Search retained the Activity perspective.
+Selecting Plans found the saved Budget. Manual Spanish Budget relaunch and
+retained Goal cancellation, relaunch and Search-origin checks passed. The record
+distinguishes these manual results from terminal XCTest outcomes. No hosted or
+native product change followed. Earlier passing evidence keeps its source and
+time; this continuation does not erase its retained failures.
+
+The retained Budget Search regression passed after explicitly selecting Plans.
+The next Search run passed the corrected activity-row assertion, then exposed
+a second early wait at bill editor dismissal. Its DOP 35.00 bill survived
+manual English and Spanish relaunch. The bounded test repair now waits for the
+editor field to disappear, with the same timeouts. It builds and passed
+independent source review. Its final runtime attempt stopped at fresh sign-in
+before financial checks, so full Search acceptance remains pending. At 22:07
+UTC, the owned app and local CAPTCHA fixture were stopped and no Consumer
+backend test remained active. This does not authorize backend advancement.
 
 The identifier regression and Release simulator build passed. Five readback
 unit tests, configured Python lint, and modularity checks passed. Full local
@@ -165,6 +192,17 @@ Current Consumer implementation worktree:
 `docs/reports/2026-10-09-consumer-free-tier-finish-line.md` is an older working
 report. Do not publish it as current evidence without reconciling its claims.
 Private credentials, generated configs, and local test bundles stay outside Git.
+
+The separate [native buffered-chat record](../reports/evidence/consumer-buffered-chat-20261011/README.md)
+pins local head `255bba8b4e732c0e9ee4e4444a2159afef6c7d6a` on
+`codex/consumer-buffered-chat` in
+`/Users/garces/.codex/worktrees/consumer-buffered-chat/private-alpha-next`.
+Its offline tests, Release compile and independent code review passed. The
+original 40-test result, repaired 42-test result, four package live-test skips
+and six donor baseline assertions remain separate. The code denies access by
+default and leaves the Release gate unchanged. Simulator chat rendering,
+actual Full access, hosted acceptance, integration reconciliation and publication
+remain pending. This local implementation does not enable a paid tier.
 
 The following worktrees remain under
 `/Users/garces/Documents/projects/repos/argus/.claude/worktrees/`:

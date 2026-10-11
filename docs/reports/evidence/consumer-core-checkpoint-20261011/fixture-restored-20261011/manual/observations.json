@@ -1,0 +1,216 @@
+{
+  "budget-search-filter-before": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "0sny5g3",
+    "seq": 66,
+    "count": 65,
+    "targets": [
+      "e20|tap|button|Filters, 1 active||search.filters",
+      "e24|typeText|text-field||Food 52C2E|search.query",
+      "e27|tap|button|All||search.filter.all",
+      "e28|tap|button|Accounts||search.filter.account",
+      "e29|tap|button|Activity||search.filter.activity",
+      "e30|tap|button|Plans||search.filter.plans",
+      "e32|tap|button|Clear filters||",
+      "e42|tap|button|Reset filters||search.reset",
+      "e43|tap|button|Search everything||search.everything",
+      "e56|tap|button|Home||tab.home",
+      "e58|tap|button|Plan||tab.plan",
+      "e60|tap|button|Add||nav.add",
+      "e62|tap|button|Search||tab.search",
+      "e64|tap|button|Profile||header.profile",
+      "e19|tap|button|Clear search||search.clear",
+      "e41|tap|button|Clear search||search.empty.clear"
+    ],
+    "scroll": [
+      "e25|swipe|scroll-view|||search.kinds",
+      "e33|swipe|scroll-view|||search.results"
+    ],
+    "text": [
+      "e22|text|text|1||",
+      "e31|text|text|DOP||search.filter-summary",
+      "e39|text|text|No results||search.empty",
+      "e40|text|text|Try another name or change the filters.||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  },
+  "budget-search-filter-after": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "1mqko8f",
+    "seq": 70,
+    "count": 67,
+    "targets": [
+      "e20|tap|button|Filters, 1 active||search.filters",
+      "e41|tap|button|Food 52C2E, Budgets · DOP 160.00||search.row.budget.7E52E53C-1EE6-4C7E-B14D-F7F22FF62332",
+      "e24|typeText|text-field||Food 52C2E|search.query",
+      "e27|tap|button|All||search.filter.all",
+      "e28|tap|button|Accounts||search.filter.account",
+      "e29|tap|button|Activity||search.filter.activity",
+      "e30|tap|button|Plans||search.filter.plans",
+      "e32|tap|button|Clear filters||",
+      "e58|tap|button|Home||tab.home",
+      "e60|tap|button|Plan||tab.plan",
+      "e62|tap|button|Add||nav.add",
+      "e64|tap|button|Search||tab.search",
+      "e66|tap|button|Profile||header.profile",
+      "e19|tap|button|Clear search||search.clear"
+    ],
+    "scroll": [
+      "e25|swipe|scroll-view|||search.kinds",
+      "e33|swipe|scroll-view|||search.results"
+    ],
+    "text": [
+      "e22|text|text|1||",
+      "e31|text|text|DOP||search.filter-summary",
+      "e43|text|text|Food 52C2E||",
+      "e45|text|text|Budgets · DOP 160.00||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  },
+  "budget-after-search-open": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "1smhelv",
+    "seq": 72,
+    "count": 89,
+    "targets": [
+      "e61|tap|button|The details, clearly||",
+      "e16|tap|button|Back||BackButton",
+      "e19|tap|button|Plan options||plan-detail-options",
+      "e20|tap|button|||",
+      "e55|tap|button|DOP 160||plan-detail-exact"
+    ],
+    "scroll": [
+      "e26|swipe|scroll-view|||budget.detail"
+    ],
+    "text": [
+      "e31|text|text|Personal||",
+      "e32|text|text|Food 52C2E||",
+      "e33|text|text|DOP 155.00||budget.spent",
+      "e34|text|text|Net spending||",
+      "e35|text|text|October 2026||",
+      "e36|text|text|DOP 5.00, remaining||budget.remaining",
+      "e37|text|text|DOP 5.00||",
+      "e38|text|text|remaining||",
+      "e39|text|text|Give your month some room.||",
+      "e40|text|text|At this pace: DOP 436.82 at month end. The allowance doesn't change projected spending.||",
+      "e51|text|text|Oct 1||",
+      "e52|text|text|Oct 31||",
+      "e53|text|text|Dashed: estimate · gray: saved plan||",
+      "e54|text|text|My allowance||",
+      "e56|text|text|DOP 160||",
+      "e59|text|text|Simple projection using 11 recorded days in a 31-day month. This is not confirmed spending.||",
+      "e60|text|text|Based on recorded purchases and received refunds in this scope. Missing activity is not included.||",
+      "e62|text|text|The details, clearly||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  },
+  "budget-spanish-relaunch": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "0jvply6",
+    "seq": 74,
+    "count": 89,
+    "targets": [
+      "e61|tap|button|Los detalles, claros||",
+      "e16|tap|button|Atrás||BackButton",
+      "e19|tap|button|Opciones del plan||plan-detail-options",
+      "e20|tap|button|||",
+      "e55|tap|button|DOP 160||plan-detail-exact"
+    ],
+    "scroll": [
+      "e26|swipe|scroll-view|||budget.detail"
+    ],
+    "text": [
+      "e31|text|text|Personal||",
+      "e32|text|text|Food 52C2E||",
+      "e33|text|text|DOP 155.00||budget.spent",
+      "e34|text|text|Gasto neto||",
+      "e35|text|text|octubre de 2026||",
+      "e36|text|text|DOP 5.00, disponibles||budget.remaining",
+      "e37|text|text|DOP 5.00||",
+      "e38|text|text|disponibles||",
+      "e39|text|text|Dale aire a tu mes.||",
+      "e40|text|text|A este ritmo: DOP 436.82 al cierre. El margen no cambia el gasto previsto.||",
+      "e51|text|text|1 oct.||",
+      "e52|text|text|31 oct.||",
+      "e53|text|text|Punteado: estimado · gris: plan guardado||",
+      "e54|text|text|Mi margen||",
+      "e56|text|text|DOP 160||",
+      "e59|text|text|Proyección simple con 11 días registrados de un mes de 31 días. No es un gasto confirmado.||",
+      "e60|text|text|Basado en compras registradas y reembolsos recibidos en este alcance. No incluye actividad faltante.||",
+      "e62|text|text|Los detalles, claros||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  },
+  "budget-spanish-search-origin": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "1yqttp8",
+    "seq": 76,
+    "count": 70,
+    "targets": [
+      "e23|tap|button|Filtros, 1 activos||search.filters",
+      "e44|tap|button|Food 52C2E, Presupuestos · DOP 160.00||search.row.budget.7E52E53C-1EE6-4C7E-B14D-F7F22FF62332",
+      "e27|typeText|text-field||Food 52C2E|search.query",
+      "e22|tap|button|Borrar búsqueda||search.clear",
+      "e30|tap|button|Todo||search.filter.all",
+      "e31|tap|button|Cuentas||search.filter.account",
+      "e32|tap|button|Movimientos||search.filter.activity",
+      "e33|tap|button|Planes||search.filter.plans",
+      "e35|tap|button|Quitar filtros||",
+      "e61|tap|button|Inicio||tab.home",
+      "e63|tap|button|Plan||tab.plan",
+      "e65|tap|button|Añadir||nav.add",
+      "e67|tap|button|Buscar||tab.search",
+      "e69|tap|button|Perfil||header.profile"
+    ],
+    "scroll": [
+      "e28|swipe|scroll-view|||search.kinds",
+      "e36|swipe|scroll-view|||search.results"
+    ],
+    "text": [
+      "e25|text|text|1||",
+      "e34|text|text|DOP||search.filter-summary",
+      "e46|text|text|Food 52C2E||",
+      "e48|text|text|Presupuestos · DOP 160.00||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  },
+  "search-income-settled": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "1tpzkby",
+    "seq": 83,
+    "count": 70,
+    "targets": [
+      "e20|tap|button|Filtros, 1 activos||search.filters",
+      "e41|tap|button|Search income A6D085, Revised bank A6D085 · DOP +27.00||search.row.activity.2542D06E-4E1D-4C63-BBC8-B900E3244000",
+      "e24|typeText|text-field||Search income A6D085|search.query",
+      "e19|tap|button|Borrar búsqueda||search.clear",
+      "e27|tap|button|Todo||search.filter.all",
+      "e28|tap|button|Cuentas||search.filter.account",
+      "e29|tap|button|Movimientos||search.filter.activity",
+      "e30|tap|button|Planes||search.filter.plans",
+      "e32|tap|button|Quitar filtros||",
+      "e58|tap|button|Inicio||tab.home",
+      "e60|tap|button|Plan||tab.plan",
+      "e62|tap|button|Añadir||nav.add",
+      "e64|tap|button|Buscar||tab.search",
+      "e66|tap|button|Perfil||header.profile"
+    ],
+    "scroll": [
+      "e25|swipe|scroll-view|||search.kinds",
+      "e33|swipe|scroll-view|||search.results"
+    ],
+    "text": [
+      "e22|text|text|1||",
+      "e31|text|text|DOP||search.filter-summary",
+      "e43|text|text|Search income A6D085||",
+      "e45|text|text|Revised bank A6D085 · DOP +27.00||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  }
+}

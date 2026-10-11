@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-11",
+  "source": "core-search-repair-20261011-build2",
+  "method": "Manual simulator relaunch after failed XCTest; no financial edits",
+  "query": "Search bill D46C7F",
+  "identifier": "search.row.expectation.D2617107-791E-4442-9ECF-8B07369EBBAD",
+  "amount": "35.00",
+  "currency_filter": "DOP",
+  "perspective": "Plans",
+  "english": "Bill \u00b7 DOP 35.00",
+  "spanish": "Pago \u00b7 DOP 35.00",
+  "boundary": "Confirms retained saved value and query/filter after relaunch, not original immediate return timing",
+  "canonical_readback_attempt": "Initial synthetic authentication returned HTTP 400; no financial GET performed; no retry"
+}

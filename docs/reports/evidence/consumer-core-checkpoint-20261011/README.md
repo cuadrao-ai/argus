@@ -2,10 +2,13 @@
 
 This record covers the native signed-in manual-money checkpoint against the existing staging backend. All financial names and amounts in these images are synthetic test data. Nothing here establishes phone, TestFlight or live assistant acceptance.
 
-The later [20:00 UTC continuation](core-continuation-20261011/README.md) reports
-two passes and two fresh-sign-in failures. The local CAPTCHA fixture was not
-running. Budget and Goal were not rerun; the earlier evidence below retains its
-original source and time.
+The later [20:00 UTC continuation](core-continuation-20261011/README.md) initially
+reported two passes and two fresh-sign-in failures because the local CAPTCHA
+fixture was not running. The [fixture-restored checks](fixture-restored-20261011/README.md)
+add passed Account and retained Budget Search journeys, plus manual Budget,
+Goal and Search relaunch checks. They preserve the Search timing failures and
+the last attempt that stopped at fresh sign-in before checking the final test
+repair. The earlier evidence below retains its original source and time.
 
 ## Current result
 
