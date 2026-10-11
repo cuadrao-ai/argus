@@ -277,7 +277,14 @@ with `/tmp/cuadrao-whatsapp-ui-frozen.patch` SHA256
 `2f404a5edcd93d1bd0905997bff4c3fc4711732c56061455e213d30c5a5a6d20`.
 Owner-reported local synthetic unit64/browser8/build/lint proof passed; full
 TypeScript check failed8298 baseline diagnostics, none in changed files.
-Reviewers remain active; this is not real backend, hosted or full readiness proof. The
+The fresh functional review `/tmp/cuadrao-whatsapp-ui-independent-review.md`
+is **BLOCK** on ambient-account DELETE, lost unknown body/key after remount and
+stale GET/retry race, despite comments CLEAR. This eight-path da056 freeze stays
+blocked. Root adds only ninth `web/lib/browser-storage.ts` for one WhatsApp
+pending-intent key in the existing temporary concept, without helper/other-key/
+privacy-copy changes. Owner account-binding/recovery/order fixes are active;
+corrected nine-path freeze/review remains PENDING. No actual consent, backend,
+hosted or full readiness proof follows. The
 [active allocation](../specs/argus-execution-board.md#active-consent-and-linked-number-settings-allocation)
 records each exact path, the root-reserved100000 migration/160-worktree check,
 shared-writer serialization and inherited foreign-delta limits. No serial

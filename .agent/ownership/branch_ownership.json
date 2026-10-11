@@ -377,6 +377,7 @@
         "web/components/sidebar/ProfileMenu.tsx",
         "web/components/sidebar/ProfileSettingsPanels.tsx",
         "web/e2e/whatsapp-link-settings.spec.ts",
+        "web/lib/browser-storage.ts",
         "web/lib/whatsapp-link-api.ts",
         "web/public/locales/en/common.json",
         "web/public/locales/es-419/common.json"
