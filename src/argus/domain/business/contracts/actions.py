@@ -5,7 +5,7 @@ import json
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from .facts import (
     BusinessFactPatch,
@@ -149,7 +149,34 @@ class ApprovalCommand(Contract):
     request: ApproveExpense
 
 
-Command = BusinessAction | ReviewCommand | ApprovalCommand
+class CaptureNote(Contract):
+    text: str = Field(min_length=1, max_length=20000)
+    draft: ExistingDraft | None = None
+
+    @field_validator("draft", mode="before")
+    @classmethod
+    def exact_target_version(cls, value: object) -> object:
+        if isinstance(value, dict):
+            version = value.get("version")
+            if not isinstance(version, int) or isinstance(version, bool):
+                raise ValueError("capture target version must be an integer")
+        return value
+
+    @model_validator(mode="after")
+    def original_text(self) -> CaptureNote:
+        if not self.text.strip():
+            raise ValueError("capture text must not be blank")
+        if "\x00" in self.text:
+            raise ValueError("capture text must not contain NUL")
+        return self
+
+
+class CaptureCommand(Contract):
+    action: Literal["capture_note"] = "capture_note"
+    request: CaptureNote
+
+
+Command = BusinessAction | ReviewCommand | ApprovalCommand | CaptureCommand
 
 
 class Applied(Contract):
