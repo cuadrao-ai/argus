@@ -11263,43 +11263,26 @@ components:
     BusinessFactPatch:
       properties:
         kind:
-          anyOf:
-          - $ref: '#/components/schemas/FactInput_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___'
-          - type: 'null'
+          $ref: '#/components/schemas/FactInput_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___'
         amount:
-          anyOf:
-          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
-          - type: 'null'
+          $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
         currency:
-          anyOf:
-          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__'
-          - type: 'null'
+          $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__'
         occurred_on:
-          anyOf:
-          - $ref: '#/components/schemas/FactInput_date_'
-          - type: 'null'
+          $ref: '#/components/schemas/FactInput_date_'
         counterparty:
-          anyOf:
-          - $ref: '#/components/schemas/FactInput_str_'
-          - type: 'null'
+          $ref: '#/components/schemas/FactInput_str_'
         funding:
-          anyOf:
-          - $ref: '#/components/schemas/FactInput_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
-          - type: 'null'
+          $ref: '#/components/schemas/FactInput_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
         business_share:
-          anyOf:
-          - $ref: '#/components/schemas/FactInput_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
-          - type: 'null'
+          $ref: '#/components/schemas/FactInput_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
         receipt_state:
-          anyOf:
-          - $ref: '#/components/schemas/FactInput_Literal__fiscal_receipt____informal_receipt____no_receipt___'
-          - type: 'null'
+          $ref: '#/components/schemas/FactInput_Literal__fiscal_receipt____informal_receipt____no_receipt___'
         category_id:
-          anyOf:
-          - $ref: '#/components/schemas/FactInput_str_'
-          - type: 'null'
+          $ref: '#/components/schemas/FactInput_str_'
       additionalProperties: false
       type: object
+      minProperties: 1
     BusinessFacts:
       properties:
         kind:
