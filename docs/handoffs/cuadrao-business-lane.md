@@ -1,7 +1,11 @@
 # Cuadrao Business lane handoff
 
 **Current October 11 coordinator checkpoint.** Canonical integration is
-`1612602c4d94b104378b5a787d3e19abfc07052c`: #964 LANDED at
+`3c3be1a75af5f5fd1e19db039f76c5684753241c`: #965 LANDED from reviewed
+`371ac8f5fb44145eac185d868b330995ee9f1c4b`. Fresh
+[CI38123706921](https://github.com/lagarcess/argus/actions/runs/38123706921)
+is IN PROGRESS; [smoke38123706926](https://github.com/lagarcess/argus/actions/runs/38123706926)
+is SUCCESS, not a full terminal pass. Retain #964 at1612602c, LANDED at
 `2026-10-11T07:15:19Z` from published source
 `5b7cdff54c357b9b946d18ee33a4c9d0de18f2ab`. Fresh remote evidence confirms
 [CI38120748626](https://github.com/lagarcess/argus/actions/runs/38120748626)
@@ -127,7 +131,7 @@ Actions owns exactly `src/argus/domain/business/contracts/facts.py` and
 `tests/business/test_contracts.py` for
 this reviewed import and regenerates OpenAPI before publication; no broader C0
 ownership transfers. T1/E1 reconcile the contract/product source before actual
-root model proof. The latest root accounting is **79 actual POSTs**, known cost
+root model proof. The retained 03:34 root accounting is **79 actual POSTs**, known cost
 **$0.06294062698** and unresolved unknown-outcome reservations **$1.43792**.
 At the safe key read `2026-10-11T03:34:02.221575Z`, conservative allowance
 remaining under the authorized $300 ceiling was **$72.504528323**, before
@@ -137,13 +141,15 @@ The manifest retains each capability outcome separately from database acceptance
 There is no calibrated judge or live runtime scorecard. The latest relayed parent
 grant now authorizes root alone to run one fresh `anthropic/claude-haiku-5.5`
 eight-case calibration under the same shared-key ceiling/expiry; it supersedes
-the pending choice for that run. The actual attempt is **AUTO_REVIEW_BLOCKED**
+the pending choice for that run. Earlier attempts were **AUTO_REVIEW_BLOCKED**
 before CreateProcess, with **zero new generation POSTs** at
 `2026-10-11T07:23:54.216374Z`. Auto-review treated the trusted request as lane
 coordination and paid OpenRouter payload/destination approval as unconfirmed,
 despite the parent grant. Root retained `cuadrao-haiku-judge-auto-review-block.json`
-and an explicit approval question is pending. No bypass/retry or calibration pass
-follows; prior Grok failures remain unchanged. The manifest retains the exact8141 local PG17/17
+and an explicit approval question was retained. A second rejected dispatch
+also made zero calls. The later actual bounded batch made one HTTP200 POST,
+known cost $0.0002046, then strict-schema ValidationError (evidence over400).
+No valid verdict/pass or replay followed; prior Grok failures remain unchanged. The manifest retains the exact8141 local PG17/17
 proof and reviewed E1 v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`,
 with fixtures and labels unchanged at that historical checkpoint. Business
 consent design is approved below; implementation and actual scoped opt-in proof remain pending.
@@ -249,6 +255,24 @@ new credentials or access expansion. The founder decision is resolved; do not
 ask again. Implementation, revocation proof, live quality and hosted acceptance
 remain PENDING. Deny external processing without an actual current scoped opt-in.
 Local runtime/hybrid staging evidence does not establish that consent.
+
+Current consent implementation is active in parallel: W1/C0
+`75099d823ee17fa35cdab0152c3f1174c22a0007` authors sixteen of seventeen
+allocated paths, with the flags-off GET projection correction active; T1 clean
+`705f45be77c2048b2a0675717c35e69fcf320eed` owns exactly eight guard/route
+paths, adding only `src/argus/llm/openrouter_request_policy.py` to its policy.
+The new `codex/cuadrao-whatsapp-settings-ui-20261011` branch/worktree starts at
+3c3 and owns eight settings/locale/transport/proof paths. The
+[active allocation](../specs/argus-execution-board.md#active-consent-and-linked-number-settings-allocation)
+records each exact path, the root-reserved100000 migration/160-worktree check,
+shared-writer serialization and inherited foreign-delta limits. No serial
+metadata hold blocks their coding. GET own status works with flags off without
+creation; POST requires fresh owner/live prepare/flags/link/route; authenticated
+owner revoke/unlink stay accessible. Business checkpointer remains disabled
+until atomic cleanup/reset. Actual scoped user consent, assembled static/PG/live
+quality and hosted proof remain pending. Core both-tier mobile flows and agent
+actions are now; normal usability is now and extreme Dynamic Type is final
+pre-TestFlight. Preserve approved chat baseline; no redesign/keeper expansion.
 
 ## Approved unpublished branding and completion gate
 
@@ -362,8 +386,10 @@ implements capture/list and generates OpenAPI afterward. Atomic immutable
 original/source/revision/receipt, live server-resolved grants, replay and denial
 proof precede acceptance. No worker DB/provider/deploy grant follows.
 
-UI owner at `0d8afb73e040f80a6df271435cac4a4aa29b8749` has actual visible replay/app
-captures active. Root now assigns the seven exact paths in the
+Retained UI owner source `0d8afb73e040f80a6df271435cac4a4aa29b8749` has visible
+replay/app capture evidence. Current manual source
+`d7ef29092380514761686871b596efba2549f3b9` keeps the same fifteen code files
+independently CLEAR after its409fix; assembled/rendered acceptance is pending. Root now assigns the seven exact paths in the
 [manual-note UI allocation](../specs/argus-execution-board.md#bounded-manual-note-ui-allocation)
 for form/search/server-refusal/existing review; uncommitted UI work is retained.
 Optional error-only note grouping invents no hit and selects no chat architecture.

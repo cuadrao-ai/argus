@@ -260,6 +260,7 @@
         "src/argus/domain/tool_declaration.py",
         "src/argus/llm/openrouter.py",
         "src/argus/llm/openrouter_model_env.py",
+        "src/argus/llm/openrouter_request_policy.py",
         "tests/agent_runtime/test_business_runtime.py",
         "tests/agent_runtime/test_business_semantic_binding.py",
         "tests/business/test_runtime_postgres.py",
@@ -280,10 +281,14 @@
       "description": "W1-owned durable WhatsApp worker delta; inherited runtime/actions/funding are not write authority.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
         "docs/specs/lanes/account-deletion-fk-census.md",
         "src/argus/api/app_setup.py",
+        "src/argus/api/routers/whatsapp.py",
         "src/argus/api/whatsapp.py",
         "src/argus/api/whatsapp_worker.py",
+        "src/argus/domain/ingestion/whatsapp/ai_consent.py",
         "src/argus/domain/ingestion/whatsapp/business_capture.py",
         "src/argus/domain/ingestion/whatsapp/business_delivery.py",
         "src/argus/domain/ingestion/whatsapp/business_envelope.py",
@@ -293,15 +298,19 @@
         "src/argus/domain/ingestion/whatsapp/business_worker.py",
         "src/argus/domain/ingestion/whatsapp/intake.py",
         "supabase/migrations/20261011020000_business_whatsapp_worker.sql",
+        "supabase/migrations/20261011100000_business_whatsapp_ai_consent.sql",
         "tests/ingestion/business_whatsapp_support.py",
         "tests/ingestion/test_business_whatsapp_envelope.py",
         "tests/ingestion/test_business_whatsapp_transport_postgres.py",
         "tests/ingestion/test_business_whatsapp_wiring.py",
         "tests/ingestion/test_business_whatsapp_worker_postgres.py",
+        "tests/ingestion/test_whatsapp_ai_consent.py",
+        "tests/ingestion/test_whatsapp_api.py",
         "tests/test_business_whatsapp_runtime_postgres.py",
         "tests/test_business_whatsapp_transport_postgres.py",
         "tests/test_business_whatsapp_worker_postgres.py",
-        "tests/test_client_grants_postgres.py"
+        "tests/test_client_grants_postgres.py",
+        "tests/test_whatsapp_ai_consent_postgres.py"
       ],
       "deny": [
         ".env",
@@ -351,6 +360,26 @@
         "tests/test_business_actor_labels_postgres.py",
         "tests/test_business_bound_draft_references_postgres.py",
         "tests/test_business_manual_capture_contract_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-whatsapp-settings-ui-20261011": {
+      "description": "Assigned linked-number settings UI and typed transport/proof; no backend or unrelated Business authority settings ownership.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "web/__tests__/whatsapp-link-settings.test.tsx",
+        "web/components/settings/WhatsAppLinkModal.tsx",
+        "web/components/sidebar/ProfileMenu.tsx",
+        "web/components/sidebar/ProfileSettingsPanels.tsx",
+        "web/e2e/whatsapp-link-settings.spec.ts",
+        "web/lib/whatsapp-link-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
       ],
       "deny": [
         ".env",

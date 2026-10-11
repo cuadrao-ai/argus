@@ -1,6 +1,6 @@
 # Argus private iPhone execution manifest
 
-**Updated:** October 11, 2026 coordinator checkpoint through #964 landing and bounded manual-note allocation; live quality and hosted gates remain pending under the October 10 23:37 UTC owner-handoff continuation.
+**Updated:** October 11, 2026 coordinator checkpoint through #965 landing and actual bounded consent/settings implementation; live quality and hosted gates remain pending under the October 10 23:37 UTC owner-handoff continuation.
 **Execution state:** Consumer PR #937 is merged with accepted simulator evidence and green pre-merge CI. Build 3455 is installed; hosted manual-money acceptance remains open. The current Consumer assignment below supersedes the older sequencing only for this lane. The [October 4 code checkpoint](../reports/2026-10-04-cuadrao-code-integration-landing.md) retains its historical evidence.
 **Product owner:** [MVEE](argus-minimum-viable-ecosystem-experience.md).
 **Authority and onboarding:** [DOCUMENTATION_AUTHORITY](../DOCUMENTATION_AUTHORITY.md).
@@ -74,24 +74,30 @@ source `09a84ba20282d1509eaf8b5e5de8476d31dc92b1`, parent 479cc, tree
 [postmerge CI38119452790](https://github.com/lagarcess/argus/actions/runs/38119452790)
 and [smoke38119452833](https://github.com/lagarcess/argus/actions/runs/38119452833)
 fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/963#issuecomment-6106543558)).
-Current fetched integration is `1612602c4d94b104378b5a787d3e19abfc07052c`:
+#964 integration checkpoint was `1612602c4d94b104378b5a787d3e19abfc07052c`:
 #964 LANDED at `2026-10-11T07:15:19Z`, exact published source
 `5b7cdff54c357b9b946d18ee33a4c9d0de18f2ab`.
 The fresh read confirms [CI38120748626](https://github.com/lagarcess/argus/actions/runs/38120748626)
 and [smoke38120748633](https://github.com/lagarcess/argus/actions/runs/38120748633)
 fully SUCCESS ([terminal comment](https://github.com/lagarcess/argus/pull/964#issuecomment-6106683343)).
+Current fetched integration is `3c3be1a75af5f5fd1e19db039f76c5684753241c`,
+#965 LANDED from reviewed source `371ac8f5fb44145eac185d868b330995ee9f1c4b`.
+Fresh [postmerge CI38123706921](https://github.com/lagarcess/argus/actions/runs/38123706921)
+is IN PROGRESS; [smoke38123706926](https://github.com/lagarcess/argus/actions/runs/38123706926)
+is SUCCESS. This is not terminal full CI evidence.
 
 | Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
-| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; retained owner source `d0605ce6e1c76113f60064705f8d1dd35f43405f`, retained reviewed allocation `02870b224d5423c18579cc8b9d3e2bdb72d07fb0`, authorized #964 import `8962a8575f682e7b5f1d6c68609d7921bcdc63a8` | #954, #958, #960 and #962 LANDED; Reviewed eight-path allocation retained; #965 at `6bfbb443bcac463e3fb389eb7dd75cf71b7a0011` passed all checks, but is held for this consent/UI update and fresh exact-head review. Current fifteen-path allocation PENDING delivery; prior checks do not validate the new head. Authored scope is ownership metadata and these two docs only. |
+| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; retained owner source `d0605ce6e1c76113f60064705f8d1dd35f43405f`, retained reviewed allocation `02870b224d5423c18579cc8b9d3e2bdb72d07fb0`, authorized #965 import `634f396f5bd39ef10b8eeafa7b6c52f5bd8440c6` | #954, #958, #960, #962 and #965 LANDED; prior fifteen-path allocation retained. Current consent/settings registration PENDING independent review/delivery. Owners implement independently now; root alone serializes integration and acceptance. Authored scope is ownership metadata and these two docs only. |
 | `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, original source `2cf078c323816ca01e3a7022306ab9e52b7ec475`, retained label repair `9bbdeb8783d851b02113defc6a78eb651fcefd86`, retained contract fix `4322f397d06bf228817e908407201e167582aaf7`, current reconciliation `a41c9fb9d5c991b06a5608ad180247dbaadbfa70` | #955, #961 and label repair #963 LANDED; #963 postmerge CI/smoke SUCCESS. Earlier 63/63 local Postgres proof retained. Current a41 reconciliation is CLEAR, 76 actual Postgres PASS/zero skips (15 new). Retain prior 4322 independent 90 offline PASS and owner111 PASS/15 PG skips as historical evidence. Assigned CaptureNote contract/recovery/70000 migration and SQL proof before Actions; restoration remains PENDING and changes no approval authority. |
 | `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, retained reviewed source `76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c`, retained clean reconciliation `935beb3642d5ad12daab28ceeb78885147cb3639` (tree equals 479cc), current source `f6924168412e02f63e6c6b4debb32f466b9c8f03` | #959 LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`; postmerge CI38107050284 and smoke38107050280 succeeded. Current manual capture/list source f692 is CLEAR, 58 actual Postgres PASS/zero skips (11 new); production SQL unchanged, fixture-only correction. Prior 56 PASS/one FAIL remains retained. Integration/UI/acceptance PENDING. #961 subsequently LANDED server BoundDraft. Business quality/hosted acceptance remain pending. |
 | M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | LANDED PR #957 as eb62ad5e, reviewed tree b0c7c44c with parent0ebfd08e. Prior bounded fix retained; postmerge CI38099618928/smoke38099618926 SUCCESS (terminal comment6104002935). No new semantics grant. |
-| `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56`, current clean `0d8afb73e040f80a6df271435cac4a4aa29b8749` | Actual visible replay and app captures active. Seven exact additional UI paths are now assigned for manual form/search/server refusal and existing human review; implementation and rendered acceptance PENDING. Retained uncommitted UI work stays in this worktree. LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
+| `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56`, retained `0d8afb73e040f80a6df271435cac4a4aa29b8749`, current manual source `d7ef29092380514761686871b596efba2549f3b9` | Actual visible replay and app captures active. Manual d7ef has the same fifteen code files independently CLEAR after the 409 fix; rendered/assembled acceptance remains PENDING. The seven exact manual-form/search/refusal paths remain assigned. LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
 | `/root/accountant_ui_review` / preserved capture and search audit | Read-only original human approvals and preserved sandbox `df208f7ec2379cd84efd55eea0deb685d67c5360` | Read-only source/decision/coverage audit continues for the remaining families. The first bounded manual-note backend slice is now assigned to C0/Actions; the audit grants no broader implementation scope. |
-| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, retained guard `1a904bd00862998d0f97da6b4d92ea1666725730`, scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1`, generic product policy `a9b9756481a054479696309ece1a352f25d7262a`, current schema-eligibility source `b922a642452f2d759f44688c8dcf7a55eeba1f8c` | PENDING integration/live scorecard/fingerprint. Latest reported broader run 764 PASS/two real FAIL, both unmeasured Business gates. E1 owns generic fake-transport reconciliation; earlier be33 17 harness failures are not counted in this latest run. Preserve 25 legacy entries and `last_measured` exactly; no waiver or quality pass. |
-| `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING root graft/integration; final full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
+| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, retained guard `1a904bd00862998d0f97da6b4d92ea1666725730`, scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1`, generic product policy `a9b9756481a054479696309ece1a352f25d7262a`, retained schema-eligibility source `b922a642452f2d759f44688c8dcf7a55eeba1f8c`, current clean consent guard `705f45be77c2048b2a0675717c35e69fcf320eed` | 705f guards actual dispatch/route in exactly eight assigned files; static/PG/assembled/live acceptance PENDING. PENDING integration/live scorecard/fingerprint. Earlier reported broader run 764 PASS/two real FAIL, both unmeasured Business gates. E1 owns generic fake-transport reconciliation; earlier be33 17 harness failures are not counted in this latest run. Preserve 25 legacy entries and `last_measured` exactly; no waiver or quality pass. |
+| `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, retained worker `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c`, current consent source `75099d823ee17fa35cdab0152c3f1174c22a0007` | 75099 authors sixteen files against retained b73 under the root-allocated seventeen-file consent package; bounded flags-off GET projection fix active. Static/PG/assembled/live/hosted proof PENDING. Prior worker full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed; integration PENDING. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
 | `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`, retained source `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`, funding follow-up `233701a7ab2f6335d70d728ff6d9e354b331ed49`, retained E1 head `cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205`, current `a2323ed9e92abb968d43786250ba806d00ea56f1` | Funding follow-up implementation tree `4038a181838fcbe85653e1b3dcad06f453b0b3b7`, fixture digest `b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`; narrow review and 24 free tests passed. Root corpus Postgres proof passed 8/8, zero skips, all seven cases plus foreign denial; live quality PENDING and earlier failed Haiku capture retained. Exact two generic fake-transport harness paths allocated with typed validation, trajectory assertions and labels preserved. Current a232 reviewed, 24 free PASS plus eight scripted actual Postgres PASS; this is not live quality. Original Luna result remains FAILED. Both Grok calibrations FAILED; no calibrated judge. |
+| Assigned linked-number settings UI owner | `/tmp/cuadrao-whatsapp-settings-ui-20261011`, branch `codex/cuadrao-whatsapp-settings-ui-20261011`, starts at `3c3be1a75af5f5fd1e19db039f76c5684753241c`; implementation working tree retained | Exactly eight settings/locale/adapter/test paths assigned; actual status/opt-in/revoke/unlink implementation active, evidence PENDING. This is independent of the manual UI writer and adds no backend authority. |
 | `/root` / verification and serialized delivery | `/tmp/cuadrao-hosted-verification-20261010`; exact candidate recorded by root at each gate | Sole merge, live caller and staging owner. Reconcile dependent sources, review exact head, require CI/compatibility and distinguish local from hosted acceptance. |
 | Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` / P0 Counsel audit | Existing read-only inventory and retained private source excerpts | Bounded 105-commit inventory DELIVERED in private /tmp/business953-private-handoff.md. Approved missing capture/search families retained in the existing handoff below; no blanket approval or wholesale publication. |
 
@@ -369,7 +375,7 @@ At root's `2026-10-11T01:04:26Z` safe read, total development-key usage was
 $227.449928862 against the $300 authorized ceiling, leaving conservative
 $72.550071138 before unresolved reservations/concurrent usage; expiry remains
 `2026-10-12T02:21:00Z`. No provider call was running at this bounded checkpoint.
-The later root accounting totals **79 actual POSTs**, **$0.06294062698** known
+The retained 03:34 root accounting totals **79 actual POSTs**, **$0.06294062698** known
 cost and **$1.43792** unresolved unknown-outcome reservations. At the safe key
 read `2026-10-11T03:34:02.221575Z`, the conservative authorized allowance
 remaining was **$72.504528323** before reservations or concurrent usage;
@@ -378,14 +384,18 @@ judge or live runtime scorecard exists.
 The latest coordinator-relayed parent grant authorizes root alone to run one
 fresh `anthropic/claude-haiku-5.5` eight-case judge calibration under the
 existing shared-key ceiling and expiry. This supersedes the pending judge-choice
-blocker for that bounded run. The actual attempt is **AUTO_REVIEW_BLOCKED**:
+blocker for that bounded run. The earlier attempts were **AUTO_REVIEW_BLOCKED**:
 review rejected it before CreateProcess, with **zero new generation POSTs** at
 `2026-10-11T07:23:54.216374Z`. It treated the trusted user request as lane
 coordination only and the paid OpenRouter payload/destination approval as
 unconfirmed despite the explicit parent grant. Root retained
 `cuadrao-haiku-judge-auto-review-block.json` in the root task workspace and asked
-for explicit approval; the question is pending. No bypass or retry occurred.
-Both prior Grok failures stay unchanged; no calibrated judge is claimed.
+for explicit approval. A second attempted dispatch was also rejected before
+process start with zero calls.
+The later bounded Haiku batch actually made one POST: HTTP200, known cost
+$0.0002046, then strict-schema ValidationError because evidence exceeded400.
+There was no valid verdict, pass or replay. Both prior Grok failures stay
+unchanged; no calibrated judge is claimed.
 Do not waive the live gate, fit product labels to Grok, or blindly retry.
 The [latest evaluation decision](argus-decision-log.md#october-11-2026-product-derived-evaluation-and-replaceable-model-configuration)
 keeps fixed product-derived labels/rubric independent of a model, lean replaceable
@@ -416,8 +426,8 @@ unknown timeout above; no prompt tuning or successful runtime result is claimed.
 Bounded instrumented latency/capability tests are approved under the existing
 budget and named model IDs; the dated capability and failed first-flow probes
 above retain their actual outcomes. The freshly authorized Haiku eight-case
-judge attempt is AUTO_REVIEW_BLOCKED with zero new calls. Product targets stay
-fixed, with no blind retry.
+judge batch ended on its first actual POST with strict-schema ValidationError;
+no valid verdict or replay. Product targets stay fixed, with no blind retry.
 Full runtime/live scorecard and calibrated judge gates remain open.
 
 The [scoped Business acceptance grant](argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics)
@@ -505,6 +515,56 @@ ask again. Implementation, revocation proof, live quality and hosted acceptance
 remain PENDING. Deny external processing without an actual current scoped opt-in.
 Local runtime/hybrid staging evidence does not establish that consent.
 
+### Active consent and linked-number settings allocation
+
+Root assigned implementation now, not a serial planning hold. W1/C0 consent
+source `75099d823ee17fa35cdab0152c3f1174c22a0007` authors sixteen of these
+seventeen allocated paths; `tests/test_business_whatsapp_worker_postgres.py`
+is unmodified in that source and stays explicitly assigned:
+`src/argus/domain/ingestion/whatsapp/ai_consent.py`,
+`supabase/migrations/20261011100000_business_whatsapp_ai_consent.sql`,
+`tests/ingestion/test_whatsapp_ai_consent.py`,
+`tests/test_whatsapp_ai_consent_postgres.py`, `docs/API_CONTRACT.md`,
+`docs/DATA_MODEL.md`, `docs/specs/lanes/account-deletion-fk-census.md`,
+`tests/test_client_grants_postgres.py`, `src/argus/api/whatsapp.py`,
+`src/argus/api/whatsapp_worker.py`, `src/argus/api/routers/whatsapp.py`,
+`src/argus/domain/ingestion/whatsapp/business_capture.py`,
+`src/argus/domain/ingestion/whatsapp/business_worker.py`,
+`tests/ingestion/test_business_whatsapp_wiring.py`,
+`tests/ingestion/test_whatsapp_api.py`,
+`tests/test_business_whatsapp_runtime_postgres.py` and
+`tests/test_business_whatsapp_worker_postgres.py`.
+The root reserved migration100000 after a 160-worktree collision check. The
+existing W1 branch owns this combined store/factory/router/capture/lifecycle
+package; shared API/data docs and tests still require root serialization with
+C0's manual slice. Generated OpenAPI remains with its designated API owner.
+
+T1 source `705f45be77c2048b2a0675717c35e69fcf320eed` owns the new
+`src/argus/llm/openrouter_request_policy.py` plus only the existing
+`src/argus/agent_runtime/business/context.py`, `runner.py`, `stages.py`,
+`tests/agent_runtime/test_business_runtime.py`,
+`tests/test_business_runtime_postgres.py`, `src/argus/llm/openrouter.py` and
+`tests/test_openrouter_policy.py` for this consent slice. The helper composes a
+task-local request guard and validates payload routes; actual POST stays in
+OpenRouter. This grants no workflow/saver/model/schema/prompt/fingerprint edits.
+Business checkpointer activation remains disabled until atomic cleanup/reset.
+Inherited foreign deltas are dependencies to reconcile, not extra ownership.
+
+The new settings UI branch owns exactly `web/public/locales/en/common.json`,
+`web/public/locales/es-419/common.json`,
+`web/components/sidebar/ProfileMenu.tsx`,
+`web/components/sidebar/ProfileSettingsPanels.tsx`,
+`web/components/settings/WhatsAppLinkModal.tsx`, `web/lib/whatsapp-link-api.ts`,
+`web/__tests__/whatsapp-link-settings.test.tsx` and
+`web/e2e/whatsapp-link-settings.spec.ts`.
+Shared locale changes are coordinated with the manual UI writer. Reuse the
+existing managed-settings surface; preserve Lucas's approved chat baseline,
+with no Mobbin redesign. GET current owner status is readable with flags off
+and creates nothing. POST requires fresh authenticated Business-owner/live
+prepare authority, flags, current link and route. DELETE revoke and unlink
+remain accessible to the authenticated owner. Design approval is not actual
+user opt-in; static, Postgres, live quality and hosted proof remain pending.
+
 Stop affected work for missing dependency contracts, duplicate writers,
 unauthorized live or hosted actions, uncertain external outcomes, or scope
 expansion. Continue independent authorized work. Consumer native acceptance and
@@ -517,6 +577,11 @@ production promotion, public signup, marketing or legal launch is in scope.
 Lucas accepted simulator evidence plus green CI and stopped VoiceOver/Switch
 Control testing. The [landing record](../reports/2026-10-09-pr-937-integration-landing.md)
 owns the exact source, evidence and verification limits.
+
+The latest explicit mobile sequence puts core flows in both tiers plus agent
+actions now. Basic usability at normal text size is required now; extreme
+Dynamic Type acceptance is the final pre-TestFlight check. Preserve the approved
+chat baseline. This does not release the existing Apple TestFlight hold.
 
 Next is the signed-in free account's manual-money journey against
 `https://cuadrao-api-staging.onrender.com` only: accounts, transactions, budgets,
