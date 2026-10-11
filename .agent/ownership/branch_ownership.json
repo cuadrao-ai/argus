@@ -247,6 +247,7 @@
         "src/argus/domain/capability_registry.py",
         "src/argus/domain/tool_declaration.py",
         "src/argus/llm/openrouter.py",
+        "src/argus/llm/openrouter_model_env.py",
         "tests/agent_runtime/test_business_runtime.py",
         "tests/agent_runtime/test_business_semantic_binding.py",
         "tests/business/test_runtime_postgres.py",
@@ -308,9 +309,11 @@
         "tests/evals/business_eval.py",
         "tests/evals/business_runtime_capture.py",
         "tests/evals/business_scripted_plans.py",
+        "tests/evals/chat_runtime_trajectory_adapters.py",
         "tests/evals/test_business_acceptance.py",
         "tests/evals/test_business_eval.py",
         "tests/evals/test_business_runtime_capture.py",
+        "tests/evals/test_chat_runtime_trajectory_harness.py",
         "tests/test_business_runtime_capture_postgres.py"
       ],
       "deny": [
@@ -327,9 +330,11 @@
         "docs/API_CONTRACT.md",
         "docs/DATA_MODEL.md",
         "src/argus/domain/business/actions/plans.py",
+        "src/argus/domain/business/authority.py",
         "src/argus/domain/business/contracts/actions.py",
         "tests/business/test_bound_draft_references.py",
         "tests/business/test_contracts.py",
+        "tests/test_business_actor_labels_postgres.py",
         "tests/test_business_bound_draft_references_postgres.py"
       ],
       "deny": [
