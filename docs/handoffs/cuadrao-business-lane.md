@@ -3,7 +3,9 @@
 **Current checkpoint under the October 10 23:37 UTC continuation.** UI #956
 landed at `2026-10-11T00:19:57Z` as current canonical integration
 `0ebfd08ed22dcd1108496fc0af427073ec219dc8`; root postmerge verification is
-in progress. C0 #955 landed as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; its exact postmerge
+at 00:25 UTC: [postmerge smoke 38098062178](https://github.com/lagarcess/argus/actions/runs/38098062178)
+succeeded; [full CI 38098062185](https://github.com/lagarcess/argus/actions/runs/38098062185)
+remained pending. C0 #955 landed as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; its exact postmerge
 CI and smoke all succeeded ([comment 6103620102](https://github.com/lagarcess/argus/pull/955#issuecomment-6103620102)). Startup repair #954 landed at
 `8a838fb4ff75bb8527400bbd802eb208e270bdf7`. The prior #953 source was
 `77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`, with passed exact
@@ -46,7 +48,9 @@ owns the remaining-allowance snapshot. The root coordinator alone controls
 synthetic live calls, reservations, concurrency and token bounds. Root began bounded Grok calibration at 00:05 UTC on October 11. Three POSTs
 occurred: two valid known-case verdicts costing $0.0015287 total and one unknown
 outcome after `ValueError`. Calibration remains incomplete; root retains its
-$0.156 unknown-call reservation, with no blind retry. The manifest records exact usage/limits and the pending E1 exact-final-head rerun. C0 is landed, while
+$0.156 unknown-call reservation, with no blind retry. The manifest records exact usage/limits and the passed exact-head E1 local proof (17/17, zero errors/skips), CLEAR reviews,
+and pending M1 CI after the bounded two-file fix. Consent policy and the Grok
+root-controlled repeat diagnostic remain pending. C0 is landed, while
 dependent runtime/evaluation and hosted acceptance remain open. Sonnet 5.5
 still needs a demonstrated need and fresh confirmation before use. The coordinator sequences a direct named-accountant per-business grant
 for the existing one-owner, one-authorized-accountant milestone. Full L11 firm
@@ -91,8 +95,8 @@ commit/PR lookup returned 422, which does not erase retained local work.
 Restoration `67583d5e` and reviewed UI `85d564ae1b998d3f372828728855dab26e5b5deb`
 landed in UI PR #956 as `0ebfd08ed22dcd1108496fc0af427073ec219dc8`. Exact
 published-head CI/smokes succeeded; external ownership passed for all 53 files
-and the five image hashes matched. Root postmerge verification remains in
-progress. C0 reconciliation is
+and the five image hashes matched. Postmerge smoke succeeded; full postmerge
+CI remained pending at the 00:25 UTC snapshot above. C0 reconciliation is
 `7667ee1e19589bed2e00aa1b9c08600965554860`; local evidence publication is
 `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56`. Its source document is
 `docs/reports/evidence/942-cuadrao-record-ui/README.md` in the UI worktree,

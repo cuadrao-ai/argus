@@ -21,7 +21,9 @@ The original build base was `77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`
 all succeeded, recorded in [comment 6103620102](https://github.com/lagarcess/argus/pull/955#issuecomment-6103620102).
 UI #956 subsequently landed at `00:19:57Z` as current integration
 `0ebfd08ed22dcd1108496fc0af427073ec219dc8`; root postmerge verification is
-in progress. Startup repair landed separately through #954 at
+at 00:25 UTC: [postmerge smoke 38098062178](https://github.com/lagarcess/argus/actions/runs/38098062178)
+succeeded; [full CI 38098062185](https://github.com/lagarcess/argus/actions/runs/38098062185)
+remained pending. Startup repair landed separately through #954 at
 `8a838fb4ff75bb8527400bbd802eb208e270bdf7`. Landing C0 does not close a
 customer journey. The [Business execution spec](lanes/cuadrao-business-agent-execution-spec.md)
 owns C0-first order and J1 to J3; the [lane handoff](../handoffs/cuadrao-business-lane.md)
@@ -33,14 +35,14 @@ Only `/root` serializes reconciliation, merge, live calls and staging.
 
 | Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
-| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d` | #954 LANDED; this owner-handoff/ownership continuation PENDING reviewed delivery. Docs and ownership metadata only. |
+| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d`, retained audit source `3cc7763eb36069713ed52db11e70b49f4858c320`, one-way UI merge `f4eef7499aefc874b7c8e44c21df8c5b61b1e887` | #954 LANDED; this owner-handoff/ownership continuation PENDING reviewed delivery. Docs and ownership metadata only. |
 | `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, source `2cf078c323816ca01e3a7022306ab9e52b7ec475` | LANDED #955 as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; all postmerge CI and smoke succeeded (comment 6103620102). |
 | `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, `9cccf6cb7e4f7c92a8c514b48dc7a20dfe1775f5` | PENDING integration; final full independent review CLEAR. Depends on C0 and M1. Root reconciles shared ingestion/API overlap before landing. |
-| M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa` | PENDING PR #957 integration; CI red: stale OpenAPI and two direct-write Postgres tests. Root authorized only `docs/api/openapi.yaml` and `tests/test_business_space_isolation_postgres.py` follow-up. Clean one-way 650b0fc merge/publication has no owned source-content delta. Original writer completed; maintainer has no source-conflict/new-semantics grant. Root orders shared schemas/census. |
-| `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Root postmerge verification in progress; hosted acceptance and missing retained hover/note outcomes remain open. |
+| M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | PENDING PR #957 integration; two-file fix published against exact 0ebfd08e base after 55-test proof and reviews CLEAR. New CI 38098360695/38098358490 and smoke 38098360688 pending. Follow-up scope remains only the authorized OpenAPI and isolation-test paths; no new semantics grant. |
+| `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke 38098062178 SUCCESS; full CI 38098062185 pending at 00:25. Hosted acceptance and missing retained hover/note outcomes remain open. |
 | `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, `4211c50f4e7dd66db475aa4c0658a3147dd18cb4` | PENDING integration; final full independent review CLEAR, final Linux proof 272 passed in 12.47 seconds. Depends on C0, Actions, M1; live model quality remains open. No #925 dependency. |
 | `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING root graft/integration; final full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
-| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; dependency assembly `39148680e6ff691804b3223d602212e7d2d94141`, owned implementation `7dda2a0f88cb1e3d7e35b69a9edafabf20705fdf`, final `8141382aa57bdffddaf54b8903b8067e966f94b7` | PENDING exact-final-head root 17-test rerun for real seven-case, twenty-step capture. Eight owned files retained (reported comparison hash prefix 724f1df); no full functional clearance inferred before rerun. |
+| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; dependency assembly `39148680e6ff691804b3223d602212e7d2d94141`, owned implementation `7dda2a0f88cb1e3d7e35b69a9edafabf20705fdf`, final `8141382aa57bdffddaf54b8903b8067e966f94b7` | PENDING integration/live-quality delivery; exact 8141 root Postgres proof 17/17, zero errors/skips, fresh functional/comments reviews CLEAR. Eight owned files retained (reported comparison hash prefix 724f1df); synthetic proof does not close hosted acceptance. |
 | `/root` / verification and serialized delivery | `/tmp/cuadrao-hosted-verification-20261010`; exact candidate recorded by root at each gate | Sole merge, live caller and staging owner. Reconcile dependent sources, review exact head, require CI/compatibility and distinguish local from hosted acceptance. |
 | Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` / P0 Counsel audit | Existing read-only inventory and retained private source excerpts | Bounded 105-commit inventory DELIVERED in private /tmp/business953-private-handoff.md. Approved missing capture/search families retained in the existing handoff below; no blanket approval or wholesale publication. |
 
@@ -78,9 +80,11 @@ The E1 source previously retained without a commit is now committed in
 `7dda2a0f88cb1e3d7e35b69a9edafabf20705fdf`, final dependency reconciliation
 `8141382aa57bdffddaf54b8903b8067e966f94b7`. It owns eight files: evaluator
 README/corpus/evaluator/tests, runtime capture, scripted plans, capture unit
-tests and Postgres capture proof. Root is rerunning the 17 tests on that exact
-head. The prior 16-pass/1-fail owner-funding result is historical, not final
-clearance. The rejected environment-file read was not retried; the direct DSN
+tests and Postgres capture proof. Root's exact-final-head proof is
+`/tmp/cuadrao-e1-final-head-pg-proof.xml`: 17/17 passed, zero errors/skips; fresh
+functional and comments reviews CLEAR. The prior owner-funding failure is
+superseded by that proof. This is synthetic local runtime/Postgres evidence,
+not live model quality or hosted customer acceptance. The rejected environment-file read was not retried; the direct DSN
 injection into the same local fixture stack was separately authorized.
 
 Counsel delivered the bounded source inventory in
@@ -152,8 +156,9 @@ three POSTs: two valid known-case verdicts with total known cost $0.0015287,
 and one `ValueError` with unknown external outcome. Keep its $0.156 reservation
 against the conservative allowance until reconciled. The 00:07:36 usage read
 above precedes the third POST and must be refreshed before further paid work.
-Calibration remains incomplete; no blind retry of the unknown call. Two valid
-cases do not establish judge calibration or runtime quality.
+Calibration remains incomplete; the root-controlled repeat diagnostic is pending,
+with no blind retry of the unknown call. Two valid cases do not establish judge
+calibration or runtime quality.
 C0 is landed; dependent runtime/evaluation and hosted readiness remain open.
 Sonnet 5.5 is a potential stretch choice that needs a demonstrated need and
 fresh confirmation. It is not an automatic judge or runtime fallback.
