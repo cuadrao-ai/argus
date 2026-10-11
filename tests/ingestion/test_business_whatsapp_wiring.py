@@ -9,8 +9,10 @@ from tests.ingestion.test_whatsapp_intake import _world
 from tests.ingestion.whatsapp_support import ALICE_PHONE
 
 
-def test_factory_binds_canonical_actions_without_creating_consent(monkeypatch):
+@pytest.mark.asyncio
+async def test_factory_binds_canonical_actions_without_creating_consent(monkeypatch):
     import httpx
+    from argus.agent_runtime.business.runner import business_provider_route
     from argus.api.whatsapp import build_whatsapp
     from argus.domain.ingestion.reconcile.service import ReconciliationService
     from argus.domain.ingestion.secrets import SecretBox
@@ -20,88 +22,181 @@ def test_factory_binds_canonical_actions_without_creating_consent(monkeypatch):
 
     for key, value in ENV.items():
         monkeypatch.setenv(key, value)
-    route = {"gateway": "openrouter", "interpretation": [], "reply": []}
-    monkeypatch.setattr(
-        "argus.agent_runtime.business.runner.business_provider_route",
-        lambda: route,
-        raising=False,
-    )
-    sink = object.__new__(ReconciliationService)
-    pool, runner = object(), object()
+
+    sink = ReconciliationService(object(), object(), lambda: None)
+    pool = object()
     documents = SimpleNamespace(
         hub=SimpleNamespace(
             sink=sink, box=SecretBox(bytes(range(32))), clock=lambda: None
         )
+    )
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: pytest.fail("Unexpected HTTP"))
     )
     runtime = build_whatsapp(
         load_whatsapp_settings(),
         documents=documents,
         spaces=object(),
         store=object(),
-        client=httpx.AsyncClient(),
+        client=client,
         pool=pool,
-        runner=runner,
     )
     assert runtime.worker.actions.imports is sink
     assert runtime.worker.actions.authority.pool is pool
     assert runtime.worker.consent is runtime.consent is runtime.worker.captures.consent
     assert not runtime.worker.has_consent(None, None)
     assert runtime.worker.execute_turn is not None
+    assert runtime.consent.route() == business_provider_route()
+    assert runtime.consent.route()["interpretation"]
+    assert runtime.consent.route()["reply"]
+    await client.aclose()
 
 
+@pytest.mark.parametrize("mode", ["allowed", "retry", "revoked_retry", "no_consent"])
 @pytest.mark.asyncio
-async def test_adapter_passes_capture_bound_guard_to_runner(monkeypatch):
+async def test_adapter_runs_real_graph_with_capture_guard_at_each_http_attempt(
+    monkeypatch, mode
+):
+    import json
+    from datetime import datetime, timedelta, timezone
     from uuid import uuid4
 
+    import httpx
+    from argus.agent_runtime.business.runner import BusinessTurnRunner
     from argus.api.whatsapp_worker import build_worker
+    from argus.domain.business.authority import ActionContext
+    from argus.domain.business.contracts.authority import TrustedActor
+    from argus.domain.business.contracts.recovery import DurableTurn, SenderLease
     from argus.domain.ingestion.secrets import SecretBox
+    from argus.domain.ingestion.whatsapp.business_capture import CapturedText
+    from argus.domain.ingestion.whatsapp.business_envelope import TextEnvelope
     from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
+    from argus.llm import openrouter
 
-    calls = []
-    consent = SimpleNamespace(
-        require_access=lambda captured, authorization, *, lease: calls.append(
-            (captured, authorization, lease)
-        )
+    from tests.agent_runtime.test_business_runtime import Actions, proposal
+
+    now = datetime.now(timezone.utc)
+    actor = TrustedActor(actor_id=uuid4(), actor_kind="owner_via_agent", space_id=uuid4())
+    authorization = ActionContext(
+        actor, uuid4(), str(actor.actor_id), "Synthetic Business"
     )
-    actions = SimpleNamespace(plan_for_turn=lambda *args, **kwargs: None)
+    keys = WhatsAppKeys("synthetic-key")
+    message = TextMessage("wamid.synthetic-assembled", ALICE_PHONE, now, "Original  text")
+    captured = CapturedText(
+        id=uuid4(),
+        message_key=keys.message(message.id),
+        sender_hash=keys.sender(message.sender),
+        space_id=actor.space_id,
+        owner_id=actor.actor_id,
+        link_id=uuid4(),
+        arrival_sequence=1,
+        received_at=now,
+        language="es-419",
+        composition_state="not_started",
+        envelope=TextEnvelope.from_message(message),
+        ai_consent_id=uuid4(),
+    )
+    lease = SenderLease(
+        space_id=actor.space_id,
+        sender_hash=captured.sender_hash.hex(),
+        holder=uuid4(),
+        fence=1,
+        lease_until=now + timedelta(minutes=5),
+    )
+    turn = DurableTurn(
+        space_id=actor.space_id,
+        actor_id=actor.actor_id,
+        sender_hash=lease.sender_hash,
+        turn_key=captured.turn_key,
+        arrival_sequence=1,
+        phase="turn_running",
+        model_state="running",
+        lease_fence=1,
+    )
+    events, posts = [], []
+    live = True
+    actions = Actions()
 
-    class Runner:
-        async def run(self, *, context, **kwargs):
-            context.require_access()
-            return SimpleNamespace(reply_text="Synthetic response")
+    def require_access(actual_capture, actual_authorization, *, lease):
+        assert actual_capture is captured and actual_authorization is authorization
+        assert (
+            lease.space_id == captured.space_id
+            and lease.sender_hash == captured.sender_hash.hex()
+        )
+        events.append("access")
+        if not live:
+            raise PermissionError("captured_consent_revoked")
 
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def post(self, url, **kwargs):
+            nonlocal live
+            assert events[-1] == "access"
+            events.append("post")
+            posts.append(kwargs["json"])
+            request = httpx.Request("POST", url)
+            if len(posts) == 1 and mode in {"retry", "revoked_retry"}:
+                assert "reasoning" in kwargs["json"]
+                live = mode != "revoked_retry"
+                return httpx.Response(400, request=request)
+            content = (
+                proposal({}).model_dump(mode="json")
+                if actions.plan is None
+                else {"reply": "Pendiente de revisión."}
+            )
+            return httpx.Response(
+                200,
+                request=request,
+                json={"choices": [{"message": {"content": json.dumps(content)}}]},
+            )
+
+    monkeypatch.setattr(openrouter.httpx, "AsyncClient", Client)
     monkeypatch.setattr(
-        "argus.agent_runtime.business.context.AuthorizedBusinessContext", SimpleNamespace
+        openrouter, "resolve_openrouter_api_key", lambda: "offline-placeholder"
     )
     worker = build_worker(
         object(),
         box=SecretBox(bytes(range(32))),
-        keys=WhatsAppKeys("synthetic-key"),
+        keys=keys,
         transport=None,
         enabled=lambda: True,
         send_enabled=lambda: False,
         actions=actions,
-        runner=Runner(),
-        consent=consent,
+        runner=BusinessTurnRunner(),
+        consent=None
+        if mode == "no_consent"
+        else SimpleNamespace(require_access=require_access),
     )
-    captured = SimpleNamespace(
-        id=uuid4(),
-        turn_key="synthetic",
-        received_at=None,
-        language="es-419",
-        envelope=SimpleNamespace(text="Original"),
-    )
-    authorization, lease = object(), object()
-    reply = await worker.execute_turn(
+    call = worker.execute_turn(
         captured=captured,
-        turn=object(),
+        turn=turn,
         lease=lease,
         authorization=authorization,
-        begin_reply=lambda: None,
+        begin_reply=actions.begin_reply,
         history=(),
     )
-    assert reply == "Synthetic response"
-    assert calls == [(captured, authorization, lease)]
+    if mode in {"revoked_retry", "no_consent"}:
+        with pytest.raises(PermissionError):
+            await call
+        assert not actions.receipts
+    else:
+        assert await call == "Pendiente de revisión."
+        assert len(actions.receipts) == 1
+        assert next(iter(actions.sources.values())).text == message.body
+    assert (
+        len(posts)
+        == {"allowed": 2, "retry": 3, "revoked_retry": 1, "no_consent": 0}[mode]
+    )
+    if mode == "no_consent":
+        assert not events and not actions.calls
 
 
 @pytest.mark.asyncio

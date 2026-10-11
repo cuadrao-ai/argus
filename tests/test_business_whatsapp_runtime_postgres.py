@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from argus.agent_runtime.business.interpretation import BusinessInterpretation
 from argus.agent_runtime.business.runner import BusinessTurnRunner
 from argus.api.whatsapp_worker import build_worker
 from argus.domain.business.actions import BusinessActions
@@ -14,7 +13,7 @@ from argus.domain.recording.postgres_repository import PostgresFinancialAccountR
 from argus.domain.recording.service import FinancialAccountService
 
 from tests import test_business_whatsapp_transport_postgres as transport_pg
-from tests.test_business_runtime_postgres import activity_plan
+from tests.test_business_runtime_postgres import activity_proposal
 
 users = transport_pg.users
 world = transport_pg.world
@@ -32,7 +31,7 @@ class ScriptedInterpreter:
         self.inputs.append(payload)
         if self.fail_interpretation:
             raise RuntimeError("synthetic interpretation interruption")
-        return BusinessInterpretation(plan=activity_plan(payload))
+        return activity_proposal(payload)
 
     async def acompose_business(self, payload):
         self.compositions += 1
