@@ -1,7 +1,9 @@
 # Cuadrao Business lane handoff
 
-**Current October 11 coordinator checkpoint.** Canonical integration is
-`590a0ec8ada4778add28be45c2b2ef222e3b6479`: manual UI #968 LANDED, tree
+**Current October 11 coordinator checkpoint.** #969 MERGED at canonical
+`e465c2fe4bf7e2749215bc677a1fa225adab384c` from exact reviewedce2c. Root
+postmerge CI38134421380/smoke38134421396 RUNNING; no postmerge PASS claimed.
+Prior `590a0ec8ada4778add28be45c2b2ef222e3b6479`: manual UI #968 LANDED, tree
 `200357561ed64ad053814a4518a6abe05372acf9` byte-equal reviewed8c6d. Root
 postmerge CI38132051579/smoke38132051668 PASS; the earlier RUNNING observation
 remains historical evidence.
@@ -333,10 +335,14 @@ readiness.
 
 The [existing execution manifest](../specs/argus-execution-board.md#active-checkpoint-personal-memory-voice-and-repair-allocation)
 records six approved exact policies:7 checkpoint,29 Personal,15 memory,7
-utterance voice,3 generic repair and6 live-delegation paths (67 total). Published
-#969 reconciled `dfd9332c7b7d7ae2997cbcac97c71581d524366a` retains the prior
-reviewedc547 three-file bytes and all15 incoming UI bytes; new-head CI is
-separate from old-head evidence; this registration uses a separate
+utterance voice,3 generic repair and6 live-delegation paths (67 total). #969
+MERGED at `e465c2fe4bf7e2749215bc677a1fa225adab384c`, parent590a, from
+reviewed `ce2c051a0b4c2624c1f278f98efb3bf45049c648`; postmerge
+CI38134421380/smoke38134421396 RUNNING, not postmerge PASS. Historical
+c547/dfd reconciliations and all15 incoming UI bytes remain preserved. The
+isolated final67 source `f5f7fb01eefa23e47e5348743135722cf6c1ca8c` is
+normally imported into the existing registered context-owner branch for
+publication; no seventh policy is created. Preserve the separate source
 metadata worktree. Existing policies/denies/base refs and T1's thirteen
 inherited E1 ownership failures remain unchanged. A donor allocation does not
 make inherited files owned or a source READY.
