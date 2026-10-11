@@ -341,7 +341,8 @@ readiness.
 
 The [existing execution manifest](../specs/argus-execution-board.md#active-checkpoint-personal-memory-voice-and-repair-allocation)
 records six approved exact policies:7 checkpoint,33 Personal,15 memory,7
-utterance voice,3 generic repair and6 live-delegation paths (71 total). #969
+utterance voice,3 generic repair and6 live-delegation paths (71 donor total), plus one exact existing Income Actions artifact addition
+(72 package additions against canonicalb8c). #969
 MERGED at `e465c2fe4bf7e2749215bc677a1fa225adab384c`, parent590a, from
 reviewed `ce2c051a0b4c2624c1f278f98efb3bf45049c648`; postmerge
 CI38134421380/smoke38134421396 terminal SUCCESS after normal same-head
@@ -632,14 +633,23 @@ and their implementation/acceptance still PENDING.
 T1 failed/unmeasured quality, judge calibration, consent implementation and hosted gates remain open.
 
 The [active export/income/X1 allocation](../specs/argus-execution-board.md#active-export-income-and-x1-allocation)
-records four isolated writers and their exact10/7/7/8 paths. Current clean local
+records four isolated writers and their exact10/7/8/8 paths; Income Actions
+adds only `docs/api/openapi.yaml` beyond its original seven. Current clean local
 income C0 `4a965766ad27e137a88a3c3cb84fe5e6a98d8feb` has root87 actual PG
 PASS/zero skips; income Actions `1bdebf814a28fa5bc947a4bc337717167bd09f13`
 has root126 actual PG PASS/zero skips; export
 `c30c40aade7f07f80bc161dade4734ed4ad8ea8a` has root106 actual PG PASS/zero
 skips. Income C0 is now LANDED as #970 atb8c84da159bab701aeb3bdefbd7c38f3c516978c,
 postsmoke SUCCESS/CI RUNNING. Actions and export remain local/unlanded; their
-publication and all hosted acceptance remain pending. Preserve prior canonical590a source reconciliations b95/043/3a52
+publication and all hosted acceptance remain pending.
+Root holds Income Actions #971 for required generated-artifact reconciliation:
+initial exact-source OpenAPI selection24 produced22 PASS/2 FAIL, retained. The
+sole assigned Income Actions writer may regenerate only the approved
+ApproveExpense/ApproveIncome union and ApproveIncome schema references in
+`docs/api/openapi.yaml`; original seven source bytes remain frozen. Export
+acknowledges serialization and makes no artifact edit until Actions lands.
+Registration/source correction review/CI/publication remain pending; this
+repairs the approved wire contract without broader source or authority scope. Preserve prior canonical590a source reconciliations b95/043/3a52
 and earlier income C0 source0f2fd918's123 offline PASS/33 PG SKIP and original
 SQL-unapplied observation as historical evidence. Root reserved110000 after
 168-worktree collision check. Actual local PG evidence is head-specific. X1

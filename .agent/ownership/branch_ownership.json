@@ -434,6 +434,7 @@
       "description": "Income human approval/dossier/API adapter and focused proofs; inherited contracts are dependencies, not write authority.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
+        "docs/api/openapi.yaml",
         "src/argus/api/routers/business_drafts.py",
         "src/argus/domain/business/actions/approval.py",
         "src/argus/domain/business/actions/dossier.py",
