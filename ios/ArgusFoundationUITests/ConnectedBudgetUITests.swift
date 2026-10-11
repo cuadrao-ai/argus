@@ -208,11 +208,15 @@ extension FinancialLoopUITests {
     func assertBudget(spent: String, status: String, over: Bool = false) {
         let detail = app.descendants(matching: .any)["budget.detail"]
         let amount = detail.staticTexts["budget.spent"]
-        let expected = NSPredicate(format: "label == %@", "DOP " + spent)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: expected, object: amount)], timeout: 15), .completed)
         let remaining = detail.descendants(matching: .any)["budget.remaining"]
-        XCTAssertTrue(remaining.waitForExistence(timeout: 15))
-        XCTAssertTrue(remaining.label.contains(status))
-        XCTAssertTrue(remaining.label.contains(over ? "over budget" : "remaining"))
+        let direction = over ? "over budget" : "remaining"
+        let expected = NSPredicate { _, _ in
+            amount.exists && amount.label == "DOP " + spent
+                && remaining.exists && remaining.label.contains(status)
+                && remaining.label.contains(direction)
+        }
+        let result = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: expected, object: nil)], timeout: 15)
+        XCTAssertEqual(result, .completed,
+                       "Expected spent DOP \(spent) and \(status) \(direction); actual spent: \(amount.exists ? amount.label : "<missing>"), status: \(remaining.exists ? remaining.label : "<missing>")")
     }
 }
