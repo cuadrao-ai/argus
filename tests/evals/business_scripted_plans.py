@@ -12,7 +12,11 @@ SCRIPTED_INTERPRETATIONS: dict[tuple[str, int], dict[str, Any]] = {
     ("es_owner_funds_no_receipt", 0): {
         "records": [
             {
-                "facts": {"kind": known("expense"), "amount": known("850")},
+                "facts": {
+                    "kind": known("expense"),
+                    "amount": known("850"),
+                    "business_share": known({"kind": "all"}),
+                },
                 "question": {
                     "field": "funding",
                     "asked_of": "owner",

@@ -17,7 +17,7 @@ cases:
           draft_count: 1
           draft_versions: {draft_a: 1}
           draft_sources: {draft_a: [message_a1]}
-          fact_sources: {draft_a: {amount: [message_a1], currency: [], funding: []}}
+          fact_sources: {draft_a: {amount: [message_a1], currency: [], funding: [], business_share: [message_a1]}}
           draft_facts:
             draft_a:
               kind: {state: known, value: expense, origin: owner_stated}
@@ -26,13 +26,12 @@ cases:
               funding: {state: unknown, value: null}
               receipt_state: {state: unknown, value: null}
               occurred_on: {state: unknown, value: null}
-              business_share: {state: unknown, value: null}
+              business_share: {state: known, value: {kind: all}, origin: owner_stated}
           questions:
             - {field: funding, asked_of: owner, state: open}
           blockers:
             - {code: fact_required, field: occurred_on}
             - {code: fact_required, field: funding}
-            - {code: fact_required, field: business_share}
             - {code: business_questions_unresolved}
           approval: null
           money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
@@ -50,7 +49,7 @@ cases:
           draft_count: 1
           draft_versions: {draft_a: 2}
           draft_sources: {draft_a: [message_a1, message_a2]}
-          fact_sources: {draft_a: {amount: [message_a1], funding: [message_a2], receipt_state: [message_a2]}}
+          fact_sources: {draft_a: {amount: [message_a1], funding: [message_a2], receipt_state: [message_a2], business_share: [message_a1]}}
           draft_facts:
             draft_a:
               funding: {state: known, value: {kind: owner_funds}, origin: owner_stated}
@@ -58,13 +57,12 @@ cases:
               amount: {state: known, value: '850', origin: owner_stated}
               currency: {state: known, value: DOP, origin: default}
               occurred_on: {state: unknown, value: null}
-              business_share: {state: unknown, value: null}
+              business_share: {state: known, value: {kind: all}, origin: owner_stated}
           questions:
             - {field: funding, asked_of: owner, state: answered, answer_source: message_a2}
             - {field: occurred_on, asked_of: owner, state: open}
           blockers:
             - {code: fact_required, field: occurred_on}
-            - {code: fact_required, field: business_share}
             - {code: business_questions_unresolved}
           approval: null
           money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
