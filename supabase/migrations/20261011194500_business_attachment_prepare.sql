@@ -35,6 +35,7 @@ begin
         and (new.preparation_binding is distinct from old.preparation_binding
             or new.connection_id is distinct from old.connection_id
             or new.user_id is distinct from old.user_id
+            or (old.batch is not null and new.batch is distinct from old.batch)
             or (new.source_bytes is not null
                 and new.source_bytes is distinct from old.source_bytes)) then
         raise exception 'business_preparation_binding_immutable' using errcode = '23514';
@@ -116,6 +117,8 @@ begin
         where d.connection_id=(new.command->'binding'->>'connection_id')::uuid
             and d.user_id=(new.command->'binding'->>'owner_id')::uuid
             and d.preparation_binding=new.command->'binding'
+            and d.batch is not null
+        for share of d
     ) then
         raise exception 'business_preparation_receipt_binding_missing' using errcode = '23514';
     end if;
