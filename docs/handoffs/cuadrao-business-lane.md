@@ -1,8 +1,10 @@
 # Cuadrao Business lane handoff
 
-**Current checkpoint, October 10, 2026, 23:37 UTC continuation, refreshed October 11 00:09 UTC.** Canonical integration is
-`650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`, C0 #955 landed; exact postmerge
-CI remains pending at this snapshot; postmerge smoke passed. Startup repair #954 landed at
+**Current checkpoint under the October 10 23:37 UTC continuation.** UI #956
+landed at `2026-10-11T00:19:57Z` as current canonical integration
+`0ebfd08ed22dcd1108496fc0af427073ec219dc8`; root postmerge verification is
+in progress. C0 #955 landed as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; its exact postmerge
+CI and smoke all succeeded ([comment 6103620102](https://github.com/lagarcess/argus/pull/955#issuecomment-6103620102)). Startup repair #954 landed at
 `8a838fb4ff75bb8527400bbd802eb208e270bdf7`. The prior #953 source was
 `77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`, with passed exact
 [CI](https://github.com/lagarcess/argus/actions/runs/38087059299) and
@@ -19,11 +21,10 @@ integration and staging flow. The root coordinator alone owns merge and staging.
 Read those records for current owners, pending gates and acceptance. Do not
 restart the historical queue below.
 
-The existing Business lane retains P0 read-only dependency inventory and
-reconciliation planning. It must map J1 to J3 shapes against the fetched
-integration and identify missing API, data, migration and test dependencies.
-C0 remains the first build step. A runtime writer needs its chosen contract and
-exclusive assignment before changing those files. "Pagué 850" is one example.
+The existing Business lane completed the bounded P0 read-only inventory.
+The manifest assigns current API, data, migration and test owners and their
+dependencies. C0 is landed; use its contracts when reconciling retained sources
+against J1 to J3. Writers need their current exclusive assignment before edits. "Pagué 850" is one example.
 The real hosted flow must handle varied natural-language transactions and
 follow-ups, explicit unknowns and corrections without phrase or regex intent gates.
 
@@ -42,10 +43,10 @@ calls. The 22:32 UTC grant authorizes only the existing development
 expires at `2026-10-12T02:21:00Z`. It supersedes the $5 cap and spending hold.
 Do not swap to registered or guest keys or rotate credentials. The manifest
 owns the remaining-allowance snapshot. The root coordinator alone controls
-synthetic live calls, reservations, concurrency and token bounds. Root began bounded Grok calibration at 00:05 UTC on October 11. Two POSTs
-occurred: one known-case verdict and one unknown outcome after `ValueError`.
-Calibration has not passed; root paused paid calls and retains the unknown-call
-reservation. The manifest records exact usage/limits and the active E1 failure. C0 is landed, while
+synthetic live calls, reservations, concurrency and token bounds. Root began bounded Grok calibration at 00:05 UTC on October 11. Three POSTs
+occurred: two valid known-case verdicts costing $0.0015287 total and one unknown
+outcome after `ValueError`. Calibration remains incomplete; root retains its
+$0.156 unknown-call reservation, with no blind retry. The manifest records exact usage/limits and the pending E1 exact-final-head rerun. C0 is landed, while
 dependent runtime/evaluation and hosted acceptance remain open. Sonnet 5.5
 still needs a demonstrated need and fresh confirmation before use. The coordinator sequences a direct named-accountant per-business grant
 for the existing one-owner, one-authorized-accountant milestone. Full L11 firm
@@ -63,7 +64,8 @@ The [manifest](../specs/argus-execution-board.md#mandatory-owner-completion-hand
 owns the mandatory owner handoff. It accounts for unpublished sources as well
 as PRs, with LANDED/PENDING/SUPERSEDED dispositions and exact provenance. The
 23:37 UTC direction is `Sentinel_78ca7fbafb948191a7a6bb2a2b25cb3c`. The
-remaining 105-item P0 Counsel audit is pending, not a blanket approval.
+bounded 105-commit P0 Counsel inventory is delivered, not a blanket approval.
+The retained approved capture/search families below remain pending.
 
 The retained private source excerpts are
 `business-approved-work-source-excerpts.json` in the root task workspace.
@@ -77,17 +79,20 @@ Argus favicon/title. This records bounded sources, not the private transcript.
 
 | Approved family | Exact retained source | Current disposition |
 | --- | --- | --- |
-| Sidebar Cuadrao mark and preserved controls | `21228276594adbd2b25d4165460976f11199d404` | PENDING integration, restored in `67583d5e7d7a8068e27799902506690e220311ac` |
-| Sign-in artwork, assets and localized copy | `e05bdcffe60303fa06e8ea6d99da6cb49c6c7f06` | PENDING integration in that restoration |
+| Sidebar Cuadrao mark and preserved controls | `21228276594adbd2b25d4165460976f11199d404` | LANDED in #956 as `0ebfd08ed22dcd1108496fc0af427073ec219dc8`, restored source `67583d5e7d7a8068e27799902506690e220311ac` |
+| Sign-in artwork, assets and localized copy | `e05bdcffe60303fa06e8ea6d99da6cb49c6c7f06` | LANDED in #956 through that restoration |
 | Initial literal sign-in palette | `5887b7034f5c9948ccdf9bb967156c6ade5b8276` | SUPERSEDED palette state by latest approved source below; family remains required |
-| Latest canonical derived palette states | `11fd99836590f9fcf388d02e9bc6898d52eb4257` | PENDING integration in that restoration; use this successor, not the older literal state |
-| Cuadrao favicon and browser title | `bca99e4e19116483a3cf62cab595d9b0d3f008dd` | PENDING integration in that restoration |
-| Cuadrao title retained after hydration | `d136c33947439040d4d9bf6a984e19d7f63b6f6b` | PENDING integration in that restoration |
+| Latest canonical derived palette states | `11fd99836590f9fcf388d02e9bc6898d52eb4257` | LANDED in #956 through that restoration; use this successor, not the older literal state |
+| Cuadrao favicon and browser title | `bca99e4e19116483a3cf62cab595d9b0d3f008dd` | LANDED in #956 through that restoration |
+| Cuadrao title retained after hydration | `d136c33947439040d4d9bf6a984e19d7f63b6f6b` | LANDED in #956 through that restoration |
 
 These six sources were absent from the older `8a838fb4` integration; a remote
 commit/PR lookup returned 422, which does not erase retained local work.
 Restoration `67583d5e` and reviewed UI `85d564ae1b998d3f372828728855dab26e5b5deb`
-remain pending integration work in UI PR #956. C0 reconciliation is
+landed in UI PR #956 as `0ebfd08ed22dcd1108496fc0af427073ec219dc8`. Exact
+published-head CI/smokes succeeded; external ownership passed for all 53 files
+and the five image hashes matched. Root postmerge verification remains in
+progress. C0 reconciliation is
 `7667ee1e19589bed2e00aa1b9c08600965554860`; local evidence publication is
 `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56`. Its source document is
 `docs/reports/evidence/942-cuadrao-record-ui/README.md` in the UI worktree,
@@ -102,6 +107,59 @@ full TypeScript still failing (8,298 diagnostics versus 8,306 at original base),
 so it does not establish a full build/typecheck pass. Hosted auth/API/worker,
 real grants and internet acceptance remain PENDING and coordinator-owned.
 The #925 exclusion and preserved sandbox above remain intact.
+
+## Retained approved capture and search outcomes
+
+Counsel's completed bounded inventory is `/tmp/business953-private-handoff.md`.
+Its baseline is `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; retained source is
+`codex/cuadrao-business-sandbox` at `df208f7ec2379cd84efd55eea0deb685d67c5360`.
+The 105 absent commits remain preserved, not collectively approved or promoted.
+The following five approved outcomes are absent or incomplete at that baseline
+and the inspected first-flow candidates. This does not mean their source was
+deleted. Use current C0 source/fact/grant contracts when reconciling them.
+
+Verified original human sources, with exact message IDs and UTC timestamps:
+
+- Capture/format/email/manual acceptance: `msg_01a122a9-8d45-7e21-ab4e-579d7ec332b2`,
+  `2026-10-09T21:54:59.525Z`, turn `01a122a9-8d1e-7112-b157-222bf06c2411`.
+- Note continuity and intuitive attachment association: `msg_01a12381-86be-7ea3-a653-5b448f7e9e54`,
+  `2026-10-10T01:50:53.630Z`, turn `01a12381-8689-79e3-a54e-c35dfbcae909`.
+- Hover opening: `msg_01a12391-b642-70f2-bae3-4687fe408e90`,
+  `2026-10-10T02:08:34.370Z`; preserved touch behavior:
+  `msg_01a12392-7fef-70f0-ad14-071e6c37ad88`, `2026-10-10T02:09:25.999Z`.
+  Both belong to turn `01a1238e-a9ca-7693-981f-3c4a97fe1b5a`.
+- Finish email presentation/search, with broader UI later:
+  `msg_01a12398-a0e1-7460-8b26-6ed4354d6f55`, `2026-10-10T02:16:07.649Z`,
+  turn `01a12398-a0b4-7c13-8923-52f52a4c1d66`.
+- Connect WhatsApp/email/web to staging after laptop proof, production untouched:
+  `msg_01a123db-ef7b-7580-b29e-25fc0d089751`, `2026-10-10T03:29:38.683Z`,
+  turn `01a123db-ef52-7361-bfa2-89eb2a44293a`.
+
+These sources were read as actual `response_item` / `role=user` records in the
+existing Business session, rather than tool quotations. The private inventory
+also verifies the historical assigned-recipient Resend grant; it does not make
+that temporary grant standing authority for a new hosted cutover.
+
+| Approved outcome | Retained exact commit family | Disposition and bounded gap |
+| --- | --- | --- |
+| Email grouping and attachment context | `84730a0a5`, `9a14080d4`, evidence `eb7818b03` | PENDING: one attachment row with accessible email context; raw EML is not a second approvable receipt. Current UI message display does not restore email envelope/attachment grouping. |
+| Search dossier hover, touch and keyboard | `4ea00e4e2`, `1019f9c9e`, `63e116bd4`, tests `7666b8bf5` | PENDING: hover and saved-note preview remain absent in UI `7667ee1e`/`17d972bc`; click/Enter proof does not close hover. Preserve existing touch/keyboard behavior against new C0 dossier shapes. |
+| Saved manual notes | `effca690f`, restart proof `e4890166a` | PENDING web sparse-note entry, search and original-text continuity. Old `manual_capture_review_unavailable` dead-end is SUPERSEDED by current C0 draft/review flow. Capture alone changes neither balances nor expenses. |
+| Seven web formats and per-file recovery | `025fed4b0`, `26e0a35f5`, `7f8ac97dc`, `680409585`, byte proof `530114e69` | PENDING TXT/CSV/XLSX/EML and queue/retry beyond baseline PDF/JPEG/PNG. Seven counts JPEG and PNG separately. Preserve original bytes, per-file failure/siblings, safe recovery and Personal format policy. |
+| Email receiving, business routing and download retry | `eef83a5b4`, `5e435be86`, `3b02f4dc7`, `7f2f7426e`, `4bc4a7579` | PENDING signed receipt, exact configured recipient mapping, immutable business binding and bounded retry through current authority. Prior one-recipient local proof does not establish multi-customer or hosted readiness. |
+
+Every abbreviated commit above resolves uniquely to a preserved source object
+under the sandbox head. C0 contracts are LANDED as #955; these channel and UX
+outcomes remain PENDING until their own implementation/acceptance evidence.
+Root coordinates existing capture, presentation, API/data and authority owners
+before any bounded restoration. No new writer or broad UI pass is assigned here.
+
+Counsel's exact original six-rule approval source remains UNKNOWN. Later direct
+human grant/model direction supersedes old rigid-custodian/role maps, fixed
+model/spend prescriptions and capture-only replies. Preserve useful source
+behavior without copying those obsolete mechanisms. #925 stays EXCLUDED;
+no wholesale 105-commit publication, old tunnel restart or new hosted action
+follows from this accounting.
 
 ## Historical October 10 documentation publication
 

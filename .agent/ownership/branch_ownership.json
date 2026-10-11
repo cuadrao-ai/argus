@@ -130,6 +130,7 @@
       "description": "M1-owned owner funding source delta; canonical shared schema/census reconciliation remains coordinator-owned.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
+        "docs/api/openapi.yaml",
         "docs/specs/lanes/account-deletion-fk-census.md",
         "src/argus/api/business_schemas.py",
         "src/argus/domain/business/ledger.py",
@@ -145,6 +146,7 @@
         "supabase/migrations/20261011010000_business_owner_funded_expenses.sql",
         "tests/business/test_owner_funds_entry.py",
         "tests/financial_accounts/test_owner_funds.py",
+        "tests/test_business_space_isolation_postgres.py",
         "tests/test_owner_funds_postgres.py"
       ],
       "deny": [
