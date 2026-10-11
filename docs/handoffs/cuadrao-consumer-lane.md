@@ -1,6 +1,6 @@
 # Cuadrao Consumer lane handoff
 
-Updated October 10, 2026. This is the signed-in free-tier checkpoint under
+Updated October 11, 2026. This is the signed-in free-tier checkpoint under
 [#877](https://github.com/lagarcess/argus/issues/877), not full app acceptance.
 The [October 9 handoff](https://github.com/lagarcess/argus/blob/95720e014ee35fedb39bbb44d8c19ea8faece8b7/docs/handoffs/cuadrao-consumer-lane.md)
 retains the earlier build, design, service, and branch history. Its old next steps
@@ -35,6 +35,9 @@ The following decisions supersede the original handoff:
 - The one-line amount identifier fix and draft PR publication were explicitly
   approved. Later coordination permits bounded integration reconciliation and
   landing in the assigned merge slot. It does not expand product scope.
+- Normal-size core money acceptance now takes priority. The founder deferred
+  extreme Dynamic Type acceptance to the final pre-TestFlight pass. Preserve
+  the failed English result and the unrun Spanish case.
 
 Accepted branding, navigation, typography, and sheet controls remain in the
 native design guide and their linked evidence. This handoff does not reopen
@@ -56,7 +59,10 @@ staging MVEE acceptance is green. Green CI alone does not satisfy that gate.
 ## Integration and PR disposition
 
 Repository `lagarcess/argus` uses `codex/private-alpha-next` for integration.
-The October 10 landing snapshot is `ed0b2b760d00ba021c7f81a000fea05aa4a23d44`.
+The October 11 fetched snapshot is `e465c2fe4bf7e2749215bc677a1fa225adab384c`.
+Core source `40ff4967040c854ca5dd0764115227544011a6e2` is reconciled through
+`286c6bc0494be6c858851f0c4037ea6df5bacea5`. The newer reconciliation and draft
+publication await the coordinator's final integration-check notice.
 Refresh remote state before acting; a dated snapshot is not the current tip.
 
 | PR | Recorded state | Meaning |
@@ -65,12 +71,11 @@ Refresh remote state before acting; a dated snapshot is not the current tip.
 | [#940](https://github.com/lagarcess/argus/pull/940) | Merged as `cd14c9883f180876d27c121f0787b25a73529492` | Landing notes and pinned staging setup recorded; merged CI and smoke passed |
 | [#916](https://github.com/lagarcess/argus/pull/916) | Merged as `59c695a0e2690f28bd5c5e48b73a66ce07ebc785` | Historical compatibility evidence and local rehearsal tool, with its limits preserved |
 | [#952](https://github.com/lagarcess/argus/pull/952) | Merged as `ed0b2b760d00ba021c7f81a000fea05aa4a23d44` from `7e811a63554da6a642765731102321ef314f5deb` | Approved identifier fix, test repairs, and partial staging acceptance evidence |
-| [#938](https://github.com/lagarcess/argus/pull/938) | This handoff reconciliation | Replaces stale instructions while preserving the original record through its pinned link |
+| [#938](https://github.com/lagarcess/argus/pull/938) | Merged as `35fae200034c51ef27cee64d76adc4a903c19672` | Reconciles the earlier handoff while preserving the original record through its pinned link |
 
-The coordinator merged #916, then #952. The coordinator owns the final #938
-merge after #952 integration verification and #938 review and CI are complete.
-#916 preserves independent historical evidence; it adds no runtime prerequisite
-for #952.
+The coordinator merged #916, #952 and #938 into `codex/private-alpha-next`.
+#916 preserves independent historical evidence. It adds no runtime prerequisite
+for #952. Future Consumer merges remain with the coordinator.
 
 The [#916 terminal landing record](https://github.com/lagarcess/argus/pull/916#issuecomment-6101642318)
 confirms identical reviewed and landed trees, successful merge CI, and actual
@@ -87,21 +92,38 @@ Earlier evidence that says #937 was unmerged is a dated record, not an active ga
 ## Acceptance evidence and remaining gaps
 
 The [#952 evidence](https://github.com/lagarcess/argus/blob/7e811a63554da6a642765731102321ef314f5deb/docs/reports/evidence/consumer-signed-in-free-staging-20261009/README.md)
-owns the detailed results, source identities, screenshots, and failed attempts.
+owns its detailed results, source identities, screenshots, and failed attempts.
+The [October 11 core evidence](../reports/evidence/consumer-core-checkpoint-20261011/README.md)
+adds the completed Budget and Goal journeys and the bounded test-helper repairs.
 
 - Four money journeys passed native checks, exact canonical API deltas, and
   relaunch checks. They cover income, spending, refunds, corrections, transfers,
   card credit, reconciliation, and separate currencies with unknown balances.
 - Search passed editing, correction, origin preservation, and Spanish relaunch.
-  Goal data operations and the later Search/relaunch replay have split evidence;
-  the original full Goal test did not pass in one execution.
+  The earlier split Goal evidence is superseded by one complete passing Goal
+  execution at `7172fd6ff293cd00e956f255669e0d0b56711f8e` plus its retained
+  no-write probe. Allocation, contribution correction, release/relink, target
+  edit, archive/restore, Search origin and Spanish relaunch passed.
 - Goal → Budget → Goal field identity passed after the approved one-line move
   into `CanvasDecimalInput.updateUIView`. No numeric or persistence code changed.
-- The full budget rerun failed during account-entry setup at `accounts.add`,
-  before budget assertions. The cause and full budget acceptance remain open.
-- Largest-text account and expense entry/cancel assertions passed. The Date
+- The complete Budget journey passed at
+  `40ff4967040c854ca5dd0764115227544011a6e2`. Spending, correction, cross-account
+  refund, limit edit, removal/restore, Search origin and Spanish relaunch passed.
+  The final limit of DOP 160.00, spending of DOP 155.00 and remaining DOP 5.00
+  agree. The unknown balance of the refund account stays unknown.
+- The account-entry failure came from the test drag starting inside the chart.
+  The helper now derives the drag origin from its direction. Native Back waits
+  for the existing hittable-button condition; Budget assertions wait for the
+  amount and direction together. Three focused regressions passed. No product
+  money or gesture code changed. Both later Budget timing failures and their
+  canonical readbacks remain preserved.
+- Earlier largest-text account and expense entry/cancel assertions passed. The Date
   label wraps one letter per line, so visual acceptance remains open. Software
   keyboard occlusion and every English/Spanish large-text surface are not proven.
+- The later English stress case passed account keyboard/cancellation steps but
+  failed its full Date-picker visibility assertion. Spanish did not run. The
+  Date repair is parked at `55e06e92985fa6f1593fa89938853ddf78750611` on
+  `codex/consumer-core-native-repairs`; it is absent from the current core diff.
 - Earlier passing journeys retain their own tested sources. They were not all
   rerun after the identifier-only change. CI does not replace native acceptance.
 - Native staging sign-in used a local CAPTCHA fixture with real staging identity
@@ -123,7 +145,7 @@ and outside this assignment.
 
 Current Consumer implementation worktree:
 `/Users/garces/.codex/worktrees/4a54/private-alpha-next`, branch
-`codex/consumer-staging-free-acceptance`. Its untracked
+`codex/consumer-free-tier-completion`. Its untracked
 `docs/reports/2026-10-09-consumer-free-tier-finish-line.md` is an older working
 report. Do not publish it as current evidence without reconciling its claims.
 Private credentials, generated configs, and local test bundles stay outside Git.
@@ -157,8 +179,9 @@ stop their services. The founder's local phone API and forwarder also stay untou
    merges in this landing queue.
 2. Use a dedicated Consumer worktree. Merge current integration into the owning
    branch without rebasing published or evidenced history. Inspect semantic overlap.
-3. Use the retained #952 evidence to distinguish tested behavior from open gaps.
-   Budget completion, the large-text Date layout, and full Goal acceptance remain open.
+3. Retain the #952 and October 11 evidence at their original tested sources.
+   Budget and Goal now have complete normal-size passes. Publish that evidence
+   with the three bounded test-helper repairs. Large-text acceptance stays deferred.
 4. Review each new bounded delta and run its applicable checks. Include modularity
    on the combined tree. Retain unaffected native evidence with its original source.
 5. After an approved merge, verify the remote result and required integration checks.

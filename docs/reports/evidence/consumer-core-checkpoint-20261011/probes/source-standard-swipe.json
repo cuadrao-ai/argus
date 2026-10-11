@@ -1,0 +1,8 @@
+{
+  "source_head": "b4165692960ba68f69f3a361c1b18b4d4e8837d1",
+  "diagnostic_sha256": "2131e99843670b65c298c2ca047f7e69b72df351508bc9c6d54dabb519be1d4e",
+  "uncommitted_diagnostic": "ios/ArgusFoundationUITests/ConsumerEntryDiagnosticUITests.swift",
+  "backend_commit": "cad1cbe1ec27ff89c08eadbec31718a0e627383c",
+  "simulator": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35",
+  "staging": "https://cuadrao-api-staging.onrender.com"
+}
