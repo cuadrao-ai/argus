@@ -8928,7 +8928,10 @@ An uncertain financial effect is `outcome_unknown`, not success or safe retry.
 `{text, draft?: {draft_id, version}}` and `Idempotency-Key`, returning the existing
 `BusinessDossier`. This foundation supplies its command and receipt constraints;
 route/service implementation is a separate owned slice. `text` is 1–20,000
-characters, rejects whitespace-only input, and is retained verbatim. The body
+characters, rejects whitespace-only input and U+0000 (NUL), and is retained
+verbatim without rewriting accepted text. The optional `draft.version` must be
+an exact JSON integer of at least 1; booleans, numeric strings and floats are
+rejected for this capture command. The body
 contains no actor, client, grant, issuer or source IDs. Without `draft`, the
 server resolves the authenticated owner's existing Business and live prepare
 grant; it never creates a space or chooses an accountant's client implicitly.
@@ -8950,8 +8953,8 @@ stale targets, foreign targets and missing capabilities use the errors above.
 
 `GET /business/captures?q=&limit=` returns `{items: [...]}` under the owner's
 existing Business and live read grant; it does not infer an accountant's client.
-`q` defaults to empty, is at most 200 characters, and matches a literal
-case-insensitive substring of original text (`%` and `_` are literal).
+`q` defaults to empty, is at most 200 characters, rejects U+0000 (NUL), and
+matches a literal case-insensitive substring of original text (`%` and `_` are literal).
 `limit` is 1–50, default 20. Items contain `draft_id`, current `version` and
 `review_state`, plus original `source_id`, `text` and `received_at`. Selection
 follows successful capture receipts through their exact immutable revision and
