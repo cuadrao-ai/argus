@@ -3,43 +3,46 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal, Protocol
+from typing import Literal, Protocol
 from uuid import UUID
 
+from argus.domain.business.authority import ActionContext
 from argus.domain.business.contracts.actions import ActionOutcome, TurnPlan
 from argus.domain.business.contracts.authority import TrustedActor
-from argus.domain.business.contracts.dossier import SourceEvidence
+from argus.domain.business.contracts.dossier import BusinessDossier, SourceEvidence
 from argus.domain.business.contracts.recovery import SenderLease
 
 
-class BusinessAuthorization(Protocol):
-    actor: TrustedActor
-    grant_id: UUID
-
-
 class BusinessActionService(Protocol):
-    def resolve_actor(self, actor: TrustedActor) -> Any: ...
-    def read_context(self, context: Any) -> dict: ...
+    def resolve_actor(
+        self, actor: TrustedActor, *, grant_id: UUID | None = None
+    ) -> ActionContext: ...
+    def read_context(self, context: ActionContext) -> dict: ...
     def record_source(
-        self, context: Any, source_key: str, evidence: SourceEvidence
+        self, context: ActionContext, source_key: str, evidence: SourceEvidence
     ) -> UUID: ...
     def plan_for_turn(
-        self, context: Any, turn_key: str, *, lease: SenderLease
+        self, context: ActionContext, turn_key: str, *, lease: SenderLease
     ) -> TurnPlan | None: ...
     def persist_plan(
-        self, context: Any, turn_key: str, plan: TurnPlan, *, lease: SenderLease
+        self, context: ActionContext, turn_key: str, plan: TurnPlan, *, lease: SenderLease
     ) -> TurnPlan: ...
     def execute(
-        self, context: Any, turn_key: str, action_index: int, *, lease: SenderLease
+        self,
+        context: ActionContext,
+        turn_key: str,
+        action_index: int,
+        *,
+        lease: SenderLease,
     ) -> ActionOutcome: ...
-    def dossier(self, context: Any, draft_id: UUID) -> Any: ...
-    def find_related(self, context: Any, draft_id: UUID) -> dict: ...
+    def dossier(self, context: ActionContext, draft_id: UUID) -> BusinessDossier: ...
+    def find_related(self, context: ActionContext, draft_id: UUID) -> dict: ...
 
 
 @dataclass(frozen=True)
 class AuthorizedBusinessContext:
     actions: BusinessActionService
-    authorization: BusinessAuthorization
+    authorization: ActionContext
     turn_key: str
     lease: SenderLease
     message_id: UUID
