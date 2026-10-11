@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from argus.domain.business.contracts.actions import (
     ApprovalCommand,
     ApproveIncome,
     BusinessAction,
+    CaptureNote,
     Command,
     IncomeApprovalCommand,
     ProposeActivity,
@@ -514,6 +516,129 @@ def test_agent_receipt_requires_a_persisted_turn(dossier: BusinessDossier) -> No
         {**payload, "turn_key": fake.sha256(), "action_index": 0}
     )
     assert receipt.action_index == 0
+
+
+@pytest.mark.parametrize("target", [False, True])
+def test_manual_capture_preserves_original_text_and_exact_target(target: bool) -> None:
+    text = f" \t{fake.sentence()}\n"
+    request = {"text": text}
+    if target:
+        request["draft"] = {"draft_id": fake.uuid4(), "version": 3}
+    payload = {"action": "capture_note", "request": request}
+    adapter = TypeAdapter(Command)
+    command = adapter.validate_python(payload)
+    assert command.request.text == text
+    assert adapter.validate_json(adapter.dump_json(command)) == command
+    assert (command.request.draft is not None) == target
+    if target:
+        assert command.request.draft.model_dump(mode="json") == request["draft"]
+    changed = adapter.validate_python(
+        {**payload, "request": {**request, "text": text.strip()}}
+    )
+    assert canonical_input_hash(command) != canonical_input_hash(changed)
+    with pytest.raises(ValidationError):
+        TypeAdapter(BusinessAction).validate_python(payload)
+    with pytest.raises(ValidationError):
+        TurnPlan.model_validate({"actions": [payload]})
+
+
+@pytest.mark.parametrize("text", ["", " \t\r\n\f\v\u00a0", "a" * 20001])
+def test_manual_capture_rejects_empty_blank_or_oversized_text(text: str) -> None:
+    with pytest.raises(ValidationError):
+        TypeAdapter(Command).validate_python(
+            {"action": "capture_note", "request": {"text": text}}
+        )
+
+
+@pytest.mark.parametrize("length", [1, 20000])
+def test_manual_capture_accepts_text_length_boundaries(length: int) -> None:
+    assert CaptureNote(text="a" * length).text == "a" * length
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        {"from_action": 0},
+        {"draft_id": fake.uuid4(), "base_version": 1},
+        {"draft_id": fake.uuid4(), "version": 0},
+        {"draft_id": "not-a-record", "version": 1},
+    ],
+)
+def test_manual_capture_requires_an_exact_existing_target(draft: dict) -> None:
+    with pytest.raises(ValidationError):
+        CaptureNote(text=fake.sentence(), draft=draft)
+
+
+@pytest.mark.parametrize("version", [True, False, "1", "3", 1.0, 3.0, 1.5])
+def test_manual_capture_rejects_coercible_json_target_versions(version: object) -> None:
+    payload = {
+        "text": fake.sentence(),
+        "draft": {"draft_id": fake.uuid4(), "version": version},
+    }
+    with pytest.raises(
+        ValidationError, match="capture target version must be an integer"
+    ):
+        CaptureNote.model_validate_json(json.dumps(payload))
+
+
+@pytest.mark.parametrize("text", ["\x00", "original\x00text", "\x00 nota \r\n"])
+def test_manual_capture_rejects_nul_without_rewriting_text(text: str) -> None:
+    with pytest.raises(ValidationError, match="capture text must not contain NUL"):
+        CaptureNote.model_validate_json(json.dumps({"text": text}))
+
+
+@pytest.mark.parametrize("version", [1, 3])
+def test_manual_capture_retains_valid_json_integer_and_original_unicode(
+    version: int,
+) -> None:
+    payload = {
+        "text": f"\t{fake.sentence()} Café\r\n",
+        "draft": {"draft_id": fake.uuid4(), "version": version},
+    }
+    note = CaptureNote.model_validate_json(json.dumps(payload))
+    assert note.model_dump(mode="json") == payload
+    assert isinstance(note.draft.version, int) and not isinstance(
+        note.draft.version, bool
+    )
+
+
+@pytest.mark.parametrize("field", ["actor_id", "space_id", "grant_id", "source_ids"])
+def test_manual_capture_rejects_caller_authority_and_sources(field: str) -> None:
+    with pytest.raises(ValidationError):
+        TypeAdapter(Command).validate_python(
+            {
+                "action": "capture_note",
+                "request": {"text": fake.sentence(), field: fake.uuid4()},
+            }
+        )
+
+
+@pytest.mark.parametrize("actor_kind", ["member", "owner_via_agent", "extractor"])
+@pytest.mark.parametrize("with_turn", [False, True])
+def test_manual_capture_receipt_requires_human_without_turn(
+    dossier: BusinessDossier, actor_kind: str, with_turn: bool
+) -> None:
+    actor = dossier.history[0].actor.model_copy(update={"actor_kind": actor_kind})
+    payload = {
+        "space_id": dossier.space_id,
+        "actor_id": actor.actor_id,
+        "actor": actor,
+        "idempotency_key": fake.sha256(),
+        "input_hash": fake.sha256(),
+        "command": {"action": "capture_note", "request": {"text": fake.sentence()}},
+        "created_at": dossier.sources[0].received_at,
+        "turn_key": fake.sha256() if with_turn else None,
+        "action_index": 0 if with_turn else None,
+    }
+    if actor_kind == "member" and not with_turn:
+        receipt = ActionReceipt.model_validate(payload)
+        assert receipt.actor == actor
+        assert receipt.command.action == "capture_note"
+    else:
+        with pytest.raises(
+            ValidationError, match="capture requires a human command without a turn"
+        ):
+            ActionReceipt.model_validate(payload)
 
 
 @pytest.mark.parametrize("version", [True, False, "1", 1.0, 1.5, 0, -1, None])
