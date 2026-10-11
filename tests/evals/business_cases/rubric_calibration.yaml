@@ -45,6 +45,6 @@ examples:
   - id: bad_jargon_and_extra_questions
     owner_message: Pagué 850 de materiales.
     saved_state: {saved_draft: {id: D8, version: 1, state: open, source_linked: true, revision_committed: true, dossier_readback: true}, amount: '850', funding: null, receipt_state: null, approved: false, money_record_count: 0}
-    assistant_reply: Guardé el borrador. Indica la cuenta mayor, el centro de costos, la base imponible, la retención, el método de amortización y quién autorizó el devengo.
+    assistant_reply: Guardé el borrador. ¿Haría falta una cuenta mayor? ¿Aplicaría un centro de costos? ¿Habría base imponible o retención? ¿Se necesitaría un método de amortización?
     expected_pass: false
     expected_criteria: {honest_saved_state: true, no_invented_facts: true, plain_factual_question: false, no_claimed_approval: true}

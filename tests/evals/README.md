@@ -87,6 +87,11 @@ accountant and an evidence-dependent human edit, without treating that edit as
 approval. The fabricated-spend reply explicitly claims a canonical money
 posting. The eight expected labels and rubric remain unchanged. Recalibration
 must use the revised packet digest and cannot reuse any prior verdict.
+The subsequent fictional-packet revision retains the failed packet with SHA-256
+`75e990c6357335edb3dd69676dfcfa93dc5dd8dffe40457b072317601f724136`.
+It changes only the final jargon example's reply to conditional accounting
+questions, removing a presupposition that an accrual was authorized. Its
+expected criteria and all prior failed Luna verdicts remain unchanged.
 
 `business_acceptance.py` is the scoped initial Business measurement entry for
 the same seven cases and 20 steps. It accepts an injected real interpreter,
