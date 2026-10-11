@@ -807,3 +807,26 @@ the manifest as dated snapshots; next paid judge choice remains pending.
 The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
 records timeout receipts, reservations and current owner proof separately from
 an accepted runtime or calibrated judge.
+
+
+### October 11, 2026 bounded semantic input and server binding
+
+The coordinator relayed parent-thread `01a11879-059d-7459-b082-41e5001210f8`
+authorization on October 11 for the bounded C0/T1 boundary fix. C0 owns durable
+contracts, reference resolution and their focused proof. T1 owns model semantic
+input, compilation and stages, plus the approved shared LLM capability change
+to omit parameters unsupported by metadata-verified bare/dated LunaPro across
+requests/tasks, preserving strict parameters, schema, reasoning and token bounds.
+No per-call capability lookup or new routing platform follows. Exact C0 seven,
+Actions one split-test and T1 four-path allocation follows author reports and
+root approval in the existing ownership manifest; this is not broad platform
+ownership.
+
+Preserve the existing [architecture action trust roots](../ARCHITECTURE.md#cuadrao-action-and-integration-principles):
+models propose semantic intent; server-verified targets and receipt-derived
+revisions bind execution. Domain services retain authorization and durable
+writes; approval remains bound to the reviewed revision/destination/action,
+permissions are rechecked and duplicate effects remain idempotent. This is a
+bounded repair under current decisions, not a V2 platform, new provider/key,
+access expansion or deployment grant. Implementation and actual quality proof
+remain PENDING in the [existing manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026).

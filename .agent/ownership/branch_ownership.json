@@ -121,6 +121,7 @@
         "tests/business/test_actions_projection.py",
         "tests/business/test_contracts.py",
         "tests/business/test_owner_funds_entry.py",
+        "tests/test_business_actions_ingestion_postgres.py",
         "tests/test_business_actions_postgres.py"
       ],
       "deny": [
@@ -231,6 +232,7 @@
       "allow": [
         ".agent/interpreter_prompt_fingerprint.json",
         "src/argus/agent_runtime/business/__init__.py",
+        "src/argus/agent_runtime/business/binding.py",
         "src/argus/agent_runtime/business/context.py",
         "src/argus/agent_runtime/business/interpretation.py",
         "src/argus/agent_runtime/business/interpreter.py",
@@ -244,12 +246,15 @@
         "src/argus/domain/business/tools/declarations.py",
         "src/argus/domain/capability_registry.py",
         "src/argus/domain/tool_declaration.py",
+        "src/argus/llm/openrouter.py",
         "tests/agent_runtime/test_business_runtime.py",
+        "tests/agent_runtime/test_business_semantic_binding.py",
         "tests/business/test_runtime_postgres.py",
         "tests/interpreter_prompt_surface.py",
         "tests/test_business_runtime_postgres.py",
         "tests/test_interpreter_prompt_freeze.py",
-        "tests/test_interpreter_prompt_surface.py"
+        "tests/test_interpreter_prompt_surface.py",
+        "tests/test_openrouter_policy.py"
       ],
       "deny": [
         ".env",
@@ -307,6 +312,25 @@
         "tests/evals/test_business_eval.py",
         "tests/evals/test_business_runtime_capture.py",
         "tests/test_business_runtime_capture_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-hosted-runtime-20261010": {
+      "description": "C0 bounded server-bound draft references and contract proof; reviewed dependency reconciliation required before publication.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "src/argus/domain/business/actions/plans.py",
+        "src/argus/domain/business/contracts/actions.py",
+        "tests/business/test_bound_draft_references.py",
+        "tests/business/test_contracts.py",
+        "tests/test_business_bound_draft_references_postgres.py"
       ],
       "deny": [
         ".env",
