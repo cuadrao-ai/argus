@@ -173,6 +173,30 @@ The [Business handoff](cuadrao-business-lane.md) and
 No separate mobile ingestion system is assigned. Do not edit their worktrees or
 stop their services. The founder's local phone API and forwarder also stay untouched.
 
+### Shared receipt extraction checkpoint, October 11
+
+The shared `DocumentExtractor` candidate is
+`625a6c3d7d041facbb2064d0e30a16f0b1204685`. Consumer inspected the coordinator's
+real-provider results. One synthetic receipt produced the correct merchant,
+date, DOP 250.50 total, Arroz 150.00 and Leche 100.50, with one purchase candidate
+and the original attachment hash. Missing fiscal fields remained unknown.
+The unreadable-image case produced no candidates or invented values. Both used
+the existing Luna/OpenRouter route with Azure; Consumer made no provider call.
+The earlier `930880dc` failure remains preserved. These bounded results do not
+establish broad extraction accuracy, hosted enablement, or native acceptance.
+
+The coordinator owns the original `cuadrao-receipt-luna-fixed-smoke-20261011.json`
+and `cuadrao-receipt-luna-unreadable-smoke-20261011.json` records, their provider
+receipts, and the candidate's scorecard, database and merge gates. The Consumer
+backend stays pinned as recorded above; this checkpoint does not land or deploy
+the candidate.
+
+[The native source-save adapter](../../ios/Packages/ArgusSession/Sources/ArgusSession/FinancialDocuments.swift)
+still sends no extraction consent. Future approved mobile extraction must use
+this same canonical backend with explicit consent for the source. No separate
+mobile extractor or model route is assigned. Free remains without agentic
+features; this record adds no receipt feature or UI change.
+
 ## Resume the assigned Consumer work
 
 1. Refresh the assigned PR and integration heads. The coordinator owns final
