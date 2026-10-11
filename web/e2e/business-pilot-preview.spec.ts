@@ -139,7 +139,7 @@ test.describe("Business preview", () => {
     await expect(panelHeading(page, "Inbox")).toBeVisible();
   });
 
-  test("the review screen marks missing_fields Needed and confirms into Expenses", async ({ page }) => {
+  test("receipt entry marks missing fields and requires separate canonical approval", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
     await expect(panelHeading(page, "Review receipt")).toBeVisible();
 
@@ -147,15 +147,18 @@ test.describe("Business preview", () => {
     await expect(needed).toHaveCount(1);
     const paidFrom = page.locator("label", { hasText: "Paid from" });
     await expect(paidFrom.getByText("Needed", { exact: true })).toBeVisible();
-    const confirm = page.getByRole("button", { name: "Confirm expense" });
-    await expect(confirm).toBeDisabled();
+    const save = page.getByRole("button", { name: "Save review details" });
+    await expect(save).toBeDisabled();
 
     await paidFrom.locator("select").selectOption("acct-ops");
     await expect(needed).toHaveCount(0);
-    await confirm.click();
+    await save.click();
 
-    await expect(panelHeading(page, "Saved expense")).toBeVisible();
-    await page.getByRole("button", { name: "View expenses" }).click();
+    await expect(panelHeading(page, "Ferretería La Esquina")).toBeVisible();
+    await expect(page.getByText("One expense was recorded", { exact: false })).toHaveCount(0);
+    await page.getByRole("button", { name: "Approve expense", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "One expense was recorded" })).toBeVisible();
+    await page.getByTestId("workspace-panel-region").getByRole("button", { name: "Expenses", exact: true }).click();
     await expect(panelHeading(page, "Expenses")).toBeVisible();
     await expect(page.getByTestId("workspace-panel-region")).toContainText("Ferretería La Esquina");
   });
@@ -186,11 +189,13 @@ test.describe("Business preview", () => {
     await page.locator("label", { hasText: "Currency" }).locator("select").selectOption("DOP");
     await page.getByTestId("receipt-review-amount").fill("706.10");
     await page.locator("label", { hasText: "Paid from" }).locator("select").selectOption("acct-ops");
-    await page.getByRole("button", { name: "Confirm expense" }).click();
+    await page.getByRole("button", { name: "Save review details" }).click();
 
-    await expect(panelHeading(page, "Saved expense")).toBeVisible();
+    await expect(panelHeading(page, "Colmado Don Pedro")).toBeVisible();
     await expect(page.getByTestId("receipt-attention")).toHaveCount(0);
-    await expect(page.getByText("What the receipt says")).toBeVisible();
+    await expect(page.getByTestId("receipt-original-source")).toBeVisible();
+    await page.getByRole("button", { name: "Approve expense", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "One expense was recorded" })).toBeVisible();
   });
 
   test("an unreadable receipt offers entry by hand and no AI retry", async ({ page }) => {
@@ -305,7 +310,7 @@ test.describe("Business preview", () => {
     await page.evaluate(() => {
       (globalThis as { __businessFixtureFailNextWrite?: string }).__businessFixtureFailNextWrite = "amount_out_of_range";
     });
-    await page.getByRole("button", { name: "Confirm expense" }).click();
+    await page.getByRole("button", { name: "Save review details" }).click();
 
     await expect(await amountMessage(page, total)).toHaveText("This amount is too large to record.");
     await expect(total).toHaveAttribute("aria-invalid", "true");

@@ -25,6 +25,8 @@ from argus.domain.business.contracts.facts import (
 )
 from argus.domain.business.contracts.recovery import ActionReceipt, DurableTurn
 from faker import Faker
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 from pydantic import TypeAdapter, ValidationError
 
 fake = Faker()
@@ -140,6 +142,64 @@ def test_kind_preserves_the_proposal(value: str) -> None:
 def test_patch_rejects_missing_or_untyped_facts(fields: dict) -> None:
     with pytest.raises(ValidationError):
         BusinessFactPatch.model_validate(fields)
+
+
+def test_patch_schema_requires_a_fact_without_requiring_every_field() -> None:
+    schema = BusinessFactPatch.model_json_schema()
+    Draft202012Validator.check_schema(schema)
+    validator = Draft202012Validator(schema)
+    assert len(schema["properties"]) == 9
+    assert not schema.get("required")
+    assert all("default" not in field for field in schema["properties"].values())
+    with pytest.raises(JsonSchemaValidationError):
+        validator.validate({})
+    with pytest.raises(ValidationError, match="at least one fact"):
+        BusinessFactPatch.model_validate({})
+    payload = {"amount": {"state": "known", "value": "850"}}
+    validator.validate(payload)
+    patch = BusinessFactPatch.model_validate(payload)
+    assert patch.model_fields_set == {"amount"}
+    assert patch.currency is None
+    assert patch.model_dump(mode="json") == payload
+
+
+@pytest.mark.parametrize("field", tuple(BusinessFactPatch.model_fields))
+def test_patch_schema_matches_explicit_uncertainty_and_rejects_outer_null(
+    field: str,
+) -> None:
+    validator = Draft202012Validator(BusinessFactPatch.model_json_schema())
+    payload = {field: None}
+    with pytest.raises(JsonSchemaValidationError):
+        validator.validate(payload)
+    with pytest.raises(ValidationError, match="explicit unknown state"):
+        BusinessFactPatch.model_validate(payload)
+    for state in ("unknown", "owner_does_not_know"):
+        payload = {field: {"state": state, "value": None}}
+        validator.validate(payload)
+        patch = BusinessFactPatch.model_validate(payload)
+        assert patch.model_fields_set == {field}
+        assert patch.model_dump(mode="json") == payload
+
+
+def test_turn_plan_schema_retains_nonnullable_patch_boundary() -> None:
+    validator = Draft202012Validator(TurnPlan.model_json_schema())
+    payload = {
+        "actions": [
+            {
+                "action": "business_propose_activity",
+                "facts": {"amount": {"state": "unknown", "value": None}},
+                "source_ids": [fake.uuid4()],
+            }
+        ]
+    }
+    validator.validate(payload)
+    TurnPlan.model_validate(payload)
+    for invalid in ({}, {"amount": None}):
+        payload["actions"][0]["facts"] = invalid
+        with pytest.raises(JsonSchemaValidationError):
+            validator.validate(payload)
+        with pytest.raises(ValidationError):
+            TurnPlan.model_validate(payload)
 
 
 @pytest.mark.parametrize(

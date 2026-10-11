@@ -91,8 +91,8 @@ test("Spanish sessionless signup renders and focuses the localized check-email s
 
   await page.goto("/?auth=signup");
   await page.getByPlaceholder("Nombre").fill("Estado de confirmación");
-  await page.getByPlaceholder("Correo electronico").fill(signupEmail);
-  await page.getByPlaceholder("Contrasena").fill(password);
+  await page.getByPlaceholder("Correo electrónico").fill(signupEmail);
+  await page.getByPlaceholder("Contraseña").fill(password);
   await page.getByRole("button", { name: "Registrarse" }).click();
 
   const state = page.getByTestId("auth-check-email");

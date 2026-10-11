@@ -1,5 +1,6 @@
 import * as api from "@/lib/business-api";
 import type { ArgusLanguage } from "@/lib/language-features";
+import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
 import type {
   BusinessAccount,
   BusinessExpense,
@@ -25,6 +26,9 @@ export type BusinessDataSource = Readonly<{
   overview: (from: string, to: string) => Promise<BusinessOverview>;
   receipts: (view: "inbox" | "all") => Promise<ReceiptSummary[]>;
   receipt: (id: string) => Promise<ReceiptDetail>;
+  dossier: (id: string) => Promise<BusinessDossier>;
+  reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
+  approveDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   receiptSource: (id: string) => Promise<Blob>;
   updates: () => Promise<BusinessUpdate[]>;
   expenses: (from: string, to: string) => Promise<BusinessExpense[]>;
@@ -51,6 +55,9 @@ export const liveBusinessDataSource: BusinessDataSource = {
   overview: api.getBusinessOverview,
   receipts: api.listBusinessReceipts,
   receipt: api.getBusinessReceipt,
+  dossier: api.getBusinessDossier,
+  reviewDraft: api.reviewBusinessDraft,
+  approveDraft: api.approveBusinessDraft,
   receiptSource: api.fetchBusinessReceiptSource,
   updates: api.listBusinessUpdates,
   expenses: api.listBusinessExpenses,
@@ -63,10 +70,6 @@ export const liveBusinessDataSource: BusinessDataSource = {
   createAccount: api.createBusinessAccount,
 };
 
-/**
- * Every Business call needs the person's space, so the first call starts it
- * once and every call waits for it; a failed start is retried by the next call.
- */
 export function withBusinessSpace(
   source: BusinessDataSource,
   language: () => ArgusLanguage,
@@ -91,15 +94,18 @@ export function withBusinessSpace(
     workspace: after(source.workspace),
     overview: after(source.overview),
     receipts: after(source.receipts),
-    receipt: after(source.receipt),
-    receiptSource: after(source.receiptSource),
+    receipt: source.receipt,
+    dossier: source.dossier,
+    reviewDraft: source.reviewDraft,
+    approveDraft: source.approveDraft,
+    receiptSource: source.receiptSource,
     updates: after(source.updates),
     expenses: after(source.expenses),
     search: after(source.search),
     uploadReceipt: after(source.uploadReceipt),
-    prepareReceipt: after(source.prepareReceipt),
-    saveReview: after(source.saveReview),
-    confirmReceipt: after(source.confirmReceipt),
+    prepareReceipt: source.prepareReceipt,
+    saveReview: source.saveReview,
+    confirmReceipt: source.confirmReceipt,
     recordExpense: after(source.recordExpense),
     createAccount: after(source.createAccount),
   };

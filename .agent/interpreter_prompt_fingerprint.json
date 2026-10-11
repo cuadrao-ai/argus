@@ -133,5 +133,15 @@
       "chars": 409,
       "sha256": "5e0bb9699040b6a9ce3c13bfc9885a2a84235535d35b7affb3c0e361adf8e15b"
     }
+  },
+  "scoped_measurements": {
+    "business": {
+      "owners": [
+        "src/argus/agent_runtime/business/interpretation.py",
+        "src/argus/domain/business/tools/declarations.py"
+      ],
+      "surface": {},
+      "last_measured": null
+    }
   }
 }

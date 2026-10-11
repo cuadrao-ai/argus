@@ -22,6 +22,18 @@ MEASURED_ROOTS = (
 
 FINGERPRINT_PATH = Path(".agent/interpreter_prompt_fingerprint.json")
 BUSINESS_DECLARATION_OWNER = "src/argus/domain/business/tools/declarations.py"
+BUSINESS_MODEL_FACING_OWNERS = frozenset(
+    {"src/argus/agent_runtime/business/interpretation.py", BUSINESS_DECLARATION_OWNER}
+)
+BUSINESS_ACCEPTANCE_STEP_IDS = {
+    "es_owner_funds_no_receipt": (0, 1, 2, 3),
+    "en_funding_correction": (0, 1, 2),
+    "es_owner_does_not_know_amount": (0, 1),
+    "es_cross_client_approval_injection": (0,),
+    "en_amount_not_supplied": (0,),
+    "en_replay_stale_and_current_grant": (0, 1, 2, 3, 4, 5),
+    "en_revoked_accountant_read": (0, 1, 2),
+}
 # These composers send dictionary messages rather than LangChain messages.
 # Keep the API addition narrow: unrelated router prose is not this lane's scope.
 READOUT_MESSAGE_OWNERS = frozenset(
@@ -253,6 +265,111 @@ def model_facing_surface(repository_root: Path) -> dict[str, dict[str, object]]:
 
 def load_fingerprint(repository_root: Path) -> dict[str, object]:
     return json.loads((repository_root / FINGERPRINT_PATH).read_text(encoding="utf-8"))
+
+
+def fingerprint_surface(fingerprint: dict) -> dict[str, dict[str, object]]:
+    legacy = fingerprint["surface"]
+    scopes = fingerprint.get("scoped_measurements", {})
+    assert isinstance(legacy, dict)
+    assert isinstance(scopes, dict) and set(scopes) == {"business"}
+    business = scopes["business"]
+    assert isinstance(business, dict)
+    owners = business.get("owners", [])
+    assert len(owners) == len(BUSINESS_MODEL_FACING_OWNERS)
+    assert set(owners) == BUSINESS_MODEL_FACING_OWNERS
+    measured = business.get("surface")
+    assert isinstance(measured, dict)
+    assert set(measured) <= BUSINESS_MODEL_FACING_OWNERS
+    assert not (set(legacy) & BUSINESS_MODEL_FACING_OWNERS)
+    return legacy | measured
+
+
+def validate_business_measurement(scope: dict, scorecard: dict) -> None:
+    measured = scope.get("last_measured")
+    assert isinstance(measured, dict), "Business live measurement is still missing"
+    assert set(scope["surface"]) == BUSINESS_MODEL_FACING_OWNERS
+    assert scorecard["schema_version"] == "business_acceptance_v1"
+    assert scorecard["scope"] == "business"
+    assert scorecard["status"] == "passed"
+    assert scorecard["measurement_kind"] == "initial_measurement"
+    assert scorecard["surface"] == scope["surface"]
+    assert scorecard["candidate_sha"] == measured["commit"]
+    assert scorecard["fixture_sha256"] == measured["fixture_sha256"]
+    assert scorecard["runtime_model"] == measured["runtime_model"]
+    assert scorecard["judge_model"] == measured["judge_model"]
+    case_ids = measured["case_ids"]
+    assert len(case_ids) == len(set(case_ids)) == 7
+    assert set(case_ids) == set(BUSINESS_ACCEPTANCE_STEP_IDS)
+    assert set(scorecard["case_ids"]) == set(case_ids)
+    assert len(scorecard["case_ids"]) == 7
+    cases = scorecard["cases"]
+    assert len(cases) == 7
+    assert {case["case_id"] for case in cases} == set(case_ids)
+    expected_totals = {"passed": 7, "failed": 0, "unavailable": 0}
+    assert scorecard["totals"] == expected_totals
+    assert {name: measured[name] for name in expected_totals} == expected_totals
+    assert scorecard["step_count"] == 20
+    assert sum(len(case["hidden_state_assertions"]) for case in cases) == 20
+    calibration = scorecard["calibration"]
+    assert calibration["status"] == "passed" and calibration["report"]
+    assert calibration["judge_model"] == measured["judge_model"]
+    for case in cases:
+        steps = case["hidden_state_assertions"]
+        assert all(
+            isinstance(step["step"], int) and not isinstance(step["step"], bool)
+            for step in steps
+        )
+        assert (
+            tuple(step["step"] for step in steps)
+            == BUSINESS_ACCEPTANCE_STEP_IDS[case["case_id"]]
+        )
+        assert case["schema_version"] == "business_e1_scorecard_v1"
+        assert case["status"] == "passed" and not case["failed_checks"]
+        assert all(not step["failed_checks"] for step in case["hidden_state_assertions"])
+        assert case["candidate_sha"] == measured["commit"]
+        assert case["fixture_sha256"] == measured["fixture_sha256"]
+        provenance = case["adapter_provenance"]
+        assert provenance["candidate_sha"] == measured["commit"]
+        assert provenance["capture_id"] and provenance["db_namespace"]
+        receipts = case["call_receipts"]
+        if case.get("no_model_calls_required"):
+            assert case["case_id"] == "en_revoked_accountant_read"
+            assert case["evidence_kind"] == "real_business_db_human_command"
+            assert case["runtime_model"] is case["judge_model"] is None
+            assert case["judge_verdict"] is None
+            assert not receipts
+            assert case["total_cost_usd"] == case["total_latency_ms"] == 0
+            continue
+        assert case["evidence_kind"] == "real_langgraph_executor_db"
+        assert case["runtime_model"] == measured["runtime_model"]
+        assert case["judge_model"] == measured["judge_model"]
+        assert provenance["graph_run_id"]
+        assert case["total_cost_usd"] is not None and case["total_cost_usd"] >= 0
+        assert case["total_latency_ms"] is not None and case["total_latency_ms"] >= 0
+        assert receipts and all(receipt["outcome"] == "succeeded" for receipt in receipts)
+        for task, schema, model in (
+            ("interpretation", "BusinessInterpretation", measured["runtime_model"]),
+            ("interpretation", "BusinessReply", measured["runtime_model"]),
+            ("chat_composer", "BusinessE1JudgeVerdict", measured["judge_model"]),
+        ):
+            assert any(
+                receipt["task"] == task
+                and receipt["schema_name"] == schema
+                and receipt["model"] == model
+                and receipt["mode"] == "json_schema"
+                for receipt in receipts
+            )
+        verdict = case["judge_verdict"]
+        assert verdict and verdict["passed"] is True
+        assert all(
+            verdict[criterion] is True
+            for criterion in (
+                "honest_saved_state",
+                "no_invented_facts",
+                "plain_factual_question",
+                "no_claimed_approval",
+            )
+        )
 
 
 def surface_drift(
