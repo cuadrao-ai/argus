@@ -724,7 +724,7 @@ async def test_candidate_fallback_cannot_dispatch_after_access_or_route_denial(
 
 @pytest.mark.parametrize("stop", [None, "before_composer", "route_drift"])
 @pytest.mark.asyncio
-async def test_real_business_graph_provider_posts_require_captured_access(
+async def test_local_business_graph_dispatch_checks_consent_with_intercepted_http(
     turn_context, monkeypatch, stop
 ):
     import json
@@ -938,3 +938,123 @@ async def test_revocation_during_interpretation_blocks_plan_persistence(turn_con
     assert actions.receipts == {}
     assert interpreter.interpret_count == 1
     assert interpreter.compose_count == 0
+
+
+@pytest.mark.parametrize("async_path", [False, True])
+@pytest.mark.parametrize(
+    "mutation", ["replacement", "model", "provider", "nested_provider"]
+)
+@pytest.mark.asyncio
+async def test_nested_final_guard_cannot_change_intercepted_post_after_access(
+    async_path, mutation
+):
+    import asyncio
+
+    import httpx
+    from argus.llm import openrouter
+    from argus.llm.openrouter_request_policy import (
+        openrouter_payload_route,
+        validate_openrouter_route,
+    )
+
+    payload = {
+        "model": "approved",
+        "provider": {"order": ["disclosed"], "allow_fallbacks": False},
+    }
+    routes = [openrouter_payload_route(payload)]
+    posts = []
+
+    def access(task, actual):
+        validate_openrouter_route(actual, routes)
+        return actual
+
+    def nested_final(task, actual):
+        if mutation == "replacement":
+            return {**actual, "model": "undisclosed"}
+        if mutation == "model":
+            actual["model"] = "undisclosed"
+        elif mutation == "provider":
+            actual["provider"] = {"allow_fallbacks": True}
+        else:
+            actual["provider"]["order"].append("undisclosed")
+        return actual
+
+    def post(url, **kwargs):
+        posts.append(kwargs["json"])
+        return httpx.Response(200, request=httpx.Request("POST", url))
+
+    async def apost(url, **kwargs):
+        return post(url, **kwargs)
+
+    with openrouter.openrouter_request_guard(access, final=True):
+        await asyncio.sleep(0)
+        with openrouter.openrouter_request_guard(nested_final, final=True):
+            kwargs = dict(
+                client=SimpleNamespace(post=apost if async_path else post),
+                api_key="offline-placeholder",
+                payload=payload,
+                retry_attempt=(
+                    "interpretation",
+                    2.0,
+                    "approved",
+                    "json_schema",
+                    "Test",
+                    None,
+                ),
+            )
+            with pytest.raises(PermissionError):
+                if async_path:
+                    await openrouter._post_openrouter_json_schema(**kwargs)
+                else:
+                    openrouter._post_openrouter_json_schema_sync(**kwargs)
+    assert posts == []
+
+
+@pytest.mark.asyncio
+async def test_final_validator_captured_alias_cannot_change_intercepted_http_after_await():
+    import asyncio
+
+    import httpx
+    from argus.llm import openrouter
+
+    captured = []
+    dispatched = []
+    events = []
+    payload = {"model": "approved", "provider": {"order": ["disclosed"]}}
+
+    def access(task, actual):
+        events.append("access")
+        assert actual == payload
+        return actual
+
+    def inner_validator(task, actual):
+        events.append("validator")
+        captured.append(actual)
+        return actual
+
+    async def post(url, **kwargs):
+        await asyncio.sleep(0)
+        captured[0]["model"] = "undisclosed"
+        captured[0]["provider"]["order"].append("undisclosed")
+        dispatched.append(kwargs["json"])
+        return httpx.Response(200, request=httpx.Request("POST", url))
+
+    with openrouter.openrouter_request_guard(access, final=True):
+        await asyncio.sleep(0)
+        with openrouter.openrouter_request_guard(inner_validator, final=True):
+            await openrouter._post_openrouter_json_schema(
+                client=SimpleNamespace(post=post),
+                api_key="offline-placeholder",
+                payload=payload,
+                retry_attempt=(
+                    "interpretation",
+                    2.0,
+                    "approved",
+                    "json_schema",
+                    "Test",
+                    None,
+                ),
+            )
+    assert events == ["validator", "access"]
+    assert dispatched == [{"model": "approved", "provider": {"order": ["disclosed"]}}]
+    assert dispatched[0] is not captured[0]

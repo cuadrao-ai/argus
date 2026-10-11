@@ -4,6 +4,7 @@ import json
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
+from copy import deepcopy
 
 from argus.llm.openrouter_tasks import OpenRouterTask
 
@@ -28,11 +29,19 @@ def guard_openrouter_request(
     task: OpenRouterTask, payload: dict[str, object]
 ) -> dict[str, object]:
     guards = _REQUEST_GUARDS.get()
-    for final in (False, True):
-        for guard, is_final in guards:
-            if is_final == final:
-                payload = guard(task, payload)
-    return payload
+    for guard, is_final in guards:
+        if not is_final:
+            payload = guard(task, payload)
+    validators = [guard for guard, is_final in guards if is_final]
+    if not validators:
+        return payload
+    validated_payload = deepcopy(payload)
+    snapshot = json.dumps(validated_payload, sort_keys=True)
+    for guard in reversed(validators):
+        result = guard(task, payload)
+        if result is not payload or json.dumps(payload, sort_keys=True) != snapshot:
+            raise PermissionError("openrouter_final_guard_mutated_payload")
+    return validated_payload
 
 
 def openrouter_payload_route(payload: Mapping[str, object]) -> dict[str, object]:
