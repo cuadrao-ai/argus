@@ -1,5 +1,7 @@
 # Cuadrao marketing website lane: handoff
 
+Current continuation: [Claude handoff and freeze, October 11, 2026](#claude-handoff-and-freeze-october-11-2026). This checkpoint supersedes historical next-step and approval instructions below. The design is locked and the lane is frozen.
+
 Lane parent: [#880](https://github.com/lagarcess/argus/issues/880) (children #887 to #892). Written 2026-10-09 when the lane was paused so the founder can reserve Claude usage for the Consumer lane. Everything a successor needs is in the Git repository and the linked GitHub records. No private notes, session scratchpad or conversation is required.
 
 This document is the single pickup point. It links to the canonical contracts and evidence instead of copying them; if this page and a linked source disagree, the linked source wins.
@@ -397,3 +399,51 @@ The founder accepted the invalid-email pet reaction and authorized pushing it to
 ## Integration preparation, October 10, 2026
 
 The [PR939 reconciliation record](../reports/2026-10-10-pr-939-reconciliation.md) supersedes earlier branch-status and local-only instructions. The accepted design is locked. PR929 landed as `4cb85949b4dea6855971c8268aac1bd1a0cacb01`; PR939 incorporates that remote integration head and the preserved PR929 landing records. Its runtime is unchanged from accepted published head `a706ed2284ad67f959d334baa2d4e0305217ac93`. Review and CI must cover the final reconciliation head before a separate merge slot. PR927 remains held against main. All publication and public-form holds remain unchanged.
+
+
+## Claude handoff and freeze, October 11, 2026
+
+Durable copy: [PR939 freeze and recovery record](https://github.com/lagarcess/argus/pull/939#issuecomment-6114756187).
+
+Marketing is frozen. The founder-accepted bilingual design is in integration through PR939, including the scroll receipt story, static cropped-wordmark endings, canonical branding/favicon, bilingual phone welcome screen, and signup pet reactions. This is a verified integration outcome, not a published customer website. No new Marketing work or stopped environment repair is assigned.
+
+### Landed source and verification
+
+- PR939 merged as `61a75b2a9c30a06fd6b1d035b626f126df51c57e` from reviewed head `b7ac69db19062d75700ab0331122e1485f76d64b`. The trees match exactly. [Terminal landing evidence](https://github.com/lagarcess/argus/pull/939#issuecomment-6101164111) records clean independent review, zero unresolved threads, and successful exact-merge [CI](https://github.com/lagarcess/argus/actions/runs/38077870513) and [smoke](https://github.com/lagarcess/argus/actions/runs/38077870583).
+- PR929 evidence landed as `4cb85949b4dea6855971c8268aac1bd1a0cacb01`. Its three ledger records are represented once in PR939. [PR929 verification](https://github.com/lagarcess/argus/pull/929#issuecomment-6100922536).
+- PR927 remains OPEN/DRAFT against `main`, at `9ecd31ff1f919c3d25f48952dd7feb6e508eee12`. Main remains `a9286b21886eb03df7a21f2f4b7d5e79af570679`.
+- On this read-only check, remote integration is `a6f1f4b3171837d50c82268effa7a12a83df590e`. That later head is not a new Marketing readiness or CI claim. Do not move or reconcile this frozen lane merely because integration advanced.
+
+### Stopping point and approvals
+
+The nearest started step, preservation recovery accounting, is closed with the limits below. Source, evidence, local notes, branch refs and settings remain preserved. The optional SciPy repair is stopped. Do not restart it merely to tidy an unused environment.
+
+Deployment, hosted changes, real email and public forms remain held. Publication requires approved ES/EN privacy wording naming the actual responsible operator for Meta, plus separate LLC clearance. Do not invent an operator or publish "LLC pending". PR927/main promotion needs its own authorization. Pages-first has not been selected; it would explicitly withhold both forms. Hosted signup/migration/provider acceptance and real-device Safari verification remain future release work, not proof supplied by mocked browser tests.
+
+### Checkout and recovery accounting
+
+- Delivery checkout: `/Users/garces/.codex/worktrees/cuadrao-marketing-delivery/private-alpha-next`, branch `codex/marketing-touchup-delivery`, head `b7ac69db19062d75700ab0331122e1485f76d64b`. The handoff update is local only; no post-merge branch push is made.
+- Restored managed chat checkout: `/Users/garces/.codex/worktrees/382a/private-alpha-next`, clean detached head `e09ee0e35b3c92546cf86c47f83b2fdbf10b47af`. The tracked tree matches its pre-archive source exactly. Native restore recovered it after thread archive unexpectedly removed it. Keep this chat and checkout unarchived.
+- Saved checkpoint branch `codex/marketing-pr929-ledger-checkpoint` still points to `0767f10fd2f8b160517deea83d0f196247e87310`.
+- The restored checkout's `.venv` was known to exist before archive, but its original directory/symlink type and target were not recorded. It was absent after native restore. A new local directory was reconstructed with existing Python3.10.20 and locked main/dev/workflows dependencies. This is reconstruction, not byte-exact recovery. Poetry reported zero installs/updates/removals needed afterward, and `pip check` passed. `scipy.linalg` still fails loading `_spropack` with the macOS zero-fill-section error. No wheel replacement occurred after the stop instruction. This limits future Python/backend work in this old checkout; it does not affect the landed Marketing design.
+- `/Users/garces/.codex/worktrees/382a/private-alpha-next/.env` and `/Users/garces/.codex/worktrees/382a/private-alpha-next/web/.env.local` are absent now. Their pre-archive existence and original sources are UNVERIFIED. Do not label them confirmed losses or copy another lane's credentials. No secret values were inspected, copied, generated or reconstructed.
+- `web/node_modules`, `marketing/node_modules` and `marketing/.next` under the restored checkout are absent now. Prior presence is UNVERIFIED. These are rebuildable dependencies/output, not confirmed archive losses.
+- There is no complete pre-archive ignored-file manifest. Native source recovery does not prove preservation of all ignored state. No non-reconstructible ignored-file loss is confirmed.
+
+### Preserved local notes and evidence
+
+The delivery checkout retains all seven untracked notes: `.audit/marketing-brand-publish.todo.md`, `.audit/marketing-ownership.todo.md`, `.audit/personal-footer-sequence.todo.md`, `.audit/pet-invalid.todo.md`, `.audit/pet-publish.todo.md`, `.audit/phone-locale.todo.md`, and `.audit/pr-939-reconciliation.todo.md`. Their older branch/approval statuses are historical; this handoff and the terminal PR record supersede them. The existing tracked `.audit/marketing-touchup.todo.md` is also preserved.
+
+Recovery logs remain local at `/private/tmp/cuadrao-382a-venv-plan.txt`, `/private/tmp/cuadrao-382a-venv-install.txt`, and `/private/tmp/cuadrao-382a-venv-verify-plan.txt`. They are not a complete archive inventory or a claim of a working SciPy environment.
+
+The durable design source and captures remain in `docs/reports/evidence/cuadrao-marketing-touchup/`, including final polish, phone locale, pet reaction, and the [original-layout archive](https://github.com/lagarcess/argus/blob/b7ac69db19062d75700ab0331122e1485f76d64b/docs/reports/evidence/cuadrao-marketing-touchup/original-layout-archive/README.md). The archive hash still matches `6aa3b6d38c9774ac39ac36c3cb0ee5046266f13b9c53475e3e511090197f48aa`.
+
+The original comparison source remains at `/Users/garces/.codex/visualizations/2026/09/26/01a0de75-29ee-71f0-8f58-0d2bb3934a33/cuadrao-marketing-touchup/canonical/marketing`. The existing extraction remains at `/private/tmp/cuadrao-layout-reference-20261009/cuadrao-original/marketing`. Neither is deleted or rebuilt.
+
+### Ownership and cleanup
+
+The founder owns design approval. This Marketing Lane chat is the outgoing implementation owner; this record is ready for Claude, whose acceptance is not yet confirmed. No separate active Marketing preview/design executor was identified.
+
+No listener is active on comparison4511, preview4512 or demo4513. No lane subagent is running. Processes found in the restored checkout are Codex/ChatGPT node runtimes and MCP tooling, including one unclassified app-owned node process; their non-use is not established, so all remain untouched. No confirmed unused Marketing test process needed stopping.
+
+Permanent deletion candidates: none proposed. No files, worktrees, refs, settings, fixtures, credentials or unique evidence were deleted. No new full-repository copy, service start, product edit, archive action or optional repair was performed during this freeze.
