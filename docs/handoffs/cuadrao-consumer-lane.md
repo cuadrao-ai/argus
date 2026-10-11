@@ -59,10 +59,13 @@ staging MVEE acceptance is green. Green CI alone does not satisfy that gate.
 ## Integration and PR disposition
 
 Repository `lagarcess/argus` uses `codex/private-alpha-next` for integration.
-The October 11 fetched snapshot is `e465c2fe4bf7e2749215bc677a1fa225adab384c`.
-Core source `40ff4967040c854ca5dd0764115227544011a6e2` is reconciled through
-`286c6bc0494be6c858851f0c4037ea6df5bacea5`. The newer reconciliation and draft
-publication await the coordinator's final integration-check notice.
+The October 11 local merge `4a953d7e9c07b7b7d057506bb0b630287b6585b9`
+reconciles integration `e465c2fe4bf7e2749215bc677a1fa225adab384c`.
+Native source still matches the tested Core revision
+`40ff4967040c854ca5dd0764115227544011a6e2` through handoff commit `769654e23`.
+The later fetched snapshot `53d2a234bf9e73537537c24a8d35ba1e537827c1` is not
+yet merged locally. Final integration checks and draft publication remain pending
+with the coordinator.
 Refresh remote state before acting; a dated snapshot is not the current tip.
 
 | PR | Recorded state | Meaning |
@@ -95,6 +98,10 @@ The [#952 evidence](https://github.com/lagarcess/argus/blob/7e811a63554da6a64276
 owns its detailed results, source identities, screenshots, and failed attempts.
 The [October 11 core evidence](../reports/evidence/consumer-core-checkpoint-20261011/README.md)
 adds the completed Budget and Goal journeys and the bounded test-helper repairs.
+Its [Spanish manual continuation](../reports/evidence/consumer-core-checkpoint-20261011/spanish-refresh-20261011/README.md)
+records unchanged Budget values after relaunch, Search return and filters,
+transaction cancellation, and the current Free entry points. The preserved
+Search captures distinguish loading from the later settled result.
 
 - Four money journeys passed native checks, exact canonical API deltas, and
   relaunch checks. They cover income, spending, refunds, corrections, transfers,

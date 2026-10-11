@@ -67,7 +67,12 @@ The test verifies the three contributors, contributor position after relaunch, a
 
 The independent code review returned no actionable findings at this source before the final Budget run completed. Its original timing and scope are retained in `review.md`; the terminal test result above closes the pending runtime check without changing reviewed source.
 
-The later [publication review](publication-review.md) confirms the complete result, source attribution and preserved evidence. Publication adds docs and evidence only. The calculated merge with integration `e465c2fe4bf7e2749215bc677a1fa225adab384c` passes modularity, but actual branch reconciliation and final CI remain pending. Existing runs keep their original source identities.
+The later [publication review](publication-review.md) confirms the complete result, source attribution and preserved evidence. Publication adds docs and evidence only. That review records the calculated merge with integration `e465c2fe4bf7e2749215bc677a1fa225adab384c`. The actual local merge subsequently completed as `4a953d7e9c07b7b7d057506bb0b630287b6585b9`, with unchanged native source and preserved evidence. Final integration reconciliation, publication, and CI remain pending. Existing runs keep their original source identities.
+
+The [Spanish manual continuation](spanish-refresh-20261011/README.md) preserves
+Budget relaunch, Search return and filter checks, cancellation, and Free entry
+points on the unchanged Core binary. It includes both the loading and settled
+Search captures. It adds no new XCTest or paid-chat result.
 
 ## Complete Goal journey
 
