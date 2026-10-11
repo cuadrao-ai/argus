@@ -607,6 +607,131 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/approve:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveExpense'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDossier'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/dossier:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDossier'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/review:
+    patch:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewDraft'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDossier'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/expenses:
     get:
       tags:
@@ -9275,6 +9400,26 @@ components:
       - can_search_current_workspace
       - can_use_grounded_discovery
       - can_submit_feedback
+    AccountChoice:
+      properties:
+        id:
+          type: string
+          format: uuid
+        nickname:
+          anyOf:
+          - type: string
+          - type: 'null'
+        type:
+          type: string
+        currency:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - nickname
+      - type
+      - currency
     AccountDeletionRequest:
       properties:
         confirm:
@@ -9533,6 +9678,36 @@ components:
       - recorded_at
       - recorded_by
       - coverage
+    ActorProvenance:
+      properties:
+        actor_id:
+          type: string
+          format: uuid
+        actor_kind:
+          type: string
+          enum:
+          - owner_via_agent
+          - member
+          - extractor
+        display_name:
+          type: string
+        grant_id:
+          type: string
+          format: uuid
+        issuer_id:
+          type: string
+          format: uuid
+        issuer_display_name:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - actor_id
+      - actor_kind
+      - display_name
+      - grant_id
+      - issuer_id
+      - issuer_display_name
     AllocationChange:
       properties:
         goal_id:
@@ -9693,6 +9868,19 @@ components:
       type: object
       required:
       - subject
+    ApproveExpense:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        action:
+          type: string
+          const: record_expense
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - action
     AssetChangeResponse:
       properties:
         version:
@@ -9946,6 +10134,41 @@ components:
       - estimates
       - related_debt_account_id
       - changes
+    AttachmentSource:
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          const: attachment
+          default: attachment
+        channel:
+          type: string
+          enum:
+          - web
+          - whatsapp
+        received_at:
+          type: string
+          format: date-time
+        connection_id:
+          type: string
+          format: uuid
+        filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        media_type:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - channel
+      - received_at
+      - connection_id
+      - filename
+      - media_type
     AuthorizeResponse:
       properties:
         authorization_url:
@@ -10517,6 +10740,28 @@ components:
       - archive_reason
       - can_restore
       - definition
+    Blocker:
+      properties:
+        code:
+          type: string
+        field:
+          anyOf:
+          - type: string
+            enum:
+            - kind
+            - amount
+            - currency
+            - occurred_on
+            - counterparty
+            - funding
+            - business_share
+            - receipt_state
+            - category_id
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - code
     BudgetCreate:
       properties:
         name:
@@ -10868,6 +11113,110 @@ components:
       - nickname
       - type
       - currency
+    BusinessAccountFunding:
+      properties:
+        kind:
+          type: string
+          const: business_account
+          default: business_account
+        account_id:
+          type: string
+          format: uuid
+      additionalProperties: false
+      type: object
+      required:
+      - account_id
+    BusinessDossier:
+      properties:
+        space_id:
+          type: string
+          format: uuid
+        space_name:
+          type: string
+        accounts:
+          items:
+            $ref: '#/components/schemas/AccountChoice'
+          type: array
+        capabilities:
+          items:
+            type: string
+            enum:
+            - read
+            - prepare
+            - approve
+          type: array
+          uniqueItems: true
+        draft_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1.0
+        review_state:
+          type: string
+          enum:
+          - open
+          - accepting
+          - accepted
+          - dismissed
+        facts:
+          $ref: '#/components/schemas/BusinessFacts'
+        sources:
+          items:
+            oneOf:
+            - $ref: '#/components/schemas/MessageSource'
+            - $ref: '#/components/schemas/WebActionSource'
+            - $ref: '#/components/schemas/AttachmentSource'
+            discriminator:
+              propertyName: kind
+              mapping:
+                agent_proposal: '#/components/schemas/MessageSource'
+                attachment: '#/components/schemas/AttachmentSource'
+                message: '#/components/schemas/MessageSource'
+                web_action: '#/components/schemas/WebActionSource'
+          type: array
+        questions:
+          items:
+            $ref: '#/components/schemas/ReviewQuestion'
+          type: array
+        history:
+          items:
+            $ref: '#/components/schemas/DraftRevision'
+          type: array
+        blockers:
+          items:
+            $ref: '#/components/schemas/Blocker'
+          type: array
+        approval_available:
+          type: boolean
+        approval_result:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/RecordedApproval'
+            - $ref: '#/components/schemas/UnsettledApproval'
+            discriminator:
+              propertyName: status
+              mapping:
+                failed: '#/components/schemas/UnsettledApproval'
+                outcome_unknown: '#/components/schemas/UnsettledApproval'
+                recorded: '#/components/schemas/RecordedApproval'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - space_id
+      - space_name
+      - accounts
+      - capabilities
+      - draft_id
+      - version
+      - review_state
+      - facts
+      - sources
+      - questions
+      - history
+      - blockers
+      - approval_available
     BusinessExpense:
       properties:
         id:
@@ -10885,7 +11234,14 @@ components:
           - type: string
           - type: 'null'
         account_id:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
+          - type: 'null'
         occurred_on:
           type: string
           format: date
@@ -10904,6 +11260,91 @@ components:
       - account_id
       - occurred_on
       - receipt_id
+    BusinessFactPatch:
+      properties:
+        kind:
+          $ref: '#/components/schemas/FactInput_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___'
+        amount:
+          $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+        currency:
+          $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__'
+        occurred_on:
+          $ref: '#/components/schemas/FactInput_date_'
+        counterparty:
+          $ref: '#/components/schemas/FactInput_str_'
+        funding:
+          $ref: '#/components/schemas/FactInput_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+        business_share:
+          $ref: '#/components/schemas/FactInput_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+        receipt_state:
+          $ref: '#/components/schemas/FactInput_Literal__fiscal_receipt____informal_receipt____no_receipt___'
+        category_id:
+          $ref: '#/components/schemas/FactInput_str_'
+      additionalProperties: false
+      type: object
+      minProperties: 1
+    BusinessFacts:
+      properties:
+        kind:
+          $ref: '#/components/schemas/Fact_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        amount:
+          $ref: '#/components/schemas/Fact_Annotated_str__StringConstraints__AfterValidator__'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        currency:
+          $ref: '#/components/schemas/Fact_Annotated_str__StringConstraints__'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        occurred_on:
+          $ref: '#/components/schemas/Fact_date_'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        counterparty:
+          $ref: '#/components/schemas/Fact_str_'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        funding:
+          $ref: '#/components/schemas/Fact_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        business_share:
+          $ref: '#/components/schemas/Fact_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        receipt_state:
+          $ref: '#/components/schemas/Fact_Literal__fiscal_receipt____informal_receipt____no_receipt___'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        category_id:
+          $ref: '#/components/schemas/Fact_str_'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        fiscal:
+          anyOf:
+          - $ref: '#/components/schemas/FiscalFacts'
+          - type: 'null'
+      additionalProperties: false
+      type: object
     BusinessOverview:
       properties:
         from:
@@ -13169,6 +13610,44 @@ components:
           default: []
       additionalProperties: false
       type: object
+    DraftRevision:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1.0
+        actor:
+          $ref: '#/components/schemas/ActorProvenance'
+        before:
+          anyOf:
+          - $ref: '#/components/schemas/BusinessFacts'
+          - type: 'null'
+        after:
+          $ref: '#/components/schemas/BusinessFacts'
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+        turn_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      - version
+      - actor
+      - before
+      - after
+      - source_ids
+      - created_at
     EditFinancialAccountRequest:
       properties:
         expected_version:
@@ -13552,6 +14031,174 @@ components:
       type: object
       required:
       - items
+    ? FactInput_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____
+    : oneOf:
+      - $ref: '#/components/schemas/KnownInput_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+      - $ref: '#/components/schemas/UncertainInput'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/KnownInput_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+          owner_does_not_know: '#/components/schemas/UncertainInput'
+          unknown: '#/components/schemas/UncertainInput'
+    ? FactInput_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____
+    : oneOf:
+      - $ref: '#/components/schemas/KnownInput_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+      - $ref: '#/components/schemas/UncertainInput'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/KnownInput_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+          owner_does_not_know: '#/components/schemas/UncertainInput'
+          unknown: '#/components/schemas/UncertainInput'
+    FactInput_Annotated_str__StringConstraints__:
+      oneOf:
+      - $ref: '#/components/schemas/KnownInput_Annotated_str__StringConstraints__'
+      - $ref: '#/components/schemas/UncertainInput'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/KnownInput_Annotated_str__StringConstraints__'
+          owner_does_not_know: '#/components/schemas/UncertainInput'
+          unknown: '#/components/schemas/UncertainInput'
+    FactInput_Annotated_str__StringConstraints__AfterValidator__:
+      oneOf:
+      - $ref: '#/components/schemas/KnownInput_Annotated_str__StringConstraints__AfterValidator__'
+      - $ref: '#/components/schemas/UncertainInput'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/KnownInput_Annotated_str__StringConstraints__AfterValidator__'
+          owner_does_not_know: '#/components/schemas/UncertainInput'
+          unknown: '#/components/schemas/UncertainInput'
+    ? FactInput_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___
+    : oneOf:
+      - $ref: '#/components/schemas/KnownInput_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___'
+      - $ref: '#/components/schemas/UncertainInput'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/KnownInput_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___'
+          owner_does_not_know: '#/components/schemas/UncertainInput'
+          unknown: '#/components/schemas/UncertainInput'
+    FactInput_Literal__fiscal_receipt____informal_receipt____no_receipt___:
+      oneOf:
+      - $ref: '#/components/schemas/KnownInput_Literal__fiscal_receipt____informal_receipt____no_receipt___'
+      - $ref: '#/components/schemas/UncertainInput'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/KnownInput_Literal__fiscal_receipt____informal_receipt____no_receipt___'
+          owner_does_not_know: '#/components/schemas/UncertainInput'
+          unknown: '#/components/schemas/UncertainInput'
+    FactInput_date_:
+      oneOf:
+      - $ref: '#/components/schemas/KnownInput_date_'
+      - $ref: '#/components/schemas/UncertainInput'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/KnownInput_date_'
+          owner_does_not_know: '#/components/schemas/UncertainInput'
+          unknown: '#/components/schemas/UncertainInput'
+    FactInput_str_:
+      oneOf:
+      - $ref: '#/components/schemas/KnownInput_str_'
+      - $ref: '#/components/schemas/UncertainInput'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/KnownInput_str_'
+          owner_does_not_know: '#/components/schemas/UncertainInput'
+          unknown: '#/components/schemas/UncertainInput'
+    ? Fact_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____
+    : oneOf:
+      - $ref: '#/components/schemas/Known_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+      - $ref: '#/components/schemas/Unknown'
+      - $ref: '#/components/schemas/OwnerDoesNotKnow'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/Known_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+          owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
+          unknown: '#/components/schemas/Unknown'
+    ? Fact_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____
+    : oneOf:
+      - $ref: '#/components/schemas/Known_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+      - $ref: '#/components/schemas/Unknown'
+      - $ref: '#/components/schemas/OwnerDoesNotKnow'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/Known_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
+          owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
+          unknown: '#/components/schemas/Unknown'
+    Fact_Annotated_str__StringConstraints__:
+      oneOf:
+      - $ref: '#/components/schemas/Known_Annotated_str__StringConstraints__'
+      - $ref: '#/components/schemas/Unknown'
+      - $ref: '#/components/schemas/OwnerDoesNotKnow'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/Known_Annotated_str__StringConstraints__'
+          owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
+          unknown: '#/components/schemas/Unknown'
+    Fact_Annotated_str__StringConstraints__AfterValidator__:
+      oneOf:
+      - $ref: '#/components/schemas/Known_Annotated_str__StringConstraints__AfterValidator__'
+      - $ref: '#/components/schemas/Unknown'
+      - $ref: '#/components/schemas/OwnerDoesNotKnow'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/Known_Annotated_str__StringConstraints__AfterValidator__'
+          owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
+          unknown: '#/components/schemas/Unknown'
+    ? Fact_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___
+    : oneOf:
+      - $ref: '#/components/schemas/Known_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___'
+      - $ref: '#/components/schemas/Unknown'
+      - $ref: '#/components/schemas/OwnerDoesNotKnow'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/Known_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___'
+          owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
+          unknown: '#/components/schemas/Unknown'
+    Fact_Literal__fiscal_receipt____informal_receipt____no_receipt___:
+      oneOf:
+      - $ref: '#/components/schemas/Known_Literal__fiscal_receipt____informal_receipt____no_receipt___'
+      - $ref: '#/components/schemas/Unknown'
+      - $ref: '#/components/schemas/OwnerDoesNotKnow'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/Known_Literal__fiscal_receipt____informal_receipt____no_receipt___'
+          owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
+          unknown: '#/components/schemas/Unknown'
+    Fact_date_:
+      oneOf:
+      - $ref: '#/components/schemas/Known_date_'
+      - $ref: '#/components/schemas/Unknown'
+      - $ref: '#/components/schemas/OwnerDoesNotKnow'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/Known_date_'
+          owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
+          unknown: '#/components/schemas/Unknown'
+    Fact_str_:
+      oneOf:
+      - $ref: '#/components/schemas/Known_str_'
+      - $ref: '#/components/schemas/Unknown'
+      - $ref: '#/components/schemas/OwnerDoesNotKnow'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/Known_str_'
+          owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
+          unknown: '#/components/schemas/Unknown'
     FeedbackRequest:
       properties:
         type:
@@ -13740,6 +14387,34 @@ components:
       - attention_at
       - created_at
       - disconnected_at
+    FiscalFacts:
+      properties:
+        rnc:
+          $ref: '#/components/schemas/Fact_str_'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        ncf:
+          $ref: '#/components/schemas/Fact_str_'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        ecf:
+          $ref: '#/components/schemas/Fact_str_'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        itbis:
+          $ref: '#/components/schemas/Fact_Annotated_str__StringConstraints__AfterValidator__'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+      additionalProperties: false
+      type: object
     ForecastCurrency:
       properties:
         currency:
@@ -14755,6 +15430,11 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
+          - type: 'null'
         legs:
           items:
             $ref: '#/components/schemas/MoneyLegResponse'
@@ -15400,6 +16080,410 @@ components:
       - invitees_who_invited
       - invitees_who_invited_share
       description: The three network numbers for one kind of invite.
+    ? KnownInput_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____
+    : properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          oneOf:
+          - $ref: '#/components/schemas/BusinessAccountFunding'
+          - $ref: '#/components/schemas/OwnerFunding'
+          discriminator:
+            propertyName: kind
+            mapping:
+              business_account: '#/components/schemas/BusinessAccountFunding'
+              owner_funds: '#/components/schemas/OwnerFunding'
+      additionalProperties: false
+      type: object
+      required:
+      - value
+    ? KnownInput_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____
+    : properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          oneOf:
+          - $ref: '#/components/schemas/WholeBusinessShare'
+          - $ref: '#/components/schemas/PartialBusinessShare'
+          discriminator:
+            propertyName: kind
+            mapping:
+              all: '#/components/schemas/WholeBusinessShare'
+              none: '#/components/schemas/WholeBusinessShare'
+              partial: '#/components/schemas/PartialBusinessShare'
+      additionalProperties: false
+      type: object
+      required:
+      - value
+    KnownInput_Annotated_str__StringConstraints__:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          pattern: ^[A-Z]{3}$
+      additionalProperties: false
+      type: object
+      required:
+      - value
+    KnownInput_Annotated_str__StringConstraints__AfterValidator__:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          maxLength: 40
+          pattern: ^(?:0|[1-9]\d*)(?:\.\d+)?$
+      additionalProperties: false
+      type: object
+      required:
+      - value
+    ? KnownInput_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___
+    : properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          enum:
+          - expense
+          - income
+          - transfer
+          - refund
+          - owner_contribution
+          - owner_withdrawal
+          - credit_purchase
+          - payable_payment
+          - loan_received
+          - loan_payment
+      additionalProperties: false
+      type: object
+      required:
+      - value
+    KnownInput_Literal__fiscal_receipt____informal_receipt____no_receipt___:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          enum:
+          - fiscal_receipt
+          - informal_receipt
+          - no_receipt
+      additionalProperties: false
+      type: object
+      required:
+      - value
+    KnownInput_date_:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          format: date
+      additionalProperties: false
+      type: object
+      required:
+      - value
+    KnownInput_str_:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - value
+    ? Known_Annotated_Union_BusinessAccountFunding__OwnerFunding___FieldInfo_annotation_NoneType__required_True__discriminator__kind____
+    : properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          oneOf:
+          - $ref: '#/components/schemas/BusinessAccountFunding'
+          - $ref: '#/components/schemas/OwnerFunding'
+          discriminator:
+            propertyName: kind
+            mapping:
+              business_account: '#/components/schemas/BusinessAccountFunding'
+              owner_funds: '#/components/schemas/OwnerFunding'
+        origin:
+          type: string
+          enum:
+          - extracted
+          - owner_stated
+          - member_set
+          - matched
+          - default
+        verified:
+          type: boolean
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - origin
+      - source_ids
+    ? Known_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____
+    : properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          oneOf:
+          - $ref: '#/components/schemas/WholeBusinessShare'
+          - $ref: '#/components/schemas/PartialBusinessShare'
+          discriminator:
+            propertyName: kind
+            mapping:
+              all: '#/components/schemas/WholeBusinessShare'
+              none: '#/components/schemas/WholeBusinessShare'
+              partial: '#/components/schemas/PartialBusinessShare'
+        origin:
+          type: string
+          enum:
+          - extracted
+          - owner_stated
+          - member_set
+          - matched
+          - default
+        verified:
+          type: boolean
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - origin
+      - source_ids
+    Known_Annotated_str__StringConstraints__:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          pattern: ^[A-Z]{3}$
+        origin:
+          type: string
+          enum:
+          - extracted
+          - owner_stated
+          - member_set
+          - matched
+          - default
+        verified:
+          type: boolean
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - origin
+      - source_ids
+    Known_Annotated_str__StringConstraints__AfterValidator__:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          maxLength: 40
+          pattern: ^(?:0|[1-9]\d*)(?:\.\d+)?$
+        origin:
+          type: string
+          enum:
+          - extracted
+          - owner_stated
+          - member_set
+          - matched
+          - default
+        verified:
+          type: boolean
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - origin
+      - source_ids
+    ? Known_Literal__expense____income____transfer____refund____owner_contribution____owner_withdrawal____credit_purchase____payable_payment____loan_received____loan_payment___
+    : properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          enum:
+          - expense
+          - income
+          - transfer
+          - refund
+          - owner_contribution
+          - owner_withdrawal
+          - credit_purchase
+          - payable_payment
+          - loan_received
+          - loan_payment
+        origin:
+          type: string
+          enum:
+          - extracted
+          - owner_stated
+          - member_set
+          - matched
+          - default
+        verified:
+          type: boolean
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - origin
+      - source_ids
+    Known_Literal__fiscal_receipt____informal_receipt____no_receipt___:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          enum:
+          - fiscal_receipt
+          - informal_receipt
+          - no_receipt
+        origin:
+          type: string
+          enum:
+          - extracted
+          - owner_stated
+          - member_set
+          - matched
+          - default
+        verified:
+          type: boolean
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - origin
+      - source_ids
+    Known_date_:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          format: date
+        origin:
+          type: string
+          enum:
+          - extracted
+          - owner_stated
+          - member_set
+          - matched
+          - default
+        verified:
+          type: boolean
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - origin
+      - source_ids
+    Known_str_:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+        origin:
+          type: string
+          enum:
+          - extracted
+          - owner_stated
+          - member_set
+          - matched
+          - default
+        verified:
+          type: boolean
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - origin
+      - source_ids
     LinkActivityBody:
       properties:
         version:
@@ -16189,6 +17273,36 @@ components:
       type: object
       required:
       - decision
+    MessageSource:
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - message
+          - agent_proposal
+        channel:
+          type: string
+          enum:
+          - web
+          - whatsapp
+        received_at:
+          type: string
+          format: date-time
+        text:
+          type: string
+          maxLength: 20000
+          minLength: 1
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - kind
+      - channel
+      - received_at
+      - text
     MoneyAccountEffect:
       properties:
         account_id:
@@ -16318,6 +17432,11 @@ components:
         recorded_by:
           anyOf:
           - type: string
+          - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
           - type: 'null'
         legs:
           items:
@@ -16498,6 +17617,10 @@ components:
           - refund
           - debt_payment
           - payment_reversal
+        owner_funding:
+          anyOf:
+          - $ref: '#/components/schemas/OwnerFunds'
+          - type: 'null'
         account_id:
           anyOf:
           - type: string
@@ -16918,6 +18041,55 @@ components:
       - reason
       - recorded_by
       - recorded_at
+    OwnerDoesNotKnow:
+      properties:
+        state:
+          type: string
+          const: owner_does_not_know
+          default: owner_does_not_know
+        value:
+          type: 'null'
+        origin:
+          type: string
+          enum:
+          - owner_stated
+          - member_set
+        verified:
+          type: boolean
+          const: false
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          minItems: 1
+      additionalProperties: false
+      type: object
+      required:
+      - origin
+      - source_ids
+    OwnerFunding:
+      properties:
+        kind:
+          type: string
+          const: owner_funds
+          default: owner_funds
+      additionalProperties: false
+      type: object
+    OwnerFunds:
+      properties:
+        owner_space_id:
+          type: string
+          format: uuid
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+      additionalProperties: false
+      type: object
+      required:
+      - owner_space_id
+      - currency
     PaginatedConversations:
       properties:
         items:
@@ -17010,6 +18182,20 @@ components:
       type: object
       required:
       - items
+    PartialBusinessShare:
+      properties:
+        kind:
+          type: string
+          const: partial
+          default: partial
+        amount:
+          type: string
+          maxLength: 40
+          pattern: ^(?:0|[1-9]\d*)(?:\.\d+)?$
+      additionalProperties: false
+      type: object
+      required:
+      - amount
     Participant:
       properties:
         membership_id:
@@ -18457,6 +19643,11 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
+          - type: 'null'
         legs:
           items:
             $ref: '#/components/schemas/MoneyLegResponse'
@@ -18680,6 +19871,15 @@ components:
         account_id:
           anyOf:
           - type: string
+          - type: 'null'
+        draft_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        record_context:
+          anyOf:
+          - $ref: '#/components/schemas/RecordContext'
           - type: 'null'
         version:
           type: integer
@@ -19325,6 +20525,53 @@ components:
       type: object
       required:
       - membership_id
+    RecordContext:
+      properties:
+        space_id:
+          type: string
+          format: uuid
+        space_name:
+          type: string
+        accounts:
+          items:
+            $ref: '#/components/schemas/AccountChoice'
+          type: array
+        capabilities:
+          items:
+            type: string
+            enum:
+            - read
+            - prepare
+            - approve
+          type: array
+          uniqueItems: true
+      additionalProperties: false
+      type: object
+      required:
+      - space_id
+      - space_name
+      - accounts
+      - capabilities
+    RecordedApproval:
+      properties:
+        status:
+          type: string
+          const: recorded
+          default: recorded
+        activity_id:
+          type: string
+          format: uuid
+        reviewed_version:
+          type: integer
+          minimum: 1.0
+        actor:
+          $ref: '#/components/schemas/ActorProvenance'
+      additionalProperties: false
+      type: object
+      required:
+      - activity_id
+      - reviewed_version
+      - actor
     RedeemResult:
       properties:
         admitted:
@@ -19547,6 +20794,88 @@ components:
       - selection_reason
       - score
       - provenance
+    ReviewDraft:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        facts:
+          $ref: '#/components/schemas/BusinessFactPatch'
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - facts
+    ReviewQuestion:
+      properties:
+        id:
+          type: string
+          format: uuid
+        draft_id:
+          type: string
+          format: uuid
+        field:
+          type: string
+          enum:
+          - kind
+          - amount
+          - currency
+          - occurred_on
+          - counterparty
+          - funding
+          - business_share
+          - receipt_state
+          - category_id
+        asked_of:
+          type: string
+          enum:
+          - owner
+          - accountant
+        channel:
+          type: string
+          enum:
+          - whatsapp
+          - web
+        state:
+          type: string
+          enum:
+          - open
+          - answered
+          - owner_does_not_know
+          - waiting_for_window
+          - withdrawn
+        prompt:
+          type: string
+          maxLength: 500
+          minLength: 1
+        allowed_answers:
+          items:
+            type: string
+            enum:
+            - known
+            - owner_does_not_know
+          type: array
+          minItems: 1
+        answer_source_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - draft_id
+      - field
+      - asked_of
+      - channel
+      - state
+      - prompt
+      - allowed_answers
+      - created_at
     RunDossier:
       properties:
         run_id:
@@ -20757,6 +22086,66 @@ components:
         Compute is never metered. A signed-in account''s grounding is bounded only
 
         by the shared research ceiling, a circuit breaker rather than an allowance.'
+    UncertainInput:
+      properties:
+        state:
+          type: string
+          enum:
+          - unknown
+          - owner_does_not_know
+        value:
+          type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - state
+    Unknown:
+      properties:
+        state:
+          type: string
+          const: unknown
+          default: unknown
+        value:
+          type: 'null'
+        origin:
+          anyOf:
+          - type: string
+            enum:
+            - extracted
+            - owner_stated
+            - member_set
+            - matched
+          - type: 'null'
+        verified:
+          type: boolean
+          const: false
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          default: []
+      additionalProperties: false
+      type: object
+    UnsettledApproval:
+      properties:
+        status:
+          type: string
+          enum:
+          - outcome_unknown
+          - failed
+        code:
+          type: string
+        reviewed_version:
+          type: integer
+          minimum: 1.0
+      additionalProperties: false
+      type: object
+      required:
+      - status
+      - code
+      - reviewed_version
     UpdateAccountGrantRequest:
       properties:
         expected_version:
@@ -20997,6 +22386,32 @@ components:
       type: object
       required:
       - expected_version
+    WebActionSource:
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          const: web_action
+          default: web_action
+        channel:
+          type: string
+          const: web
+          default: web
+        received_at:
+          type: string
+          format: date-time
+        text:
+          type: string
+          maxLength: 20000
+          minLength: 1
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - received_at
+      - text
     WebhookAck:
       properties:
         received:
@@ -21013,6 +22428,17 @@ components:
       type: object
       required:
       - received
+    WholeBusinessShare:
+      properties:
+        kind:
+          type: string
+          enum:
+          - all
+          - none
+      additionalProperties: false
+      type: object
+      required:
+      - kind
     argus__api__routers__financial_connections_gmail__SyncResponse:
       properties:
         connection:

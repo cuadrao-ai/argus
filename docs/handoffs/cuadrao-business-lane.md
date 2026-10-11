@@ -1,13 +1,49 @@
 # Cuadrao Business lane handoff
 
-**Current checkpoint, October 10, 2026.** The fetched integration is
-`77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`. The default-off foundation and
-planning #900/#910 are integrated. The agent direction landed through
-[#953](https://github.com/lagarcess/argus/pull/953). Exact postmerge
+**Current October 11 coordinator checkpoint.** Canonical integration is
+`39c5322d5e2a3d6470d1dbd2d3661e557a824f14`: #961 BoundDraft LANDED
+on parent `598e1c3db0ff58108f8cfd83fa37c579dc11054d`, tree
+`71fc8f9eafdc4cfb4b10e2dc6b242259ce9d69f3`. Its
+[postmerge smoke 38108733609](https://github.com/lagarcess/argus/actions/runs/38108733609)
+succeeded; [required CI 38108733535](https://github.com/lagarcess/argus/actions/runs/38108733535)
+also succeeded ([terminal #961 evidence](https://github.com/lagarcess/argus/pull/961#issuecomment-6105153549)). #959 Actions LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`
+with [postmerge CI 38107050284](https://github.com/lagarcess/argus/actions/runs/38107050284)
+and [smoke 38107050280](https://github.com/lagarcess/argus/actions/runs/38107050280)
+successful. #960 boundary allocation LANDED at `52ce3620a729b2d8fb80d3bdfe99fdddeae19931`,
+reviewed tree `0a4279fc0be5b72efada7c516dcb3b92d4d62a37`. The additional T1
+existing-module path `src/argus/llm/openrouter_model_env.py` remains allocated
+for capability metadata/helper. Current T1 schema-delivery work, actual Business
+quality, calibrated judge, consent and hosted gates remain PENDING. Earlier #958 owner-handoff
+LANDED with [postmerge CI38102305608](https://github.com/lagarcess/argus/actions/runs/38102305608)
+and [smoke38102305601](https://github.com/lagarcess/argus/actions/runs/38102305601)
+fully successful. Its tree equals retained context source
+fc7fe954a. Earlier M1 #957 landed at
+`eb62ad5e7718bd103b0205cf91d15a61c22628d6`
+with reviewed tree `b0c7c44c1602265979960e375bfaf64ec5eca6a8` and parent
+`0ebfd08ed22dcd1108496fc0af427073ec219dc8`. M1 postmerge
+[CI38099618928](https://github.com/lagarcess/argus/actions/runs/38099618928)/
+[smoke38099618926](https://github.com/lagarcess/argus/actions/runs/38099618926)
+fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/957#issuecomment-6104002935)). UI #956 postmerge CI38098062185/smoke38098062178 fully succeeded
+([terminal comment](https://github.com/lagarcess/argus/pull/956#issuecomment-6103805934)).
+C0 #955 landed as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; its exact postmerge
+CI and smoke all succeeded ([comment 6103620102](https://github.com/lagarcess/argus/pull/955#issuecomment-6103620102)). Startup repair #954 landed at
+`8a838fb4ff75bb8527400bbd802eb208e270bdf7`. The prior #953 source was
+`77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`, with passed exact
 [CI](https://github.com/lagarcess/argus/actions/runs/38087059299) and
-[smoke](https://github.com/lagarcess/argus/actions/runs/38087059317) passed on
-that SHA. This is a documentation checkpoint, not a hosted runtime acceptance.
-Consumer retains its acceptance ownership.
+[smoke](https://github.com/lagarcess/argus/actions/runs/38087059317).
+The latest October 11 parent-thread01a11879 authorization bounds C0/T1 semantic
+input → server-verified target/receipt revision and capability-based omission of
+Luna-unsupported parameters. C0 owns durable contracts/reference resolution;
+T1 owns semantic input/compiler/stages and the approved shared LLM change.
+Exact allocation in the existing manifest has C0 seven named paths, Actions one
+new split test and T1 four new paths. The shared LunaPro omission applies across
+requests/tasks from verified bare/dated model capability, preserving strict
+parameters/schema/reasoning/token bounds, with no per-call lookup or new routing
+platform. Current ARCH trust roots and deterministic authority/revision/idempotency
+remain. The C0 server binding is LANDED in #961; T1's current schema-eligibility
+reconciliation and actual model quality remain PENDING, with no V2 platform, provider/key or deploy
+expansion follows. No hosted customer acceptance follows from these landings. Consumer retains
+its acceptance ownership.
 
 The [Business execution spec](../specs/lanes/cuadrao-business-agent-execution-spec.md)
 owns L1 to L13 and C0-first build order. The later
@@ -18,11 +54,10 @@ integration and staging flow. The root coordinator alone owns merge and staging.
 Read those records for current owners, pending gates and acceptance. Do not
 restart the historical queue below.
 
-The existing Business lane retains P0 read-only dependency inventory and
-reconciliation planning. It must map J1 to J3 shapes against the fetched
-integration and identify missing API, data, migration and test dependencies.
-C0 remains the first build step. A runtime writer needs its chosen contract and
-exclusive assignment before changing those files. "Pagué 850" is one example.
+The existing Business lane completed the bounded P0 read-only inventory.
+The manifest assigns current API, data, migration and test owners and their
+dependencies. C0 is landed; use its contracts when reconciling retained sources
+against J1 to J3. Writers need their current exclusive assignment before edits. "Pagué 850" is one example.
 The real hosted flow must handle varied natural-language transactions and
 follow-ups, explicit unknowns and corrections without phrase or regex intent gates.
 
@@ -41,16 +76,230 @@ calls. The 22:32 UTC grant authorizes only the existing development
 expires at `2026-10-12T02:21:00Z`. It supersedes the $5 cap and spending hold.
 Do not swap to registered or guest keys or rotate credentials. The manifest
 owns the remaining-allowance snapshot. The root coordinator alone controls
-synthetic live calls, reservations, concurrency and token bounds. C0, runtime
-and evaluation readiness are incomplete; no call has occurred. Sonnet 5.5
+synthetic live calls, reservations, concurrency and token bounds. Both Grok
+calibrations FAILED strict: v1 had nine actual POSTs, eight verdicts and six
+criterion errors across four cases; v2 had eight POSTs/verdicts and four criterion
+errors across four cases, despite binary 7/8. Known costs were $0.00607355 and
+$0.00699355 respectively. One subsequent DeepSeek runtime-case POST at c563
+timed out at 20.009 seconds with no response/cost receipt and no retry, retaining
+$0.32048. The October 11 earlier snapshot totals 18 actual POSTs, $0.01306710
+known cost and $0.47648 unknown reservations (original v1 $0.156 plus DeepSeek
+$0.32048). A subsequent October 11 21-call snapshot adds DeepSeek's small-schema
+capability pass (5,732 ms), full 16,211-byte schema timeout (20.023 seconds,
+$0.32048 unknown reservation), and Haiku's full-schema structured-plan pass
+(6,548 ms, no database proof): total known cost $0.01559617198, unknown reserves
+$0.79696. An earlier October 11 checkpoint added Haiku's first-flow probe at
+3baaefa9: one POST, HTTP200 stop, 7,129 ms, $0.00180164, then ValidationError
+because published BusinessFactPatch optional/null schema conflicts with domain
+explicit-null rejection. That checkpoint totaled 22 actual POSTs, $0.01739781198 known
+cost and $0.79696 unknown reserves. No first-flow pass or blind retry occurred.
+Root's bounded model-independent C0 wire fix is reviewed CLEAR at
+`878d159d72ba5c87e7fb66af995d9403e8a617e5`, with 46 independent contract tests
+passed and unchanged domain validator/serializer; no JSON-null normalization.
+Actions owns exactly `src/argus/domain/business/contracts/facts.py` and
+`tests/business/test_contracts.py` for
+this reviewed import and regenerates OpenAPI before publication; no broader C0
+ownership transfers. T1/E1 reconcile the contract/product source before actual
+root model proof. The latest root accounting is **79 actual POSTs**, known cost
+**$0.06294062698** and unresolved unknown-outcome reservations **$1.43792**.
+At the safe key read `2026-10-11T03:34:02.221575Z`, conservative allowance
+remaining under the authorized $300 ceiling was **$72.504528323**, before
+unknown reservations or concurrent usage; expiry remains `2026-10-12T02:21:00Z`.
+The earlier 01:04:26Z read is historical. Refresh before further calls.
+The manifest retains each capability outcome separately from database acceptance.
+There is no calibrated judge or live runtime scorecard. Next paid judge choice is pending; do not
+automatically select Haiku as judge. Runtime comparison with approved Haiku is
+allowed under existing authority; no blind retry or live-gate bypass follows. The manifest retains the exact8141 local PG17/17
+proof and reviewed E1 v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`,
+with fixtures and labels unchanged. Consent policy remains pending.
+
+The E1 funding-follow-up oracle/source reconciliation is retained at
+`233701a7ab2f6335d70d728ff6d9e354b331ed49`, Business implementation tree
+`4038a181838fcbe85653e1b3dcad06f453b0b3b7`, fixture digest
+`b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`.
+Its narrow review and 24 free tests passed. Current E1 head
+`cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205` passed root corpus
+Postgres proof 8/8, zero skips, covering all seven cases and foreign denial.
+Live quality remains PENDING.
+The earlier held-out Haiku capture remains FAILED and
+is not retroactively relabeled. E1 alone owns two additional existing-harness
+paths for generic full-schema fake transport reconciliation:
+`tests/evals/chat_runtime_trajectory_adapters.py` and
+`tests/evals/test_chat_runtime_trajectory_harness.py`. Typed validation,
+trajectory assertions, product labels and the rubric stay intact.
+
+Root's separate controlled local connected readback at
+`/Users/garces/Documents/Codex/2026-10-10/task/cuadrao-connected-browser-final-db-readback.json`
+records registered-accountant sign-in, one authenticated conversation to a draft
+at v3, human PATCH/review at v4, and approval at v6 of reviewed v4: one 850 Money record, zero Business-bank and
+Personal balance/version movements, and HTTP 404 outside the named grant.
+The fresh Spanish (`es-419`) browser and database readback passed and retained
+`output/playwright/connected-flow-spanish-approved.png`. This verifies a local
+synthetic first flow, not a phone, hosted WhatsApp delivery, calibrated live
+quality, consent or customer readiness. The observed generic `Member` actor
+display label remains a presentation defect; C0's bounded full-name repair
+at `9bbdeb8783d851b02113defc6a78eb651fcefd86` passed 63/63 actual
+Postgres tests (28 new and 35 Actions/bound-reference tests); its independent
+whitespace follow-up review is CLEAR. It changes no grants,
+schema or historical backfill.
+
+The [latest approved evaluation direction](../specs/argus-decision-log.md#october-11-2026-product-derived-evaluation-and-replaceable-model-configuration)
+(`Sentinel_ed9f3b917d5081919e00f16339503f7b`) fixes product-derived labels/rubric
+independently of a model. Keep lean replaceable configuration and structured
+contracts, deterministic authority/state/idempotency, and the same versioned
+suite plus held-out cases on swaps; record model/version/parameters/results.
+Do not add a new framework or model-specific prompt hacks. T1's exact prompt-surface
+and freeze guards plus existing fingerprint path are assigned for bounded scope
+validation. Preserve 25 legacy entries and last_measured byte-for-byte;
+exactly two Business scope placeholders stay unmeasured until accepted seven-case
+evidence. Scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1` and generic
+one-owner-question/funding-first policy `a9b9756481a054479696309ece1a352f25d7262a`
+retain the existing execution-spec rules at source lines294 and577/J1. At a9b975,
+raw Linux400 tests yielded398PASS,2FAIL,0skip; both unmeasured Business
+fingerprint gates actually failed, so this is not a full pass. The
+newer T1 schema-eligibility source is committed at
+`b922a642452f2d759f44688c8dcf7a55eeba1f8c`: its latest reported
+broader run has 764 passes and two real failures, both unmeasured Business gates.
+The earlier be33 run had 208 provider-policy passes and 17 fake-provider
+harness recognition failures among 19 failures; E1 owns the generic
+fake-transport reconciliation. No check is waived. The
+live gate, passing Business measurement and precisely named future evidence paths
+remain pending. Actions' exact owner-funds fixture forwarding is approved by M1,
+preserving 422 human_approval_required. E1's two exact Business acceptance entry
+files extend the existing harness only; no broader ownership follows. Earlier E1 hardening was committed at
+`3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`: three files, 35 free tests passed,
+underlying runtime source unchanged at that checkpoint. It passes explicit
+per-run `judge_model` through the existing invocation/scorecard and requires
+successful task-role/schema/model receipts for runtime and judge separately.
+Keep rubric/labels/schema/cases fixed. Runtime tuning holds out
+`en_funding_correction` and `es_owner_does_not_know_amount`; later verification
+still runs all seven deterministic cases. The eight used judge cases are not
+held out. The DeepSeek probe ended after one unknown-outcome timeout; no
+prompt tuning, accepted measurement or new judge selection is inferred.
+Instrumented latency/capability tests are bounded under existing budget/approved
+IDs; dated capability and failed first-flow outcomes above are retained. The [scoped Business grant](../specs/argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics)
+accepts real production-message input → draft → authorized human approval →
+Money state with a controlled synthetic database. Legacy equity/Alpaca benchmark
+is NOT RUN and is not a first-flow prerequisite; request no investment access.
+The earlier broad selection came from the blanket prompt freeze. Applicable
+Consumer regressions, live scorecard/fingerprint and T1's bounded scope validation
+remain pending. No checker weakening or gate-clear claim follows. C0 is landed, while
+dependent runtime/evaluation and hosted acceptance remain open. Sonnet 5.5
 still needs a demonstrated need and fresh confirmation before use. The coordinator sequences a direct named-accountant per-business grant
 for the existing one-owner, one-authorized-accountant milestone. Full L11 firm
 delegation remains later work and is not claimed complete. Isolated synthetic
 test grants are authorized. Real grants still need actual business authorization.
 No secret edits or persistent tester grants follow from this handoff. The manifest owns their concrete gates and the observed
-staging API revision. No separate staging web exists in that workspace. No production,
+staging API revision. The earlier workspace observation had no separate staging web; root records
+any later authorized setup. No production,
 main promotion, public signup, marketing/legal launch or Apple TestFlight is
 included. Consumer compatibility and existing shared migration ownership remain.
+
+## Approved unpublished branding and completion gate
+
+The [manifest](../specs/argus-execution-board.md#mandatory-owner-completion-handoff)
+owns the mandatory owner handoff. It accounts for unpublished sources as well
+as PRs, with LANDED/PENDING/SUPERSEDED dispositions and exact provenance. The
+23:37 UTC direction is `Sentinel_78ca7fbafb948191a7a6bb2a2b25cb3c`. The
+bounded 105-commit P0 Counsel inventory is delivered, not a blanket approval.
+The retained approved capture/search families below remain pending.
+
+The retained private source excerpts are
+`business-approved-work-source-excerpts.json` in the root task workspace.
+Source turn `01a11ee2-2321-7b21-b7e6-01220dc42f26` asks for the logo at the
+left of the Cuadrao name; `01a11fa2-0fcb-76e3-b986-1b728868a46d` asks to
+preserve sidebar functionality while replacing the Argus mark. Turn
+`01a11fea-3a63-7043-9926-3b8e78a2a4e1` approves Cuadrao sign-in artwork;
+`01a121a2-1692-72d0-8da0-971827c0e051` requests its palette throughout the
+box, and `01a121a8-3b5e-7d81-ba5f-5cc277ec4dba` identifies the remaining
+Argus favicon/title. This records bounded sources, not the private transcript.
+
+| Approved family | Exact retained source | Current disposition |
+| --- | --- | --- |
+| Sidebar Cuadrao mark and preserved controls | `21228276594adbd2b25d4165460976f11199d404` | LANDED in #956 as `0ebfd08ed22dcd1108496fc0af427073ec219dc8`, restored source `67583d5e7d7a8068e27799902506690e220311ac` |
+| Sign-in artwork, assets and localized copy | `e05bdcffe60303fa06e8ea6d99da6cb49c6c7f06` | LANDED in #956 through that restoration |
+| Initial literal sign-in palette | `5887b7034f5c9948ccdf9bb967156c6ade5b8276` | SUPERSEDED palette state by latest approved source below; family remains required |
+| Latest canonical derived palette states | `11fd99836590f9fcf388d02e9bc6898d52eb4257` | LANDED in #956 through that restoration; use this successor, not the older literal state |
+| Cuadrao favicon and browser title | `bca99e4e19116483a3cf62cab595d9b0d3f008dd` | LANDED in #956 through that restoration |
+| Cuadrao title retained after hydration | `d136c33947439040d4d9bf6a984e19d7f63b6f6b` | LANDED in #956 through that restoration |
+
+These six sources were absent from the older `8a838fb4` integration; a remote
+commit/PR lookup returned 422, which does not erase retained local work.
+Restoration `67583d5e` and reviewed UI `85d564ae1b998d3f372828728855dab26e5b5deb`
+landed in UI PR #956 as `0ebfd08ed22dcd1108496fc0af427073ec219dc8`. Exact
+published-head CI/smokes succeeded; external ownership passed for all 53 files
+and the five image hashes matched. Postmerge smoke and full CI both succeeded,
+as recorded by the terminal comment above. C0 reconciliation is
+`7667ee1e19589bed2e00aa1b9c08600965554860`; local evidence publication is
+`17d972bcbb2a8d18bd6155afb5810cbccc7f9e56`. Its source document is
+`docs/reports/evidence/942-cuadrao-record-ui/README.md` in the UI worktree,
+with screenshot hashes and implementation-tree equality in `manifest.json`.
+It reports actual local desktop/mobile light/dark sign-in renders, branding
+browser 7/7, record/search browser 36/36 and auth return 1/1. This is retained
+owner evidence, not independent hosted verification by this documentation lane.
+
+Before READY, the reviewer must assess those rendered artifacts and exact-head
+browser regressions for the affected web/signup scope. The UI evidence reports
+full TypeScript still failing (8,298 diagnostics versus 8,306 at original base),
+so it does not establish a full build/typecheck pass. Hosted auth/API/worker,
+real grants and internet acceptance remain PENDING and coordinator-owned.
+The #925 exclusion and preserved sandbox above remain intact.
+
+## Retained approved capture and search outcomes
+
+Counsel's completed bounded inventory is `/tmp/business953-private-handoff.md`.
+Its baseline is `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; retained source is
+`codex/cuadrao-business-sandbox` at `df208f7ec2379cd84efd55eea0deb685d67c5360`.
+The 105 absent commits remain preserved, not collectively approved or promoted.
+The following five approved outcomes are absent or incomplete at that baseline
+and the inspected first-flow candidates. This does not mean their source was
+deleted. Use current C0 source/fact/grant contracts when reconciling them.
+
+Verified original human sources, with exact message IDs and UTC timestamps:
+
+- Capture/format/email/manual acceptance: `msg_01a122a9-8d45-7e21-ab4e-579d7ec332b2`,
+  `2026-10-09T21:54:59.525Z`, turn `01a122a9-8d1e-7112-b157-222bf06c2411`.
+- Note continuity and intuitive attachment association: `msg_01a12381-86be-7ea3-a653-5b448f7e9e54`,
+  `2026-10-10T01:50:53.630Z`, turn `01a12381-8689-79e3-a54e-c35dfbcae909`.
+- Hover opening: `msg_01a12391-b642-70f2-bae3-4687fe408e90`,
+  `2026-10-10T02:08:34.370Z`; preserved touch behavior:
+  `msg_01a12392-7fef-70f0-ad14-071e6c37ad88`, `2026-10-10T02:09:25.999Z`.
+  Both belong to turn `01a1238e-a9ca-7693-981f-3c4a97fe1b5a`.
+- Finish email presentation/search, with broader UI later:
+  `msg_01a12398-a0e1-7460-8b26-6ed4354d6f55`, `2026-10-10T02:16:07.649Z`,
+  turn `01a12398-a0b4-7c13-8923-52f52a4c1d66`.
+- Connect WhatsApp/email/web to staging after laptop proof, production untouched:
+  `msg_01a123db-ef7b-7580-b29e-25fc0d089751`, `2026-10-10T03:29:38.683Z`,
+  turn `01a123db-ef52-7361-bfa2-89eb2a44293a`.
+
+These sources were read as actual `response_item` / `role=user` records in the
+existing Business session, rather than tool quotations. The private inventory
+also verifies the historical assigned-recipient Resend grant; it does not make
+that temporary grant standing authority for a new hosted cutover.
+
+| Approved outcome | Retained exact commit family | Disposition and bounded gap |
+| --- | --- | --- |
+| Email grouping and attachment context | `84730a0a5`, `9a14080d4`, evidence `eb7818b03` | PENDING: one attachment row with accessible email context; raw EML is not a second approvable receipt. Current UI message display does not restore email envelope/attachment grouping. |
+| Search dossier hover, touch and keyboard | `4ea00e4e2`, `1019f9c9e`, `63e116bd4`, tests `7666b8bf5` | PENDING: hover and saved-note preview remain absent in UI `7667ee1e`/`17d972bc`; click/Enter proof does not close hover. Preserve existing touch/keyboard behavior against new C0 dossier shapes. |
+| Saved manual notes | `effca690f`, restart proof `e4890166a` | PENDING web sparse-note entry, search and original-text continuity. Old `manual_capture_review_unavailable` dead-end is SUPERSEDED by current C0 draft/review flow. Capture alone changes neither balances nor expenses. |
+| Seven web formats and per-file recovery | `025fed4b0`, `26e0a35f5`, `7f8ac97dc`, `680409585`, byte proof `530114e69` | PENDING TXT/CSV/XLSX/EML and queue/retry beyond baseline PDF/JPEG/PNG. Seven counts JPEG and PNG separately. Preserve original bytes, per-file failure/siblings, safe recovery and Personal format policy. |
+| Email receiving, business routing and download retry | `eef83a5b4`, `5e435be86`, `3b02f4dc7`, `7f2f7426e`, `4bc4a7579` | PENDING signed receipt, exact configured recipient mapping, immutable business binding and bounded retry through current authority. Prior one-recipient local proof does not establish multi-customer or hosted readiness. |
+
+Every abbreviated commit above resolves uniquely to a preserved source object
+under the sandbox head. C0 contracts are LANDED as #955; these channel and UX
+outcomes remain PENDING until their own implementation/acceptance evidence.
+`/root/accountant_ui_review` now owns a read-only source/decision/coverage audit
+of these five approved outcomes. Root coordinates existing capture,
+presentation, API/data and authority owners after that audit before assigning
+bounded restoration writers. This audit assigns no implementation writer or
+broad UI pass and does not promote the sandbox wholesale.
+
+Counsel's exact original six-rule approval source remains UNKNOWN. Later direct
+human grant/model direction supersedes old rigid-custodian/role maps, fixed
+model/spend prescriptions and capture-only replies. Preserve useful source
+behavior without copying those obsolete mechanisms. #925 stays EXCLUDED;
+no wholesale 105-commit publication, old tunnel restart or new hosted action
+follows from this accounting.
 
 ## Historical October 10 documentation publication
 
