@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 from uuid import UUID
 
 import pytest
@@ -881,3 +882,26 @@ def test_attachment_receipt_pins_original_actor_space_and_no_turn(attachment_bin
     ):
         with pytest.raises(ValidationError):
             ActionReceipt.model_validate({**payload, **change})
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_attachment_start_receipt_preserves_explicit_target(attachment_binding, existing):
+    from argus.domain.business.actions.plans import start_receipt
+
+    payload = attachment_binding.model_dump(mode="json")
+    if existing:
+        payload["target"] = {"draft_id": fake.uuid4(), "version": 2}
+    binding = AttachmentPreparationBinding.model_validate(payload)
+    command = PrepareAttachmentCommand(binding=binding, batch_sha256=fake.sha256())
+    tx = MagicMock()
+    tx.context.actor.space_id = binding.space_id
+    tx.context.actor.actor_id = binding.actor.actor_id
+    tx.authorization.provenance = binding.actor
+    start_receipt(tx, f"attachment:{binding.binding_id}", command)
+    parameters = tx.rows.call_args.args[1]
+    stored = parameters[5].obj
+    assert stored["binding"] == binding.model_dump(mode="json")
+    assert stored["binding"]["target"] == payload["target"]
+    assert PrepareAttachmentCommand.model_validate(stored) == command
+    assert parameters[4] == canonical_input_hash(command)
+    assert parameters[6:] == (None, None)

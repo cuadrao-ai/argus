@@ -5,7 +5,14 @@ import json
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, Field, field_validator, model_validator
+from pydantic import (
+    AwareDatetime,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from .authority import ActorProvenance
 from .facts import (
@@ -199,6 +206,15 @@ class AttachmentPreparationBinding(Contract):
     target: ExistingDraft | None
     consent: Literal[True]
     captured_at: AwareDatetime
+
+    @model_serializer(mode="wrap")
+    def explicit_target(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        payload = handler(self)
+        if self.target is None:
+            payload["target"] = None
+        return payload
 
     @field_validator("target", mode="before")
     @classmethod
