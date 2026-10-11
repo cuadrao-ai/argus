@@ -18,6 +18,7 @@ RUBRIC_VERSION = "cuadrao-business-reply-v2"
 APPROVED_JUDGE_MODELS = (
     JUDGE_MODEL,
     "anthropic/claude-haiku-5.5",
+    "anthropic/claude-sonnet-5.5",
     "openai/gpt-6-luna-pro",
 )
 RUNTIME_CANDIDATES = BUSINESS_MODEL_CANDIDATES

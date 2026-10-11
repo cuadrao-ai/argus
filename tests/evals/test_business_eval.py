@@ -478,7 +478,14 @@ async def test_judge_uses_exact_named_model_and_structured_adapter(monkeypatch) 
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model", ["anthropic/claude-haiku-5.5", "openai/gpt-6-luna-pro"])
+@pytest.mark.parametrize(
+    "model",
+    [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+        "openai/gpt-6-luna-pro",
+    ],
+)
 async def test_judge_switches_only_to_explicit_approved_model(monkeypatch, model) -> None:
     calls = []
 
@@ -505,3 +512,18 @@ async def test_judge_switches_only_to_explicit_approved_model(monkeypatch, model
             judge_model="unapproved/model",
         )
     assert len(calls) == 1
+
+
+def test_sonnet_judge_cannot_be_used_as_business_runtime() -> None:
+    with pytest.raises(ValueError, match="approved runtime and judge models"):
+        evaluation.score_runtime_capture(
+            case=evaluation.load_cases()[0],
+            candidate_sha="f" * 40,
+            runtime_model="anthropic/claude-sonnet-5.5",
+            judge_model="anthropic/claude-sonnet-5.5",
+            observed_steps=None,
+            call_receipts=[],
+            total_cost_usd=None,
+            total_latency_ms=None,
+            judge_verdict=None,
+        )

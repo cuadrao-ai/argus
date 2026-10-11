@@ -66,6 +66,9 @@ remain unavailable in the Business scorecard; fixture checks never produce a
 live pass. The approved runtime candidates are `anthropic/claude-haiku-5.5`,
 `openai/gpt-6-luna-pro`, and `deepseek/deepseek-v4.1-flash`. Catalog availability
 does not measure their latency or reliability.
+The judge-only stretch candidate is `anthropic/claude-sonnet-5.5`. It is
+not a Business runtime candidate and must pass the same eight-case strict
+calibration before it can judge a live Business scorecard.
 
 For an authorized live run, keep a small `business_e1_request_settings_v1`
 sidecar beside its scorecard. Record the executed candidate SHA, fixture digest,
