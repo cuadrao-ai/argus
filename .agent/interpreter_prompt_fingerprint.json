@@ -140,9 +140,24 @@
         "src/argus/domain/ingestion/documents/extractor.py",
         "src/argus/domain/ingestion/documents/models.py"
       ],
-      "status": "UNMEASURED",
-      "surface": {},
-      "last_measured": null
+      "status": "MEASURED",
+      "surface": {
+        "src/argus/domain/ingestion/documents/extractor.py": {
+          "entries": 1,
+          "chars": 2483,
+          "sha256": "bc5b228a95f461ec0a30c5d0de024e1b10140f895f10c0e7d98a65f42316ad48"
+        },
+        "src/argus/domain/ingestion/documents/models.py": {
+          "entries": 6,
+          "chars": 1050,
+          "sha256": "fa58ab0410ff52f56cd1e3b895a674795599f1e160c4dfa2fbdce5866e59590a"
+        }
+      },
+      "last_measured": {
+        "commit": "d06b9c794bad02770b8b3f44e615f38042065be7",
+        "model": "google/gemini-3.8-flash",
+        "scorecard": "docs/reports/evidence/cuadrao-receipt-extraction-20261011/live-measurement.json"
+      }
     }
   }
 }
