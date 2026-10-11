@@ -17,6 +17,12 @@ import { cardClass, LoadingRows, primaryButtonClass, secondaryButtonClass } from
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
 
+export function ReceiptApprovalGuidance({ dossier }: { dossier: BusinessDossier }) {
+  const { t } = useTranslation();
+  if (!dossier.blockers.length || dossier.review_state === "accepted" && dossier.approval_result?.status === "recorded") return null;
+  return <div className={`${cardClass} text-[13px] text-black/70 dark:text-white/70`}><p className="font-medium">{t("business.dossier.before_approval", "Before approval")}</p><ul className="mt-2 space-y-2">{dossier.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}>{t(`business.dossier.blocker.${blocker.code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))}{blocker.field ? ` · ${t(`business.dossier.field.${blocker.field}`, blocker.field)}` : ""}</li>)}</ul></div>;
+}
+
 export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftId: string; onUnprepared?: () => void }) {
   const { t, i18n } = useTranslation();
   const { source, openPanel, reload } = useBusiness();
@@ -145,7 +151,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
           </div>
           {editing && operation.kind === "uncertain" && operation.action === "save" ? <div className={cardClass}><h3 className="mb-5 text-[14px] font-medium text-black dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
-          {dossier.blockers.length ? <div className={`${cardClass} text-[13px] text-black/70 dark:text-white/70`}><p className="font-medium">{t("business.dossier.before_approval", "Before approval")}</p><ul className="mt-2 space-y-2">{dossier.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}>{t(`business.dossier.blocker.${blocker.code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))}{blocker.field ? ` · ${t(`business.dossier.field.${blocker.field}`, blocker.field)}` : ""}</li>)}</ul></div> : null}
+          <ReceiptApprovalGuidance dossier={dossier} />
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
           <div className={cardClass}>
             {recorded ? <><p role="status" className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: dossier.approval_result?.reviewed_version })}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{dossier.approval_result?.status === "recorded" ? t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: dossier.approval_result.actor.display_name, issuer: dossier.approval_result.actor.issuer_display_name }) : null}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p></> : <>
