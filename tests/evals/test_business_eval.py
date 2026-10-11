@@ -13,6 +13,23 @@ def _verdict(*, passed: bool, failed: str | None = None) -> evaluation.JudgeVerd
     return evaluation.JudgeVerdict(passed=passed, evidence="Calibrated fixture", **values)
 
 
+def _receipts(runtime_model: str, judge_model: str) -> list[dict]:
+    return [
+        {
+            "task": task,
+            "schema_name": schema_name,
+            "model": model,
+            "mode": "json_schema",
+            "outcome": "succeeded",
+        }
+        for task, schema_name, model in (
+            ("interpretation", "BusinessInterpretation", runtime_model),
+            ("interpretation", "BusinessReply", runtime_model),
+            ("chat_composer", "BusinessE1JudgeVerdict", judge_model),
+        )
+    ]
+
+
 def test_corpus_has_distinct_asserted_steps_and_preserved_evidence() -> None:
     cases = evaluation.load_cases()
     assert len(cases) == 7
@@ -209,15 +226,13 @@ def test_scorecard_keeps_missing_runtime_and_judge_unavailable() -> None:
         case["steps"][0]["expect"]
     )
     observed = [deepcopy(step["expect"]) for step in case["steps"]]
+    receipts = _receipts("anthropic/claude-haiku-5.5", "x-ai/grok-4.3")
     skipped = evaluation.score_runtime_capture(
         case=case,
         candidate_sha="f" * 40,
         runtime_model="anthropic/claude-haiku-5.5",
         observed_steps=observed,
-        call_receipts=[
-            {"model": "anthropic/claude-haiku-5.5", "outcome": "skipped"},
-            {"model": "x-ai/grok-4.3", "outcome": "succeeded"},
-        ],
+        call_receipts=[{**receipts[0], "outcome": "skipped"}, *receipts[1:]],
         total_cost_usd=0.0,
         total_latency_ms=0,
         judge_verdict=_verdict(passed=True),
@@ -225,10 +240,6 @@ def test_scorecard_keeps_missing_runtime_and_judge_unavailable() -> None:
     assert skipped["status"] == "unavailable"
     assert skipped["failed_checks"] == ["call_unavailable", "adapter_provenance_missing"]
     assert skipped["evidence_kind"] == "unavailable"
-    receipts = [
-        {"model": "anthropic/claude-haiku-5.5", "outcome": "succeeded"},
-        {"model": "x-ai/grok-4.3", "outcome": "succeeded"},
-    ]
     missing_adapter = evaluation.score_runtime_capture(
         case=case,
         candidate_sha="f" * 40,
@@ -268,6 +279,72 @@ def test_scorecard_keeps_missing_runtime_and_judge_unavailable() -> None:
     assert "step_0.money" in bad_state["failed_checks"]
 
 
+def test_scorecard_requires_each_role_when_runtime_and_judge_share_model() -> None:
+    case = evaluation.load_cases()[0]
+    model = "anthropic/claude-haiku-5.5"
+    receipts = _receipts(model, model)
+    inputs = {
+        "case": case,
+        "candidate_sha": "f" * 40,
+        "runtime_model": model,
+        "judge_model": model,
+        "observed_steps": [deepcopy(step["expect"]) for step in case["steps"]],
+        "total_cost_usd": 0.01,
+        "total_latency_ms": 1,
+        "judge_verdict": _verdict(passed=True),
+        "adapter_provenance": {
+            "capture_id": "capture",
+            "db_namespace": "isolated",
+            "graph_run_id": "run",
+            "candidate_sha": "f" * 40,
+        },
+    }
+    for missing in range(len(receipts)):
+        score = evaluation.score_runtime_capture(
+            **inputs,
+            call_receipts=[
+                receipt for index, receipt in enumerate(receipts) if index != missing
+            ],
+        )
+        assert score["status"] == "unavailable"
+        assert score["failed_checks"] == ["model_receipts_missing"]
+    score = evaluation.score_runtime_capture(**inputs, call_receipts=receipts)
+    assert score["status"] == "passed"
+    assert score["judge_model"] == model
+    alternate = "openai/gpt-6-luna-pro"
+    cross_model = evaluation.score_runtime_capture(
+        **{**inputs, "judge_model": alternate},
+        call_receipts=_receipts(model, alternate),
+    )
+    assert cross_model["status"] == "passed"
+    assert cross_model["judge_model"] == alternate
+
+
+@pytest.mark.parametrize("outcome", ["skipped", "failed"])
+def test_scorecard_keeps_non_successful_judge_call_unavailable(outcome: str) -> None:
+    case = evaluation.load_cases()[0]
+    receipts = _receipts("deepseek/deepseek-v4.1-flash", "openai/gpt-6-luna-pro")
+    score = evaluation.score_runtime_capture(
+        case=case,
+        candidate_sha="f" * 40,
+        runtime_model="deepseek/deepseek-v4.1-flash",
+        judge_model="openai/gpt-6-luna-pro",
+        observed_steps=[deepcopy(step["expect"]) for step in case["steps"]],
+        call_receipts=[*receipts[:2], {**receipts[2], "outcome": outcome}],
+        total_cost_usd=0.01,
+        total_latency_ms=1,
+        judge_verdict=None,
+        adapter_provenance={
+            "capture_id": "capture",
+            "db_namespace": "isolated",
+            "graph_run_id": "run",
+            "candidate_sha": "f" * 40,
+        },
+    )
+    assert score["status"] == "unavailable"
+    assert score["failed_checks"] == ["call_unavailable"]
+
+
 @pytest.mark.asyncio
 async def test_judge_uses_exact_named_model_and_structured_adapter(monkeypatch) -> None:
     calls = []
@@ -287,3 +364,35 @@ async def test_judge_uses_exact_named_model_and_structured_adapter(monkeypatch) 
     assert calls[0]["model_name"] == "x-ai/grok-4.3"
     assert calls[0]["schema_model"] is evaluation.JudgeVerdict
     assert calls[0]["task"] == "chat_composer"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model", ["anthropic/claude-haiku-5.5", "openai/gpt-6-luna-pro"]
+)
+async def test_judge_switches_only_to_explicit_approved_model(monkeypatch, model) -> None:
+    calls = []
+
+    async def captured(**kwargs):
+        calls.append(kwargs)
+        return _verdict(passed=True)
+
+    monkeypatch.setattr(evaluation, "invoke_openrouter_json_schema", captured)
+    verdict = await evaluation.judge_reply(
+        case_id="good_spanish_pending",
+        owner_message="Pagué 850",
+        reply="Guardé el borrador.",
+        saved_state={"approved": False},
+        judge_model=model,
+    )
+    assert verdict is not None and verdict.passed
+    assert calls[0]["model_name"] == model
+    with pytest.raises(ValueError, match="approved candidate"):
+        await evaluation.judge_reply(
+            case_id="good_spanish_pending",
+            owner_message="Pagué 850",
+            reply="Guardé el borrador.",
+            saved_state={"approved": False},
+            judge_model="unapproved/model",
+        )
+    assert len(calls) == 1

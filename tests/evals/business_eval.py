@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from argus.agent_runtime.business.interpretation import BUSINESS_MODEL_CANDIDATES
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.llm.openrouter import invoke_openrouter_json_schema
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -14,11 +15,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 CASE_DIR = Path(__file__).with_name("business_cases")
 JUDGE_MODEL = "x-ai/grok-4.3"
 RUBRIC_VERSION = "cuadrao-business-reply-v2"
-RUNTIME_CANDIDATES = (
+APPROVED_JUDGE_MODELS = (
+    JUDGE_MODEL,
     "anthropic/claude-haiku-5.5",
     "openai/gpt-6-luna-pro",
-    "deepseek/deepseek-v4.1-flash",
 )
+RUNTIME_CANDIDATES = BUSINESS_MODEL_CANDIDATES
 CRITERIA = (
     "honest_saved_state",
     "no_invented_facts",
@@ -359,14 +361,16 @@ def score_runtime_capture(
     total_cost_usd: float | None,
     total_latency_ms: int | None,
     judge_verdict: JudgeVerdict | None,
+    judge_model: str = JUDGE_MODEL,
     adapter_provenance: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     if (
         len(candidate_sha) != 40
         or any(character not in "0123456789abcdef" for character in candidate_sha)
         or runtime_model not in RUNTIME_CANDIDATES
+        or judge_model not in APPROVED_JUDGE_MODELS
     ):
-        raise ValueError("candidate SHA and approved runtime model are required")
+        raise ValueError("candidate SHA and approved runtime and judge models are required")
     provenance_valid = bool(
         adapter_provenance
         and all(
@@ -391,8 +395,19 @@ def score_runtime_capture(
             failures.append("call_receipts_missing")
         elif any(receipt.get("outcome") != "succeeded" for receipt in call_receipts):
             failures.append("call_unavailable")
-        elif not {runtime_model, JUDGE_MODEL}.issubset(
-            {receipt.get("model") for receipt in call_receipts}
+        elif any(
+            not any(
+                receipt.get("task") == task
+                and receipt.get("schema_name") == schema_name
+                and receipt.get("model") == model
+                and receipt.get("mode") == "json_schema"
+                for receipt in call_receipts
+            )
+            for task, schema_name, model in (
+                ("interpretation", "BusinessInterpretation", runtime_model),
+                ("interpretation", "BusinessReply", runtime_model),
+                ("chat_composer", "BusinessE1JudgeVerdict", judge_model),
+            )
         ):
             failures.append("model_receipts_missing")
         if total_cost_usd is None or total_latency_ms is None:
@@ -420,7 +435,7 @@ def score_runtime_capture(
         "fixture_sha256": fixture_digest(),
         "candidate_sha": candidate_sha,
         "runtime_model": runtime_model,
-        "judge_model": JUDGE_MODEL,
+        "judge_model": judge_model,
         "rubric_version": RUBRIC_VERSION,
         "status": status,
         "failed_checks": failures,
@@ -433,8 +448,15 @@ def score_runtime_capture(
 
 
 async def judge_reply(
-    *, case_id: str, owner_message: str, reply: str, saved_state: dict[str, Any]
+    *,
+    case_id: str,
+    owner_message: str,
+    reply: str,
+    saved_state: dict[str, Any],
+    judge_model: str = JUDGE_MODEL,
 ) -> JudgeVerdict | None:
+    if judge_model not in APPROVED_JUDGE_MODELS:
+        raise ValueError("Business judge model is not an approved candidate")
     result = await invoke_openrouter_json_schema(
         task="chat_composer",
         messages=[
@@ -455,6 +477,6 @@ async def judge_reply(
         ],
         schema_model=JudgeVerdict,
         schema_name="BusinessE1JudgeVerdict",
-        model_name=JUDGE_MODEL,
+        model_name=judge_model,
     )
     return result if isinstance(result, JudgeVerdict) else None

@@ -65,6 +65,16 @@ live pass. The approved runtime candidates are `anthropic/claude-haiku-5.5`,
 `openai/gpt-6-luna-pro`, and `deepseek/deepseek-v4.1-flash`. Catalog availability
 does not measure their latency or reliability.
 
+For an authorized live run, keep a small `business_e1_request_settings_v1`
+sidecar beside its scorecard. Record the executed candidate SHA, fixture digest,
+rubric version, selected runtime and judge model IDs, and the actual redacted
+outgoing request settings captured by the existing OpenRouter request guard for
+each role. Include the returned model identifier only if the provider supplied
+one, plus the route receipts and measured usage, cost, and latency. Do not infer
+an internal model revision from the catalog ID or fill missing response fields.
+Changing the judge requires the same unchanged calibration examples and strict
+criterion comparison before a judge-backed scorecard can pass.
+
 ## Test Tiers
 
 - **Mocked harness - every change (free, no API calls):**
