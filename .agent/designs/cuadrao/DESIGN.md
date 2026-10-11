@@ -43,6 +43,20 @@ Home's Upcoming reads its own rolling 30-day projection. A row opens review;
 a due date never records a payment. Simulator evidence and physical-phone
 acceptance remain distinct.
 
+### Confirmed value motion — approved October 11, 2026
+
+Show saved balances and progress immediately when opening a tab or resuming the
+app. Use a brief numeric transition only when a confirmed action changes the
+value. Do not replay that transition on tab switches, refresh or resume. Reduce
+Motion presents the confirmed value without decorative movement.
+
+Lucas locked this rule with “yep agree lock iit” in decision
+`Sentinel_b1d14016cb048191ae4d6781671ba461`, relayed by the coordinator in
+`01a126db-9d2e-7492-89bb-478f5ead4086`. Apply it within assigned UI changes;
+it does not authorize a broad animation sweep. Repeated-use feel and haptic
+acceptance on a physical phone remain **PENDING**. Simulator images do not prove
+either result.
+
 ## 1. Character and surface purpose
 
 Cuadrao is warm, clear and personal. Home offers a calm first glance; Plan makes

@@ -40,6 +40,12 @@ Accepted branding, navigation, typography, and sheet controls remain in the
 native design guide and their linked evidence. This handoff does not reopen
 copy approval, Apple enrollment, icon variants, or release enablement.
 
+The [October 11 confirmed-value motion rule](../../.agent/designs/cuadrao/DESIGN.md#confirmed-value-motion--approved-october-11-2026)
+is **APPROVED** for assigned native UI work. That design entry owns the rule and
+Lucas's decision ID. Physical-phone repeated-use feel and haptic acceptance are
+still **PENDING**; this approval does not reopen phone work or authorize a broad
+animation sweep.
+
 Apple activation remains pending until verified. Lucas is watching iCloud for
 activation. After activation, the planned App Store Connect app uses bundle ID
 `ai.cuadrao.app`. The Small Business Program also follows activation. This records
