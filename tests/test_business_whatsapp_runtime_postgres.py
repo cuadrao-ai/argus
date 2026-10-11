@@ -209,7 +209,13 @@ async def test_actual_dependencies_do_not_enable_model_without_explicit_consent(
     worker, interpreter, _ = runtime
     message = world.message()
     world.captures.capture(message)
-    assert await worker(with_consent=False).run_once()
+    assert await worker(with_consent=False, sending=False).run_once()
+    assert world.states(message) == [("pending",)]
+    with world.pool.connection() as db:
+        db.execute(
+            "delete from business_client_grants where id=%s", (world.actions.grant_id,)
+        )
+    assert await worker().run_once()
     assert world.states(message) == [("sent",)]
     assert not await worker().run_once()
     assert interpreter.inputs == [] and interpreter.compositions == 0
