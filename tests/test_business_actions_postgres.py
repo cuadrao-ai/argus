@@ -856,3 +856,92 @@ def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatc
             ).fetchone()[0]
             == 1
         )
+
+
+def test_owner_workspace_read_never_grants_draft_authority(actions, monkeypatch):
+    from types import SimpleNamespace
+
+    from argus.api.business import require_business_surface
+    from argus.api.documents import require_saved_documents
+    from argus.api.ingestion import require_ingestion_context
+    from argus.api.routers.business import router
+    from argus.domain.business.spaces import PostgresSpaceStore
+    from argus.domain.owner_scope import PERSONAL
+    from argus.domain.recording.repository import NewAccount
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    service, context, _ = actions
+    repository = service.imports.money.repository
+    account_ids = []
+    for person, scope in (
+        (context.owner_id, context.scope),
+        (context.owner_id, PERSONAL),
+        (str(context.actor.actor_id), PERSONAL),
+    ):
+        account_ids.append(
+            repository.create(
+                user_id=person,
+                idempotency_key=str(uuid4()),
+                identity_hash=uuid4().hex,
+                account=NewAccount(
+                    type="cash",
+                    currency="DOP",
+                    nickname="Till",
+                    ownership_share_bps=10000,
+                ),
+                opening=shared._opening(1000),
+                scope=scope,
+            ).stored.account.id
+        )
+    spaces = PostgresSpaceStore(service.authority.pool)
+    monkeypatch.setattr("argus.api.business.business_spaces", lambda: spaces)
+    monkeypatch.setenv("ARGUS_BUSINESS_CHAT_ENABLED", "false")
+    hub = SimpleNamespace(sink=service.imports)
+    documents = SimpleNamespace(hub=hub)
+    app = FastAPI()
+    app.state.financial_accounts_pool = service.authority.pool
+    app.include_router(router)
+    app.dependency_overrides[require_business_surface] = lambda: None
+    app.dependency_overrides[require_saved_documents] = lambda: documents
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "workspace-authority"
+        return await call_next(request)
+
+    def acting_as(person):
+        app.dependency_overrides[require_ingestion_context] = lambda: SimpleNamespace(
+            hub=hub, user_id=person
+        )
+
+    with TestClient(app) as client:
+        acting_as(context.owner_id)
+        response = client.get("/business/workspace")
+        assert response.status_code == 200, response.text
+        assert set(response.json()) == {
+            "accounts",
+            "currencies",
+            "assistant_available",
+            "chat_available",
+            "receipt_limits",
+        }
+        assert response.json()["chat_available"] is False
+        assert [a["id"] for a in response.json()["accounts"]] == [account_ids[0]]
+        assert response.headers["cache-control"] == "no-store"
+        receipts = client.get("/business/receipts")
+        assert receipts.status_code == 404
+        assert receipts.json()["detail"]["code"] == "business_record_not_found"
+        for person in (str(context.actor.actor_id), str(uuid4())):
+            acting_as(person)
+            refused = client.get("/business/workspace")
+            assert refused.status_code == 404
+            assert refused.json()["detail"]["code"] == "business_space_missing"
+    with pytest.raises(ActionError, match="business_record_not_found"):
+        service.resolve_actor(
+            TrustedActor(
+                actor_id=context.owner_id,
+                actor_kind="member",
+                space_id=context.actor.space_id,
+            )
+        )
