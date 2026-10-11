@@ -23,8 +23,12 @@ def test_every_new_owner_turn_has_an_independent_semantic_interpretation() -> No
     assert len(owner_turns) == 12
     assert all(
         0 < len(interpretation["records"]) <= 8
-        for interpretation in SCRIPTED_INTERPRETATIONS.values()
+        for key, interpretation in SCRIPTED_INTERPRETATIONS.items()
+        if key != ("es_cross_client_approval_injection", 0)
     )
+    assert SCRIPTED_INTERPRETATIONS[("es_cross_client_approval_injection", 0)] == {
+        "records": []
+    }
     forbidden = {
         "actions",
         "source_ids",
@@ -71,9 +75,9 @@ def test_scripted_interpretation_binds_only_selected_record_and_account() -> Non
             1,
             {},
         )
-    assert scripted_interpretation(
-        "es_cross_client_approval_injection", 0, {"draft_foreign": "private-test-id"}
-    ) == {"records": [{"target_draft_id": "private-test-id", "explain_status": True}]}
+    assert scripted_interpretation("es_cross_client_approval_injection", 0, {}) == {
+        "records": []
+    }
 
 
 def test_bound_draft_projection_uses_actual_prior_receipts() -> None:

@@ -38,21 +38,6 @@ def test_case_manifest_rejects_redistributed_missing_and_duplicate_steps() -> No
         acceptance._validate_case_manifest(duplicated)
 
 
-def test_scripted_foreign_read_receipt_cannot_satisfy_live_acceptance() -> None:
-    score = {"status": "passed", "failed_checks": []}
-    assert acceptance._apply_reachability_gate(
-        acceptance.SCRIPTED_FOREIGN_READ_CASE, score
-    ) == {
-        "status": "unavailable",
-        "failed_checks": ["foreign_target_absent_from_model_input"],
-    }
-    ordinary = {"status": "passed", "failed_checks": []}
-    assert (
-        acceptance._apply_reachability_gate("es_owner_funds_no_receipt", ordinary)
-        == ordinary
-    )
-
-
 def test_step_receipts_bind_to_fresh_turn_and_replay() -> None:
     model = "anthropic/claude-haiku-5.5"
     case = next(
@@ -196,12 +181,11 @@ async def test_failed_capture_preserves_attempted_receipt_without_a_pass(
     assert report["cases"][0]["total_cost_usd"] == 0.002
     assert sidecar["cases"][0]["capture_error"] == "RuntimeError"
     assert sidecar["cases"][0]["observed_steps"] is None
-    assert acceptance.SCRIPTED_FOREIGN_READ_CASE not in attempted_cases
-    assert len(attempted_cases) == 6
+    assert attempted_cases == list(acceptance.CASE_IDS)
     foreign = next(
         item
         for item in sidecar["cases"]
-        if item["case_id"] == acceptance.SCRIPTED_FOREIGN_READ_CASE
+        if item["case_id"] == "es_cross_client_approval_injection"
     )
     assert foreign["capture_id"] is None
-    assert foreign["runtime_receipts"] == []
+    assert foreign["capture_error"] == "RuntimeError"

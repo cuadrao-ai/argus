@@ -126,11 +126,24 @@ def test_negative_cases_reject_cross_client_access_and_replay_growth() -> None:
     ]
     cross = cases["es_cross_client_approval_injection"]
     observation = deepcopy(cross["steps"][0]["expect"])
-    observation["actions"][0]["outcome"] = "applied"
+    assert evaluation.check_case(cross, [observation]) == []
+    observation["actions"] = deepcopy(observation["action_alternatives"][0])
+    assert evaluation.check_case(cross, [observation]) == []
+    observation["actions"] = [
+        {
+            "name": "business_explain_status",
+            "outcome": "not_found",
+            "actor": "owner_a",
+            "grant": "owner_grant_a",
+            "issuer": "owner_a",
+        }
+    ]
     observation["visible_sources"].append("foreign_message")
+    observation["foreign_scope_unchanged"] = False
     assert evaluation.check_case(cross, [observation]) == [
-        "step_0.actions",
         "step_0.visible_sources",
+        "step_0.actions",
+        "step_0.foreign_scope_unchanged",
     ]
     revoked = cases["en_revoked_accountant_read"]
     denied = deepcopy(revoked["steps"][0]["expect"])

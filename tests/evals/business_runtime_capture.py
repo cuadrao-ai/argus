@@ -575,6 +575,35 @@ def _domain_snapshot(
     )
 
 
+def _foreign_snapshot(pool: ConnectionPool, bindings: dict[str, str]) -> tuple:
+    space_id = UUID(bindings["pilot_foreign"])
+    owner_id = UUID(bindings["owner_foreign"])
+    scoped = (
+        ("business_client_grants", "space_id", space_id),
+        ("business_sources", "space_id", space_id),
+        ("business_draft_sources", "space_id", space_id),
+        ("business_draft_revisions", "space_id", space_id),
+        ("business_questions", "space_id", space_id),
+        ("business_sender_leases", "space_id", space_id),
+        ("business_turns", "space_id", space_id),
+        ("business_action_receipts", "space_id", space_id),
+        ("financial_import_events", "owner_space_id", space_id),
+        ("financial_accounts", "owner_space_id", space_id),
+        ("financial_records", "user_id", owner_id),
+        ("financial_record_revisions", "user_id", owner_id),
+        ("financial_activity_groups", "user_id", owner_id),
+    )
+    return tuple(
+        _rows(
+            pool,
+            f"select to_jsonb(item) as value from public.{table} item"
+            f" where {column}=%s order by to_jsonb(item)::text",
+            (value,),
+        )
+        for table, column, value in scoped
+    )
+
+
 def _seed_accounts(service: Any, owner_id: str, space_id: str) -> dict[str, str]:
     from argus.domain.owner_scope import PERSONAL, BusinessSpace
     from argus.domain.recording.records import OpeningWrite
@@ -642,6 +671,8 @@ def _provision(
             )
     if "foreign_draft" in case["setup"]:
         foreign = space(db, users["e1-foreign"])
+        bindings["pilot_foreign"] = foreign
+        bindings["owner_foreign"] = users["e1-foreign"]
         bindings["draft_foreign"] = event(db, users["e1-foreign"], foreign)
     if "existing_draft" in case["setup"]:
         bindings["draft_f"] = event(db, owner, primary)
@@ -700,6 +731,11 @@ async def capture_case(
                     _seed_accounts(service, bindings["owner_a"], bindings["pilot_a"])
                 )
                 baseline = _baseline(service, bindings["owner_a"], bindings["pilot_a"])
+                foreign_before = (
+                    _foreign_snapshot(pool, bindings)
+                    if "pilot_foreign" in bindings
+                    else None
+                )
                 capture_id = uuid4().hex
                 sender_hash = hashlib.sha256(capture_id.encode()).hexdigest()
                 holder = uuid4()
@@ -905,6 +941,10 @@ async def capture_case(
                         outcomes=outcomes,
                         transport=transport,
                     )
+                    if foreign_before is not None:
+                        observed["foreign_scope_unchanged"] = foreign_before == (
+                            _foreign_snapshot(pool, bindings)
+                        )
                     if prior_receipts is not None:
                         observed["replay_receipts_unchanged"] = (
                             prior_receipts == _receipt_snapshot(pool, bindings["pilot_a"])

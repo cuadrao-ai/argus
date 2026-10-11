@@ -100,9 +100,7 @@ SCRIPTED_INTERPRETATIONS: dict[tuple[str, int], dict[str, Any]] = {
             }
         ]
     },
-    ("es_cross_client_approval_injection", 0): {
-        "records": [{"target_draft_id": "@draft_foreign", "explain_status": True}]
-    },
+    ("es_cross_client_approval_injection", 0): {"records": []},
     ("en_amount_not_supplied", 0): {
         "records": [
             {
