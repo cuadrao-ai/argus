@@ -1,6 +1,6 @@
 # Argus private iPhone execution manifest
 
-**Updated:** October 11, 2026 coordinator checkpoint through #967 landing and bounded checkpoint/Personal/memory/voice/repair allocations; live quality and hosted gates remain pending under the October 10 23:37 UTC owner-handoff continuation.
+**Updated:** October 11, 2026, 12:12:33 UTC verified coordinator checkpoint through #970 landing and bounded checkpoint/Personal/memory/voice/repair allocations; live quality and hosted gates remain pending under the October 10 23:37 UTC owner-handoff continuation.
 **Execution state:** Consumer PR #937 is merged with accepted simulator evidence and green pre-merge CI. Build 3455 is installed; hosted manual-money acceptance remains open. The current Consumer assignment below supersedes the older sequencing only for this lane. The [October 4 code checkpoint](../reports/2026-10-04-cuadrao-code-integration-landing.md) retains its historical evidence.
 **Product owner:** [MVEE](argus-minimum-viable-ecosystem-experience.md).
 **Authority and onboarding:** [DOCUMENTATION_AUTHORITY](../DOCUMENTATION_AUTHORITY.md).
@@ -80,7 +80,7 @@ fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/963#
 The fresh read confirms [CI38120748626](https://github.com/lagarcess/argus/actions/runs/38120748626)
 and [smoke38120748633](https://github.com/lagarcess/argus/actions/runs/38120748633)
 fully SUCCESS ([terminal comment](https://github.com/lagarcess/argus/pull/964#issuecomment-6106683343)).
-Current fetched integration is `590a0ec8ada4778add28be45c2b2ef222e3b6479`: manual UI #968 LANDED with tree `200357561ed64ad053814a4518a6abe05372acf9`, byte-equal reviewed8c6d. Root postmerge CI38132051579/smoke38132051668 RUNNING, not a pass. Prior integration `d6ea8ddc2cd1c8b59b181923a5ab954b2e588217`: manual Actions #967 LANDED; root confirms postmerge CI38129393207 and smoke38129393222 SUCCESS. Prior integration `286c6bc0494be6c858851f0c4037ea6df5bacea5`: #966
+Current verified integration at2026-10-11T12:12:33UTC is `b8c84da159bab701aeb3bdefbd7c38f3c516978c`: #970 LANDED, postmerge CI38137452792/smoke38137452793 SUCCESS; root audit/comment6108893236 owns exact-source verification. Historical October11 #968 postmerge snapshot: integration `590a0ec8ada4778add28be45c2b2ef222e3b6479`, manual UI #968 LANDED with tree `200357561ed64ad053814a4518a6abe05372acf9`, byte-equal reviewed8c6d; CI38132051579/smoke38132051668 were RUNNING then. Preserve that original receipt as historical; both subsequently passed, as recorded in the owner row below. Prior integration `d6ea8ddc2cd1c8b59b181923a5ab954b2e588217`: manual Actions #967 LANDED; root confirms postmerge CI38129393207 and smoke38129393222 SUCCESS. Prior integration `286c6bc0494be6c858851f0c4037ea6df5bacea5`: #966
 LANDED from manual C0 source `a9da8426c0a5153649a1a1d5bf92a042ca14e256`;
 postmerge CI38126952473 RUNNING/smoke SUCCESS was the retained earlier snapshot. Retained integration `3c3be1a75af5f5fd1e19db039f76c5684753241c`,
 #965 LANDED from reviewed source `371ac8f5fb44145eac185d868b330995ee9f1c4b`.
