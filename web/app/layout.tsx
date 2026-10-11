@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { WEB_APP_NAME } from "@/lib/app-brand";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { THEME_STORAGE_KEY } from "@/lib/browser-storage";
@@ -18,7 +19,7 @@ const spaceGrotesk = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Argus",
+  title: WEB_APP_NAME,
   description: "Next Generation Platform",
   manifest: "/manifest.json",
   // iOS ignores manifest icons, so the home-screen icon comes from this link.

@@ -1,6 +1,7 @@
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, ARGUS_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
+import type { BusinessDossier, BusinessFactPatch, BusinessRecordContext } from "./business-dossier";
 
 /**
  * The Business pilot's view of `/api/v1/business`. The backend owns every
@@ -66,7 +67,8 @@ export type ReceiptEvidenceLine = {
   amount: DecimalString | null;
 };
 
-export type ReceiptDetail = ReceiptSummary & {
+export type ReceiptDetail = ReceiptSummary & BusinessRecordContext & {
+  draft_id: string | null;
   version: number;
   evidence: {
     merchant: string | null;
@@ -80,6 +82,26 @@ export type ReceiptDetail = ReceiptSummary & {
   } | null;
   missing_fields: (keyof ReceiptReviewFields)[];
 };
+
+export async function getBusinessDossier(draftId: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/dossier`);
+}
+
+export async function reviewBusinessDraft(draftId: string, version: number, facts: BusinessFactPatch, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/review`, {
+    method: "PATCH",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version, facts }),
+  });
+}
+
+export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version, action: "record_expense" }),
+  });
+}
 
 export type BusinessAccount = {
   id: string;
@@ -118,7 +140,8 @@ export type BusinessExpense = {
   amount: DecimalString;
   currency: CurrencyCode;
   category_id: string | null;
-  account_id: string;
+  account_id: string | null;
+  funding?: "owner_funds";
   occurred_on: string;
   receipt_id: string | null;
 };

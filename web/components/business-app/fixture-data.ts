@@ -5,6 +5,7 @@ import type {
   ReceiptDetail,
   ReceiptReviewFields,
 } from "@/lib/business-api";
+import { createDossierFixtures, dossierFixtureIds } from "./dossier-fixtures";
 import { normalizeSearchText } from "@/lib/search-text";
 import type { BusinessDataSource } from "./business-data";
 
@@ -43,7 +44,7 @@ function receipt(
     error_code: null,
     attention: null,
     preparable: false,
-    enterable: false,
+    enterable: partial.status === "review_ready",
     expense_id: null,
     merchant: null,
     occurred_on: null,
@@ -51,6 +52,11 @@ function receipt(
     currency: null,
     category_id: null,
     account_id: null,
+    space_id: "fixture-space",
+    space_name: "Mi negocio",
+    accounts: ACCOUNTS,
+    capabilities: ["read", "prepare", "approve"],
+    draft_id: null,
     version: 1,
     evidence: null,
     missing_fields: [],
@@ -92,6 +98,8 @@ function seedReceipts(): ReceiptDetail[] {
     receipt({
       id: "rcpt-papeleria",
       status: "review_ready",
+      draft_id: dossierFixtureIds.unprepared,
+      enterable: false,
       filename: "papeleria-oct.pdf",
       media_type: "application/pdf",
       received_at: daysAgo(1),
@@ -216,7 +224,8 @@ function seedExpenses(): BusinessExpense[] {
       amount: "1250.00",
       currency: "DOP",
       category_id: "dining",
-      account_id: "acct-ops",
+      account_id: null,
+      funding: "owner_funds",
       occurred_on: dayOnly(daysAgo(8)),
       receipt_id: null,
     },
@@ -292,9 +301,24 @@ export function createFixtureBusinessDataSource(
   };
   const required: (keyof ReceiptReviewFields)[] = ["merchant", "occurred_on", "amount", "currency", "account_id"];
   const missing = (fields: ReceiptReviewFields) => required.filter((key) => !fields[key]);
+  const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
 
   return {
     mode: "fixture",
+    ...dossierSource,
+    approveDraft: async (id, version, key) => {
+      const dossier = await dossierSource.approveDraft(id, version);
+      const receipt = receipts.find((item) => item.draft_id === id);
+      if (receipt && dossier.approval_result?.status === "recorded") {
+        const facts = dossier.facts;
+        if (facts.amount.state === "known" && facts.currency.state === "known" && facts.occurred_on.state === "known" && facts.funding.state === "known" && facts.funding.value.kind === "business_account") {
+          expenses = [{ id: dossier.approval_result.activity_id, merchant: facts.counterparty.value, amount: facts.amount.value, currency: facts.currency.value, category_id: facts.category_id.value, account_id: facts.funding.value.account_id, occurred_on: facts.occurred_on.value, receipt_id: receipt.id }, ...expenses];
+          replace({ ...receipt, status: "confirmed", expense_id: dossier.approval_result.activity_id });
+        }
+      }
+      void key;
+      return dossier;
+    },
     ensureSpace: async () => {
       await delay();
       return { id: "fixture-space", name: "Mi negocio" };
@@ -417,16 +441,16 @@ export function createFixtureBusinessDataSource(
       const merged = { ...current, ...fields };
       const injected = injectedWriteError();
       if (injected) throw injected;
-      // An entry by hand becomes the receipt's one purchase, ready to review.
       const entered = current.enterable
         ? { status: "review_ready" as const, error_code: null, attention: null, preparable: false, enterable: false }
         : {};
-      return replace({
+      const reviewed: ReceiptDetail = {
         ...merged,
         ...entered,
         version: current.version + 1,
         missing_fields: missing(merged),
-      });
+      };
+      return replace({ ...reviewed, draft_id: current.draft_id === dossierFixtureIds.unprepared ? current.draft_id : createReceiptDraft(reviewed) });
     },
     confirmReceipt: async (id, version) => {
       await delay(400);
