@@ -19,8 +19,8 @@ from pydantic import BaseModel
 
 from argus.agent_runtime import turn_execution
 from argus.env import load_project_dotenv
+from argus.llm import openrouter_model_env as model_policy
 from argus.llm.openrouter_key_policy import resolve_openrouter_api_key
-from argus.llm.openrouter_model_env import TIER_FALLBACK_ENV, TIER_PRIMARY_ENV
 from argus.llm.openrouter_tasks import (
     OPENROUTER_PROFILES,
     OPENROUTER_TASK_MODEL_TIERS,
@@ -113,8 +113,8 @@ _ROUTE_RECEIPT_CAPTURE: ContextVar[list[OpenRouterRouteReceipt] | None] = Contex
 )
 
 
-_TIER_PRIMARY_ENV = TIER_PRIMARY_ENV
-_TIER_FALLBACK_ENV = TIER_FALLBACK_ENV
+_TIER_PRIMARY_ENV = model_policy.TIER_PRIMARY_ENV
+_TIER_FALLBACK_ENV = model_policy.TIER_FALLBACK_ENV
 
 _VALID_REASONING_EFFORTS = frozenset(("xhigh", "high", "medium", "low", "minimal", "none"))
 _REASONING_EFFORT_ENV_BY_TASK: dict[OpenRouterTask, str] = {
@@ -122,16 +122,6 @@ _REASONING_EFFORT_ENV_BY_TASK: dict[OpenRouterTask, str] = {
     "capability_conflict": "ARGUS_CAPABILITY_REASONING_EFFORT",
 }
 _PROMPT_CACHE_STRUCTURED_ARTIFACT_TASKS = frozenset(("interpretation", "interpretation_repair", "field_fidelity", "capability_conflict"))
-_MODEL_UNSUPPORTED_PARAMETERS = {
-    "openai/gpt-6-luna-pro": frozenset({"temperature"}),
-    "openai/gpt-6-luna-pro-20260922": frozenset({"temperature"}),
-}
-
-
-def _sampling_parameters(model: str, profile: OpenRouterProfile) -> dict[str, object]:
-    if "temperature" in _MODEL_UNSUPPORTED_PARAMETERS.get(model, frozenset()):
-        return {}
-    return {"temperature": profile.temperature}
 
 
 def openrouter_model_tier_for_task(task: OpenRouterTask | None) -> OpenRouterModelTier:
@@ -225,7 +215,7 @@ def build_openrouter_model(
 
     return ChatOpenRouter(
         model_name=resolved_model,
-        **_sampling_parameters(resolved_model, profile),
+        **model_policy.model_sampling_parameters(resolved_model, profile.temperature),
         max_tokens=profile.max_tokens,
         timeout=profile.timeout_seconds,
         max_retries=profile.max_retries,
@@ -615,7 +605,7 @@ async def invoke_openrouter_chat_completion(
         payload: dict[str, object] = {
             "model": candidate_model,
             "messages": messages,
-            **_sampling_parameters(candidate_model, profile),
+            **model_policy.model_sampling_parameters(candidate_model, profile.temperature),
             "max_tokens": profile.max_tokens,
         }
         try:
@@ -898,7 +888,7 @@ def _json_schema_payload(
     openai_document = profile.task == "document_extraction" and model.startswith("openai/")
     sampling_parameters = (
         {} if openai_document or openrouter_model_tier_for_task(profile.task) == "readout"
-        else _sampling_parameters(model, profile)
+        else model_policy.model_sampling_parameters(model, profile.temperature)
     )
     if model.startswith("anthropic/"):
         # Anthropic strict structured outputs reject core shapes of our

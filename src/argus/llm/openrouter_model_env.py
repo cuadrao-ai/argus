@@ -20,3 +20,14 @@ TIER_FALLBACK_ENV: dict[str, tuple[str, ...]] = {
     "context": ("ARGUS_CONTEXT_FALLBACK_MODEL",),
     "readout": ("ARGUS_READOUT_FALLBACK_MODEL",),
 }
+
+
+_TEMPERATURE_UNSUPPORTED_MODELS = frozenset(
+    {"openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"}
+)
+
+
+def model_sampling_parameters(model: str, temperature: float) -> dict[str, float]:
+    return (
+        {} if model in _TEMPERATURE_UNSUPPORTED_MODELS else {"temperature": temperature}
+    )
