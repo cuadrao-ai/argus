@@ -55,8 +55,10 @@ def authorize(
         cursor.execute(
             """select g.id, g.issuer_id, g.capabilities,
                 s.created_by::text as owner_id, s.name,
-                coalesce(p.username, 'Member') as actor_name,
-                coalesce(i.username, 'Member') as issuer_name
+                coalesce(nullif(btrim(p.display_name), ''),
+                    nullif(btrim(p.username), ''), 'Member') as actor_name,
+                coalesce(nullif(btrim(i.display_name), ''),
+                    nullif(btrim(i.username), ''), 'Member') as issuer_name
             from public.business_client_grants g
             join public.spaces s on s.id=g.space_id
             join auth.users u on u.id=g.grantee_id
