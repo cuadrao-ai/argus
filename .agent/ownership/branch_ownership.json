@@ -497,7 +497,10 @@
         "src/argus/agent_runtime/personal_money.py",
         "src/argus/agent_runtime/stages/interpret.py",
         "src/argus/agent_runtime/stages/interpret_types.py",
+        "src/argus/api/agentic_access.py",
         "src/argus/api/chat/money_proposals.py",
+        "src/argus/api/dependencies.py",
+        "src/argus/api/guest_access.py",
         "src/argus/api/message_store.py",
         "src/argus/api/routers/agent.py",
         "src/argus/api/routers/conversations.py",
@@ -567,6 +570,24 @@
         "src/argus/llm/openrouter.py",
         "tests/evals/business_eval.py",
         "tests/evals/test_business_eval.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-live-delegation-foundation-20261011": {
+      "description": "Provider-neutral offline live-delegation foundation; current paid/full entitlement and durable canonical admission remain default-denied prerequisites, no provider activation.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "docs/specs/argus-decision-log.md",
+        "src/argus/api/live_voice.py",
+        "src/argus/api/live_voice_contracts.py",
+        "src/argus/llm/live_delegation.py",
+        "tests/test_live_voice_contracts.py",
+        "tests/test_live_voice_delegation.py"
       ],
       "deny": [
         ".env",

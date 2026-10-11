@@ -1,7 +1,10 @@
 # Cuadrao Business lane handoff
 
 **Current October 11 coordinator checkpoint.** Canonical integration is
-`d6ea8ddc2cd1c8b59b181923a5ab954b2e588217`: manual Actions #967 LANDED; root confirms postmerge CI38129393207/smoke38129393222 SUCCESS. Prior manual C0 #966 LANDED at286c6bc0 from
+`590a0ec8ada4778add28be45c2b2ef222e3b6479`: manual UI #968 LANDED, tree
+`200357561ed64ad053814a4518a6abe05372acf9` byte-equal reviewed8c6d. Root
+postmerge CI38132051579/smoke38132051668 RUNNING at this snapshot, not PASS.
+Prior `d6ea8ddc2cd1c8b59b181923a5ab954b2e588217`: manual Actions #967 LANDED; root confirms postmerge CI38129393207/smoke38129393222 SUCCESS. Prior manual C0 #966 LANDED at286c6bc0 from
 `a9da8426c0a5153649a1a1d5bf92a042ca14e256`; its earlier CI38126952473
 RUNNING/smoke SUCCESS observation remains historical evidence.
 Retained #965 integration is `3c3be1a75af5f5fd1e19db039f76c5684753241c`, LANDED from reviewed
@@ -307,8 +310,8 @@ creation; POST requires fresh owner/live prepare/flags/link/route; authenticated
 owner revoke/unlink stay accessible. Business checkpointer remains disabled
 until the proven lifecycle is centrally assembled and activation gates pass. Actual scoped user consent, live
 quality and hosted proof remain pending; the assembled59c7 static/local PG
-proof above does not clear them. Core both-tier mobile flows and agent
-actions are now; normal usability is now and extreme Dynamic Type is final
+proof above does not clear them. Core both-tier manual mobile flows are now; the later Free/Full direction
+below supersedes the earlier both-tier agentic grant; normal usability is now and extreme Dynamic Type is final
 pre-TestFlight. The assigned ONE-Mobile-goal warm-design experiment approved
 by `Sentinel_fa71fe12f79481918cd3ff3fc869e0a7` runs in parallel with core,
 preserving palette/type/chat, with no global replacement. Preserve the approved
@@ -320,9 +323,11 @@ an accepted implementation or global design replacement.
 ## Bounded checkpoint and Consumer donor registration
 
 The [existing execution manifest](../specs/argus-execution-board.md#active-checkpoint-personal-memory-voice-and-repair-allocation)
-records five approved exact policies:7 checkpoint,14 Personal,15 memory,7
-voice and3 generic repair paths. Published #969 atc547 retains the prior
-reviewed three-file package unchanged; this registration uses a separate
+records six approved exact policies:7 checkpoint,17 Personal,15 memory,7
+utterance voice,3 generic repair and6 live-delegation paths (55 total). Published
+#969 reconciled `dfd9332c7b7d7ae2997cbcac97c71581d524366a` retains the prior
+reviewedc547 three-file bytes and all15 incoming UI bytes; new-head CI is
+separate from old-head evidence; this registration uses a separate
 metadata worktree. Existing policies/denies/base refs and T1's thirteen
 inherited E1 ownership failures remain unchanged. A donor allocation does not
 make inherited files owned or a source READY.
@@ -350,6 +355,17 @@ the separately owned donor modularity correction remain pending. `/root/business
 sole central Personal API/runtime/catalog writer. No memory-helper takeover
 or inherited ownership waiver follows.
 
+Latest parent-relayed user sequence is one app:Guest Free, signed-in email
+still Free, then Paid/Full. `Sentinel_3269a594158c8191b5384ab9c608dd1a`
+excludes Free agentic tools and supersedes the earlier both-tier agentic grant.
+The Personal allocation adds only `src/argus/api/agentic_access.py`,
+`src/argus/api/guest_access.py` and `src/argus/api/dependencies.py`:trusted
+provider-neutral current entitlement interface/projection, default DENY when
+missing/unavailable, synthetic fixtures only. Registration/admin/cohort/client
+claims do not create Full authority. Existing Free manual Money is unchanged.
+RevenueCat/prices/paywall and actual paid grants are future monetization, not
+tonight. No invented canonical entitlement storage or live paid access follows.
+
 Generic repair remains exact3 staged paths at dependencybb340214, digest
 `e49f57fb693971147affb3c1335e4b1820aa83076b9f9647129364613ece9577`, without
 a final commit. `/root/owner_funds_comments` owns that openrouter slice after
@@ -361,7 +377,12 @@ Voice `df7809679c5eeaef70382985cde14f936dd2820f` preserves the bounded utterance
 transport and comparison notes:independent CLEAR,32 offline plus6 independent
 passes, router unregistered and default denial. Parent relays the user's newer
 GPT-Live-FIRST direction for bounded offline provider-neutral adapter work;
-its additional exact paths await owner inventory/allocation. No activation,
+the offline six-path foundation is now allocated at
+`5fd7366a0d8ad7625ca1cc7e0cbdb0c31832d396` (27 offline PASS, bounded
+independent CLEAR). Its exact contracts/adapter/parser/two tests and bounded
+decision-log paths appear in the existing manifest. Missing canonical paid/full
+entitlement, durable accepted-message admission and real-access assembly remain
+default DENIED; synthetic admission proves no production restart safety. No activation,
 actual audio consent, provider route or financial receipt vision-consent rollout
 is inferred. These sources close none of the five retained approved families;
 X1/CSV/Excel remain required NOW. Root alone owns merge/live calls/DB/staging.
