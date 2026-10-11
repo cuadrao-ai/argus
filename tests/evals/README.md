@@ -21,7 +21,7 @@ must map generated database IDs to the fixture aliases. Human review writes a
 `web_action` source and factual revision. Human approval writes an immutable
 action receipt and approval result, without changing factual source history.
 
-The pending T1/W1 adapter takes a case's ordered steps and trusted sender scope,
+The Business capture adapter takes a case's ordered steps and trusted sender scope,
 runs owner messages through the real LangGraph turn and declared Business
 executor, and submits human web commands through BusinessActions. It uses an
 isolated database namespace, then reads back the persisted dossier, action
@@ -29,12 +29,32 @@ receipts, MoneyService records and balances after each step. It must obtain
 Business data through a current grant-scoped service projection. Direct
 DataAPI reads cannot supply Business rows. It must also return OpenRouter route
 receipts, exact candidate revision, model IDs, cost and latency. No fixture
-expectation can serve as its observed state. Until that adapter exists and the
-root coordinator authorizes its call budget, the live E1 gate is unavailable.
+expectation can serve as its observed state. The live E1 gate remains unavailable
+until the Postgres capture passes and the root coordinator authorizes its call budget.
 The scorecard requires the adapter's capture ID, database namespace, actual
 LangGraph run ID, and matching candidate SHA before it can report a pass. The
 adapter reads actor, grant and issuer from scoped `business_action_receipts`
 and reads bank balances and versions through the canonical MoneyService.
+
+`business_runtime_capture.py` accepts an explicit loopback disposable Postgres
+DSN and an injected interpreter factory. The separate scripted plans exercise
+the real graph, executor, service, SQL receipts and MoneyService without provider
+calls; they do not test model interpretation. With the current T1 and Actions
+branches integrated and migrations applied, set `ARGUS_DISPOSABLE_DATABASE_URL`
+and run `pytest tests/test_business_runtime_capture_postgres.py -q --no-cov`.
+The test provisions and deletes only its own synthetic identities. A missing DSN
+skips this integration test and supplies no runtime pass. Root owns any later
+model-backed run and its call receipts, cost, latency and judge calibration.
+The adapter pins a loopback Postgres host address and checks every fact field,
+its source links, submitted source text, channel and kind, and factual revision
+before/after state. Case inputs and earlier expected states define these checks;
+runtime observations never fill expected values.
+Approval persists an accepting version and then an accepted version, so an
+approved draft moves from reviewed version N to current version N+2 while the
+approval result still names N. Replay returns the original persisted `applied`
+outcome. The capture compares SQL receipt identity and outcome, sources, factual
+revisions, drafts, questions, and MoneyService readback before and after each
+replay to prove that this returned outcome did not cause a second mutation.
 
 `business_eval.py` holds the deterministic comparator and a structured reply
 rubric through the existing OpenRouter adapter. The fixed first judge is

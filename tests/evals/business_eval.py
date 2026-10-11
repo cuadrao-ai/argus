@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 import yaml
+from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.llm.openrouter import invoke_openrouter_json_schema
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -36,6 +38,118 @@ RUBRIC = (
     "exact revision. Evaluate meaning in Spanish or English, not phrase matches. "
     "A violation makes passed false. Return concise evidence, not a rewrite."
 )
+
+
+def _initial_facts() -> tuple[dict[str, Any], dict[str, list[str]]]:
+    facts = BusinessFacts(
+        currency=Known(value="DOP", origin="default", source_ids=())
+    ).model_dump(mode="json")
+    return (
+        {
+            field: {
+                "state": fact["state"],
+                "value": fact["value"],
+                "verified": fact["verified"],
+                **({"origin": fact["origin"]} if fact["origin"] else {}),
+            }
+            for field, fact in facts.items()
+            if field != "fiscal"
+        }
+        | {"fiscal": None},
+        {field: [] for field in facts if field != "fiscal"},
+    )
+
+
+def _complete_expected_case(case: dict[str, Any]) -> None:
+    prior_facts: dict[str, dict] = {}
+    prior_sources: dict[str, dict] = {}
+    prior_versions: dict[str, int] = {}
+    revisions: dict[str, list[dict]] = {}
+    evidence: dict[str, dict] = {}
+    for step in case["steps"]:
+        expected = step["expect"]
+        if step["actor"] == "owner_a":
+            alias = step["source"]
+            submitted = {
+                "kind": "message",
+                "channel": step["channel"],
+                "text": step["message"],
+            }
+            if alias in evidence and evidence[alias] != submitted:
+                raise ValueError(f"source replay changed text: {case['id']}")
+            evidence[alias] = submitted
+        expected["source_evidence"] = {
+            alias: evidence[alias] for alias in expected["visible_sources"]
+        }
+        if set(expected.get("draft_facts", {})) != set(expected["draft_versions"]):
+            raise ValueError(f"draft facts missing from case: {case['id']}")
+        completed_facts = {}
+        completed_sources = {}
+        completed_revisions = {}
+        for alias, patch in expected.get("draft_facts", {}).items():
+            initial_facts, initial_sources = _initial_facts()
+            before = deepcopy(prior_facts.get(alias))
+            before_sources = deepcopy(prior_sources.get(alias))
+            facts = deepcopy(before if before is not None else initial_facts)
+            sources = deepcopy(
+                before_sources if before_sources is not None else initial_sources
+            )
+            source_patch = expected.get("fact_sources", {}).get(alias, {})
+            for field, value in patch.items():
+                updated = deepcopy(value)
+                if field != "fiscal":
+                    updated.setdefault("verified", False)
+                if field not in facts:
+                    raise ValueError(f"unknown Business fact field: {field}")
+                if field not in source_patch and updated != facts[field]:
+                    if field == "fiscal":
+                        raise ValueError(
+                            "fiscal evidence needs explicit source assertion"
+                        )
+                    if updated.get("origin") == "default":
+                        sources[field] = []
+                    elif step["actor"] == "owner_a":
+                        sources[field] = [step["source"]]
+                    else:
+                        raise ValueError("human fact change needs explicit source")
+                facts[field] = updated
+            for field, linked in source_patch.items():
+                if field not in sources:
+                    raise ValueError(f"unknown Business source field: {field}")
+                sources[field] = linked
+            version = expected["draft_versions"][alias]
+            earlier = prior_versions.get(alias, 0)
+            history = deepcopy(revisions.get(alias, []))
+            if version != earlier:
+                if step["actor"] == "owner_a" and version == earlier + 1:
+                    history.append(
+                        {
+                            "version": version,
+                            "actor": "owner_a",
+                            "grant": "owner_grant_a",
+                            "issuer": "owner_a",
+                            "sources": [step["source"]],
+                            "before": before,
+                            "before_sources": before_sources,
+                            "after": deepcopy(facts),
+                            "after_sources": deepcopy(sources),
+                        }
+                    )
+                elif not (
+                    step.get("command", {}).get("action") == "approve_expense"
+                    and version == earlier + 2
+                ):
+                    raise ValueError(f"unexplained draft version: {case['id']}")
+            completed_facts[alias] = facts
+            completed_sources[alias] = sources
+            completed_revisions[alias] = history
+            prior_versions[alias] = version
+        expected["draft_facts"] = completed_facts
+        expected["fact_sources"] = completed_sources
+        expected["revision_transitions"] = completed_revisions
+        prior_facts = deepcopy(completed_facts)
+        prior_sources = deepcopy(completed_sources)
+        revisions = deepcopy(completed_revisions)
 
 
 class JudgeVerdict(BaseModel):
@@ -86,6 +200,8 @@ def load_cases(directory: Path = CASE_DIR) -> list[dict[str, Any]]:
                     "personal_balance_delta",
                     "bank_versions_unchanged",
                     "personal_versions_unchanged",
+                    "bank_record_count",
+                    "personal_record_count",
                 }:
                     raise ValueError(f"incomplete money assertion: {case['id']}")
                 if expected["money"]["record_count"] and (
@@ -99,6 +215,26 @@ def load_cases(directory: Path = CASE_DIR) -> list[dict[str, Any]]:
                     )
                 ):
                     raise ValueError(f"recorded expense lacks human proof: {case['id']}")
+                if step.get("replay") and not (
+                    expected.get("replay_receipts_unchanged") is True
+                    and expected.get("replay_domain_unchanged") is True
+                ):
+                    raise ValueError(f"replay lacks durable invariants: {case['id']}")
+                approval = expected.get("approval") or {}
+                command = step.get("command") or {}
+                if (
+                    command.get("action") == "approve_expense"
+                    and approval.get("status") == "recorded"
+                ):
+                    reviewed = command["version"]
+                    if (
+                        approval["reviewed_version"] != reviewed
+                        or expected["draft_versions"][command["draft"]] != reviewed + 2
+                    ):
+                        raise ValueError(
+                            f"approval version transition mismatch: {case['id']}"
+                        )
+            _complete_expected_case(case)
             cases.append(case)
     if not cases:
         raise ValueError("no business cases")
@@ -156,6 +292,8 @@ def check_step(expected: dict[str, Any], observed: dict[str, Any]) -> list[str]:
         failures.append("draft_facts.aliases")
     for alias, facts in expected.get("draft_facts", {}).items():
         actual = observed.get("draft_facts", {}).get(alias, {})
+        if set(actual) != set(facts):
+            failures.append(f"draft_facts.{alias}.fields")
         for field, fact in facts.items():
             if actual.get(field) != fact:
                 failures.append(f"draft_facts.{alias}.{field}")
@@ -163,8 +301,12 @@ def check_step(expected: dict[str, Any], observed: dict[str, Any]) -> list[str]:
         failures.append("draft_versions")
     if observed.get("draft_sources") != expected.get("draft_sources", {}):
         failures.append("draft_sources")
+    if set(observed.get("fact_sources", {})) != set(expected.get("fact_sources", {})):
+        failures.append("fact_sources.aliases")
     for alias, facts in expected.get("fact_sources", {}).items():
         actual = observed.get("fact_sources", {}).get(alias, {})
+        if set(actual) != set(facts):
+            failures.append(f"fact_sources.{alias}.fields")
         for field, sources in facts.items():
             if actual.get(field) != sources:
                 failures.append(f"fact_sources.{alias}.{field}")
@@ -179,6 +321,11 @@ def check_step(expected: dict[str, Any], observed: dict[str, Any]) -> list[str]:
         "approval",
         "recorded_activity",
         "history",
+        "transport",
+        "replay_receipts_unchanged",
+        "replay_domain_unchanged",
+        "source_evidence",
+        "revision_transitions",
     ):
         if key in expected and observed.get(key) != expected[key]:
             failures.append(key)

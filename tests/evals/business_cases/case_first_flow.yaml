@@ -35,7 +35,7 @@ cases:
             - {code: fact_required, field: business_share}
             - {code: business_questions_unresolved}
           approval: null
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
             - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
@@ -67,12 +67,13 @@ cases:
             - {code: fact_required, field: business_share}
             - {code: business_questions_unresolved}
           approval: null
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, answers_question: funding}
             - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           plan_references:
             - {action_index: 0, existing_draft: draft_a, version: 1}
+            - {action_index: 1, existing_draft: draft_a, version: 2}
           visible_sources: [message_a1, message_a2]
       - actor: owner_a
         channel: whatsapp
@@ -98,7 +99,7 @@ cases:
           blockers: []
           approval_available: false
           approval: null
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, answers_question: occurred_on}
           plan_references:
@@ -110,7 +111,7 @@ cases:
         command: {action: approve_expense, draft: draft_a, version: 3}
         expect:
           draft_count: 1
-          draft_versions: {draft_a: 4}
+          draft_versions: {draft_a: 5}
           draft_sources: {draft_a: [message_a1, message_a2, message_a3]}
           fact_sources: {draft_a: {amount: [message_a1], funding: [message_a2], receipt_state: [message_a2], occurred_on: [message_a3], business_share: [message_a3]}}
           draft_facts:
@@ -128,7 +129,7 @@ cases:
           blockers:
             - {code: business_draft_not_open}
           approval_available: false
-          money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           recorded_activity: {kind: expense, amount: '850', currency: DOP, funding: owner_funds}
           approval: {status: recorded, reviewed_version: 3, actor: accountant_a, grant: grant_a, issuer: owner_a}
           history:
@@ -153,16 +154,17 @@ cases:
           draft_count: 1
           draft_versions: {draft_b: 1}
           draft_sources: {draft_b: [message_b1]}
-          fact_sources: {draft_b: {amount: [message_b1], funding: []}}
+          fact_sources: {draft_b: {kind: [message_b1], amount: [message_b1], funding: []}}
           draft_facts:
             draft_b:
+              kind: {state: known, value: expense, origin: owner_stated}
               amount: {state: known, value: '420', origin: owner_stated}
               currency: {state: known, value: DOP, origin: default}
               funding: {state: unknown, value: null}
               occurred_on: {state: unknown, value: null}
           questions:
             - {field: funding, asked_of: owner, state: open}
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
             - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
@@ -181,7 +183,7 @@ cases:
               funding: {state: known, value: {kind: business_account, account: shop_cash}, origin: owner_stated}
           questions:
             - {field: funding, asked_of: owner, state: answered, answer_source: message_b2}
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, answers_question: funding}
           plan_references:
@@ -199,8 +201,9 @@ cases:
           draft_facts:
             draft_b:
               funding: {state: known, value: {kind: owner_funds}, origin: owner_stated}
-          questions: []
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          questions:
+            - {field: funding, asked_of: owner, state: answered, answer_source: message_b2}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           plan_references:
@@ -228,7 +231,7 @@ cases:
               occurred_on: {state: unknown, value: null}
           questions:
             - {field: amount, asked_of: owner, state: open}
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
             - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
@@ -259,7 +262,7 @@ cases:
             - {code: fact_required, field: business_share}
             - {code: business_questions_unresolved}
           approval: null
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, answers_question: amount}
           plan_references:
@@ -281,7 +284,7 @@ cases:
           draft_sources: {}
           draft_facts: {}
           questions: []
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_explain_status, outcome: not_found, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           visible_sources: [message_d1]
@@ -307,7 +310,7 @@ cases:
               occurred_on: {state: unknown, value: null}
           questions:
             - {field: amount, asked_of: owner, state: open}
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
             - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
@@ -338,7 +341,7 @@ cases:
           blockers: []
           approval_available: false
           approval: null
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           visible_sources: [message_e1]
@@ -355,9 +358,11 @@ cases:
             draft_e: {amount: {state: known, value: '75', origin: owner_stated}}
           questions: []
           approval: null
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
-            - {name: business_propose_activity, outcome: replayed, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
+            - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
+          replay_receipts_unchanged: true
+          replay_domain_unchanged: true
           visible_sources: [message_e1]
       - actor: owner_a
         channel: whatsapp
@@ -375,7 +380,7 @@ cases:
           questions: []
           blockers: []
           approval: null
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           plan_references:
@@ -398,7 +403,7 @@ cases:
           blockers: []
           approval_available: true
           approval: {status: failed, reviewed_version: 1, code: stale_version}
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: approve_expense, outcome: stale_version, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_e_stale}
           visible_sources: [message_e1, message_e2]
@@ -408,7 +413,7 @@ cases:
         command: {action: approve_expense, draft: draft_e, version: 2}
         expect:
           draft_count: 1
-          draft_versions: {draft_e: 3}
+          draft_versions: {draft_e: 4}
           draft_sources: {draft_e: [message_e1, message_e2]}
           draft_facts:
             draft_e:
@@ -422,7 +427,7 @@ cases:
           blockers:
             - {code: business_draft_not_open}
           approval_available: false
-          money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           recorded_activity: {kind: expense, amount: '78', currency: DOP, funding: owner_funds}
           approval: {status: recorded, reviewed_version: 2, actor: accountant_a, grant: grant_a, issuer: owner_a}
           actions:
@@ -435,7 +440,7 @@ cases:
         command: {action: approve_expense, draft: draft_e, version: 2}
         expect:
           draft_count: 1
-          draft_versions: {draft_e: 3}
+          draft_versions: {draft_e: 4}
           draft_sources: {draft_e: [message_e1, message_e2]}
           draft_facts:
             draft_e:
@@ -449,11 +454,13 @@ cases:
           blockers:
             - {code: business_draft_not_open}
           approval_available: false
-          money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
+          money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           recorded_activity: {kind: expense, amount: '78', currency: DOP, funding: owner_funds}
           approval: {status: recorded, reviewed_version: 2, actor: accountant_a, grant: grant_a, issuer: owner_a}
           actions:
-            - {name: approve_expense, outcome: replayed, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_e_current}
+            - {name: approve_expense, outcome: applied, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_e_current}
+          replay_receipts_unchanged: true
+          replay_domain_unchanged: true
           visible_sources: [message_e1, message_e2]
 
   - id: en_revoked_accountant_read
@@ -471,9 +478,9 @@ cases:
           draft_sources: {}
           draft_facts: {}
           questions: []
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
-          actions:
-            - {name: business_read_context, outcome: permission_denied, actor: accountant_a, grant: grant_a, issuer: owner_a}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
+          actions: []
+          transport: {status: 404, code: business_record_not_found}
           visible_sources: []
       - actor: accountant_a
         channel: web
@@ -486,9 +493,9 @@ cases:
           draft_sources: {}
           draft_facts: {}
           questions: []
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
-          actions:
-            - {name: business_propose_activity, outcome: permission_denied, actor: accountant_a, grant: grant_a, issuer: owner_a}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
+          actions: []
+          transport: {status: 404, code: business_record_not_found}
           visible_sources: []
       - actor: accountant_a
         channel: web
@@ -501,7 +508,7 @@ cases:
           draft_sources: {}
           draft_facts: {}
           questions: []
-          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true}
-          actions:
-            - {name: approve_expense, outcome: permission_denied, actor: accountant_a, grant: grant_a, issuer: owner_a}
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
+          actions: []
+          transport: {status: 404, code: business_record_not_found}
           visible_sources: []

@@ -41,9 +41,12 @@ def test_corpus_has_distinct_asserted_steps_and_preserved_evidence() -> None:
     ]
     assert j1["steps"][3]["command_key"] == "approval_a1"
     assert j1["steps"][3]["expect"]["actions"][0]["receipt_key"] == "approval_a1"
+    assert j1["steps"][3]["expect"]["draft_versions"]["draft_a"] == 5
+    assert j1["steps"][3]["expect"]["approval"]["reviewed_version"] == 3
     assert j1["steps"][1]["expect"]["draft_facts"]["draft_a"]["occurred_on"] == {
         "state": "unknown",
         "value": None,
+        "verified": False,
     }
     assert j1["steps"][2]["expect"]["fact_sources"]["draft_a"]["occurred_on"] == [
         "message_a3"
@@ -62,7 +65,7 @@ def test_hidden_state_checks_reject_missing_money_source_revision_and_authority(
     observed[1]["draft_versions"]["draft_a"] = 1
     observed[1]["draft_sources"]["draft_a"] = ["message_a2"]
     observed[1]["fact_sources"]["draft_a"]["funding"] = ["message_a1"]
-    observed[1]["plan_references"][0]["version"] = 2
+    observed[1]["plan_references"][0]["version"] = 3
     observed[1]["draft_facts"]["draft_a"]["occurred_on"] = {
         "state": "known",
         "value": "2026-10-09",
@@ -112,16 +115,55 @@ def test_negative_cases_reject_cross_client_access_and_replay_growth() -> None:
         "step_0.actions",
         "step_0.visible_sources",
     ]
+    revoked = cases["en_revoked_accountant_read"]
+    denied = deepcopy(revoked["steps"][0]["expect"])
+    denied["actions"].append(
+        {"name": "business_read_context", "outcome": "permission_denied"}
+    )
+    denied["transport"]["status"] = 200
+    assert evaluation.check_step(revoked["steps"][0]["expect"], denied) == [
+        "actions",
+        "transport",
+    ]
     replay = cases["en_replay_stale_and_current_grant"]
     observed = [deepcopy(step["expect"]) for step in replay["steps"]]
     observed[1]["draft_count"] = 2
     observed[3]["money"]["record_count"] = 1
     observed[4]["money"]["personal_versions_unchanged"] = False
+    observed[5]["replay_receipts_unchanged"] = False
+    observed[5]["replay_domain_unchanged"] = False
     assert evaluation.check_case(replay, observed) == [
         "step_1.draft_count",
         "step_3.money",
         "step_4.money",
+        "step_5.replay_receipts_unchanged",
+        "step_5.replay_domain_unchanged",
     ]
+
+
+def test_full_state_rejects_unlisted_facts_and_changed_source_or_revision() -> None:
+    case = next(
+        case for case in evaluation.load_cases() if case["id"] == "en_funding_correction"
+    )
+    observed = [deepcopy(step["expect"]) for step in case["steps"]]
+    changed = observed[1]
+    changed["draft_facts"]["draft_b"]["amount"]["value"] = "999"
+    changed["draft_facts"]["draft_b"]["occurred_on"] = {
+        "state": "known",
+        "value": "2026-10-10",
+        "origin": "owner_stated",
+        "verified": False,
+    }
+    changed["fact_sources"]["draft_b"]["occurred_on"] = ["message_b2"]
+    changed["source_evidence"]["message_b1"]["text"] = "Altered input"
+    changed["revision_transitions"]["draft_b"][1]["before"]["amount"]["value"] = "999"
+    assert set(evaluation.check_case(case, observed)) == {
+        "step_1.draft_facts.draft_b.amount",
+        "step_1.draft_facts.draft_b.occurred_on",
+        "step_1.fact_sources.draft_b.occurred_on",
+        "step_1.source_evidence",
+        "step_1.revision_transitions",
+    }
 
 
 def test_rubric_calibration_rejects_known_bad_and_unavailable() -> None:
