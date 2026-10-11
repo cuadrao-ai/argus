@@ -80,3 +80,58 @@ def test_refusal_problem_uses_existing_envelope():
     )
     assert error.status_code == 404
     assert error.detail["code"] == "business_record_not_found"
+
+
+def test_approve_route_dispatches_strict_income_and_expense_commands():
+    class RefusingDraft(MissingDraft):
+        def __init__(self):
+            self.calls = []
+
+        def approve(self, context, draft_id, request, key):
+            self.calls.append(("expense", draft_id, request.action, request.version, key))
+            return Refused(outcome="invalid_input", code="expense_blocked")
+
+        def approve_income(self, context, draft_id, request, key):
+            self.calls.append(("income", draft_id, request.action, request.version, key))
+            return Refused(outcome="invalid_input", code="income_blocked")
+
+    service = RefusingDraft()
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "test-actions"
+        return await call_next(request)
+
+    app.include_router(router)
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(service, uuid4())
+    draft_id = uuid4()
+    url = f"/business/drafts/{draft_id}/approve"
+    headers = {"Idempotency-Key": "same-key"}
+    with TestClient(app) as client:
+        income = client.post(
+            url, json={"action": "record_income", "version": 2}, headers=headers
+        )
+        expense = client.post(
+            url, json={"action": "record_expense", "version": 3}, headers=headers
+        )
+        unknown = client.post(
+            url, json={"action": "record_transfer", "version": 3}, headers=headers
+        )
+        untyped = client.post(url, json={"version": 3}, headers=headers)
+        loose_version = client.post(
+            url, json={"action": "record_income", "version": "2"}, headers=headers
+        )
+    assert income.status_code == 422
+    assert income.json()["detail"]["code"] == "income_blocked"
+    assert expense.status_code == 422
+    assert expense.json()["detail"]["code"] == "expense_blocked"
+    assert [unknown.status_code, untyped.status_code, loose_version.status_code] == [
+        422,
+        422,
+        422,
+    ]
+    assert service.calls == [
+        ("income", draft_id, "record_income", 2, "same-key"),
+        ("expense", draft_id, "record_expense", 3, "same-key"),
+    ]

@@ -33,6 +33,7 @@ class BusinessStages:
 
     async def interpret(self, state: dict[str, Any]) -> dict[str, Any]:
         context = self.context
+        context.check_access()
         self.plan = context.actions.plan_for_turn(
             context.authorization, context.turn_key, lease=context.lease
         )
@@ -61,9 +62,11 @@ class BusinessStages:
                     for item in state["run_state"].recent_thread_history
                 ],
             }
+            context.check_access()
             self.interpretation = BusinessInterpretation.model_validate(
                 await self.interpreter.ainterpret_business(payload)
             )
+            context.check_access()
             self.plan = context.actions.persist_plan(
                 context.authorization,
                 context.turn_key,
@@ -87,6 +90,7 @@ class BusinessStages:
         }
 
     async def execute(self, state: dict[str, Any]) -> dict[str, Any]:
+        self.context.check_access()
         assert self.plan is not None
         result = await execute_tool_calls_async(
             state=state["run_state"],

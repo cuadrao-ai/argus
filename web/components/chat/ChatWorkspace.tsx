@@ -52,6 +52,7 @@ export type WorkspaceSearchGroup = Readonly<{
   id: string;
   label: string;
   hits: readonly WorkspaceSearchHit[];
+  error?: string;
 }>;
 
 /**

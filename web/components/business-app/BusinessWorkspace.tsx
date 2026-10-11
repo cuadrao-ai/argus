@@ -35,6 +35,7 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import ReceiptIntakeDialog, { type IntakeTarget } from "./ReceiptIntakeDialog";
 import RecordExpenseDialog from "./RecordExpenseDialog";
+import ManualCaptureDialog from "./ManualCaptureDialog";
 import { useBusinessSearch } from "./useBusinessSearch";
 
 export type BusinessPanelState =
@@ -128,10 +129,11 @@ export function BusinessWorkspaceProvider({
   const { t, i18n } = useTranslation();
   const searchParams = useSearchParams();
   const directRecord = searchParams.has("draft") || searchParams.has("receipt");
-  const source = useMemo(
-    () => directRecord ? apiSource : withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
-    [apiSource, directRecord, i18n],
+  const workspaceSource = useMemo(
+    () => withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
+    [apiSource, i18n],
   );
+  const source = directRecord ? apiSource : workspaceSource;
   const [panel, setPanel] = useState<BusinessPanelState>(() =>
     panelFromSearch(new URLSearchParams(searchParams.toString())),
   );
@@ -150,6 +152,7 @@ export function BusinessWorkspaceProvider({
   const [bridge, setBridge] = useState<ChatShellBridge | null>(null);
   const [intakeTarget, setIntakeTarget] = useState<IntakeTarget | null>(null);
   const [recordExpenseOpen, setRecordExpenseOpen] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const [attachedReceipt, setAttachedReceipt] = useState<ReceiptSummary | null>(null);
   const drafts = useRef(new Map<string, string>());
   const [draftRevision, setDraftRevision] = useState(0);
@@ -201,6 +204,7 @@ export function BusinessWorkspaceProvider({
     bridge,
     openIntake: setIntakeTarget,
     openRecordExpense: () => setRecordExpenseOpen(true),
+    openCapture: () => setCaptureOpen(true),
     openPanel,
   });
 
@@ -295,6 +299,11 @@ export function BusinessWorkspaceProvider({
             openPanel({ kind: "expenses" });
           }}
         />
+        <ManualCaptureDialog isOpen={captureOpen} onClose={() => setCaptureOpen(false)} onSaved={(dossier) => {
+          setCaptureOpen(false);
+          reload();
+          openPanel({ kind: "draft", draftId: dossier.draft_id });
+        }} />
       </ChatWorkspaceProvider>
     </BusinessContext.Provider>
   );

@@ -18,12 +18,14 @@ from argus.agent_runtime.business.interpretation import (
 from argus.domain.business.actions.dossier import blockers
 from argus.domain.business.actions.facts import patched_facts
 from argus.domain.business.contracts.actions import TurnPlan
+from argus.domain.business.contracts.dossier import AccountChoice
 from argus.domain.business.contracts.facts import BusinessFactPatch, BusinessFacts
 from pydantic import ValidationError
 
 
 def snapshot(draft_id=None, *, version=2, questions=()):
     return {
+        "accounts": [],
         "drafts": [] if draft_id is None else [{"id": str(draft_id), "version": version}],
         "questions": list(questions),
     }
@@ -384,11 +386,11 @@ def test_model_requirements_are_canonical_and_preserve_uncertainty_and_other_kin
     raw["drafts"][0]["facts"] = facts.model_dump(mode="json")
     projected = model_business_context(raw)
     assert projected["drafts"][0]["blockers"] == [
-        blocker.model_dump(mode="json") for blocker in blockers(facts)
+        blocker.model_dump(mode="json") for blocker in blockers(facts, ())
     ]
     assert projected["required_fact_fields"] == [
         blocker.field
-        for blocker in blockers(BusinessFacts())
+        for blocker in blockers(BusinessFacts(), ())
         if blocker.code == "fact_required"
     ]
     assert "counterparty" not in projected["required_fact_fields"]
@@ -422,7 +424,7 @@ def test_single_share_and_date_patch_keeps_funding_source_and_is_one_mutation():
         == after.business_share.source_ids
         == (current_source,)
     )
-    assert blockers(after) == []
+    assert blockers(after, ()) == []
 
 
 @pytest.mark.parametrize("state", ["known", "unknown", "owner_does_not_know"])
@@ -462,3 +464,72 @@ def test_requiredness_projection_does_not_remove_an_explicit_optional_question()
     )
     assert [action.action for action in plan.actions] == ["business_ask"]
     assert plan.actions[0].field == "counterparty"
+
+
+@pytest.mark.parametrize(
+    "account_type,account_currency,available,category,expected",
+    [
+        ("cash", "DOP", True, False, []),
+        ("checking", "DOP", True, False, []),
+        ("credit_card", "DOP", True, False, ["account_ineligible"]),
+        ("cash", "USD", True, False, ["import_currency_mismatch"]),
+        ("cash", "DOP", False, False, ["business_record_not_found"]),
+        ("cash", "DOP", True, True, ["business_category_unsupported"]),
+    ],
+)
+def test_income_projection_uses_scoped_canonical_account_eligibility(
+    account_type, account_currency, available, category, expected
+):
+    draft_id, source_id, account_id = uuid4(), uuid4(), uuid4()
+    patch = {
+        "kind": {"state": "known", "value": "income"},
+        "funding": {
+            "state": "known",
+            "value": {"kind": "business_account", "account_id": str(account_id)},
+        },
+    }
+    if category:
+        patch["category_id"] = {"state": "known", "value": str(uuid4())}
+    facts = patched_facts(
+        complete_facts(source_id),
+        BusinessFactPatch.model_validate(patch),
+        (source_id,),
+        origin="owner_stated",
+    )
+    account = AccountChoice(
+        id=account_id,
+        nickname="Operating account",
+        type=account_type,
+        currency=account_currency,
+    )
+    accounts = (account,) if available else ()
+    raw = snapshot(draft_id)
+    raw["accounts"] = [item.model_dump(mode="json") for item in accounts]
+    raw["drafts"][0]["facts"] = facts.model_dump(mode="json")
+    before = json.dumps(raw, sort_keys=True)
+    projected = model_business_context(raw)
+    observed = projected["drafts"][0]["blockers"]
+    assert [item["code"] for item in observed] == expected
+    assert observed == [
+        item.model_dump(mode="json") for item in blockers(facts, accounts)
+    ]
+    assert projected["accounts"] == raw["accounts"]
+    assert json.dumps(raw, sort_keys=True) == before
+    assert "source_ids" not in json.dumps(projected)
+    assert "version" not in projected["drafts"][0]
+
+
+def test_expense_projection_keeps_unverified_default_and_optional_unknown():
+    draft_id = uuid4()
+    facts = complete_facts(uuid4())
+    raw = snapshot(draft_id)
+    raw["drafts"][0]["facts"] = facts.model_dump(mode="json")
+    projected = model_business_context(raw)
+    assert projected["drafts"][0]["blockers"] == []
+    assert projected["drafts"][0]["facts"]["currency"] == {
+        "state": "known",
+        "value": "DOP",
+        "origin": "default",
+        "verified": False,
+    }
+    assert projected["drafts"][0]["facts"]["counterparty"]["state"] == "unknown"

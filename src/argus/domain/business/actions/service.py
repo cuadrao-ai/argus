@@ -6,12 +6,14 @@ from uuid import UUID, uuid4
 
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.actions import captures, mutations, plans, related, sources
 from argus.domain.business.actions import dossier as views
-from argus.domain.business.actions import mutations, plans, related, sources
 from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
     ApproveExpense,
+    ApproveIncome,
+    CaptureNote,
     ExistingDraft,
     ExplainStatus,
     FindRelated,
@@ -53,6 +55,16 @@ class BusinessActions:
     ) -> UUID:
         with transaction(self.authority, context, "prepare") as tx:
             return sources.record_source(tx, source_key, evidence)
+
+    def capture(
+        self, context: ActionContext, request: CaptureNote, key: str
+    ) -> ActionOutcome:
+        return captures.capture(self, context, request, key)
+
+    def captures(
+        self, context: ActionContext, *, query: str = "", limit: int = 20
+    ) -> list[dict]:
+        return captures.entries(self, context, query=query, limit=limit)
 
     def persist_plan(
         self,
@@ -262,6 +274,17 @@ class BusinessActions:
         context: ActionContext,
         draft_id: UUID,
         request: ApproveExpense,
+        key: str,
+    ) -> ActionOutcome:
+        from argus.domain.business.actions.approval import approve
+
+        return approve(self, context, draft_id, request, key)
+
+    def approve_income(
+        self,
+        context: ActionContext,
+        draft_id: UUID,
+        request: ApproveIncome,
         key: str,
     ) -> ActionOutcome:
         from argus.domain.business.actions.approval import approve

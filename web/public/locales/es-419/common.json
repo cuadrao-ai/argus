@@ -2474,6 +2474,26 @@
       "loading": "Buscando en tu negocio",
       "failed": "No pudimos buscar en tu negocio.",
       "receipts": "Recibos"
+    },
+    "capture": {
+      "reopen_retained": "Volver a abrir la nota conservada",
+      "write": "Guardar una nota",
+      "append": "Agregar una nota a este registro",
+      "help": "Guarda tus palabras originales para revisarlas. Esto no genera una respuesta del asistente ni registra un movimiento de dinero.",
+      "text": "Nota original",
+      "save": "Guardar nota",
+      "saving": "Guardando…",
+      "retry": "Reintentar la misma nota",
+      "edit_request": "Editar solicitud",
+      "target_revision": "Revisión {{version}} del registro",
+      "unavailable": "Tu acceso actual no permite guardar esta nota. Conservamos tu texto.",
+      "stale": "Este registro cambió. Cierra la nota, consulta la revisión actual y vuelve a abrirla. Conservamos tu texto.",
+      "refused": "No se pudo guardar la nota. Conservamos tu texto; revisa la solicitud antes de volver a intentarlo.",
+      "uncertain": "No pudimos confirmar si la nota se guardó. Conservamos tu solicitud original. Reintenta únicamente la misma solicitud para consultar su resultado.",
+      "reopen": "Volver a abrir la nota sin confirmar",
+      "notes": "Notas originales",
+      "saved_note": "Nota original guardada",
+      "search_failed": "Las notas no están disponibles. Los demás resultados se muestran abajo."
     }
   },
   "money": {
