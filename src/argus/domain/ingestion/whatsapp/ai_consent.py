@@ -90,6 +90,7 @@ class AIConsentStore:
             {
                 "link": str(link[0]),
                 "scope": SCOPE_VERSION,
+                "disclosure": DISCLOSURE,
                 "route": route,
                 "previous": str(latest["id"]) if latest else None,
                 "revoked": str(latest["revoked_at"]) if latest else None,
@@ -108,12 +109,19 @@ class AIConsentStore:
             "enabled": bool(
                 latest
                 and latest["revoked_at"] is None
-                and latest["route_hash"] == digest(route)
-                and latest["scope_version"] == SCOPE_VERSION
+                and self._matches_disclosure(latest, route)
             ),
             "consented_at": latest["consented_at"] if latest else None,
             "revoked_at": latest["revoked_at"] if latest else None,
         }
+
+    @staticmethod
+    def _matches_disclosure(row, route) -> bool:
+        return (
+            row["scope_version"] == SCOPE_VERSION
+            and row["disclosure"] == DISCLOSURE
+            and row["route_hash"] == digest(route)
+        )
 
     def status(self, owner_id: UUID, unavailable_reason: str | None = None) -> dict:
         with self.pool.connection() as connection, connection.transaction():
@@ -259,8 +267,7 @@ class AIConsentStore:
         if (
             row
             and row["revoked_at"] is None
-            and row["scope_version"] == SCOPE_VERSION
-            and row["route_hash"] == digest(route)
+            and self._matches_disclosure(row, route)
             and self._valid_grant(connection, row)
         ):
             return row["id"]
@@ -311,11 +318,7 @@ class AIConsentStore:
                     ),
                 )
                 row = cursor.fetchone()
-            if (
-                row is None
-                or row["scope_version"] != SCOPE_VERSION
-                or row["route_hash"] != digest(route)
-            ):
+            if row is None or not self._matches_disclosure(row, route):
                 raise ConsentError("whatsapp_ai_consent_required")
             auth = authorize(connection, authorization.actor, authorization.grant_id)
             auth.require("prepare")

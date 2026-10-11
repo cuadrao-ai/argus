@@ -294,3 +294,40 @@ def test_own_status_is_read_only_unlinked_and_route_unavailable(world, consent):
             ).fetchone()[0]
             == 0
         )
+
+
+def test_disclosure_drift_refuses_stale_post_and_old_queued_consent(
+    world, consent, monkeypatch
+):
+    from argus.domain.ingestion.whatsapp import ai_consent
+
+    store, _ = consent
+    unconfirmed = EnableAIConsent(
+        action="enable", disclosure_token=store.status(world.owner)["disclosure_token"]
+    )
+    original_text = ai_consent.DISCLOSURE
+    monkeypatch.setattr(ai_consent, "DISCLOSURE", original_text + "\n")
+    with pytest.raises(ConsentError, match="disclosure_stale"):
+        store.enable(world.owner, unconfirmed, str(uuid4()))
+    request, key, view = enable(world, store)
+    capture, ctx, lease = captured(world)
+    store.require_access(capture, ctx, lease=lease)
+    monkeypatch.setattr(ai_consent, "DISCLOSURE", original_text + " Updated disclosure.")
+    assert not store.status(world.owner)["enabled"]
+    replay = store.enable(world.owner, request, key)
+    assert not replay["enabled"] and replay["consented_at"] == view["consented_at"]
+    with pytest.raises(ConsentError, match="consent_required"):
+        store.require_access(capture, ctx, lease=lease)
+    with world.pool.connection() as db:
+        assert store.capture_consent(db, world.link) is None
+        assert (
+            db.execute(
+                "select disclosure from business_whatsapp_ai_consents where id=%s",
+                (capture.ai_consent_id,),
+            ).fetchone()[0]
+            == original_text + "\n"
+        )
+    store.revoke(world.owner)
+    enable(world, store)
+    with pytest.raises(ConsentError, match="consent_required"):
+        store.require_access(capture, ctx, lease=lease)

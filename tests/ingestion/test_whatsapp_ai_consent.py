@@ -85,3 +85,33 @@ def test_missing_original_consent_grant_never_selects_a_replacement():
     )
     with pytest.raises(PermissionError, match="consent_required"):
         worker._authorization(object(), None)
+
+
+@pytest.mark.parametrize("suffix", [" Updated scope.", "\n"])
+def test_exact_disclosure_drift_invalidates_token_receipt_and_capture(
+    monkeypatch, suffix
+):
+    from argus.domain.ingestion.whatsapp import ai_consent
+
+    route = {"gateway": "synthetic-fixture"}
+    store = AIConsentStore(None, lambda: route)
+    link = (uuid4(), uuid4(), uuid4(), b"s" * 32, "1234")
+    receipt = {
+        "id": uuid4(),
+        "scope_version": ai_consent.SCOPE_VERSION,
+        "disclosure": ai_consent.DISCLOSURE,
+        "route_hash": digest(route),
+        "consented_at": None,
+        "revoked_at": None,
+    }
+    original = store._view(link, receipt, route)
+    assert original["enabled"]
+    monkeypatch.setattr(store, "_latest", lambda *args: receipt)
+    monkeypatch.setattr(store, "_valid_grant", lambda *args: True)
+    assert store.capture_consent(None, link[0]) == receipt["id"]
+    monkeypatch.setattr(ai_consent, "DISCLOSURE", ai_consent.DISCLOSURE + suffix)
+    changed = store._view(link, receipt, route)
+    assert changed["disclosure_token"] != original["disclosure_token"]
+    assert not changed["enabled"]
+    assert store.capture_consent(None, link[0]) is None
+    assert receipt["disclosure"] + suffix == changed["disclosure"]
