@@ -8842,26 +8842,36 @@ Business draft context can be sent to AI providers. Phone linking, document
 consent and a prepare grant do not imply this permission. Recording remains a
 separate exact-version human approval.
 
-`GET /api/v1/whatsapp/ai-consent` returns `last4`, `scope_version`, `purpose`,
+`GET /api/v1/whatsapp/ai-consent` is an authenticated registered-account read,
+independent of pilot, intake and provider availability flags. It returns
+`linked`, `available`, `reason`, `last4`, `scope_version`, `purpose`,
 `disclosure`, `route`, `disclosure_token`, `enabled`, `consented_at` and
 `revoked_at`. The server derives the current link, owner, Business and effective
 provider routes. `route` contains the gateway and interpretation/reply route
 lists, each with the actual model and provider-routing payload; a null provider
-means automatic routing, not a promised fixed vendor.
+means automatic routing, not a promised fixed vendor. The owner is always the
+authenticated caller; accountant grants cannot select another owner's link.
+No link is explicit (`linked=false`, `reason="whatsapp_link_required"`), while
+unreachable storage returns503. `last4`, `route` and `disclosure_token` may be
+null. A token exists only when `available=true`: the current owner, Business,
+prepare grant, link, route and runtime are eligible. Unavailable reasons are
+`whatsapp_unavailable`, `whatsapp_ai_route_unavailable`, `business_unavailable`
+or `business_permission_denied`. `enabled` reflects valid original consent,
+independently of temporary intake availability. This read creates nothing.
 
 `POST /api/v1/whatsapp/ai-consent` takes an `Idempotency-Key` of 1–80 characters
 and `{action: "enable", disclosure_token}`. Extra identity or route fields are
 rejected. The current registered Business owner needs live read/prepare access
 and an active linked sender. The token binds the displayed scope, route and
 link generation. A stale disclosure, changed idempotent input or already-active
-consent returns409. Replay preserves the original consent and never clears its
+consent returns 409. Replay preserves the original consent and never clears its
 revocation. A new affirmative action after revocation requires a new key and
-current disclosure. Both read and enable require the existing WhatsApp surface.
+current disclosure. Enable requires the existing WhatsApp surface.
 
 `DELETE /api/v1/whatsapp/ai-consent` revokes the authenticated owner's permissions
-idempotently and returns204. It remains reachable with intake/pilot/provider
+idempotently and returns 204. It remains reachable with intake/pilot/provider
 flags off and does not unlink the phone or erase canonical sources. Unavailable
-permission storage returns503; it never acts as implicit consent.
+permission storage returns 503; it never acts as implicit consent.
 
 New encrypted captures bind the consent in effect at capture. Old/unconsented
 captures never adopt later permission. Every provider attempt, resumed/retried

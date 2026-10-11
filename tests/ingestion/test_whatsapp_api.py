@@ -2,8 +2,11 @@
 
 import logging
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 import httpx
 import pytest
@@ -40,6 +43,86 @@ from tests.ingestion.whatsapp_support import (
 WEBHOOK = "/api/v1/webhooks/whatsapp"
 LINK = "/api/v1/whatsapp/link"
 CODES = "/api/v1/whatsapp/link-codes"
+
+
+@pytest.fixture
+def consent_reads(wa_client):
+    calls = []
+
+    def status(owner, reason):
+        calls.append((owner, reason))
+        return {
+            "linked": True,
+            "available": reason is None,
+            "reason": reason,
+            "last4": "1234",
+            "scope_version": 1,
+            "purpose": "business_whatsapp_draft_assistance",
+            "disclosure": "Synthetic disclosure",
+            "route": {"gateway": "synthetic-offline"},
+            "disclosure_token": "a" * 64 if reason is None else None,
+            "enabled": False,
+            "consented_at": None,
+            "revoked_at": None,
+        }
+
+    configure_whatsapp(
+        replace(whatsapp_runtime(), consent=SimpleNamespace(status=status))
+    )
+    return calls
+
+
+def test_registered_consent_read_works_with_flags_off_and_no_enable_token(
+    wa_client, consent_reads, monkeypatch, identities
+):
+    monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
+    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "false")
+    response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
+    assert response.status_code == 200
+    assert response.json()["linked"]
+    assert (
+        not response.json()["available"] and response.json()["disclosure_token"] is None
+    )
+    assert consent_reads == [(UUID(identities[ALICE]["id"]), "whatsapp_unavailable")]
+
+
+def test_guest_and_anonymous_cannot_read_owner_consent(wa_client, consent_reads):
+    assert wa_client.get("/api/v1/whatsapp/ai-consent").status_code == 401
+    assert (
+        wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(GUEST)).status_code
+        == 403
+    )
+    assert consent_reads == []
+
+
+def test_status_uses_authenticated_owner_not_foreign_query(
+    wa_client, consent_reads, identities
+):
+    for token in (ALICE, BOB):
+        response = wa_client.get(
+            "/api/v1/whatsapp/ai-consent",
+            headers=bearer(token),
+            params={"owner_id": identities[ALICE]["id"]},
+        )
+        assert response.status_code == 200
+    assert [str(owner) for owner, _ in consent_reads] == [
+        identities[ALICE]["id"],
+        identities[BOB]["id"],
+    ]
+
+
+def test_status_storage_failure_is_not_unlinked(wa_client, consent_reads):
+    from psycopg import OperationalError
+
+    def unavailable(*args):
+        raise OperationalError("synthetic unavailable")
+
+    configure_whatsapp(
+        replace(whatsapp_runtime(), consent=SimpleNamespace(status=unavailable))
+    )
+    response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
+    assert response.status_code == 503
+    assert response.json()["code"] == "whatsapp_ai_consent_unavailable"
 
 
 @pytest.mark.parametrize("extra", ["owner_id", "space_id", "sender_link_id", "route"])

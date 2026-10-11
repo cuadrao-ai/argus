@@ -270,3 +270,27 @@ def test_business_or_account_parent_purges_consent_and_transport(world, consent,
             ).fetchone()[0]
             == 0
         )
+
+
+def test_own_status_is_read_only_unlinked_and_route_unavailable(world, consent):
+    store, route = consent
+    outsider = uuid4()
+    absent = store.status(outsider)
+    assert absent["linked"] is False and absent["disclosure_token"] is None
+    assert absent["reason"] == "whatsapp_link_required"
+    enable(world, store)
+    disabled = store.status(world.owner, "whatsapp_unavailable")
+    assert disabled["linked"] and disabled["enabled"]
+    assert not disabled["available"] and disabled["disclosure_token"] is None
+    route.clear()
+    unknown = store.status(world.owner)
+    assert unknown["reason"] == "whatsapp_ai_route_unavailable"
+    assert unknown["route"] is None and unknown["disclosure_token"] is None
+    with world.pool.connection() as db:
+        assert (
+            db.execute(
+                "select count(*) from business_whatsapp_ai_consents where owner_id=%s",
+                (outsider,),
+            ).fetchone()[0]
+            == 0
+        )

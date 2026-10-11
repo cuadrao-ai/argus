@@ -49,7 +49,10 @@ class AIConsentStore:
         self.pool, self.route = pool, route
 
     def _route(self) -> dict[str, Any]:
-        route = self.route()
+        try:
+            route = self.route()
+        except ValueError as error:
+            raise ConsentError("whatsapp_ai_route_unavailable", 503) from error
         if not route:
             raise ConsentError("whatsapp_ai_route_unavailable", 503)
         return route
@@ -93,6 +96,9 @@ class AIConsentStore:
             }
         )
         return {
+            "linked": True,
+            "available": True,
+            "reason": None,
             "last4": link[4],
             "scope_version": SCOPE_VERSION,
             "purpose": PURPOSE,
@@ -109,13 +115,57 @@ class AIConsentStore:
             "revoked_at": latest["revoked_at"] if latest else None,
         }
 
-    def status(self, owner_id: UUID) -> dict:
-        route = self._route()
+    def status(self, owner_id: UUID, unavailable_reason: str | None = None) -> dict:
         with self.pool.connection() as connection, connection.transaction():
-            link, _ = self._link(connection, owner_id, prepare=False)
+            link = connection.execute(
+                "select id,destination_space_id,destination_owner_id,wa_id_hash,last4"
+                " from public.whatsapp_sender_links where destination_owner_id=%s and status='active'",
+                (owner_id,),
+            ).fetchone()
+            if link is None:
+                return {
+                    "linked": False,
+                    "available": False,
+                    "reason": "whatsapp_link_required",
+                    "last4": None,
+                    "scope_version": SCOPE_VERSION,
+                    "purpose": PURPOSE,
+                    "disclosure": DISCLOSURE,
+                    "route": None,
+                    "disclosure_token": None,
+                    "enabled": False,
+                    "consented_at": None,
+                    "revoked_at": None,
+                }
+            try:
+                route = self._route()
+            except ConsentError:
+                route = None
+                unavailable_reason = "whatsapp_ai_route_unavailable"
             latest = self._latest(connection, link[0])
             view = self._view(link, latest, route)
             view["enabled"] = view["enabled"] and self._valid_grant(connection, latest)
+            owner = connection.execute(
+                "select 1 from public.spaces where id=%s and created_by=%s"
+                " and kind='business' and closed_at is null",
+                (link[1], owner_id),
+            ).fetchone()
+            if owner is None:
+                unavailable_reason = "business_unavailable"
+            else:
+                try:
+                    authorize(
+                        connection,
+                        TrustedActor(
+                            actor_id=owner_id, space_id=link[1], actor_kind="member"
+                        ),
+                    ).require("prepare")
+                except ActionError:
+                    unavailable_reason = "business_permission_denied"
+            if unavailable_reason:
+                view.update(
+                    available=False, reason=unavailable_reason, disclosure_token=None
+                )
             return view
 
     @staticmethod

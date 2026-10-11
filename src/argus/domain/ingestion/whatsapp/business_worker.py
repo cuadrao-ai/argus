@@ -233,17 +233,21 @@ class BusinessWhatsAppWorker:
         return True
 
     def _authorization(self, captured: CapturedText, turn: DurableTurn | None) -> Any:
+        if turn is not None and turn.plan_actor is not None:
+            grant_id = turn.plan_actor.grant_id
+        elif self.consent is not None:
+            grant_id = self.consent.original_grant(captured)
+            if grant_id is None:
+                raise PermissionError("whatsapp_ai_consent_required")
+        else:
+            grant_id = None
         return self.actions.resolve_actor(
             TrustedActor(
                 actor_id=captured.owner_id,
                 actor_kind="owner_via_agent",
                 space_id=captured.space_id,
             ),
-            grant_id=turn.plan_actor.grant_id
-            if turn is not None and turn.plan_actor is not None
-            else self.consent.original_grant(captured)
-            if self.consent
-            else None,
+            grant_id=grant_id,
         )
 
     async def _send(

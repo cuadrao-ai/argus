@@ -8,7 +8,7 @@ from typing import Annotated
 from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse
 from loguru import logger
@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict
 
 from argus.api import state as api_state
 from argus.api.dependencies import current_user, problem
+from argus.api.guest_access import account_context
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import User
 from argus.api.whatsapp import (
@@ -26,6 +27,7 @@ from argus.api.whatsapp import (
     link_store,
     require_whatsapp_owner,
     require_whatsapp_surface,
+    whatsapp_runtime,
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.ingestion.whatsapp.ai_consent import (
@@ -78,12 +80,15 @@ class LinkStatusResponse(BaseModel):
 class AIConsentResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    last4: str
+    linked: bool
+    available: bool
+    reason: str | None
+    last4: str | None
     scope_version: int
     purpose: str
     disclosure: str
-    route: dict
-    disclosure_token: str
+    route: dict | None
+    disclosure_token: str | None
     enabled: bool
     consented_at: datetime | None
     revoked_at: datetime | None
@@ -126,12 +131,37 @@ def _consent_store(request: Request, context: WhatsAppOwnerContext) -> AIConsent
 @link_router.get("/ai-consent", response_model=AIConsentResponse)
 async def get_whatsapp_ai_consent(
     request: Request,
-    context: Annotated[WhatsAppOwnerContext, Depends(require_whatsapp_owner)],
+    user: Annotated[User, Depends(current_user)],
 ) -> AIConsentResponse:
+    if account_context(request).kind != "registered":
+        raise problem(
+            request,
+            status_code=403,
+            code="registered_account_required",
+            title="Account Required",
+            detail="A registered account is required.",
+        )
+    runtime = whatsapp_runtime()
+    store = runtime.consent if runtime else None
+    if store is None:
+        pool = _consent_pool(request)
+        from argus.agent_runtime.business.runner import business_provider_route
+
+        store = AIConsentStore(pool, business_provider_route)
+    reason = (
+        None
+        if runtime is not None and runtime.consent is not None
+        else "whatsapp_unavailable"
+    )
+    try:
+        require_whatsapp_surface(request)
+    except HTTPException:
+        reason = "whatsapp_unavailable"
     return await _consent_call(
         request,
-        _consent_store(request, context).status,
-        UUID(context.destination_owner_id),
+        store.status,
+        UUID(user.id),
+        reason,
     )
 
 
@@ -156,6 +186,13 @@ async def revoke_whatsapp_ai_consent(
     request: Request,
     user: Annotated[User, Depends(current_user)],
 ) -> Response:
+    await _consent_call(
+        request, AIConsentStore(_consent_pool(request), lambda: {}).revoke, UUID(user.id)
+    )
+    return Response(status_code=204)
+
+
+def _consent_pool(request: Request):
     pool = getattr(request.app.state, "financial_accounts_pool", None)
     if pool is None:
         if api_state.PERSISTENCE_MODE != "supabase" or not api_state.DATABASE_URL:
@@ -169,8 +206,7 @@ async def revoke_whatsapp_ai_consent(
         from argus.api.account_deletion_runtime import deletion_pool
 
         pool = deletion_pool(api_state.DATABASE_URL)
-    await _consent_call(request, AIConsentStore(pool, lambda: {}).revoke, UUID(user.id))
-    return Response(status_code=204)
+    return pool
 
 
 @webhook_router.get("", response_class=PlainTextResponse)

@@ -34,7 +34,7 @@ def test_disclosure_token_requires_exact_digest(token):
 def test_undisclosed_route_is_unavailable_without_database_access():
     store = AIConsentStore(None, lambda: {})
     with pytest.raises(ConsentError, match="route_unavailable"):
-        store.status(uuid4())
+        store._route()
     assert store.capture_consent(None, uuid4()) is None
 
 
@@ -66,3 +66,22 @@ def test_disclosure_token_binds_link_generation_and_actual_route():
         != store._view(link, None, {**route, "reply": []})["disclosure_token"]
     )
     assert digest(route) == digest(dict(reversed(list(route.items()))))
+
+
+def test_missing_original_consent_grant_never_selects_a_replacement():
+    from argus.domain.ingestion.whatsapp.business_worker import BusinessWhatsAppWorker
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("must not select another grant")
+
+    worker = BusinessWhatsAppWorker(
+        captures=None,
+        turns=None,
+        outbox=None,
+        delivery=None,
+        transport=None,
+        actions=SimpleNamespace(resolve_actor=forbidden),
+        consent=SimpleNamespace(original_grant=lambda captured: None),
+    )
+    with pytest.raises(PermissionError, match="consent_required"):
+        worker._authorization(object(), None)
