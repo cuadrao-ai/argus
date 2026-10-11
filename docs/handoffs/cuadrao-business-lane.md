@@ -1,13 +1,14 @@
 # Cuadrao Business lane handoff
 
-**Current checkpoint, October 10, 2026.** The fetched integration is
-`77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`. The default-off foundation and
-planning #900/#910 are integrated. The agent direction landed through
-[#953](https://github.com/lagarcess/argus/pull/953). Exact postmerge
+**Current checkpoint, October 10, 2026, 23:37 UTC continuation, refreshed October 11 00:05 UTC.** Canonical integration is
+`650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`, C0 #955 landed; exact postmerge
+CI remains pending at this snapshot; postmerge smoke passed. Startup repair #954 landed at
+`8a838fb4ff75bb8527400bbd802eb208e270bdf7`. The prior #953 source was
+`77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`, with passed exact
 [CI](https://github.com/lagarcess/argus/actions/runs/38087059299) and
-[smoke](https://github.com/lagarcess/argus/actions/runs/38087059317) passed on
-that SHA. This is a documentation checkpoint, not a hosted runtime acceptance.
-Consumer retains its acceptance ownership.
+[smoke](https://github.com/lagarcess/argus/actions/runs/38087059317).
+No hosted customer acceptance follows from these landings. Consumer retains
+its acceptance ownership.
 
 The [Business execution spec](../specs/lanes/cuadrao-business-agent-execution-spec.md)
 owns L1 to L13 and C0-first build order. The later
@@ -41,16 +42,64 @@ calls. The 22:32 UTC grant authorizes only the existing development
 expires at `2026-10-12T02:21:00Z`. It supersedes the $5 cap and spending hold.
 Do not swap to registered or guest keys or rotate credentials. The manifest
 owns the remaining-allowance snapshot. The root coordinator alone controls
-synthetic live calls, reservations, concurrency and token bounds. C0, runtime
-and evaluation readiness are incomplete; no call has occurred. Sonnet 5.5
+synthetic live calls, reservations, concurrency and token bounds. Root began bounded Grok calibration at 00:05 UTC on October 11; the manifest
+records limits and pending actual call/result proof. C0 is landed, while
+dependent runtime/evaluation and hosted acceptance remain open. Sonnet 5.5
 still needs a demonstrated need and fresh confirmation before use. The coordinator sequences a direct named-accountant per-business grant
 for the existing one-owner, one-authorized-accountant milestone. Full L11 firm
 delegation remains later work and is not claimed complete. Isolated synthetic
 test grants are authorized. Real grants still need actual business authorization.
 No secret edits or persistent tester grants follow from this handoff. The manifest owns their concrete gates and the observed
-staging API revision. No separate staging web exists in that workspace. No production,
+staging API revision. The earlier workspace observation had no separate staging web; root records
+any later authorized setup. No production,
 main promotion, public signup, marketing/legal launch or Apple TestFlight is
 included. Consumer compatibility and existing shared migration ownership remain.
+
+## Approved unpublished branding and completion gate
+
+The [manifest](../specs/argus-execution-board.md#mandatory-owner-completion-handoff)
+owns the mandatory owner handoff. It accounts for unpublished sources as well
+as PRs, with LANDED/PENDING/SUPERSEDED dispositions and exact provenance. The
+23:37 UTC direction is `Sentinel_78ca7fbafb948191a7a6bb2a2b25cb3c`. The
+remaining 105-item P0 Counsel audit is pending, not a blanket approval.
+
+The retained private source excerpts are
+`business-approved-work-source-excerpts.json` in the root task workspace.
+Source turn `01a11ee2-2321-7b21-b7e6-01220dc42f26` asks for the logo at the
+left of the Cuadrao name; `01a11fa2-0fcb-76e3-b986-1b728868a46d` asks to
+preserve sidebar functionality while replacing the Argus mark. Turn
+`01a11fea-3a63-7043-9926-3b8e78a2a4e1` approves Cuadrao sign-in artwork;
+`01a121a2-1692-72d0-8da0-971827c0e051` requests its palette throughout the
+box, and `01a121a8-3b5e-7d81-ba5f-5cc277ec4dba` identifies the remaining
+Argus favicon/title. This records bounded sources, not the private transcript.
+
+| Approved family | Exact retained source | Current disposition |
+| --- | --- | --- |
+| Sidebar Cuadrao mark and preserved controls | `21228276594adbd2b25d4165460976f11199d404` | PENDING integration, restored in `67583d5e7d7a8068e27799902506690e220311ac` |
+| Sign-in artwork, assets and localized copy | `e05bdcffe60303fa06e8ea6d99da6cb49c6c7f06` | PENDING integration in that restoration |
+| Initial literal sign-in palette | `5887b7034f5c9948ccdf9bb967156c6ade5b8276` | SUPERSEDED palette state by latest approved source below; family remains required |
+| Latest canonical derived palette states | `11fd99836590f9fcf388d02e9bc6898d52eb4257` | PENDING integration in that restoration; use this successor, not the older literal state |
+| Cuadrao favicon and browser title | `bca99e4e19116483a3cf62cab595d9b0d3f008dd` | PENDING integration in that restoration |
+| Cuadrao title retained after hydration | `d136c33947439040d4d9bf6a984e19d7f63b6f6b` | PENDING integration in that restoration |
+
+These six sources were absent from the older `8a838fb4` integration; a remote
+commit/PR lookup returned 422, which does not erase retained local work.
+Restoration `67583d5e` and reviewed UI `85d564ae1b998d3f372828728855dab26e5b5deb`
+remain pending integration work in UI PR #956. C0 reconciliation is
+`7667ee1e19589bed2e00aa1b9c08600965554860`; local evidence publication is
+`17d972bcbb2a8d18bd6155afb5810cbccc7f9e56`. Its source document is
+`docs/reports/evidence/942-cuadrao-record-ui/README.md` in the UI worktree,
+with screenshot hashes and implementation-tree equality in `manifest.json`.
+It reports actual local desktop/mobile light/dark sign-in renders, branding
+browser 7/7, record/search browser 36/36 and auth return 1/1. This is retained
+owner evidence, not independent hosted verification by this documentation lane.
+
+Before READY, the reviewer must assess those rendered artifacts and exact-head
+browser regressions for the affected web/signup scope. The UI evidence reports
+full TypeScript still failing (8,298 diagnostics versus 8,306 at original base),
+so it does not establish a full build/typecheck pass. Hosted auth/API/worker,
+real grants and internet acceptance remain PENDING and coordinator-owned.
+The #925 exclusion and preserved sandbox above remain intact.
 
 ## Historical October 10 documentation publication
 

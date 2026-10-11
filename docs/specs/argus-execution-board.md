@@ -1,6 +1,6 @@
 # Argus private iPhone execution manifest
 
-**Updated:** October 10, 2026. Bounded hosted Business assignment added.
+**Updated:** October 11, 2026, 00:05 UTC operational snapshot under the October 10 23:37 UTC owner-handoff continuation.
 **Execution state:** Consumer PR #937 is merged with accepted simulator evidence and green pre-merge CI. Build 3455 is installed; hosted manual-money acceptance remains open. The current Consumer assignment below supersedes the older sequencing only for this lane. The [October 4 code checkpoint](../reports/2026-10-04-cuadrao-code-integration-landing.md) retains its historical evidence.
 **Product owner:** [MVEE](argus-minimum-viable-ecosystem-experience.md).
 **Authority and onboarding:** [DOCUMENTATION_AUTHORITY](../DOCUMENTATION_AUTHORITY.md).
@@ -14,25 +14,78 @@ actions. Tracker [#942](https://github.com/lagarcess/argus/issues/942) retains t
 larger flows. Related first-flow issues are #943, #944, #946, #947 and #948.
 C0 is a build step under that tracker, not another name for issue #943.
 
-The fetched starting integration is `77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`,
-the landed [#953](https://github.com/lagarcess/argus/pull/953) documentation
-checkpoint. The [Business execution spec](lanes/cuadrao-business-agent-execution-spec.md)
-owns C0-first order and J1 to J3. The [lane handoff](../handoffs/cuadrao-business-lane.md)
-records retained implementation and exclusions. No runtime slice or customer
-journey is claimed delivered by this assignment record.
+The original build base was `77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`
+(#953). The current canonical integration checkpoint is
+`650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`: C0 contracts landed through
+[#955](https://github.com/lagarcess/argus/pull/955); exact postmerge CI remains
+pending at this snapshot; postmerge smoke passed. Startup repair landed separately through #954 at
+`8a838fb4ff75bb8527400bbd802eb208e270bdf7`. Landing C0 does not close a
+customer journey. The [Business execution spec](lanes/cuadrao-business-agent-execution-spec.md)
+owns C0-first order and J1 to J3; the [lane handoff](../handoffs/cuadrao-business-lane.md)
+retains sources and exclusions.
 
-These are collaboration roles in the root task. They are not new UI-visible
-Codex lane threads. All listed worktrees start from the recorded integration.
+These are existing collaboration roles, not new UI-visible lane threads.
+Heads below are source snapshots, not grants to merge or claims of readiness.
+Only `/root` serializes reconciliation, merge, live calls and staging.
 
-| Owner | Exclusive worktree or evidence role | Current assignment and dependency |
+| Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
-| `/root/shared_context` | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010` | Repair the shared startup index, preserve full instructions, correct stale pointers, and record current decisions and assignments. Documentation only. |
-| `/root/runtime_shape_astra` and `/root/runtime_shape_sol` | Read-only design grounding | Inspect the integrated runtime and sandbox dependency candidates. Propose the smallest C0-first contract. They publish no code or shared contract edits. |
-| `/root/design_grounding` | Read-only existing UI and Mobbin grounding | Identify the current accountant flow and bounded interaction needs. No UI or product copy edits. |
-| Runtime writer, not yet assigned | `/tmp/cuadrao-hosted-runtime-20261010` | Await the chosen C0 contract and an exclusive file assignment. No implied dispatch from this row. |
-| Web writer, not yet assigned | `/tmp/cuadrao-hosted-web-20261010` | Await the chosen API/data contract and exclusive UI assignment. No implied dispatch from this row. |
-| `/root` | `/tmp/cuadrao-hosted-verification-20261010` | Assemble and independently verify the exact candidate. Own merge and staging actions under the grant. Record semantic overlap, CI and compatibility before each landing. |
-| Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` | Existing P0 inventory and private handoff | Retain read-only sandbox dependency inventory and decision reconciliation. Identify missing dependencies and their owners. Do not publish the sandbox wholesale. |
+| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d` | #954 LANDED; this owner-handoff/ownership continuation PENDING reviewed delivery. Docs and ownership metadata only. |
+| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, source `2cf078c323816ca01e3a7022306ab9e52b7ec475` | LANDED #955 as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; postmerge CI pending, smoke passed. |
+| `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, `9cccf6cb7e4f7c92a8c514b48dc7a20dfe1775f5` | PENDING integration; independent review passed. Depends on C0 and M1. Root reconciles shared ingestion/API overlap before landing. |
+| M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`, `faf32a9400d0611847c52c2ce7e02868bd09de95` | PENDING integration; accepted implementation `09bcac9e4fec3b332f967f57a993f36723f5ea23`, original writer completed. The maintainer may only clean-merge 650b0fc and publish; stop on source conflicts or new semantics. Root orders shared schemas/census. |
+| `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | PENDING PR #956 CI/integration (53 files: 46 web, 7 evidence). Depends on Actions/M1 transport and scoped auth. Local render evidence retained; hosted acceptance open. |
+| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, `4211c50f4e7dd66db475aa4c0658a3147dd18cb4` | PENDING integration; independent review passed, final Linux proof 272 passed in 12.47 seconds. Depends on C0, Actions, M1; live model quality remains open. No #925 dependency. |
+| `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING independent review/root graft/integration; frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
+| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; retained corpus source `68361705f611e04e9bdf0ff8193bdcf4e3a90558`, assembly `39148680e6ff691804b3223d602212e7d2d94141` | PENDING: real seven-case, twenty-step runner WIP; actual Postgres proof passed but independent review found three evidence gaps, fixes active. Unpublished source files retained below; not READY. |
+| `/root` / verification and serialized delivery | `/tmp/cuadrao-hosted-verification-20261010`; exact candidate recorded by root at each gate | Sole merge, live caller and staging owner. Reconcile dependent sources, review exact head, require CI/compatibility and distinguish local from hosted acceptance. |
+| Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` / P0 Counsel audit | Existing read-only inventory and retained private source excerpts | Remaining 105-item audit PENDING. Identify individually approved families and unpublished dependencies; no blanket approval or wholesale sandbox publication. |
+
+### Mandatory owner completion handoff
+
+The 23:37 UTC continuation (`Sentinel_78ca7fbafb948191a7a6bb2a2b25cb3c`)
+requires this small handoff in the existing manifest and lane evidence. A PR
+alone does not complete approved work. Before READY, each owner lists every
+approved family in their scope as **LANDED**, **PENDING** or **SUPERSEDED**,
+with its approval source/turn, exact source and delivery commits, integration
+base, dependency owner, and evidence. A superseded family identifies its actual
+successor; an implementation follow-up does not supersede the product approval.
+
+Include unpublished branches, commits and working-tree changes. Give their
+retained path/head, named owner and next dependency. Pending preserved sources
+stay explicit until landed or explicitly superseded; do not omit them because
+no PR exists. Record exclusions separately. The unfinished 105-item audit is
+not approval of all 105 items. Reuse this manifest, the canonical decision log
+and existing handoff; do not create another board or approval process.
+
+For affected web/sign-in/signup surfaces, READY also requires actual rendered
+proof of the latest approved logo, artwork, palette, favicon and hydrated title,
+plus browser regression evidence for relevant auth/Business/Personal behavior.
+Identify exact head, viewport/theme/locale, screenshot and test result. Reused
+render evidence must prove implementation-tree equality after reconciliation.
+An asset commit, source inspection, green unit suite or PR alone is insufficient.
+Existing approved screenshot/Library sources need no renewed screenshot approval;
+the actual render and regression gates still apply.
+Local synthetic UI proof and hosted auth/API/worker/customer acceptance remain
+separate dispositions. Do not claim public signup is authorized.
+
+The current E1 unpublished source is retained in the verification worktree:
+`tests/evals/business_runtime_capture.py`, `business_scripted_plans.py` and
+`test_business_runtime_capture.py` (same directory), plus
+`tests/test_business_runtime_capture_postgres.py`, with changes to the existing
+README, first-flow corpus, evaluator and evaluator tests. Working-tree source
+is not an exact delivery commit; E1 must commit and hand it off after review.
+
+Register the lane's explicit owned files in
+[branch ownership](../../.agent/ownership/branch_ownership.json), using pinned
+canonical integration as `base_ref`; run the existing
+[verifier](../../.agent/scripts/ownership/verify_branch_ownership.py) on the
+reconciled candidate. Unlanded inherited dependencies can fail that full gate;
+root must land/reconcile them in order and advance `base_ref` to the exact
+canonical dependency checkpoint, rather than broaden the allowlist to
+platform-wide ownership. An explicit `--files` check documents only the owned
+delta and does not replace the full READY gate. Metadata records enforcement,
+not a new assignment or authority to edit another owner's files.
 
 The first hosted acceptance joins a permitted owner's WhatsApp transaction and
 its follow-up facts to one traceable record in the authorized accountant web
@@ -46,11 +99,12 @@ claim all J1 to J3 shipped from the first proof.
 The deployment candidate must identify the actual staging service revision,
 Business web API binding, permitted sender, verified callback and WABA
 subscription, current sender-to-Business linking and authorized readback.
-The coordinator confirmed `cuadrao-api-staging` at
+The earlier read-only staging observation confirmed `cuadrao-api-staging` at
 `cad1cbe1ec27ff89c08eadbec31718a0e627383c`, on the integration branch with
-`autoDeploy` off. The selected workspace contains that staging API and the
-main API/web. It has no separate staging web. These observations do not prove
-the new Business flow or authorize main exposure. #941 remains the real WhatsApp activation prerequisite. Its controlled test
+`autoDeploy` off. At that observation the workspace contained that staging API
+and the main API/web, with no separate staging web. Root records later scoped
+setup. These observations do not prove the new Business flow or authorize main
+exposure. #941 remains the real WhatsApp activation prerequisite. Its controlled test
 connectivity must be distinguished from general public onboarding.
 
 The [22:22 UTC continuation](argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant)
@@ -68,7 +122,11 @@ $227.432355357. The larger provider monthly-remaining figure is not all
 spending authority. Refresh usage before calls and subtract outstanding work.
 Only the root coordinator controls live calls, reservations, concurrency and
 token bounds. Judges, fallbacks and retries share this allowance. Synthetic
-data only. No live call has occurred; C0, runtime and evaluations are not ready.
+data only. At 00:05 UTC on October 11, root began bounded Grok calibration:
+maximum eight POSTs, 600 output tokens each, 30 KB input, concurrency one,
+reserved worst cost $1.248 within existing authority. Actual call/result proof
+is awaited at this snapshot; do not count reservation as measured spend.
+C0 is landed; dependent runtime/evaluation and hosted readiness remain open.
 Sonnet 5.5 is a potential stretch choice that needs a demonstrated need and
 fresh confirmation. It is not an automatic judge or runtime fallback.
 
@@ -89,6 +147,10 @@ Retain #925 at `1426404d82ade9ac1eaed255b0e68ed7db9d4a1a` and the sandbox at
 `df208f7ec2379cd84efd55eea0deb685d67c5360` as exclusions. T1 defines any needed
 tool filter through the canonical catalog, without depending on #925's wording
 or eval guard. Model-facing changes still need their committed scorecards.
+
+Persisted AI-consent policy is still pending; default deny at the affected
+authorization boundary. Local runtime and any hybrid staging auth proof retain
+their explicit boundaries and do not imply hosted customer consent.
 
 Stop affected work for missing dependency contracts, duplicate writers,
 unauthorized live or hosted actions, uncertain external outcomes, or scope

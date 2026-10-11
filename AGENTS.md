@@ -42,8 +42,11 @@ The bounded grant is an invite-only internet Business build on integration and
 staging. It does not authorize main or production, public signup, marketing
 publication, Apple TestFlight or unrelated Consumer work. The root coordinator
 alone owns merge and staging actions. Workers act only within their assigned
-files and hand off exact commits. The Render workspace and named runtime model
-choices are approved. Grok 4.3 is the first evaluation judge. The 22:32 UTC
+files. Before READY, use the manifest’s mandatory owner handoff: every approved
+family has LANDED/PENDING/SUPERSEDED status, exact approval/source/delivery
+commits and retained unpublished work. A PR alone does not complete the work.
+Affected branding requires actual render and browser regression evidence.
+The Render workspace and named runtime model choices are approved. Grok 4.3 is the first evaluation judge. The 22:32 UTC
 continuation authorizes the existing development `OPENROUTER_API_KEY` within
 its conservative remaining allowance until expiry. It replaces the $5 run cap
 and spending hold. Only the root coordinator controls synthetic live calls,

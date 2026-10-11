@@ -733,3 +733,24 @@ staging-only deployment grant remains. New costs or access expansion need
 concrete scoped confirmation. No secret change, real customer-data transmission
 or persistent tester grant follows from this record. Named testers and real
 grants still need actual business authorization and scoped setup.
+
+
+### October 10, 2026 23:37 UTC owner handoff and approved-work accounting
+
+Lucas requires a small mandatory owner handoff that accounts for the latest
+approved work as LANDED, PENDING or SUPERSEDED, with exact commit/source,
+including unpublished work. Provenance is
+`Sentinel_78ca7fbafb948191a7a6bb2a2b25cb3c`. A PR alone does not complete the
+approved scope. Pending retained source work cannot be silently excluded.
+Actual rendered latest approved branding on affected web/sign-in/signup
+surfaces and relevant browser regressions are required before READY. Local
+synthetic UI evidence remains distinct from hosted customer acceptance.
+
+The [existing execution manifest](argus-execution-board.md#mandatory-owner-completion-handoff)
+owns current owner rows, dependencies and this completion gate. The
+[Business handoff](../handoffs/cuadrao-business-lane.md#approved-unpublished-branding-and-completion-gate)
+retains bounded branding source commits and turn provenance. Reuse the existing
+ownership verifier and explicit lane allowlists. This direction creates no
+second process, blanket approval of the remaining 105-item audit, product
+scope expansion, public signup or production action grant. Persisted AI-consent
+policy remains pending and defaults to deny at the affected boundary.
