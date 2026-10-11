@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 from uuid import UUID
 
 import pytest
@@ -9,10 +10,12 @@ from argus.domain.business.contracts.actions import (
     MAX_TURN_ACTIONS,
     ApprovalCommand,
     ApproveIncome,
+    AttachmentPreparationBinding,
     BusinessAction,
     CaptureNote,
     Command,
     IncomeApprovalCommand,
+    PrepareAttachmentCommand,
     ProposeActivity,
     TurnPlan,
     canonical_input_hash,
@@ -746,3 +749,159 @@ def test_income_receipt_retains_actual_human_authority_and_recovery(dossier, out
         ActionReceipt.model_validate(
             {**payload, "turn_key": "invented-turn", "action_index": 0}
         )
+
+
+@pytest.fixture
+def attachment_binding(dossier: BusinessDossier) -> AttachmentPreparationBinding:
+    return AttachmentPreparationBinding(
+        binding_id=fake.uuid4(),
+        space_id=dossier.space_id,
+        owner_id=fake.uuid4(),
+        connection_id=fake.uuid4(),
+        source_sha256=fake.sha256(),
+        actor=dossier.history[0].actor.model_copy(update={"actor_kind": "extractor"}),
+        target=None,
+        consent=True,
+        captured_at=dossier.sources[0].received_at,
+    )
+
+
+def test_attachment_command_is_server_only_and_round_trips(attachment_binding):
+    command = PrepareAttachmentCommand(
+        binding=attachment_binding, batch_sha256=fake.sha256()
+    )
+    encoded = command.model_dump_json()
+    assert TypeAdapter(Command).validate_json(encoded) == command
+    with pytest.raises(ValidationError):
+        TypeAdapter(BusinessAction).validate_json(encoded)
+    with pytest.raises(ValidationError):
+        TurnPlan(actions=(command,))
+    assert canonical_input_hash(command) == canonical_input_hash(
+        PrepareAttachmentCommand.model_validate_json(encoded)
+    )
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "binding_id",
+        "space_id",
+        "owner_id",
+        "connection_id",
+        "source_sha256",
+        "actor",
+        "target",
+        "consent",
+        "captured_at",
+    ],
+)
+def test_attachment_binding_requires_original_inputs(attachment_binding, field):
+    payload = attachment_binding.model_dump(mode="json")
+    del payload[field]
+    with pytest.raises(ValidationError):
+        AttachmentPreparationBinding.model_validate(payload)
+
+
+@pytest.mark.parametrize("value", [False, None, 1, "true"])
+def test_attachment_binding_consent_is_affirmative_boolean(attachment_binding, value):
+    with pytest.raises(ValidationError):
+        AttachmentPreparationBinding.model_validate(
+            {**attachment_binding.model_dump(), "consent": value}
+        )
+
+
+@pytest.mark.parametrize("version", [True, False, "1", 1.0, 1.5, 0])
+def test_attachment_binding_target_requires_exact_positive_integer(
+    attachment_binding, version
+):
+    with pytest.raises(ValidationError):
+        AttachmentPreparationBinding.model_validate(
+            {
+                **attachment_binding.model_dump(),
+                "target": {"draft_id": fake.uuid4(), "version": version},
+            }
+        )
+
+
+def test_attachment_binding_new_and_existing_targets_have_distinct_hashes(
+    attachment_binding,
+):
+    command = PrepareAttachmentCommand(
+        binding=attachment_binding, batch_sha256=fake.sha256()
+    )
+    payload = command.model_dump(mode="json")
+    payload["binding"]["target"] = {"draft_id": fake.uuid4(), "version": 2}
+    existing = PrepareAttachmentCommand.model_validate(payload)
+    assert existing.binding.target.version == 2
+    assert canonical_input_hash(existing) != canonical_input_hash(command)
+    for field in ("source_sha256", "actor", "target"):
+        changed = existing.model_dump(mode="json")
+        if field == "actor":
+            changed["binding"][field]["grant_id"] = fake.uuid4()
+        elif field == "target":
+            changed["binding"][field]["version"] = 3
+        else:
+            changed["binding"][field] = fake.sha256()
+        assert canonical_input_hash(
+            PrepareAttachmentCommand.model_validate(changed)
+        ) != canonical_input_hash(existing)
+    assert canonical_input_hash(
+        command.model_copy(update={"batch_sha256": fake.sha256()})
+    ) != canonical_input_hash(command)
+
+
+@pytest.mark.parametrize("kind", ["member", "owner_via_agent"])
+def test_attachment_binding_never_claims_human_approval(attachment_binding, kind):
+    payload = attachment_binding.model_dump(mode="json")
+    payload["actor"]["actor_kind"] = kind
+    with pytest.raises(ValidationError):
+        AttachmentPreparationBinding.model_validate(payload)
+
+
+def test_attachment_receipt_pins_original_actor_space_and_no_turn(attachment_binding):
+    command = PrepareAttachmentCommand(
+        binding=attachment_binding, batch_sha256=fake.sha256()
+    )
+    payload = dict(
+        space_id=attachment_binding.space_id,
+        actor_id=attachment_binding.actor.actor_id,
+        actor=attachment_binding.actor,
+        idempotency_key=f"attachment:{attachment_binding.binding_id}",
+        input_hash=canonical_input_hash(command),
+        command=command,
+        created_at=attachment_binding.captured_at,
+    )
+    receipt = ActionReceipt.model_validate(payload)
+    assert ActionReceipt.model_validate_json(receipt.model_dump_json()) == receipt
+    altered_actor = attachment_binding.actor.model_copy(update={"grant_id": fake.uuid4()})
+    for change in (
+        {"actor": altered_actor},
+        {"space_id": fake.uuid4()},
+        {"actor_id": fake.uuid4()},
+        {"turn_key": fake.sha256(), "action_index": 0},
+    ):
+        with pytest.raises(ValidationError):
+            ActionReceipt.model_validate({**payload, **change})
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_attachment_start_receipt_preserves_explicit_target(attachment_binding, existing):
+    from argus.domain.business.actions.plans import start_receipt
+
+    payload = attachment_binding.model_dump(mode="json")
+    if existing:
+        payload["target"] = {"draft_id": fake.uuid4(), "version": 2}
+    binding = AttachmentPreparationBinding.model_validate(payload)
+    command = PrepareAttachmentCommand(binding=binding, batch_sha256=fake.sha256())
+    tx = MagicMock()
+    tx.context.actor.space_id = binding.space_id
+    tx.context.actor.actor_id = binding.actor.actor_id
+    tx.authorization.provenance = binding.actor
+    start_receipt(tx, f"attachment:{binding.binding_id}", command)
+    parameters = tx.rows.call_args.args[1]
+    stored = parameters[5].obj
+    assert stored["binding"] == binding.model_dump(mode="json")
+    assert stored["binding"]["target"] == payload["target"]
+    assert PrepareAttachmentCommand.model_validate(stored) == command
+    assert parameters[4] == canonical_input_hash(command)
+    assert parameters[6:] == (None, None)
