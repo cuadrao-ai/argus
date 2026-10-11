@@ -1,6 +1,6 @@
 # Argus private iPhone execution manifest
 
-**Updated:** October 11, 2026, 00:05 UTC operational snapshot under the October 10 23:37 UTC owner-handoff continuation.
+**Updated:** October 11, 2026, 00:09 UTC operational snapshot under the October 10 23:37 UTC owner-handoff continuation.
 **Execution state:** Consumer PR #937 is merged with accepted simulator evidence and green pre-merge CI. Build 3455 is installed; hosted manual-money acceptance remains open. The current Consumer assignment below supersedes the older sequencing only for this lane. The [October 4 code checkpoint](../reports/2026-10-04-cuadrao-code-integration-landing.md) retains its historical evidence.
 **Product owner:** [MVEE](argus-minimum-viable-ecosystem-experience.md).
 **Authority and onboarding:** [DOCUMENTATION_AUTHORITY](../DOCUMENTATION_AUTHORITY.md).
@@ -33,11 +33,11 @@ Only `/root` serializes reconciliation, merge, live calls and staging.
 | `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d` | #954 LANDED; this owner-handoff/ownership continuation PENDING reviewed delivery. Docs and ownership metadata only. |
 | `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, source `2cf078c323816ca01e3a7022306ab9e52b7ec475` | LANDED #955 as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; postmerge CI pending, smoke passed. |
 | `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, `9cccf6cb7e4f7c92a8c514b48dc7a20dfe1775f5` | PENDING integration; independent review passed. Depends on C0 and M1. Root reconciles shared ingestion/API overlap before landing. |
-| M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`, `faf32a9400d0611847c52c2ce7e02868bd09de95` | PENDING integration; accepted implementation `09bcac9e4fec3b332f967f57a993f36723f5ea23`, original writer completed. The maintainer may only clean-merge 650b0fc and publish; stop on source conflicts or new semantics. Root orders shared schemas/census. |
+| M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa` | PENDING PR #957 integration; clean one-way 650b0fc merge/publication, no owned source-content delta. Original writer completed; maintainer has no source-conflict/new-semantics grant. Root orders shared schemas/census. |
 | `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | PENDING PR #956 CI/integration (53 files: 46 web, 7 evidence). Depends on Actions/M1 transport and scoped auth. Local render evidence retained; hosted acceptance open. |
 | `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, `4211c50f4e7dd66db475aa4c0658a3147dd18cb4` | PENDING integration; independent review passed, final Linux proof 272 passed in 12.47 seconds. Depends on C0, Actions, M1; live model quality remains open. No #925 dependency. |
-| `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING independent review/root graft/integration; frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
-| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; retained corpus source `68361705f611e04e9bdf0ff8193bdcf4e3a90558`, assembly `39148680e6ff691804b3223d602212e7d2d94141` | PENDING: real seven-case, twenty-step runner WIP; actual Postgres proof passed but independent review found three evidence gaps, fixes active. Unpublished source files retained below; not READY. |
+| `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING final-delta comments review/root graft/integration; full behavior review passed at 7a8334e, frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
+| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; retained corpus source `68361705f611e04e9bdf0ff8193bdcf4e3a90558`, assembly `39148680e6ff691804b3223d602212e7d2d94141` | PENDING: real seven-case, twenty-step runner WIP; latest same-stack proof 16 passed / 1 failed (English owner-funding full-oracle mismatch), fix active. Independent evidence gaps and functional proof remain open; not READY. |
 | `/root` / verification and serialized delivery | `/tmp/cuadrao-hosted-verification-20261010`; exact candidate recorded by root at each gate | Sole merge, live caller and staging owner. Reconcile dependent sources, review exact head, require CI/compatibility and distinguish local from hosted acceptance. |
 | Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` / P0 Counsel audit | Existing read-only inventory and retained private source excerpts | Remaining 105-item audit PENDING. Identify individually approved families and unpublished dependencies; no blanket approval or wholesale sandbox publication. |
 
@@ -65,7 +65,9 @@ Identify exact head, viewport/theme/locale, screenshot and test result. Reused
 render evidence must prove implementation-tree equality after reconciliation.
 An asset commit, source inspection, green unit suite or PR alone is insufficient.
 Existing approved screenshot/Library sources need no renewed screenshot approval;
-the actual render and regression gates still apply.
+the actual render and regression gates still apply. Retain English and Spanish
+support. Current user-facing proof may be Spanish; do not duplicate batches
+solely for screenshot feedback.
 Local synthetic UI proof and hosted auth/API/worker/customer acceptance remain
 separate dispositions. Do not claim public signup is authorized.
 
@@ -76,14 +78,22 @@ The current E1 unpublished source is retained in the verification worktree:
 README, first-flow corpus, evaluator and evaluator tests. Working-tree source
 is not an exact delivery commit; E1 must commit and hand it off after review.
 
+The latest E1 proof used the root-approved direct DSN injection into the same
+local Postgres fixture stack: 17 tests, 16 passed and one English owner-funding
+full-oracle mismatch. The fix is active; full functional proof is not clear.
+The earlier environment-file read was rejected by automatic review and was not
+retried. No secret value belongs in this record.
+
 Register the lane's explicit owned files in
-[branch ownership](../../.agent/ownership/branch_ownership.json), using pinned
-canonical integration as `base_ref`; run the existing
-[verifier](../../.agent/scripts/ownership/verify_branch_ownership.py) on the
-reconciled candidate. Unlanded inherited dependencies can fail that full gate;
-root must land/reconcile them in order and advance `base_ref` to the exact
-canonical dependency checkpoint, rather than broaden the allowlist to
-platform-wide ownership. An explicit `--files` check documents only the owned
+[branch ownership](../../.agent/ownership/branch_ownership.json), using
+`origin/codex/private-alpha-next` as `base_ref`. Before READY, fetch canonical
+integration, record the exact resolved base SHA in the handoff, reconcile it
+one-way, and run the existing
+[verifier](../../.agent/scripts/ownership/verify_branch_ownership.py) on that
+candidate. The policy follows the fetched canonical ref without a metadata
+commit for every landing. Unlanded inherited dependencies can fail the full
+gate; root lands/reconciles them in order rather than broadening the allowlist
+to platform-wide ownership. An explicit `--files` check documents only the owned
 delta and does not replace the full READY gate. Metadata records enforcement,
 not a new assignment or authority to edit another owner's files.
 
@@ -116,16 +126,20 @@ The [22:32 UTC development-key grant](argus-decision-log.md#october-10-2026-host
 supersedes the $5 test cap and pending-development-limit call hold. Use only the
 existing development `OPENROUTER_API_KEY`, until its conservative allowance is
 exhausted or its expiry at `2026-10-12T02:21:00Z`. Do not swap to a registered
-or guest key or rotate credentials. The coordinator's safe read gives
-$72.567644643 before concurrent usage, from $300 less total usage
-$227.432355357. The larger provider monthly-remaining figure is not all
+or guest key or rotate credentials. The coordinator's safe read at `2026-10-11T00:07:36Z` gives
+$72.566884043 before outstanding reservations/concurrent usage, from $300 less
+total usage $227.433115957. The larger provider monthly-remaining figure is not all
 spending authority. Refresh usage before calls and subtract outstanding work.
 Only the root coordinator controls live calls, reservations, concurrency and
 token bounds. Judges, fallbacks and retries share this allowance. Synthetic
 data only. At 00:05 UTC on October 11, root began bounded Grok calibration:
 maximum eight POSTs, 600 output tokens each, 30 KB input, concurrency one,
-reserved worst cost $1.248 within existing authority. Actual call/result proof
-is awaited at this snapshot; do not count reservation as measured spend.
+reserved worst cost $1.248 within existing authority. Two POSTs occurred:
+the first known-case verdict was true, costing $0.0007606 with 1,476 ms latency;
+the second ended in `ValueError` with unknown external outcome. Keep its $0.156
+reservation against the conservative remaining allowance until reconciled.
+Calibration has not passed. Root paused paid calls; no blind retry. A verdict
+for one known case does not establish judge calibration or runtime quality.
 C0 is landed; dependent runtime/evaluation and hosted readiness remain open.
 Sonnet 5.5 is a potential stretch choice that needs a demonstrated need and
 fresh confirmation. It is not an automatic judge or runtime fallback.

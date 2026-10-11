@@ -72,7 +72,7 @@
     },
     "codex/cuadrao-hosted-context-20261010": {
       "description": "Shared onboarding/owner-handoff continuation; documentation and ownership metadata only.",
-      "base_ref": "650b0fc660777cbcdfb1ea99a3be7beecbbe1a96",
+      "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         "AGENTS.md",
         "docs/specs/argus-execution-board.md",
@@ -89,7 +89,7 @@
     },
     "codex/cuadrao-business-actions-20261010": {
       "description": "Actions-owned source delta; M1 and C0 dependencies must land and reconcile before full READY gate.",
-      "base_ref": "650b0fc660777cbcdfb1ea99a3be7beecbbe1a96",
+      "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         "src/argus/api/business.py",
         "src/argus/api/business_drafts.py",
@@ -128,7 +128,7 @@
     },
     "codex/cuadrao-owner-funds-20261010": {
       "description": "M1-owned owner funding source delta; canonical shared schema/census reconciliation remains coordinator-owned.",
-      "base_ref": "650b0fc660777cbcdfb1ea99a3be7beecbbe1a96",
+      "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         "docs/specs/lanes/account-deletion-fk-census.md",
         "src/argus/api/business_schemas.py",
@@ -156,7 +156,7 @@
     },
     "codex/cuadrao-hosted-web-20261010": {
       "description": "UI-owned accountant review, approved branding and exact local evidence; no backend ownership.",
-      "base_ref": "650b0fc660777cbcdfb1ea99a3be7beecbbe1a96",
+      "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         "docs/reports/evidence/942-cuadrao-record-ui/README.md",
         "docs/reports/evidence/942-cuadrao-record-ui/brand-signin-dark-spanish-390.png",
@@ -221,7 +221,7 @@
     },
     "codex/cuadrao-business-runtime-tools-20261010": {
       "description": "T1-owned runtime/tool adapter source delta; inherited Actions/M1 dependencies are not write authority.",
-      "base_ref": "650b0fc660777cbcdfb1ea99a3be7beecbbe1a96",
+      "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         "src/argus/agent_runtime/business/__init__.py",
         "src/argus/agent_runtime/business/context.py",
@@ -250,7 +250,7 @@
     },
     "codex/cuadrao-business-durable-worker-20261010": {
       "description": "W1-owned durable WhatsApp worker delta; inherited runtime/actions/funding are not write authority.",
-      "base_ref": "650b0fc660777cbcdfb1ea99a3be7beecbbe1a96",
+      "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         "docs/specs/lanes/account-deletion-fk-census.md",
         "src/argus/api/app_setup.py",
@@ -284,7 +284,7 @@
     },
     "codex/cuadrao-hosted-verification-20261010": {
       "description": "E1 writing scope within root verification assembly; imported implementation is preserved, not reassigned by this policy.",
-      "base_ref": "650b0fc660777cbcdfb1ea99a3be7beecbbe1a96",
+      "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         "tests/evals/README.md",
         "tests/evals/business_cases/case_first_flow.yaml",

@@ -1,6 +1,6 @@
 # Cuadrao Business lane handoff
 
-**Current checkpoint, October 10, 2026, 23:37 UTC continuation, refreshed October 11 00:05 UTC.** Canonical integration is
+**Current checkpoint, October 10, 2026, 23:37 UTC continuation, refreshed October 11 00:09 UTC.** Canonical integration is
 `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`, C0 #955 landed; exact postmerge
 CI remains pending at this snapshot; postmerge smoke passed. Startup repair #954 landed at
 `8a838fb4ff75bb8527400bbd802eb208e270bdf7`. The prior #953 source was
@@ -42,8 +42,10 @@ calls. The 22:32 UTC grant authorizes only the existing development
 expires at `2026-10-12T02:21:00Z`. It supersedes the $5 cap and spending hold.
 Do not swap to registered or guest keys or rotate credentials. The manifest
 owns the remaining-allowance snapshot. The root coordinator alone controls
-synthetic live calls, reservations, concurrency and token bounds. Root began bounded Grok calibration at 00:05 UTC on October 11; the manifest
-records limits and pending actual call/result proof. C0 is landed, while
+synthetic live calls, reservations, concurrency and token bounds. Root began bounded Grok calibration at 00:05 UTC on October 11. Two POSTs
+occurred: one known-case verdict and one unknown outcome after `ValueError`.
+Calibration has not passed; root paused paid calls and retains the unknown-call
+reservation. The manifest records exact usage/limits and the active E1 failure. C0 is landed, while
 dependent runtime/evaluation and hosted acceptance remain open. Sonnet 5.5
 still needs a demonstrated need and fresh confirmation before use. The coordinator sequences a direct named-accountant per-business grant
 for the existing one-owner, one-authorized-accountant milestone. Full L11 firm
