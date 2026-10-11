@@ -90,9 +90,11 @@ def test_funding_answer_scripts_one_date_question_then_preserves_it() -> None:
     assert answered["records"][0]["question"]["field"] == "occurred_on"
     assert answered["records"][0]["question"]["asked_of"] == "owner"
     assert "question" not in corrected["records"][0]
-    assert expected[1]["expect"]["questions"][-1] == expected[2]["expect"][
-        "questions"
-    ][-1] == {"field": "occurred_on", "asked_of": "owner", "state": "open"}
+    assert (
+        expected[1]["expect"]["questions"][-1]
+        == expected[2]["expect"]["questions"][-1]
+        == {"field": "occurred_on", "asked_of": "owner", "state": "open"}
+    )
     assert [action["name"] for action in expected[1]["expect"]["actions"]] == [
         "business_propose_activity",
         "business_ask",
