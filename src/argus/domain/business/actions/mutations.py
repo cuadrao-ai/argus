@@ -1,0 +1,251 @@
+from __future__ import annotations
+
+from dataclasses import replace
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
+
+from psycopg.types.json import Jsonb
+from pydantic import ValidationError
+
+from argus.domain.business.actions import plans, sources
+from argus.domain.business.actions.facts import facts_of, patched_facts, validate_facts
+from argus.domain.business.authority import ActionError
+from argus.domain.business.contracts.actions import (
+    Applied,
+    Ask,
+    AttachSource,
+    BusinessAction,
+    ExistingDraft,
+    ProposeActivity,
+    ProposeAllocation,
+)
+from argus.domain.business.contracts.authority import ActorProvenance
+from argus.domain.business.contracts.facts import (
+    BusinessFactPatch,
+    BusinessFacts,
+    BusinessResolution,
+)
+from argus.domain.business.transactions import ActionTransaction
+from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
+
+
+def event_at(tx: ActionTransaction, ref: ExistingDraft) -> ImportEvent:
+    try:
+        event = tx.imports.event(str(ref.draft_id))
+    except EventNotFound:
+        raise ActionError("not_found", "business_record_not_found") from None
+    if event.version != ref.version:
+        raise ActionError("stale_version", "stale_version")
+    if event.state == "accepted":
+        raise ActionError("invalid_input", "recorded_correction_unsupported")
+    if event.state != "open":
+        raise ActionError("invalid_input", "business_draft_not_open")
+    return event
+
+
+def save_revision(
+    tx: ActionTransaction,
+    event: ImportEvent,
+    before: BusinessFacts | None,
+    after: BusinessFacts,
+    source_ids: tuple[UUID, ...],
+    actor: ActorProvenance,
+    turn_key: str | None,
+) -> Applied:
+    validate_facts(tx, after)
+    resolution = dict(event.resolution)
+    resolution["business"] = BusinessResolution(facts=after).model_dump(mode="json")
+    event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
+    tx.imports.put_event(event)
+    sources.attach(tx, event.id, source_ids)
+    tx.rows(
+        "insert into public.business_draft_revisions"
+        " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s)",
+        (
+            tx.context.actor.space_id,
+            event.id,
+            event.version,
+            Jsonb(actor.model_dump(mode="json")),
+            Jsonb(before.model_dump(mode="json")) if before is not None else None,
+            Jsonb(after.model_dump(mode="json")),
+            list(source_ids),
+            turn_key,
+        ),
+    )
+    return Applied(outcome="applied", draft_id=event.id, version=event.version)
+
+
+def revise(
+    tx: ActionTransaction,
+    ref: ExistingDraft | None,
+    patch: BusinessFactPatch,
+    source_ids: tuple[UUID, ...],
+    actor: ActorProvenance,
+    *,
+    turn_key: str | None = None,
+    answer_id: UUID | None = None,
+) -> Applied:
+    sources.require_sources(tx, source_ids)
+    now = datetime.now(timezone.utc)
+    if ref is None:
+        event = ImportEvent(
+            str(uuid4()),
+            tx.context.owner_id,
+            "open",
+            "transaction",
+            None,
+            None,
+            None,
+            (),
+            {},
+            None,
+            None,
+            now,
+            now,
+            1,
+        )
+        before = None
+    else:
+        event = event_at(tx, ref)
+        before = facts_of(event)
+        event = replace(event, version=event.version + 1, updated_at=now)
+    origin = {
+        "member": "member_set",
+        "owner_via_agent": "owner_stated",
+        "extractor": "extracted",
+    }[actor.actor_kind]
+    try:
+        after = patched_facts(before, patch, source_ids, origin=origin)
+    except ValidationError:
+        raise ActionError("invalid_input", "business_fact_provenance_invalid") from None
+    if answer_id is not None:
+        answer_question(tx, event.id, answer_id, patch, source_ids[-1])
+    elif actor.actor_kind == "member":
+        for question in tx.rows(
+            "select id,field from public.business_questions where space_id=%s"
+            " and draft_id=%s and state in ('open','owner_does_not_know','waiting_for_window')",
+            (tx.context.actor.space_id, event.id),
+        ):
+            value = getattr(patch, question["field"])
+            if value is not None and value.state in {"known", "owner_does_not_know"}:
+                answer_question(tx, event.id, question["id"], patch, source_ids[-1])
+    return save_revision(tx, event, before, after, source_ids, actor, turn_key)
+
+
+def answer_question(
+    tx: ActionTransaction,
+    draft_id: str,
+    question_id: UUID,
+    patch: BusinessFactPatch,
+    source_id: UUID,
+) -> None:
+    questions = tx.rows(
+        "select field,state,asked_of from public.business_questions"
+        " where id=%s and draft_id=%s and space_id=%s for update",
+        (question_id, draft_id, tx.context.actor.space_id),
+    )
+    if not questions:
+        raise ActionError("not_found", "business_record_not_found")
+    question = questions[0]
+    if question["state"] not in {"open", "owner_does_not_know", "waiting_for_window"}:
+        raise ActionError("invalid_input", "business_question_closed")
+    if question["asked_of"] == "accountant" and tx.context.actor.actor_kind != "member":
+        raise ActionError("permission_denied", "business_question_requires_member")
+    answer = getattr(patch, question["field"])
+    if answer is None or answer.state == "unknown":
+        raise ActionError("invalid_input", "business_question_answer_missing")
+    unknown = answer.state == "owner_does_not_know"
+    tx.rows(
+        "update public.business_questions set state=%s,asked_of=%s,channel=%s,"
+        " answer_source_id=%s where id=%s",
+        (
+            "owner_does_not_know" if unknown else "answered",
+            "accountant" if unknown else question["asked_of"],
+            "web" if unknown or question["asked_of"] == "accountant" else "whatsapp",
+            source_id,
+            question_id,
+        ),
+    )
+
+
+def apply(
+    tx: ActionTransaction,
+    action: BusinessAction,
+    actor: ActorProvenance,
+    key: str,
+    index: int,
+) -> Applied:
+    draft = getattr(action, "draft", None)
+    ref = plans.reference(tx, draft, key, index) if draft is not None else None
+    if isinstance(action, (ProposeActivity, ProposeAllocation)):
+        patch = (
+            action.facts
+            if isinstance(action, ProposeActivity)
+            else BusinessFactPatch(
+                funding=action.funding, business_share=action.business_share
+            )
+        )
+        return revise(
+            tx,
+            ref,
+            patch,
+            action.source_ids,
+            actor,
+            turn_key=key,
+            answer_id=action.answers_question_id,
+        )
+    if isinstance(action, AttachSource):
+        event = event_at(tx, ref)
+        facts = facts_of(event)
+        event = replace(
+            event, version=event.version + 1, updated_at=datetime.now(timezone.utc)
+        )
+        return save_revision(tx, event, facts, facts, (action.source_id,), actor, key)
+    if isinstance(action, Ask):
+        event = event_at(tx, ref)
+        facts_of(event)
+        existing = tx.rows(
+            "select id,field,asked_of,state from public.business_questions"
+            " where space_id=%s and draft_id=%s and field=%s"
+            " and state in ('open','owner_does_not_know','waiting_for_window')",
+            (tx.context.actor.space_id, event.id, action.field),
+        )
+        if existing:
+            question_id = existing[0]["id"]
+        else:
+            if action.asked_of == "owner" and tx.rows(
+                "select id from public.business_questions where space_id=%s"
+                " and asked_of='owner' and state in ('open','waiting_for_window') limit 1",
+                (tx.context.actor.space_id,),
+            ):
+                raise ActionError("invalid_input", "business_owner_question_pending")
+            question_id = uuid4()
+            tx.rows(
+                "insert into public.business_questions"
+                " (id,space_id,draft_id,field,asked_of,channel,state,prompt,allowed_answers)"
+                " values (%s,%s,%s,%s,%s,%s,'open',%s,ARRAY['known','owner_does_not_know'])",
+                (
+                    question_id,
+                    tx.context.actor.space_id,
+                    event.id,
+                    action.field,
+                    action.asked_of,
+                    "whatsapp" if action.asked_of == "owner" else "web",
+                    action.prompt,
+                ),
+            )
+        return Applied(
+            outcome="applied",
+            draft_id=event.id,
+            version=event.version,
+            question_id=question_id,
+        )
+    draft_id = getattr(action, "draft_id", None)
+    if draft_id is None:
+        return Applied(outcome="applied")
+    try:
+        event = tx.imports.event(str(draft_id))
+    except EventNotFound:
+        raise ActionError("not_found", "business_record_not_found") from None
+    return Applied(outcome="applied", draft_id=event.id, version=event.version)

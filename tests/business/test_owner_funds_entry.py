@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from argus.api.financial_accounts import financial_accounts_service
 
 from tests.business import test_business_api as shared
@@ -8,7 +10,11 @@ alice = shared.alice
 def test_creator_cannot_use_direct_expense_route_for_durable_money(alice, monkeypatch):
     account = alice.account()
     service = financial_accounts_service()
-    monkeypatch.setattr(service, "_repository", object())
+    monkeypatch.setattr(
+        service,
+        "_repository",
+        SimpleNamespace(list_accounts=service._repository.list_accounts),
+    )
     response = alice.post(
         "/expenses",
         {

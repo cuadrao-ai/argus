@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Annotated, Generic, Literal, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeVar
 from uuid import UUID
 
 from pydantic import (
@@ -14,6 +14,7 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 from typing_extensions import TypeAliasType
 
 T = TypeVar("T")
@@ -186,16 +187,24 @@ FactInput = TypeAliasType(
 )
 
 
+def _patch_json_schema(schema: dict[str, Any]) -> None:
+    schema["minProperties"] = 1
+    for field in schema["properties"].values():
+        field.pop("default", None)
+
+
 class BusinessFactPatch(Contract):
-    kind: FactInput[ActivityKind] | None = None
-    amount: FactInput[Amount] | None = None
-    currency: FactInput[Currency] | None = None
-    occurred_on: FactInput[date] | None = None
-    counterparty: FactInput[str] | None = None
-    funding: FactInput[Funding] | None = None
-    business_share: FactInput[BusinessShare] | None = None
-    receipt_state: FactInput[ReceiptState] | None = None
-    category_id: FactInput[str] | None = None
+    model_config = ConfigDict(json_schema_extra=_patch_json_schema)
+
+    kind: FactInput[ActivityKind] | SkipJsonSchema[None] = None
+    amount: FactInput[Amount] | SkipJsonSchema[None] = None
+    currency: FactInput[Currency] | SkipJsonSchema[None] = None
+    occurred_on: FactInput[date] | SkipJsonSchema[None] = None
+    counterparty: FactInput[str] | SkipJsonSchema[None] = None
+    funding: FactInput[Funding] | SkipJsonSchema[None] = None
+    business_share: FactInput[BusinessShare] | SkipJsonSchema[None] = None
+    receipt_state: FactInput[ReceiptState] | SkipJsonSchema[None] = None
+    category_id: FactInput[str] | SkipJsonSchema[None] = None
 
     @model_serializer(mode="wrap")
     def serialize_patch(
