@@ -42,7 +42,8 @@ export type BusinessPanelState =
   | { kind: "inbox" }
   | { kind: "expenses"; expenseId?: string }
   | { kind: "updates" }
-  | { kind: "receipt"; receiptId: string };
+  | { kind: "receipt"; receiptId: string }
+  | { kind: "draft"; draftId: string };
 
 type Records = {
   workspace: BusinessWorkspaceInfo | null;
@@ -80,6 +81,8 @@ const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "updates"]);
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
 function panelFromSearch(params: URLSearchParams): BusinessPanelState {
+  const draftId = params.get("draft");
+  if (draftId) return { kind: "draft", draftId };
   const receiptId = params.get("receipt");
   if (receiptId) return { kind: "receipt", receiptId };
   const view = params.get("view");
@@ -98,8 +101,10 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
     const url = new URL(window.location.href);
     url.searchParams.delete("view");
     url.searchParams.delete("receipt");
+    url.searchParams.delete("draft");
     if (view === "workspace") {
       if (panel.kind === "receipt") url.searchParams.set("receipt", panel.receiptId);
+      else if (panel.kind === "draft") url.searchParams.set("draft", panel.draftId);
       else if (panel.kind !== "overview") url.searchParams.set("view", panel.kind);
     } else if (view === "chat" && !url.searchParams.has("conversation")) {
       url.searchParams.set("view", "chat");
@@ -121,11 +126,12 @@ export function BusinessWorkspaceProvider({
   children: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
-  const source = useMemo(
-    () => withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
-    [apiSource, i18n],
-  );
   const searchParams = useSearchParams();
+  const directRecord = searchParams.has("draft") || searchParams.has("receipt");
+  const source = useMemo(
+    () => directRecord ? apiSource : withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
+    [apiSource, directRecord, i18n],
+  );
   const [panel, setPanel] = useState<BusinessPanelState>(() =>
     panelFromSearch(new URLSearchParams(searchParams.toString())),
   );
@@ -158,6 +164,7 @@ export function BusinessWorkspaceProvider({
 
   useEffect(() => {
     let cancelled = false;
+    if (directRecord) return;
     Promise.all([
       source.workspace(),
       source.overview(period.from, period.to),
@@ -172,7 +179,7 @@ export function BusinessWorkspaceProvider({
     return () => {
       cancelled = true;
     };
-  }, [period.from, period.to, revision, source]);
+  }, [directRecord, period.from, period.to, revision, source]);
 
   // The shell may replace the route while leaving a conversation; writing again
   // once that navigation lands keeps the panel in the address bar.

@@ -46,6 +46,12 @@ export function formatDay(day: string | null, locale: string): string {
   return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(date);
 }
 
+export function formatTimestamp(iso: string, locale: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
+}
+
 export function formatRelativeTime(iso: string | null, locale: string): string {
   if (!iso) return "";
   const then = new Date(iso).getTime();
