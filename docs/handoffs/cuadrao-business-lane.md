@@ -1,7 +1,14 @@
 # Cuadrao Business lane handoff
 
 **Current October 11 coordinator checkpoint.** Canonical integration is
-`1612602c4d94b104378b5a787d3e19abfc07052c`: #964 LANDED at
+`286c6bc0494be6c858851f0c4037ea6df5bacea5`: manual C0 #966 LANDED from
+`a9da8426c0a5153649a1a1d5bf92a042ca14e256`; postmerge CI38126952473 is
+RUNNING and smoke SUCCESS at this snapshot, not a full postmerge pass.
+Retained #965 integration is `3c3be1a75af5f5fd1e19db039f76c5684753241c`, LANDED from reviewed
+`371ac8f5fb44145eac185d868b330995ee9f1c4b`. Fresh
+[CI38123706921](https://github.com/lagarcess/argus/actions/runs/38123706921)
+and [smoke38123706926](https://github.com/lagarcess/argus/actions/runs/38123706926)
+are fully SUCCESS; root's final remote audit remains separate. Retain #964 at1612602c, LANDED at
 `2026-10-11T07:15:19Z` from published source
 `5b7cdff54c357b9b946d18ee33a4c9d0de18f2ab`. Fresh remote evidence confirms
 [CI38120748626](https://github.com/lagarcess/argus/actions/runs/38120748626)
@@ -127,7 +134,7 @@ Actions owns exactly `src/argus/domain/business/contracts/facts.py` and
 `tests/business/test_contracts.py` for
 this reviewed import and regenerates OpenAPI before publication; no broader C0
 ownership transfers. T1/E1 reconcile the contract/product source before actual
-root model proof. The latest root accounting is **79 actual POSTs**, known cost
+root model proof. The retained 03:34 root accounting is **79 actual POSTs**, known cost
 **$0.06294062698** and unresolved unknown-outcome reservations **$1.43792**.
 At the safe key read `2026-10-11T03:34:02.221575Z`, conservative allowance
 remaining under the authorized $300 ceiling was **$72.504528323**, before
@@ -137,13 +144,15 @@ The manifest retains each capability outcome separately from database acceptance
 There is no calibrated judge or live runtime scorecard. The latest relayed parent
 grant now authorizes root alone to run one fresh `anthropic/claude-haiku-5.5`
 eight-case calibration under the same shared-key ceiling/expiry; it supersedes
-the pending choice for that run. The actual attempt is **AUTO_REVIEW_BLOCKED**
+the pending choice for that run. Earlier attempts were **AUTO_REVIEW_BLOCKED**
 before CreateProcess, with **zero new generation POSTs** at
 `2026-10-11T07:23:54.216374Z`. Auto-review treated the trusted request as lane
 coordination and paid OpenRouter payload/destination approval as unconfirmed,
 despite the parent grant. Root retained `cuadrao-haiku-judge-auto-review-block.json`
-and an explicit approval question is pending. No bypass/retry or calibration pass
-follows; prior Grok failures remain unchanged. The manifest retains the exact8141 local PG17/17
+and an explicit approval question was retained. A second rejected dispatch
+also made zero calls. The later actual bounded batch made one HTTP200 POST,
+known cost $0.0002046, then strict-schema ValidationError (evidence over400).
+No valid verdict/pass or replay followed; prior Grok failures remain unchanged. The manifest retains the exact8141 local PG17/17
 proof and reviewed E1 v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`,
 with fixtures and labels unchanged at that historical checkpoint. Business
 consent design is approved below; implementation and actual scoped opt-in proof remain pending.
@@ -246,9 +255,96 @@ actor, time and revocation; freshly check it before every provider call, resume
 and retry, with clear disclosure of the selected route. Human Money approval
 remains separate. This approves the design, not blanket actual-user consent,
 new credentials or access expansion. The founder decision is resolved; do not
-ask again. Implementation, revocation proof, live quality and hosted acceptance
-remain PENDING. Deny external processing without an actual current scoped opt-in.
+ask again. Implementation acceptance, revocation proof, live quality and hosted
+acceptance remain PENDING. Deny external processing without an actual current scoped opt-in.
 Local runtime/hybrid staging evidence does not establish that consent.
+
+Current consent implementation is active in parallel: W1/C0 disclosure fix
+`54ddfaa68ebc97f26a8f1f68cf14df38229c4b3a` is independent static CLEAR
+(20 offline PASS) and comments CLEAR; retained75099 authored sixteen of the
+seventeen allocated paths. SQL100000 SHA256
+`8ba4745b51b771d7c7d8bd236e0500127a45fc9aecdb8d93929abffad7e2ebbd`
+was previously UNAPPLIED. Root now applied it only to the disposable fixture
+at assembled `59c7a46021e9000df06fa21567944e8a0ad262f4`:91 actual PG
+PASS/zero failures/errors/skips, including17 consent cases, all provider keys
+blank. Root `cuadrao-w1-59c7-postgres-proof.json` and its exact XML supersede
+the prior owner PG-pending status; hosted SQL stays UNAPPLIED and old failures
+remain evidence. T1 terminal
+correction `8882749229ed8a17bb4d809388f645c2e2b57435` closes the bypass,
+comments and bounded fresh static functional review CLEAR (31 free PASS,
+old exploit zero POST). Owner2862 mocked PASS,
+broad813 PASS plus the same two actual measurement FAIL/zero skips/errors;
+W1 local assembly/PG proof passed at59c7; actual live quality remains pending. Its eight guard/route paths add only
+`src/argus/llm/openrouter_request_policy.py` to policy. Thirteen inherited E1
+whole-branch ownership failures remain, with no policy widening.
+The new `codex/cuadrao-whatsapp-settings-ui-20261011` branch/worktree retains
+an uncommitted eight-path freeze at head3c3. `/tmp/cuadrao-whatsapp-ui-freeze.json`
+records content SHA256
+`da056e8e86fb31a5b00a852578d2f7b17ed7eac785e3572512ee6af35cb34886`,
+with `/tmp/cuadrao-whatsapp-ui-frozen.patch` SHA256
+`2f404a5edcd93d1bd0905997bff4c3fc4711732c56061455e213d30c5a5a6d20`.
+Owner-reported local synthetic unit64/browser8/build/lint proof passed; full
+TypeScript check failed8298 baseline diagnostics, none in changed files.
+The fresh functional review `/tmp/cuadrao-whatsapp-ui-independent-review.md`
+is **BLOCK** on ambient-account DELETE, lost unknown body/key after remount and
+stale GET/retry race, despite comments CLEAR. This eight-path da056 freeze stays
+blocked. Root adds only ninth `web/lib/browser-storage.ts` for one WhatsApp
+pending-intent key in the existing temporary concept, without helper/other-key/
+privacy-copy changes. Owner account-binding/recovery/order fixes are independently functional/comments
+CLEAR at actual Git `b4bec5ebe9c09693238940372ed80e65f54af239`. Its nine
+reviewed file bytes match content SHA256
+`1236f4e530e8b60175f409fad6f0c51aed1da166d380e59c3d40baadb7ae173e`; this
+is a content digest, not a commit. `/tmp/cuadrao-whatsapp-ui-fixed-freeze.json`
+and fixed independent/comments reviews retain70 unit/9 intercepted-browser
+PASS; full TypeScript still FAIL8298 baseline/zero changed-file diagnostics.
+The earlier da056 BLOCK remains historical evidence. No actual consent, backend,
+hosted or full readiness proof follows. The
+[active allocation](../specs/argus-execution-board.md#active-consent-and-linked-number-settings-allocation)
+records each exact path, the root-reserved100000 migration/160-worktree check,
+shared-writer serialization and inherited foreign-delta limits. No serial
+metadata hold blocks their coding. GET own status works with flags off without
+creation; POST requires fresh owner/live prepare/flags/link/route; authenticated
+owner revoke/unlink stay accessible. Business checkpointer remains disabled
+until atomic cleanup/reset. Actual scoped user consent, live
+quality and hosted proof remain pending; the assembled59c7 static/local PG
+proof above does not clear them. Earlier October11 sequence/visual approvals
+are retained as history: the ONE-Mobile-goal warm-design experiment was approved
+by `Sentinel_fa71fe12f79481918cd3ff3fc869e0a7`, and selective motion by
+`Sentinel_b1d14016cb048191ae4d6781671ba461`; existing goal/celebration/splash
+permissions are retained. The later coordinator-relayed Lucas decision
+(recorded as Sentinel52df) supersedes the parallel goal-progress assignment:
+goal-progress visual work is PARKED; keep the current approved layout,
+palette/type/chat baseline. No global replacement or keeper expansion follows.
+Current core manual flows apply to both tiers; agentic actions are Full-only
+under `Sentinel_3269a594158c8191b5384ab9c608dd1a`, default DENY without trusted
+current paid/full authority. One app proceeds Guest Free → signed-in email
+still Free → Paid/Full; registration/client/admin/cohort labels do not grant
+paid authority. RevenueCat/prices/paywall and actual paid grants are future
+monetization, not tonight. Normal usability is required now; extreme Dynamic
+Type remains final pre-TestFlight, with the TestFlight hold unchanged. These
+permissions establish no accepted implementation, actual consent or hosted
+readiness.
+
+## Future member-access and upload UI references
+
+Parent inspected approved Library reference `libfile_09c7a55a9900819199601ef1aafcf7da`:
+invite-by-email with permission selector, member-list role controls and a
+general-access section. This is future permission/reference, not a priority
+change or current implementation assignment. Preserve admin membership controls
+and explicit revocable grants. Editor access does not confer human Money
+approval; no public-link/embed sharing is authorized. Before implementation,
+the assigned owner must materialize and inspect the original executor image.
+Do not substitute a guessed recreation or infer unseen behavior from this note.
+
+Parent also inspected upload reference `libfile_a5c80e5082d481919c50d1b282a0f3a6`,
+filename “disarto.digital on Threads 2.png”, after Lucas's positive Business
+upload feedback. It shows a large drop/browse zone and per-file type/name/size,
+progress/completion and cancel/remove controls. Retain it as future visual
+reference with no priority change. Adapt only actual supported formats/limits;
+its sample DOCX/FIG and 20MB are not product policy. Upload completion is distinct
+from extraction/review readiness; keep per-file failure/retry. Before
+image-dependent implementation the assigned owner must materialize and inspect
+the original executor image.
 
 ## Approved unpublished branding and completion gate
 
@@ -347,8 +443,11 @@ outcomes remain PENDING until their own implementation/acceptance evidence.
 of these five approved outcomes. Root has now assigned only the first manual-note
 backend package to existing C0/Actions owners; it does not close any of the five
 families or promote the sandbox wholesale. C0 current reconciliation
-`a41c9fb9d5c991b06a5608ad180247dbaadbfa70` is CLEAR, with 76 actual Postgres
-PASS/zero skips (15 new). Prior `4322f397d06bf228817e908407201e167582aaf7`
+`a41c9fb9d5c991b06a5608ad180247dbaadbfa70` retains its 76 actual Postgres
+PASS/zero skips (15 new). Manual #966 LANDED at
+`286c6bc0494be6c858851f0c4037ea6df5bacea5` from
+`a9da8426c0a5153649a1a1d5bf92a042ca14e256`, exact root76PG PASS/zero skips;
+postmerge CI38126952473 RUNNING, smoke SUCCESS, full verification PENDING. Prior `4322f397d06bf228817e908407201e167582aaf7`
 independent90/owner111 offline PASS and 15 PG skips remain historical evidence.
 Actions current `f6924168412e02f63e6c6b4debb32f466b9c8f03` is CLEAR, with
 58 actual Postgres PASS/zero skips (11 new). Production SQL is unchanged;
@@ -362,8 +461,10 @@ implements capture/list and generates OpenAPI afterward. Atomic immutable
 original/source/revision/receipt, live server-resolved grants, replay and denial
 proof precede acceptance. No worker DB/provider/deploy grant follows.
 
-UI owner at `0d8afb73e040f80a6df271435cac4a4aa29b8749` has actual visible replay/app
-captures active. Root now assigns the seven exact paths in the
+Retained UI owner source `0d8afb73e040f80a6df271435cac4a4aa29b8749` has visible
+replay/app capture evidence. Current manual source
+`d7ef29092380514761686871b596efba2549f3b9` keeps the same fifteen code files
+independently CLEAR after its409fix; assembled/rendered acceptance is pending. Root now assigns the seven exact paths in the
 [manual-note UI allocation](../specs/argus-execution-board.md#bounded-manual-note-ui-allocation)
 for form/search/server-refusal/existing review; uncommitted UI work is retained.
 Optional error-only note grouping invents no hit and selects no chat architecture.
@@ -371,8 +472,22 @@ Actual render and backend-integrated acceptance remain pending.
 No model action or fake turn replaces a human note command. Open-draft capture
 changes no Money/balance; accepted-record amendments and grant-only new-client
 creation are outside this first slice. Spec 3.3 **X1 and CSV/Excel with funding
-and receipts remain required now**, separately pending bounded assignments.
+and receipts remain required now**, with the bounded assignments below active
+and their implementation/acceptance still PENDING.
 T1 failed/unmeasured quality, judge calibration, consent implementation and hosted gates remain open.
+
+The [active export/income/X1 allocation](../specs/argus-execution-board.md#active-export-income-and-x1-allocation)
+records four isolated writers and their exact10/7/7/8 paths. Export and income
+Actions are WIP; income C0 source0f2fd918 retains123 offline PASS/33 PG SKIP,
+root-reserved110000 after168-worktree collision check, no SQL application. X1
+ad598035 retains owned91 PASS and applicable282 PASS/4 FAIL/zero skips, no
+provider/DB calls. The eighth X1 test only corrects inherited generic sparse
+interpretation wire expectation, preserving document-task/native wire and local
+validators. Fiscal facts remain unverified and source-bound; extractor scope
+is UNMEASURED, with existing legacy25/measured references and Business holds
+preserved. Canonical fiscal attachment bridge and vision route/actual scoped
+extraction consent remain prerequisites; text WhatsApp opt-in does not imply
+image-processing consent. These assignments close none of the five families.
 
 Counsel's exact original six-rule approval source remains UNKNOWN. Later direct
 human grant/model direction supersedes old rigid-custodian/role maps, fixed
