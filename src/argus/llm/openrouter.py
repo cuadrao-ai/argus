@@ -4,8 +4,7 @@ import asyncio
 import json
 import os
 import time
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Iterable, Mapping, Sequence
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -21,6 +20,12 @@ from argus.agent_runtime import turn_execution
 from argus.env import load_project_dotenv
 from argus.llm import openrouter_model_env as model_policy
 from argus.llm.openrouter_key_policy import resolve_openrouter_api_key
+from argus.llm.openrouter_request_policy import (
+    guard_openrouter_request as _guard_request,
+)
+from argus.llm.openrouter_request_policy import (
+    openrouter_request_guard as openrouter_request_guard,
+)
 from argus.llm.openrouter_tasks import (
     OPENROUTER_PROFILES,
     OPENROUTER_TASK_MODEL_TIERS,
@@ -45,22 +50,6 @@ from argus.log_sink import exception_origin
 load_project_dotenv()
 
 _OpenRouterRetryAttempt = tuple[OpenRouterTask, float, str, Literal["json_schema", "chat_model"], str | None, list[str] | None]
-
-_REQUEST_GUARD: ContextVar[Callable[[OpenRouterTask, dict[str, object]], dict[str, object]] | None] = ContextVar("openrouter_request_guard", default=None)
-
-
-@contextmanager
-def openrouter_request_guard(guard: Callable[[OpenRouterTask, dict[str, object]], dict[str, object]]) -> Iterator[None]:
-    token = _REQUEST_GUARD.set(guard)
-    try:
-        yield
-    finally:
-        _REQUEST_GUARD.reset(token)
-
-
-def _guard_request(task: OpenRouterTask, payload: dict[str, object]) -> dict[str, object]:
-    guard = _REQUEST_GUARD.get()
-    return guard(task, payload) if guard else payload
 
 SchemaModelT = TypeVar("SchemaModelT", bound=BaseModel)
 
@@ -928,6 +917,9 @@ def _json_schema_payload(
     }
     _apply_reasoning_for_structured_artifact(payload, profile)
     return payload
+
+
+openrouter_schema_payload = _json_schema_payload
 
 
 def _json_content_without_code_fences(content: str) -> str:

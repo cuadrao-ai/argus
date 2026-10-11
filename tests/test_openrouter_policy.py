@@ -4194,3 +4194,31 @@ def test_openai_structured_wire_retains_exact_local_validation(
     assert len(receipts) == 1
     assert receipts[0].model == model
     assert receipts[0].outcome == ("succeeded" if valid else "failed")
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_nested_request_observers_preserve_order_and_restore_on_exception(failure):
+    events = []
+    payload = {"model": "consumer/configured"}
+
+    def observer(label):
+        def observe(task, actual):
+            events.append(label)
+            return {**actual, label: True}
+        return observe
+
+    with openrouter.openrouter_request_guard(observer("outer")):
+        try:
+            with openrouter.openrouter_request_guard(observer("inner")):
+                assert openrouter._guard_request("interpretation", payload) == {
+                    **payload, "outer": True, "inner": True,
+                }
+                if failure:
+                    raise RuntimeError("interrupted")
+        except RuntimeError:
+            assert failure
+        assert openrouter._guard_request("interpretation", payload) == {
+            **payload, "outer": True,
+        }
+    assert events == ["outer", "inner", "outer"]
+    assert openrouter._guard_request("interpretation", payload) is payload

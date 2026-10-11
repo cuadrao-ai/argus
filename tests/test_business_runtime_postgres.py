@@ -87,6 +87,11 @@ def claimed_context(service, member):
             ).fetchone()
             return row[0]
 
+    def check_access():
+        with service.authority.pool.connection() as db:
+            check_lease(db, authorized, lease)
+            authorize(db, actor, authorized.grant_id).require("read")
+
     context = AuthorizedBusinessContext(
         actions=service,
         authorization=authorized,
@@ -96,6 +101,7 @@ def claimed_context(service, member):
         received_at=now,
         channel="whatsapp",
         begin_reply=begin_reply,
+        require_access=check_access,
     )
     turn = DurableTurn(
         space_id=actor.space_id,

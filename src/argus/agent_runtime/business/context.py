@@ -50,6 +50,7 @@ class AuthorizedBusinessContext:
     channel: Literal["web", "whatsapp"]
     begin_reply: Callable[[], str | None]
     language: str = "es-419"
+    require_access: Callable[[], None] | None = None
 
     def __post_init__(self) -> None:
         actor = self.authorization.actor
@@ -61,3 +62,9 @@ class AuthorizedBusinessContext:
             raise ValueError("Business source timestamp must have a timezone")
         if not self.turn_key or self.channel not in {"web", "whatsapp"}:
             raise ValueError("Business turn identity and channel are required")
+
+    def check_access(self) -> None:
+        if self.channel == "whatsapp":
+            if self.require_access is None:
+                raise PermissionError("business_whatsapp_consent_required")
+            self.require_access()
