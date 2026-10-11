@@ -3387,6 +3387,70 @@ Proven by `tests/test_whatsapp_intake_postgres.py`.
 
 ## Import reconciliation
 
+### Hosted Business contract foundation (October 10, 2026)
+
+Migration `20261010223000_business_contract_foundation.sql` supplies storage
+and constraints for the assigned first hosted flow. Domain schemas live in
+`argus.domain.business.contracts`. Runtime adoption, live grants, model calls,
+web/WhatsApp wiring and money behavior are separate implementation work.
+
+`financial_import_events.resolution.business` is the sole current Business
+resolution, `{schema_version: 1, facts: BusinessFacts}`. Existing event `version`,
+`state`, `activity_id` and claim fields remain canonical. Typed facts preserve
+known, unknown and owner-does-not-know states with provenance. The legacy scalar
+projection is derived at adapters, including explicit nulls which mask prior
+extraction. Apply this projection after extraction selection, not through the
+legacy `event_facts.pick` fallback that treats null as absent. Unknown kind also
+masks direction, so old outflow evidence cannot silently become expense again.
+Never persist another current scalar draft, default an activity date
+from upload time, or infer account/tax/funding from missing input. The only
+default value is unverified DOP currency. Fiscal facts are evidence, not model
+tax decisions. Income is a distinct draft kind; expense acceptance does not
+establish delivery of all seven Business journeys.
+
+| Table | Durable owner and invariants |
+| --- | --- |
+| `business_client_grants` | Explicit direct grant to a named `grantee_id` for exactly one `space_id`, issuer, capabilities (`read`, `prepare`, `approve`), creation/expiry/revocation times. No role-derived capabilities and no grant seed/backfill. First-flow service resolves active grants on each operation. Firm identity, firm delegation and issuer onboarding remain unimplemented. |
+| `business_sources` | Stable source identity and idempotent `(space_id, source_key)` for one original message, attachment, agent proposal or human `web_action`. Web actions require channel `web` and retain immutable canonical submitted command text, with server-derived source key and actual `member_set` provenance. Direct source updates/deletes fail; owning connection/client deletion cascades through source links and answered questions under the existing deletion policy. Message/proposal/web-action text is immutable; attachment references the existing source connection rather than copying bytes or extraction. A composite FK prevents another space's connection. |
+| `business_draft_sources` | Many-to-many source relationships pinned by composite FKs to the same client as the canonical candidate. No facts. |
+| `business_draft_revisions` | Append-only `(draft_id, version)` before/after typed fact snapshots, actual actor and grant/issuer display provenance, source IDs, optional turn key and timestamp. Every source ID is checked and locked against the same client on insertion. They are readable history, never an alternative current draft. Updates and direct deletes fail; deletion of the owning candidate/space cascades. |
+| `business_questions` | Stable field question, recipient, channel, prompt, allowed answer states and answer-source reference. An owner-does-not-know answer requires its source and moves recipient to accountant. It does not trigger another owner question. Composite FKs scope draft and answer source. Deleting the owning source cascades the answered question instead of clearing its provenance. |
+| `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
+| `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
+| `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Only human `review_draft`/`approve_expense` commands may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
+
+All new tables have RLS enabled and no client policies, with anon/authenticated
+grants revoked. Only the server projects authorized dossiers and original
+sources. The existing import event and observation SELECT policies now permit
+only Personal rows. Business rows, including creator reads, use the server's live
+grant boundary; Personal owner access is unchanged. Scope foreign keys prevent cross-client links even for service writes;
+they do not replace live domain authorization. New records cascade with the
+existing source/client lifecycle. Revision actor/grant snapshots remain stable
+when a grant is revoked. No new retention exception or grant-issuance policy is
+implied by the schema.
+
+Every domain mutation rechecks the live grant and expected canonical version
+inside its transaction, then atomically updates resolution, revision, affected
+questions/source links and action receipt. Grants are never cached authority. A persisted provenance snapshot records the original grant; resume rechecks that same grant live and cannot substitute another grant or infer history from current grants.
+The agent's actor kind only receives read/prepare even if the represented human
+has approve. Approval must be a human command bound to the reviewed version.
+For the existing reconciliation acceptance path, the permission/version check
+and acceptance claim share a transaction; MoneyService runs after that claim
+commits. The stored canonical request/key owns idempotent effect recovery, not
+a claim of one cross-service SQL transaction. Owner funds creates one expense
+without a Business bank debit and leaves capital/debt classification unresolved.
+Post-recording correction is unsupported in this slice.
+
+Worker recovery consumes the persisted plan and receipts rather than asking the
+model to reinterpret a partially executed turn. Runtime compares normalized
+input hashes on replay and rejects changed input. Sender order and lease fences
+must be enforced by the worker/domain transaction; storage alone is not proof
+of those implemented behaviors. Model or reply `unknown` outcomes require
+reconciliation, never blind retry. Lease rows must retain their fence across
+release so replacement workers cannot reuse an earlier fence.
+
+### Existing ingestion persistence
+
 `financial_document_extractions` owns the durable draft, the immutable preparation
 delivery checkpoint and the reference to the retained source, keyed by the
 existing statement connection. It is not a second ledger. `draft` stores source
@@ -3472,7 +3536,8 @@ None of these rows is a financial record or affects balances.
   (owner-qualified foreign key); deleted on disconnect.
 
 All writes run in one per-person transaction under a transaction-scoped
-advisory lock. Registered owners may `SELECT`; no client role writes. Proven
+advisory lock. Registered owners may `SELECT` Personal imports; Business import
+events and observations are server-readable only. No client role writes. Proven
 by `tests/test_ingestion_reconcile_postgres.py`. On disconnect, unreviewed
 observations (and events left empty) are deleted; observations of accepted
 events are reduced to provenance (source, connection, external id, dates,
