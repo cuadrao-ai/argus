@@ -8,9 +8,11 @@ import pytest
 from argus.domain.business.contracts.actions import (
     MAX_TURN_ACTIONS,
     ApprovalCommand,
+    ApproveIncome,
     BusinessAction,
     CaptureNote,
     Command,
+    IncomeApprovalCommand,
     ProposeActivity,
     TurnPlan,
     canonical_input_hash,
@@ -637,3 +639,110 @@ def test_manual_capture_receipt_requires_human_without_turn(
             ValidationError, match="capture requires a human command without a turn"
         ):
             ActionReceipt.model_validate(payload)
+
+
+@pytest.mark.parametrize("version", [True, False, "1", 1.0, 1.5, 0, -1, None])
+def test_income_approval_requires_exact_positive_integer_version(version):
+    with pytest.raises(ValidationError):
+        ApproveIncome.model_validate({"action": "record_income", "version": version})
+
+
+def test_income_human_command_round_trips_and_hashes_distinctly_from_expense():
+    draft_id = UUID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa")
+    income = IncomeApprovalCommand(
+        draft_id=draft_id, request=ApproveIncome(action="record_income", version=3)
+    )
+    adapter = TypeAdapter(Command)
+    assert adapter.validate_json(income.model_dump_json()) == income
+    changed_target = income.model_copy(update={"draft_id": UUID(fake.uuid4())})
+    changed_version = IncomeApprovalCommand(
+        draft_id=draft_id, request=ApproveIncome(action="record_income", version=4)
+    )
+    expense = ApprovalCommand.model_validate(
+        {"draft_id": str(draft_id), "request": {"action": "record_expense", "version": 3}}
+    )
+    assert (
+        len(
+            {
+                canonical_input_hash(value)
+                for value in (income, changed_target, changed_version, expense)
+            }
+        )
+        == 4
+    )
+    assert canonical_input_hash(income) == canonical_input_hash(
+        adapter.validate_json(income.model_dump_json())
+    )
+    assert income.model_dump(mode="json") == {
+        "action": "approve_income",
+        "draft_id": str(draft_id),
+        "request": {"version": 3, "action": "record_income"},
+    }
+
+
+@pytest.mark.parametrize(
+    "extra", ["actor_id", "space_id", "grant_id", "account_id", "facts", "amount"]
+)
+def test_income_approval_cannot_supply_authority_or_replace_reviewed_facts(extra):
+    with pytest.raises(ValidationError):
+        ApproveIncome.model_validate(
+            {"action": "record_income", "version": 1, extra: fake.uuid4()}
+        )
+
+
+def test_income_approval_is_not_a_model_action_or_a_turn_plan():
+    command = IncomeApprovalCommand(
+        draft_id=UUID(fake.uuid4()),
+        request=ApproveIncome(action="record_income", version=1),
+    )
+    for payload in (
+        command.model_dump(mode="json"),
+        command.request.model_dump(mode="json"),
+    ):
+        with pytest.raises(ValidationError):
+            TypeAdapter(BusinessAction).validate_python(payload)
+        with pytest.raises(ValidationError):
+            TurnPlan.model_validate({"actions": [payload]})
+    with pytest.raises(ValidationError):
+        ApproveIncome(action="record_expense", version=1)
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        None,
+        {"outcome": "outcome_unknown", "code": "business_recording_unsettled"},
+        {"outcome": "applied", "version": 1},
+        {"outcome": "replayed", "version": 1},
+    ],
+)
+def test_income_receipt_retains_actual_human_authority_and_recovery(dossier, outcome):
+    actor = dossier.history[0].actor.model_copy(update={"actor_kind": "member"})
+    command = IncomeApprovalCommand(
+        draft_id=dossier.draft_id,
+        request=ApproveIncome(action="record_income", version=dossier.version),
+    )
+    payload = dict(
+        space_id=dossier.space_id,
+        actor_id=actor.actor_id,
+        actor=actor,
+        idempotency_key="income-human-review",
+        input_hash=canonical_input_hash(command),
+        command=command,
+        created_at=dossier.sources[0].received_at,
+        outcome=outcome,
+    )
+    receipt = ActionReceipt.model_validate(payload)
+    assert receipt.actor == actor and receipt.turn_key is None
+    assert ActionReceipt.model_validate_json(receipt.model_dump_json()) == receipt
+    with pytest.raises(ValidationError, match="actual actor"):
+        ActionReceipt.model_validate({**payload, "actor_id": fake.uuid4()})
+    for kind in ("owner_via_agent", "extractor"):
+        with pytest.raises(ValidationError, match="human command without a turn"):
+            ActionReceipt.model_validate(
+                {**payload, "actor": actor.model_copy(update={"actor_kind": kind})}
+            )
+    with pytest.raises(ValidationError, match="human command without a turn"):
+        ActionReceipt.model_validate(
+            {**payload, "turn_key": "invented-turn", "action_index": 0}
+        )

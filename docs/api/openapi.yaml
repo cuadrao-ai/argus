@@ -713,7 +713,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ApproveExpense'
+              oneOf:
+              - $ref: '#/components/schemas/ApproveExpense'
+              - $ref: '#/components/schemas/ApproveIncome'
+              discriminator:
+                propertyName: action
+                mapping:
+                  record_expense: '#/components/schemas/ApproveExpense'
+                  record_income: '#/components/schemas/ApproveIncome'
       responses:
         '200':
           description: Successful Response
@@ -878,6 +885,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessExpense'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/exports:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: start
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: end
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: draft_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: The live grant does not permit reading this Business.
+        '404':
+          description: The Business or canonical draft anchor is unavailable.
+        '413':
+          description: A bounded export collection, cell or archive limit was exceeded.
         '422':
           description: Validation Error
           content:
@@ -9958,6 +10019,19 @@ components:
         action:
           type: string
           const: record_expense
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - action
+    ApproveIncome:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        action:
+          type: string
+          const: record_income
       additionalProperties: false
       type: object
       required:

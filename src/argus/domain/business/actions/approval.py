@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import replace
 from datetime import datetime, time, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -17,12 +17,20 @@ from argus.domain.business.contracts.actions import (
     Applied,
     ApprovalCommand,
     ApproveExpense,
+    ApproveIncome,
     ExistingDraft,
+    IncomeApprovalCommand,
     OutcomeUnknown,
     Refused,
 )
-from argus.domain.business.contracts.facts import OwnerFunding
-from argus.domain.business.transactions import transaction
+from argus.domain.business.contracts.facts import (
+    BusinessAccountFunding,
+    BusinessFacts,
+    Known,
+    OwnerFunding,
+)
+from argus.domain.business.transactions import ActionTransaction, transaction
+from argus.domain.ingestion.reconcile.model import ImportEvent
 from argus.domain.ingestion.reconcile.recording import _NOT_WRITTEN
 from argus.domain.recording.money_schemas import MoneyRequest, OwnerFunds
 
@@ -30,22 +38,39 @@ if TYPE_CHECKING:
     from argus.domain.business.actions.service import BusinessActions
 
 
-def reviewed_request(
-    service: BusinessActions, context: ActionContext, draft_id: UUID, version: int
-) -> MoneyRequest:
-    with transaction(service.authority, context, "approve") as tx:
-        mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=version))
-        view = dossier.dossier(tx, draft_id)
-        if view.blockers:
-            raise ActionError("invalid_input", view.blockers[0].code)
-        validate_facts(tx, view.facts)
-    facts = view.facts
-    funding = facts.funding.value
-    draft = MoneyRequest(
-        kind="expense",
-        owner_funding=OwnerFunds(
-            owner_space_id=context.actor.space_id, currency=facts.currency.value
+def _reviewed_facts(
+    tx: ActionTransaction,
+    draft_id: UUID,
+    version: int,
+    kind: Literal["expense", "income"],
+) -> tuple[ImportEvent, BusinessFacts]:
+    event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=version))
+    view = dossier.dossier(tx, draft_id)
+    if view.blockers:
+        first = view.blockers[0]
+        raise ActionError(
+            "not_found" if first.code == "business_record_not_found" else "invalid_input",
+            first.code,
         )
+    if not isinstance(view.facts.kind, Known) or view.facts.kind.value != kind:
+        raise ActionError("invalid_input", "activity_kind_unsupported")
+    validate_facts(tx, view.facts)
+    return event, view.facts
+
+
+def _money_request(
+    facts: BusinessFacts, space_id: UUID, kind: Literal["expense", "income"]
+) -> MoneyRequest:
+    if not isinstance(facts.kind, Known) or facts.kind.value != kind:
+        raise ActionError("invalid_input", "activity_kind_unsupported")
+    if not isinstance(facts.funding, Known):
+        raise ActionError("invalid_input", "fact_required")
+    funding = facts.funding.value
+    if kind == "income" and not isinstance(funding, BusinessAccountFunding):
+        raise ActionError("invalid_input", "business_funding_unsupported")
+    return MoneyRequest(
+        kind=kind,
+        owner_funding=OwnerFunds(owner_space_id=space_id, currency=facts.currency.value)
         if isinstance(funding, OwnerFunding)
         else None,
         account_id=None if isinstance(funding, OwnerFunding) else str(funding.account_id),
@@ -58,6 +83,18 @@ def reviewed_request(
         else None,
         category_id=facts.category_id.value,
     )
+
+
+def reviewed_request(
+    service: BusinessActions,
+    context: ActionContext,
+    draft_id: UUID,
+    version: int,
+    kind: Literal["expense", "income"],
+) -> MoneyRequest:
+    with transaction(service.authority, context, "approve") as tx:
+        _, facts = _reviewed_facts(tx, draft_id, version, kind)
+    draft = _money_request(facts, context.actor.space_id, kind)
     preview = service.imports.money.preview(
         user_id=context.owner_id, request=draft, scope=context.scope
     )
@@ -72,10 +109,17 @@ def approve(
     service: BusinessActions,
     context: ActionContext,
     draft_id: UUID,
-    request: ApproveExpense,
+    request: ApproveExpense | ApproveIncome,
     key: str,
 ) -> ActionOutcome:
-    command = ApprovalCommand(draft_id=draft_id, request=request)
+    kind: Literal["expense", "income"] = (
+        "income" if isinstance(request, ApproveIncome) else "expense"
+    )
+    command = (
+        IncomeApprovalCommand(draft_id=draft_id, request=request)
+        if isinstance(request, ApproveIncome)
+        else ApprovalCommand(draft_id=draft_id, request=request)
+    )
     try:
         with transaction(service.authority, context) as tx:
             tx.authorization.require("approve")
@@ -92,7 +136,7 @@ def approve(
             money_request = (
                 None
                 if old is not None
-                else reviewed_request(service, context, draft_id, request.version)
+                else reviewed_request(service, context, draft_id, request.version, kind)
             )
         except (ActionError, *_NOT_WRITTEN) as error:
             refusal = (
@@ -123,13 +167,7 @@ def approve(
             else:
                 plans.start_receipt(tx, key, command)
                 try:
-                    event = mutations.event_at(
-                        tx, ExistingDraft(draft_id=draft_id, version=request.version)
-                    )
-                    view = dossier.dossier(tx, draft_id)
-                    if view.blockers:
-                        raise ActionError("invalid_input", view.blockers[0].code)
-                    validate_facts(tx, view.facts)
+                    event, _ = _reviewed_facts(tx, draft_id, request.version, kind)
                 except ActionError as error:
                     return plans.finish_receipt(tx, key, error.result)
                 claim_key = hashlib.sha256(

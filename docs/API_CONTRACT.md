@@ -8855,8 +8855,36 @@ projection. Only currency may default, to DOP with `origin: default` and
 `verified: false`. There is no default activity date, account, kind or fiscal
 treatment. Exact money values cross the wire as decimal strings.
 
-The first recording flow supports expense approval. Income remains a distinct
-draft kind and is never coerced to expense. Other kinds remain draft proposals.
+The existing recording flow supports expense approval. The M1 income extension
+adds the human-only `ApproveIncome` request `{version, action: "record_income"}`
+and server `IncomeApprovalCommand` `{action: "approve_income", draft_id, request}`.
+Its version is an exact positive JSON integer; booleans, strings and floats are
+rejected. It belongs only to the human command union, never `BusinessAction` or
+`TurnPlan`. Both commands use the same existing
+`POST /business/drafts/{draft_id}/approve`, with an `action`-discriminated
+`ApproveExpense | ApproveIncome` body (`record_expense` or `record_income`).
+Handler, readiness and MoneyService adoption are separate Actions work until
+verified. `record_expense` retains its existing wire behavior
+and cannot approve an income draft; `record_income` cannot approve an expense.
+Income is never coerced to expense. Other kinds remain draft proposals.
+
+Income approval uses the current canonical facts, original sources and exact
+reviewed revision, with the same live named `approve` grant and human provenance.
+Readiness requires known income kind, positive amount, currency, activity date,
+and an explicit eligible receiving Business account belonging to that client.
+Unknown account or other material facts remain blockers; no account, category,
+income source, receipt or allocation is invented. Existing Business allocation
+and unresolved-question checks still apply. `owner_funds` cannot fund income.
+An expense category is not silently relabeled as an income source; the sole
+MoneyService validates applicable fields and receiving-account eligibility.
+The command contains no replacement facts, account or caller authority.
+
+Income receipts preserve the existing scoped key/hash/result contract. Replay
+uses the same original actor/grant/issuer, target and revision; drift conflicts,
+revocation denies, and a concurrent edit remains stale. The permission/version
+check and acceptance claim commit before the canonical MoneyService effect;
+recovery uses the persisted request/key, with no second ledger or blind retry
+of an unknown effect. Recorded-income amendment remains unsupported.
 `funding={kind: owner_funds}` records one expense only after human approval. It
 must not debit a Business bank account or decide whether capital or debt is owed.
 Post-recording corrections are refused with `recorded_correction_unsupported`;
@@ -8915,14 +8943,24 @@ and issuer labels with grant provenance, time and before/after facts. A failed
 history read is an error, never an empty successful history.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
-and `Idempotency-Key`. `POST /business/drafts/{draft_id}/approve` takes
-`{version, action: "record_expense"}` and `Idempotency-Key`. Both return the
-authoritative dossier. Human review and approval are separate from model actions.
+and `Idempotency-Key`. The same existing
+`POST /business/drafts/{draft_id}/approve` takes the action-discriminated union
+`ApproveExpense | ApproveIncome`: `{version, action: "record_expense"}` or
+`{version, action: "record_income"}`, with the existing required
+`Idempotency-Key`. The route resolves the actual actor and live named grant from
+the canonical draft, then dispatches to the matching human command; the caller
+supplies no actor, space or grant. Both approval variants and unchanged human
+review return the authoritative `BusinessDossier` with `Cache-Control: no-store`.
+The same no-store problem responses and refusal mapping apply to both variants.
+Human review and approval remain separate from model actions. This contract
+extension does not claim delivery of the pending income handler.
 The existing `/source` route applies the same live read grant. Foreign resource
 IDs return 404 without revealing existence; a readable in-scope record with a
 missing write capability returns 403. Stale versions and same-key/different-input
 requests return 409; invalid facts or unresolved approval blockers return 422.
 An uncertain financial effect is `outcome_unknown`, not success or safe retry.
+
+`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, retained `originals/` and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named read grant; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Original-source reads and final response release recheck the same grant, with existing grant/Business/source locks; authorization failure aborts the response. Missing retained originals and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission.
 
 **Human note capture contract.** `POST /business/captures` takes
 `{text, draft?: {draft_id, version}}` and `Idempotency-Key`, returning the existing

@@ -50,6 +50,7 @@ psycopg = {extras = ["binary", "pool"], version = "^3.3.4"}
 babel = "^2.17.0"
 mem0ai = "^2.0.17"
 number-parser = "0.3.2"
+xlsxwriter = ">=3.2.9,<4"
 
 [build-system]
 requires = ["poetry-core"]
