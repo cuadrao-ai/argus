@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -402,6 +402,8 @@ describe("shared CAPTCHA acquisition UX", () => {
   });
 
   test.each(["600010", "token-like-secret", "600010 extra"])("keeps only safe provider error codes: %s", async (providerCode) => {
+    const warning = spyOn(console, "warn").mockImplementation(() => {});
+    globalRestores.push(() => warning.mockRestore());
     const harness = challengeHarness();
     const pending = challengeUnderTest()({
       turnstile: harness.turnstile,
@@ -417,7 +419,11 @@ describe("shared CAPTCHA acquisition UX", () => {
         | ((code?: string) => boolean)
         | undefined
     )?.(providerCode);
+    harness.callbacks?.["error-callback"]?.(providerCode);
     const error = await pending.catch((caught: unknown) => caught);
+    expect(warning.mock.calls).toEqual(
+      providerCode === "600010" ? [["turnstile_challenge_failed", providerCode]] : [],
+    );
 
     expect((error as { turnstileCode?: string }).turnstileCode).toBe(
       providerCode === "600010" ? providerCode : undefined,

@@ -406,7 +406,14 @@ export function acquireTurnstileChallenge(input: {
         "refresh-expired": "never",
         "refresh-timeout": "never",
         callback: succeed,
-        "error-callback": (code) => fail(captchaUnavailableError(code), true),
+        "error-callback": (code) => {
+          if (settled) return true;
+          const error = captchaUnavailableError(code);
+          if (error.turnstileCode) {
+            console.warn("turnstile_challenge_failed", error.turnstileCode);
+          }
+          return fail(error, true);
+        },
         "expired-callback": () => {
           fail(captchaUnavailableError(), true);
         },
