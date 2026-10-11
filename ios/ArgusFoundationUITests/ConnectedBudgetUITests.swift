@@ -119,6 +119,18 @@ extension FinancialLoopUITests {
         verifyBudgetSearchAndReopen(title)
     }
 
+    func testRetainedBudgetSearchFromActivityPerspective() throws {
+        guard let title = ProcessInfo.processInfo.environment["ARGUS_TEST_SEARCH_QUERY"] else {
+            throw XCTSkip("Requires a retained isolated budget journey.")
+        }
+        try signIn()
+        app.revealConnectedTabBar()
+        tapVisible(app.buttons["tab.search"])
+        tapVisible(app.buttons["search.filter.activity"])
+        XCTAssertTrue(app.buttons["search.filter.activity"].isSelected)
+        verifyBudgetSearchAndReopen(title)
+    }
+
     private func verifyBudgetSearchAndReopen(_ title: String) {
         app.buttons["tab.search"].tap()
         let query = app.textFields["search.query"]
@@ -126,6 +138,7 @@ extension FinancialLoopUITests {
         query.tap()
         if app.buttons["search.clear"].exists { app.buttons["search.clear"].tap(); query.tap() }
         query.typeText(title + "\n")
+        chooseSearchPlans()
         let hit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search.row.budget.' AND label CONTAINS %@", title)).firstMatch
         tapVisible(hit)
         assertBudget(spent: "155.00", status: "5.00")
