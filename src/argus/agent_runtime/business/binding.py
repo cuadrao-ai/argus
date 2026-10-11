@@ -20,7 +20,7 @@ from argus.domain.business.contracts.actions import (
     ReadContext,
     TurnPlan,
 )
-from argus.domain.business.contracts.dossier import ReviewQuestion
+from argus.domain.business.contracts.dossier import AccountChoice, ReviewQuestion
 from argus.domain.business.contracts.facts import BusinessFacts
 
 
@@ -56,6 +56,8 @@ def capture_business_snapshot(snapshot: dict[str, Any]) -> BusinessBindingSnapsh
 
 
 def model_business_context(snapshot: dict[str, Any]) -> dict[str, Any]:
+    accounts = tuple(AccountChoice.model_validate(row) for row in snapshot["accounts"])
+
     def without_sources(value: Any) -> Any:
         if isinstance(value, dict):
             return {
@@ -71,7 +73,7 @@ def model_business_context(snapshot: dict[str, Any]) -> dict[str, Any]:
         **snapshot,
         "required_fact_fields": [
             blocker.field
-            for blocker in blockers(BusinessFacts())
+            for blocker in blockers(BusinessFacts(), accounts)
             if blocker.code == "fact_required"
         ],
         "drafts": [
@@ -81,7 +83,7 @@ def model_business_context(snapshot: dict[str, Any]) -> dict[str, Any]:
                 "blockers": [
                     blocker.model_dump(mode="json")
                     for blocker in blockers(
-                        BusinessFacts.model_validate(row.get("facts", {}))
+                        BusinessFacts.model_validate(row.get("facts", {})), accounts
                     )
                 ],
             }

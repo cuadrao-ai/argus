@@ -94,12 +94,15 @@
         "docs/api/openapi.yaml",
         "src/argus/api/business.py",
         "src/argus/api/business_drafts.py",
+        "src/argus/api/business_manual_schemas.py",
         "src/argus/api/business_schemas.py",
         "src/argus/api/routers/business.py",
         "src/argus/api/routers/business_drafts.py",
+        "src/argus/api/routers/business_manual.py",
         "src/argus/api/routers/financial_accounts.py",
         "src/argus/domain/business/actions/__init__.py",
         "src/argus/domain/business/actions/approval.py",
+        "src/argus/domain/business/actions/captures.py",
         "src/argus/domain/business/actions/dossier.py",
         "src/argus/domain/business/actions/facts.py",
         "src/argus/domain/business/actions/mutations.py",
@@ -118,11 +121,13 @@
         "src/argus/domain/ingestion/reconcile/recording.py",
         "src/argus/domain/ingestion/reconcile/service.py",
         "tests/business/test_actions_api.py",
+        "tests/business/test_actions_capture_api.py",
         "tests/business/test_actions_projection.py",
         "tests/business/test_contracts.py",
         "tests/business/test_owner_funds_entry.py",
         "tests/test_business_actions_ingestion_postgres.py",
-        "tests/test_business_actions_postgres.py"
+        "tests/test_business_actions_postgres.py",
+        "tests/test_business_manual_capture_postgres.py"
       ],
       "deny": [
         ".env",
@@ -176,6 +181,8 @@
         "web/__tests__/auth-form-copy.test.tsx",
         "web/__tests__/auth-return-path.test.ts",
         "web/__tests__/business-dossier.test.ts",
+        "web/__tests__/business-manual-capture.test.tsx",
+        "web/__tests__/business-search.test.tsx",
         "web/__tests__/business-tab-title.test.ts",
         "web/app/favicon.ico",
         "web/app/globals.css",
@@ -185,6 +192,7 @@
         "web/components/business-app/BusinessExpensesPanel.tsx",
         "web/components/business-app/BusinessPanel.tsx",
         "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ManualCaptureDialog.tsx",
         "web/components/business-app/ReceiptDossierReview.tsx",
         "web/components/business-app/ReceiptFactEditor.tsx",
         "web/components/business-app/ReceiptHistory.tsx",
@@ -193,15 +201,19 @@
         "web/components/business-app/ReceiptReviewPanel.tsx",
         "web/components/business-app/ReceiptReviewQuestions.tsx",
         "web/components/business-app/ReceiptSourcePreview.tsx",
+        "web/components/business-app/business-actions.ts",
         "web/components/business-app/business-data.ts",
         "web/components/business-app/business-format.ts",
         "web/components/business-app/dossier-fixtures.ts",
         "web/components/business-app/fixture-data.ts",
         "web/components/business-app/receipt-fact-presentation.ts",
         "web/components/business-app/useBusinessSearch.ts",
+        "web/components/chat/ChatWorkspace.tsx",
         "web/components/sidebar/SidebarHeader.tsx",
+        "web/components/sidebar/command-palette/WorkspaceSearchResults.tsx",
         "web/e2e/auth-confirmation-state.spec.ts",
         "web/e2e/business-draft-auth-return.spec.ts",
+        "web/e2e/business-manual-capture.spec.ts",
         "web/e2e/business-pilot-preview.spec.ts",
         "web/e2e/business-pilot-walkthrough.spec.ts",
         "web/e2e/business-record-review.spec.ts",
@@ -247,6 +259,8 @@
         "src/argus/domain/capability_registry.py",
         "src/argus/domain/tool_declaration.py",
         "src/argus/llm/openrouter.py",
+        "src/argus/llm/openrouter_model_env.py",
+        "src/argus/llm/openrouter_request_policy.py",
         "tests/agent_runtime/test_business_runtime.py",
         "tests/agent_runtime/test_business_semantic_binding.py",
         "tests/business/test_runtime_postgres.py",
@@ -267,10 +281,14 @@
       "description": "W1-owned durable WhatsApp worker delta; inherited runtime/actions/funding are not write authority.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
         "docs/specs/lanes/account-deletion-fk-census.md",
         "src/argus/api/app_setup.py",
+        "src/argus/api/routers/whatsapp.py",
         "src/argus/api/whatsapp.py",
         "src/argus/api/whatsapp_worker.py",
+        "src/argus/domain/ingestion/whatsapp/ai_consent.py",
         "src/argus/domain/ingestion/whatsapp/business_capture.py",
         "src/argus/domain/ingestion/whatsapp/business_delivery.py",
         "src/argus/domain/ingestion/whatsapp/business_envelope.py",
@@ -280,15 +298,19 @@
         "src/argus/domain/ingestion/whatsapp/business_worker.py",
         "src/argus/domain/ingestion/whatsapp/intake.py",
         "supabase/migrations/20261011020000_business_whatsapp_worker.sql",
+        "supabase/migrations/20261011100000_business_whatsapp_ai_consent.sql",
         "tests/ingestion/business_whatsapp_support.py",
         "tests/ingestion/test_business_whatsapp_envelope.py",
         "tests/ingestion/test_business_whatsapp_transport_postgres.py",
         "tests/ingestion/test_business_whatsapp_wiring.py",
         "tests/ingestion/test_business_whatsapp_worker_postgres.py",
+        "tests/ingestion/test_whatsapp_ai_consent.py",
+        "tests/ingestion/test_whatsapp_api.py",
         "tests/test_business_whatsapp_runtime_postgres.py",
         "tests/test_business_whatsapp_transport_postgres.py",
         "tests/test_business_whatsapp_worker_postgres.py",
-        "tests/test_client_grants_postgres.py"
+        "tests/test_client_grants_postgres.py",
+        "tests/test_whatsapp_ai_consent_postgres.py"
       ],
       "deny": [
         ".env",
@@ -308,9 +330,11 @@
         "tests/evals/business_eval.py",
         "tests/evals/business_runtime_capture.py",
         "tests/evals/business_scripted_plans.py",
+        "tests/evals/chat_runtime_trajectory_adapters.py",
         "tests/evals/test_business_acceptance.py",
         "tests/evals/test_business_eval.py",
         "tests/evals/test_business_runtime_capture.py",
+        "tests/evals/test_chat_runtime_trajectory_harness.py",
         "tests/test_business_runtime_capture_postgres.py"
       ],
       "deny": [
@@ -327,10 +351,260 @@
         "docs/API_CONTRACT.md",
         "docs/DATA_MODEL.md",
         "src/argus/domain/business/actions/plans.py",
+        "src/argus/domain/business/authority.py",
         "src/argus/domain/business/contracts/actions.py",
+        "src/argus/domain/business/contracts/recovery.py",
+        "supabase/migrations/20261011070000_business_manual_capture_command.sql",
         "tests/business/test_bound_draft_references.py",
         "tests/business/test_contracts.py",
-        "tests/test_business_bound_draft_references_postgres.py"
+        "tests/test_business_actor_labels_postgres.py",
+        "tests/test_business_bound_draft_references_postgres.py",
+        "tests/test_business_manual_capture_contract_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-whatsapp-settings-ui-20261011": {
+      "description": "Assigned linked-number settings UI and typed transport/proof; no backend or unrelated Business authority settings ownership.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "web/__tests__/whatsapp-link-settings.test.tsx",
+        "web/components/settings/WhatsAppLinkModal.tsx",
+        "web/components/sidebar/ProfileMenu.tsx",
+        "web/components/sidebar/ProfileSettingsPanels.tsx",
+        "web/e2e/whatsapp-link-settings.spec.ts",
+        "web/lib/browser-storage.ts",
+        "web/lib/whatsapp-link-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-business-export-20261011": {
+      "description": "Bounded Business CSV/Excel export with funding/receipts; API_CONTRACT only frozen export wire paragraph, no unrelated authority or ingestion ownership.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "poetry.lock",
+        "pyproject.toml",
+        "src/argus/api/routers/business_export.py",
+        "src/argus/api/routers/financial_accounts.py",
+        "src/argus/domain/business/export.py",
+        "tests/business/test_business_export.py",
+        "tests/test_business_export_postgres.py",
+        "uv.lock"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-business-income-contract-20261011": {
+      "description": "C0-owned income human-command contracts and root-reserved110000 migration; shared contract/docs writes serialized by root.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "src/argus/domain/business/contracts/actions.py",
+        "src/argus/domain/business/contracts/recovery.py",
+        "supabase/migrations/20261011110000_business_income_command.sql",
+        "tests/business/test_contracts.py",
+        "tests/test_business_income_contract_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-business-income-actions-20261011": {
+      "description": "Income human approval/dossier/API adapter and focused proofs; inherited contracts are dependencies, not write authority.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "docs/api/openapi.yaml",
+        "src/argus/api/routers/business_drafts.py",
+        "src/argus/domain/business/actions/approval.py",
+        "src/argus/domain/business/actions/dossier.py",
+        "src/argus/domain/business/actions/service.py",
+        "tests/business/test_actions_api.py",
+        "tests/business/test_business_income_approval.py",
+        "tests/test_business_income_approval_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-business-receipt-fiscal-x1-20261011": {
+      "description": "X1 unverified fiscal extraction and extractor-only UNMEASURED scope; document_extraction test only inherited generic sparse-interpretation wire assertion correction, preserving document-task/native wire/local validators.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/interpreter_prompt_fingerprint.json",
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "src/argus/domain/ingestion/documents/models.py",
+        "tests/ingestion/test_business_receipt_fiscal_extraction.py",
+        "tests/ingestion/test_document_extraction.py",
+        "tests/interpreter_prompt_surface.py",
+        "tests/test_interpreter_prompt_freeze.py",
+        "tests/test_interpreter_prompt_surface.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-business-checkpoint-lifecycle-20261011": {
+      "description": "Source-bound Business checkpoint helper, exclusively root-reserved120000 lifecycle migration, exact tests and bounded contract/data/census paragraphs; saver activation remains gated.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/specs/lanes/account-deletion-fk-census.md",
+        "src/argus/agent_runtime/business/checkpoint.py",
+        "supabase/migrations/20261011120000_business_checkpoint_lifecycle.sql",
+        "tests/agent_runtime/test_business_checkpoint_lifecycle.py",
+        "tests/test_business_checkpoint_lifecycle_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-personal-money-chat-20261011": {
+      "description": "Personal canonical Money proposal/runtime/catalog seam; helper donors remain separate writers, voice activation is not allocated.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "src/argus/agent_runtime/llm_interpreter.py",
+        "src/argus/agent_runtime/llm_interpreter_types.py",
+        "src/argus/agent_runtime/personal_money.py",
+        "src/argus/agent_runtime/stages/interpret.py",
+        "src/argus/agent_runtime/stages/interpret_types.py",
+        "src/argus/agent_runtime/stages/tool_execution.py",
+        "src/argus/api/agentic_access.py",
+        "src/argus/api/chat/breakdown.py",
+        "src/argus/api/chat/breakdown_jobs.py",
+        "src/argus/api/chat/money_proposals.py",
+        "src/argus/api/chat/research_jobs.py",
+        "src/argus/api/dependencies.py",
+        "src/argus/api/guest_access.py",
+        "src/argus/api/message_store.py",
+        "src/argus/api/routers/agent.py",
+        "src/argus/api/routers/computations.py",
+        "src/argus/api/routers/conversations.py",
+        "src/argus/api/schemas.py",
+        "src/argus/domain/agent_execution_access.py",
+        "src/argus/domain/capability_registry.py",
+        "src/argus/domain/recording/money_chat_tool.py",
+        "src/argus/domain/research/admission.py",
+        "src/argus/domain/research/cache.py",
+        "src/argus/domain/research/perplexity_agent.py",
+        "src/argus/domain/research/search/http_post.py",
+        "src/argus/domain/tool_declaration.py",
+        "tests/agent_runtime/test_personal_money_chat.py",
+        "tests/test_chat_runtime_cutover.py",
+        "tests/test_chat_runtime_reload_guardrails.py",
+        "tests/test_chat_stream_contract.py",
+        "tests/test_computed_answer_actions.py",
+        "tests/test_guest_access_policy.py",
+        "tests/test_personal_money_proposals.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-consumer-memory-20261011": {
+      "description": "Consented Personal memory foundation and exact regressions; source receipt guard assembly and actual consent remain separate.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "src/argus/api/chat/consented_memory_context.py",
+        "src/argus/api/personalization_memory.py",
+        "src/argus/api/routers/personalization_memory.py",
+        "src/argus/memory/contracts.py",
+        "src/argus/memory/postgres_store.py",
+        "src/argus/memory/service.py",
+        "src/argus/memory/store.py",
+        "src/argus/memory/telemetry.py",
+        "tests/memory/api_matrix.py",
+        "tests/memory/test_api_role_gate.py",
+        "tests/memory/test_consented_memory_context.py",
+        "tests/memory/test_guest_isolation.py",
+        "tests/memory/test_import_boundaries.py",
+        "tests/memory/test_postgres_store_settings_candidates.py",
+        "tests/memory/test_telemetry_privacy.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-consumer-voice-transport-20261011": {
+      "description": "Unassembled Consumer audio transport with default-denied consent; no provider route activation or rollout authority.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "src/argus/api/routers/voice.py",
+        "src/argus/api/voice.py",
+        "src/argus/api/voice_schemas.py",
+        "src/argus/llm/xai_speech.py",
+        "tests/test_voice_api.py",
+        "tests/test_voice_transport_recovery.py",
+        "tests/test_xai_speech.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-haiku-boundary-repair-20261011": {
+      "description": "Bounded opt-in structured response repair/evaluation receipt handling; fixed rubric/labels and original failed evidence preserved, actual measurement pending.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "src/argus/llm/openrouter.py",
+        "tests/evals/business_eval.py",
+        "tests/evals/test_business_eval.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-live-delegation-foundation-20261011": {
+      "description": "Provider-neutral offline live-delegation foundation; current paid/full entitlement and durable canonical admission remain default-denied prerequisites, no provider activation.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "docs/specs/argus-decision-log.md",
+        "src/argus/api/live_voice.py",
+        "src/argus/api/live_voice_contracts.py",
+        "src/argus/llm/live_delegation.py",
+        "tests/test_live_voice_contracts.py",
+        "tests/test_live_voice_delegation.py"
       ],
       "deny": [
         ".env",

@@ -48,7 +48,9 @@ export function useBusinessSearch({
         retry: t("command_palette.retry_search", "Try searching again"),
       },
       find: async (query) => {
-        const found = await source.search(query);
+        const [records, captures] = await Promise.allSettled([source.search(query), source.captures(query)]);
+        if (records.status === "rejected") throw records.reason;
+        const found = records.value;
         return [
           {
             id: "expenses",
@@ -81,6 +83,19 @@ export function useBusinessSearch({
               amount: formatMoney(receipt.amount, receipt.currency, locale) || null,
               open: () => openPanel({ kind: "receipt", receiptId: receipt.id }),
             })),
+          },
+          {
+            id: "captures",
+            label: t("business.capture.notes", "Original notes"),
+            ...(captures.status === "rejected" ? { error: t("business.capture.search_failed", "Notes are unavailable. Other record results are shown below.") } : {}),
+            hits: captures.status === "fulfilled" ? captures.value.map((note) => ({
+              id: note.source_id,
+              icon: FileText,
+              title: note.text,
+              detail: line(t("business.capture.saved_note", "Saved original note"), formatDay(note.received_at, locale), t("business.dossier.revision", "Revision {{version}}", { version: note.version }), t(`business.dossier.state.${note.review_state}`, note.review_state)),
+              amount: null,
+              open: () => openPanel({ kind: "draft", draftId: note.draft_id }),
+            })) : [],
           },
         ];
       },

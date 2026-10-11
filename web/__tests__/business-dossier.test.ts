@@ -1,10 +1,35 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import i18next from "i18next";
+import { I18nextProvider } from "react-i18next";
+import spanish from "@/public/locales/es-419/common.json";
+import { ReceiptApprovalGuidance } from "@/components/business-app/ReceiptDossierReview";
+import type { BusinessDossier } from "@/lib/business-dossier";
 import { approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
 import { withBusinessSpace } from "@/components/business-app/business-data";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import { presentBusinessFact, presentFiscalFact } from "@/components/business-app/receipt-fact-presentation";
+
+test("accepted recorded dossiers omit preapproval guidance while open and uncertain blockers remain", async () => {
+  const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
+  const ready = await fixture.dossier(dossierFixtureIds.ready);
+  const accepted = await fixture.approveDraft(ready.draft_id, ready.version);
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  const render = (dossier: BusinessDossier) => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(ReceiptApprovalGuidance, { dossier })));
+  const closed = { ...accepted, blockers: [{ code: "business_draft_not_open", field: null }] };
+  assert.equal(render(closed), "");
+  const open = await fixture.dossier(dossierFixtureIds.unknown);
+  assert.match(render(open), /Antes de aprobar/);
+  assert.match(render(open), /Cómo se pagó/);
+  const uncertain = { ...open, review_state: "accepting" as const, approval_result: { status: "outcome_unknown" as const, code: "recording_unknown", reviewed_version: open.version } };
+  assert.match(render(uncertain), /Antes de aprobar/);
+  assert.match(render({ ...closed, approval_result: uncertain.approval_result }), /Antes de aprobar/);
+  assert.match(render({ ...closed, review_state: "open" }), /Antes de aprobar/);
+});
 
 test("canonical draft transport binds explicit ID, version, human effect and idempotency", async () => {
   const originalFetch = globalThis.fetch;

@@ -607,6 +607,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/captures:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          pattern: ^[^\x00]*$
+          default: ''
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+          default: 20
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualCapturePage'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaptureNote'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDossier'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/approve:
     post:
       tags:
@@ -631,7 +713,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ApproveExpense'
+              oneOf:
+              - $ref: '#/components/schemas/ApproveExpense'
+              - $ref: '#/components/schemas/ApproveIncome'
+              discriminator:
+                propertyName: action
+                mapping:
+                  record_expense: '#/components/schemas/ApproveExpense'
+                  record_income: '#/components/schemas/ApproveIncome'
       responses:
         '200':
           description: Successful Response
@@ -9881,6 +9970,19 @@ components:
       required:
       - version
       - action
+    ApproveIncome:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        action:
+          type: string
+          const: record_income
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - action
     AssetChangeResponse:
       properties:
         version:
@@ -11540,6 +11642,20 @@ components:
       type: object
       required:
       - items
+    CaptureNote:
+      properties:
+        text:
+          type: string
+          maxLength: 20000
+          minLength: 1
+        draft:
+          anyOf:
+          - $ref: '#/components/schemas/ExistingDraft'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - text
     CategoriesResponse:
       properties:
         categories:
@@ -13857,6 +13973,19 @@ components:
       - name
       - version
       - currency
+    ExistingDraft:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1.0
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      - version
     Expectation:
       properties:
         id:
@@ -16679,6 +16808,50 @@ components:
       type: object
       required:
       - expected_version
+    ManualCapture:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1.0
+        source_id:
+          type: string
+          format: uuid
+        text:
+          type: string
+          maxLength: 20000
+          minLength: 1
+        received_at:
+          type: string
+          format: date-time
+        review_state:
+          type: string
+          enum:
+          - open
+          - accepting
+          - accepted
+          - dismissed
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      - version
+      - source_id
+      - text
+      - received_at
+      - review_state
+    ManualCapturePage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ManualCapture'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - items
     MarketSession:
       properties:
         phase:
