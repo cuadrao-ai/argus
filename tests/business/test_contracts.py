@@ -242,6 +242,84 @@ def test_plan_references_only_prior_draft_creation() -> None:
         TurnPlan.model_validate({"actions": [ask, create]})
     with pytest.raises(ValidationError, match="draft creation"):
         TurnPlan.model_validate({"actions": [{"action": "business_read_context"}, ask]})
+    for version_field in ("version", "base_version"):
+        revise = {**create, "draft": {"draft_id": fake.uuid4(), version_field: 2}}
+        with pytest.raises(ValidationError, match="draft creation"):
+            TurnPlan.model_validate({"actions": [revise, ask]})
+
+
+def test_legacy_exact_references_keep_explicit_versions_and_serialization() -> None:
+    draft_id = fake.uuid4()
+    actions = [
+        {
+            "action": "business_propose_activity",
+            "draft": {"draft_id": draft_id, "version": version},
+            "source_ids": [fake.uuid4()],
+            "facts": {"amount": {"state": "unknown", "value": None}},
+        }
+        for version in (2, 3)
+    ]
+    plan = TurnPlan.model_validate({"actions": actions})
+    assert [action.draft.version for action in plan.actions] == [2, 3]
+    assert [
+        action.model_dump(mode="json", exclude_none=True)["draft"]
+        for action in plan.actions
+    ] == [action["draft"] for action in actions]
+    assert TurnPlan.model_validate_json(plan.model_dump_json()) == plan
+
+
+def test_bound_draft_plan_retains_one_captured_revision_and_round_trips() -> None:
+    target = {"draft_id": fake.uuid4(), "base_version": 2}
+    action = {
+        "action": "business_propose_activity",
+        "draft": target,
+        "source_ids": [fake.uuid4()],
+        "facts": {"amount": {"state": "unknown"}},
+    }
+    ask = {
+        "action": "business_ask",
+        "draft": target,
+        "field": "funding",
+        "asked_of": "owner",
+        "prompt": fake.sentence(),
+    }
+    plan = TurnPlan.model_validate({"actions": [action, ask]})
+    assert plan.schema_version == 1
+    assert plan.actions[0].draft == plan.actions[1].draft
+    assert TurnPlan.model_validate_json(plan.model_dump_json()) == plan
+    assert canonical_input_hash(plan.actions[0]) == canonical_input_hash(
+        TurnPlan.model_validate_json(plan.model_dump_json()).actions[0]
+    )
+
+
+@pytest.mark.parametrize("change", [{"base_version": 3}, {"version": 2}])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_bound_draft_plan_rejects_rebinding_or_mixed_exact_references(
+    change: dict, reverse: bool
+) -> None:
+    draft_id = fake.uuid4()
+    first = {
+        "action": "business_propose_activity",
+        "draft": {"draft_id": draft_id, "base_version": 2},
+        "source_ids": [fake.uuid4()],
+        "facts": {"amount": {"state": "unknown"}},
+    }
+    second = {**first, "draft": {"draft_id": draft_id, **change}}
+    actions = [second, first] if reverse else [first, second]
+    with pytest.raises(ValidationError, match="one captured draft binding"):
+        TurnPlan.model_validate({"actions": actions})
+
+
+@pytest.mark.parametrize("version", [0, -1, True, "2", 2.5])
+def test_bound_draft_rejects_malformed_captured_versions(version: object) -> None:
+    with pytest.raises(ValidationError):
+        ProposeActivity.model_validate(
+            {
+                "draft": {"draft_id": fake.uuid4(), "base_version": version},
+                "source_ids": [fake.uuid4()],
+                "facts": {"amount": {"state": "unknown"}},
+            }
+        )
 
 
 def test_normalized_hash_matches_defaults_and_decimal_spelling() -> None:

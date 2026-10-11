@@ -5,14 +5,13 @@ from uuid import UUID, uuid4
 
 import pytest
 from argus.agent_runtime.business.context import AuthorizedBusinessContext
-from argus.agent_runtime.business.interpretation import BusinessInterpretation
+from argus.agent_runtime.business.interpretation import (
+    BusinessInterpretation,
+    BusinessRecordIntent,
+)
 from argus.agent_runtime.business.runner import BusinessTurnRunner
 from argus.domain.business.authority import authorize
 from argus.domain.business.contracts.actions import (
-    Ask,
-    ExistingDraft,
-    ProposeActivity,
-    ProposeAllocation,
     TurnPlan,
 )
 from argus.domain.business.contracts.authority import TrustedActor
@@ -28,14 +27,14 @@ pytestmark = action_pg.pytestmark
 
 
 class InjectedInterpreter:
-    def __init__(self, build_plan):
-        self.build_plan = build_plan
+    def __init__(self, build_interpretation):
+        self.build_interpretation = build_interpretation
         self.interpret_count = 0
         self.reply_count = 0
 
     async def ainterpret_business(self, payload):
         self.interpret_count += 1
-        return BusinessInterpretation(plan=self.build_plan(payload))
+        return self.build_interpretation(payload)
 
     async def acompose_business(self, payload):
         self.reply_count += 1
@@ -88,6 +87,11 @@ def claimed_context(service, member):
             ).fetchone()
             return row[0]
 
+    def check_access():
+        with service.authority.pool.connection() as db:
+            check_lease(db, authorized, lease)
+            authorize(db, actor, authorized.grant_id).require("read")
+
     context = AuthorizedBusinessContext(
         actions=service,
         authorization=authorized,
@@ -97,6 +101,7 @@ def claimed_context(service, member):
         received_at=now,
         channel="whatsapp",
         begin_reply=begin_reply,
+        require_access=check_access,
     )
     turn = DurableTurn(
         space_id=actor.space_id,
@@ -111,28 +116,23 @@ def claimed_context(service, member):
     return turn, context
 
 
-def activity_plan(payload):
-    source_id = payload["source_id"]
-    return TurnPlan(
-        actions=(
-            ProposeActivity(
+def activity_proposal(payload):
+    return BusinessInterpretation(
+        records=(
+            BusinessRecordIntent(
                 facts=BusinessFactPatch(
                     amount={"state": "known", "value": "850"},
                     kind={"state": "known", "value": "expense"},
                 ),
-                source_ids=(source_id,),
-            ),
-            ProposeAllocation(
-                draft={"from_action": 0},
-                funding={"state": "known", "value": {"kind": "owner_funds"}},
-                business_share={"state": "known", "value": {"kind": "all"}},
-                source_ids=(source_id,),
-            ),
-            Ask(
-                draft={"from_action": 0},
-                field="occurred_on",
-                asked_of="owner",
-                prompt="¿Qué día compraste los materiales?",
+                allocation={
+                    "funding": {"state": "known", "value": {"kind": "owner_funds"}},
+                    "business_share": {"state": "known", "value": {"kind": "all"}},
+                },
+                question={
+                    "field": "occurred_on",
+                    "asked_of": "owner",
+                    "prompt": "¿Qué día compraste los materiales?",
+                },
             ),
         )
     )
@@ -142,7 +142,7 @@ def activity_plan(payload):
 async def test_real_database_runner_persists_provenance_and_replays_one_draft(actions):
     service, member, _ = actions
     turn, context = claimed_context(service, member)
-    interpreter = InjectedInterpreter(activity_plan)
+    interpreter = InjectedInterpreter(activity_proposal)
     runner = BusinessTurnRunner(interpreter=interpreter)
     message = "Pagué  850 por materiales con mi dinero."
     first = await runner.run(context=context, turn=turn, message=message)
@@ -197,26 +197,23 @@ async def test_real_database_runner_persists_provenance_and_replays_one_draft(ac
 
 
 @pytest.mark.asyncio
-async def test_real_database_runner_missing_draft_is_not_found_and_stops_actions(actions):
+async def test_real_database_runner_foreign_read_is_not_found_and_stops_actions(actions):
     service, member, _ = actions
     turn, context = claimed_context(service, member)
     interpreter = InjectedInterpreter(
-        lambda payload: TurnPlan(
-            actions=(
-                ProposeActivity(
-                    draft=ExistingDraft(draft_id=uuid4(), version=1),
-                    facts=BusinessFactPatch(amount={"state": "known", "value": "850"}),
-                    source_ids=(payload["source_id"],),
-                ),
-                ProposeActivity(
+        lambda payload: BusinessInterpretation(
+            records=(
+                BusinessRecordIntent(target_draft_id=uuid4(), explain_status=True),
+                BusinessRecordIntent(
                     facts=BusinessFactPatch(amount={"state": "known", "value": "900"}),
-                    source_ids=(payload["source_id"],),
                 ),
             )
         )
     )
     result = await BusinessTurnRunner(interpreter=interpreter).run(
-        context=context, turn=turn, message="Corrige ese registro a 850."
+        context=context,
+        turn=turn,
+        message="Busca ese registro y prepara un gasto de 900.",
     )
     assert len(result.tool_records) == 1
     assert (
@@ -235,3 +232,180 @@ async def test_real_database_runner_missing_draft_is_not_found_and_stops_actions
             ).fetchone()[0]
             == 0
         )
+
+
+@pytest.mark.asyncio
+async def test_existing_record_update_allocation_question_and_replay_use_receipts(
+    actions,
+):
+    service, member, _ = actions
+    draft_id, version = action_pg.create(service, member)
+    turn, context = claimed_context(service, member)
+    interpreter = InjectedInterpreter(
+        lambda payload: BusinessInterpretation(
+            records=(
+                BusinessRecordIntent(
+                    target_draft_id=draft_id,
+                    facts={"occurred_on": {"state": "known", "value": "2026-10-09"}},
+                    allocation={
+                        "funding": {"state": "known", "value": {"kind": "owner_funds"}},
+                        "business_share": {"state": "known", "value": {"kind": "all"}},
+                    },
+                    question={
+                        "field": "counterparty",
+                        "asked_of": "owner",
+                        "prompt": "Which supplier?",
+                    },
+                ),
+            )
+        )
+    )
+    runner = BusinessTurnRunner(interpreter=interpreter)
+    message = "Friday, paid personally; all for the business."
+    first = await runner.run(context=context, turn=turn, message=message)
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.business_turns set reply_text=%s,phase='reply_sent' where turn_key=%s",
+            (first.reply_text, turn.turn_key),
+        )
+    replay = await runner.run(context=context, turn=turn, message=message)
+    assert interpreter.interpret_count == interpreter.reply_count == 1
+    assert replay.saved_state == first.saved_state
+    assert all(
+        item["draft"] == {"draft_id": str(draft_id), "base_version": version}
+        for item in first.plan["actions"]
+    )
+    with service.authority.pool.connection() as db:
+        receipts = db.execute(
+            "select outcome,actor,command from public.business_action_receipts where turn_key=%s order by action_index",
+            (turn.turn_key,),
+        ).fetchall()
+    assert [item[0]["version"] for item in receipts] == [
+        version + 1,
+        version + 2,
+        version + 2,
+    ]
+    assert all(
+        item[1]["grant_id"] == str(context.authorization.grant_id) for item in receipts
+    )
+    assert all(item[2]["draft"] == first.plan["actions"][0]["draft"] for item in receipts)
+    dossier = service.dossier(member, draft_id)
+    assert len(dossier.history) == 3
+    assert len(dossier.questions) == 1
+    assert str(dossier.facts.occurred_on.value) == "2026-10-09"
+    assert dossier.facts.funding.value.kind == "owner_funds"
+    assert dossier.questions[0].draft_id == draft_id
+    assert len(dossier.sources) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("interleave_after_first", [False, True])
+async def test_server_binding_does_not_absorb_external_revision(
+    actions, monkeypatch, interleave_after_first
+):
+    from argus.domain.business.contracts.actions import ReviewDraft
+
+    service, member, _ = actions
+    draft_id, version = action_pg.create(service, member)
+    turn, context = claimed_context(service, member)
+
+    def revise(expected):
+        result = service.review(
+            member,
+            draft_id,
+            ReviewDraft(
+                version=expected,
+                facts=BusinessFactPatch(
+                    counterparty={"state": "known", "value": "Human supplier"}
+                ),
+            ),
+            str(uuid4()),
+        )
+        assert result.outcome == "applied"
+
+    def proposal(payload):
+        if not interleave_after_first:
+            revise(version)
+        return BusinessInterpretation(
+            records=(
+                BusinessRecordIntent(
+                    target_draft_id=draft_id,
+                    facts={"amount": {"state": "known", "value": "83"}},
+                    question={
+                        "field": "funding",
+                        "asked_of": "owner",
+                        "prompt": "How paid?",
+                    },
+                ),
+            )
+        )
+
+    original_execute = service.execute
+
+    def execute(context, key, index, *, lease):
+        result = original_execute(context, key, index, lease=lease)
+        if interleave_after_first and index == 0:
+            revise(result.version)
+        return result
+
+    monkeypatch.setattr(service, "execute", execute)
+    result = await BusinessTurnRunner(interpreter=InjectedInterpreter(proposal)).run(
+        context=context, turn=turn, message="Correct amount to 83; how was it paid?"
+    )
+    assert result.tool_records[-1]["tool_outcome"]["failure"] is not None
+    with service.authority.pool.connection() as db:
+        refused = db.execute(
+            "select outcome from public.business_action_receipts where turn_key=%s order by action_index desc limit 1",
+            (turn.turn_key,),
+        ).fetchone()[0]
+    assert refused["outcome"] == "stale_version"
+    assert len(result.tool_records) == (2 if interleave_after_first else 1)
+    dossier = service.dossier(member, draft_id)
+    assert not dossier.questions
+    assert dossier.facts.counterparty.value == "Human supplier"
+    assert dossier.facts.amount.value == ("83" if interleave_after_first else "850")
+    assert dossier.version == version + (2 if interleave_after_first else 1)
+
+
+@pytest.mark.asyncio
+async def test_unknown_mutable_target_cannot_persist_executable_plan(actions):
+    from argus.agent_runtime.business.binding import BusinessBindingError
+
+    service, member, _ = actions
+    turn, context = claimed_context(service, member)
+    interpreter = InjectedInterpreter(
+        lambda payload: BusinessInterpretation(
+            records=(
+                BusinessRecordIntent(
+                    target_draft_id=uuid4(),
+                    facts={"amount": {"state": "known", "value": "31"}},
+                ),
+            )
+        )
+    )
+    with pytest.raises(BusinessBindingError, match="target_not_in_context"):
+        await BusinessTurnRunner(interpreter=interpreter).run(
+            context=context,
+            turn=turn,
+            message="Change a record absent from this context.",
+        )
+    with service.authority.pool.connection() as db:
+        assert db.execute(
+            "select plan,plan_actor from public.business_turns where turn_key=%s",
+            (turn.turn_key,),
+        ).fetchone() == (None, None)
+        assert (
+            db.execute(
+                "select count(*) from public.business_action_receipts where turn_key=%s",
+                (turn.turn_key,),
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            db.execute(
+                "select count(*) from public.financial_import_events where owner_space_id=%s",
+                (context.authorization.actor.space_id,),
+            ).fetchone()[0]
+            == 0
+        )
+    assert interpreter.reply_count == 0

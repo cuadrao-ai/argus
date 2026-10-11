@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 from typing import Any
 
 import pytest
+from argus.agent_runtime.business.interpretation import BusinessInterpretation
 from argus.agent_runtime.capabilities.contract import build_default_capability_contract
 from argus.agent_runtime.graph.workflow import build_workflow
 from argus.agent_runtime.llm_interpreter import (
@@ -45,6 +47,7 @@ from argus.llm.openrouter_key_policy import (
 )
 from fastapi import FastAPI
 from langgraph.checkpoint.memory import MemorySaver
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from tests.result_readout_fixtures import readout_draft
 
@@ -452,6 +455,83 @@ def test_json_schema_payload_omits_temperature_for_readout_and_openai_documents(
         assert payload["temperature"] == profile.temperature
     if not model.startswith("anthropic/"):
         assert payload["provider"]["require_parameters"] is True
+
+
+@pytest.mark.parametrize("task", openrouter.OPENROUTER_TASK_MODEL_TIERS)
+@pytest.mark.parametrize(
+    "model", ["openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"]
+)
+def test_luna_pro_sampling_capability_preserves_structured_request_policy(
+    task: openrouter.OpenRouterTask, model: str
+) -> None:
+    from argus.agent_runtime.llm_interpreter_types import LLMDateRangeIntent
+
+    arguments = {
+        "messages": [{"role": "user", "content": "hello"}],
+        "schema_model": LLMDateRangeIntent,
+        "schema_name": "LLMDateRangeIntent",
+        "profile": openrouter_profile_for_task(task),
+    }
+    baseline = openrouter._json_schema_payload(model="openai/gpt-5.6-luna", **arguments)
+    payload = openrouter._json_schema_payload(model=model, **arguments)
+    baseline.pop("model")
+    baseline.pop("temperature", None)
+    assert payload.pop("model") == model
+    assert "temperature" not in payload
+    assert payload == baseline
+    assert payload["provider"]["require_parameters"] is True
+
+
+@pytest.mark.parametrize(
+    "model", ["openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"]
+)
+def test_luna_pro_factory_omits_unsupported_sampling_only(monkeypatch, model) -> None:
+    FakeChatOpenRouter.calls.clear()
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
+    assert openrouter.build_openrouter_model("interpretation", model_name=model)
+    assert FakeChatOpenRouter.calls == [
+        {
+            "model_name": model,
+            "max_tokens": 3200,
+            "timeout": 20,
+            "max_retries": 1,
+            "openrouter_api_key": "test-key",
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "model", ["openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"]
+)
+def test_luna_pro_direct_chat_omits_unsupported_sampling_only(monkeypatch, model):
+    observed = []
+
+    async def fake_post(**arguments):
+        observed.append(arguments["payload"])
+        return openrouter.httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "Saved draft."}}]},
+            request=openrouter.httpx.Request("POST", "https://example.invalid"),
+        )
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr(openrouter, "_post_openrouter_json_schema", fake_post)
+    result = asyncio.run(
+        openrouter.invoke_openrouter_chat_completion(
+            task="chat_composer",
+            model_name=model,
+            messages=[{"role": "user", "content": "summarize"}],
+        )
+    )
+    assert result == "Saved draft."
+    assert observed == [
+        {
+            "model": model,
+            "messages": [{"role": "user", "content": "summarize"}],
+            "max_tokens": openrouter_profile_for_task("chat_composer").max_tokens,
+        }
+    ]
 
 
 def test_interpretation_repair_uses_structured_tier_without_reasoning() -> None:
@@ -2996,7 +3076,9 @@ def test_openrouter_failure_log_reports_raising_origin(monkeypatch) -> None:
         message = _captured_failure_log(monkeypatch, exc)
 
     assert "error_type=ValueError" in message
-    assert "OpenRouter interpretation returned an incomplete strategy draft" not in message
+    assert (
+        "OpenRouter interpretation returned an incomplete strategy draft" not in message
+    )
     # Points at the raising line so a deterministic local rejection is
     # distinguishable from a provider transport failure.
     assert "error_origin=test_openrouter_policy.py:" in message
@@ -3922,3 +4004,221 @@ def test_contract_rejection_is_recorded_as_a_distinct_route_receipt(
     }
     assert all(receipt.outcome == "failed" for receipt in rejected)
     assert interpreter.last_failure_kind == "contract_rejected"
+
+
+class CompleteWireResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    value: str
+
+
+class SparseWireResult(CompleteWireResult):
+    note: str | None = None
+
+
+class NestedWireResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    item: SparseWireResult
+
+
+@pytest.mark.parametrize("schema_model", [SparseWireResult, NestedWireResult])
+@pytest.mark.parametrize(
+    "model", ["openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"]
+)
+def test_openai_optional_object_schema_is_delivered_exactly_in_prompt(
+    schema_model, model
+):
+    profile = openrouter_profile_for_task("interpretation")
+    payload = openrouter._json_schema_payload(
+        model=model,
+        messages=[{"role": "user", "content": "probe"}],
+        schema_model=schema_model,
+        schema_name="probe",
+        profile=profile,
+    )
+    assert "response_format" not in payload
+    assert payload["provider"] == {"require_parameters": True}
+    assert "temperature" not in payload
+    assert payload["max_tokens"] == profile.max_tokens
+    assert payload["reasoning"] == {"effort": profile.reasoning_effort}
+    instruction = payload["messages"][0]["content"][0]["text"]
+    assert (
+        json.loads(instruction.split("JSON Schema:\n", 1)[1])
+        == schema_model.model_json_schema()
+    )
+    assert payload["messages"][-1] == {"role": "user", "content": "probe"}
+
+
+@pytest.mark.parametrize("model", ["openai/gpt-6-luna-pro", "x-ai/grok-4.3"])
+def test_all_required_object_keeps_exact_native_schema(model):
+    payload = openrouter._json_schema_payload(
+        model=model,
+        messages=[{"role": "user", "content": "probe"}],
+        schema_model=CompleteWireResult,
+        schema_name="probe",
+        profile=openrouter_profile_for_task("interpretation"),
+    )
+    assert payload["response_format"]["json_schema"] == {
+        "name": "probe",
+        "strict": True,
+        "schema": CompleteWireResult.model_json_schema(),
+    }
+    assert payload["messages"] == [{"role": "user", "content": "probe"}]
+
+
+@pytest.mark.parametrize("sync", [False, True])
+@pytest.mark.parametrize(
+    "model", ["openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"]
+)
+@pytest.mark.parametrize(
+    "schema_model,response_value,valid",
+    [
+        (
+            BusinessInterpretation,
+            {"records": [{"facts": {"amount": {"state": "known", "value": "37"}}}]},
+            True,
+        ),
+        (
+            BusinessInterpretation,
+            {"records": [{"facts": {"funding": {"state": "unknown"}}}]},
+            True,
+        ),
+        (
+            BusinessInterpretation,
+            {"records": [{"facts": {"funding": {"state": "owner_does_not_know"}}}]},
+            True,
+        ),
+        (BusinessInterpretation, {"records": [{"facts": {"amount": None}}]}, False),
+        (
+            BusinessInterpretation,
+            {"records": [{"facts": {"amount": {"state": "known"}}}]},
+            False,
+        ),
+        (
+            BusinessInterpretation,
+            {
+                "records": [
+                    {
+                        "facts": {
+                            "amount": {"state": "known", "value": "37"},
+                            "grant_id": "fake",
+                        }
+                    }
+                ]
+            },
+            False,
+        ),
+        (NestedWireResult, {"item": {"value": "kept"}}, True),
+        (NestedWireResult, {"item": {"note": "missing value"}}, False),
+        (CompleteWireResult, {"value": "native"}, True),
+        (CompleteWireResult, {"value": None}, False),
+    ],
+)
+def test_openai_structured_wire_retains_exact_local_validation(
+    monkeypatch, sync, model, schema_model, response_value, valid
+):
+    submitted = []
+
+    def respond(payload):
+        submitted.append(payload)
+        if schema_model is CompleteWireResult:
+            assert (
+                payload["response_format"]["json_schema"]["schema"]
+                == schema_model.model_json_schema()
+            )
+        else:
+            assert "response_format" not in payload
+            instruction = payload["messages"][0]["content"][0]["text"]
+            assert (
+                json.loads(instruction.split("JSON Schema:\n", 1)[1])
+                == schema_model.model_json_schema()
+            )
+        return openrouter.httpx.Response(
+            200,
+            request=openrouter.httpx.Request("POST", "https://example.invalid"),
+            json={"choices": [{"message": {"content": json.dumps(response_value)}}]},
+        )
+
+    class Client:
+        def __init__(self, **kwargs):
+            assert (
+                kwargs["timeout"]
+                == openrouter_profile_for_task("interpretation").timeout_seconds
+            )
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        def post(self, *args, **kwargs):
+            return respond(kwargs["json"])
+
+    class AsyncClient(Client):
+        async def post(self, *args, **kwargs):
+            return respond(kwargs["json"])
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "mock-key")
+    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "")
+    monkeypatch.setattr(openrouter.httpx, "Client", Client)
+    monkeypatch.setattr(openrouter.httpx, "AsyncClient", AsyncClient)
+    openrouter.clear_openrouter_route_receipts()
+    kwargs = dict(
+        task="interpretation",
+        model_name=model,
+        messages=[{"role": "user", "content": "probe"}],
+        schema_model=schema_model,
+        schema_name=schema_model.__name__,
+    )
+
+    def invoke():
+        if sync:
+            return openrouter.invoke_openrouter_json_schema_sync(**kwargs)
+        return asyncio.run(openrouter.invoke_openrouter_json_schema(**kwargs))
+
+    if valid:
+        assert invoke().model_dump(mode="json", exclude_unset=True) == response_value
+    else:
+        with pytest.raises(ValidationError):
+            invoke()
+    assert len(submitted) == 1
+    assert submitted[0]["provider"] == {"require_parameters": True}
+    assert "temperature" not in submitted[0]
+    receipts = openrouter.get_openrouter_route_receipts()
+    assert len(receipts) == 1
+    assert receipts[0].model == model
+    assert receipts[0].outcome == ("succeeded" if valid else "failed")
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_nested_request_observers_preserve_order_and_restore_on_exception(failure):
+    events = []
+    payload = {"model": "consumer/configured"}
+
+    def observer(label):
+        def observe(task, actual):
+            events.append(label)
+            return {**actual, label: True}
+        return observe
+
+    with openrouter.openrouter_request_guard(observer("outer")):
+        try:
+            with openrouter.openrouter_request_guard(observer("inner")):
+                assert openrouter._guard_request("interpretation", payload) == {
+                    **payload, "outer": True, "inner": True,
+                }
+                if failure:
+                    raise RuntimeError("interrupted")
+        except RuntimeError:
+            assert failure
+        assert openrouter._guard_request("interpretation", payload) == {
+            **payload, "outer": True,
+        }
+    assert events == ["outer", "inner", "outer"]
+    assert openrouter._guard_request("interpretation", payload) is payload

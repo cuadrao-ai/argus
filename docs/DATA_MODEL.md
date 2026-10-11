@@ -3467,6 +3467,19 @@ of those implemented behaviors. Model or reply `unknown` outcomes require
 reconciliation, never blind retry. Lease rows must retain their fence across
 release so replacement workers cannot reuse an earlier fence.
 
+The version-1 plan also accepts an additive server-owned existing-draft binding,
+`{draft_id, base_version}`. Dispatch captures it from authorized canonical context;
+all actions targeting that draft must use the identical binding, without mixing
+exact-version references. The first operation uses the captured base version.
+Later operations derive their expected version only from successful immutable
+receipts whose command contains that same binding in the same turn, client and
+actor. Missing, failed, unknown, mismatched or regressing results cannot advance
+the binding. Current-record checks still reject an intervening external revision.
+The stored command and hash retain the base binding, never a rewritten resolved
+version. Existing exact-version references and creation-only `from_action`
+references keep their prior semantics and replay. This changes no table, grant,
+approval contract or ownership of current facts.
+
 ### Existing ingestion persistence
 
 `financial_document_extractions` owns the durable draft, the immutable preparation

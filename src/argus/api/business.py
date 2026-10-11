@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
 
@@ -102,6 +103,20 @@ def require_business(
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
 ) -> BusinessContext:
     return _context(request, documents, context.hub, context.user_id)
+
+
+def require_business_workspace(
+    request: Request,
+    person: Annotated[BusinessPerson, Depends(require_business_person)],
+    documents: Annotated[DocumentsService, Depends(require_saved_documents)],
+    context: Annotated[IngestionContext, Depends(require_ingestion_context)],
+) -> BusinessContext:
+    if not isinstance(context.hub.sink, ReconciliationService):
+        raise unavailable_problem(request)
+    scope = resolve_business_scope(person.spaces, person.person_id)
+    if scope is None:
+        raise space_missing_problem(request)
+    return BusinessContext(scope, BusinessService(documents, context.hub.sink, _captured))
 
 
 def require_business_document_write(

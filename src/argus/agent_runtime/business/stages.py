@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
+from argus.agent_runtime.business.binding import (
+    capture_business_snapshot,
+    compile_business_plan,
+    model_business_context,
+)
 from argus.agent_runtime.business.context import AuthorizedBusinessContext
 from argus.agent_runtime.business.interpretation import BusinessInterpretation
 from argus.agent_runtime.stages.tool_execution import execute_tool_calls_async
@@ -28,6 +33,7 @@ class BusinessStages:
 
     async def interpret(self, state: dict[str, Any]) -> dict[str, Any]:
         context = self.context
+        context.check_access()
         self.plan = context.actions.plan_for_turn(
             context.authorization, context.turn_key, lease=context.lease
         )
@@ -44,24 +50,29 @@ class BusinessStages:
         )
         if self.plan is None:
             message = self.message
+            snapshot = context.actions.read_context(context.authorization)
+            binding_snapshot = capture_business_snapshot(snapshot)
             payload = {
                 "message": message,
-                "source_id": str(source_id),
                 "language": context.language,
                 "received_at": context.received_at.isoformat(),
-                "business": context.actions.read_context(context.authorization),
+                "business": model_business_context(snapshot),
                 "history": [
                     item.model_dump(mode="json")
                     for item in state["run_state"].recent_thread_history
                 ],
             }
+            context.check_access()
             self.interpretation = BusinessInterpretation.model_validate(
                 await self.interpreter.ainterpret_business(payload)
             )
+            context.check_access()
             self.plan = context.actions.persist_plan(
                 context.authorization,
                 context.turn_key,
-                self.interpretation.plan,
+                compile_business_plan(
+                    self.interpretation, snapshot=binding_snapshot, source_id=source_id
+                ),
                 lease=context.lease,
             )
         calls = [
@@ -79,6 +90,7 @@ class BusinessStages:
         }
 
     async def execute(self, state: dict[str, Any]) -> dict[str, Any]:
+        self.context.check_access()
         assert self.plan is not None
         result = await execute_tool_calls_async(
             state=state["run_state"],

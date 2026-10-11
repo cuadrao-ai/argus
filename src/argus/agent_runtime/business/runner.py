@@ -1,16 +1,32 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from contextlib import nullcontext
 from typing import Any
 from uuid import UUID, uuid4
 
 from argus.agent_runtime.business.context import AuthorizedBusinessContext
+from argus.agent_runtime.business.interpretation import (
+    BUSINESS_MODEL_CANDIDATES,
+    BusinessInterpretation,
+    BusinessReply,
+)
 from argus.agent_runtime.business.stages import BusinessStages
 from argus.agent_runtime.graph.workflow import build_workflow
 from argus.agent_runtime.runtime import build_workflow_input
 from argus.agent_runtime.state.models import ConversationMessage, UserState
 from argus.domain.business.contracts.facts import Contract
 from argus.domain.business.contracts.recovery import DurableTurn
+from argus.llm.openrouter import (
+    openrouter_profile_for_task,
+    openrouter_request_guard,
+    openrouter_schema_payload,
+    openrouter_structured_model_candidates,
+)
+from argus.llm.openrouter_request_policy import (
+    openrouter_payload_route,
+    validate_openrouter_route,
+)
 
 
 class BusinessTurnResult(Contract):
@@ -21,9 +37,42 @@ class BusinessTurnResult(Contract):
     reply_text: str
 
 
+def business_provider_route(model_name: str | None = None) -> dict[str, Any]:
+    model = model_name or BUSINESS_MODEL_CANDIDATES[0]
+    if model not in BUSINESS_MODEL_CANDIDATES:
+        raise ValueError("Business runtime model is not an authorized candidate")
+    return {
+        "gateway": "openrouter",
+        **{
+            role: [
+                openrouter_payload_route(
+                    openrouter_schema_payload(
+                        model=candidate,
+                        messages=[],
+                        schema_model=schema,
+                        schema_name=schema.__name__,
+                        profile=openrouter_profile_for_task("interpretation"),
+                    )
+                )
+                for candidate in openrouter_structured_model_candidates(
+                    model, task="interpretation"
+                )
+            ]
+            for role, schema in (
+                ("interpretation", BusinessInterpretation),
+                ("reply", BusinessReply),
+            )
+        },
+    }
+
+
 class BusinessTurnRunner:
     def __init__(self, *, interpreter: Any = None, model_name: str | None = None) -> None:
-        if interpreter is None:
+        self.interpreter = interpreter
+        self.model_name = model_name
+
+    def _interpreter(self) -> Any:
+        if self.interpreter is None:
             from argus.agent_runtime.capabilities.contract import (
                 build_default_capability_contract,
             )
@@ -31,10 +80,10 @@ class BusinessTurnRunner:
                 OpenRouterStructuredInterpreter,
             )
 
-            interpreter = OpenRouterStructuredInterpreter(
-                contract=build_default_capability_contract(), model_name=model_name
+            self.interpreter = OpenRouterStructuredInterpreter(
+                contract=build_default_capability_contract(), model_name=self.model_name
             )
-        self.interpreter = interpreter
+        return self.interpreter
 
     async def run(
         self,
@@ -54,7 +103,41 @@ class BusinessTurnRunner:
             raise ValueError(
                 "Business runtime context must bind the claimed durable turn"
             )
-        stages = BusinessStages(context, self.interpreter, message)
+        context.check_access()
+        interpreter = self._interpreter()
+        guard = nullcontext()
+        if context.channel == "whatsapp":
+            route = business_provider_route(getattr(interpreter, "model_name", None))
+
+            def check_request(task: str, payload: dict[str, object]) -> dict[str, object]:
+                if task != "interpretation":
+                    raise PermissionError("business_provider_task_not_disclosed")
+                validate_openrouter_route(
+                    payload, route["interpretation"] + route["reply"]
+                )
+                context.check_access()
+                return payload
+
+            guard = openrouter_request_guard(check_request, final=True)
+        with guard:
+            return await self._run(
+                context=context,
+                turn=turn,
+                message=message,
+                history=history,
+                interpreter=interpreter,
+            )
+
+    async def _run(
+        self,
+        *,
+        context: AuthorizedBusinessContext,
+        turn: DurableTurn,
+        message: str,
+        history: Iterable[ConversationMessage | dict[str, Any]],
+        interpreter: Any,
+    ) -> BusinessTurnResult:
+        stages = BusinessStages(context, interpreter, message)
         workflow = build_workflow(business_runtime=stages)
         graph_run_id = uuid4()
         state = await workflow.ainvoke(
@@ -68,6 +151,7 @@ class BusinessTurnRunner:
             ),
             config={"configurable": {"thread_id": turn.turn_key}, "run_id": graph_run_id},
         )
+        context.check_access()
         records = tuple(
             record.model_dump(mode="json")
             for record in state["run_state"].tool_call_records
@@ -86,9 +170,11 @@ class BusinessTurnRunner:
                 )
                 for draft_id in sorted(touched_ids)
             ]
+        context.check_access()
         reply = context.begin_reply()
         if reply is None:
-            reply = await self.interpreter.acompose_business(
+            context.check_access()
+            reply = await interpreter.acompose_business(
                 {
                     "message": message,
                     "language": context.language,

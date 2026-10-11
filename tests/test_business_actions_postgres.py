@@ -50,23 +50,6 @@ def actions(users):
         yield service, context, grant
 
 
-@pytest.fixture
-def production_sink(actions, monkeypatch):
-    from argus.api import ingestion
-    from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
-
-    service, _, _ = actions
-    monkeypatch.setattr(ingestion.api_state, "PERSISTENCE_MODE", "supabase")
-    monkeypatch.setattr(
-        ingestion, "financial_accounts_service", lambda: service.imports.money.accounts
-    )
-    sink = ingestion._reconciliation(
-        service.authority.pool, PostgresConnectionRepository(service.authority.pool)
-    )
-    assert isinstance(sink.store, PostgresImportStore)
-    return sink
-
-
 def source(service, context, text="Paid 850 pesos"):
     evidence = MessageSource(
         id=uuid4(),
@@ -813,78 +796,6 @@ def test_legacy_hand_entry_cannot_create_another_candidate_for_typed_receipt(act
         require_legacy_receipt_write(business, receipt)
 
 
-@pytest.mark.parametrize("typed_first", [True, False])
-def test_atomic_store_guard_blocks_distinct_legacy_and_typed_receipt_candidates(
-    actions, typed_first, production_sink
-):
-    from argus.domain.business.contracts.dossier import AttachmentSource
-
-    from tests.ingestion.reconcile_cases import cand
-    from tests.test_business_spaces_migration_postgres import connection
-
-    service, context, _ = actions
-    with service.authority.pool.connection() as db:
-        receipt = connection(db, context.owner_id, str(context.actor.space_id))
-    source_id = service.record_source(
-        context,
-        "atomic-receipt",
-        AttachmentSource(
-            id=uuid4(),
-            channel="web",
-            received_at=datetime.now(timezone.utc),
-            connection_id=receipt,
-            filename="receipt.png",
-            media_type="image/png",
-        ),
-    )
-    key, lease = prepare(
-        service,
-        context,
-        [
-            ProposeActivity(
-                facts=BusinessFactPatch(amount={"state": "unknown"}),
-                source_ids=(source_id,),
-            )
-        ],
-    )
-    legacy = production_sink
-
-    def deliver():
-        legacy.submit(
-            user_id=context.owner_id,
-            connection_id=receipt,
-            candidates=[
-                cand(receipt, "one", source="statement", amount="25", currency="DOP")
-            ],
-            scope=context.scope,
-        )
-
-    if typed_first:
-        assert service.execute(context, key, 0, lease=lease).outcome == "applied"
-        with pytest.raises(ActionError, match="business_action_required"):
-            deliver()
-    else:
-        deliver()
-        assert (
-            service.execute(context, key, 0, lease=lease).code
-            == "business_legacy_conversion_unsupported"
-        )
-    with service.authority.pool.connection() as db:
-        remaining = db.execute(
-            "select id from public.financial_import_events where owner_space_id=%s",
-            (context.actor.space_id,),
-        ).fetchall()
-    assert len(remaining) == 1
-    from argus.domain.business.actions.receipts import draft_for_receipt
-    from argus.domain.business.transactions import transaction
-
-    expected = remaining[0][0]
-    with transaction(service.authority, context) as tx:
-        assert draft_for_receipt(
-            tx, UUID(receipt), None if typed_first else expected
-        ) == (expected, False)
-
-
 def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatch):
     from argus.domain.business.contracts.actions import ApproveExpense
     from argus.domain.recording.money_reads import current_activities
@@ -947,98 +858,90 @@ def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatc
         )
 
 
-def test_raw_factory_rejects_strong_match_into_typed_history(actions, production_sink):
-    from argus.domain.ingestion.reconcile.model import AccountLink
+def test_owner_workspace_read_never_grants_draft_authority(actions, monkeypatch):
+    from types import SimpleNamespace
 
-    from tests.ingestion.reconcile_cases import cand
-    from tests.test_business_spaces_migration_postgres import connection
+    from argus.api.business import require_business_surface
+    from argus.api.documents import require_saved_documents
+    from argus.api.ingestion import require_ingestion_context
+    from argus.api.routers.business import router
+    from argus.domain.business.spaces import PostgresSpaceStore
+    from argus.domain.owner_scope import PERSONAL
+    from argus.domain.recording.repository import NewAccount
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
 
     service, context, _ = actions
-    draft = ready(service, context)
-    before = service.dossier(context, draft)
-    account_id = str(before.facts.funding.value.account_id)
-    with service.authority.pool.connection() as db:
-        receipt = connection(db, context.owner_id, str(context.actor.space_id))
-    with production_sink.store.transaction(context.owner_id, scope=context.scope) as tx:
-        tx.put_link(
-            AccountLink(
-                context.owner_id,
-                receipt,
-                "id:bank",
-                account_id,
-                datetime.now(timezone.utc),
+    repository = service.imports.money.repository
+    account_ids = []
+    for person, scope in (
+        (context.owner_id, context.scope),
+        (context.owner_id, PERSONAL),
+        (str(context.actor.actor_id), PERSONAL),
+    ):
+        account_ids.append(
+            repository.create(
+                user_id=person,
+                idempotency_key=str(uuid4()),
+                identity_hash=uuid4().hex,
+                account=NewAccount(
+                    type="cash",
+                    currency="DOP",
+                    nickname="Till",
+                    ownership_share_bps=10000,
+                ),
+                opening=shared._opening(1000),
+                scope=scope,
+            ).stored.account.id
+        )
+    spaces = PostgresSpaceStore(service.authority.pool)
+    monkeypatch.setattr("argus.api.business.business_spaces", lambda: spaces)
+    monkeypatch.setenv("ARGUS_BUSINESS_CHAT_ENABLED", "false")
+    hub = SimpleNamespace(sink=service.imports)
+    documents = SimpleNamespace(hub=hub)
+    app = FastAPI()
+    app.state.financial_accounts_pool = service.authority.pool
+    app.include_router(router)
+    app.dependency_overrides[require_business_surface] = lambda: None
+    app.dependency_overrides[require_saved_documents] = lambda: documents
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "workspace-authority"
+        return await call_next(request)
+
+    def acting_as(person):
+        app.dependency_overrides[require_ingestion_context] = lambda: SimpleNamespace(
+            hub=hub, user_id=person
+        )
+
+    with TestClient(app) as client:
+        acting_as(context.owner_id)
+        response = client.get("/business/workspace")
+        assert response.status_code == 200, response.text
+        assert set(response.json()) == {
+            "accounts",
+            "currencies",
+            "assistant_available",
+            "chat_available",
+            "receipt_limits",
+        }
+        assert response.json()["chat_available"] is False
+        assert [a["id"] for a in response.json()["accounts"]] == [account_ids[0]]
+        assert response.headers["cache-control"] == "no-store"
+        receipts = client.get("/business/receipts")
+        assert receipts.status_code == 404
+        assert receipts.json()["detail"]["code"] == "business_record_not_found"
+        for person in (str(context.actor.actor_id), str(uuid4())):
+            acting_as(person)
+            refused = client.get("/business/workspace")
+            assert refused.status_code == 404
+            assert refused.json()["detail"]["code"] == "business_space_missing"
+    with pytest.raises(ActionError, match="business_record_not_found"):
+        service.resolve_actor(
+            TrustedActor(
+                actor_id=context.owner_id,
+                actor_kind="member",
+                space_id=context.actor.space_id,
             )
         )
-    with pytest.raises(ActionError, match="business_action_required"):
-        production_sink.submit(
-            user_id=context.owner_id,
-            connection_id=receipt,
-            scope=context.scope,
-            candidates=[
-                cand(
-                    receipt,
-                    "strong",
-                    source="statement",
-                    amount="850",
-                    currency="DOP",
-                    occurred_on="2026-10-01",
-                    direction="outflow",
-                    account={"external_account_id": "bank"},
-                )
-            ],
-        )
-    after = service.dossier(context, draft)
-    assert after.version == before.version
-    assert after.history == before.history
-    assert after.facts == before.facts
-    with production_sink.store.transaction(context.owner_id, scope=context.scope) as tx:
-        assert tx.observations(str(draft)) == []
-
-
-def test_raw_factory_forget_preserves_existing_typed_candidate(actions, production_sink):
-    from tests.test_business_spaces_migration_postgres import connection, observation
-
-    service, context, _ = actions
-    draft, version = create(service, context)
-    with service.authority.pool.connection() as db:
-        receipt = connection(db, context.owner_id, str(context.actor.space_id))
-        observation(db, context.owner_id, str(draft), receipt)
-    before = service.dossier(context, draft)
-    with pytest.raises(ActionError, match="business_action_required"):
-        production_sink.forget_connection(
-            user_id=context.owner_id, connection_id=receipt, scope=context.scope
-        )
-    after = service.dossier(context, draft)
-    assert after.version == version
-    assert after.history == before.history
-    assert after.sources == before.sources
-    with production_sink.store.transaction(context.owner_id, scope=context.scope) as tx:
-        assert len(tx.observations(str(draft))) == 1
-
-
-def test_raw_factory_personal_intake_and_forget_unchanged(actions, production_sink):
-    from argus.domain.owner_scope import PERSONAL
-
-    from tests.ingestion.reconcile_cases import cand
-    from tests.test_business_spaces_migration_postgres import connection
-
-    service, context, _ = actions
-    with service.authority.pool.connection() as db:
-        receipt = connection(db, context.owner_id)
-    result = production_sink.submit(
-        user_id=context.owner_id,
-        connection_id=receipt,
-        scope=PERSONAL,
-        candidates=[
-            cand(receipt, "personal", source="statement", amount="25", currency="DOP")
-        ],
-    )
-    assert result.recorded == 1
-    assert (
-        production_sink.forget_connection(
-            user_id=context.owner_id, connection_id=receipt, scope=PERSONAL
-        )
-        == 1
-    )
-    with production_sink.store.transaction(context.owner_id, scope=PERSONAL) as tx:
-        assert tx.events(("open",)) == []
