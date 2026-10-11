@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { describe, expect, test } from "bun:test";
 import i18next from "i18next";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -11,7 +12,7 @@ import { periodContaining } from "../components/business-app/business-format";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { useBusinessSearch } from "../components/business-app/useBusinessSearch";
 import type { BusinessPanelState } from "../components/business-app/BusinessWorkspace";
-import type { BusinessSearchResult } from "../lib/business-api";
+import type { BusinessCapture, BusinessSearchResult } from "../lib/business-api";
 
 const COPY: WorkspaceSearch["copy"] = {
   placeholder: "Search expenses, receipts and chats",
@@ -86,12 +87,12 @@ describe("the sample source answers like the API", () => {
   });
 });
 
-async function businessSearch(found: BusinessSearchResult) {
+async function businessSearch(found: BusinessSearchResult, notes: BusinessCapture[] | Error = []) {
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "en", resources: {} });
   const opened: BusinessPanelState[] = [];
   const periods: string[] = [];
-  const source = { search: async () => found } as unknown as BusinessDataSource;
+  const source = { search: async () => found, captures: async () => { if (notes instanceof Error) throw notes; return notes; } } as unknown as BusinessDataSource;
   let built: WorkspaceSearch | null = null;
   function Probe() {
     built = useBusinessSearch({
@@ -176,5 +177,27 @@ describe("Business hits open the panel that holds them", () => {
     expect(receipts.hits[0].detail).toContain("Ready to review");
     receipts.hits[0].open();
     expect(opened).toEqual([{ kind: "receipt", receiptId: "rcpt-2" }]);
+  });
+});
+
+
+describe("original note search", () => {
+  test("distinct sources sharing a draft open only the canonical draft", async () => {
+    const note: BusinessCapture = { draft_id: "draft-1", version: 3, source_id: "source-1", text: "  pintura sin recibo  ", received_at: "2026-10-10T14:00:00Z", review_state: "open" };
+    const { groups, opened } = await businessSearch({ expenses: [], receipts: [], accounts: [] }, [note, { ...note, source_id: "source-2", text: "Agrego el pago" }]);
+    const captures = groups.find((group) => group.id === "captures")!;
+    assert.deepEqual(captures.hits.map((hit) => [hit.id, hit.title, hit.amount]), [["source-1", note.text, null], ["source-2", "Agrego el pago", null]]);
+    captures.hits[1].open();
+    assert.deepEqual(opened, [{ kind: "draft", draftId: "draft-1" }]);
+  });
+  test("notes outage preserves real records and a safe error without fake hits", async () => {
+    const { groups } = await businessSearch({ expenses: [expense], receipts: [], accounts: [] }, new Error("private server details"));
+    assert.equal(groups[0].hits[0].id, expense.id);
+    assert.deepEqual(groups.find((group) => group.id === "captures")!.hits, []);
+    const html = rendered({ status: "ready", groups });
+    assert.ok(html.includes('role="alert"'));
+    assert.ok(html.includes("Notes are unavailable"));
+    assert.ok(html.includes(expense.merchant));
+    assert.ok(!html.includes("private server details"));
   });
 });

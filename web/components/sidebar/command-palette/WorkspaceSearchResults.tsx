@@ -45,7 +45,7 @@ export function useWorkspaceSearch(search: WorkspaceSearch | null, query: string
         ?.find(trimmed)
         .then((groups) => {
           if (latest.current === request) {
-            setState({ status: "ready", groups: groups.filter((group) => group.hits.length > 0) });
+            setState({ status: "ready", groups: groups.filter((group) => group.hits.length > 0 || Boolean(group.error)) });
           }
         })
         .catch(() => {
@@ -131,6 +131,7 @@ export function WorkspaceSearchResults({
               {group.label}
             </span>
           </div>
+          {group.error ? <p role="alert" className="px-3 py-2 text-[13px] text-black/60 dark:text-white/60">{group.error}</p> : null}
           {group.hits.map((hit) => {
             const Icon = hit.icon;
             return (
