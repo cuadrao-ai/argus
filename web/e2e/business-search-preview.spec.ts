@@ -83,6 +83,28 @@ test.describe("Business search in the omnisearch", () => {
     await expect(page.locator('li[aria-current="true"]')).toContainText("Estación Ruta 3");
   });
 
+  test("owner-funded expense keeps its Spanish funding, date and category in search and its list", async ({ page }) => {
+    await openPreview(page, "es-419");
+    const input = await openSearch(page, "Buscar gastos, recibos y chats");
+    await input.fill("comedor");
+    const hit = results(page).getByRole("button", { name: /Comedor Doña Ana/ });
+    await expect(hit).toContainText("Dinero del dueño");
+    await expect(hit).toContainText("Comidas");
+    const detail = await hit.innerText();
+    await expect(hit).not.toContainText("Operating account");
+    if (process.env.CUADRAO_RECORD_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.CUADRAO_RECORD_EVIDENCE_DIR}/owner-funded-search-spanish.png`, fullPage: true });
+    await hit.click();
+    const row = page.locator('li[aria-current="true"]');
+    await expect(row).toContainText("Comedor Doña Ana");
+    await expect(row).toContainText("Dinero del dueño");
+    await expect(row).toContainText("Comidas");
+    const date = detail.match(/\d{1,2} [a-z]+ \d{4}/)?.[0];
+    expect(date).toBeTruthy();
+    await expect(row).toContainText(date!);
+    await expect(row).not.toContainText("Operating account");
+    if (process.env.CUADRAO_RECORD_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.CUADRAO_RECORD_EVIDENCE_DIR}/owner-funded-expenses-spanish.png`, fullPage: true });
+  });
+
   test("no match keeps the existing empty state with a Business hint", async ({ page }) => {
     await openPreview(page);
     const input = await openSearch(page, "Search expenses, receipts and chats");
