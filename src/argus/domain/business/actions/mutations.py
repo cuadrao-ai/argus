@@ -26,6 +26,7 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
 )
 from argus.domain.business.transactions import ActionTransaction
+from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
 
@@ -253,3 +254,88 @@ def apply(
     except EventNotFound:
         raise ActionError("not_found", "business_record_not_found") from None
     return Applied(outcome="applied", draft_id=event.id, version=event.version)
+
+
+def prepare_attachment(
+    tx: ActionTransaction,
+    target: ExistingDraft | None,
+    batch: ExtractionBatch,
+    draft: DocumentDraft,
+    actor: ActorProvenance,
+) -> Applied:
+    from argus.domain.business.contracts.dossier import AttachmentSource
+    from argus.domain.ingestion.documents.extractor import fiscal_facts_from_receipt
+
+    purchases = [
+        candidate for candidate in batch.candidates if candidate.evidence == "transaction"
+    ]
+    if (
+        batch.complete is not True
+        or batch.readable is not True
+        or len(purchases) != 1
+        or batch.receipt is None
+        or any(issue.code == "receipt_purchase_ambiguous" for issue in batch.issues)
+    ):
+        raise ActionError("invalid_input", "receipt_requires_review")
+    candidate = purchases[0]
+    if candidate.source.connection_id != draft.connection_id:
+        raise ActionError("invalid_input", "business_preparation_source_changed")
+    source_id = sources.record_source(
+        tx,
+        f"attachment:{draft.connection_id}",
+        AttachmentSource(
+            id=uuid4(),
+            channel="web",
+            received_at=draft.created_at,
+            connection_id=draft.connection_id,
+            filename=draft.filename,
+            media_type=draft.media_type,
+        ),
+    )
+    now = datetime.now(timezone.utc)
+    if target is None:
+        event, before = new_candidate(tx.context.owner_id, now), None
+    else:
+        event = event_at(tx, target)
+        before = facts_of(event)
+        event = replace(event, version=event.version + 1, updated_at=now)
+    values = {
+        "amount": candidate.amount,
+        "currency": candidate.currency,
+        "occurred_on": candidate.occurred_on,
+        "counterparty": candidate.merchant,
+        "kind": candidate.kind_hint
+        if candidate.kind_hint in {"expense", "income", "transfer", "refund"}
+        else None,
+    }
+    uncertain = set(candidate.uncertain)
+    if "merchant" in uncertain:
+        uncertain.add("counterparty")
+    if "direction" in uncertain:
+        uncertain.add("kind")
+    facts = (before or BusinessFacts()).model_dump(mode="json")
+    for name, value in values.items():
+        existing = getattr(before, name) if before else None
+        if existing is not None and (
+            existing.verified or existing.origin in {"owner_stated", "member_set"}
+        ):
+            continue
+        known = value is not None and name not in uncertain
+        facts[name] = {
+            "state": "known" if known else "unknown",
+            "value": value if known else None,
+            "origin": "extracted",
+            "verified": False,
+            "source_ids": [str(source_id)],
+        }
+    fiscal = fiscal_facts_from_receipt(batch.receipt, source_id=source_id).model_dump(
+        mode="json"
+    )
+    if before and before.fiscal:
+        for name in fiscal:
+            prior = getattr(before.fiscal, name)
+            if prior.verified or prior.origin in {"owner_stated", "member_set"}:
+                fiscal[name] = prior.model_dump(mode="json")
+    facts["fiscal"] = fiscal
+    after = BusinessFacts.model_validate(facts)
+    return save_revision(tx, event, before, after, (source_id,), actor, None)

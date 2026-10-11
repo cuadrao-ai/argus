@@ -8,7 +8,7 @@ import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from argus.domain.ingestion.connections import (
     LIVE,
@@ -29,6 +29,9 @@ from argus.domain.ingestion.documents.preparation import validate_source
 from argus.domain.ingestion.documents.store import DocumentStore
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.owner_scope import OwnerScope, space_id
+
+if TYPE_CHECKING:
+    from argus.domain.business.actions import BusinessActions
 
 # Marks a batch the owner entered by hand: one purchase, nothing read.
 ENTERED_BY_OWNER = {"entered_by": "owner"}
@@ -120,8 +123,10 @@ class DocumentsService:
         extractor: Extractor,
         *,
         jobs_recover_interruptions: bool = False,
+        business_actions: BusinessActions | None = None,
     ) -> None:
         self.hub, self.store, self.extractor = hub, store, extractor
+        self.business_actions = business_actions
         # With preparation jobs on, the job reconciler decides what an expired
         # attempt becomes; a read never settles it.
         self.jobs_recover_interruptions = jobs_recover_interruptions
@@ -445,6 +450,17 @@ class DocumentsService:
                 raise DocumentServiceError("document_attempt_superseded")
         replayed = batch is not None
         try:
+            business = space_id(scope) is not None
+            if business:
+                if self.business_actions is None:
+                    raise DocumentServiceError("business_preparation_unavailable")
+                self.business_actions.check_attachment_preparation(
+                    user_id=user_id,
+                    connection_id=connection_id,
+                    scope=scope,
+                    holder=holder,
+                    attempt_id=attempt_id,
+                )
             if batch is None:
                 # The claim names the attempt; a flag-off writer names none.
                 draft = self._update(
@@ -458,6 +474,8 @@ class DocumentsService:
                 content = await asyncio.to_thread(
                     self._read_source, user_id, connection_id
                 )
+                if hashlib.sha256(content).hexdigest() != draft.sha256:
+                    raise DocumentServiceError("document_source_changed")
                 # Committed before the provider can be reached: without it an
                 # attempt provably never called the provider and may be retried.
                 if attempt_id is not None and not self.store.mark_provider_call(
@@ -468,6 +486,14 @@ class DocumentsService:
                     now=self.hub.clock(),
                 ):
                     raise DocumentServiceError("document_lease_lost", retryable=True)
+                if business:
+                    self.business_actions.check_attachment_preparation(
+                        user_id=user_id,
+                        connection_id=connection_id,
+                        scope=scope,
+                        holder=holder,
+                        attempt_id=attempt_id,
+                    )
                 batch = await self.extractor.extract(
                     content=content,
                     filename=draft.filename,
@@ -489,7 +515,15 @@ class DocumentsService:
                 connection_id=connection_id, holder=holder, now=self.hub.clock()
             ):
                 raise DocumentServiceError("document_lease_lost", retryable=True)
-            if batch.candidates:
+            if business:
+                self.business_actions.prepare_attachment(
+                    user_id=user_id,
+                    connection_id=connection_id,
+                    scope=scope,
+                    holder=holder,
+                    attempt_id=attempt_id,
+                )
+            elif batch.candidates:
                 self._deliver(user_id, connection_id, batch.candidates, scope)
             if draft.source_available:
                 draft = self._update(
@@ -511,11 +545,14 @@ class DocumentsService:
                 connection_id, replayed, len(batch.candidates), draft.status
             )
         except Exception as error:
+            from argus.domain.business.authority import ActionError
             from argus.domain.ingestion.documents.models import DocumentExtractionError
 
             code = (
                 error.code
-                if isinstance(error, (DocumentServiceError, DocumentExtractionError))
+                if isinstance(
+                    error, (DocumentServiceError, DocumentExtractionError, ActionError)
+                )
                 else "document_extraction_failed"
             )
             try:
