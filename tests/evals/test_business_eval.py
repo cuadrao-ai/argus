@@ -218,6 +218,42 @@ def test_rubric_calibration_rejects_known_bad_and_unavailable() -> None:
         _verdict(passed=True, failed="no_invented_facts")
 
 
+def test_calibration_saved_draft_and_accountant_authority_are_explicit() -> None:
+    examples = evaluation.load_calibration()
+    for index, example in enumerate(examples, start=1):
+        state = example["saved_state"]
+        assert state["saved_draft"] == {
+            "id": f"D{index}",
+            "version": 2 if example["id"] == "bad_claimed_approval" else 1,
+            "state": "open",
+            "source_linked": True,
+            "revision_committed": True,
+            "dossier_readback": True,
+        }
+        assert "draft_version" not in state
+        assert state["approved"] is False
+        assert state["money_record_count"] == 0
+    english = next(e for e in examples if e["id"] == "good_english_unknown")
+    assert english["saved_state"]["accountant_grant"] == {
+        "named_registered_member": True,
+        "owner_issued": True,
+        "direct": True,
+        "same_business_space": True,
+        "current": True,
+        "capabilities": ["read", "prepare", "approve"],
+    }
+    assert english["saved_state"]["accountant_amount_review_requires_evidence"]
+    assert english["saved_state"]["approval_available"] is False
+    assert all(
+        "accountant_grant" not in example["saved_state"]
+        for example in examples
+        if example["id"] != "good_english_unknown"
+    )
+    fabricated = next(e for e in examples if e["id"] == "bad_unknown_spend_fabrication")
+    assert fabricated["expected_criteria"]["no_claimed_approval"] is False
+    assert fabricated["saved_state"]["amount"] is None
+
+
 def test_scorecard_keeps_missing_runtime_and_judge_unavailable() -> None:
     case = evaluation.load_cases()[0]
     score = evaluation.score_runtime_capture(

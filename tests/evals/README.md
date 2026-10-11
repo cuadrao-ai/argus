@@ -77,6 +77,17 @@ an internal model revision from the catalog ID or fill missing response fields.
 Changing the judge requires the same unchanged calibration examples and strict
 criterion comparison before a judge-backed scorecard can pass.
 
+Calibration packet clarification (2026-10-11): the prior eight-example packet
+has SHA-256 `a75f486ffd6b6adfff35e616dec70ec378d73dfba076a742b7fe1dd7034735e7`.
+Its failed Grok, Haiku and Luna verdicts remain historical failures. The
+revised fictional packets state a committed, source-linked draft revision and
+successful dossier read explicitly; a version number alone never proves a
+save. The unknown-amount example states a current direct grant for the named
+accountant and an evidence-dependent human edit, without treating that edit as
+approval. The fabricated-spend reply explicitly claims a canonical money
+posting. The eight expected labels and rubric remain unchanged. Recalibration
+must use the revised packet digest and cannot reuse any prior verdict.
+
 `business_acceptance.py` is the scoped initial Business measurement entry for
 the same seven cases and 20 steps. It accepts an injected real interpreter,
 an explicit loopback disposable Postgres DSN, the executed clean candidate SHA,
