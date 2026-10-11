@@ -255,8 +255,8 @@ actor, time and revocation; freshly check it before every provider call, resume
 and retry, with clear disclosure of the selected route. Human Money approval
 remains separate. This approves the design, not blanket actual-user consent,
 new credentials or access expansion. The founder decision is resolved; do not
-ask again. Implementation, revocation proof, live quality and hosted acceptance
-remain PENDING. Deny external processing without an actual current scoped opt-in.
+ask again. Implementation acceptance, revocation proof, live quality and hosted
+acceptance remain PENDING. Deny external processing without an actual current scoped opt-in.
 Local runtime/hybrid staging evidence does not establish that consent.
 
 Current consent implementation is active in parallel: W1/C0 disclosure fix
