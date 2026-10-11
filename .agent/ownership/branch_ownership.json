@@ -505,6 +505,7 @@
         "src/argus/api/guest_access.py",
         "src/argus/api/message_store.py",
         "src/argus/api/routers/agent.py",
+        "src/argus/api/routers/computations.py",
         "src/argus/api/routers/conversations.py",
         "src/argus/api/schemas.py",
         "src/argus/domain/agent_execution_access.py",

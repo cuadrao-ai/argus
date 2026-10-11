@@ -2,7 +2,9 @@
 
 **Current October 11 coordinator checkpoint.** #969 MERGED at canonical
 `e465c2fe4bf7e2749215bc677a1fa225adab384c` from exact reviewedce2c. Root
-postmerge CI38134421380/smoke38134421396 RUNNING; no postmerge PASS claimed.
+Postmerge smoke38134421396 SUCCESS on retry; retain attempt1 Git disconnect
+before tests. CI38134421380 attempt1 frontend Next tarball install FAIL before
+tests; same-head failed-job retry RUNNING. No post-CI PASS/READY claimed.
 Prior `590a0ec8ada4778add28be45c2b2ef222e3b6479`: manual UI #968 LANDED, tree
 `200357561ed64ad053814a4518a6abe05372acf9` byte-equal reviewed8c6d. Root
 postmerge CI38132051579/smoke38132051668 PASS; the earlier RUNNING observation
@@ -334,11 +336,13 @@ readiness.
 ## Bounded checkpoint and Consumer donor registration
 
 The [existing execution manifest](../specs/argus-execution-board.md#active-checkpoint-personal-memory-voice-and-repair-allocation)
-records six approved exact policies:7 checkpoint,29 Personal,15 memory,7
-utterance voice,3 generic repair and6 live-delegation paths (67 total). #969
+records six approved exact policies:7 checkpoint,30 Personal,15 memory,7
+utterance voice,3 generic repair and6 live-delegation paths (68 total). #969
 MERGED at `e465c2fe4bf7e2749215bc677a1fa225adab384c`, parent590a, from
 reviewed `ce2c051a0b4c2624c1f278f98efb3bf45049c648`; postmerge
-CI38134421380/smoke38134421396 RUNNING, not postmerge PASS. Historical
+smoke38134421396 retry SUCCESS (attempt1 Git disconnect before tests);
+CI38134421380 attempt1 frontend Next tarball install FAIL before tests,
+same-head failed-job retry RUNNING, not post-CI PASS. Historical
 c547/dfd reconciliations and all15 incoming UI bytes remain preserved. The
 isolated final67 source `f5f7fb01eefa23e47e5348743135722cf6c1ca8c` is
 normally imported into the existing registered context-owner branch for
@@ -373,7 +377,7 @@ revocation when the Money context is absent. The replacement
 but root independently BLOCKED research transport/admission: captured current
 session/original Full authority does not protect all provider retries, cached
 admission/results and dispatch. Preserve both BLOCK sources/reproductions.
-The same sole owner is assigned the eight additional exact paths below;
+The same sole owner is assigned the nine additional exact paths below;
 remediation implementation is pending, with no committed fix implied.
 Root identical Linux comparison:9449 550 PASS/4 FAIL/zero skips versus376c
 530 PASS/the same4 FAIL/zero skips. No new failure; neither full regression
@@ -408,8 +412,8 @@ The root-approved research-access amendment adds exactly
 `src/argus/domain/research/perplexity_agent.py`,
 `src/argus/domain/research/search/http_post.py`,
 `src/argus/domain/research/cache.py`,
-`src/argus/agent_runtime/stages/tool_execution.py` and
-`src/argus/api/chat/research_jobs.py` and
+`src/argus/agent_runtime/stages/tool_execution.py`,
+`src/argus/api/chat/research_jobs.py`,
 `src/argus/domain/tool_declaration.py` to the existing Personal owner. Root
 read and assigned the last path only for neutral helper authority-denial
 pass-through across async/sync generic exception catches, so denial cannot
@@ -418,6 +422,12 @@ helper carries only transient injected callbacks; reuse current task/job/receipt
 owners. Fresh access must cover actual requests/retries, cached admission and
 results, dispatch and publication. No grant store, provider activation, SQL,
 new workflow or measurement waiver follows; implementation remains pending.
+The ninth exact allocation `src/argus/api/routers/computations.py` is assigned
+only for computed-answer refresh to reuse the trusted current-request grant and
+neutral callback. List/compare/continue, manual Free calculation/recompute and
+existing guest contracts remain unchanged. `_record_refresh` records billed
+usage/evidence only, no assistant message/artifact; no `computed_answers.py`
+allocation. This remediation is assigned/pending, not claimed committed.
 
 Generic repair is committed `8c7fc4092f967edb0ef7a69b1a152f21942ca0cc` and
 cleanly reconciled by normal merge `c7a4551897dc7196367d1cd66975fa14bbe43d0e`.
@@ -595,14 +605,16 @@ and their implementation/acceptance still PENDING.
 T1 failed/unmeasured quality, judge calibration, consent implementation and hosted gates remain open.
 
 The [active export/income/X1 allocation](../specs/argus-execution-board.md#active-export-income-and-x1-allocation)
-records four isolated writers and their exact10/7/7/8 paths. Current clean canonical590a reconciliations are income C0
-`b95c785e3aa05d890a14c4bb43b5d7ddd9a23ba9`, income Actions
-`043721599ed5332701ea5ea4131cb7a02c3c9e16` and export
-`3a52f00630a4cb7d99c6fd77168e0f2139499504`; exact current-head root PG and
-publication remain pending. Retain earlier income C0 source0f2fd918's123
-offline PASS/33 PG SKIP and its SQL-unapplied observation as history; root
-reserved110000 after168-worktree collision check. Prior source proofs do not
-become proof on these reconciled heads. X1
+records four isolated writers and their exact10/7/7/8 paths. Current clean local
+income C0 `4a965766ad27e137a88a3c3cb84fe5e6a98d8feb` has root87 actual PG
+PASS/zero skips; income Actions `1bdebf814a28fa5bc947a4bc337717167bd09f13`
+has root126 actual PG PASS/zero skips; export
+`c30c40aade7f07f80bc161dade4734ed4ad8ea8a` has root106 actual PG PASS/zero
+skips. These final local heads are not landed; publication and hosted acceptance
+remain pending. Preserve prior canonical590a source reconciliations b95/043/3a52
+and earlier income C0 source0f2fd918's123 offline PASS/33 PG SKIP and original
+SQL-unapplied observation as historical evidence. Root reserved110000 after
+168-worktree collision check. Actual local PG evidence is head-specific. X1
 ad598035 retains owned91 PASS and applicable282 PASS/4 FAIL/zero skips, no
 provider/DB calls. The eighth X1 test only corrects inherited generic sparse
 interpretation wire expectation, preserving document-task/native wire and local
