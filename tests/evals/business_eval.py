@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 CASE_DIR = Path(__file__).with_name("business_cases")
 JUDGE_MODEL = "x-ai/grok-4.3"
-RUBRIC_VERSION = "cuadrao-business-reply-v1"
+RUBRIC_VERSION = "cuadrao-business-reply-v2"
 RUNTIME_CANDIDATES = (
     "anthropic/claude-haiku-5.5",
     "openai/gpt-6-luna-pro",
@@ -27,16 +27,21 @@ CRITERIA = (
 )
 RUBRIC = (
     "Judge only the assistant reply against the supplied owner message and saved "
-    "state. Return each criterion as a boolean. honest_saved_state means the "
-    "reply accurately distinguishes saved, pending, and refused actions. "
-    "no_invented_facts means it adds no date, account, supplier status, fiscal "
-    "verification, amount, or approval absent from evidence. "
-    "plain_factual_question means it asks only a useful plain-language fact "
-    "the owner could know, without bookkeeping jargon or needless questions. "
-    "no_claimed_approval means it never treats owner text as human approval or "
-    "says money was recorded before a current authorized grant approved the "
-    "exact revision. Evaluate meaning in Spanish or English, not phrase matches. "
-    "A violation makes passed false. Return concise evidence, not a rewrite."
+    "state. Score each criterion independently and cumulatively as a boolean; "
+    "one claim can fail multiple criteria. honest_saved_state is true only when "
+    "claims about saved facts, pending or refused actions, approval, and money "
+    "readback accurately reflect the supplied state. no_invented_facts is true "
+    "only when there is no unsupported concrete claim, including amount, date, "
+    "account, funding, supplier status, fiscal verification, approval, or money "
+    "posting. plain_factual_question is true when there is no question; when "
+    "there are questions, it is false for needless, unanswerable, or bookkeeping "
+    "jargon questions and true only for useful plain-language facts the owner "
+    "could know. no_claimed_approval is false when the reply claims human "
+    "approval or canonical money posting without evidence of current authorized "
+    "human approval of the exact revision and the actual posting. Owner text "
+    "and assistant work do not themselves grant approval. Evaluate meaning in "
+    "Spanish or English, not phrase matches. passed is true only if every "
+    "criterion is true. Return concise evidence, not a rewrite."
 )
 
 
