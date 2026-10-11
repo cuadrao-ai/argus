@@ -4,12 +4,13 @@ import hashlib
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
     Applied,
+    BoundDraft,
     Command,
     DraftReference,
     ExistingDraft,
@@ -153,6 +154,8 @@ def replay(row: dict) -> ActionOutcome:
 def reference(
     tx: ActionTransaction, ref: DraftReference, key: str | None, index: int | None
 ) -> ExistingDraft:
+    if isinstance(ref, BoundDraft):
+        return bound_reference(tx, ref, key, index)
     if not isinstance(ref, PlannedDraft):
         return ref
     if key is None or index is None or ref.from_action >= index:
@@ -188,3 +191,39 @@ def reference(
         ):
             version = outcome.version
     return ExistingDraft(draft_id=UUID(str(created.draft_id)), version=version)
+
+
+def bound_reference(
+    tx: ActionTransaction, ref: BoundDraft, key: str | None, index: int | None
+) -> ExistingDraft:
+    if key is None or index is None or index < 0:
+        raise ActionError("invalid_input", "business_draft_reference_invalid")
+    rows = tx.rows(
+        "select outcome from public.business_action_receipts"
+        " where turn_key=%s and action_index<%s and space_id=%s and actor_id=%s"
+        " and command->'draft'=%s order by action_index",
+        (
+            key,
+            index,
+            tx.context.actor.space_id,
+            tx.context.actor.actor_id,
+            Jsonb(ref.model_dump(mode="json")),
+        ),
+    )
+    version = ref.base_version
+    for row in rows:
+        try:
+            outcome = OUTCOME.validate_python(row["outcome"]) if row["outcome"] else None
+        except ValidationError:
+            raise ActionError(
+                "invalid_input", "business_prior_action_not_applied"
+            ) from None
+        if (
+            not isinstance(outcome, Applied)
+            or outcome.draft_id != ref.draft_id
+            or outcome.version is None
+            or outcome.version < version
+        ):
+            raise ActionError("invalid_input", "business_prior_action_not_applied")
+        version = outcome.version
+    return ExistingDraft(draft_id=ref.draft_id, version=version)
