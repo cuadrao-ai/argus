@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from uuid import UUID
 
@@ -564,6 +565,39 @@ def test_manual_capture_accepts_text_length_boundaries(length: int) -> None:
 def test_manual_capture_requires_an_exact_existing_target(draft: dict) -> None:
     with pytest.raises(ValidationError):
         CaptureNote(text=fake.sentence(), draft=draft)
+
+
+@pytest.mark.parametrize("version", [True, False, "1", "3", 1.0, 3.0, 1.5])
+def test_manual_capture_rejects_coercible_json_target_versions(version: object) -> None:
+    payload = {
+        "text": fake.sentence(),
+        "draft": {"draft_id": fake.uuid4(), "version": version},
+    }
+    with pytest.raises(
+        ValidationError, match="capture target version must be an integer"
+    ):
+        CaptureNote.model_validate_json(json.dumps(payload))
+
+
+@pytest.mark.parametrize("text", ["\x00", "original\x00text", "\x00 nota \r\n"])
+def test_manual_capture_rejects_nul_without_rewriting_text(text: str) -> None:
+    with pytest.raises(ValidationError, match="capture text must not contain NUL"):
+        CaptureNote.model_validate_json(json.dumps({"text": text}))
+
+
+@pytest.mark.parametrize("version", [1, 3])
+def test_manual_capture_retains_valid_json_integer_and_original_unicode(
+    version: int,
+) -> None:
+    payload = {
+        "text": f"\t{fake.sentence()} Café\r\n",
+        "draft": {"draft_id": fake.uuid4(), "version": version},
+    }
+    note = CaptureNote.model_validate_json(json.dumps(payload))
+    assert note.model_dump(mode="json") == payload
+    assert isinstance(note.draft.version, int) and not isinstance(
+        note.draft.version, bool
+    )
 
 
 @pytest.mark.parametrize("field", ["actor_id", "space_id", "grant_id", "source_ids"])
