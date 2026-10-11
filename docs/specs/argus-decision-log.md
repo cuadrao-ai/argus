@@ -793,15 +793,17 @@ model-facing prompt freeze covers every eval-reachable prompt builder and
 schema description: shared text can regress other surfaces. This justified
 checking scope; it did not create a new investment-provider dependency for
 Business. The explicit Business scope above preserves the measured live
-scorecard/fingerprint obligation. T1 is read-only diagnosing the existing
-fingerprint guard and the minimal Consumer/Business scope proof; the gate is
-not claimed clear. Do not weaken the checker or disable a required check.
+scorecard/fingerprint obligation. T1 has bounded authorization to validate the
+Consumer/Business scope using the existing guards and fingerprint, preserving
+all 25 legacy entries and last_measured byte-for-byte. A Business placeholder
+stays unmeasured until accepted seven-case evidence; the gate is not claimed clear. Do not weaken the checker or disable a required check.
 
 Bounded instrumented latency/capability tests are authorized under the existing
 development allowance and approved model IDs. Keep fixed product targets,
 rubric, labels, structured contracts and held-outs. No blind retry, automatic
-Haiku judge selection or new provider/access scope follows. Further diagnostics
-have not run at this checkpoint; next paid judge choice remains pending.
+Haiku judge selection or new provider/access scope follows. Subsequent instrumented
+capability observations and a failed Haiku first-flow validation are retained in
+the manifest as dated snapshots; next paid judge choice remains pending.
 The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
 records timeout receipts, reservations and current owner proof separately from
 an accepted runtime or calibrated judge.

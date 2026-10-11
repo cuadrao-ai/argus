@@ -6,7 +6,7 @@ with reviewed tree `b0c7c44c1602265979960e375bfaf64ec5eca6a8` and parent
 `0ebfd08ed22dcd1108496fc0af427073ec219dc8`. M1 postmerge
 [CI38099618928](https://github.com/lagarcess/argus/actions/runs/38099618928)/
 [smoke38099618926](https://github.com/lagarcess/argus/actions/runs/38099618926)
-are pending. UI #956 postmerge CI38098062185/smoke38098062178 fully succeeded
+fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/957#issuecomment-6104002935)). UI #956 postmerge CI38098062185/smoke38098062178 fully succeeded
 ([terminal comment](https://github.com/lagarcess/argus/pull/956#issuecomment-6103805934)).
 C0 #955 landed as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; its exact postmerge
 CI and smoke all succeeded ([comment 6103620102](https://github.com/lagarcess/argus/pull/955#issuecomment-6103620102)). Startup repair #954 landed at
@@ -54,9 +54,22 @@ criterion errors across four cases; v2 had eight POSTs/verdicts and four criteri
 errors across four cases, despite binary 7/8. Known costs were $0.00607355 and
 $0.00699355 respectively. One subsequent DeepSeek runtime-case POST at c563
 timed out at 20.009 seconds with no response/cost receipt and no retry, retaining
-$0.32048. Aggregate: 18 actual POSTs, $0.01306710 known cost and $0.47648 unknown
-reservations (original v1 $0.156 plus DeepSeek $0.32048). There is no calibrated
-judge or live runtime scorecard. Next paid judge choice is pending; do not
+$0.32048. The October 11 earlier snapshot totals 18 actual POSTs, $0.01306710
+known cost and $0.47648 unknown reservations (original v1 $0.156 plus DeepSeek
+$0.32048). A subsequent October 11 21-call snapshot adds DeepSeek's small-schema
+capability pass (5,732 ms), full 16,211-byte schema timeout (20.023 seconds,
+$0.32048 unknown reservation), and Haiku's full-schema structured-plan pass
+(6,548 ms, no database proof): total known cost $0.01559617198, unknown reserves
+$0.79696. The latest October 11 checkpoint adds Haiku's first-flow probe at
+3baaefa9: one POST, HTTP200 stop, 7,129 ms, $0.00180164, then ValidationError
+because published BusinessFactPatch optional/null schema conflicts with domain
+explicit-null rejection. Latest total: 22 actual POSTs, $0.01739781198 known
+cost and $0.79696 unknown reserves. No first-flow pass or blind retry occurred.
+Root assigned bounded model-independent C0 schema alignment/contract tests,
+without domain weakening or JSON-null normalization; exact C0 paths await
+ownership authorization. Actions publication is paused for the reviewed import.
+The manifest retains each capability outcome separately from database acceptance.
+There is no calibrated judge or live runtime scorecard. Next paid judge choice is pending; do not
 automatically select Haiku as judge. Runtime comparison with approved Haiku is
 allowed under existing authority; no blind retry or live-gate bypass follows. The manifest retains the exact8141 local PG17/17
 proof and reviewed E1 v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`,
@@ -67,9 +80,14 @@ The [latest approved evaluation direction](../specs/argus-decision-log.md#octobe
 independently of a model. Keep lean replaceable configuration and structured
 contracts, deterministic authority/state/idempotency, and the same versioned
 suite plus held-out cases on swaps; record model/version/parameters/results.
-Do not add a new framework or model-specific prompt hacks. T1's exact two guard
-files are assigned; the global live gate, fingerprint and precisely named future
-evidence paths remain pending. Current E1 hardening is committed at
+Do not add a new framework or model-specific prompt hacks. T1's exact prompt-surface
+and freeze guards plus existing fingerprint path are assigned for bounded scope
+validation. Preserve 25 legacy entries and last_measured byte-for-byte; any
+Business placeholder stays unmeasured until accepted seven-case evidence. The
+live gate, passing Business measurement and precisely named future evidence paths
+remain pending. Actions' exact owner-funds fixture forwarding is approved by M1,
+preserving 422 human_approval_required. E1's two exact Business acceptance entry
+files extend the existing harness only; no broader ownership follows. Current E1 hardening is committed at
 `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`: three files, 35 free tests passed,
 underlying runtime source unchanged; independent review pending. It passes explicit
 per-run `judge_model` through the existing invocation/scorecard and requires
@@ -80,13 +98,13 @@ still runs all seven deterministic cases. The eight used judge cases are not
 held out. The DeepSeek probe ended after one unknown-outcome timeout; no
 prompt tuning, accepted measurement or new judge selection is inferred.
 Instrumented latency/capability tests are bounded under existing budget/approved
-IDs; further diagnostics have not run. The [scoped Business grant](../specs/argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics)
+IDs; dated capability and failed first-flow outcomes above are retained. The [scoped Business grant](../specs/argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics)
 accepts real production-message input → draft → authorized human approval →
 Money state with a controlled synthetic database. Legacy equity/Alpaca benchmark
 is NOT RUN and is not a first-flow prerequisite; request no investment access.
 The earlier broad selection came from the blanket prompt freeze. Applicable
-Consumer regressions, live scorecard/fingerprint and T1's pending read-only scope
-proof remain. No checker weakening or gate-clear claim follows. C0 is landed, while
+Consumer regressions, live scorecard/fingerprint and T1's bounded scope validation
+remain pending. No checker weakening or gate-clear claim follows. C0 is landed, while
 dependent runtime/evaluation and hosted acceptance remain open. Sonnet 5.5
 still needs a demonstrated need and fresh confirmation before use. The coordinator sequences a direct named-accountant per-business grant
 for the existing one-owner, one-authorized-accountant milestone. Full L11 firm
