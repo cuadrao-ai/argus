@@ -713,7 +713,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ApproveExpense'
+              oneOf:
+              - $ref: '#/components/schemas/ApproveExpense'
+              - $ref: '#/components/schemas/ApproveIncome'
+              discriminator:
+                propertyName: action
+                mapping:
+                  record_expense: '#/components/schemas/ApproveExpense'
+                  record_income: '#/components/schemas/ApproveIncome'
       responses:
         '200':
           description: Successful Response
@@ -9958,6 +9965,19 @@ components:
         action:
           type: string
           const: record_expense
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - action
+    ApproveIncome:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        action:
+          type: string
+          const: record_income
       additionalProperties: false
       type: object
       required:

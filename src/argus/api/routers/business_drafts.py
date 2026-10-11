@@ -3,12 +3,17 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Body, Depends, Header, Request, Response
 
 from argus.api.business_drafts import DraftContext, action_problem, require_drafts
 from argus.api.documents import NO_STORE
 from argus.domain.business.authority import ActionError
-from argus.domain.business.contracts.actions import ApproveExpense, Refused, ReviewDraft
+from argus.domain.business.contracts.actions import (
+    ApproveExpense,
+    ApproveIncome,
+    Refused,
+    ReviewDraft,
+)
 from argus.domain.business.contracts.dossier import BusinessDossier
 
 router = APIRouter(prefix="/business/drafts", tags=["business"])
@@ -25,11 +30,12 @@ def _run(request, response, context, draft_id, command=None, key=None):
     try:
         actor = context.service.context_for_draft(context.actor_id, draft_id)
         if command is not None:
-            method = (
-                context.service.review
-                if isinstance(command, ReviewDraft)
-                else context.service.approve
-            )
+            if isinstance(command, ReviewDraft):
+                method = context.service.review
+            elif isinstance(command, ApproveIncome):
+                method = context.service.approve_income
+            else:
+                method = context.service.approve
             result = method(actor, draft_id, command, key)
             if isinstance(result, Refused):
                 raise action_problem(request, result)
@@ -63,11 +69,11 @@ def review_draft(
 
 
 @router.post("/{draft_id}/approve", response_model=BusinessDossier)
-def approve_expense(
+def approve_draft(
     request: Request,
     response: Response,
     draft_id: UUID,
-    body: ApproveExpense,
+    body: Annotated[ApproveExpense | ApproveIncome, Body(discriminator="action")],
     context: Annotated[DraftContext, Depends(require_drafts)],
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):

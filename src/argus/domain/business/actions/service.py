@@ -12,6 +12,7 @@ from argus.domain.business.authority import ActionContext, ActionError, Business
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
     ApproveExpense,
+    ApproveIncome,
     CaptureNote,
     ExistingDraft,
     ExplainStatus,
@@ -273,6 +274,17 @@ class BusinessActions:
         context: ActionContext,
         draft_id: UUID,
         request: ApproveExpense,
+        key: str,
+    ) -> ActionOutcome:
+        from argus.domain.business.actions.approval import approve
+
+        return approve(self, context, draft_id, request, key)
+
+    def approve_income(
+        self,
+        context: ActionContext,
+        draft_id: UUID,
+        request: ApproveIncome,
         key: str,
     ) -> ActionOutcome:
         from argus.domain.business.actions.approval import approve
