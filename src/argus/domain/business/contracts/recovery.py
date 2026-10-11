@@ -11,6 +11,7 @@ from .actions import (
     CaptureCommand,
     Command,
     IncomeApprovalCommand,
+    PrepareAttachmentCommand,
     TurnPlan,
 )
 from .authority import ActorProvenance
@@ -89,11 +90,22 @@ class ActionReceipt(Contract):
             self.turn_key is not None or self.actor.actor_kind != "member"
         ):
             raise ValueError("income approval requires a human command without a turn")
+        if isinstance(self.command, PrepareAttachmentCommand):
+            binding = self.command.binding
+            if (
+                self.turn_key is not None
+                or self.actor != binding.actor
+                or self.space_id != binding.space_id
+            ):
+                raise ValueError(
+                    "attachment receipt requires its original binding without a turn"
+                )
         if self.turn_key is None and self.command.action not in {
             "review_draft",
             "approve_expense",
             "approve_income",
             "capture_note",
+            "prepare_attachment",
         }:
             raise ValueError("agent action receipts require their persisted turn plan")
         return self

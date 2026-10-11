@@ -636,6 +636,24 @@
         ".env",
         "web/.env.local"
       ]
+    },
+    "codex/cuadrao-business-attachment-contract-20261011": {
+      "description": "C0 server-only Business attachment binding, immutable saved batch and preparation receipt contracts; finalizer/runtime delivery remains separately owned.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/domain/business/contracts/actions.py",
+        "src/argus/domain/business/contracts/recovery.py",
+        "supabase/migrations/20261011194500_business_attachment_prepare.sql",
+        "tests/business/test_contracts.py",
+        "tests/test_business_attachment_contract_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }

@@ -5,8 +5,16 @@ import json
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import (
+    AwareDatetime,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
+from .authority import ActorProvenance
 from .facts import (
     BusinessFactPatch,
     BusinessShare,
@@ -187,12 +195,63 @@ class IncomeApprovalCommand(Contract):
     request: ApproveIncome
 
 
+class AttachmentPreparationBinding(Contract):
+    schema_version: Literal[1] = 1
+    binding_id: UUID
+    space_id: UUID
+    owner_id: UUID
+    connection_id: UUID
+    source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    actor: ActorProvenance
+    target: ExistingDraft | None
+    consent: Literal[True]
+    captured_at: AwareDatetime
+
+    @model_serializer(mode="wrap")
+    def explicit_target(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        payload = handler(self)
+        if self.target is None:
+            payload["target"] = None
+        return payload
+
+    @field_validator("target", mode="before")
+    @classmethod
+    def exact_target_version(cls, value: object) -> object:
+        if isinstance(value, dict):
+            version = value.get("version")
+            if not isinstance(version, int) or isinstance(version, bool):
+                raise ValueError("attachment target version must be an integer")
+        return value
+
+    @field_validator("consent", mode="before")
+    @classmethod
+    def affirmative_consent(cls, value: object) -> object:
+        if value is not True:
+            raise ValueError("attachment preparation requires explicit consent")
+        return value
+
+    @model_validator(mode="after")
+    def original_preparer(self) -> AttachmentPreparationBinding:
+        if self.actor.actor_kind != "extractor":
+            raise ValueError("attachment preparation requires extractor provenance")
+        return self
+
+
+class PrepareAttachmentCommand(Contract):
+    action: Literal["prepare_attachment"] = "prepare_attachment"
+    binding: AttachmentPreparationBinding
+    batch_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 Command = (
     BusinessAction
     | ReviewCommand
     | ApprovalCommand
     | CaptureCommand
     | IncomeApprovalCommand
+    | PrepareAttachmentCommand
 )
 
 
