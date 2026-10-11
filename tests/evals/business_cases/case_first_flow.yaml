@@ -106,8 +106,9 @@ cases:
       - actor: accountant_a
         channel: web
         command_key: approval_a1
-        command: {action: approve_expense, draft: draft_a, version: 3}
+        command: {action: approve_expense, draft: draft_a, version: current_dossier}
         expect:
+          submitted_reviewed_version: 3
           draft_count: 1
           draft_versions: {draft_a: 5}
           draft_sources: {draft_a: [message_a1, message_a2, message_a3]}
@@ -152,7 +153,7 @@ cases:
           draft_count: 1
           draft_versions: {draft_b: 1}
           draft_sources: {draft_b: [message_b1]}
-          fact_sources: {draft_b: {kind: [message_b1], amount: [message_b1], funding: []}}
+          fact_sources: {draft_b: {kind: [message_b1], amount: [message_b1], funding: [], business_share: [message_b1]}}
           draft_facts:
             draft_b:
               kind: {state: known, value: expense, origin: owner_stated}
@@ -160,6 +161,7 @@ cases:
               currency: {state: known, value: DOP, origin: default}
               funding: {state: unknown, value: null}
               occurred_on: {state: unknown, value: null}
+              business_share: {state: known, value: {kind: all}, origin: owner_stated}
           questions:
             - {field: funding, asked_of: owner, state: open}
           money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
@@ -184,7 +186,6 @@ cases:
             - {field: occurred_on, asked_of: owner, state: open}
           blockers:
             - {code: fact_required, field: occurred_on}
-            - {code: fact_required, field: business_share}
             - {code: business_questions_unresolved}
           money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
@@ -211,7 +212,6 @@ cases:
             - {field: occurred_on, asked_of: owner, state: open}
           blockers:
             - {code: fact_required, field: occurred_on}
-            - {code: fact_required, field: business_share}
             - {code: business_questions_unresolved}
           money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
@@ -421,8 +421,9 @@ cases:
       - actor: accountant_a
         channel: web
         command_key: approval_e_current
-        command: {action: approve_expense, draft: draft_e, version: 2}
+        command: {action: approve_expense, draft: draft_e, version: current_dossier}
         expect:
+          submitted_reviewed_version: 2
           draft_count: 1
           draft_versions: {draft_e: 4}
           draft_sources: {draft_e: [message_e1, message_e2]}
@@ -448,8 +449,9 @@ cases:
         channel: web
         command_key: approval_e_current
         replay: true
-        command: {action: approve_expense, draft: draft_e, version: 2}
+        command: {action: approve_expense, draft: draft_e, version: current_dossier}
         expect:
+          submitted_reviewed_version: 2
           draft_count: 1
           draft_versions: {draft_e: 4}
           draft_sources: {draft_e: [message_e1, message_e2]}

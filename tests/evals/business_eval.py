@@ -200,7 +200,8 @@ def load_cases(directory: Path = CASE_DIR) -> list[dict[str, Any]]:
             steps = case["steps"]
             if not steps or any("expect" not in step for step in steps):
                 raise ValueError(f"business case has an unasserted step: {case['id']}")
-            for step in steps:
+            submitted_versions: dict[str, int] = {}
+            for index, step in enumerate(steps):
                 expected = step["expect"]
                 alternatives = expected.get("action_alternatives", [])
                 if alternatives and (
@@ -250,11 +251,57 @@ def load_cases(directory: Path = CASE_DIR) -> list[dict[str, Any]]:
                     raise ValueError(f"replay lacks durable invariants: {case['id']}")
                 approval = expected.get("approval") or {}
                 command = step.get("command") or {}
+                if command.get("action") == "approve_expense":
+                    version = command["version"]
+                    if version == "current_dossier":
+                        reviewed = expected.get("submitted_reviewed_version")
+                        if (
+                            not isinstance(reviewed, int)
+                            or isinstance(reviewed, bool)
+                            or reviewed < 1
+                        ):
+                            raise ValueError(
+                                f"current approval needs fixed expected version: {case['id']}"
+                            )
+                        if not step.get("replay") and (
+                            index == 0
+                            or steps[index - 1]["expect"]["draft_versions"].get(
+                                command["draft"]
+                            )
+                            != reviewed
+                        ):
+                            raise ValueError(
+                                f"approval must follow authored dossier version: {case['id']}"
+                            )
+                    elif (
+                        isinstance(version, int)
+                        and not isinstance(version, bool)
+                        and version >= 1
+                    ):
+                        reviewed = version
+                        if "submitted_reviewed_version" in expected:
+                            raise ValueError(
+                                f"literal approval cannot claim dossier read: {case['id']}"
+                            )
+                    else:
+                        raise ValueError(f"invalid human approval version: {case['id']}")
+                    key = step.get("command_key")
+                    if key is None:
+                        if version == "current_dossier" or step.get("replay"):
+                            raise ValueError(f"approval needs command key: {case['id']}")
+                    elif step.get("replay"):
+                        if submitted_versions.get(key) != reviewed:
+                            raise ValueError(
+                                f"approval replay changed version: {case['id']}"
+                            )
+                    elif key in submitted_versions:
+                        raise ValueError(f"duplicate approval command key: {case['id']}")
+                    else:
+                        submitted_versions[key] = reviewed
                 if (
                     command.get("action") == "approve_expense"
                     and approval.get("status") == "recorded"
                 ):
-                    reviewed = command["version"]
                     if (
                         approval["reviewed_version"] != reviewed
                         or expected["draft_versions"][command["draft"]] != reviewed + 2
@@ -360,6 +407,7 @@ def check_step(expected: dict[str, Any], observed: dict[str, Any]) -> list[str]:
         "source_evidence",
         "revision_transitions",
         "foreign_scope_unchanged",
+        "submitted_reviewed_version",
     ):
         if key in expected and observed.get(key) != expected[key]:
             failures.append(key)

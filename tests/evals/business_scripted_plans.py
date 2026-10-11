@@ -55,7 +55,11 @@ SCRIPTED_INTERPRETATIONS: dict[tuple[str, int], dict[str, Any]] = {
     ("en_funding_correction", 0): {
         "records": [
             {
-                "facts": {"kind": known("expense"), "amount": known("420")},
+                "facts": {
+                    "kind": known("expense"),
+                    "amount": known("420"),
+                    "business_share": known({"kind": "all"}),
+                },
                 "question": {
                     "field": "funding",
                     "asked_of": "owner",

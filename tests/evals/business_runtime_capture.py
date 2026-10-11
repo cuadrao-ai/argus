@@ -51,6 +51,36 @@ def scripted_interpreter(
     return ScriptedInterpreter(case_id, step_index, bindings)
 
 
+def _approval_version(
+    service: Any,
+    context: Any,
+    draft_id: UUID,
+    command: dict[str, Any],
+    key: str,
+    replay: bool,
+    submitted: dict[str, int],
+) -> int:
+    requested = command["version"]
+    if replay:
+        if key not in submitted:
+            raise ValueError("Approval replay has no original submitted version")
+        version = submitted[key]
+        if requested != "current_dossier" and requested != version:
+            raise ValueError("Approval replay changed submitted version")
+        return version
+    if key in submitted:
+        raise ValueError("Approval command key was already submitted")
+    version = (
+        service.dossier(context, draft_id).version
+        if requested == "current_dossier"
+        else requested
+    )
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise ValueError("Approval requires an exact reviewed version")
+    submitted[key] = version
+    return version
+
+
 def _local_dsn(dsn: str) -> str:
     try:
         options = conninfo_to_dict(dsn)
@@ -800,6 +830,7 @@ async def capture_case(
                 turns: dict[str, str] = {}
                 messages: set[str] = set()
                 histories: dict[str, list[dict[str, str]]] = {}
+                submitted_approvals: dict[str, int] = {}
                 history: list[dict[str, str]] = []
                 drafts: dict[str, str] = {}
                 observed_steps = []
@@ -832,6 +863,7 @@ async def capture_case(
                     plan = None
                     transport = None
                     context = None
+                    submitted_reviewed_version = None
                     receipt_token = begin_openrouter_route_receipt_capture()
                     if step["actor"] == "owner_a":
                         source_alias = step["source"]
@@ -968,11 +1000,21 @@ async def capture_case(
                                     "Only approved human commands are scripted"
                                 )
                             key = step["command_key"]
+                            draft_id = UUID(bindings[command["draft"]])
+                            submitted_reviewed_version = _approval_version(
+                                service,
+                                context,
+                                draft_id,
+                                command,
+                                key,
+                                bool(step.get("replay")),
+                                submitted_approvals,
+                            )
                             outcome = service.approve(
                                 context,
-                                UUID(bindings[command["draft"]]),
+                                draft_id,
                                 ApproveExpense(
-                                    version=command["version"],
+                                    version=submitted_reviewed_version,
                                     action="record_expense",
                                 ),
                                 key,
@@ -998,6 +1040,10 @@ async def capture_case(
                         outcomes=outcomes,
                         transport=transport,
                     )
+                    if step.get("command", {}).get("version") == "current_dossier":
+                        observed["submitted_reviewed_version"] = (
+                            submitted_reviewed_version
+                        )
                     if foreign_before is not None:
                         observed["foreign_scope_unchanged"] = foreign_before == (
                             _foreign_snapshot(pool, bindings)

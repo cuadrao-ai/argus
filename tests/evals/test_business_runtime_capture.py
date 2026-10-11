@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+from uuid import uuid4
+
 import pytest
 from psycopg.conninfo import conninfo_to_dict
 
 from tests.evals.business_eval import load_cases
-from tests.evals.business_runtime_capture import _local_dsn, _plan_references
+from tests.evals.business_runtime_capture import (
+    _approval_version,
+    _local_dsn,
+    _plan_references,
+)
 from tests.evals.business_scripted_plans import (
     SCRIPTED_INTERPRETATIONS,
     scripted_interpretation,
@@ -102,6 +109,52 @@ def test_funding_answer_scripts_one_date_question_then_preserves_it() -> None:
     assert [action["name"] for action in expected[2]["expect"]["actions"]] == [
         "business_propose_activity"
     ]
+
+
+def test_human_approval_reads_current_dossier_once_and_replays_exact_submission() -> None:
+    class Service:
+        def __init__(self) -> None:
+            self.version = 4
+            self.reads = 0
+
+        def dossier(self, context: object, draft_id: object) -> SimpleNamespace:
+            self.reads += 1
+            return SimpleNamespace(version=self.version)
+
+    service = Service()
+    submitted: dict[str, int] = {}
+    draft_id = uuid4()
+    command = {"version": "current_dossier"}
+    assert (
+        _approval_version(
+            service, object(), draft_id, command, "current", False, submitted
+        )
+        == 4
+    )
+    service.version = 5
+    assert (
+        _approval_version(
+            service, object(), draft_id, command, "current", True, submitted
+        )
+        == 4
+    )
+    assert service.reads == 1
+    assert submitted == {"current": 4}
+    assert (
+        _approval_version(
+            service, object(), draft_id, {"version": 1}, "stale", False, submitted
+        )
+        == 1
+    )
+    assert service.reads == 1
+    with pytest.raises(ValueError, match="changed submitted version"):
+        _approval_version(
+            service, object(), draft_id, {"version": 5}, "current", True, submitted
+        )
+    with pytest.raises(ValueError, match="no original submitted version"):
+        _approval_version(
+            service, object(), draft_id, command, "missing", True, submitted
+        )
 
 
 def test_bound_draft_projection_uses_actual_prior_receipts() -> None:

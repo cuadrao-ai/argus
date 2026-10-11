@@ -58,6 +58,20 @@ outcome. The capture compares SQL receipt identity and outcome, sources, factual
 revisions, drafts, questions, and MoneyService readback before and after each
 replay to prove that this returned outcome did not cause a second mutation.
 
+Business fixture reconciliation (2026-10-11): the prior seven-case corpus digest
+was `9509203afbe0ff9332d21ea9de8b548f31259a79af9acaa15e07aab0b61bdf4f`.
+The current digest is `ae7f52c30847dde3587bbd2ac34a23089368150698f52de31714ac7293cef959`.
+The approved clear-business-purpose rule already made A1's “para el negocio”
+an owner-sourced all-business share. B1's “for our shop” now has the same
+`message_b1`-sourced share; only its later missing-share blockers were removed.
+Funding correction, missing date, mixed use and all Money assertions remain.
+Intended-current human approvals read the authorized dossier version immediately
+before submission; their authored expected versions 3 and 2 are still checked.
+The deliberately stale version 1 stays literal, and an approval replay reuses
+its original submitted version and command key without another dossier read.
+The failed, unscored Luna capture on candidate `c938fea9dca33a20b7523adc76e83ee5ec66b32a`
+retains the old fixture digest and is not retroactively measured against this one.
+
 `business_eval.py` holds the deterministic comparator and a structured reply
 rubric through the existing OpenRouter adapter. The fixed first judge is
 `x-ai/grok-4.3`. `rubric_calibration.yaml` supplies known-good and known-bad

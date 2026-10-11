@@ -60,6 +60,8 @@ def test_corpus_has_distinct_asserted_steps_and_preserved_evidence() -> None:
     assert j1["steps"][3]["expect"]["actions"][0]["receipt_key"] == "approval_a1"
     assert j1["steps"][3]["expect"]["draft_versions"]["draft_a"] == 5
     assert j1["steps"][3]["expect"]["approval"]["reviewed_version"] == 3
+    assert j1["steps"][3]["command"]["version"] == "current_dossier"
+    assert j1["steps"][3]["expect"]["submitted_reviewed_version"] == 3
     assert j1["steps"][1]["expect"]["draft_facts"]["draft_a"]["occurred_on"] == {
         "state": "unknown",
         "value": None,
@@ -194,6 +196,39 @@ def test_full_state_rejects_unlisted_facts_and_changed_source_or_revision() -> N
         "step_1.source_evidence",
         "step_1.revision_transitions",
     }
+
+
+def test_clear_business_purpose_and_authored_human_versions_remain_explicit() -> None:
+    cases = {case["id"]: case for case in evaluation.load_cases()}
+    funding = cases["en_funding_correction"]["steps"]
+    for step in funding:
+        expected = step["expect"]
+        assert expected["draft_facts"]["draft_b"]["business_share"] == {
+            "state": "known",
+            "value": {"kind": "all"},
+            "origin": "owner_stated",
+            "verified": False,
+        }
+        assert expected["fact_sources"]["draft_b"]["business_share"] == ["message_b1"]
+        assert {blocker.get("field") for blocker in expected.get("blockers", [])} - {
+            None,
+            "occurred_on",
+        } == set()
+
+    replay = cases["en_replay_stale_and_current_grant"]["steps"]
+    assert replay[3]["command"]["version"] == 1
+    assert [step["command"]["version"] for step in replay[4:]] == [
+        "current_dossier",
+        "current_dossier",
+    ]
+    assert [step["expect"]["submitted_reviewed_version"] for step in replay[4:]] == [
+        2,
+        2,
+    ]
+    expected = cases["es_owner_funds_no_receipt"]["steps"][3]["expect"]
+    observed = deepcopy(expected)
+    observed["submitted_reviewed_version"] = 4
+    assert evaluation.check_step(expected, observed) == ["submitted_reviewed_version"]
 
 
 def test_rubric_calibration_rejects_known_bad_and_unavailable() -> None:
