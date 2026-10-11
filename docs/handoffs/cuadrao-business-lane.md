@@ -1,10 +1,13 @@
 # Cuadrao Business lane handoff
 
-**Current October 11 coordinator checkpoint.** #969 MERGED at canonical
+**Current October 11 coordinator checkpoint.** #970 MERGED at canonical
+`b8c84da159bab701aeb3bdefbd7c38f3c516978c`; root postmerge smoke SUCCESS,
+CI RUNNING, no post-CI PASS claimed. Prior #969 MERGED at
 `e465c2fe4bf7e2749215bc677a1fa225adab384c` from exact reviewedce2c. Root
-Postmerge smoke38134421396 SUCCESS on retry; retain attempt1 Git disconnect
-before tests. CI38134421380 attempt1 frontend Next tarball install FAIL before
-tests; same-head failed-job retry RUNNING. No post-CI PASS/READY claimed.
+Postmerge CI38134421380 and smoke38134421396 terminal SUCCESS after normal
+same-head retries; preserve attempt1 Git disconnect and frontend Next tarball
+install FAIL before tests. Root audit/comment6108590365 records exacte465
+verification; this does not grant source acceptance/READY.
 Prior `590a0ec8ada4778add28be45c2b2ef222e3b6479`: manual UI #968 LANDED, tree
 `200357561ed64ad053814a4518a6abe05372acf9` byte-equal reviewed8c6d. Root
 postmerge CI38132051579/smoke38132051668 PASS; the earlier RUNNING observation
@@ -336,13 +339,13 @@ readiness.
 ## Bounded checkpoint and Consumer donor registration
 
 The [existing execution manifest](../specs/argus-execution-board.md#active-checkpoint-personal-memory-voice-and-repair-allocation)
-records six approved exact policies:7 checkpoint,30 Personal,15 memory,7
-utterance voice,3 generic repair and6 live-delegation paths (68 total). #969
+records six approved exact policies:7 checkpoint,33 Personal,15 memory,7
+utterance voice,3 generic repair and6 live-delegation paths (71 total). #969
 MERGED at `e465c2fe4bf7e2749215bc677a1fa225adab384c`, parent590a, from
 reviewed `ce2c051a0b4c2624c1f278f98efb3bf45049c648`; postmerge
-smoke38134421396 retry SUCCESS (attempt1 Git disconnect before tests);
-CI38134421380 attempt1 frontend Next tarball install FAIL before tests,
-same-head failed-job retry RUNNING, not post-CI PASS. Historical
+CI38134421380/smoke38134421396 terminal SUCCESS after normal same-head
+retries; preserve original Git disconnect/Next tarball install failures before
+tests. Root audit/comment6108590365 owns exacte465 verification. Historical
 c547/dfd reconciliations and all15 incoming UI bytes remain preserved. The
 isolated final67 source `f5f7fb01eefa23e47e5348743135722cf6c1ca8c` is
 normally imported into the existing registered context-owner branch for
@@ -378,7 +381,8 @@ but root independently BLOCKED research transport/admission: captured current
 session/original Full authority does not protect all provider retries, cached
 admission/results and dispatch. Preserve both BLOCK sources/reproductions.
 The same sole owner is assigned the nine additional exact paths below;
-remediation implementation is pending, with no committed fix implied.
+the earlier assignment-only checkpoint is historical; current frozen source
+and its acceptance holds are recorded below.
 Root identical Linux comparison:9449 550 PASS/4 FAIL/zero skips versus376c
 530 PASS/the same4 FAIL/zero skips. No new failure; neither full regression
 suite is PASS. Production Full feed, model measurements and root PG remain
@@ -417,17 +421,31 @@ The root-approved research-access amendment adds exactly
 `src/argus/domain/tool_declaration.py` to the existing Personal owner. Root
 read and assigned the last path only for neutral helper authority-denial
 pass-through across async/sync generic exception catches, so denial cannot
-become an ordinary tool failure/card; implementation remains pending. The new
+become an ordinary tool failure/card; source acceptance remains pending. The new
 helper carries only transient injected callbacks; reuse current task/job/receipt
 owners. Fresh access must cover actual requests/retries, cached admission and
 results, dispatch and publication. No grant store, provider activation, SQL,
-new workflow or measurement waiver follows; implementation remains pending.
+new workflow or measurement waiver follows; source acceptance remains pending.
 The ninth exact allocation `src/argus/api/routers/computations.py` is assigned
 only for computed-answer refresh to reuse the trusted current-request grant and
 neutral callback. List/compare/continue, manual Free calculation/recompute and
 existing guest contracts remain unchanged. `_record_refresh` records billed
 usage/evidence only, no assistant message/artifact; no `computed_answers.py`
-allocation. This remediation is assigned/pending, not claimed committed.
+allocation. The final Runtime33 implementation candidate is now frozen at
+`9e50432d2878eb666843222dbf5a2f2e4c3a8691`, tree
+`bbb9ee16c280ba7fbebad99ec8e953d8bb1f38e1`, with exact33-path inventory/hash
+handoff `cuadrao-personal-research-access-final33-handoff.json`
+(SHA256b074782186234774692aa7d98ba3372ed4b5b4a0e48feb09d1aa4a84011ffd31).
+Only `src/argus/api/chat/breakdown.py`, `src/argus/api/chat/breakdown_jobs.py`
+and `tests/test_computed_answer_actions.py` are added beyond the prior30.
+The source owns137 offline PASS; broader689 PASS/12 FAIL/zero skips remains
+failed, including native SciPy failures and two actual measurement failures.
+Preserve original376c/9449 BLOCKs and four prior root Linux failures. Fresh
+independent review, exact-head Linux/PG, production entitlement feed, model
+measurements, integration and actual acceptance remain PENDING; no READY.
+The two explicitly owned old inherited overlaps are tool_execution.py and
+tool_declaration.py; remaining59 dependency bytes are unchanged9449, with no
+inherited scope widening. Model-facing owner surfaces remain unchanged9449.
 
 Generic repair is committed `8c7fc4092f967edb0ef7a69b1a152f21942ca0cc` and
 cleanly reconciled by normal merge `c7a4551897dc7196367d1cd66975fa14bbe43d0e`.
@@ -610,8 +628,9 @@ income C0 `4a965766ad27e137a88a3c3cb84fe5e6a98d8feb` has root87 actual PG
 PASS/zero skips; income Actions `1bdebf814a28fa5bc947a4bc337717167bd09f13`
 has root126 actual PG PASS/zero skips; export
 `c30c40aade7f07f80bc161dade4734ed4ad8ea8a` has root106 actual PG PASS/zero
-skips. These final local heads are not landed; publication and hosted acceptance
-remain pending. Preserve prior canonical590a source reconciliations b95/043/3a52
+skips. Income C0 is now LANDED as #970 atb8c84da159bab701aeb3bdefbd7c38f3c516978c,
+postsmoke SUCCESS/CI RUNNING. Actions and export remain local/unlanded; their
+publication and all hosted acceptance remain pending. Preserve prior canonical590a source reconciliations b95/043/3a52
 and earlier income C0 source0f2fd918's123 offline PASS/33 PG SKIP and original
 SQL-unapplied observation as historical evidence. Root reserved110000 after
 168-worktree collision check. Actual local PG evidence is head-specific. X1

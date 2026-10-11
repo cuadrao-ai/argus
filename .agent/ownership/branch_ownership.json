@@ -499,6 +499,8 @@
         "src/argus/agent_runtime/stages/interpret_types.py",
         "src/argus/agent_runtime/stages/tool_execution.py",
         "src/argus/api/agentic_access.py",
+        "src/argus/api/chat/breakdown.py",
+        "src/argus/api/chat/breakdown_jobs.py",
         "src/argus/api/chat/money_proposals.py",
         "src/argus/api/chat/research_jobs.py",
         "src/argus/api/dependencies.py",
@@ -520,6 +522,7 @@
         "tests/test_chat_runtime_cutover.py",
         "tests/test_chat_runtime_reload_guardrails.py",
         "tests/test_chat_stream_contract.py",
+        "tests/test_computed_answer_actions.py",
         "tests/test_guest_access_policy.py",
         "tests/test_personal_money_proposals.py"
       ],
