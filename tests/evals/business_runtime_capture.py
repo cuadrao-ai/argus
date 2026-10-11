@@ -9,6 +9,10 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
+from argus.llm.openrouter import (
+    begin_openrouter_route_receipt_capture,
+    end_openrouter_route_receipt_capture,
+)
 from psycopg import Connection
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.rows import dict_row
@@ -26,6 +30,7 @@ class CaseCapture:
     saved_states: list[dict[str, Any]]
     replies: list[str]
     db_namespace: str
+    step_route_receipts: list[list[dict[str, Any]]]
 
 
 class ScriptedInterpreter:
@@ -631,6 +636,7 @@ async def capture_case(
     *,
     dsn: str,
     interpreter_factory: Callable[[str, int, dict[str, str]], Any],
+    receipt_sink: Callable[[int, list[dict[str, Any]]], None] | None = None,
 ) -> CaseCapture:
     dsn = _local_dsn(dsn)
     from argus.agent_runtime.business.context import AuthorizedBusinessContext
@@ -653,6 +659,8 @@ async def capture_case(
     from tests import test_financial_accounts_postgres as shared
 
     users = None
+    receipt_token = None
+    active_step = -1
     with Connection.connect(dsn) as db:
         try:
             users = shared._create_users(
@@ -707,6 +715,7 @@ async def capture_case(
                 all_tool_records = []
                 saved_states = []
                 replies = []
+                step_route_receipts = []
                 draft_aliases = {
                     "es_owner_funds_no_receipt": "draft_a",
                     "en_funding_correction": "draft_b",
@@ -715,6 +724,7 @@ async def capture_case(
                     "en_replay_stale_and_current_grant": "draft_e",
                 }
                 for index, step in enumerate(case["steps"]):
+                    active_step = index
                     prior_receipts = (
                         _receipt_snapshot(pool, bindings["pilot_a"])
                         if step.get("replay")
@@ -730,10 +740,14 @@ async def capture_case(
                     plan = None
                     transport = None
                     context = None
+                    receipt_token = begin_openrouter_route_receipt_capture()
                     if step["actor"] == "owner_a":
                         source_alias = step["source"]
                         if source_alias not in messages:
-                            messages[source_alias] = (uuid4(), datetime.now(timezone.utc))
+                            messages[source_alias] = (
+                                uuid4(),
+                                datetime.now(timezone.utc),
+                            )
                         message_id, received_at = messages[source_alias]
                         bindings[source_alias] = str(message_id)
                         if source_alias not in turns:
@@ -800,7 +814,10 @@ async def capture_case(
                             history.extend(
                                 (
                                     {"role": "user", "content": step["message"]},
-                                    {"role": "assistant", "content": result.reply_text},
+                                    {
+                                        "role": "assistant",
+                                        "content": result.reply_text,
+                                    },
                                 )
                             )
                     else:
@@ -844,11 +861,20 @@ async def capture_case(
                                 context,
                                 UUID(bindings[command["draft"]]),
                                 ApproveExpense(
-                                    version=command["version"], action="record_expense"
+                                    version=command["version"],
+                                    action="record_expense",
                                 ),
                                 key,
                             )
                             actions = _command_receipt(pool, key, outcome, bindings)
+                    step_receipts = [
+                        receipt.as_dict()
+                        for receipt in end_openrouter_route_receipt_capture(receipt_token)
+                    ]
+                    receipt_token = None
+                    step_route_receipts.append(step_receipts)
+                    if receipt_sink is not None:
+                        receipt_sink(index, step_receipts)
                     observed = _project(
                         pool=pool,
                         service=service,
@@ -878,7 +904,15 @@ async def capture_case(
                     saved_states=saved_states,
                     replies=replies,
                     db_namespace=bindings["pilot_a"],
+                    step_route_receipts=step_route_receipts,
                 )
         finally:
+            if receipt_token is not None:
+                partial_receipts = [
+                    receipt.as_dict()
+                    for receipt in end_openrouter_route_receipt_capture(receipt_token)
+                ]
+                if receipt_sink is not None:
+                    receipt_sink(active_step, partial_receipts)
             if users is not None:
                 shared._delete_users(db, users)

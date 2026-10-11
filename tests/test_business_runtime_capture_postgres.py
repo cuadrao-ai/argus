@@ -17,6 +17,7 @@ async def test_real_graph_executor_and_postgres_match_business_corpus(case: dict
         pytest.skip("ARGUS_DISPOSABLE_DATABASE_URL is required for real Business capture")
     capture = await capture_case(case, dsn=DSN, interpreter_factory=scripted_interpreter)
     assert len(capture.observed_steps) == len(case["steps"])
+    assert capture.step_route_receipts == [[] for _ in case["steps"]]
     assert len(capture.graph_run_ids) == sum(
         step["actor"] == "owner_a" for step in case["steps"]
     )

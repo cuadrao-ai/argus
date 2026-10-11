@@ -320,6 +320,49 @@ def test_scorecard_requires_each_role_when_runtime_and_judge_share_model() -> No
     assert cross_model["judge_model"] == alternate
 
 
+def test_human_only_case_requires_real_state_and_no_model_evidence() -> None:
+    case = next(
+        case
+        for case in evaluation.load_cases()
+        if case["id"] == "en_revoked_accountant_read"
+    )
+    inputs = {
+        "case": case,
+        "candidate_sha": "f" * 40,
+        "runtime_model": "anthropic/claude-haiku-5.5",
+        "judge_model": "x-ai/grok-4.3",
+        "observed_steps": [deepcopy(step["expect"]) for step in case["steps"]],
+        "call_receipts": [],
+        "total_cost_usd": 0.0,
+        "total_latency_ms": 0,
+        "judge_verdict": None,
+        "adapter_provenance": {
+            "capture_id": "capture",
+            "db_namespace": "isolated",
+            "candidate_sha": "f" * 40,
+        },
+    }
+    score = evaluation.score_runtime_capture(**inputs)
+    assert score["status"] == "passed"
+    assert score["evidence_kind"] == "real_business_db_human_command"
+    assert score["no_model_calls_required"] is True
+    assert score["runtime_model"] is None and score["judge_model"] is None
+    changed = deepcopy(inputs["observed_steps"])
+    changed[0]["transport"]["status"] = 200
+    hidden_failure = evaluation.score_runtime_capture(
+        **{**inputs, "observed_steps": changed}
+    )
+    assert hidden_failure["status"] == "failed"
+    assert "step_0.transport" in hidden_failure["failed_checks"]
+    for altered in (
+        {"call_receipts": _receipts("anthropic/claude-haiku-5.5", "x-ai/grok-4.3")},
+        {"total_cost_usd": 0.01},
+        {"adapter_provenance": {**inputs["adapter_provenance"], "graph_run_id": "fake"}},
+    ):
+        unavailable = evaluation.score_runtime_capture(**{**inputs, **altered})
+        assert unavailable["status"] == "unavailable"
+
+
 @pytest.mark.parametrize("outcome", ["skipped", "failed"])
 def test_scorecard_keeps_non_successful_judge_call_unavailable(outcome: str) -> None:
     case = evaluation.load_cases()[0]
@@ -386,9 +429,7 @@ async def test_judge_uses_exact_named_model_and_structured_adapter(monkeypatch) 
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "model", ["anthropic/claude-haiku-5.5", "openai/gpt-6-luna-pro"]
-)
+@pytest.mark.parametrize("model", ["anthropic/claude-haiku-5.5", "openai/gpt-6-luna-pro"])
 async def test_judge_switches_only_to_explicit_approved_model(monkeypatch, model) -> None:
     calls = []
 

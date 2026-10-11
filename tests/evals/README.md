@@ -31,8 +31,10 @@ DataAPI reads cannot supply Business rows. It must also return OpenRouter route
 receipts, exact candidate revision, model IDs, cost and latency. No fixture
 expectation can serve as its observed state. The live E1 gate remains unavailable
 until the Postgres capture passes and the root coordinator authorizes its call budget.
-The scorecard requires the adapter's capture ID, database namespace, actual
-LangGraph run ID, and matching candidate SHA before it can report a pass. The
+Owner-turn scorecards require the adapter's capture ID, database namespace,
+actual LangGraph run ID, and matching candidate SHA before they can report a
+pass. The human-only revoked-grant case requires its real scoped database
+capture and zero model receipts; it has no LangGraph run or judge verdict. The
 adapter reads actor, grant and issuer from scoped `business_action_receipts`
 and reads bank balances and versions through the canonical MoneyService.
 
@@ -74,6 +76,20 @@ one, plus the route receipts and measured usage, cost, and latency. Do not infer
 an internal model revision from the catalog ID or fill missing response fields.
 Changing the judge requires the same unchanged calibration examples and strict
 criterion comparison before a judge-backed scorecard can pass.
+
+`business_acceptance.py` is the scoped initial Business measurement entry for
+the same seven cases and 20 steps. It accepts an injected real interpreter,
+an explicit loopback disposable Postgres DSN, the executed clean candidate SHA,
+and a committed calibration report for the selected judge. Without passing
+calibration it returns seven unavailable cases before any runtime or provider
+call. A run captures each actual owner-step interpretation and reply route
+receipt, including zero receipts on replay and human commands, and judges each
+fresh saved reply. Its `business_acceptance_v1` report carries only Business
+totals and the exact two Business prompt surface hashes. The companion
+`business_e1_request_settings_v1` sidecar keeps redacted request parameters,
+per-step receipts, graph IDs, saved states, SQL projections, and judge evidence.
+These artifacts must retain the actual executed commit and observed usage;
+they do not update or stand in for the legacy global measurement.
 
 ## Test Tiers
 

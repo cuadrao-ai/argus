@@ -370,13 +370,23 @@ def score_runtime_capture(
         or runtime_model not in RUNTIME_CANDIDATES
         or judge_model not in APPROVED_JUDGE_MODELS
     ):
-        raise ValueError("candidate SHA and approved runtime and judge models are required")
+        raise ValueError(
+            "candidate SHA and approved runtime and judge models are required"
+        )
+    human_only = case["id"] == "en_revoked_accountant_read" and not any(
+        step["actor"] == "owner_a" for step in case["steps"]
+    )
     provenance_valid = bool(
         adapter_provenance
         and all(
             adapter_provenance.get(key)
-            for key in ("capture_id", "db_namespace", "graph_run_id")
+            for key in (
+                ("capture_id", "db_namespace")
+                if human_only
+                else ("capture_id", "db_namespace", "graph_run_id")
+            )
         )
+        and (not human_only or not adapter_provenance.get("graph_run_id"))
         and adapter_provenance.get("candidate_sha") == candidate_sha
     )
     assertions = [
@@ -391,51 +401,65 @@ def score_runtime_capture(
             if failure.startswith("step_") and failure != "step_count":
                 index = int(failure.split(".", 1)[0][5:])
                 assertions[index]["failed_checks"].append(failure)
-        if not call_receipts:
-            failures.append("call_receipts_missing")
-        elif any(receipt.get("outcome") != "succeeded" for receipt in call_receipts):
-            failures.append("call_unavailable")
-        elif any(
-            not any(
-                receipt.get("task") == task
-                and receipt.get("schema_name") == schema_name
-                and receipt.get("model") == model
-                and receipt.get("mode") == "json_schema"
-                for receipt in call_receipts
-            )
-            for task, schema_name, model in (
-                ("interpretation", "BusinessInterpretation", runtime_model),
-                ("interpretation", "BusinessReply", runtime_model),
-                ("chat_composer", "BusinessE1JudgeVerdict", judge_model),
-            )
-        ):
-            failures.append("model_receipts_missing")
-        if total_cost_usd is None or total_latency_ms is None:
-            failures.append("usage_missing")
+        if human_only:
+            if (
+                call_receipts
+                or total_cost_usd != 0
+                or total_latency_ms != 0
+                or judge_verdict is not None
+            ):
+                failures.append("unexpected_model_evidence")
+        else:
+            if not call_receipts:
+                failures.append("call_receipts_missing")
+            elif any(receipt.get("outcome") != "succeeded" for receipt in call_receipts):
+                failures.append("call_unavailable")
+            elif any(
+                not any(
+                    receipt.get("task") == task
+                    and receipt.get("schema_name") == schema_name
+                    and receipt.get("model") == model
+                    and receipt.get("mode") == "json_schema"
+                    for receipt in call_receipts
+                )
+                for task, schema_name, model in (
+                    ("interpretation", "BusinessInterpretation", runtime_model),
+                    ("interpretation", "BusinessReply", runtime_model),
+                    ("chat_composer", "BusinessE1JudgeVerdict", judge_model),
+                )
+            ):
+                failures.append("model_receipts_missing")
+            if total_cost_usd is None or total_latency_ms is None:
+                failures.append("usage_missing")
         if not provenance_valid:
             failures.append("adapter_provenance_missing")
         if any(failure.startswith("step_") for failure in failures):
             status = "failed"
         else:
             status = "unavailable" if failures else "passed"
-    if judge_verdict is None:
+    if not human_only and judge_verdict is None:
         if status == "passed":
             failures.append("judge_unavailable")
             status = "unavailable"
-    elif status != "unavailable" and not judge_verdict.passed:
+    elif not human_only and status != "unavailable" and not judge_verdict.passed:
         failures.append("reply_judge")
         status = "failed"
     return {
         "schema_version": "business_e1_scorecard_v1",
-        "evidence_kind": "real_langgraph_executor_db"
-        if provenance_valid
+        "evidence_kind": (
+            "real_business_db_human_command"
+            if human_only
+            else "real_langgraph_executor_db"
+        )
+        if provenance_valid and observed_steps is not None
         else "unavailable",
+        "no_model_calls_required": human_only,
         "adapter_provenance": adapter_provenance,
         "case_id": case["id"],
         "fixture_sha256": fixture_digest(),
         "candidate_sha": candidate_sha,
-        "runtime_model": runtime_model,
-        "judge_model": judge_model,
+        "runtime_model": None if human_only else runtime_model,
+        "judge_model": None if human_only else judge_model,
         "rubric_version": RUBRIC_VERSION,
         "status": status,
         "failed_checks": failures,
