@@ -7,6 +7,7 @@ from argus.agent_runtime.business.interpretation import business_interpretation_
 from argus.domain.business.tools.declarations import get_business_declarations
 
 from tests.interpreter_prompt_surface import (
+    BUSINESS_ACCEPTANCE_STEP_IDS,
     BUSINESS_DECLARATION_OWNER,
     BUSINESS_MODEL_FACING_OWNERS,
     fingerprint_surface,
@@ -181,9 +182,7 @@ def test_measured_business_descriptions_reach_the_actual_prompt(tmp_path: Path) 
 def _scoped_measurement_fixture() -> tuple[dict, dict]:
     digest = {"entries": 1, "chars": 1, "sha256": "a" * 64}
     surface = {owner: dict(digest) for owner in BUSINESS_MODEL_FACING_OWNERS}
-    case_ids = [f"unit_owner_{index}" for index in range(6)] + [
-        "en_revoked_accountant_read"
-    ]
+    case_ids = list(BUSINESS_ACCEPTANCE_STEP_IDS)
     measured = {
         "commit": "1" * 40,
         "scorecard": "unit-only-scorecard.json",
@@ -197,7 +196,7 @@ def _scoped_measurement_fixture() -> tuple[dict, dict]:
     }
     cases = []
     for index, case_id in enumerate(case_ids):
-        human_only = index == 6
+        human_only = case_id == "en_revoked_accountant_read"
         cases.append(
             {
                 "schema_version": "business_e1_scorecard_v1",
@@ -206,7 +205,7 @@ def _scoped_measurement_fixture() -> tuple[dict, dict]:
                 "failed_checks": [],
                 "hidden_state_assertions": [
                     {"step": step, "failed_checks": []}
-                    for step in range(2 if human_only else 3)
+                    for step in BUSINESS_ACCEPTANCE_STEP_IDS[case_id]
                 ],
                 "candidate_sha": measured["commit"],
                 "fixture_sha256": measured["fixture_sha256"],
@@ -399,5 +398,47 @@ def test_business_measurement_rejects_incomplete_or_wrong_scope_evidence(
         scorecard["schema_version"] = "legacy_global_scorecard"
     else:
         case["no_model_calls_required"] = True
+    with pytest.raises(AssertionError):
+        validate_business_measurement(scope, scorecard)
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "redistribute_all_steps",
+        "redistribute_one_step",
+        "omit_step",
+        "duplicate_step_id",
+        "unexpected_step_id",
+        "boolean_step_id",
+        "unknown_case_id",
+        "reordered_steps",
+    ],
+)
+def test_business_measurement_requires_each_cases_exact_step_coverage(
+    invalid: str,
+) -> None:
+    scope, scorecard = _scoped_measurement_fixture()
+    first = scorecard["cases"][0]["hidden_state_assertions"]
+    second = scorecard["cases"][1]["hidden_state_assertions"]
+    if invalid == "redistribute_all_steps":
+        second.extend(first)
+        first.clear()
+    elif invalid == "redistribute_one_step":
+        second.append(first.pop())
+    elif invalid == "omit_step":
+        first.pop()
+    elif invalid == "duplicate_step_id":
+        first[-1] = deepcopy(first[0])
+    elif invalid == "unexpected_step_id":
+        first[-1]["step"] = 99
+    elif invalid == "boolean_step_id":
+        first[0]["step"] = False
+    elif invalid == "unknown_case_id":
+        scope["last_measured"]["case_ids"][0] = "unknown_case"
+        scorecard["case_ids"][0] = "unknown_case"
+        scorecard["cases"][0]["case_id"] = "unknown_case"
+    else:
+        first.reverse()
     with pytest.raises(AssertionError):
         validate_business_measurement(scope, scorecard)

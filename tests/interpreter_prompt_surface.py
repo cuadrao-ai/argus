@@ -25,6 +25,15 @@ BUSINESS_DECLARATION_OWNER = "src/argus/domain/business/tools/declarations.py"
 BUSINESS_MODEL_FACING_OWNERS = frozenset(
     {"src/argus/agent_runtime/business/interpretation.py", BUSINESS_DECLARATION_OWNER}
 )
+BUSINESS_ACCEPTANCE_STEP_IDS = {
+    "es_owner_funds_no_receipt": (0, 1, 2, 3),
+    "en_funding_correction": (0, 1, 2),
+    "es_owner_does_not_know_amount": (0, 1),
+    "es_cross_client_approval_injection": (0,),
+    "en_amount_not_supplied": (0,),
+    "en_replay_stale_and_current_grant": (0, 1, 2, 3, 4, 5),
+    "en_revoked_accountant_read": (0, 1, 2),
+}
 # These composers send dictionary messages rather than LangChain messages.
 # Keep the API addition narrow: unrelated router prose is not this lane's scope.
 READOUT_MESSAGE_OWNERS = frozenset(
@@ -290,6 +299,7 @@ def validate_business_measurement(scope: dict, scorecard: dict) -> None:
     assert scorecard["judge_model"] == measured["judge_model"]
     case_ids = measured["case_ids"]
     assert len(case_ids) == len(set(case_ids)) == 7
+    assert set(case_ids) == set(BUSINESS_ACCEPTANCE_STEP_IDS)
     assert set(scorecard["case_ids"]) == set(case_ids)
     assert len(scorecard["case_ids"]) == 7
     cases = scorecard["cases"]
@@ -304,6 +314,15 @@ def validate_business_measurement(scope: dict, scorecard: dict) -> None:
     assert calibration["status"] == "passed" and calibration["report"]
     assert calibration["judge_model"] == measured["judge_model"]
     for case in cases:
+        steps = case["hidden_state_assertions"]
+        assert all(
+            isinstance(step["step"], int) and not isinstance(step["step"], bool)
+            for step in steps
+        )
+        assert (
+            tuple(step["step"] for step in steps)
+            == BUSINESS_ACCEPTANCE_STEP_IDS[case["case_id"]]
+        )
         assert case["schema_version"] == "business_e1_scorecard_v1"
         assert case["status"] == "passed" and not case["failed_checks"]
         assert all(not step["failed_checks"] for step in case["hidden_state_assertions"])
