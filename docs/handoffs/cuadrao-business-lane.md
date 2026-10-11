@@ -451,9 +451,17 @@ Only `src/argus/api/chat/breakdown.py`, `src/argus/api/chat/breakdown_jobs.py`
 and `tests/test_computed_answer_actions.py` are added beyond the prior30.
 The source owns137 offline PASS; broader689 PASS/12 FAIL/zero skips remains
 failed, including native SciPy failures and two actual measurement failures.
-Preserve original376c/9449 BLOCKs and four prior root Linux failures. Fresh
-independent review, exact-head Linux/PG, Consumer production entitlement feed, model
-measurements, integration and actual acceptance remain PENDING; no READY.
+Preserve original376c/9449 BLOCKs and four prior root Linux failures. Fresh independent final33 source review is CLEAR, a read-only authority review
+without test/provider/PG execution (`cuadrao-personal-final33-independent-review.md`).
+Root's exact9e504 Linux701 selection is678 PASS/23 FAIL/zero errors/skips,
+network none, zero provider/DB calls, at2026-10-11T12:15:28UTC
+(`cuadrao-personal-9e504-linux-proof.json`). The failures comprise four prior
+confirmation failures, two actual measurement failures and17 newly exposed
+research/auth failures not yet baseline-classified. Runtime owner is read-only
+triaging, with no source edit. Preserve earlier native689 PASS/12 FAIL separately;
+it is not this Linux result. Exact-head PG, Consumer production entitlement
+feed, model measurements, integration and actual acceptance remain PENDING;
+Linux gate is failed, no READY.
 The two explicitly owned old inherited overlaps are tool_execution.py and
 tool_declaration.py; remaining59 dependency bytes are unchanged9449, with no
 inherited scope widening. Model-facing owner surfaces remain unchanged9449.
