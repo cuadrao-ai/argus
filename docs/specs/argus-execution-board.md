@@ -80,7 +80,10 @@ fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/963#
 The fresh read confirms [CI38120748626](https://github.com/lagarcess/argus/actions/runs/38120748626)
 and [smoke38120748633](https://github.com/lagarcess/argus/actions/runs/38120748633)
 fully SUCCESS ([terminal comment](https://github.com/lagarcess/argus/pull/964#issuecomment-6106683343)).
-Current fetched integration is `3c3be1a75af5f5fd1e19db039f76c5684753241c`,
+Current fetched integration is `286c6bc0494be6c858851f0c4037ea6df5bacea5`: #966
+LANDED from manual C0 source `a9da8426c0a5153649a1a1d5bf92a042ca14e256`;
+postmerge CI38126952473 RUNNING, smoke SUCCESS, full postmerge verification
+PENDING. Retained integration `3c3be1a75af5f5fd1e19db039f76c5684753241c`,
 #965 LANDED from reviewed source `371ac8f5fb44145eac185d868b330995ee9f1c4b`.
 Fresh [postmerge CI38123706921](https://github.com/lagarcess/argus/actions/runs/38123706921)
 and [smoke38123706926](https://github.com/lagarcess/argus/actions/runs/38123706926)
@@ -88,18 +91,40 @@ are fully SUCCESS. Root's final remote audit remains separate.
 
 | Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
-| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; retained owner source `d0605ce6e1c76113f60064705f8d1dd35f43405f`, retained reviewed allocation `02870b224d5423c18579cc8b9d3e2bdb72d07fb0`, authorized #965 import `634f396f5bd39ef10b8eeafa7b6c52f5bd8440c6` | #954, #958, #960, #962 and #965 LANDED; prior fifteen-path allocation retained. Current consent/settings registration PENDING independent review/delivery. Owners implement independently now; root alone serializes integration and acceptance. Authored scope is ownership metadata and these two docs only. |
-| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, original source `2cf078c323816ca01e3a7022306ab9e52b7ec475`, retained label repair `9bbdeb8783d851b02113defc6a78eb651fcefd86`, retained contract fix `4322f397d06bf228817e908407201e167582aaf7`, retained reconciliation `a41c9fb9d5c991b06a5608ad180247dbaadbfa70`, published manual #966 `a9da8426c0a5153649a1a1d5bf92a042ca14e256` | #955, #961 and label repair #963 LANDED; #963 postmerge CI/smoke SUCCESS. Earlier 63/63 local Postgres proof retained. Manual #966 is published at a9da with exact root 76 actual Postgres PASS/zero skips; CI running, not landed. Prior a41 proof (15 new) retained. Retain prior 4322 independent 90 offline PASS and owner111 PASS/15 PG skips as historical evidence. Assigned CaptureNote contract/recovery/70000 migration and SQL proof before Actions; restoration remains PENDING and changes no approval authority. |
+| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; retained owner source `d0605ce6e1c76113f60064705f8d1dd35f43405f`, retained reviewed allocation `02870b224d5423c18579cc8b9d3e2bdb72d07fb0`, authorized #965 import `634f396f5bd39ef10b8eeafa7b6c52f5bd8440c6` | #954, #958, #960, #962 and #965 LANDED; prior fifteen-path allocation retained. Current consent/settings/export/income/X1 registration PENDING independent review/delivery; preserved owner freeze bd14 and own canonical286 import96f9602c remain source evidence. Owners implement independently now; root alone serializes integration and acceptance. Authored scope is ownership metadata and these two docs only. |
+| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, original source `2cf078c323816ca01e3a7022306ab9e52b7ec475`, retained label repair `9bbdeb8783d851b02113defc6a78eb651fcefd86`, retained contract fix `4322f397d06bf228817e908407201e167582aaf7`, retained reconciliation `a41c9fb9d5c991b06a5608ad180247dbaadbfa70`, published manual #966 `a9da8426c0a5153649a1a1d5bf92a042ca14e256` | #955, #961 and label repair #963 LANDED; #963 postmerge CI/smoke SUCCESS. Earlier 63/63 local Postgres proof retained. Manual #966 LANDED at286c6bc0 from a9da with exact root76 actual Postgres PASS/zero skips; postmerge CI38126952473 RUNNING, smoke SUCCESS, full postmerge verification PENDING. Prior a41 proof (15 new) retained. Retain prior 4322 independent 90 offline PASS and owner111 PASS/15 PG skips as historical evidence. Assigned CaptureNote contract/recovery/70000 migration and SQL proof before Actions; restoration remains PENDING and changes no approval authority. |
 | `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, retained reviewed source `76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c`, retained clean reconciliation `935beb3642d5ad12daab28ceeb78885147cb3639` (tree equals 479cc), current source `f6924168412e02f63e6c6b4debb32f466b9c8f03` | #959 LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`; postmerge CI38107050284 and smoke38107050280 succeeded. Current manual capture/list source f692 is CLEAR, 58 actual Postgres PASS/zero skips (11 new); production SQL unchanged, fixture-only correction. Prior 56 PASS/one FAIL remains retained. Integration/UI/acceptance PENDING. #961 subsequently LANDED server BoundDraft. Business quality/hosted acceptance remain pending. |
 | M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | LANDED PR #957 as eb62ad5e, reviewed tree b0c7c44c with parent0ebfd08e. Prior bounded fix retained; postmerge CI38099618928/smoke38099618926 SUCCESS (terminal comment6104002935). No new semantics grant. |
 | `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56`, retained `0d8afb73e040f80a6df271435cac4a4aa29b8749`, current manual source `d7ef29092380514761686871b596efba2549f3b9` | Actual visible replay and app captures active. Manual d7ef has the same fifteen code files independently CLEAR after the 409 fix; rendered/assembled acceptance remains PENDING. The seven exact manual-form/search/refusal paths remain assigned. LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
 | `/root/accountant_ui_review` / preserved capture and search audit | Read-only original human approvals and preserved sandbox `df208f7ec2379cd84efd55eea0deb685d67c5360` | Read-only source/decision/coverage audit continues for the remaining families. The first bounded manual-note backend slice is now assigned to C0/Actions; the audit grants no broader implementation scope. |
-| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, retained guard `1a904bd00862998d0f97da6b4d92ea1666725730`, scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1`, generic product policy `a9b9756481a054479696309ece1a352f25d7262a`, retained schema-eligibility source `b922a642452f2d759f44688c8dcf7a55eeba1f8c`, retained guard `705f45be77c2048b2a0675717c35e69fcf320eed`, current terminal correction `8882749229ed8a17bb4d809388f645c2e2b57435` | 888274 corrects the terminal bypass; comments CLEAR and bounded fresh static functional review CLEAR (31 free PASS; old exploit zero POST). Owner 2862 mocked PASS, broad 813 PASS plus the same two actual measurement FAIL/zero skips/errors. Normal W1 assembly is authorized; completed PG/assembled/live proof PENDING. PENDING integration/live scorecard/fingerprint. Earlier reported broader run 764 PASS/two real FAIL, both unmeasured Business gates. E1 owns generic fake-transport reconciliation; earlier be33 17 harness failures are not counted in this latest run. Preserve 25 legacy entries and `last_measured` exactly; no waiver or quality pass. |
-| `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, retained worker `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c`, retained consent source `75099d823ee17fa35cdab0152c3f1174c22a0007`, current disclosure fix `54ddfaa68ebc97f26a8f1f68cf14df38229c4b3a` | 54dd exact disclosure correction is independent static CLEAR (20 offline PASS) and comments CLEAR. SQL100000 remains UNAPPLIED; its seventeen PG cases are prerequisite. Prior75099 sixteen-file source remains retained under the seventeen-path package. Assembly/live/hosted proof PENDING. Prior worker full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed; integration PENDING. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
+| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, retained guard `1a904bd00862998d0f97da6b4d92ea1666725730`, scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1`, generic product policy `a9b9756481a054479696309ece1a352f25d7262a`, retained schema-eligibility source `b922a642452f2d759f44688c8dcf7a55eeba1f8c`, retained guard `705f45be77c2048b2a0675717c35e69fcf320eed`, current terminal correction `8882749229ed8a17bb4d809388f645c2e2b57435` | 888274 corrects the terminal bypass; comments CLEAR and bounded fresh static functional review CLEAR (31 free PASS; old exploit zero POST). Owner 2862 mocked PASS, broad 813 PASS plus the same two actual measurement FAIL/zero skips/errors. W1 assembled59c7 passed root91 actual local PG cases/zero skips/no provider; live quality remains PENDING. PENDING integration/live scorecard/fingerprint. Earlier reported broader run 764 PASS/two real FAIL, both unmeasured Business gates. E1 owns generic fake-transport reconciliation; earlier be33 17 harness failures are not counted in this latest run. Preserve 25 legacy entries and `last_measured` exactly; no waiver or quality pass. |
+| `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, retained worker `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c`, retained consent source `75099d823ee17fa35cdab0152c3f1174c22a0007`, retained disclosure fix `54ddfaa68ebc97f26a8f1f68cf14df38229c4b3a`, assembled source `59c7a46021e9000df06fa21567944e8a0ad262f4` | 54dd exact disclosure correction is independent static CLEAR (20 offline PASS) and comments CLEAR. Root applied exact reviewed SQL100000 only to the disposable fixture: assembled59c7 actual91 Postgres PASS/zero skips, including17 consent cases, no provider calls. Earlier UNAPPLIED/PG-pending status is historical; hosted SQL remains UNAPPLIED. Prior75099 sixteen-file source remains retained under the seventeen-path package. Local assembly/PG proof PASS; live/hosted proof PENDING. Prior worker full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed; integration PENDING. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
 | `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`, retained source `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`, funding follow-up `233701a7ab2f6335d70d728ff6d9e354b331ed49`, retained E1 head `cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205`, current `a2323ed9e92abb968d43786250ba806d00ea56f1` | Funding follow-up implementation tree `4038a181838fcbe85653e1b3dcad06f453b0b3b7`, fixture digest `b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`; narrow review and 24 free tests passed. Root corpus Postgres proof passed 8/8, zero skips, all seven cases plus foreign denial; live quality PENDING and earlier failed Haiku capture retained. Exact two generic fake-transport harness paths allocated with typed validation, trajectory assertions and labels preserved. Current a232 reviewed, 24 free PASS plus eight scripted actual Postgres PASS; this is not live quality. Original Luna result remains FAILED. Both Grok calibrations FAILED; no calibrated judge. |
-| Assigned linked-number settings UI owner | `/tmp/cuadrao-whatsapp-settings-ui-20261011`, branch `codex/cuadrao-whatsapp-settings-ui-20261011`, head `3c3be1a75af5f5fd1e19db039f76c5684753241c`; eight-path uncommitted freeze retained in `/tmp/cuadrao-whatsapp-ui-freeze.json` | Prior eight-path da056 freeze functional BLOCK (ambient-account DELETE, unknown intent lost on remount, stale GET/retry race), comments CLEAR. Nine-path correction assigned; corrected freeze/review and backend/hosted acceptance PENDING. This is independent of the manual UI writer and adds no backend authority. |
+| Assigned linked-number settings UI owner | `/tmp/cuadrao-whatsapp-settings-ui-20261011`, branch `codex/cuadrao-whatsapp-settings-ui-20261011`, original base `3c3be1a75af5f5fd1e19db039f76c5684753241c`; retained original eight-path freeze in `/tmp/cuadrao-whatsapp-ui-freeze.json`, current Git source `b4bec5ebe9c09693238940372ed80e65f54af239` | Prior eight-path da056 freeze functional BLOCK (ambient-account DELETE, unknown intent lost on remount, stale GET/retry race), comments CLEAR. Corrected nine-file content digest1236f4e5 matches Git b4bec5e byte-for-byte; fresh independent functional/comments CLEAR,70 unit and9 intercepted-browser PASS. Full TypeScript still FAIL8298 baseline/zero diagnostics in nine files. Backend/actual consent/hosted acceptance PENDING. This is independent of the manual UI writer and adds no backend authority. |
 | `/root` / verification and serialized delivery | `/tmp/cuadrao-hosted-verification-20261010`; exact candidate recorded by root at each gate | Sole merge, live caller and staging owner. Reconcile dependent sources, review exact head, require CI/compatibility and distinguish local from hosted acceptance. |
 | Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` / P0 Counsel audit | Existing read-only inventory and retained private source excerpts | Bounded 105-commit inventory DELIVERED in private /tmp/business953-private-handoff.md. Approved missing capture/search families retained in the existing handoff below; no blanket approval or wholesale publication. |
+
+
+### Active export, income and X1 allocation
+
+Root assigns four isolated writers through the existing ownership manifest, each
+against fetched `origin/codex/private-alpha-next`. These are precise additions,
+not completion or inherited-dependency write authority. Shared API/data docs,
+contracts, generated OpenAPI, router and fingerprint/test files remain named
+writer/root-serialized; no concurrent edit or blanket allowlist follows.
+
+| Package / branch | Current source and exact allocation | Status and dependencies |
+| --- | --- | --- |
+| Export / `codex/cuadrao-business-export-20261011` | `/tmp/cuadrao-business-export-20261011`, base3c3, uncommitted implementation; `src/argus/domain/business/export.py`, `src/argus/api/routers/business_export.py`, `tests/business/test_business_export.py`, `tests/test_business_export_postgres.py`, `src/argus/api/routers/financial_accounts.py`, `docs/api/openapi.yaml`, `pyproject.toml`, `poetry.lock`, `uv.lock`, `docs/API_CONTRACT.md` only frozen export wire paragraph | PENDING CSV/Excel with funding/receipts implementation/proof; no final source head or accepted export is claimed. |
+| Income C0 / `codex/cuadrao-business-income-contract-20261011` | `/tmp/cuadrao-business-income-contract-20261011`, `0f2fd918f9efc0a999777c04a4238333bd7f94da`; `src/argus/domain/business/contracts/actions.py`, `src/argus/domain/business/contracts/recovery.py`, `tests/business/test_contracts.py`, `tests/test_business_income_contract_postgres.py`, `supabase/migrations/20261011110000_business_income_command.sql`, `docs/API_CONTRACT.md`, `docs/DATA_MODEL.md` | PENDING review/root PG;123 offline PASS/33 PG SKIP including18 new. Root reserved110000 after168-worktree collision check. SQL UNAPPLIED; strict human ApproveIncome, no model approval/new grant. Manual dependency imported; shared contract/docs serialized. |
+| Income Actions / `codex/cuadrao-business-income-actions-20261011` | `/tmp/cuadrao-business-income-actions-20261011`, dependency0f2fd918, implementation WIP; `src/argus/domain/business/actions/approval.py`, `src/argus/domain/business/actions/dossier.py`, `src/argus/domain/business/actions/service.py`, `tests/business/test_business_income_approval.py`, `tests/test_business_income_approval_postgres.py`, `src/argus/api/routers/business_drafts.py`, `tests/business/test_actions_api.py` | PENDING canonical human approval/API/Money proof and cleared income contract. No unrelated M1/runtime/UI authority. |
+| X1 fiscal / `codex/cuadrao-business-receipt-fiscal-x1-20261011` | `/tmp/cuadrao-business-receipt-fiscal-x1-20261011`, `ad59803591928533e7e39eb0bd015e8586b46169`, reviewed T1 dependency888 importede728; `src/argus/domain/ingestion/documents/models.py`, `src/argus/domain/ingestion/documents/extractor.py`, `tests/interpreter_prompt_surface.py`, `tests/test_interpreter_prompt_surface.py`, `tests/test_interpreter_prompt_freeze.py`, `tests/ingestion/test_business_receipt_fiscal_extraction.py`, `.agent/interpreter_prompt_fingerprint.json`, `tests/ingestion/test_document_extraction.py` | PENDING. Frozen seven-path owned91 PASS; applicable286 yielded282 PASS/4 FAIL/zero skips. Eighth test allocation corrects only inherited generic OpenAI sparse interpretation wire assertion; preserve native document-task wire/local validators. Extractor-only scope UNMEASURED, legacy25/measured refs and Business scope preserved; no passing measurement. Fiscal values remain source-bound unverified facts, not tax certification. Canonical fiscal bridge and vision route/actual scoped extraction consent remain prerequisites, not assigned by this registration. |
+
+The existing T1 whole-branch ownership gate still FAILS on thirteen inherited E1
+paths. No allowlist widening or checker bypass resolves that dependency. Actual
+live Business quality, calibrated judge, actual scoped consent, disabled
+checkpointer cleanup/reset and hosted acceptance remain pending. All five
+retained approved sandbox families remain PENDING; X1/CSV/Excel are required NOW.
 
 ### Mandatory owner completion handoff
 
@@ -235,8 +260,8 @@ recording or full saved-note acceptance.
 All five retained approved families remain PENDING, including note search/UI,
 attachment continuity and email/hover/upload recovery outside this slice.
 Business spec3.3 still requires **X1 and CSV plus Excel with funding and receipts
-now**. Export/X1 need their bounded assignments; they are not reclassified as
-later K1, implemented or silently omitted. Live T1 measurements remain failed/
+now**. Export/X1 now have the bounded assignments above; acceptance remains
+pending, with no reclassification as later K1 or silent omission. Live T1 measurements remain failed/
 unmeasured; judge calibration, consent implementation and hosted acceptance remain pending.
 
 ### Bounded manual-note UI allocation
@@ -535,10 +560,14 @@ is unmodified in that source and stays explicitly assigned:
 `tests/test_business_whatsapp_runtime_postgres.py` and
 `tests/test_business_whatsapp_worker_postgres.py`.
 Current disclosure fix `54ddfaa68ebc97f26a8f1f68cf14df38229c4b3a` is
-independent static CLEAR (20 offline PASS) and comments CLEAR. SQL100000 is
-**UNAPPLIED**, SHA256
-`8ba4745b51b771d7c7d8bd236e0500127a45fc9aecdb8d93929abffad7e2ebbd`;
-seventeen Postgres cases remain prerequisite, not passing evidence.
+independent static CLEAR (20 offline PASS) and comments CLEAR. Assembled source
+`59c7a46021e9000df06fa21567944e8a0ad262f4` passed root91 actual local
+Postgres tests/zero failures/errors/skips, including17 consent cases. Root applied
+SQL100000 SHA256
+`8ba4745b51b771d7c7d8bd236e0500127a45fc9aecdb8d93929abffad7e2ebbd`
+only to the disposable fixture, atomically, with all provider keys blank. Root
+`cuadrao-w1-59c7-postgres-proof.json` and its exact XML supersede the earlier
+owner PG-pending status. Hosted SQL remains UNAPPLIED; old failures are retained.
 The root reserved migration100000 after a 160-worktree collision check. The
 existing W1 branch owns this combined store/factory/router/capture/lifecycle
 package; shared API/data docs and tests still require root serialization with
@@ -554,9 +583,9 @@ T1 terminal correction `8882749229ed8a17bb4d809388f645c2e2b57435`
 task-local request guard and validates payload routes; actual POST stays in
 OpenRouter. This grants no workflow/saver/model/schema/prompt/fingerprint edits.
 Comments and bounded fresh static functional review are CLEAR (31 free PASS,
-old exploit zero POST); W1 assembly proof remains PENDING. The owner
+old exploit zero POST); assembled W1 source59c7 passed root91 local PG tests/zero skips/no provider. The owner
 reports 2862 mocked PASS and broad813 PASS plus the same two actual Business
-measurement FAIL, zero skips/errors. Normal W1 assembly is authorized; its completed proof remains pending. The inherited
+measurement FAIL, zero skips/errors. The root59c7 disposable-fixture assembly proof supersedes the earlier pending PG status; live/hosted acceptance remains pending. The inherited
 thirteen E1 ownership failures remain a separate reconciliation dependency;
 no policy widening follows.
 Business checkpointer activation remains disabled until atomic cleanup/reset.
@@ -573,15 +602,19 @@ The ninth path admits only one WhatsApp pending-intent key classified in the
 existing temporary storage concept; no new helper, other-key or privacy-copy
 change. The eight-path da056 freeze remains functional BLOCK despite comments
 CLEAR. Account-bound DELETE, owner-bound same-command recovery across remount
-and stale GET/retry ordering fixes are authorized; corrected freeze/review is
-PENDING, with no new consent design or UI approval scope.
+and stale GET/retry ordering fixes now have independent functional/comments
+CLEAR at Git `b4bec5ebe9c09693238940372ed80e65f54af239`, nine-file content
+SHA256 `1236f4e530e8b60175f409fad6f0c51aed1da166d380e59c3d40baadb7ae173e`.
+The fixed-freeze and fixed-review artifacts preserve70 unit/9 intercepted-browser
+PASS and full TypeScript FAIL8298 baseline/zero diagnostics in these files.
+This is local synthetic UI proof, not actual consent/backend/hosted acceptance.
 Shared locale changes are coordinated with the manual UI writer. Reuse the
 existing managed-settings surface; preserve Lucas's approved chat baseline,
 with no Mobbin redesign. GET current owner status is readable with flags off
 and creates nothing. POST requires fresh authenticated Business-owner/live
 prepare authority, flags, current link and route. DELETE revoke and unlink
 remain accessible to the authenticated owner. Design approval is not actual
-user opt-in; static, Postgres, live quality and hosted proof remain pending.
+user opt-in; canonical reconciliation, live quality and hosted proof remain pending.
 
 Stop affected work for missing dependency contracts, duplicate writers,
 unauthorized live or hosted actions, uncertain external outcomes, or scope

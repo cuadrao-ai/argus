@@ -1,7 +1,10 @@
 # Cuadrao Business lane handoff
 
 **Current October 11 coordinator checkpoint.** Canonical integration is
-`3c3be1a75af5f5fd1e19db039f76c5684753241c`: #965 LANDED from reviewed
+`286c6bc0494be6c858851f0c4037ea6df5bacea5`: manual C0 #966 LANDED from
+`a9da8426c0a5153649a1a1d5bf92a042ca14e256`; postmerge CI38126952473 is
+RUNNING and smoke SUCCESS at this snapshot, not a full postmerge pass.
+Retained #965 integration is `3c3be1a75af5f5fd1e19db039f76c5684753241c`, LANDED from reviewed
 `371ac8f5fb44145eac185d868b330995ee9f1c4b`. Fresh
 [CI38123706921](https://github.com/lagarcess/argus/actions/runs/38123706921)
 and [smoke38123706926](https://github.com/lagarcess/argus/actions/runs/38123706926)
@@ -261,12 +264,17 @@ Current consent implementation is active in parallel: W1/C0 disclosure fix
 (20 offline PASS) and comments CLEAR; retained75099 authored sixteen of the
 seventeen allocated paths. SQL100000 SHA256
 `8ba4745b51b771d7c7d8bd236e0500127a45fc9aecdb8d93929abffad7e2ebbd`
-is **UNAPPLIED**, and seventeen Postgres cases remain prerequisite. T1 terminal
+was previously UNAPPLIED. Root now applied it only to the disposable fixture
+at assembled `59c7a46021e9000df06fa21567944e8a0ad262f4`:91 actual PG
+PASS/zero failures/errors/skips, including17 consent cases, all provider keys
+blank. Root `cuadrao-w1-59c7-postgres-proof.json` and its exact XML supersede
+the prior owner PG-pending status; hosted SQL stays UNAPPLIED and old failures
+remain evidence. T1 terminal
 correction `8882749229ed8a17bb4d809388f645c2e2b57435` closes the bypass,
 comments and bounded fresh static functional review CLEAR (31 free PASS,
 old exploit zero POST). Owner2862 mocked PASS,
 broad813 PASS plus the same two actual measurement FAIL/zero skips/errors;
-normal W1 assembly is authorized but completed proof is pending. Its eight guard/route paths add only
+W1 local assembly/PG proof passed at59c7; actual live quality remains pending. Its eight guard/route paths add only
 `src/argus/llm/openrouter_request_policy.py` to policy. Thirteen inherited E1
 whole-branch ownership failures remain, with no policy widening.
 The new `codex/cuadrao-whatsapp-settings-ui-20261011` branch/worktree retains
@@ -282,8 +290,14 @@ is **BLOCK** on ambient-account DELETE, lost unknown body/key after remount and
 stale GET/retry race, despite comments CLEAR. This eight-path da056 freeze stays
 blocked. Root adds only ninth `web/lib/browser-storage.ts` for one WhatsApp
 pending-intent key in the existing temporary concept, without helper/other-key/
-privacy-copy changes. Owner account-binding/recovery/order fixes are active;
-corrected nine-path freeze/review remains PENDING. No actual consent, backend,
+privacy-copy changes. Owner account-binding/recovery/order fixes are independently functional/comments
+CLEAR at actual Git `b4bec5ebe9c09693238940372ed80e65f54af239`. Its nine
+reviewed file bytes match content SHA256
+`1236f4e530e8b60175f409fad6f0c51aed1da166d380e59c3d40baadb7ae173e`; this
+is a content digest, not a commit. `/tmp/cuadrao-whatsapp-ui-fixed-freeze.json`
+and fixed independent/comments reviews retain70 unit/9 intercepted-browser
+PASS; full TypeScript still FAIL8298 baseline/zero changed-file diagnostics.
+The earlier da056 BLOCK remains historical evidence. No actual consent, backend,
 hosted or full readiness proof follows. The
 [active allocation](../specs/argus-execution-board.md#active-consent-and-linked-number-settings-allocation)
 records each exact path, the root-reserved100000 migration/160-worktree check,
@@ -291,13 +305,17 @@ shared-writer serialization and inherited foreign-delta limits. No serial
 metadata hold blocks their coding. GET own status works with flags off without
 creation; POST requires fresh owner/live prepare/flags/link/route; authenticated
 owner revoke/unlink stay accessible. Business checkpointer remains disabled
-until atomic cleanup/reset. Actual scoped user consent, assembled static/PG/live
-quality and hosted proof remain pending. Core both-tier mobile flows and agent
+until atomic cleanup/reset. Actual scoped user consent, live
+quality and hosted proof remain pending; the assembled59c7 static/local PG
+proof above does not clear them. Core both-tier mobile flows and agent
 actions are now; normal usability is now and extreme Dynamic Type is final
 pre-TestFlight. The assigned ONE-Mobile-goal warm-design experiment approved
 by `Sentinel_fa71fe12f79481918cd3ff3fc869e0a7` runs in parallel with core,
 preserving palette/type/chat, with no global replacement. Preserve the approved
-chat baseline; no redesign/keeper expansion.
+chat baseline; no redesign/keeper expansion. Lucas now also approves selective
+motion via `Sentinel_b1d14016cb048191ae4d6781671ba461`; retain existing goal,
+celebration and splash authorizations. This is bounded motion permission, not
+an accepted implementation or global design replacement.
 
 ## Future member-access and upload UI references
 
@@ -418,9 +436,10 @@ of these five approved outcomes. Root has now assigned only the first manual-not
 backend package to existing C0/Actions owners; it does not close any of the five
 families or promote the sandbox wholesale. C0 current reconciliation
 `a41c9fb9d5c991b06a5608ad180247dbaadbfa70` retains its 76 actual Postgres
-PASS/zero skips (15 new). Manual #966 is now published at
+PASS/zero skips (15 new). Manual #966 LANDED at
+`286c6bc0494be6c858851f0c4037ea6df5bacea5` from
 `a9da8426c0a5153649a1a1d5bf92a042ca14e256`, exact root76PG PASS/zero skips;
-CI running, not landed. Prior `4322f397d06bf228817e908407201e167582aaf7`
+postmerge CI38126952473 RUNNING, smoke SUCCESS, full verification PENDING. Prior `4322f397d06bf228817e908407201e167582aaf7`
 independent90/owner111 offline PASS and 15 PG skips remain historical evidence.
 Actions current `f6924168412e02f63e6c6b4debb32f466b9c8f03` is CLEAR, with
 58 actual Postgres PASS/zero skips (11 new). Production SQL is unchanged;
@@ -445,8 +464,22 @@ Actual render and backend-integrated acceptance remain pending.
 No model action or fake turn replaces a human note command. Open-draft capture
 changes no Money/balance; accepted-record amendments and grant-only new-client
 creation are outside this first slice. Spec 3.3 **X1 and CSV/Excel with funding
-and receipts remain required now**, separately pending bounded assignments.
+and receipts remain required now**, with the bounded assignments below active
+and their implementation/acceptance still PENDING.
 T1 failed/unmeasured quality, judge calibration, consent implementation and hosted gates remain open.
+
+The [active export/income/X1 allocation](../specs/argus-execution-board.md#active-export-income-and-x1-allocation)
+records four isolated writers and their exact10/7/7/8 paths. Export and income
+Actions are WIP; income C0 source0f2fd918 retains123 offline PASS/33 PG SKIP,
+root-reserved110000 after168-worktree collision check, no SQL application. X1
+ad598035 retains owned91 PASS and applicable282 PASS/4 FAIL/zero skips, no
+provider/DB calls. The eighth X1 test only corrects inherited generic sparse
+interpretation wire expectation, preserving document-task/native wire and local
+validators. Fiscal facts remain unverified and source-bound; extractor scope
+is UNMEASURED, with existing legacy25/measured references and Business holds
+preserved. Canonical fiscal attachment bridge and vision route/actual scoped
+extraction consent remain prerequisites; text WhatsApp opt-in does not imply
+image-processing consent. These assignments close none of the five families.
 
 Counsel's exact original six-rule approval source remains UNKNOWN. Later direct
 human grant/model direction supersedes old rigid-custodian/role maps, fixed
