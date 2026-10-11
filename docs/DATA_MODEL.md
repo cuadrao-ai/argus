@@ -3417,7 +3417,23 @@ establish delivery of all seven Business journeys.
 | `business_questions` | Stable field question, recipient, channel, prompt, allowed answer states and answer-source reference. An owner-does-not-know answer requires its source and moves recipient to accountant. It does not trigger another owner question. Composite FKs scope draft and answer source. Deleting the owning source cascades the answered question instead of clearing its provenance. |
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
-| `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Only human `review_draft`/`approve_expense` commands may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
+| `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Only human `review_draft`/`approve_expense` commands and the additive `capture_note` command below may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
+
+Migration `20261011070000_business_manual_capture_command.sql` extends only
+the action-receipt checks to admit human `capture_note` commands without a turn.
+A capture requires actor kind `member` and null `turn_key`/`action_index`; it
+cannot be a planned agent action. The typed command is
+`{action: "capture_note", request: {text, draft?: {draft_id, version}}}`.
+Original text uses an existing immutable `business_sources` message with channel
+`web`, not a second manual-note store. The source key and ID come from the server.
+Its capture receipt outcome identifies the canonical draft and exact immutable
+revision whose sole source ID identifies that note. Receipt actor/grant/issuer
+metadata and revision history retain attribution without rewriting source text.
+Runtime must atomically persist the receipt, original source, candidate/link and
+revision under a live prepare grant. A new candidate has unknown facts except
+unverified default DOP; an append preserves facts and open questions. Neither
+path writes money, manufactures a turn, grants consent or amends accepted records.
+Existing source lifecycle, receipt immutability and client privileges are unchanged.
 
 All new tables have RLS enabled and no client policies, with anon/authenticated
 grants revoked. Only the server projects authorized dossiers and original

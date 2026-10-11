@@ -149,7 +149,23 @@ class ApprovalCommand(Contract):
     request: ApproveExpense
 
 
-Command = BusinessAction | ReviewCommand | ApprovalCommand
+class CaptureNote(Contract):
+    text: str = Field(min_length=1, max_length=20000)
+    draft: ExistingDraft | None = None
+
+    @model_validator(mode="after")
+    def nonblank_text(self) -> CaptureNote:
+        if not self.text.strip():
+            raise ValueError("capture text must not be blank")
+        return self
+
+
+class CaptureCommand(Contract):
+    action: Literal["capture_note"] = "capture_note"
+    request: CaptureNote
+
+
+Command = BusinessAction | ReviewCommand | ApprovalCommand | CaptureCommand
 
 
 class Applied(Contract):
