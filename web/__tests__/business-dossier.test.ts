@@ -5,9 +5,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
-import { ReceiptApprovalGuidance } from "@/components/business-app/ReceiptDossierReview";
+import { finishPeriodExportRequest, startPeriodExportRequest, ReceiptApprovalGuidance, ReceiptPeriodExport } from "@/components/business-app/ReceiptDossierReview";
 import type { BusinessDossier } from "@/lib/business-dossier";
-import { approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
+import { businessExportPeriodValid, fetchBusinessExport, approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
 import { withBusinessSpace } from "@/components/business-app/business-data";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
@@ -145,4 +145,92 @@ test("owner-funded expense projection preserves its null account and funding kin
     if (originalAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
     else process.env.NEXT_PUBLIC_MOCK_AUTH = originalAuth;
   }
+});
+
+
+test("export periods match inclusive calendar limits without timezone or invalid-date coercion", () => {
+  assert.equal(businessExportPeriodValid("2024-01-01", "2024-12-31"), true);
+  assert.equal(businessExportPeriodValid("2024-01-01", "2025-01-01"), false);
+  assert.equal(businessExportPeriodValid("2026-10-10", "2026-10-10"), true);
+  for (const [start, end] of [["2026-02-29", "2026-03-01"], ["2026-10-11", "2026-10-10"], ["2026-1-01", "2026-01-31"], ["0000-01-01", "0000-01-02"], ["", "2026-01-01"]]) assert.equal(businessExportPeriodValid(start, end), false);
+});
+
+test("Spanish export control names the authorized client and allows read-only records without approval", async () => {
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  const fixture = createDossierFixtures([{ id: "client-account", nickname: "Caja", type: "cash", currency: "DOP" }]);
+  const record = await fixture.dossier(dossierFixtureIds.readOnly);
+  const render = (dossier: BusinessDossier, available = true, end = "2026-10-31") => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(ReceiptPeriodExport, { dossier, start: "2026-10-01", end, available })));
+  const html = render(record);
+  assert.ok(html.includes(record.space_name));
+  assert.match(html, /Descargar CSV, Excel y originales/);
+  assert.match(html, /originales faltantes/);
+  assert.doesNotMatch(html, /<button[^>]*\sdisabled=""/);
+  assert.ok(!html.includes("Aprobar"));
+  assert.equal(render({ ...record, capabilities: [] }), "");
+  assert.match(render(record, false), /<button[^>]*\sdisabled=""/);
+  assert.match(render(record, false), /vista conectada/);
+  assert.match(render(record, true, "2028-10-31"), /<button[^>]*\sdisabled=""/);
+});
+
+test("export transport reads only the explicit draft client and preserves the server ZIP bytes", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  const calls: { url: URL; init?: RequestInit }[] = [];
+  const bytes = new Uint8Array([80, 75, 3, 4, 0, 255, 39, 0]);
+  globalThis.fetch = async (input, init) => {
+    calls.push({ url: new URL(String(input)), init });
+    return new Response(bytes, { headers: { "Content-Type": "application/zip" } });
+  };
+  try {
+    const blob = await fetchBusinessExport(dossierFixtureIds.readOnly, "2026-10-01", "2026-10-31");
+    assert.deepEqual(new Uint8Array(await blob.arrayBuffer()), bytes);
+    assert.equal(blob.type, "application/zip");
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0].url.pathname.endsWith("/business/exports"));
+    assert.deepEqual([...calls[0].url.searchParams], [["start", "2026-10-01"], ["end", "2026-10-31"], ["draft_id", dossierFixtureIds.readOnly]]);
+    assert.equal(calls[0].init?.method ?? "GET", "GET");
+    assert.equal(calls[0].init?.body, undefined);
+    assert.equal(calls[0].init?.cache, "no-store");
+    for (const [status, code] of [[403, "business_permission_denied"], [404, "business_record_not_found"], [413, "export_record_limit"], [503, "business_export_unavailable"]] as const) {
+      globalThis.fetch = async () => new Response(JSON.stringify({ detail: { code, status } }), { status, headers: { "Content-Type": "application/json" } });
+      await assert.rejects(fetchBusinessExport(dossierFixtureIds.readOnly, "2026-10-01", "2026-10-31"), { status, code });
+    }
+    globalThis.fetch = async () => new Response("unexpected document", { headers: { "Content-Type": "text/html" } });
+    await assert.rejects(fetchBusinessExport(dossierFixtureIds.readOnly, "2026-10-01", "2026-10-31"), /Invalid Business export response/);
+    let dispatched = false;
+    globalThis.fetch = async () => { dispatched = true; return new Response(bytes); };
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(fetchBusinessExport(dossierFixtureIds.readOnly, "2026-10-01", "2026-10-31", controller.signal));
+    assert.equal(dispatched, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+    else process.env.NEXT_PUBLIC_MOCK_AUTH = originalAuth;
+  }
+});
+
+
+test("revoked export releases busy immediately and late settlement cannot unlock a restored request", () => {
+  const request: { current: AbortController | null } = { current: null };
+  let busy = false;
+  const changes: boolean[] = [];
+  const setBusy = (value: boolean) => { busy = value; changes.push(value); };
+  const revoked = startPeriodExportRequest(request, setBusy)!;
+  assert.equal(busy, true);
+  assert.equal(startPeriodExportRequest(request, setBusy), null);
+  revoked.abort();
+  assert.equal(busy, false);
+  assert.equal(request.current, null);
+  const restored = startPeriodExportRequest(request, setBusy)!;
+  assert.equal(busy, true);
+  finishPeriodExportRequest(request, revoked, setBusy);
+  assert.equal(busy, true);
+  assert.equal(request.current, restored);
+  finishPeriodExportRequest(request, restored, setBusy);
+  assert.equal(busy, false);
+  assert.equal(request.current, null);
+  assert.deepEqual(changes, [true, false, true, false]);
 });

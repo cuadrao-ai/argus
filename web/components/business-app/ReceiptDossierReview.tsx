@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, Download, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
-import type { BusinessCaptureInput } from "@/lib/business-api";
+import { businessExportPeriodValid, fetchBusinessExport, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
@@ -25,9 +25,69 @@ export function ReceiptApprovalGuidance({ dossier }: { dossier: BusinessDossier 
   return <div className={`${cardClass} text-[13px] text-black/70 dark:text-white/70`}><p className="font-medium">{t("business.dossier.before_approval", "Before approval")}</p><ul className="mt-2 space-y-2">{dossier.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}>{t(`business.dossier.blocker.${blocker.code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))}{blocker.field ? ` · ${t(`business.dossier.field.${blocker.field}`, blocker.field)}` : ""}</li>)}</ul></div>;
 }
 
+export function finishPeriodExportRequest(request: { current: AbortController | null }, controller: AbortController, setBusy: (busy: boolean) => void) {
+  if (request.current !== controller) return;
+  request.current = null;
+  setBusy(false);
+}
+
+export function startPeriodExportRequest(request: { current: AbortController | null }, setBusy: (busy: boolean) => void): AbortController | null {
+  if (request.current) return null;
+  const controller = new AbortController();
+  request.current = controller;
+  setBusy(true);
+  controller.signal.addEventListener("abort", () => finishPeriodExportRequest(request, controller, setBusy), { once: true });
+  return controller;
+}
+
+export function ReceiptPeriodExport({ dossier, start, end, available }: { dossier: BusinessDossier; start: string; end: string; available: boolean }) {
+  const { t } = useTranslation();
+  const [from, setFrom] = useState(start);
+  const [to, setTo] = useState(end);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const canRead = dossier.capabilities.includes("read");
+  useEffect(() => () => request.current?.abort(), [dossier.draft_id, canRead, available]);
+  if (!canRead) return null;
+  const download = async () => {
+    if (request.current || !available || !businessExportPeriodValid(from, to)) return;
+    const controller = startPeriodExportRequest(request, setBusy);
+    if (!controller) return;
+    setProblem(null);
+    try {
+      const blob = await fetchBusinessExport(dossier.draft_id, from, to, controller.signal);
+      controller.signal.throwIfAborted();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `business-export-${from}-${to}.zip`;
+      document.body.appendChild(link);
+      try { link.click(); } finally { link.remove(); URL.revokeObjectURL(url); }
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const status = (error as { status?: number }).status;
+      setProblem(status === 401 || status === 403 || status === 404 ? t("business.export.access_error", "This export isn't available with your current access.") : status === 413 ? t("business.export.limit_error", "This export exceeds a package limit. Choose a shorter period.") : t("business.export.error", "The export could not be downloaded. Check your access and try again."));
+    } finally {
+      finishPeriodExportRequest(request, controller, setBusy);
+    }
+  };
+  return <section className={cardClass} aria-label={t("business.export.title", "Export Business records")}>
+    <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.export.title", "Export Business records")}</h3>
+    <p className="mt-2 text-[13px] text-black/65 dark:text-white/65">{t("business.export.scope", "{{name}} · CSV, Excel and retained originals in one ZIP.", { name: dossier.space_name })}</p>
+    <form className="mt-4 space-y-3" onSubmit={(event) => { event.preventDefault(); void download(); }}>
+      <div className="grid grid-cols-2 gap-3">{[{ field: "start", value: from, setValue: setFrom }, { field: "end", value: to, setValue: setTo }].map(({ field, value, setValue }) => <label key={field} className="block text-[13px] text-black/65 dark:text-white/65">{t(`business.export.${field}`, field === "start" ? "From" : "Through")}<input type="date" required value={value} disabled={busy} onChange={(event) => setValue(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-black/15 bg-transparent px-2 text-black dark:border-white/20 dark:text-white" /></label>)}</div>
+      <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.export.period_hint", "Choose 1–366 days, including both dates. Pending records are separate from recorded money; the manifest reports missing originals.")}</p>
+      {problem ? <p role="alert" className="text-[13px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
+      <button type="submit" disabled={busy || !available || !businessExportPeriodValid(from, to)} className={secondaryButtonClass}><Download className="h-4 w-4" aria-hidden="true" />{busy ? t("business.export.downloading", "Downloading…") : t("business.export.download", "Download CSV, Excel and originals")}</button>
+      {!available ? <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.export.preview", "Downloads are available in the connected Business view.")}</p> : null}
+    </form>
+  </section>;
+}
+
 export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftId: string; onUnprepared?: () => void }) {
   const { t, i18n } = useTranslation();
-  const { source, openPanel, reload } = useBusiness();
+  const { source, openPanel, reload, period } = useBusiness();
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [operation, setOperation] = useState<Operation>({ kind: "idle" });
@@ -162,6 +222,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
           {editing && operation.kind === "uncertain" && operation.action === "save" ? <div className={cardClass}><h3 className="mb-5 text-[14px] font-medium text-black dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
           {canPrepare && mutable && !editing && !dirty ? <button type="button" className={secondaryButtonClass} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
+          <ReceiptPeriodExport key={dossier.draft_id} dossier={dossier} start={period.from} end={period.to} available={source.mode === "live"} />
           <ReceiptApprovalGuidance dossier={dossier} />
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
           <div className={cardClass}>
