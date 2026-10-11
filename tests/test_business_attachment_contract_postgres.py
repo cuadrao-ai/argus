@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
+from argus.domain.business.contracts.actions import canonical_input_hash
+from argus.domain.ingestion.documents.models import ExtractionBatch
 from psycopg import Connection, errors
 from psycopg.types.json import Jsonb
 
@@ -59,11 +61,29 @@ def capture(db: Connection, binding: dict, **draft_changes: object) -> None:
     )
 
 
+def save_batch(db: Connection, binding: dict) -> ExtractionBatch:
+    batch = ExtractionBatch(candidates=())
+    db.execute(
+        "update public.financial_document_extractions set batch=%s where connection_id=%s",
+        (Jsonb(batch.model_dump(mode="json")), binding["connection_id"]),
+    )
+    return batch
+
+
 def receipt(db: Connection, binding: dict, **overrides: object) -> None:
+    row = db.execute(
+        "select batch from public.financial_document_extractions where connection_id=%s",
+        (binding["connection_id"],),
+    ).fetchone()
+    digest = (
+        canonical_input_hash(ExtractionBatch.model_validate(row[0]))
+        if row and row[0] is not None
+        else "b" * 64
+    )
     command = {
         "action": "prepare_attachment",
         "binding": binding,
-        "batch_sha256": "b" * 64,
+        "batch_sha256": digest,
     }
     values = {
         "space_id": binding["space_id"],
@@ -95,6 +115,7 @@ def test_bound_preparation_and_exact_receipt_survive_status_updates(
     binding: dict,
 ) -> None:
     capture(db, binding)
+    save_batch(db, binding)
     receipt(db, binding)
     db.execute(
         "update public.financial_document_extractions"
@@ -194,6 +215,7 @@ def test_explicit_existing_target_is_exact_open_canonical_draft(
     }
     if target_kind == "valid":
         capture(db, binding)
+        save_batch(db, binding)
         receipt(db, binding)
     else:
         with pytest.raises(errors.CheckViolation), db.transaction():
@@ -254,6 +276,7 @@ def test_attachment_receipt_requires_original_stored_extractor_binding(
 ) -> None:
     if change != "missing":
         capture(db, binding)
+        save_batch(db, binding)
     changed = deepcopy(binding)
     args = {}
     if change == "grant":
@@ -310,3 +333,45 @@ def test_original_binding_rejects_null_audit_identity(
         binding[field] = None
     with pytest.raises(errors.CheckViolation), db.transaction():
         capture(db, binding)
+
+
+def test_receipt_requires_saved_batch(db: Connection, binding: dict) -> None:
+    capture(db, binding)
+    with pytest.raises(errors.CheckViolation), db.transaction():
+        receipt(db, binding)
+
+
+@pytest.mark.parametrize(
+    "replacement", [None, {"candidates": [], "metadata": {"changed": True}}]
+)
+def test_bound_saved_batch_cannot_be_replaced(
+    db: Connection,
+    binding: dict,
+    replacement: dict | None,
+) -> None:
+    capture(db, binding)
+    saved = save_batch(db, binding)
+    save_batch(db, binding)
+    with pytest.raises(errors.CheckViolation), db.transaction():
+        db.execute(
+            "update public.financial_document_extractions set batch=%s where connection_id=%s",
+            (
+                None if replacement is None else Jsonb(replacement),
+                binding["connection_id"],
+            ),
+        )
+    assert db.execute(
+        "select batch from public.financial_document_extractions where connection_id=%s",
+        (binding["connection_id"],),
+    ).fetchone()[0] == saved.model_dump(mode="json")
+
+
+def test_bound_documents_remain_service_only(db: Connection) -> None:
+    assert db.execute(
+        "select c.relrowsecurity,"
+        " has_table_privilege('anon',c.oid,'SELECT,INSERT,UPDATE,DELETE'),"
+        " has_table_privilege('authenticated',c.oid,'SELECT,INSERT,UPDATE,DELETE'),"
+        " has_table_privilege('service_role',c.oid,'SELECT,INSERT,UPDATE,DELETE')"
+        " from pg_class c join pg_namespace n on n.oid=c.relnamespace"
+        " where n.nspname='public' and c.relname='financial_document_extractions'"
+    ).fetchone() == (True, False, False, True)
