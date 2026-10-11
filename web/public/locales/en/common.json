@@ -2474,6 +2474,26 @@
       "loading": "Searching your business",
       "failed": "We couldn't search your business.",
       "receipts": "Receipts"
+    },
+    "capture": {
+      "reopen_retained": "Reopen retained note",
+      "write": "Save a note",
+      "append": "Add a note to this record",
+      "help": "Save your original words for review. This creates no assistant reply and records no money movement.",
+      "text": "Original note",
+      "save": "Save note",
+      "saving": "Saving…",
+      "retry": "Retry the same note",
+      "edit_request": "Edit request",
+      "target_revision": "Record revision {{version}}",
+      "unavailable": "Your current access does not allow saving this note. Your text is retained.",
+      "stale": "This record changed. Close this note, check the current revision, then reopen it. Your text is retained.",
+      "refused": "The note could not be saved. Your text is retained; review the request before trying again.",
+      "uncertain": "We could not confirm whether the note was saved. Your original request is retained. Retry only this same request to check its outcome.",
+      "reopen": "Reopen unconfirmed note",
+      "notes": "Original notes",
+      "saved_note": "Saved original note",
+      "search_failed": "Notes are unavailable. Other record results are shown below."
     }
   },
   "money": {

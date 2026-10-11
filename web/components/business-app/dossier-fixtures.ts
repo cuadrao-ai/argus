@@ -1,4 +1,4 @@
-import type { BusinessAccount, ReceiptDetail } from "@/lib/business-api";
+import type { BusinessAccount, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
 import type { BusinessActor, BusinessDossier, BusinessFact, BusinessFactPatch, BusinessFacts } from "@/lib/business-dossier";
 
 export const dossierFixtureIds = {
@@ -79,7 +79,42 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     return found ? structuredClone(found) : fail(404, "draft_not_found");
   };
   let receiptDraftCount = 0;
+  let captureCount = 0;
+  const captures: BusinessCapture[] = [];
+  const captureReceipts = new Map<string, { input: string; draftId: string }>();
   return {
+    captureNote: async (request: BusinessCaptureInput, key: string) => {
+      const input = JSON.stringify(request);
+      const receipt = captureReceipts.get(key);
+      if (receipt) return receipt.input === input ? get(receipt.draftId) : fail(409, "idempotency_conflict");
+      if (!request.text.trim() || [...request.text].length > 20000 || request.text.includes("\0")) fail(422, "invalid_request");
+      const previous = request.draft ? get(request.draft.draft_id) : null;
+      if (previous && !previous.capabilities.includes("prepare")) fail(403, "permission_denied");
+      if (previous && previous.review_state !== "open") fail(409, "business_draft_not_open");
+      if (previous && previous.version !== request.draft?.version) fail(409, "stale_version");
+      const index = ++captureCount;
+      const id = previous?.draft_id ?? `90000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+      const noteSourceId = `91000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+      const receivedAt = new Date(Date.UTC(2026, 9, 10, 15, 0, index)).toISOString();
+      const current: BusinessFacts = previous?.facts ?? { kind: unknown(), amount: unknown(), currency: structuredClone(currency), occurred_on: unknown(), counterparty: unknown(), funding: unknown(), business_share: unknown(), receipt_state: unknown(), category_id: unknown(), fiscal: null };
+      const version = (previous?.version ?? 0) + 1;
+      const next: BusinessDossier = {
+        ...(previous ?? get(dossierFixtureIds.unknown)), draft_id: id, version, facts: current,
+        sources: [...(previous?.sources ?? []), { id: noteSourceId, kind: "message", channel: "web", received_at: receivedAt, text: request.text }],
+        questions: previous?.questions ?? [],
+        history: [...(previous?.history ?? []), { draft_id: id, version, actor, before: previous?.facts ?? null, after: current, source_ids: [noteSourceId], turn_key: null, created_at: receivedAt }],
+        blockers: previous?.blockers ?? [{ code: "missing_fields", field: "kind" }, { code: "missing_fields", field: "amount" }, { code: "unknown_funding", field: "funding" }],
+        approval_available: previous?.approval_available ?? false, approval_result: null,
+      };
+      dossiers.set(id, next);
+      captures.push({ draft_id: id, version, source_id: noteSourceId, text: request.text, received_at: receivedAt, review_state: "open" });
+      captureReceipts.set(key, { input, draftId: id });
+      return get(id);
+    },
+    captures: async (query = "", limit = 20) => {
+      if (query.includes("\0") || [...query].length > 200 || !Number.isInteger(limit) || limit < 1 || limit > 50) fail(422, "invalid_request");
+      return captures.filter((note) => note.text.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.received_at.localeCompare(a.received_at) || b.source_id.localeCompare(a.source_id)).slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state }; });
+    },
     createReceiptDraft: (receipt: ReceiptDetail) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
       const reviewed = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });

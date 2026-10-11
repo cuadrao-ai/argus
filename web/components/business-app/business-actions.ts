@@ -23,6 +23,7 @@ import type { IntakeTarget } from "./ReceiptIntakeDialog";
 export type BusinessActionId =
   | "upload_receipt"
   | "record_expense"
+  | "capture_note"
   | "review_inbox"
   | "ask_spending";
 
@@ -50,10 +51,12 @@ type ActionInput = {
     workspace: BusinessWorkspaceInfo | null;
     overview: BusinessOverview | null;
     inbox: ReceiptSummary[] | null;
+    error?: boolean;
   };
   bridge: ChatShellBridge | null;
   openIntake: (target: IntakeTarget) => void;
   openRecordExpense: () => void;
+  openCapture?: () => void;
   openPanel: (panel: BusinessPanelState) => void;
 };
 
@@ -66,6 +69,7 @@ export function useBusinessActions({
   bridge,
   openIntake,
   openRecordExpense,
+  openCapture,
   openPanel,
 }: ActionInput): BusinessActions {
   const { t } = useTranslation();
@@ -95,6 +99,7 @@ export function useBusinessActions({
       PenLine,
       openRecordExpense,
     );
+    const captureActions = records.workspace && !records.error && openCapture ? [action("capture_note", t("business.capture.write", "Save a note"), PenLine, openCapture)] : [];
     const reviewInbox = action(
       "review_inbox",
       t("business.actions.review_inbox", "Review {{count}} receipts", { count: awaiting }),
@@ -119,9 +124,9 @@ export function useBusinessActions({
 
     const chips = [uploadReceipt, ...(awaiting > 0 ? [reviewInbox] : []), ...(canAsk ? [askSpending] : [recordExpense])];
     return {
-      create: [uploadReceipt, recordExpense],
+      create: [uploadReceipt, recordExpense, ...captureActions],
       composer: [attachReceipt, recordExpense],
       starterEntries: chips.map(({ id, icon, label, run }) => ({ key: id, icon, label, onSelect: run })),
     };
-  }, [awaiting, bridge, canAsk, openIntake, openPanel, openRecordExpense, t]);
+  }, [awaiting, bridge, canAsk, openCapture, openIntake, openPanel, openRecordExpense, records.workspace, records.error, t]);
 }
