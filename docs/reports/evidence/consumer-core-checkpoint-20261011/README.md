@@ -2,6 +2,11 @@
 
 This record covers the native signed-in manual-money checkpoint against the existing staging backend. All financial names and amounts in these images are synthetic test data. Nothing here establishes phone, TestFlight or live assistant acceptance.
 
+The later [20:00 UTC continuation](core-continuation-20261011/README.md) reports
+two passes and two fresh-sign-in failures. The local CAPTCHA fixture was not
+running. Budget and Goal were not rerun; the earlier evidence below retains its
+original source and time.
+
 ## Current result
 
 | Check | Result | Source |

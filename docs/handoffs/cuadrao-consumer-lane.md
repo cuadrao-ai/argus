@@ -136,6 +136,15 @@ Search captures distinguish loading from the later settled result.
 - Native staging sign-in used a local CAPTCHA fixture with real staging identity
   and money APIs. This does not prove hosted CAPTCHA or production sign-in.
 
+The [20:00 UTC Core continuation](../reports/evidence/consumer-core-checkpoint-20261011/core-continuation-20261011/README.md)
+adds two passes and two failures, with zero skips, on the unchanged `40ff49670`
+native build. Money input/cancellation and retained Home after relaunch passed.
+Account archive/restore and Search stopped during fresh sign-in before their
+financial checks. The configured local CAPTCHA server at port 59485 was not
+listening. Its public-test-key fixture was left stopped under the current auth
+limits. The app is signed out; Budget, Goal and retry were not rerun in that
+continuation. Earlier passing evidence keeps its original source and time.
+
 The identifier regression and Release simulator build passed. Five readback
 unit tests, configured Python lint, and modularity checks passed. Full local
 pytest stopped at collection on the existing SciPy binary load error. The six
