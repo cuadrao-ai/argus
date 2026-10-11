@@ -1,11 +1,14 @@
 # Cuadrao Business lane handoff
 
-**Current checkpoint under the October 10 23:37 UTC continuation.** UI #956
-landed at `2026-10-11T00:19:57Z` as current canonical integration
-`0ebfd08ed22dcd1108496fc0af427073ec219dc8`; root postmerge verification is
-at 00:25 UTC: [postmerge smoke 38098062178](https://github.com/lagarcess/argus/actions/runs/38098062178)
-succeeded; [full CI 38098062185](https://github.com/lagarcess/argus/actions/runs/38098062185)
-remained pending. C0 #955 landed as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; its exact postmerge
+**Current checkpoint under the October 10 23:37 UTC continuation.** Canonical
+integration is `eb62ad5e7718bd103b0205cf91d15a61c22628d6`, M1 #957 landed
+with reviewed tree `b0c7c44c1602265979960e375bfaf64ec5eca6a8` and parent
+`0ebfd08ed22dcd1108496fc0af427073ec219dc8`. M1 postmerge
+[CI38099618928](https://github.com/lagarcess/argus/actions/runs/38099618928)/
+[smoke38099618926](https://github.com/lagarcess/argus/actions/runs/38099618926)
+are pending. UI #956 postmerge CI38098062185/smoke38098062178 fully succeeded
+([terminal comment](https://github.com/lagarcess/argus/pull/956#issuecomment-6103805934)).
+C0 #955 landed as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; its exact postmerge
 CI and smoke all succeeded ([comment 6103620102](https://github.com/lagarcess/argus/pull/955#issuecomment-6103620102)). Startup repair #954 landed at
 `8a838fb4ff75bb8527400bbd802eb208e270bdf7`. The prior #953 source was
 `77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`, with passed exact
@@ -45,12 +48,33 @@ calls. The 22:32 UTC grant authorizes only the existing development
 expires at `2026-10-12T02:21:00Z`. It supersedes the $5 cap and spending hold.
 Do not swap to registered or guest keys or rotate credentials. The manifest
 owns the remaining-allowance snapshot. The root coordinator alone controls
-synthetic live calls, reservations, concurrency and token bounds. Root began bounded Grok calibration at 00:05 UTC on October 11. Three POSTs
-occurred: two valid known-case verdicts costing $0.0015287 total and one unknown
-outcome after `ValueError`. Calibration remains incomplete; root retains its
-$0.156 unknown-call reservation, with no blind retry. The manifest records exact usage/limits and the passed exact-head E1 local proof (17/17, zero errors/skips), CLEAR reviews,
-and pending M1 CI after the bounded two-file fix. Consent policy and the Grok
-root-controlled repeat diagnostic remain pending. C0 is landed, while
+synthetic live calls, reservations, concurrency and token bounds. Both Grok
+calibrations FAILED strict: v1 had nine actual POSTs, eight verdicts and six
+criterion errors across four cases; v2 had eight POSTs/verdicts and four criterion
+errors across four cases, despite binary 7/8. Known costs were $0.00607355 and
+$0.00699355 respectively: 17 actual POSTs, $0.01306710 known cost, plus the
+unresolved $0.156 reservation. There is no calibrated judge or live runtime
+scorecard. The next Haiku/Luna/hold decision remains pending; no blind retry or
+live-gate bypass follows. The manifest retains the exact8141 local PG17/17
+proof and reviewed E1 v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`,
+with fixtures and labels unchanged. Consent policy remains pending.
+
+The [latest approved evaluation direction](../specs/argus-decision-log.md#october-11-2026-product-derived-evaluation-and-replaceable-model-configuration)
+(`Sentinel_ed9f3b917d5081919e00f16339503f7b`) fixes product-derived labels/rubric
+independently of a model. Keep lean replaceable configuration and structured
+contracts, deterministic authority/state/idempotency, and the same versioned
+suite plus held-out cases on swaps; record model/version/parameters/results.
+Do not add a new framework or model-specific prompt hacks. T1's exact two guard
+files are assigned; the global live gate, fingerprint and precisely named future
+evidence paths remain pending. Root's bounded pending hardening passes explicit
+per-run `judge_model` through the existing invocation/scorecard and requires
+successful task-role/schema/model receipts for runtime and judge separately.
+Keep rubric/labels/schema/cases fixed. Runtime tuning holds out
+`en_funding_correction` and `es_owner_does_not_know_amount`; later verification
+still runs all seven deterministic cases. The eight used judge cases are not
+held out. Root is preparing a maximum-six-POST DeepSeek first-case runtime
+probe at c563; no prompt tuning, completed measurement or new judge selection
+is inferred. C0 is landed, while
 dependent runtime/evaluation and hosted acceptance remain open. Sonnet 5.5
 still needs a demonstrated need and fresh confirmation before use. The coordinator sequences a direct named-accountant per-business grant
 for the existing one-owner, one-authorized-accountant milestone. Full L11 firm
@@ -95,8 +119,8 @@ commit/PR lookup returned 422, which does not erase retained local work.
 Restoration `67583d5e` and reviewed UI `85d564ae1b998d3f372828728855dab26e5b5deb`
 landed in UI PR #956 as `0ebfd08ed22dcd1108496fc0af427073ec219dc8`. Exact
 published-head CI/smokes succeeded; external ownership passed for all 53 files
-and the five image hashes matched. Postmerge smoke succeeded; full postmerge
-CI remained pending at the 00:25 UTC snapshot above. C0 reconciliation is
+and the five image hashes matched. Postmerge smoke and full CI both succeeded,
+as recorded by the terminal comment above. C0 reconciliation is
 `7667ee1e19589bed2e00aa1b9c08600965554860`; local evidence publication is
 `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56`. Its source document is
 `docs/reports/evidence/942-cuadrao-record-ui/README.md` in the UI worktree,

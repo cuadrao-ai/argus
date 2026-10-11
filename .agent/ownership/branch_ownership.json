@@ -91,6 +91,7 @@
       "description": "Actions-owned source delta; M1 and C0 dependencies must land and reconcile before full READY gate.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
+        "docs/api/openapi.yaml",
         "src/argus/api/business.py",
         "src/argus/api/business_drafts.py",
         "src/argus/api/business_schemas.py",
@@ -241,7 +242,9 @@
         "src/argus/domain/tool_declaration.py",
         "tests/agent_runtime/test_business_runtime.py",
         "tests/business/test_runtime_postgres.py",
-        "tests/test_business_runtime_postgres.py"
+        "tests/interpreter_prompt_surface.py",
+        "tests/test_business_runtime_postgres.py",
+        "tests/test_interpreter_prompt_surface.py"
       ],
       "deny": [
         ".env",

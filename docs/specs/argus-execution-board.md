@@ -1,6 +1,6 @@
 # Argus private iPhone execution manifest
 
-**Updated:** October 11, 2026 bounded audit/delivery checkpoint, including UI #956 landing at 00:19:57 UTC, under the October 10 23:37 UTC owner-handoff continuation.
+**Updated:** October 11, 2026 bounded audit/delivery checkpoint, including M1 #957 landing and strict Grok calibration results, under the October 10 23:37 UTC owner-handoff continuation.
 **Execution state:** Consumer PR #937 is merged with accepted simulator evidence and green pre-merge CI. Build 3455 is installed; hosted manual-money acceptance remains open. The current Consumer assignment below supersedes the older sequencing only for this lane. The [October 4 code checkpoint](../reports/2026-10-04-cuadrao-code-integration-landing.md) retains its historical evidence.
 **Product owner:** [MVEE](argus-minimum-viable-ecosystem-experience.md).
 **Authority and onboarding:** [DOCUMENTATION_AUTHORITY](../DOCUMENTATION_AUTHORITY.md).
@@ -19,11 +19,17 @@ The original build base was `77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`
 `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96` through
 [#955](https://github.com/lagarcess/argus/pull/955); exact postmerge CI and smoke
 all succeeded, recorded in [comment 6103620102](https://github.com/lagarcess/argus/pull/955#issuecomment-6103620102).
-UI #956 subsequently landed at `00:19:57Z` as current integration
-`0ebfd08ed22dcd1108496fc0af427073ec219dc8`; root postmerge verification is
-at 00:25 UTC: [postmerge smoke 38098062178](https://github.com/lagarcess/argus/actions/runs/38098062178)
-succeeded; [full CI 38098062185](https://github.com/lagarcess/argus/actions/runs/38098062185)
-remained pending. Startup repair landed separately through #954 at
+UI #956 landed as `0ebfd08ed22dcd1108496fc0af427073ec219dc8`; its
+[postmerge smoke 38098062178](https://github.com/lagarcess/argus/actions/runs/38098062178)
+and [full CI 38098062185](https://github.com/lagarcess/argus/actions/runs/38098062185)
+fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/956#issuecomment-6103805934)).
+Current integration is `eb62ad5e7718bd103b0205cf91d15a61c22628d6`, M1 #957
+landed with reviewed tree `b0c7c44c1602265979960e375bfaf64ec5eca6a8`, parent
+`0ebfd08ed22dcd1108496fc0af427073ec219dc8`. Its
+[postmerge CI 38099618928](https://github.com/lagarcess/argus/actions/runs/38099618928)
+and [smoke 38099618926](https://github.com/lagarcess/argus/actions/runs/38099618926)
+remain pending at this snapshot.
+Startup repair landed separately through #954 at
 `8a838fb4ff75bb8527400bbd802eb208e270bdf7`. Landing C0 does not close a
 customer journey. The [Business execution spec](lanes/cuadrao-business-agent-execution-spec.md)
 owns C0-first order and J1 to J3; the [lane handoff](../handoffs/cuadrao-business-lane.md)
@@ -35,14 +41,14 @@ Only `/root` serializes reconciliation, merge, live calls and staging.
 
 | Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
-| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d`, retained audit source `3cc7763eb36069713ed52db11e70b49f4858c320`, one-way UI merge `f4eef7499aefc874b7c8e44c21df8c5b61b1e887` | #954 LANDED; this owner-handoff/ownership continuation PENDING reviewed delivery. Docs and ownership metadata only. |
+| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d`, retained audit source `3cc7763eb36069713ed52db11e70b49f4858c320`, one-way UI merge `f4eef7499aefc874b7c8e44c21df8c5b61b1e887`, retained reviewed docs `8bc68c2556488101caf4fc10807a88acbb9f4619`, one-way M1 merge `f3462d21f2d85ab243500a6fec21830272c0e64a` | #954 LANDED; this owner-handoff/ownership continuation PENDING reviewed delivery. Docs and ownership metadata only. |
 | `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, source `2cf078c323816ca01e3a7022306ab9e52b7ec475` | LANDED #955 as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; all postmerge CI and smoke succeeded (comment 6103620102). |
 | `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, `9cccf6cb7e4f7c92a8c514b48dc7a20dfe1775f5` | PENDING integration; final full independent review CLEAR. Depends on C0 and M1. Root reconciles shared ingestion/API overlap before landing. |
-| M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | PENDING PR #957 integration; two-file fix published against exact 0ebfd08e base after 55-test proof and reviews CLEAR. New CI 38098360695/38098358490 and smoke 38098360688 pending. Follow-up scope remains only the authorized OpenAPI and isolation-test paths; no new semantics grant. |
-| `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke 38098062178 SUCCESS; full CI 38098062185 pending at 00:25. Hosted acceptance and missing retained hover/note outcomes remain open. |
-| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, `4211c50f4e7dd66db475aa4c0658a3147dd18cb4` | PENDING integration; final full independent review CLEAR, final Linux proof 272 passed in 12.47 seconds. Depends on C0, Actions, M1; live model quality remains open. No #925 dependency. |
+| M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | LANDED PR #957 as eb62ad5e, reviewed tree b0c7c44c with parent0ebfd08e. Prior bounded fix retained; postmerge CI38099618928/smoke38099618926 pending. No new semantics grant. |
+| `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
+| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, prior runtime source `4211c50f4e7dd66db475aa4c0658a3147dd18cb4`, current guard head `1a904bd00862998d0f97da6b4d92ea1666725730` | PENDING integration/live scorecard/fingerprint. Original runtime full review CLEAR with Linux272 pass. Only the two exact prompt-surface guard files added to ownership; dependencies C0, Actions, M1. No #925 dependency. |
 | `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING root graft/integration; final full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
-| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; dependency assembly `39148680e6ff691804b3223d602212e7d2d94141`, owned implementation `7dda2a0f88cb1e3d7e35b69a9edafabf20705fdf`, final `8141382aa57bdffddaf54b8903b8067e966f94b7` | PENDING integration/live-quality delivery; exact 8141 root Postgres proof 17/17, zero errors/skips, fresh functional/comments reviews CLEAR. Eight owned files retained (reported comparison hash prefix 724f1df); synthetic proof does not close hosted acceptance. |
+| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; dependency assembly `39148680e6ff691804b3223d602212e7d2d94141`, owned implementation `7dda2a0f88cb1e3d7e35b69a9edafabf20705fdf`, retained PG proof head `8141382aa57bdffddaf54b8903b8067e966f94b7`, current rubric-v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027` | PENDING integration/live quality; exact8141 PG17/17 and reviews CLEAR retained. Reviewed v2 clarifies criteria only; fixtures/labels unchanged. Both Grok calibrations FAILED strict; no calibrated judge or runtime scorecard. |
 | `/root` / verification and serialized delivery | `/tmp/cuadrao-hosted-verification-20261010`; exact candidate recorded by root at each gate | Sole merge, live caller and staging owner. Reconcile dependent sources, review exact head, require CI/compatibility and distinguish local from hosted acceptance. |
 | Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` / P0 Counsel audit | Existing read-only inventory and retained private source excerpts | Bounded 105-commit inventory DELIVERED in private /tmp/business953-private-handoff.md. Approved missing capture/search families retained in the existing handoff below; no blanket approval or wholesale publication. |
 
@@ -85,7 +91,10 @@ tests and Postgres capture proof. Root's exact-final-head proof is
 functional and comments reviews CLEAR. The prior owner-funding failure is
 superseded by that proof. This is synthetic local runtime/Postgres evidence,
 not live model quality or hosted customer acceptance. The rejected environment-file read was not retried; the direct DSN
-injection into the same local fixture stack was separately authorized.
+injection into the same local fixture stack was separately authorized. Current
+E1 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027` contains reviewed rubric-v2
+clarification only; fixtures and product labels are unchanged. Do not relabel
+that prior Postgres evidence as a live runtime scorecard.
 
 Counsel delivered the bounded source inventory in
 `/tmp/business953-private-handoff.md`, pinned to integration `650b0fc` and
@@ -149,16 +158,40 @@ total usage $227.433115957. The larger provider monthly-remaining figure is not 
 spending authority. Refresh usage before calls and subtract outstanding work.
 Only the root coordinator controls live calls, reservations, concurrency and
 token bounds. Judges, fallbacks and retries share this allowance. Synthetic
-data only. At 00:05 UTC on October 11, root began bounded Grok calibration:
-maximum eight POSTs, 600 output tokens each, 30 KB input, concurrency one,
-reserved worst cost $1.248 within existing authority. The bounded run now has
-three POSTs: two valid known-case verdicts with total known cost $0.0015287,
-and one `ValueError` with unknown external outcome. Keep its $0.156 reservation
-against the conservative allowance until reconciled. The 00:07:36 usage read
-above precedes the third POST and must be refreshed before further paid work.
-Calibration remains incomplete; the root-controlled repeat diagnostic is pending,
-with no blind retry of the unknown call. Two valid cases do not establish judge
-calibration or runtime quality.
+data only. The historical 00:07:36 usage read above predates the completed
+calibration runs and must be refreshed before further paid work. Strict results:
+
+| Version | Actual POSTs / verdicts | Criterion errors / affected cases | Known cost | Result |
+| --- | --- | --- | --- | --- |
+| Rubric v1 | 9 / 8 | 6 / 4 | $0.00607355 | FAILED strict; one additional unknown outcome retains $0.156 reservation |
+| Rubric v2 | 8 / 8 | 4 / 4 | $0.00699355 | FAILED strict, despite binary 7/8 |
+
+Aggregate: 17 actual POSTs, $0.01306710 known cost plus the unresolved $0.156
+reservation. No calibrated judge or live runtime scorecard exists. Root asked
+for the next Haiku/Luna/hold decision; it remains pending. Do not waive the live
+gate, change product labels to fit Grok, or blindly retry the unknown call.
+The [latest evaluation decision](argus-decision-log.md#october-11-2026-product-derived-evaluation-and-replaceable-model-configuration)
+keeps fixed product-derived labels/rubric independent of a model, lean replaceable
+configuration/structured contracts, deterministic authority/state/idempotency,
+and the same versioned suite plus held-out cases on swaps. Record exact model,
+version, parameters and results. No new framework or model-specific prompt hack.
+
+Root approved bounded hardening within the existing invocation/scorecard:
+explicit per-run `judge_model` and successful receipts keyed by task role,
+schema and model. Runtime and judge receipts must each prove their own call;
+same-model usage cannot stand in for a missing judge. Keep rubric, labels,
+schema and cases fixed. This hardening is pending implementation/evidence,
+not a measured quality pass or a new evaluation framework.
+
+Freeze runtime-tuning holdouts `en_funding_correction` and
+`es_owner_does_not_know_amount`. The same seven deterministic runtime cases
+must all run later. The eight judge calibration cases already used are not
+held-out cases. Root is preparing the first bounded DeepSeek runtime case
+probe at `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`, maximum six POSTs;
+no prompt tuning or completed call/result is claimed by this record. The next
+paid judge decision remains pending, separately from this approved runtime
+probe. Full runtime/live scorecard and calibrated judge gates remain open.
+
 C0 is landed; dependent runtime/evaluation and hosted readiness remain open.
 Sonnet 5.5 is a potential stretch choice that needs a demonstrated need and
 fresh confirmation. It is not an automatic judge or runtime fallback.
@@ -179,7 +212,14 @@ access expansion still need concrete scoped confirmation.
 Retain #925 at `1426404d82ade9ac1eaed255b0e68ed7db9d4a1a` and the sandbox at
 `df208f7ec2379cd84efd55eea0deb685d67c5360` as exclusions. T1 defines any needed
 tool filter through the canonical catalog, without depending on #925's wording
-or eval guard. Model-facing changes still need their committed scorecards.
+or eval guard. Model-facing changes still need their committed scorecards. T1 ownership adds
+only `tests/interpreter_prompt_surface.py` and
+`tests/test_interpreter_prompt_surface.py`; the global live gate and
+`.agent/interpreter_prompt_fingerprint.json` remain pending. Future fingerprint
+or evidence writes need exact named path ownership; no unknown artifact glob.
+Actions now owns the exact generated `docs/api/openapi.yaml` artifact after
+M1's landed bounded fix, as coordinated with its publisher. No other artifact
+path is assigned by this record.
 
 Persisted AI-consent policy is still pending; default deny at the affected
 authorization boundary. Local runtime and any hybrid staging auth proof retain

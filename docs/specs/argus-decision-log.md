@@ -754,3 +754,20 @@ ownership verifier and explicit lane allowlists. This direction creates no
 second process, blanket approval of the remaining 105-item audit, product
 scope expansion, public signup or production action grant. Persisted AI-consent
 policy remains pending and defaults to deny at the affected boundary.
+
+
+### October 11, 2026 product-derived evaluation and replaceable model configuration
+
+Lucas approved fixed product-derived labels and rubric, independent of any
+particular model. Provenance is `Sentinel_ed9f3b917d5081919e00f16339503f7b`.
+Keep configuration lean and replaceable, with structured contracts and
+deterministic authority, saved-state and idempotency checks. Do not add a new
+framework, model-specific prompt workaround or labels tailored to a candidate.
+
+A model swap uses the same versioned suite plus held-out cases. Record the exact
+model/version, parameters and results so the swap can be compared against the
+same product acceptance. Existing live-quality and prompt-fingerprint gates
+remain. A failed calibration does not certify a judge or waive those gates.
+The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+owns actual calibration results, current owner heads and pending decisions;
+this record authorizes no additional provider, secret, deployment or spend scope.
