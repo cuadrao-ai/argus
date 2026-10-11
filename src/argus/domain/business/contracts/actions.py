@@ -26,7 +26,12 @@ class PlannedDraft(Contract):
     from_action: int = Field(ge=0)
 
 
-DraftReference = ExistingDraft | PlannedDraft
+class BoundDraft(Contract):
+    draft_id: UUID
+    base_version: int = Field(ge=1, strict=True)
+
+
+DraftReference = ExistingDraft | PlannedDraft | BoundDraft
 MAX_TURN_ACTIONS = 8
 
 
@@ -104,6 +109,21 @@ class TurnPlan(Contract):
                     or producer.draft is not None
                 ):
                     raise ValueError("draft references must name a draft creation")
+        return self
+
+    @model_validator(mode="after")
+    def consistent_draft_bindings(self) -> TurnPlan:
+        targets: dict[UUID, ExistingDraft | BoundDraft] = {}
+        for action in self.actions:
+            draft = getattr(action, "draft", None)
+            if isinstance(draft, (ExistingDraft, BoundDraft)):
+                prior = targets.get(draft.draft_id)
+                if prior is not None and (
+                    isinstance(prior, BoundDraft) or isinstance(draft, BoundDraft)
+                ):
+                    if prior != draft:
+                        raise ValueError("a plan requires one captured draft binding")
+                targets[draft.draft_id] = draft
         return self
 
 

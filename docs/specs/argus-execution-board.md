@@ -1,6 +1,6 @@
 # Argus private iPhone execution manifest
 
-**Updated:** October 11, 2026 bounded audit/delivery checkpoint, including M1 #957 landing and strict Grok calibration results, under the October 10 23:37 UTC owner-handoff continuation.
+**Updated:** October 11, 2026 coordinator checkpoint through canonical #961 landing and local connected Business proof, with live quality and hosted gates pending under the October 10 23:37 UTC owner-handoff continuation.
 **Execution state:** Consumer PR #937 is merged with accepted simulator evidence and green pre-merge CI. Build 3455 is installed; hosted manual-money acceptance remains open. The current Consumer assignment below supersedes the older sequencing only for this lane. The [October 4 code checkpoint](../reports/2026-10-04-cuadrao-code-integration-landing.md) retains its historical evidence.
 **Product owner:** [MVEE](argus-minimum-viable-ecosystem-experience.md).
 **Authority and onboarding:** [DOCUMENTATION_AUTHORITY](../DOCUMENTATION_AUTHORITY.md).
@@ -38,25 +38,42 @@ retains sources and exclusions.
 
 These are existing collaboration roles, not new UI-visible lane threads.
 The ownership/onboarding continuation LANDED through
-[#958](https://github.com/lagarcess/argus/pull/958) at current fetched integration
+[#958](https://github.com/lagarcess/argus/pull/958) at integration
 `7def08fe07be52f04a345c3df5029200a437eff0`; [postmerge CI38102305608](https://github.com/lagarcess/argus/actions/runs/38102305608)
 and [smoke38102305601](https://github.com/lagarcess/argus/actions/runs/38102305601)
 fully succeeded at this checkpoint. Its tree equals the retained context source fc7fe954a. Actions
-[#959](https://github.com/lagarcess/argus/pull/959), source
-`76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c`, is PENDING backend CI diagnosis,
-with no root merge. Heads below are source snapshots, not grants to merge or claims of readiness.
+[#959](https://github.com/lagarcess/argus/pull/959) LANDED at
+`598e1c3db0ff58108f8cfd83fa37c579dc11054d`; [postmerge CI 38107050284](https://github.com/lagarcess/argus/actions/runs/38107050284)
+and [smoke 38107050280](https://github.com/lagarcess/argus/actions/runs/38107050280)
+succeeded. Heads below are source snapshots, not grants to merge or claims of readiness.
 Only `/root` serializes reconciliation, merge, live calls and staging.
+
+The exact boundary-ownership continuation LANDED through #960 at
+integration `52ce3620a729b2d8fb80d3bdfe99fdddeae19931`, reviewed tree
+`0a4279fc0be5b72efada7c516dcb3b92d4d62a37`. Current canonical integration
+`39c5322d5e2a3d6470d1dbd2d3661e557a824f14` LANDED #961 BoundDraft on parent
+`598e1c3db0ff58108f8cfd83fa37c579dc11054d`, tree
+`71fc8f9eafdc4cfb4b10e2dc6b242259ce9d69f3`. Its
+[smoke 38108733609](https://github.com/lagarcess/argus/actions/runs/38108733609)
+succeeded; [required CI 38108733535](https://github.com/lagarcess/argus/actions/runs/38108733535)
+also succeeded ([terminal #961 evidence](https://github.com/lagarcess/argus/pull/961#issuecomment-6105153549)).
+Root approved one additional T1 path, `src/argus/llm/openrouter_model_env.py`,
+only to move Luna capability metadata/helper into that existing module while
+preserving all profiles and behavior, with no new module/framework or budget
+bypass. The bounded capability follow-up and E1 fake-transport reconciliation remain
+PENDING, as do actual quality, judge, consent and hosted gates.
 
 | Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
-| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d`, retained audit source `3cc7763eb36069713ed52db11e70b49f4858c320`, one-way UI merge `f4eef7499aefc874b7c8e44c21df8c5b61b1e887`, retained reviewed docs `8bc68c2556488101caf4fc10807a88acbb9f4619`, one-way M1 merge `f3462d21f2d85ab243500a6fec21830272c0e64a` | #954 and owner-handoff #958 LANDED; current boundary allocation continuation PENDING review. Retained source fc7fe954a; docs and ownership metadata only. |
-| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, source `2cf078c323816ca01e3a7022306ab9e52b7ec475` | LANDED #955 as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; all postmerge CI and smoke succeeded (comment 6103620102). Bounded wire follow-up878d159d is reviewed CLEAR with 46 independent contract tests passed; Actions import/artifact regeneration pending. |
-| `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, original `9cccf6cb7e4f7c92a8c514b48dc7a20dfe1775f5`, retained artifact publication `b632e5c8ef52693f4d75d7484631db09ae7c0e8d`, current PR #959 source `76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c` | PENDING backend CI diagnosis at PR #959; no root merge. The current C0/T1 boundary follow-up remains separately pending. Original full independent review CLEAR. M1 owner approved the exact read-only fixture forwarding; two author fixture tests passed. Depends on C0 and M1. Root reconciles shared ingestion/API overlap before landing. |
+| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; retained owner source `3cc1ee9d03982e198bfe836aaf9b2141f2fef8c7`, authorized canonical #961 import `265caad5f3cfd15e88baf042ffde2e5836c403ab` | #954, #958 and #960 LANDED; current four-path E1/C0 ownership allocation PENDING independent review. Authored scope is ownership metadata and these two docs only. |
+| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, original source `2cf078c323816ca01e3a7022306ab9e52b7ec475`, current display-label repair `9bbdeb8783d851b02113defc6a78eb651fcefd86` | C0 #955 and server BoundDraft #961 LANDED. Source-backed full-name presentation repair passed 63/63 actual Postgres tests (28 new and 35 Actions/bound-reference); independent whitespace follow-up review CLEAR. Publication remains separate. It changes no grants, schema or historical data. |
+| `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, reviewed source `76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c` | #959 LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`; postmerge CI38107050284 and smoke38107050280 succeeded. #961 subsequently LANDED server BoundDraft. Business quality/hosted acceptance remain pending. |
 | M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | LANDED PR #957 as eb62ad5e, reviewed tree b0c7c44c with parent0ebfd08e. Prior bounded fix retained; postmerge CI38099618928/smoke38099618926 SUCCESS (terminal comment6104002935). No new semantics grant. |
 | `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
-| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, prior runtime source `4211c50f4e7dd66db475aa4c0658a3147dd18cb4`, retained guard `1a904bd00862998d0f97da6b4d92ea1666725730`, scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1`, generic product policy `a9b9756481a054479696309ece1a352f25d7262a` | PENDING integration/live scorecard/fingerprint. Original runtime full review CLEAR with Linux272 pass. Current raw Linux400:398PASS,2FAIL,0skip; both failures are unmeasured Business fingerprint gates, so no full pass. Bounded semantic-input/server-binding and Luna capability follow-up pending before actual model proof. Exact prompt-surface/freeze guards and existing fingerprint path assigned for bounded scope validation; preserve 25 legacy entries and last_measured byte-for-byte. Exactly two Business scope placeholders remain unmeasured until accepted evidence. Dependencies C0, Actions, M1. No #925 dependency. |
+| `/root/accountant_ui_review` / preserved capture and search audit | Read-only original human approvals and preserved sandbox `df208f7ec2379cd84efd55eea0deb685d67c5360` | Assigned a bounded source/decision/coverage audit of five approved unpublished outcomes. This is no implementation writer assignment; root assigns bounded restoration after the audit. |
+| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, retained guard `1a904bd00862998d0f97da6b4d92ea1666725730`, scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1`, generic product policy `a9b9756481a054479696309ece1a352f25d7262a`, current schema-eligibility source `b922a642452f2d759f44688c8dcf7a55eeba1f8c` | PENDING integration/live scorecard/fingerprint. Latest reported broader run 764 PASS/two real FAIL, both unmeasured Business gates. E1 owns generic fake-transport reconciliation; earlier be33 17 harness failures are not counted in this latest run. Preserve 25 legacy entries and `last_measured` exactly; no waiver or quality pass. |
 | `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING root graft/integration; final full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
-| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; dependency assembly `39148680e6ff691804b3223d602212e7d2d94141`, owned implementation `7dda2a0f88cb1e3d7e35b69a9edafabf20705fdf`, retained PG proof head `8141382aa57bdffddaf54b8903b8067e966f94b7`, retained rubric-v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`, current role-aware hardening `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb` | PENDING independent hardening review/integration/live quality. Three-file hardening has 35 free tests passed; underlying runtime source unchanged. Prior8141 PG17/17 retained. Exact two Business acceptance entry files assigned within the existing harness. Both Grok calibrations FAILED; Haiku first-flow probe failed validation, no calibrated judge/runtime scorecard. |
+| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`, retained source `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`, funding follow-up `233701a7ab2f6335d70d728ff6d9e354b331ed49`, current E1 head `cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205` | Funding follow-up implementation tree `4038a181838fcbe85653e1b3dcad06f453b0b3b7`, fixture digest `b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`; narrow review and 24 free tests passed. Root corpus Postgres proof passed 8/8, zero skips, all seven cases plus foreign denial; live quality PENDING and earlier failed Haiku capture retained. Exact two generic fake-transport harness paths allocated with typed validation, trajectory assertions and labels preserved. Both Grok calibrations FAILED; no calibrated judge. |
 | `/root` / verification and serialized delivery | `/tmp/cuadrao-hosted-verification-20261010`; exact candidate recorded by root at each gate | Sole merge, live caller and staging owner. Reconcile dependent sources, review exact head, require CI/compatibility and distinguish local from hosted acceptance. |
 | Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` / P0 Counsel audit | Existing read-only inventory and retained private source excerpts | Bounded 105-commit inventory DELIVERED in private /tmp/business953-private-handoff.md. Approved missing capture/search families retained in the existing handoff below; no blanket approval or wholesale publication. |
 
@@ -103,8 +120,19 @@ injection into the same local fixture stack was separately authorized. Current
 E1 rubric-v2 source `c563df7a8b6c79ac4f777c9d16017ae51b9b3027` is retained,
 with fixtures and product labels unchanged. The current role-aware hardening
 head is `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`, 35 free tests passed and
-independent review pending. Do not relabel free or prior Postgres evidence as
-a live runtime scorecard.
+independent review pending at that earlier checkpoint. The newer E1
+funding-follow-up source `233701a7ab2f6335d70d728ff6d9e354b331ed49`
+has implementation tree `4038a181838fcbe85653e1b3dcad06f453b0b3b7`
+and fixture digest `b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`.
+Its narrow review and 24 free tests passed. Current E1 head
+`cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205` passed root corpus
+Postgres proof 8/8, zero skips, all seven cases plus foreign denial; live quality remains PENDING. The
+earlier failed Haiku capture remains failed. E1 alone owns
+`tests/evals/chat_runtime_trajectory_adapters.py` and
+`tests/evals/test_chat_runtime_trajectory_harness.py` for generic full-schema
+fake-transport reconciliation in the existing harness, preserving typed
+validation, trajectory assertions, product labels and rubric. Do not relabel
+free or prior Postgres evidence as a live runtime scorecard.
 
 Counsel delivered the bounded source inventory in
 `/tmp/business953-private-handoff.md`, pinned to integration `650b0fc` and
@@ -116,8 +144,10 @@ upload and email receiving/retry are PENDING. Hover remains absent in UI
 `7667ee1e`/`17d972bc`; green #956 CI does not close that approved outcome.
 C0's new source/fact contracts are LANDED; they do not implement those missing
 UX/channel families. The old manual-note dead-end is SUPERSEDED by the current
-C0 draft flow. Root must assign bounded reconciliation with the existing
-capture, presentation and authority owners; this record dispatches no new
+C0 draft flow. `/root/accountant_ui_review` now audits the five approved
+outcomes read-only against their original source/decision and current coverage.
+Root then assigns bounded reconciliation with the existing capture,
+presentation and authority owners; this record dispatches no implementation
 writer or wholesale sandbox promotion.
 
 Register the lane's explicit owned files in
@@ -144,21 +174,23 @@ validated domain services own authorization/writes, approval binds the reviewed
 revision/destination/action, execution rechecks permissions and duplicate effects
 remain idempotent. C0's exact seven paths are registered, including new focused
 `tests/test_business_bound_draft_references_postgres.py`; the Actions Postgres
-file remains with Actions. C0's import of 76df is a reviewed dependency snapshot
-with failing CI, not a clean publication base; final import after Actions' fix
-and root's clean integration is required before C0 publication. Actions owns
+file remains with Actions. The historical C0 import of 76df preceded #959's
+successful landing. Server BoundDraft LANDED through #961; its postmerge smoke
+succeeded and required CI also succeeded at this checkpoint. Actions owns
 new `tests/test_business_actions_ingestion_postgres.py` solely to split unchanged
 Postgres proof from the existing 1,044-line file into two files under 1,000 lines;
 Owner proof: 858/205-line files, all five moved function ASTs identical, 35 actual
-Postgres and 13 offline tests passed; ownership import/fresh review/CI remain
-pending. No budget/check/baseline weakening. T1 adds exactly
+Postgres and 13 offline tests passed. #959 postmerge CI and smoke succeeded.
+No budget/check/baseline weakening. T1 adds exactly
 `src/argus/agent_runtime/business/binding.py`,
 `tests/agent_runtime/test_business_semantic_binding.py`,
-`src/argus/llm/openrouter.py` and `tests/test_openrouter_policy.py`; existing
-T1 paths are unchanged. The shared capability omission applies across requests
+`src/argus/llm/openrouter.py` and `tests/test_openrouter_policy.py` in the
+bounded earlier allocation. The shared capability omission applies across requests
 and tasks to metadata-verified bare/dated LunaPro, preserving strict parameters,
 schema, reasoning and token bounds. It performs no per-call capability lookup
-and adds no routing platform or Business-specific rule. The fix is PENDING implementation/review/actual quality proof; it creates no V2 platform,
+and adds no routing platform or Business-specific rule. Current T1
+schema-eligibility reconciliation and actual quality proof remain PENDING;
+this creates no V2 platform,
 provider/key/access/deployment scope or completed customer acceptance.
 
 The first hosted acceptance joins a permitted owner's WhatsApp transaction and
@@ -219,11 +251,12 @@ Additional known cost was $0.00252907198 and the second unknown timeout reserves
 $0.32048. That snapshot totals 21 actual POSTs, $0.01559617198 known cost and
 $0.79696 unresolved reservations.
 
-The latest October 11 checkpoint adds Haiku's first-flow probe at 3baaefa9:
+An earlier October 11 checkpoint added Haiku's first-flow probe at 3baaefa9:
 one POST, HTTP200 stop after 7,129 ms, known cost $0.00180164, then
 `ValidationError`. The published BusinessFactPatch schema allowed an outer
 optional/null value that the domain rejects as explicit null. Aggregate:
-22 actual POSTs, $0.01739781198 known cost and $0.79696 unresolved reservations.
+22 actual POSTs, $0.01739781198 known cost and $0.79696 unresolved reservations
+at that checkpoint.
 This is not a first-flow pass. Root assigned bounded model-independent C0 schema
 alignment and contract tests. Exact reviewed C0 source
 `878d159d72ba5c87e7fb66af995d9403e8a617e5` has full functional/comments
@@ -237,7 +270,12 @@ At root's `2026-10-11T01:04:26Z` safe read, total development-key usage was
 $227.449928862 against the $300 authorized ceiling, leaving conservative
 $72.550071138 before unresolved reservations/concurrent usage; expiry remains
 `2026-10-12T02:21:00Z`. No provider call was running at this bounded checkpoint.
-Refresh before new calls. No calibrated judge or live runtime scorecard exists.
+The later root accounting totals **79 actual POSTs**, **$0.06294062698** known
+cost and **$1.43792** unresolved unknown-outcome reservations. At the safe key
+read `2026-10-11T03:34:02.221575Z`, the conservative authorized allowance
+remaining was **$72.504528323** before reservations or concurrent usage;
+expiry remains `2026-10-12T02:21:00Z`. Refresh before new calls. No calibrated
+judge or live runtime scorecard exists.
 Next paid judge choice is pending; do not
 automatically use Haiku as judge. Approved runtime comparison can use Haiku.
 Do not waive the live gate, fit product labels to Grok, or blindly retry.
@@ -251,8 +289,13 @@ Root approved bounded hardening within the existing invocation/scorecard:
 explicit per-run `judge_model` and successful receipts keyed by task role,
 schema and model. Runtime and judge receipts must each prove their own call;
 same-model usage cannot stand in for a missing judge. Keep rubric, labels,
-schema and cases fixed. The three-file hardening is committed at 3baaefa9 with
-35 free tests passed; independent review is pending. This is not a measured
+schema and cases fixed. The earlier three-file hardening was committed at
+3baaefa9 with 35 free tests passed. Current T1 schema-eligibility source is committed
+at `b922a642452f2d759f44688c8dcf7a55eeba1f8c`: its latest reported
+broader run has 764 passes and two real failures, both unmeasured Business
+fingerprint gates. The earlier be33 provider-policy proof passed 208 tests,
+while its broader run had 17 additional fake-provider harness failures. E1
+owns generic fake-transport reconciliation; no check is waived. This is not a measured
 quality pass or a new evaluation framework.
 
 Freeze runtime-tuning holdouts `en_funding_correction` and
@@ -279,6 +322,23 @@ validation, preserving legacy measurements and unmeasured Business status.
 Do not disable checks or claim that existing fingerprint gate is clear.
 
 C0 is landed; dependent runtime/evaluation and hosted readiness remain open.
+Root's controlled local connected readback
+`/Users/garces/Documents/Codex/2026-10-10/task/cuadrao-connected-browser-final-db-readback.json`
+records registered-accountant sign-in → authenticated conversation → draft v3 →
+human PATCH/review v4 → approval v6
+of reviewed v4, one 850 Money record, zero Business-bank and Personal
+balance/version movement, and HTTP 404 outside the named grant. The Spanish
+`es-419` fresh browser and database readback passed with retained screenshot
+`output/playwright/connected-flow-spanish-approved.png`. It proves a local
+synthetic first flow, not phone, hosted WhatsApp, live calibrated quality,
+consent or customer acceptance. The generic `Member` actor label remains a
+presentation defect. C0's bounded source-backed full-name repair at
+`9bbdeb8783d851b02113defc6a78eb651fcefd86` passed 63/63 actual
+Postgres tests (28 new and 35 Actions/bound-reference); independent
+whitespace follow-up review is CLEAR. C0 alone owns
+`src/argus/domain/business/authority.py` and
+`tests/test_business_actor_labels_postgres.py` for this change; no grants,
+schema or historical backfill are approved.
 Sonnet 5.5 is a potential stretch choice that needs a demonstrated need and
 fresh confirmation. It is not an automatic judge or runtime fallback.
 
