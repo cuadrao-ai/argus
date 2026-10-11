@@ -508,6 +508,9 @@
         "src/argus/domain/capability_registry.py",
         "src/argus/domain/recording/money_chat_tool.py",
         "tests/agent_runtime/test_personal_money_chat.py",
+        "tests/test_chat_runtime_cutover.py",
+        "tests/test_chat_runtime_reload_guardrails.py",
+        "tests/test_chat_stream_contract.py",
         "tests/test_personal_money_proposals.py"
       ],
       "deny": [

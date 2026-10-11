@@ -323,8 +323,8 @@ an accepted implementation or global design replacement.
 ## Bounded checkpoint and Consumer donor registration
 
 The [existing execution manifest](../specs/argus-execution-board.md#active-checkpoint-personal-memory-voice-and-repair-allocation)
-records six approved exact policies:7 checkpoint,17 Personal,15 memory,7
-utterance voice,3 generic repair and6 live-delegation paths (55 total). Published
+records six approved exact policies:7 checkpoint,20 Personal,15 memory,7
+utterance voice,3 generic repair and6 live-delegation paths (58 total). Published
 #969 reconciled `dfd9332c7b7d7ae2997cbcac97c71581d524366a` retains the prior
 reviewedc547 three-file bytes and all15 incoming UI bytes; new-head CI is
 separate from old-head evidence; this registration uses a separate
@@ -342,18 +342,23 @@ calls and saver activation false. This selected proof is not whole-source
 catalog equality with unlanded income extras. Central T1/W1 hooks and saver
 activation remain PENDING; actual quality/consent/hosted gates are unchanged.
 
-Memory `9be1ae24cfbb06efcc83606e9f3f030c44934357` retains its15 reviewed bytes
-(digest468022), corrected functional/comments CLEAR and original76daf BLOCK.
-Root `cuadrao-consumer-memory-9be1-postgres-proof.json` records144 actual PG
-PASS/zero skips, no provider/hosted changes. Shared current-request runtime
-consumption and actual scoped user consent remain pending. Personal authored
-14-path freezeb5dad71 remains retained; final integrated
+Memory historical `9be1ae24cfbb06efcc83606e9f3f030c44934357` retains its15
+reviewed bytes (digest468022), corrected functional/comments CLEAR and original
+76daf BLOCK; its root144 PG proof remains historical. The committed modularity
+correction `2bb93d268220954f77d1d889ee3ed2a561788b55` is independently CLEAR;
+root `cuadrao-consumer-memory-2bb93-postgres-proof.json` records144 actual PG
+PASS/zero errors/failures/skips on that exact clean source, with no provider or
+hosted changes. Shared runtime acceptance and actual scoped user consent remain
+pending. Personal authored14-path freezeb5dad71 remains retained; integrated
 `376c016f47206839ef635fe4c15723ed5019730f` includes normal9be1 dependency
-and its own five-file memory hook.53 focused PASS/527 broad native PASS plus7
-SciPy FAIL and2 fingerprint PASS/2 actual FAIL remain scoped. Fresh review and
-the separately owned donor modularity correction remain pending. `/root/business_runtime_tools` is root's
-sole central Personal API/runtime/catalog writer. No memory-helper takeover
-or inherited ownership waiver follows.
+and its own five-file memory hook. Its completed independent review is BLOCK:
+a memory-only reasoning retry can disclose consented memory after session
+revocation when the Money context is absent. The owner's replacement fix is
+active, with fresh replacement review pending; preserve the original BLOCK and
+reproduction.53 focused PASS/527 broad native PASS plus7 SciPy FAIL and2
+fingerprint PASS/2 actual FAIL remain scoped. `/root/business_runtime_tools` is
+root's sole central Personal API/runtime/catalog writer. No memory-helper
+takeover or inherited ownership waiver follows.
 
 Latest parent-relayed user sequence is one app:Guest Free, signed-in email
 still Free, then Paid/Full. `Sentinel_3269a594158c8191b5384ab9c608dd1a`
@@ -361,14 +366,22 @@ excludes Free agentic tools and supersedes the earlier both-tier agentic grant.
 The Personal allocation adds only `src/argus/api/agentic_access.py`,
 `src/argus/api/guest_access.py` and `src/argus/api/dependencies.py`:trusted
 provider-neutral current entitlement interface/projection, default DENY when
-missing/unavailable, synthetic fixtures only. Registration/admin/cohort/client
+missing/unavailable, synthetic fixtures only. Root additionally assigns exactly
+`tests/test_chat_stream_contract.py`, `tests/test_chat_runtime_cutover.py` and
+`tests/test_chat_runtime_reload_guardrails.py` for trusted synthetic Full fixtures
+on the fixed mocked development subject, empty default/reset None and unknown
+DENY; no global conftest, production fallback or assertion weakening.
+Registration/admin/cohort/client
 claims do not create Full authority. Existing Free manual Money is unchanged.
 RevenueCat/prices/paywall and actual paid grants are future monetization, not
 tonight. No invented canonical entitlement storage or live paid access follows.
 
-Generic repair remains exact3 staged paths at dependencybb340214, digest
-`e49f57fb693971147affb3c1335e4b1820aa83076b9f9647129364613ece9577`, without
-a final commit. `/root/owner_funds_comments` owns that openrouter slice after
+Generic repair is committed `8c7fc4092f967edb0ef7a69b1a152f21942ca0cc` and
+cleanly reconciled by normal merge `c7a4551897dc7196367d1cd66975fa14bbe43d0e`.
+The same three reviewed bytes retain digest
+`e49f57fb693971147affb3c1335e4b1820aa83076b9f9647129364613ece9577`;
+the earlier staged dependencybb340214 evidence remains historical. Integration
+and actual measurement remain pending. `/root/owner_funds_comments` owns that openrouter slice after
 review; root serializes it with central writers. Preserve fixed labels/rubric,
 original strict failures and separate repair receipts; no concurrent central
 openrouter writes or measured judge success is implied.
