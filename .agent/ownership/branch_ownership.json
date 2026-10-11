@@ -514,6 +514,7 @@
         "src/argus/domain/research/cache.py",
         "src/argus/domain/research/perplexity_agent.py",
         "src/argus/domain/research/search/http_post.py",
+        "src/argus/domain/tool_declaration.py",
         "tests/agent_runtime/test_personal_money_chat.py",
         "tests/test_chat_runtime_cutover.py",
         "tests/test_chat_runtime_reload_guardrails.py",

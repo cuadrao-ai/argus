@@ -332,8 +332,8 @@ readiness.
 ## Bounded checkpoint and Consumer donor registration
 
 The [existing execution manifest](../specs/argus-execution-board.md#active-checkpoint-personal-memory-voice-and-repair-allocation)
-records six approved exact policies:7 checkpoint,28 Personal,15 memory,7
-utterance voice,3 generic repair and6 live-delegation paths (66 total). Published
+records six approved exact policies:7 checkpoint,29 Personal,15 memory,7
+utterance voice,3 generic repair and6 live-delegation paths (67 total). Published
 #969 reconciled `dfd9332c7b7d7ae2997cbcac97c71581d524366a` retains the prior
 reviewedc547 three-file bytes and all15 incoming UI bytes; new-head CI is
 separate from old-head evidence; this registration uses a separate
@@ -367,7 +367,7 @@ revocation when the Money context is absent. The replacement
 but root independently BLOCKED research transport/admission: captured current
 session/original Full authority does not protect all provider retries, cached
 admission/results and dispatch. Preserve both BLOCK sources/reproductions.
-The same sole owner is assigned the seven additional exact paths below;
+The same sole owner is assigned the eight additional exact paths below;
 remediation implementation is pending, with no committed fix implied.
 Root identical Linux comparison:9449 550 PASS/4 FAIL/zero skips versus376c
 530 PASS/the same4 FAIL/zero skips. No new failure; neither full regression
@@ -403,7 +403,11 @@ The root-approved research-access amendment adds exactly
 `src/argus/domain/research/search/http_post.py`,
 `src/argus/domain/research/cache.py`,
 `src/argus/agent_runtime/stages/tool_execution.py` and
-`src/argus/api/chat/research_jobs.py` to the existing Personal owner. The new
+`src/argus/api/chat/research_jobs.py` and
+`src/argus/domain/tool_declaration.py` to the existing Personal owner. Root
+read and assigned the last path only for neutral helper authority-denial
+pass-through across async/sync generic exception catches, so denial cannot
+become an ordinary tool failure/card; implementation remains pending. The new
 helper carries only transient injected callbacks; reuse current task/job/receipt
 owners. Fresh access must cover actual requests/retries, cached admission and
 results, dispatch and publication. No grant store, provider activation, SQL,
