@@ -10,8 +10,11 @@ type TurnstileApi = {
       sitekey: string;
       appearance: "interaction-only";
       theme: "light" | "dark";
+      retry: "never";
+      "refresh-expired": "never";
+      "refresh-timeout": "never";
       callback: (token: string) => void;
-      "error-callback": () => boolean;
+      "error-callback": (code?: string) => boolean;
       "expired-callback": () => void;
       "before-interactive-callback": () => void;
     },
@@ -40,6 +43,7 @@ export type GuestEntryErrorKind = "generic" | typeof CAPTCHA_UNAVAILABLE_CODE;
 
 type CaptchaUnavailableError = Error & {
   code: typeof CAPTCHA_UNAVAILABLE_CODE;
+  turnstileCode?: string;
 };
 
 type TurnstileShell = {
@@ -54,11 +58,14 @@ function captchaAbortError(): Error {
   return error;
 }
 
-function captchaUnavailableError(): CaptchaUnavailableError {
+function captchaUnavailableError(providerCode?: string): CaptchaUnavailableError {
   const error = new Error(
     "Browser CAPTCHA could not be verified.",
   ) as CaptchaUnavailableError;
   error.code = CAPTCHA_UNAVAILABLE_CODE;
+  if (typeof providerCode === "string" && /^[0-9]{6}$/.test(providerCode)) {
+    error.turnstileCode = providerCode;
+  }
   return error;
 }
 
@@ -339,6 +346,7 @@ export function acquireTurnstileChallenge(input: {
     let widgetId = "";
     let widgetRemoved = false;
     let settled = false;
+    let cleanupDeferred = false;
     let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
     const onAbort = () => {
       fail(captchaAbortError());
@@ -358,23 +366,28 @@ export function acquireTurnstileChallenge(input: {
         // The provider may already have removed a completed widget.
       }
     };
-    const cleanup = () => {
+    const cleanup = (complete: () => void, defer = false) => {
       signal?.removeEventListener("abort", onAbort);
       if (timeoutId !== null) globalThis.clearTimeout(timeoutId);
-      removeWidget();
-      shell.destroy();
+      const finish = () => {
+        removeWidget();
+        shell.destroy();
+        complete();
+      };
+      cleanupDeferred = defer;
+      // Let the provider finish its callback before removing its container.
+      if (defer) globalThis.setTimeout(finish, 0);
+      else finish();
     };
     const succeed = (token: string) => {
       if (settled) return;
       settled = true;
-      cleanup();
-      resolve(token);
+      cleanup(() => resolve(token), true);
     };
-    function fail(error: Error = captchaUnavailableError()) {
+    function fail(error: Error = captchaUnavailableError(), defer = false) {
       if (settled) return true;
       settled = true;
-      cleanup();
-      reject(error);
+      cleanup(() => reject(error), defer);
       return true;
     }
 
@@ -389,10 +402,13 @@ export function acquireTurnstileChallenge(input: {
         sitekey: siteKey,
         appearance: "interaction-only",
         theme,
+        retry: "never",
+        "refresh-expired": "never",
+        "refresh-timeout": "never",
         callback: succeed,
-        "error-callback": () => fail(),
+        "error-callback": (code) => fail(captchaUnavailableError(code), true),
         "expired-callback": () => {
-          fail();
+          fail(captchaUnavailableError(), true);
         },
         "before-interactive-callback": () => {
           if (settled) return;
@@ -400,7 +416,7 @@ export function acquireTurnstileChallenge(input: {
           startTimeout(interactiveTimeoutMs);
         },
       });
-      if (settled) removeWidget();
+      if (settled && !cleanupDeferred) removeWidget();
     } catch {
       fail();
     }
@@ -454,10 +470,17 @@ export async function acquirePasswordAuthCaptchaToken(signal?: AbortSignal): Pro
       throw new Error("captcha_token_out_of_bounds");
     }
     return token;
-  } catch {
+  } catch (cause) {
     const error = new Error(
       "The browser security check could not be completed.",
-    ) as Error & { code: string };
+    ) as CaptchaUnavailableError;
+    if (
+      cause instanceof Error &&
+      "turnstileCode" in cause &&
+      typeof cause.turnstileCode === "string"
+    ) {
+      error.turnstileCode = captchaUnavailableError(cause.turnstileCode).turnstileCode;
+    }
     error.code = CAPTCHA_UNAVAILABLE_CODE;
     throw error;
   }
