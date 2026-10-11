@@ -1,3 +1,6 @@
+Read [repository startup](../AGENTS.md) and its operating reference before web
+implementation or review. The assigned package and technical owners apply here.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

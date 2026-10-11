@@ -250,6 +250,12 @@ def test_every_reader_returns_exactly_its_own_side(
 def test_business_routes_reach_only_their_own_space(world: World) -> None:
     a, b = world.biz["a"], world.biz["b"]
     service = world.business
+    before = {
+        quadrant: world.accounts.list_accounts(
+            user_id=world.people[quadrant[0]], scope=world.scope[quadrant]
+        )
+        for quadrant in QUADRANTS
+    }
     assert [r.id for r in service.receipts(a)] == [world.receipt[("a", "business")]]
     assert [x["id"] for x in service.accounts_for_expenses(a)] == [
         world.account[("a", "business")]
@@ -266,12 +272,31 @@ def test_business_routes_reach_only_their_own_space(world: World) -> None:
         "merchant": "Ferretería",
         "category_id": None,
     }
-    with pytest.raises(AccountNotFound):
-        service.record_expense(a, entered, "forged-personal-account")
-    with pytest.raises(AccountNotFound):
-        service.record_expense(
-            a, {**entered, "account_id": world.account[("b", "business")]}, "forged-b"
-        )
+    for account in (entered["account_id"], world.account[("b", "business")]):
+        with pytest.raises(ReconcileError) as refused:
+            service.record_expense(a, {**entered, "account_id": account}, "direct-entry")
+        assert refused.value.code == "human_approval_required"
+        with pytest.raises(AccountNotFound):
+            world.money.write_entered(
+                user_id=a.person_id,
+                request=MoneyRequest(
+                    kind="expense",
+                    account_id=account,
+                    amount=entered["amount"],
+                    occurred_at=datetime.combine(
+                        DAY, datetime.min.time(), ZoneInfo(ZONE)
+                    ),
+                    time_zone=ZONE,
+                    note=entered["merchant"],
+                    category_id=None,
+                ),
+                idempotency_key=f"forged-{account}",
+                scope=a.owner,
+            )
+    for quadrant, original in before.items():
+        assert world.accounts.list_accounts(
+            user_id=world.people[quadrant[0]], scope=world.scope[quadrant]
+        ) == original
     expenses = service.expenses(a, date(2026, 10, 1), date(2026, 10, 31))
     assert [e["id"] for e in expenses] == [world.expense[("a", "business")]]
     assert (
@@ -283,18 +308,23 @@ def test_business_routes_reach_only_their_own_space(world: World) -> None:
 def test_personal_keeps_working_after_a_business_expense(world: World) -> None:
     person = world.people["a"]
     a = world.biz["a"]
-    world.business.record_expense(
-        a,
-        {
-            "account_id": world.account[("a", "business")],
-            "amount": "99.00",
-            "occurred_on": DAY,
-            "merchant": "Proveedor",
-            "category_id": None,
-        },
-        "second-business-expense",
+    original_personal = world.accounts.list_accounts(user_id=person, scope=PERSONAL)
+    world.money.write_entered(
+        user_id=person,
+        request=MoneyRequest(
+            kind="expense",
+            account_id=world.account[("a", "business")],
+            amount="99.00",
+            occurred_at=datetime.combine(DAY, datetime.min.time(), ZoneInfo(ZONE)),
+            time_zone=ZONE,
+            note="Proveedor",
+            category_id=None,
+        ),
+        idempotency_key="second-business-expense",
+        scope=a.owner,
     )
     state, accounts = storage.read(world.repository, person)
+    assert accounts == original_personal
     assert [s.account.id for s in accounts] == [world.account[("a", "personal")]]
     assert set(state["_canonical_groups"].current) == {world.expense[("a", "personal")]}
     hits = financial_search.search(world.accounts, person, q="").items

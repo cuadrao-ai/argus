@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from argus.domain.recording.assets import AssetDetailsResult
     from argus.domain.recording.loop_storage import OperationResult, Planner
+    from argus.domain.recording.owner_funds import OwnerFundedExpense
 
 import threading
 from collections.abc import Callable
@@ -149,6 +150,7 @@ class InMemoryFinancialAccountRepository:
         self._money_receipts: dict[
             tuple[str, str | None, str], tuple[str, str, int, tuple[str, ...]]
         ] = {}
+        self._owner_funded: dict[str, OwnerFundedExpense] = {}
         self._operations: dict[tuple[str, str, str], tuple[str, str, int, str]] = {}
         self._reservations: dict[tuple[str, str, str], tuple[str, str]] = {}
 
@@ -212,7 +214,17 @@ class InMemoryFinancialAccountRepository:
     def list_accounts(self, *, user_id: str, scope: OwnerScope) -> list[StoredAccount]:
         with self._lock:
             owned = self.held(user_id, scope)
-        return sorted(owned, key=lambda item: (item.account.created_at, item.account.id))
+            funded = [
+                row
+                for row in self._owner_funded.values()
+                if row.user_id == user_id and holds(scope, row.owner_space_id)
+            ]
+        from .owner_funds import FundedAccounts
+
+        return FundedAccounts(
+            sorted(owned, key=lambda item: (item.account.created_at, item.account.id)),
+            funded,
+        )
 
     def get_account(
         self, *, user_id: str, account_id: str, scope: OwnerScope

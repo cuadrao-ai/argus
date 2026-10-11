@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import assert from "node:assert/strict";
 import { readReturnPath } from "../lib/auth-return-path";
 import { authLoginPathFromSearch, pathWithSearch } from "../lib/landing-intent";
 
@@ -7,6 +8,16 @@ describe("sign-in return path", () => {
     const login = authLoginPathFromSearch("?receipt=rcpt-123&utm_source=whatsapp", "/biz");
     const search = login.slice(login.indexOf("?"));
     expect(readReturnPath(search)).toBe("/biz?receipt=rcpt-123");
+  });
+
+  test("a signed-out canonical draft link returns to the same draft", () => {
+    const id = "10000000-0000-4000-8000-000000000002";
+    const login = authLoginPathFromSearch(`?draft=${id}&unexpected=drop&utm_source=whatsapp`, "/biz");
+    assert.equal(readReturnPath(login.slice(login.indexOf("?"))), `/biz?draft=${id}`);
+    assert.equal(login.includes("unexpected"), false);
+    assert.equal(readReturnPath(`?return_to=${encodeURIComponent(`//evil.example/biz?draft=${id}`)}`), undefined);
+    assert.equal(readReturnPath(`?return_to=${encodeURIComponent(`https://evil.example/biz?draft=${id}`)}`), undefined);
+    assert.equal(readReturnPath(`?return_to=${encodeURIComponent("/biz?draft=<script>&unexpected=drop")}`), "/biz");
   });
 
   test("Business views and conversations survive; other query keys do not", () => {

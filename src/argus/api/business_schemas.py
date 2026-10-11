@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from argus.api.schemas import Language
+from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.receipts import Attention
 from argus.domain.business.spaces import MAX_NAME_LENGTH
 from argus.domain.ingestion.receipt_review import ReceiptStatus
@@ -114,6 +115,8 @@ ReviewField = Literal[
 
 
 class ReceiptDetail(ReceiptSummary):
+    draft_id: UUID | None = None
+    record_context: RecordContext | None = None
     version: int
     evidence: ReceiptEvidence | None
     missing_fields: list[ReviewField]
@@ -138,7 +141,10 @@ class BusinessExpense(_Wire):
     amount: str
     currency: str
     category_id: str | None
-    account_id: str
+    account_id: str | None
+    funding: Literal["owner_funds"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     occurred_on: date
     receipt_id: str | None
 

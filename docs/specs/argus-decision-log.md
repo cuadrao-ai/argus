@@ -35,6 +35,8 @@ supersession rules. These decisions do not assert implementation completion.
 | 2026-10-04 | Lock the AI providers (2:20 PM CT): OpenRouter for the chat models (GPT and Grok) and vision extraction, Grok voice for the planned chat voice-call feature, and Perplexity for finance search. All three stay behind the server and never write saved balances. Detailed record: [October 4 AI providers](#ai-providers). | Lucas |
 | 2026-10-04 | Lock the space-model timing (2:21 PM CT): the space-model change lands before TestFlight. The model itself still needs its own lock. Detailed record: [October 4 space model timing](#space-model-timing). | Lucas |
 | 2026-10-07 | Approve the connected Business workflow and offline E0 plan with task-by-task independent review. Counsel may publish and land the docs-only PR; Lucas coordinates Business implementation. Detailed record: [Business connected flow and E0](#october-7-2026-business-connected-flow-and-offline-e0-plan). | Lucas |
+| 2026-10-10 | Approve the Business agent direction. One agent in the existing runtime talks only to the owner in WhatsApp and completes each record through Business tools. The accountant works in the web view. Reuse the runtime and services; no second loop, extractor, ledger or vendor. Contract first, then parallel streams; the "Pagué 850" journey is the first proof; evals gate merges. Cuadrao branches from `codex/private-alpha-next`. Detailed record: [Business agent direction](#october-10-2026-business-agent-direction). | Lucas |
+| 2026-10-10 | Clarify the first Business outcome as a working hosted internet system and an invite-only web beta. Authorize the bounded build, clean integration merges and staging only. Preserve varied natural-language flows and the existing runtime. Detailed record: [Hosted Business beta and build grant](#october-10-2026-hosted-business-beta-and-build-grant). | Lucas, relayed by the root coordinator |
 
 ## October 7, 2026 Business connected flow and offline E0 plan
 
@@ -606,3 +608,225 @@ release 1 (#818 and #826), and the consent scope and versioning policy (#828).
 This entry does not authorize implementation, a model-instruction change, a paid
 provider run, hosted activation or deployment. The #826 contract still precedes
 #827.
+
+## October 10, 2026: Business agent direction
+
+The founder approved these points after two audits of the Business core flows:
+
+- The roadmap captured evidence and then stopped. A record was not complete. One agent now carries each conversation to a complete draft.
+- Version 1 talks only to the owner. The accountant answers in the web view.
+- The model reads the message. The tools enforce permissions, approval, exact money and record-once rules.
+- Reuse LangGraph, OpenRouter, the tool registry, WhatsApp intake, document jobs, money services and server flags. Jev and an MCP server are deferred.
+- `main` stays as the Argus tribute. Cuadrao work branches from `codex/private-alpha-next`.
+- "I paid with my own money" is recorded against an owner funds source. The accountant classifies it.
+- Approval is a permission, not a fixed role. The business admin holds it and can grant it to an associate. An accounting firm gets it for each client through that client's grant. An action ledger shows who did each action, through which grant and for whom.
+- The OpenRouter key caps AI spend. The founder names the models for each PR that makes model calls.
+- The default currency is DOP. The reviewer can change it before sign-off.
+- Build only what J1 to J3 need, then test with one real owner and one real accountant. Other work waits until real use asks for it.
+
+The [Business agent execution spec](lanes/cuadrao-business-agent-execution-spec.md) owns the contract, the work order and the defaults. No decision is open.
+
+## October 10, 2026 hosted Business beta and build grant
+
+At 21:39 UTC, Lucas clarified that the customer milestone is a real production
+system reachable over the internet, demonstrated behind the marketing demo.
+A laptop-only demonstration does not satisfy it. Provenance is
+`Sentinel_197f868cd67c8191806a86d8f425ea91`. At 21:41 UTC, he clarified an
+invite-only web beta using existing tools, separate from Apple TestFlight.
+Provenance is `Sentinel_3b97373fd34081918bde53aeecce4293`.
+
+At 22:13 UTC, Lucas authorized the bounded hosted Business build, clean merges
+to `codex/private-alpha-next` and staging only. Provenance is
+`Sentinel_fc5880c0d93c8191abd96767711ff688`. The root coordinator owns the sole
+merge slot and staging actions. This replaces the general implementation and
+hosted hold only within that assigned Business flow. It does not authorize
+main or production promotion, public signup, marketing or legal launch,
+Apple TestFlight, or unrelated Consumer work.
+
+The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+owns the current assignments, dependencies and pending action gates. The
+[execution spec](lanes/cuadrao-business-agent-execution-spec.md) still owns
+C0-first order and the larger J1 to J3 direction. The first customer proof
+must join real owner messages to one traceable record visible to an authorized
+accountant over the internet. It must preserve originals, visible unknown or
+unverified facts, correction history and grant-scoped human approval.
+
+"Pagué 850" is an illustrative J1 input, not a phrase to detect or the whole
+acceptance set. Use varied ordinary transactions, factual follow-ups, uncertainty
+and corrections through the typed interpreter and canonical tools. Judge saved
+state and user behavior. Do not substitute literal reply matching, word lists,
+regex intent gates or per-reply human wording approval for evaluations.
+
+Controlled WhatsApp test-recipient access differs from public onboarding.
+A hosted loop needs its permitted sender, verified callback and WABA subscription,
+authenticated sender-to-Business link, and grant-scoped readback. #941 still owns
+its remaining activation and policy prerequisites. A simulated transport or old
+tunnel does not prove that loop or authorize a callback cutover.
+
+At 22:22 UTC, Lucas approved the existing Cuadrao Render workspace
+`tea-d5rdkfk9c44c73e7a1ig`. Provenance is
+`Sentinel_6aaf381568a88191b21c0240807c0f52`. His runtime direction replaces
+the older configured mix. Favor `anthropic/claude-haiku-5.5`,
+`openai/gpt-6-luna-pro` and `deepseek/deepseek-v4.1-flash`. Use Grok only
+when needed. Prioritize the fastest reliable choice; he identified GPT Luna
+Pro as the slowest candidate. The coordinator verified all three exact IDs
+in OpenRouter's public catalog with structured-output and tool support.
+Catalog metadata does not prove runtime latency or authorize a paid call.
+
+A later continuation names Grok 4.3 as the first evaluation judge. Provenance is
+`Sentinel_70caa32aa180819187d0ffaaf50e6bd9`. Do not make Astra development
+runtime or judge API calls. A future paid-tier Astra option is hypothetical.
+Codex coding agents use a separate subscription; their model names do not
+select a runtime provider. The named runtime configuration remains replaceable.
+Do not turn model selection into a new model-platform build. Calibrate the
+judge with known-good and known-bad cases. Retain deterministic saved-state
+assertions, so same-model agreement is never the sole proof of correctness.
+
+At 22:26 UTC, Lucas approved a $5 total limit for this test run only.
+Provenance is `Sentinel_dadf8d7f1e70819182eb7974f221a5fd`. He requested
+identification of the development key before setting the overall development
+spending limit. At that checkpoint, the limit was awaited and the coordinator
+held live calls. The 22:32 UTC continuation below supersedes that run cap and
+spending hold.
+
+Grok 4.3 remains the first judge. Sonnet 5.5 is a possible stretch choice only
+when a demonstrated need and fresh confirmation justify it. It is not an
+automatic fallback. No Astra development runtime or judge API call is approved.
+
+The coordinator interprets the existing one-owner, one-authorized-accountant,
+one-Business-at-a-time milestone as a direct named-accountant grant for the
+first bounded flow. This is implementation sequencing under existing authority,
+not a new founder decision. Full firm-to-human delegation does not gate that
+first acceptance. Preserve L11's firm-delegation requirement for later work;
+it is not claimed complete. Do not invent a firm identity for the pilot.
+
+Synthetic grants in isolated tests are authorized. Creating a real persistent
+grant still requires the actual business's authorization and the named
+accountant's scoped setup. The agent never holds approval permission.
+
+At 22:32 UTC, Lucas authorized the existing development
+`OPENROUTER_API_KEY` until its allowance is exhausted or it expires.
+Provenance is `Sentinel_c52a9cf3b5308191b363e9c59f5993fa`. This supersedes
+the $5 test-run cap and the hold for an overall development spending limit.
+Use this existing development key only. Do not swap in a registered or guest
+key, rotate credentials or expand the authorization to another key.
+
+The coordinator's safe provider read reported total usage of $227.432355357.
+Subtracting that from the authorized $300 ceiling gives a conservative
+$72.567644643 remaining allowance before concurrent usage. The key expires at
+`2026-10-12T02:21:00Z`. This is an operational snapshot, not a new constant.
+The provider's larger monthly-remaining figure is not the authorized allowance.
+The root coordinator alone coordinates live calls, reservations, concurrency
+and token bounds. Refresh usage before calls and account for outstanding work.
+All calls, judges, fallbacks and retries consume the same allowance. Use only
+synthetic data. Stop when the conservative allowance is exhausted or the key
+expires. Do not infer unlimited spend or an automatic reset of authorization.
+
+Grok 4.3 and the earlier named runtime candidates retain their scope. No Astra
+runtime or judge API call is approved. Sonnet 5.5 still needs demonstrated need
+and fresh confirmation. No live call has occurred at this documentation
+checkpoint because C0, runtime and evaluation readiness are still incomplete.
+
+Tonight's target is online verification, contingent on the build, staging web
+setup and candidate acceptance. It is not a readiness promise. The existing
+staging-only deployment grant remains. New costs or access expansion need
+concrete scoped confirmation. No secret change, real customer-data transmission
+or persistent tester grant follows from this record. Named testers and real
+grants still need actual business authorization and scoped setup.
+
+
+### October 10, 2026 23:37 UTC owner handoff and approved-work accounting
+
+Lucas requires a small mandatory owner handoff that accounts for the latest
+approved work as LANDED, PENDING or SUPERSEDED, with exact commit/source,
+including unpublished work. Provenance is
+`Sentinel_78ca7fbafb948191a7a6bb2a2b25cb3c`. A PR alone does not complete the
+approved scope. Pending retained source work cannot be silently excluded.
+Actual rendered latest approved branding on affected web/sign-in/signup
+surfaces and relevant browser regressions are required before READY. Local
+synthetic UI evidence remains distinct from hosted customer acceptance.
+
+The [existing execution manifest](argus-execution-board.md#mandatory-owner-completion-handoff)
+owns current owner rows, dependencies and this completion gate. The
+[Business handoff](../handoffs/cuadrao-business-lane.md#approved-unpublished-branding-and-completion-gate)
+retains bounded branding source commits and turn provenance. Reuse the existing
+ownership verifier and explicit lane allowlists. This direction creates no
+second process, blanket approval of the remaining 105-item audit, product
+scope expansion, public signup or production action grant. Persisted AI-consent
+policy remains pending and defaults to deny at the affected boundary.
+
+
+### October 11, 2026 product-derived evaluation and replaceable model configuration
+
+Lucas approved fixed product-derived labels and rubric, independent of any
+particular model. Provenance is `Sentinel_ed9f3b917d5081919e00f16339503f7b`.
+Keep configuration lean and replaceable, with structured contracts and
+deterministic authority, saved-state and idempotency checks. Do not add a new
+framework, model-specific prompt workaround or labels tailored to a candidate.
+
+A model swap uses the same versioned suite plus held-out cases. Record the exact
+model/version, parameters and results so the swap can be compared against the
+same product acceptance. Existing live-quality and prompt-fingerprint gates
+remain. A failed calibration does not certify a judge or waive those gates.
+The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+owns actual calibration results, current owner heads and pending decisions;
+this record authorizes no additional provider, secret, deployment or spend scope.
+
+
+### October 11, 2026 scoped Business acceptance and instrumented diagnostics
+
+Authorization was relayed through trusted Codex delegation from parent thread
+`01a11879-059d-7459-b082-41e5001210f8`, received approximately
+`2026-10-11T00:55Z`. No Sentinel identifier was supplied; this records the
+coordinator-relayed parent authorization without inventing one.
+
+The coordinator relayed explicit authorization to scope the first Business
+acceptance to a real production-message input, durable draft, authorized human
+approval and resulting Money state, exercised against a controlled synthetic
+database. The legacy equity/Alpaca global benchmark is NOT RUN and is not a
+prerequisite for this Business first flow. Request no investment credentials
+or investment-access expansion for that scope. Retain applicable Consumer
+regressions and deterministic authority, state and idempotency checks.
+
+The broad benchmark was initially selected because the existing blanket
+model-facing prompt freeze covers every eval-reachable prompt builder and
+schema description: shared text can regress other surfaces. This justified
+checking scope; it did not create a new investment-provider dependency for
+Business. The explicit Business scope above preserves the measured live
+scorecard/fingerprint obligation. T1 has bounded authorization to validate the
+Consumer/Business scope using the existing guards and fingerprint, preserving
+all 25 legacy entries and last_measured byte-for-byte. A Business placeholder
+stays unmeasured until accepted seven-case evidence; the gate is not claimed clear. Do not weaken the checker or disable a required check.
+
+Bounded instrumented latency/capability tests are authorized under the existing
+development allowance and approved model IDs. Keep fixed product targets,
+rubric, labels, structured contracts and held-outs. No blind retry, automatic
+Haiku judge selection or new provider/access scope follows. Subsequent instrumented
+capability observations and a failed Haiku first-flow validation are retained in
+the manifest as dated snapshots; next paid judge choice remains pending.
+The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+records timeout receipts, reservations and current owner proof separately from
+an accepted runtime or calibrated judge.
+
+
+### October 11, 2026 bounded semantic input and server binding
+
+The coordinator relayed parent-thread `01a11879-059d-7459-b082-41e5001210f8`
+authorization on October 11 for the bounded C0/T1 boundary fix. C0 owns durable
+contracts, reference resolution and their focused proof. T1 owns model semantic
+input, compilation and stages, plus the approved shared LLM capability change
+to omit parameters unsupported by metadata-verified bare/dated LunaPro across
+requests/tasks, preserving strict parameters, schema, reasoning and token bounds.
+No per-call capability lookup or new routing platform follows. Exact C0 seven,
+Actions one split-test and T1 four-path allocation follows author reports and
+root approval in the existing ownership manifest; this is not broad platform
+ownership.
+
+Preserve the existing [architecture action trust roots](../ARCHITECTURE.md#cuadrao-action-and-integration-principles):
+models propose semantic intent; server-verified targets and receipt-derived
+revisions bind execution. Domain services retain authorization and durable
+writes; approval remains bound to the reviewed revision/destination/action,
+permissions are rechecked and duplicate effects remain idempotent. This is a
+bounded repair under current decisions, not a V2 platform, new provider/key,
+access expansion or deployment grant. Implementation and actual quality proof
+remain PENDING in the [existing manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026).

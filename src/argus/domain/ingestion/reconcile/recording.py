@@ -102,6 +102,7 @@ class Recording:
         claimed_now = False
         with self.store.transaction(user_id, scope=scope) as tx:
             event = tx.event(event_id)
+            self._require_legacy(event)
             if event.state == "open":
                 claimed_now = True
                 if event.version != version:
@@ -205,6 +206,7 @@ class Recording:
         for _ in range(3):
             with self.store.transaction(user_id, scope=scope) as tx:
                 event = tx.event(event_id)
+                self._require_legacy(event)
             if (
                 event.state in ("accepting", "accepted")
                 and event.accept_key == idempotency_key
@@ -292,6 +294,7 @@ class Recording:
         key = f"b:{batch_key}:{event_id}"
         with self.store.transaction(user_id, scope=scope) as tx:
             event = tx.event(event_id)
+            self._require_legacy(event)
         if event.state in ("accepted", "accepting") and event.accept_key == key:
             # A retried batch: this item was already claimed by this batch.
             result = self._write(user_id, event, None, self.clock(), scope=scope)
@@ -514,6 +517,13 @@ def missing_fields(detail: dict[str, Any]) -> list[str]:
 def recorded_note(detail: dict[str, Any]) -> str | None:
     """The activity note ``accept`` records: the person's note, else the merchant."""
 
+    if "business" in detail["resolution"]:
+        from argus.domain.business.contracts.facts import BusinessResolution
+
+        value = BusinessResolution.model_validate(
+            detail["resolution"]["business"]
+        ).facts.counterparty.value
+        return value[:200] if value is not None else None
     if detail["resolution"].get("note"):
         return detail["resolution"]["note"]
     for observation in detail["observations"]:

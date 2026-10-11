@@ -9,6 +9,7 @@ from pydantic import (
     ConfigDict,
     Field,
     field_validator,
+    model_validator,
 )
 
 ActivityKind = Literal[
@@ -45,9 +46,18 @@ class MoneyCoverage(BaseModel):
         return str(UUID(value))
 
 
+class OwnerFunds(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    owner_space_id: UUID
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+
+
 class MoneyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: ActivityKind
+    owner_funding: OwnerFunds | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     account_id: str | None = None
     source_account_id: str | None = None
     destination_account_id: str | None = None
@@ -70,6 +80,33 @@ class MoneyRequest(BaseModel):
     expected_versions: dict[str, int] = Field(default_factory=dict)
     coverage: list[MoneyCoverage] = Field(default_factory=list, max_length=1000)
     preview_token: str | None = Field(default=None, max_length=128)
+
+    @model_validator(mode="after")
+    def owner_funded_expense(self) -> "MoneyRequest":
+        if self.owner_funding is not None:
+            excluded = (
+                self.account_id,
+                self.source_account_id,
+                self.destination_account_id,
+                self.destination_amount,
+                self.principal,
+                self.interest,
+                self.fees,
+                self.reversal_of_activity_id,
+                self.source_id,
+                self.purchase_activity_id,
+                self.expected_revision,
+                self.reason,
+                self.expected_versions,
+                self.coverage,
+            )
+            if self.kind != "expense" or any(
+                value is not None and value != {} and value != [] for value in excluded
+            ):
+                raise ValueError(
+                    "Owner funds records a new expense without an account movement."
+                )
+        return self
 
     @field_validator(
         "account_id",

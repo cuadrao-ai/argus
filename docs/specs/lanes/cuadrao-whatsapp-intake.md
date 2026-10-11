@@ -12,6 +12,10 @@ number. Cuadrao saves it as a document draft with `consent: false` and replies
 with a signed-in review link, `/biz?receipt=<id>`. Correction, "Prepare with
 AI" and approval happen only on the web. WhatsApp never queues AI preparation.
 
+**October 10, 2026:** the [Business agent execution spec](cuadrao-business-agent-execution-spec.md)
+connects WhatsApp to the Business agent (PR W1). The rule "WhatsApp never
+queues AI preparation" stays true until W1 lands. Approval stays on the web.
+
 Linking needs proof of possession. The signed-in owner creates a one-time code
 on the web, then sends `CUADRAO <code>` from their own WhatsApp. A typed phone
 number proves nothing. Unknown senders get no capture and a "connect from the
