@@ -12,6 +12,7 @@ from argus.agent_runtime.business.interpretation import (
     BusinessRecordIntent,
 )
 from argus.agent_runtime.business.runner import BusinessTurnRunner
+from argus.domain.business.actions.facts import patched_facts
 from argus.domain.business.contracts.actions import (
     Applied,
     Ask,
@@ -386,6 +387,65 @@ async def test_model_cannot_replace_the_captured_server_revision(turn_context):
     )
     assert all(action.draft.base_version == 2 for action in actions.plan.actions)
     assert actions.calls.index("persist_plan") < actions.calls.index("execute:0")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "account_currency,expected", [("USD", []), ("DOP", ["import_currency_mismatch"])]
+)
+async def test_graph_projects_income_account_context_without_rebinding_facts(
+    turn_context, account_currency, expected
+):
+    turn, context, actions = turn_context
+    draft_id, account_id, original_source = uuid4(), uuid4(), uuid4()
+    facts = patched_facts(
+        None,
+        BusinessFactPatch.model_validate(
+            {
+                "kind": {"state": "known", "value": "income"},
+                "amount": {"state": "known", "value": "125"},
+                "currency": {"state": "known", "value": "USD"},
+                "occurred_on": {"state": "known", "value": "2026-10-09"},
+                "funding": {
+                    "state": "known",
+                    "value": {"kind": "business_account", "account_id": str(account_id)},
+                },
+                "business_share": {"state": "known", "value": {"kind": "all"}},
+            }
+        ),
+        (original_source,),
+        origin="owner_stated",
+    )
+    raw = {
+        "accounts": [
+            {
+                "id": str(account_id),
+                "nickname": "Cash",
+                "type": "cash",
+                "currency": account_currency,
+            }
+        ],
+        "drafts": [
+            {"id": str(draft_id), "version": 3, "facts": facts.model_dump(mode="json")}
+        ],
+        "questions": [],
+    }
+    actions.read_context = lambda _: raw
+    interpreter = Interpreter(lambda _: BusinessInterpretation(read_context=True))
+    result = await BusinessTurnRunner(interpreter=interpreter).run(
+        context=context, turn=turn, message="Show the income record."
+    )
+    projected = interpreter.payload["business"]
+    assert [item["code"] for item in projected["drafts"][0]["blockers"]] == expected
+    assert projected["accounts"] == raw["accounts"]
+    assert projected["drafts"][0]["facts"]["currency"]["value"] == "USD"
+    assert "version" not in projected["drafts"][0]
+    assert "source_ids" not in projected["drafts"][0]["facts"]["funding"]
+    assert result.plan["actions"] == [{"action": "business_read_context"}]
+    assert raw["drafts"][0]["version"] == 3
+    assert raw["drafts"][0]["facts"] == facts.model_dump(mode="json")
+    assert len(actions.sources) == len(actions.receipts) == 1
+    assert not actions.drafts
 
 
 @pytest.mark.asyncio
