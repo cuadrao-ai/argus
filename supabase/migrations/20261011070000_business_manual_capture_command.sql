@@ -1,5 +1,5 @@
 alter table public.business_action_receipts
-    drop constraint business_action_receipts_check1,
+    drop constraint business_action_receipts_check2,
     add constraint business_action_receipts_unplanned_command check (
         turn_key is not null or
         (command->>'action' in ('review_draft', 'approve_expense', 'capture_note')) is true
