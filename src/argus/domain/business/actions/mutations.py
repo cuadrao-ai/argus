@@ -43,6 +43,25 @@ def event_at(tx: ActionTransaction, ref: ExistingDraft) -> ImportEvent:
     return event
 
 
+def new_candidate(owner_id: str, now: datetime) -> ImportEvent:
+    return ImportEvent(
+        str(uuid4()),
+        owner_id,
+        "open",
+        "transaction",
+        None,
+        None,
+        None,
+        (),
+        {},
+        None,
+        None,
+        now,
+        now,
+        1,
+    )
+
+
 def save_revision(
     tx: ActionTransaction,
     event: ImportEvent,
@@ -89,22 +108,7 @@ def revise(
     sources.require_sources(tx, source_ids)
     now = datetime.now(timezone.utc)
     if ref is None:
-        event = ImportEvent(
-            str(uuid4()),
-            tx.context.owner_id,
-            "open",
-            "transaction",
-            None,
-            None,
-            None,
-            (),
-            {},
-            None,
-            None,
-            now,
-            now,
-            1,
-        )
+        event = new_candidate(tx.context.owner_id, now)
         before = None
     else:
         event = event_at(tx, ref)
