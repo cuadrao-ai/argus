@@ -3,6 +3,8 @@ import type { ArgusLanguage } from "@/lib/language-features";
 import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
 import type {
   BusinessAccount,
+  BusinessCapture,
+  BusinessCaptureInput,
   BusinessExpense,
   BusinessOverview,
   BusinessSearchResult,
@@ -33,6 +35,8 @@ export type BusinessDataSource = Readonly<{
   updates: () => Promise<BusinessUpdate[]>;
   expenses: (from: string, to: string) => Promise<BusinessExpense[]>;
   search: (query: string) => Promise<BusinessSearchResult>;
+  captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
+  captures: (query?: string, limit?: number) => Promise<BusinessCapture[]>;
   uploadReceipt: (file: File, consentToPrepare: boolean, key: string) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   saveReview: (
@@ -62,6 +66,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   updates: api.listBusinessUpdates,
   expenses: api.listBusinessExpenses,
   search: (query) => api.searchBusiness(query),
+  captureNote: api.captureBusinessNote,
+  captures: api.listBusinessCaptures,
   uploadReceipt: api.uploadBusinessReceipt,
   prepareReceipt: api.prepareBusinessReceipt,
   saveReview: api.saveBusinessReceiptReview,
@@ -102,6 +108,8 @@ export function withBusinessSpace(
     updates: after(source.updates),
     expenses: after(source.expenses),
     search: after(source.search),
+    captureNote: source.captureNote,
+    captures: source.captures,
     uploadReceipt: after(source.uploadReceipt),
     prepareReceipt: source.prepareReceipt,
     saveReview: source.saveReview,
