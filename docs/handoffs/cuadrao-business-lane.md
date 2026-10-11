@@ -3,7 +3,8 @@
 **Current October 11 coordinator checkpoint.** Canonical integration is
 `590a0ec8ada4778add28be45c2b2ef222e3b6479`: manual UI #968 LANDED, tree
 `200357561ed64ad053814a4518a6abe05372acf9` byte-equal reviewed8c6d. Root
-postmerge CI38132051579/smoke38132051668 RUNNING at this snapshot, not PASS.
+postmerge CI38132051579/smoke38132051668 PASS; the earlier RUNNING observation
+remains historical evidence.
 Prior `d6ea8ddc2cd1c8b59b181923a5ab954b2e588217`: manual Actions #967 LANDED; root confirms postmerge CI38129393207/smoke38129393222 SUCCESS. Prior manual C0 #966 LANDED at286c6bc0 from
 `a9da8426c0a5153649a1a1d5bf92a042ca14e256`; its earlier CI38126952473
 RUNNING/smoke SUCCESS observation remains historical evidence.
@@ -331,8 +332,8 @@ readiness.
 ## Bounded checkpoint and Consumer donor registration
 
 The [existing execution manifest](../specs/argus-execution-board.md#active-checkpoint-personal-memory-voice-and-repair-allocation)
-records six approved exact policies:7 checkpoint,21 Personal,15 memory,7
-utterance voice,3 generic repair and6 live-delegation paths (59 total). Published
+records six approved exact policies:7 checkpoint,28 Personal,15 memory,7
+utterance voice,3 generic repair and6 live-delegation paths (66 total). Published
 #969 reconciled `dfd9332c7b7d7ae2997cbcac97c71581d524366a` retains the prior
 reviewedc547 three-file bytes and all15 incoming UI bytes; new-head CI is
 separate from old-head evidence; this registration uses a separate
@@ -361,9 +362,17 @@ pending. Personal authored14-path freezeb5dad71 remains retained; integrated
 `376c016f47206839ef635fe4c15723ed5019730f` includes normal9be1 dependency
 and its own five-file memory hook. Its completed independent review is BLOCK:
 a memory-only reasoning retry can disclose consented memory after session
-revocation when the Money context is absent. The owner's replacement fix is
-active, with fresh replacement review pending; preserve the original BLOCK and
-reproduction.53 focused PASS/527 broad native PASS plus7 SciPy FAIL and2
+revocation when the Money context is absent. The replacement
+`9449b560768cc71cd7cc19385182c515d2aafbd2` fixes that OpenRouter defect,
+but root independently BLOCKED research transport/admission: captured current
+session/original Full authority does not protect all provider retries, cached
+admission/results and dispatch. Preserve both BLOCK sources/reproductions.
+The same sole owner is assigned the seven additional exact paths below;
+remediation implementation is pending, with no committed fix implied.
+Root identical Linux comparison:9449 550 PASS/4 FAIL/zero skips versus376c
+530 PASS/the same4 FAIL/zero skips. No new failure; neither full regression
+suite is PASS. Production Full feed, model measurements and root PG remain
+pending.53 focused PASS/527 broad native PASS plus7 SciPy FAIL and2
 fingerprint PASS/2 actual FAIL remain scoped. `/root/business_runtime_tools` is
 root's sole central Personal API/runtime/catalog writer. No memory-helper
 takeover or inherited ownership waiver follows.
@@ -386,6 +395,19 @@ Registration/admin/cohort/client
 claims do not create Full authority. Existing Free manual Money is unchanged.
 RevenueCat/prices/paywall and actual paid grants are future monetization, not
 tonight. No invented canonical entitlement storage or live paid access follows.
+
+The root-approved research-access amendment adds exactly
+`src/argus/domain/agent_execution_access.py`,
+`src/argus/domain/research/admission.py`,
+`src/argus/domain/research/perplexity_agent.py`,
+`src/argus/domain/research/search/http_post.py`,
+`src/argus/domain/research/cache.py`,
+`src/argus/agent_runtime/stages/tool_execution.py` and
+`src/argus/api/chat/research_jobs.py` to the existing Personal owner. The new
+helper carries only transient injected callbacks; reuse current task/job/receipt
+owners. Fresh access must cover actual requests/retries, cached admission and
+results, dispatch and publication. No grant store, provider activation, SQL,
+new workflow or measurement waiver follows; implementation remains pending.
 
 Generic repair is committed `8c7fc4092f967edb0ef7a69b1a152f21942ca0cc` and
 cleanly reconciled by normal merge `c7a4551897dc7196367d1cd66975fa14bbe43d0e`.
@@ -563,9 +585,14 @@ and their implementation/acceptance still PENDING.
 T1 failed/unmeasured quality, judge calibration, consent implementation and hosted gates remain open.
 
 The [active export/income/X1 allocation](../specs/argus-execution-board.md#active-export-income-and-x1-allocation)
-records four isolated writers and their exact10/7/7/8 paths. Export and income
-Actions are WIP; income C0 source0f2fd918 retains123 offline PASS/33 PG SKIP,
-root-reserved110000 after168-worktree collision check, no SQL application. X1
+records four isolated writers and their exact10/7/7/8 paths. Current clean canonical590a reconciliations are income C0
+`b95c785e3aa05d890a14c4bb43b5d7ddd9a23ba9`, income Actions
+`043721599ed5332701ea5ea4131cb7a02c3c9e16` and export
+`3a52f00630a4cb7d99c6fd77168e0f2139499504`; exact current-head root PG and
+publication remain pending. Retain earlier income C0 source0f2fd918's123
+offline PASS/33 PG SKIP and its SQL-unapplied observation as history; root
+reserved110000 after168-worktree collision check. Prior source proofs do not
+become proof on these reconciled heads. X1
 ad598035 retains owned91 PASS and applicable282 PASS/4 FAIL/zero skips, no
 provider/DB calls. The eighth X1 test only corrects inherited generic sparse
 interpretation wire expectation, preserving document-task/native wire and local
