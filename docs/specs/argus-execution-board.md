@@ -661,14 +661,23 @@ Lucas accepted simulator evidence plus green CI and stopped VoiceOver/Switch
 Control testing. The [landing record](../reports/2026-10-09-pr-937-integration-landing.md)
 owns the exact source, evidence and verification limits.
 
-The latest explicit mobile sequence puts core flows in both tiers plus agent
-actions now. Basic usability at normal text size is required now; extreme
-Dynamic Type acceptance is the final pre-TestFlight check. Preserve the approved
-chat baseline. The isolated ONE-Mobile-goal warm-design experiment approved by
-`Sentinel_fa71fe12f79481918cd3ff3fc869e0a7` runs in parallel with core, preserves
-palette/type/chat, and replaces no global design. Its mobile owner is assigned;
-this grants no product edit to the metadata writer. The Apple TestFlight hold
-remains.
+The earlier October11 sequence put both-tier core flows and agent actions now,
+and approved an isolated ONE-Mobile-goal warm-design experiment through
+`Sentinel_fa71fe12f79481918cd3ff3fc869e0a7`. Preserve that historical approval;
+it is superseded by the later coordinator-relayed Lucas decision recorded as
+Sentinel52df: goal-progress visual work is PARKED; retain the current approved
+layout, palette/type/chat baseline. Current core manual flows apply to both
+tiers; `Sentinel_3269a594158c8191b5384ab9c608dd1a` makes agentic actions
+Full-only, default DENY without trusted current paid/full authority. One app
+proceeds Guest Free → signed-in email still Free → Paid/Full. Registration,
+client/admin/cohort labels grant no paid authority; RevenueCat/prices/paywall
+and actual paid grants remain future monetization, not tonight. Normal-size
+usability is required now; extreme Dynamic Type remains final pre-TestFlight.
+The Apple TestFlight hold remains. This metadata correction grants no product
+edit, live grant, provider activation or accepted implementation.
+
+The remaining October9 founder snapshot below is historical; later explicit
+sequence/entitlement decisions above govern current work.
 
 Next is the signed-in free account's manual-money journey against
 `https://cuadrao-api-staging.onrender.com` only: accounts, transactions, budgets,

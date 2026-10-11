@@ -310,15 +310,23 @@ creation; POST requires fresh owner/live prepare/flags/link/route; authenticated
 owner revoke/unlink stay accessible. Business checkpointer remains disabled
 until the proven lifecycle is centrally assembled and activation gates pass. Actual scoped user consent, live
 quality and hosted proof remain pending; the assembled59c7 static/local PG
-proof above does not clear them. Core both-tier manual mobile flows are now; the later Free/Full direction
-below supersedes the earlier both-tier agentic grant; normal usability is now and extreme Dynamic Type is final
-pre-TestFlight. The assigned ONE-Mobile-goal warm-design experiment approved
-by `Sentinel_fa71fe12f79481918cd3ff3fc869e0a7` runs in parallel with core,
-preserving palette/type/chat, with no global replacement. Preserve the approved
-chat baseline; no redesign/keeper expansion. Lucas now also approves selective
-motion via `Sentinel_b1d14016cb048191ae4d6781671ba461`; retain existing goal,
-celebration and splash authorizations. This is bounded motion permission, not
-an accepted implementation or global design replacement.
+proof above does not clear them. Earlier October11 sequence/visual approvals
+are retained as history: the ONE-Mobile-goal warm-design experiment was approved
+by `Sentinel_fa71fe12f79481918cd3ff3fc869e0a7`, and selective motion by
+`Sentinel_b1d14016cb048191ae4d6781671ba461`; existing goal/celebration/splash
+permissions are retained. The later coordinator-relayed Lucas decision
+(recorded as Sentinel52df) supersedes the parallel goal-progress assignment:
+goal-progress visual work is PARKED; keep the current approved layout,
+palette/type/chat baseline. No global replacement or keeper expansion follows.
+Current core manual flows apply to both tiers; agentic actions are Full-only
+under `Sentinel_3269a594158c8191b5384ab9c608dd1a`, default DENY without trusted
+current paid/full authority. One app proceeds Guest Free → signed-in email
+still Free → Paid/Full; registration/client/admin/cohort labels do not grant
+paid authority. RevenueCat/prices/paywall and actual paid grants are future
+monetization, not tonight. Normal usability is required now; extreme Dynamic
+Type remains final pre-TestFlight, with the TestFlight hold unchanged. These
+permissions establish no accepted implementation, actual consent or hosted
+readiness.
 
 ## Bounded checkpoint and Consumer donor registration
 
