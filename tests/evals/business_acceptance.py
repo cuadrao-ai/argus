@@ -333,6 +333,7 @@ async def run_business_acceptance(
                     case,
                     dsn=dsn,
                     interpreter_factory=interpreter_factory,
+                    runtime_model=runtime_model,
                     receipt_sink=attempted_step_receipts.__setitem__,
                 )
             except Exception as error:

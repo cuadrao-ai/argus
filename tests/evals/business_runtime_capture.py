@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -685,11 +684,15 @@ async def capture_case(
     *,
     dsn: str,
     interpreter_factory: Callable[[str, int, dict[str, str]], Any],
+    runtime_model: str | None = None,
     receipt_sink: Callable[[int, list[dict[str, Any]]], None] | None = None,
 ) -> CaseCapture:
     dsn = _local_dsn(dsn)
     from argus.agent_runtime.business.context import AuthorizedBusinessContext
-    from argus.agent_runtime.business.runner import BusinessTurnRunner
+    from argus.agent_runtime.business.runner import (
+        BusinessTurnRunner,
+        business_provider_route,
+    )
     from argus.api.business_drafts import action_problem
     from argus.domain.business.actions import BusinessActions
     from argus.domain.business.authority import ActionError
@@ -698,6 +701,12 @@ async def capture_case(
     from argus.domain.business.contracts.recovery import DurableTurn, SenderLease
     from argus.domain.ingestion.reconcile.service import ReconciliationService
     from argus.domain.ingestion.reconcile.store_postgres import PostgresImportStore
+    from argus.domain.ingestion.secrets import SecretBox
+    from argus.domain.ingestion.whatsapp.ai_consent import AIConsentStore, EnableAIConsent
+    from argus.domain.ingestion.whatsapp.business_capture import BusinessCaptureStore
+    from argus.domain.ingestion.whatsapp.business_envelope import EnvelopeCodec
+    from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
+    from argus.domain.ingestion.whatsapp.payload import TextMessage
     from argus.domain.recording.money_service import MoneyService
     from argus.domain.recording.postgres_repository import (
         PostgresFinancialAccountRepository,
@@ -720,6 +729,35 @@ async def capture_case(
             )
             bindings = _provision(db, case, users)
             with ConnectionPool(dsn, min_size=0, max_size=4) as pool:
+                sender = "15550101234"
+                keys = WhatsAppKeys(uuid4().hex)
+                sender_digest = keys.sender(sender)
+                consent = AIConsentStore(
+                    pool, lambda: business_provider_route(runtime_model)
+                )
+                if any(step["actor"] == "owner_a" for step in case["steps"]):
+                    with pool.connection() as connection:
+                        link = connection.execute(
+                            "insert into public.whatsapp_sender_links"
+                            " (destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
+                            " values (%s,%s,'1234','es-419','active',clock_timestamp())"
+                            " returning id",
+                            (UUID(bindings["owner_a"]), sender_digest),
+                        ).fetchone()[0]
+                    bindings["sender_link_a"] = str(link)
+                    consent.enable(
+                        UUID(bindings["owner_a"]),
+                        EnableAIConsent(
+                            action="enable",
+                            disclosure_token=consent.status(UUID(bindings["owner_a"]))[
+                                "disclosure_token"
+                            ],
+                        ),
+                        f"e1:{uuid4().hex}",
+                    )
+                captures = BusinessCaptureStore(
+                    pool, EnvelopeCodec(SecretBox(bytes(range(32))), keys), consent
+                )
                 money = MoneyService(
                     FinancialAccountService(PostgresFinancialAccountRepository(pool))
                 )
@@ -737,7 +775,7 @@ async def capture_case(
                     else None
                 )
                 capture_id = uuid4().hex
-                sender_hash = hashlib.sha256(capture_id.encode()).hexdigest()
+                sender_hash = sender_digest.hex()
                 holder = uuid4()
                 lease_until = datetime.now(timezone.utc) + timedelta(minutes=20)
                 with pool.connection() as connection:
@@ -760,7 +798,7 @@ async def capture_case(
                     lease_until=lease_until,
                 )
                 turns: dict[str, str] = {}
-                messages: dict[str, tuple[UUID, datetime]] = {}
+                messages: set[str] = set()
                 histories: dict[str, list[dict[str, str]]] = {}
                 history: list[dict[str, str]] = []
                 drafts: dict[str, str] = {}
@@ -798,14 +836,25 @@ async def capture_case(
                     if step["actor"] == "owner_a":
                         source_alias = step["source"]
                         if source_alias not in messages:
-                            messages[source_alias] = (
-                                uuid4(),
-                                datetime.now(timezone.utc),
+                            original = TextMessage(
+                                id=f"{capture_id}:{source_alias}",
+                                sender=sender,
+                                sent_at=datetime.now(timezone.utc),
+                                body=step["message"],
                             )
-                        message_id, received_at = messages[source_alias]
-                        bindings[source_alias] = str(message_id)
+                            if not captures.capture(original):
+                                raise ValueError(
+                                    "Business message capture was not admitted"
+                                )
+                        captured = captures.read(
+                            keys.message(f"{capture_id}:{source_alias}"), lease=lease
+                        )
+                        if captured.ai_consent_id is None:
+                            raise PermissionError("whatsapp_ai_consent_required")
+                        messages.add(source_alias)
+                        bindings[source_alias] = str(captured.id)
                         if source_alias not in turns:
-                            turns[source_alias] = f"e1:{capture_id}:{index}"
+                            turns[source_alias] = captured.turn_key
                             histories[source_alias] = list(history)
                             with pool.connection() as connection:
                                 connection.execute(
@@ -829,16 +878,24 @@ async def capture_case(
                             actor, grant_id=UUID(bindings["owner_grant_a"])
                         )
                         durable = DurableTurn.model_validate(_turn_row(pool, turn_key))
+
+                        def require_access(
+                            captured=captured, context=context, key=turn_key
+                        ) -> None:
+                            consent.require_access(captured, context, lease=lease)
+                            service.plan_for_turn(context, key, lease=lease)
+
                         authorized = AuthorizedBusinessContext(
                             actions=service,
                             authorization=context,
                             turn_key=turn_key,
                             lease=lease,
-                            message_id=message_id,
-                            received_at=received_at,
+                            message_id=captured.id,
+                            received_at=captured.received_at,
                             channel=step["channel"],
                             begin_reply=lambda key=turn_key: _begin_reply(pool, key),
                             language="en" if case["id"].startswith("en_") else "es-419",
+                            require_access=require_access,
                         )
                         interpreter = interpreter_factory(case["id"], index, bindings)
                         result = await BusinessTurnRunner(interpreter=interpreter).run(
