@@ -442,3 +442,16 @@ def test_business_measurement_requires_each_cases_exact_step_coverage(
         first.reverse()
     with pytest.raises(AssertionError):
         validate_business_measurement(scope, scorecard)
+
+
+def test_business_model_prompt_uses_capabilities_without_execution_schema():
+    prompt = business_interpretation_prompt({})[0]["content"]
+    assert all(item.description in prompt for item in get_business_declarations())
+    for internal in (
+        '"from_action"',
+        '"base_version"',
+        '"answers_question_id"',
+        '"source_ids"',
+        '"TurnPlan"',
+    ):
+        assert internal not in prompt

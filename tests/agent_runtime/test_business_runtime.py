@@ -6,7 +6,10 @@ from uuid import uuid4
 
 import pytest
 from argus.agent_runtime.business.context import AuthorizedBusinessContext
-from argus.agent_runtime.business.interpretation import BusinessInterpretation
+from argus.agent_runtime.business.interpretation import (
+    BusinessInterpretation,
+    BusinessRecordIntent,
+)
 from argus.agent_runtime.business.runner import BusinessTurnRunner
 from argus.domain.business.contracts.actions import (
     Applied,
@@ -85,8 +88,8 @@ class Actions:
 
 
 class Interpreter:
-    def __init__(self, make_plan):
-        self.make_plan = make_plan
+    def __init__(self, make_interpretation):
+        self.make_interpretation = make_interpretation
         self.interpret_count = 0
         self.compose_count = 0
         self.payload = None
@@ -94,7 +97,7 @@ class Interpreter:
     async def ainterpret_business(self, payload):
         self.interpret_count += 1
         self.payload = payload
-        return BusinessInterpretation(plan=self.make_plan(payload))
+        return self.make_interpretation(payload)
 
     async def acompose_business(self, payload):
         self.compose_count += 1
@@ -138,11 +141,10 @@ def turn_context():
 
 
 def proposal(payload):
-    return TurnPlan(
-        actions=(
-            ProposeActivity(
+    return BusinessInterpretation(
+        records=(
+            BusinessRecordIntent(
                 facts=BusinessFactPatch(amount=KnownInput(value="850")),
-                source_ids=(payload["source_id"],),
             ),
         )
     )
@@ -165,7 +167,8 @@ async def test_graph_persists_plan_before_executor_and_replay_does_not_reinterpr
     assert next(iter(actions.sources.values())).text == message
     assert result.saved_state == replay.saved_state
     assert result.tool_records[0]["outcome"] == "succeeded"
-    assert interpreter.payload["source_id"] == str(context.message_id)
+    assert "source_id" not in interpreter.payload
+    assert result.plan["actions"][0]["source_ids"] == [str(context.message_id)]
 
 
 @pytest.mark.asyncio
@@ -173,7 +176,10 @@ async def test_refused_action_stops_dependent_tools_and_reply_sees_refusal(turn_
     turn, context, actions = turn_context
     actions.refusal = Refused(outcome="not_found", code="business_record_not_found")
     interpreter = Interpreter(
-        lambda payload: TurnPlan(actions=(ReadContext(), ReadContext()))
+        lambda payload: BusinessInterpretation(
+            read_context=True,
+            records=(BusinessRecordIntent(target_draft_id=uuid4(), explain_status=True),),
+        )
     )
     result = await BusinessTurnRunner(interpreter=interpreter).run(
         context=context, turn=turn, message="Busca ese registro"
@@ -205,7 +211,7 @@ async def test_approval_language_reaches_interpreter_but_has_no_approval_tool(
     turn_context,
 ):
     turn, context, actions = turn_context
-    interpreter = Interpreter(lambda payload: TurnPlan(actions=()))
+    interpreter = Interpreter(lambda payload: BusinessInterpretation())
     result = await BusinessTurnRunner(interpreter=interpreter).run(
         context=context, turn=turn, message="aprueba todo"
     )
@@ -280,7 +286,7 @@ async def test_existing_openrouter_interpreter_business_methods_run_through_real
         payload = json.loads(kwargs["messages"][1]["content"])
         if kwargs["schema_name"] == "BusinessInterpretation":
             assert payload["message"] == message
-            return BusinessInterpretation(plan=proposal(payload))
+            return proposal(payload)
         assert len(payload["saved_state"]["dossiers"]) == 1
         return BusinessReply(reply="El borrador está pendiente de revisión.")
 
@@ -322,3 +328,59 @@ async def test_interrupted_reply_composition_never_blindly_repeats_provider_call
         await runner.run(context=context, turn=turn, message="Pagué 850")
     assert interpreter.interpret_count == interpreter.compose_count == 1
     assert len(actions.drafts) == len(actions.receipts) == 1
+
+
+@pytest.mark.asyncio
+async def test_unknown_mutable_target_fails_before_persist_or_execute(turn_context):
+    from argus.agent_runtime.business.binding import BusinessBindingError
+
+    turn, context, actions = turn_context
+    interpreter = Interpreter(
+        lambda payload: BusinessInterpretation(
+            records=(
+                BusinessRecordIntent(
+                    target_draft_id=uuid4(),
+                    facts={"amount": {"state": "known", "value": "27"}},
+                ),
+            )
+        )
+    )
+    with pytest.raises(BusinessBindingError, match="target_not_in_context"):
+        await BusinessTurnRunner(interpreter=interpreter).run(
+            context=context, turn=turn, message="Change that record to 27."
+        )
+    assert actions.plan is None
+    assert not actions.receipts
+    assert not actions.drafts
+    assert "persist_plan" not in actions.calls
+    assert interpreter.compose_count == 0
+
+
+@pytest.mark.asyncio
+async def test_model_cannot_replace_the_captured_server_revision(turn_context):
+    turn, context, actions = turn_context
+    draft_id = uuid4()
+    actions.drafts[str(draft_id)] = {"id": str(draft_id), "version": 2}
+
+    def change_during_interpretation(payload):
+        assert "version" not in payload["business"]["drafts"][0]
+        actions.drafts[str(draft_id)]["version"] = 30
+        return BusinessInterpretation(
+            records=(
+                BusinessRecordIntent(
+                    target_draft_id=draft_id,
+                    facts={"occurred_on": {"state": "known", "value": "2026-10-09"}},
+                    question={
+                        "field": "counterparty",
+                        "asked_of": "owner",
+                        "prompt": "Which supplier?",
+                    },
+                ),
+            )
+        )
+
+    await BusinessTurnRunner(interpreter=Interpreter(change_during_interpretation)).run(
+        context=context, turn=turn, message="It was Friday; which supplier is missing?"
+    )
+    assert all(action.draft.base_version == 2 for action in actions.plan.actions)
+    assert actions.calls.index("persist_plan") < actions.calls.index("execute:0")

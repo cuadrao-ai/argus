@@ -122,6 +122,16 @@ _REASONING_EFFORT_ENV_BY_TASK: dict[OpenRouterTask, str] = {
     "capability_conflict": "ARGUS_CAPABILITY_REASONING_EFFORT",
 }
 _PROMPT_CACHE_STRUCTURED_ARTIFACT_TASKS = frozenset(("interpretation", "interpretation_repair", "field_fidelity", "capability_conflict"))
+_MODEL_UNSUPPORTED_PARAMETERS = {
+    "openai/gpt-6-luna-pro": frozenset({"temperature"}),
+    "openai/gpt-6-luna-pro-20260922": frozenset({"temperature"}),
+}
+
+
+def _sampling_parameters(model: str, profile: OpenRouterProfile) -> dict[str, object]:
+    if "temperature" in _MODEL_UNSUPPORTED_PARAMETERS.get(model, frozenset()):
+        return {}
+    return {"temperature": profile.temperature}
 
 
 def openrouter_model_tier_for_task(task: OpenRouterTask | None) -> OpenRouterModelTier:
@@ -215,7 +225,7 @@ def build_openrouter_model(
 
     return ChatOpenRouter(
         model_name=resolved_model,
-        temperature=profile.temperature,
+        **_sampling_parameters(resolved_model, profile),
         max_tokens=profile.max_tokens,
         timeout=profile.timeout_seconds,
         max_retries=profile.max_retries,
@@ -605,7 +615,7 @@ async def invoke_openrouter_chat_completion(
         payload: dict[str, object] = {
             "model": candidate_model,
             "messages": messages,
-            "temperature": profile.temperature,
+            **_sampling_parameters(candidate_model, profile),
             "max_tokens": profile.max_tokens,
         }
         try:
@@ -888,7 +898,7 @@ def _json_schema_payload(
     openai_document = profile.task == "document_extraction" and model.startswith("openai/")
     sampling_parameters = (
         {} if openai_document or openrouter_model_tier_for_task(profile.task) == "readout"
-        else {"temperature": profile.temperature}
+        else _sampling_parameters(model, profile)
     )
     if model.startswith("anthropic/"):
         # Anthropic strict structured outputs reject core shapes of our

@@ -454,6 +454,83 @@ def test_json_schema_payload_omits_temperature_for_readout_and_openai_documents(
         assert payload["provider"]["require_parameters"] is True
 
 
+@pytest.mark.parametrize("task", openrouter.OPENROUTER_TASK_MODEL_TIERS)
+@pytest.mark.parametrize(
+    "model", ["openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"]
+)
+def test_luna_pro_sampling_capability_preserves_structured_request_policy(
+    task: openrouter.OpenRouterTask, model: str
+) -> None:
+    from argus.agent_runtime.llm_interpreter_types import LLMDateRangeIntent
+
+    arguments = {
+        "messages": [{"role": "user", "content": "hello"}],
+        "schema_model": LLMDateRangeIntent,
+        "schema_name": "LLMDateRangeIntent",
+        "profile": openrouter_profile_for_task(task),
+    }
+    baseline = openrouter._json_schema_payload(model="openai/gpt-5.6-luna", **arguments)
+    payload = openrouter._json_schema_payload(model=model, **arguments)
+    baseline.pop("model")
+    baseline.pop("temperature", None)
+    assert payload.pop("model") == model
+    assert "temperature" not in payload
+    assert payload == baseline
+    assert payload["provider"]["require_parameters"] is True
+
+
+@pytest.mark.parametrize(
+    "model", ["openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"]
+)
+def test_luna_pro_factory_omits_unsupported_sampling_only(monkeypatch, model) -> None:
+    FakeChatOpenRouter.calls.clear()
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
+    assert openrouter.build_openrouter_model("interpretation", model_name=model)
+    assert FakeChatOpenRouter.calls == [
+        {
+            "model_name": model,
+            "max_tokens": 3200,
+            "timeout": 20,
+            "max_retries": 1,
+            "openrouter_api_key": "test-key",
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "model", ["openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"]
+)
+def test_luna_pro_direct_chat_omits_unsupported_sampling_only(monkeypatch, model):
+    observed = []
+
+    async def fake_post(**arguments):
+        observed.append(arguments["payload"])
+        return openrouter.httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "Saved draft."}}]},
+            request=openrouter.httpx.Request("POST", "https://example.invalid"),
+        )
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr(openrouter, "_post_openrouter_json_schema", fake_post)
+    result = asyncio.run(
+        openrouter.invoke_openrouter_chat_completion(
+            task="chat_composer",
+            model_name=model,
+            messages=[{"role": "user", "content": "summarize"}],
+        )
+    )
+    assert result == "Saved draft."
+    assert observed == [
+        {
+            "model": model,
+            "messages": [{"role": "user", "content": "summarize"}],
+            "max_tokens": openrouter_profile_for_task("chat_composer").max_tokens,
+        }
+    ]
+
+
 def test_interpretation_repair_uses_structured_tier_without_reasoning() -> None:
     profile = openrouter_profile_for_task("interpretation_repair")
 
@@ -2996,7 +3073,9 @@ def test_openrouter_failure_log_reports_raising_origin(monkeypatch) -> None:
         message = _captured_failure_log(monkeypatch, exc)
 
     assert "error_type=ValueError" in message
-    assert "OpenRouter interpretation returned an incomplete strategy draft" not in message
+    assert (
+        "OpenRouter interpretation returned an incomplete strategy draft" not in message
+    )
     # Points at the raising line so a deterministic local rejection is
     # distinguishable from a provider transport failure.
     assert "error_origin=test_openrouter_policy.py:" in message

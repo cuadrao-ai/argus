@@ -42,8 +42,11 @@ The bounded grant is an invite-only internet Business build on integration and
 staging. It does not authorize main or production, public signup, marketing
 publication, Apple TestFlight or unrelated Consumer work. The root coordinator
 alone owns merge and staging actions. Workers act only within their assigned
-files and hand off exact commits. The Render workspace and named runtime model
-choices are approved. Grok 4.3 is the first evaluation judge. The 22:32 UTC
+files. Before READY, use the manifest’s mandatory owner handoff: every approved
+family has LANDED/PENDING/SUPERSEDED status, exact approval/source/delivery
+commits and retained unpublished work. A PR alone does not complete the work.
+Affected branding requires actual render and browser regression evidence.
+The Render workspace and named runtime model choices are approved. Grok 4.3 is the first evaluation judge. The 22:32 UTC
 continuation authorizes the existing development `OPENROUTER_API_KEY` within
 its conservative remaining allowance until expiry. It replaces the $5 run cap
 and spending hold. Only the root coordinator controls synthetic live calls,
@@ -99,6 +102,10 @@ Model-facing prompts and schema field descriptions require a committed live
 scorecard with no regression and an updated fingerprint under
 [Standard 12](docs/agents/operating-reference.md#-never-violate-standards).
 Do not make a live call before named-model and spend authorization.
+Read the [Business scope grant](docs/specs/argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics).
+Legacy equity/Alpaca: NOT RUN, outside the first-flow prerequisite. Keep Consumer
+regressions and live evidence. T1 scope proof is pending; no checker weakening
+or investment-access requests.
 
 Read [tests/evals/README.md](tests/evals/README.md) Test Tiers before eval work.
 Use the mocked harness for every change. Reserve live eval for the documented

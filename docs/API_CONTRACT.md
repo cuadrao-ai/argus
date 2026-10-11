@@ -8862,7 +8862,7 @@ must not debit a Business bank account or decide whether capital or debt is owed
 Post-recording corrections are refused with `recorded_correction_unsupported`;
 this slice defines no reversal or supersession policy.
 
-The seven model action names remain `business_read_context`,
+The seven Business tool action names remain `business_read_context`,
 `business_propose_activity`, `business_attach_source`,
 `business_propose_allocation`, `business_find_related`, `business_ask` and
 `business_explain_status`. They are Business-only read/prepare actions. Their
@@ -8870,6 +8870,17 @@ arguments contain no actor, space, grant, approval, money write or fiscal
 decision. Trusted invocation context supplies actor and authorized client.
 The domain action service re-resolves live capabilities and scopes every draft,
 source, question, account and match ID. A role name never grants permission.
+
+The durable execution plan is distinct from model semantic input. For a supplied
+existing draft, server dispatch may bind `{draft_id, base_version}` from its
+authorized context snapshot. Every action on that draft in the plan must retain
+the same binding. The domain derives subsequent expected versions only from
+successful earlier receipts for that exact binding in the same turn, client and
+actor. Concurrent external edits remain stale-version failures. This additive
+execution reference is server-owned; the model does not supply it or predict
+future versions. Existing `{draft_id, version}` references retain their exact
+version behavior, and `{from_action}` still names only an earlier draft creation.
+Neither reference grants authority or changes the human approval payload.
 
 The existing record view gains `GET /business/drafts/{draft_id}/dossier`.
 `draft_id` always identifies `financial_import_events`, never a connection.
