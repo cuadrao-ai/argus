@@ -343,6 +343,25 @@ def test_scorecard_keeps_non_successful_judge_call_unavailable(outcome: str) -> 
     )
     assert score["status"] == "unavailable"
     assert score["failed_checks"] == ["call_unavailable"]
+    failed_verdict = evaluation.score_runtime_capture(
+        case=case,
+        candidate_sha="f" * 40,
+        runtime_model="deepseek/deepseek-v4.1-flash",
+        judge_model="openai/gpt-6-luna-pro",
+        observed_steps=[deepcopy(step["expect"]) for step in case["steps"]],
+        call_receipts=[*receipts[:2], {**receipts[2], "outcome": outcome}],
+        total_cost_usd=0.01,
+        total_latency_ms=1,
+        judge_verdict=_verdict(passed=False, failed="no_invented_facts"),
+        adapter_provenance={
+            "capture_id": "capture",
+            "db_namespace": "isolated",
+            "graph_run_id": "run",
+            "candidate_sha": "f" * 40,
+        },
+    )
+    assert failed_verdict["status"] == "unavailable"
+    assert failed_verdict["failed_checks"] == ["call_unavailable"]
 
 
 @pytest.mark.asyncio

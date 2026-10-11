@@ -422,7 +422,7 @@ def score_runtime_capture(
         if status == "passed":
             failures.append("judge_unavailable")
             status = "unavailable"
-    elif not judge_verdict.passed:
+    elif status != "unavailable" and not judge_verdict.passed:
         failures.append("reply_judge")
         status = "failed"
     return {
