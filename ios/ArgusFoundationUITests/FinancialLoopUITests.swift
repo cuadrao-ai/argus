@@ -377,8 +377,6 @@ final class FinancialLoopUITests: XCTestCase {
             guard !inScroll && control.isHittable else { return edge }
             return min(edge, frame.minY)
         }
-        let start = app.coordinate(withNormalizedOffset: .zero)
-            .withOffset(CGVector(dx: app.frame.width / 2, dy: (top + bottom) / 2 - app.frame.minY))
         var scrolled = false
         for _ in 0..<12 {
             let frame = element.frame
@@ -390,6 +388,9 @@ final class FinancialLoopUITests: XCTestCase {
             let limit = max(0, (bottom - top) / 2)
             guard limit > 0 else { break }
             let movement = max(-limit, min(limit, distance))
+            let startY = top + (bottom - top) * (movement < 0 ? 0.75 : 0.25)
+            let start = app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: app.frame.width / 2, dy: startY - app.frame.minY))
             start.press(forDuration: 0.01, thenDragTo: start.withOffset(CGVector(dx: 0, dy: movement)),
                         withVelocity: .slow, thenHoldForDuration: 0.2)
             scrolled = true
