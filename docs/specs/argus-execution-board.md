@@ -38,7 +38,7 @@ retains sources and exclusions.
 
 These are existing collaboration roles, not new UI-visible lane threads.
 The ownership/onboarding continuation LANDED through
-[#958](https://github.com/lagarcess/argus/pull/958) at current fetched integration
+[#958](https://github.com/lagarcess/argus/pull/958) at integration
 `7def08fe07be52f04a345c3df5029200a437eff0`; [postmerge CI38102305608](https://github.com/lagarcess/argus/actions/runs/38102305608)
 and [smoke38102305601](https://github.com/lagarcess/argus/actions/runs/38102305601)
 fully succeeded at this checkpoint. Its tree equals the retained context source fc7fe954a. Actions
@@ -47,9 +47,18 @@ fully succeeded at this checkpoint. Its tree equals the retained context source 
 with no root merge. Heads below are source snapshots, not grants to merge or claims of readiness.
 Only `/root` serializes reconciliation, merge, live calls and staging.
 
+The exact boundary-ownership continuation LANDED through #960 at current fetched
+integration `52ce3620a729b2d8fb80d3bdfe99fdddeae19931`, reviewed tree
+`0a4279fc0be5b72efada7c516dcb3b92d4d62a37`; postmerge CI verification is pending.
+Root approved one additional T1 path, `src/argus/llm/openrouter_model_env.py`,
+only to move Luna capability metadata/helper into that existing module while
+preserving all profiles and behavior, with no new module/framework or budget
+bypass. This modularity follow-up and foreign fixture reconciliation remain
+PENDING, as do actual quality, judge, consent and hosted gates.
+
 | Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
-| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d`, retained audit source `3cc7763eb36069713ed52db11e70b49f4858c320`, one-way UI merge `f4eef7499aefc874b7c8e44c21df8c5b61b1e887`, retained reviewed docs `8bc68c2556488101caf4fc10807a88acbb9f4619`, one-way M1 merge `f3462d21f2d85ab243500a6fec21830272c0e64a` | #954 and owner-handoff #958 LANDED; current boundary allocation continuation PENDING review. Retained source fc7fe954a; docs and ownership metadata only. |
+| `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d`, retained audit source `3cc7763eb36069713ed52db11e70b49f4858c320`, one-way UI merge `f4eef7499aefc874b7c8e44c21df8c5b61b1e887`, retained reviewed docs `8bc68c2556488101caf4fc10807a88acbb9f4619`, one-way M1 merge `f3462d21f2d85ab243500a6fec21830272c0e64a` | #954, owner-handoff #958 and boundary allocation #960 LANDED; current T1 helper-path continuation PENDING review. Retained source fc7fe954a; docs and ownership metadata only. |
 | `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, source `2cf078c323816ca01e3a7022306ab9e52b7ec475` | LANDED #955 as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; all postmerge CI and smoke succeeded (comment 6103620102). Bounded wire follow-up878d159d is reviewed CLEAR with 46 independent contract tests passed; Actions import/artifact regeneration pending. |
 | `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, original `9cccf6cb7e4f7c92a8c514b48dc7a20dfe1775f5`, retained artifact publication `b632e5c8ef52693f4d75d7484631db09ae7c0e8d`, current PR #959 source `76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c` | PENDING backend CI diagnosis at PR #959; no root merge. The current C0/T1 boundary follow-up remains separately pending. Original full independent review CLEAR. M1 owner approved the exact read-only fixture forwarding; two author fixture tests passed. Depends on C0 and M1. Root reconciles shared ingestion/API overlap before landing. |
 | M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | LANDED PR #957 as eb62ad5e, reviewed tree b0c7c44c with parent0ebfd08e. Prior bounded fix retained; postmerge CI38099618928/smoke38099618926 SUCCESS (terminal comment6104002935). No new semantics grant. |

@@ -1,7 +1,13 @@
 # Cuadrao Business lane handoff
 
 **Current checkpoint under the October 10 23:37 UTC continuation.** Canonical
-integration is `7def08fe07be52f04a345c3df5029200a437eff0`, #958 owner-handoff
+integration is `52ce3620a729b2d8fb80d3bdfe99fdddeae19931`, #960 boundary allocation
+LANDED with reviewed tree `0a4279fc0be5b72efada7c516dcb3b92d4d62a37`; postmerge
+CI verification is pending. Root approved only the additional T1 existing-module
+path `src/argus/llm/openrouter_model_env.py` to move Luna capability metadata/helper,
+preserving profiles/behavior with no new module/framework or budget bypass.
+That follow-up, foreign fixture reconciliation, actual quality, judge, consent
+and hosted gates remain PENDING. Earlier #958 owner-handoff
 LANDED with [postmerge CI38102305608](https://github.com/lagarcess/argus/actions/runs/38102305608)
 and [smoke38102305601](https://github.com/lagarcess/argus/actions/runs/38102305601)
 fully successful. Its tree equals retained context source
