@@ -4,8 +4,8 @@
 `3c3be1a75af5f5fd1e19db039f76c5684753241c`: #965 LANDED from reviewed
 `371ac8f5fb44145eac185d868b330995ee9f1c4b`. Fresh
 [CI38123706921](https://github.com/lagarcess/argus/actions/runs/38123706921)
-is IN PROGRESS; [smoke38123706926](https://github.com/lagarcess/argus/actions/runs/38123706926)
-is SUCCESS, not a full terminal pass. Retain #964 at1612602c, LANDED at
+and [smoke38123706926](https://github.com/lagarcess/argus/actions/runs/38123706926)
+are fully SUCCESS; root's final remote audit remains separate. Retain #964 at1612602c, LANDED at
 `2026-10-11T07:15:19Z` from published source
 `5b7cdff54c357b9b946d18ee33a4c9d0de18f2ab`. Fresh remote evidence confirms
 [CI38120748626](https://github.com/lagarcess/argus/actions/runs/38120748626)
@@ -256,13 +256,28 @@ ask again. Implementation, revocation proof, live quality and hosted acceptance
 remain PENDING. Deny external processing without an actual current scoped opt-in.
 Local runtime/hybrid staging evidence does not establish that consent.
 
-Current consent implementation is active in parallel: W1/C0
-`75099d823ee17fa35cdab0152c3f1174c22a0007` authors sixteen of seventeen
-allocated paths, with the flags-off GET projection correction active; T1 clean
-`705f45be77c2048b2a0675717c35e69fcf320eed` owns exactly eight guard/route
-paths, adding only `src/argus/llm/openrouter_request_policy.py` to its policy.
-The new `codex/cuadrao-whatsapp-settings-ui-20261011` branch/worktree starts at
-3c3 and owns eight settings/locale/transport/proof paths. The
+Current consent implementation is active in parallel: W1/C0 disclosure fix
+`54ddfaa68ebc97f26a8f1f68cf14df38229c4b3a` is independent static CLEAR
+(20 offline PASS) and comments CLEAR; retained75099 authored sixteen of the
+seventeen allocated paths. SQL100000 SHA256
+`8ba4745b51b771d7c7d8bd236e0500127a45fc9aecdb8d93929abffad7e2ebbd`
+is **UNAPPLIED**, and seventeen Postgres cases remain prerequisite. T1 terminal
+correction `8882749229ed8a17bb4d809388f645c2e2b57435` closes the bypass,
+comments and bounded fresh static functional review CLEAR (31 free PASS,
+old exploit zero POST). Owner2862 mocked PASS,
+broad813 PASS plus the same two actual measurement FAIL/zero skips/errors;
+normal W1 assembly is authorized but completed proof is pending. Its eight guard/route paths add only
+`src/argus/llm/openrouter_request_policy.py` to policy. Thirteen inherited E1
+whole-branch ownership failures remain, with no policy widening.
+The new `codex/cuadrao-whatsapp-settings-ui-20261011` branch/worktree retains
+an uncommitted eight-path freeze at head3c3. `/tmp/cuadrao-whatsapp-ui-freeze.json`
+records content SHA256
+`da056e8e86fb31a5b00a852578d2f7b17ed7eac785e3572512ee6af35cb34886`,
+with `/tmp/cuadrao-whatsapp-ui-frozen.patch` SHA256
+`2f404a5edcd93d1bd0905997bff4c3fc4711732c56061455e213d30c5a5a6d20`.
+Owner-reported local synthetic unit64/browser8/build/lint proof passed; full
+TypeScript check failed8298 baseline diagnostics, none in changed files.
+Reviewers remain active; this is not real backend, hosted or full readiness proof. The
 [active allocation](../specs/argus-execution-board.md#active-consent-and-linked-number-settings-allocation)
 records each exact path, the root-reserved100000 migration/160-worktree check,
 shared-writer serialization and inherited foreign-delta limits. No serial
@@ -272,7 +287,31 @@ owner revoke/unlink stay accessible. Business checkpointer remains disabled
 until atomic cleanup/reset. Actual scoped user consent, assembled static/PG/live
 quality and hosted proof remain pending. Core both-tier mobile flows and agent
 actions are now; normal usability is now and extreme Dynamic Type is final
-pre-TestFlight. Preserve approved chat baseline; no redesign/keeper expansion.
+pre-TestFlight. The assigned ONE-Mobile-goal warm-design experiment approved
+by `Sentinel_fa71fe12f79481918cd3ff3fc869e0a7` runs in parallel with core,
+preserving palette/type/chat, with no global replacement. Preserve the approved
+chat baseline; no redesign/keeper expansion.
+
+## Future member-access and upload UI references
+
+Parent inspected approved Library reference `libfile_09c7a55a9900819199601ef1aafcf7da`:
+invite-by-email with permission selector, member-list role controls and a
+general-access section. This is future permission/reference, not a priority
+change or current implementation assignment. Preserve admin membership controls
+and explicit revocable grants. Editor access does not confer human Money
+approval; no public-link/embed sharing is authorized. Before implementation,
+the assigned owner must materialize and inspect the original executor image.
+Do not substitute a guessed recreation or infer unseen behavior from this note.
+
+Parent also inspected upload reference `libfile_a5c80e5082d481919c50d1b282a0f3a6`,
+filename “disarto.digital on Threads 2.png”, after Lucas's positive Business
+upload feedback. It shows a large drop/browse zone and per-file type/name/size,
+progress/completion and cancel/remove controls. Retain it as future visual
+reference with no priority change. Adapt only actual supported formats/limits;
+its sample DOCX/FIG and 20MB are not product policy. Upload completion is distinct
+from extraction/review readiness; keep per-file failure/retry. Before
+image-dependent implementation the assigned owner must materialize and inspect
+the original executor image.
 
 ## Approved unpublished branding and completion gate
 
@@ -371,8 +410,10 @@ outcomes remain PENDING until their own implementation/acceptance evidence.
 of these five approved outcomes. Root has now assigned only the first manual-note
 backend package to existing C0/Actions owners; it does not close any of the five
 families or promote the sandbox wholesale. C0 current reconciliation
-`a41c9fb9d5c991b06a5608ad180247dbaadbfa70` is CLEAR, with 76 actual Postgres
-PASS/zero skips (15 new). Prior `4322f397d06bf228817e908407201e167582aaf7`
+`a41c9fb9d5c991b06a5608ad180247dbaadbfa70` retains its 76 actual Postgres
+PASS/zero skips (15 new). Manual #966 is now published at
+`a9da8426c0a5153649a1a1d5bf92a042ca14e256`, exact root76PG PASS/zero skips;
+CI running, not landed. Prior `4322f397d06bf228817e908407201e167582aaf7`
 independent90/owner111 offline PASS and 15 PG skips remain historical evidence.
 Actions current `f6924168412e02f63e6c6b4debb32f466b9c8f03` is CLEAR, with
 58 actual Postgres PASS/zero skips (11 new). Production SQL is unchanged;
