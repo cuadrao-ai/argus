@@ -468,6 +468,112 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-business-checkpoint-lifecycle-20261011": {
+      "description": "Source-bound Business checkpoint helper, exclusively root-reserved120000 lifecycle migration, exact tests and bounded contract/data/census paragraphs; saver activation remains gated.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/specs/lanes/account-deletion-fk-census.md",
+        "src/argus/agent_runtime/business/checkpoint.py",
+        "supabase/migrations/20261011120000_business_checkpoint_lifecycle.sql",
+        "tests/agent_runtime/test_business_checkpoint_lifecycle.py",
+        "tests/test_business_checkpoint_lifecycle_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-personal-money-chat-20261011": {
+      "description": "Personal canonical Money proposal/runtime/catalog seam; helper donors remain separate writers, voice activation is not allocated.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "src/argus/agent_runtime/llm_interpreter.py",
+        "src/argus/agent_runtime/llm_interpreter_types.py",
+        "src/argus/agent_runtime/personal_money.py",
+        "src/argus/agent_runtime/stages/interpret.py",
+        "src/argus/agent_runtime/stages/interpret_types.py",
+        "src/argus/api/chat/money_proposals.py",
+        "src/argus/api/message_store.py",
+        "src/argus/api/routers/agent.py",
+        "src/argus/api/routers/conversations.py",
+        "src/argus/api/schemas.py",
+        "src/argus/domain/capability_registry.py",
+        "src/argus/domain/recording/money_chat_tool.py",
+        "tests/agent_runtime/test_personal_money_chat.py",
+        "tests/test_personal_money_proposals.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-consumer-memory-20261011": {
+      "description": "Consented Personal memory foundation and exact regressions; source receipt guard assembly and actual consent remain separate.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "src/argus/api/chat/consented_memory_context.py",
+        "src/argus/api/personalization_memory.py",
+        "src/argus/api/routers/personalization_memory.py",
+        "src/argus/memory/contracts.py",
+        "src/argus/memory/postgres_store.py",
+        "src/argus/memory/service.py",
+        "src/argus/memory/store.py",
+        "src/argus/memory/telemetry.py",
+        "tests/memory/api_matrix.py",
+        "tests/memory/test_api_role_gate.py",
+        "tests/memory/test_consented_memory_context.py",
+        "tests/memory/test_guest_isolation.py",
+        "tests/memory/test_import_boundaries.py",
+        "tests/memory/test_postgres_store_settings_candidates.py",
+        "tests/memory/test_telemetry_privacy.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-consumer-voice-transport-20261011": {
+      "description": "Unassembled Consumer audio transport with default-denied consent; no provider route activation or rollout authority.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "src/argus/api/routers/voice.py",
+        "src/argus/api/voice.py",
+        "src/argus/api/voice_schemas.py",
+        "src/argus/llm/xai_speech.py",
+        "tests/test_voice_api.py",
+        "tests/test_voice_transport_recovery.py",
+        "tests/test_xai_speech.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-haiku-boundary-repair-20261011": {
+      "description": "Bounded opt-in structured response repair/evaluation receipt handling; fixed rubric/labels and original failed evidence preserved, actual measurement pending.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        "src/argus/llm/openrouter.py",
+        "tests/evals/business_eval.py",
+        "tests/evals/test_business_eval.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }

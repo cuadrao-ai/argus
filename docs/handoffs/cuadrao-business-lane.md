@@ -1,9 +1,9 @@
 # Cuadrao Business lane handoff
 
 **Current October 11 coordinator checkpoint.** Canonical integration is
-`286c6bc0494be6c858851f0c4037ea6df5bacea5`: manual C0 #966 LANDED from
-`a9da8426c0a5153649a1a1d5bf92a042ca14e256`; postmerge CI38126952473 is
-RUNNING and smoke SUCCESS at this snapshot, not a full postmerge pass.
+`d6ea8ddc2cd1c8b59b181923a5ab954b2e588217`: manual Actions #967 LANDED; root confirms postmerge CI38129393207/smoke38129393222 SUCCESS. Prior manual C0 #966 LANDED at286c6bc0 from
+`a9da8426c0a5153649a1a1d5bf92a042ca14e256`; its earlier CI38126952473
+RUNNING/smoke SUCCESS observation remains historical evidence.
 Retained #965 integration is `3c3be1a75af5f5fd1e19db039f76c5684753241c`, LANDED from reviewed
 `371ac8f5fb44145eac185d868b330995ee9f1c4b`. Fresh
 [CI38123706921](https://github.com/lagarcess/argus/actions/runs/38123706921)
@@ -305,7 +305,7 @@ shared-writer serialization and inherited foreign-delta limits. No serial
 metadata hold blocks their coding. GET own status works with flags off without
 creation; POST requires fresh owner/live prepare/flags/link/route; authenticated
 owner revoke/unlink stay accessible. Business checkpointer remains disabled
-until atomic cleanup/reset. Actual scoped user consent, live
+until the proven lifecycle is centrally assembled and activation gates pass. Actual scoped user consent, live
 quality and hosted proof remain pending; the assembled59c7 static/local PG
 proof above does not clear them. Core both-tier mobile flows and agent
 actions are now; normal usability is now and extreme Dynamic Type is final
@@ -316,6 +316,55 @@ chat baseline; no redesign/keeper expansion. Lucas now also approves selective
 motion via `Sentinel_b1d14016cb048191ae4d6781671ba461`; retain existing goal,
 celebration and splash authorizations. This is bounded motion permission, not
 an accepted implementation or global design replacement.
+
+## Bounded checkpoint and Consumer donor registration
+
+The [existing execution manifest](../specs/argus-execution-board.md#active-checkpoint-personal-memory-voice-and-repair-allocation)
+records five approved exact policies:7 checkpoint,14 Personal,15 memory,7
+voice and3 generic repair paths. Published #969 atc547 retains the prior
+reviewed three-file package unchanged; this registration uses a separate
+metadata worktree. Existing policies/denies/base refs and T1's thirteen
+inherited E1 ownership failures remain unchanged. A donor allocation does not
+make inherited files owned or a source READY.
+
+Checkpoint `8f661025f7ca6fbff2896cddb8d7632522f54d54` retains its116 offline
+passes and earlier19 PG skips. Root now applied exact120000 once only to the
+original disposable fixture:62 actual PG PASS/zero errors/failures/skips,
+including19 new lifecycle cases,17 consent,24 transport and2 Business deletion
+cases. `cuadrao-checkpoint-8f661-postgres-proof.json` records seven actual owned
+FK rows, unchanged ledger122 and unrelated Actions constraints, zero provider
+calls and saver activation false. This selected proof is not whole-source
+catalog equality with unlanded income extras. Central T1/W1 hooks and saver
+activation remain PENDING; actual quality/consent/hosted gates are unchanged.
+
+Memory `9be1ae24cfbb06efcc83606e9f3f030c44934357` retains its15 reviewed bytes
+(digest468022), corrected functional/comments CLEAR and original76daf BLOCK.
+Root `cuadrao-consumer-memory-9be1-postgres-proof.json` records144 actual PG
+PASS/zero skips, no provider/hosted changes. Shared current-request runtime
+consumption and actual scoped user consent remain pending. Personal authored
+14-path freezeb5dad71 remains retained; final integrated
+`376c016f47206839ef635fe4c15723ed5019730f` includes normal9be1 dependency
+and its own five-file memory hook.53 focused PASS/527 broad native PASS plus7
+SciPy FAIL and2 fingerprint PASS/2 actual FAIL remain scoped. Fresh review and
+the separately owned donor modularity correction remain pending. `/root/business_runtime_tools` is root's
+sole central Personal API/runtime/catalog writer. No memory-helper takeover
+or inherited ownership waiver follows.
+
+Generic repair remains exact3 staged paths at dependencybb340214, digest
+`e49f57fb693971147affb3c1335e4b1820aa83076b9f9647129364613ece9577`, without
+a final commit. `/root/owner_funds_comments` owns that openrouter slice after
+review; root serializes it with central writers. Preserve fixed labels/rubric,
+original strict failures and separate repair receipts; no concurrent central
+openrouter writes or measured judge success is implied.
+
+Voice `df7809679c5eeaef70382985cde14f936dd2820f` preserves the bounded utterance
+transport and comparison notes:independent CLEAR,32 offline plus6 independent
+passes, router unregistered and default denial. Parent relays the user's newer
+GPT-Live-FIRST direction for bounded offline provider-neutral adapter work;
+its additional exact paths await owner inventory/allocation. No activation,
+actual audio consent, provider route or financial receipt vision-consent rollout
+is inferred. These sources close none of the five retained approved families;
+X1/CSV/Excel remain required NOW. Root alone owns merge/live calls/DB/staging.
 
 ## Future member-access and upload UI references
 
