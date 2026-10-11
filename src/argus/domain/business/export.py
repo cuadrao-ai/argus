@@ -14,6 +14,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import xlsxwriter
 
 from argus.domain.business.ledger import occurred_on
+from argus.domain.store import utcnow
 
 MAX_ROWS = 1000
 MAX_SOURCES = 1000
@@ -440,7 +441,7 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 activities,
                 sources,
                 tuple(unresolved),
-                datetime.now().astimezone(),
+                utcnow(),
             )
 
             def original(source: ExportSource) -> bytes | None:

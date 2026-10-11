@@ -484,3 +484,66 @@ def test_noncanonical_source_identifier_cannot_form_archive_path():
     )
     with pytest.raises(ValueError):
         export.build_archive(snapshot(sources=(source,)), lambda _: None)
+
+
+@pytest.mark.parametrize(
+    "instant",
+    [
+        datetime(2026, 9, 10, 0, 17, tzinfo=timezone.utc),
+        datetime(2026, 1, 1, 1, 17, tzinfo=timezone.utc),
+    ],
+)
+def test_package_capture_is_canonical_utc_instant_not_record_date(monkeypatch, instant):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from argus.domain import store
+    from argus.domain.business import authority
+    from argus.domain.recording import canonical_groups
+
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return instant.astimezone(tz)
+
+    monkeypatch.setattr(store, "datetime", Frozen)
+    context = SimpleNamespace(
+        owner_id="owner",
+        actor=SimpleNamespace(space_id="space"),
+        grant_id="grant",
+        scope=object(),
+    )
+    authorized = SimpleNamespace(context=context, require=lambda capability: None)
+    monkeypatch.setattr(authority, "authorize", lambda *args: authorized)
+    monkeypatch.setattr(
+        canonical_groups,
+        "load",
+        lambda *args, **kwargs: canonical_groups.ResolvedGroups([], {}, {}, {}),
+    )
+    pool = MagicMock()
+    cursor = pool.connection.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = {"count": 0}
+    cursor.fetchall.side_effect = [
+        [
+            {
+                "id": DRAFT,
+                "version": 1,
+                "state": "open",
+                "activity_id": None,
+                "resolution": {},
+            }
+        ],
+        [],
+    ]
+    period = export.ExportPeriod(date(2025, 12, 1), date(2025, 12, 31))
+
+    files = unpack(
+        export.export_package(SimpleNamespace(pool=pool), context, period, None)
+    )
+    manifest = json.loads(files["manifest.json"])
+
+    assert manifest["captured_at"] == instant.isoformat()
+    assert manifest["period"]["start"] == "2025-12-01"
+    assert manifest["period"]["end"] == "2025-12-31"
+    assert manifest["records"] == []
+    assert manifest["unresolved_drafts"][0]["occurred_on"] is None
