@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
+import type { BusinessCaptureInput } from "@/lib/business-api";
+import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
@@ -33,6 +35,10 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
   const [editing, setEditing] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
+  const [captureTarget, setCaptureTarget] = useState<BusinessCaptureInput["draft"]>();
+  const [captureRetained, setCaptureRetained] = useState(false);
+  const [capturePending, setCapturePending] = useState(false);
   const inFlight = useRef(false);
   const reviewRequest = useRef<{ version: number; facts: BusinessFactPatch; key: string } | null>(null);
   const approvalKey = useRef<{ version: number; key: string } | null>(null);
@@ -109,27 +115,31 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
     } finally { inFlight.current = false; }
   };
 
-  if (unavailable || !dossier && problem) return (
+  const captureDialog = <ManualCaptureDialog isOpen={captureOpen} target={captureTarget} onClose={() => setCaptureOpen(false)} onPending={setCapturePending} onRetained={setCaptureRetained} onUnavailable={() => { setUnavailable(true); setDossier(null); }} onSaved={(saved) => { setDossier(saved); setCaptureOpen(false); setUnavailable(false); reload(); }} />;
+  const captureRecovery = captureRetained && !captureOpen ? <button type="button" className={`${secondaryButtonClass} mb-4`} onClick={() => setCaptureOpen(true)}>{capturePending ? t("business.capture.reopen", "Reopen unconfirmed note") : t("business.capture.reopen_retained", "Reopen retained note")}</button> : null;
+  if (unavailable || !dossier && problem) return (<>
+    {captureRecovery}
     <section className={cardClass}>
       <p role="alert" className="text-[14px] text-black/75 dark:text-white/75">{problem ?? t("business.dossier.unavailable", "This record isn't available with your current access.")}</p>
       <button type="button" disabled={checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
-    </section>
+    </section>{captureDialog}</>
   );
-  if (!dossier) return <LoadingRows rows={4} />;
+  if (!dossier) return <>{captureRecovery}<LoadingRows rows={4} />{captureDialog}</>;
 
   const accounts = dossier.accounts;
   const amount = dossier.facts.amount.state === "known" ? dossier.facts.amount.value : null;
   const currency = dossier.facts.currency.state === "known" ? dossier.facts.currency.value : null;
   const recorded = dossier.approval_result?.status === "recorded";
   const expense = dossier.facts.kind.state === "known" && dossier.facts.kind.value === "expense";
-  const mutable = dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
+  const mutable = !capturePending && !captureOpen && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
   const canPrepare = dossier.capabilities.includes("prepare");
   const canApprove = dossier.capabilities.includes("approve");
   const title = dossier.facts.counterparty.state === "known" ? dossier.facts.counterparty.value : t("business.dossier.title", "Review record");
   const attachments = dossier.sources.filter((item) => item.kind === "attachment");
   const busy = operation.kind === "saving" || operation.kind === "approving";
 
-  return (
+  return (<>
+    {captureRecovery}
     <section aria-labelledby="receipt-review-title" data-testid="business-record-review">
       <button type="button" onClick={() => openPanel({ kind: recorded ? "expenses" : "inbox" })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/65"><ArrowLeft className="h-4 w-4" aria-hidden="true" />{recorded ? t("business.nav.expenses", "Expenses") : t("business.nav.inbox", "Inbox")}</button>
       <header className="mb-5">
@@ -150,6 +160,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
             {editing && canPrepare ? <ReceiptFactEditor key={operation.kind === "uncertain" && operation.action === "save" ? operation.version : dossier.version} facts={dossier.facts} accounts={accounts} currencies={[...new Set([...accounts.map((account) => account.currency), ...(currency ? [currency] : [])])]} disabled={!mutable} onChange={setDirty} onSave={(facts) => void write("save", facts)} onCancel={() => { setEditing(false); setDirty(false); }} /> : <ReceiptRecordFacts dossier={dossier} accounts={accounts} />}
           </div>
           {editing && operation.kind === "uncertain" && operation.action === "save" ? <div className={cardClass}><h3 className="mb-5 text-[14px] font-medium text-black dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
+          {canPrepare && mutable && !editing && !dirty ? <button type="button" className={secondaryButtonClass} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
           <ReceiptApprovalGuidance dossier={dossier} />
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
@@ -164,6 +175,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
           </div>
         </div>
       </div>
-    </section>
+    </section>{captureDialog}</>
   );
 }
