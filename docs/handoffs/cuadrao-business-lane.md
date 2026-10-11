@@ -326,7 +326,8 @@ permissions are retained. The later coordinator-relayed Lucas decision
 (recorded as Sentinel52df) supersedes the parallel goal-progress assignment:
 goal-progress visual work is PARKED; keep the current approved layout,
 palette/type/chat baseline. No global replacement or keeper expansion follows.
-Current core manual flows apply to both tiers; agentic actions are Full-only
+Current Mobile Consumer core manual flows apply to both tiers; its agentic
+actions are Full-only
 under `Sentinel_3269a594158c8191b5384ab9c608dd1a`, default DENY without trusted
 current paid/full authority. One app proceeds Guest Free → signed-in email
 still Free → Paid/Full; registration/client/admin/cohort labels do not grant
@@ -385,13 +386,13 @@ the earlier assignment-only checkpoint is historical; current frozen source
 and its acceptance holds are recorded below.
 Root identical Linux comparison:9449 550 PASS/4 FAIL/zero skips versus376c
 530 PASS/the same4 FAIL/zero skips. No new failure; neither full regression
-suite is PASS. Production Full feed, model measurements and root PG remain
+suite is PASS. Consumer production Full feed, model measurements and root PG remain
 pending.53 focused PASS/527 broad native PASS plus7 SciPy FAIL and2
 fingerprint PASS/2 actual FAIL remain scoped. `/root/business_runtime_tools` is
 root's sole central Personal API/runtime/catalog writer. No memory-helper
 takeover or inherited ownership waiver follows.
 
-Latest parent-relayed user sequence is one app:Guest Free, signed-in email
+Latest parent-relayed Mobile Consumer sequence is one app:Guest Free, signed-in email
 still Free, then Paid/Full. `Sentinel_3269a594158c8191b5384ab9c608dd1a`
 excludes Free agentic tools and supersedes the earlier both-tier agentic grant.
 The Personal allocation adds only `src/argus/api/agentic_access.py`,
@@ -409,6 +410,13 @@ Registration/admin/cohort/client
 claims do not create Full authority. Existing Free manual Money is unchanged.
 RevenueCat/prices/paywall and actual paid grants are future monetization, not
 tonight. No invented canonical entitlement storage or live paid access follows.
+
+The parent explicitly clarifies that Lucas's Free/Full decision applies only to
+Mobile Consumer, not the Business WhatsApp beta. This supersedes the earlier
+coordinator inference of a shared commercial prerequisite. Business remains
+authorized by its existing membership/grants and scoped revocable AI consent;
+no Business Full/payment gate is approved or implemented. Consumer Full holds
+remain intact. These docs establish no new Business gate or consent.
 
 The root-approved research-access amendment adds exactly
 `src/argus/domain/agent_execution_access.py`,
@@ -441,7 +449,7 @@ and `tests/test_computed_answer_actions.py` are added beyond the prior30.
 The source owns137 offline PASS; broader689 PASS/12 FAIL/zero skips remains
 failed, including native SciPy failures and two actual measurement failures.
 Preserve original376c/9449 BLOCKs and four prior root Linux failures. Fresh
-independent review, exact-head Linux/PG, production entitlement feed, model
+independent review, exact-head Linux/PG, Consumer production entitlement feed, model
 measurements, integration and actual acceptance remain PENDING; no READY.
 The two explicitly owned old inherited overlaps are tool_execution.py and
 tool_declaration.py; remaining59 dependency bytes are unchanged9449, with no
@@ -464,7 +472,8 @@ GPT-Live-FIRST direction for bounded offline provider-neutral adapter work;
 the offline six-path foundation is now allocated at
 `5fd7366a0d8ad7625ca1cc7e0cbdb0c31832d396` (27 offline PASS, bounded
 independent CLEAR). Its exact contracts/adapter/parser/two tests and bounded
-decision-log paths appear in the existing manifest. Missing canonical paid/full
+decision-log paths appear in the existing manifest. For this Consumer voice
+foundation, missing canonical paid/full
 entitlement, durable accepted-message admission and real-access assembly remain
 default DENIED; synthetic admission proves no production restart safety. No activation,
 actual audio consent, provider route or financial receipt vision-consent rollout
