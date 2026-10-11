@@ -9,12 +9,16 @@ from argus.agent_runtime.business.binding import (
     BusinessBindingError,
     capture_business_snapshot,
     compile_business_plan,
+    model_business_context,
 )
 from argus.agent_runtime.business.interpretation import (
     BusinessInterpretation,
     BusinessRecordIntent,
 )
+from argus.domain.business.actions.dossier import blockers
+from argus.domain.business.actions.facts import patched_facts
 from argus.domain.business.contracts.actions import TurnPlan
+from argus.domain.business.contracts.facts import BusinessFactPatch, BusinessFacts
 from pydantic import ValidationError
 
 
@@ -287,7 +291,14 @@ def test_model_context_keeps_semantic_facts_without_execution_bindings():
             "verified": False,
             "source_ids": [],
         },
-        "fiscal": {"rnc": {"state": "known", "value": "123", "source_ids": [source_id]}},
+        "fiscal": {
+            "rnc": {
+                "state": "known",
+                "value": "123",
+                "origin": "extracted",
+                "source_ids": [source_id],
+            }
+        },
     }
     projected = model_business_context(raw)
     assert projected["drafts"][0]["id"] == str(draft_id)
@@ -330,3 +341,124 @@ def test_unselected_record_never_implicitly_uses_the_latest_draft(record):
 def test_semantic_target_must_be_a_valid_supplied_uuid_shape():
     with pytest.raises(ValidationError):
         BusinessRecordIntent(target_draft_id="latest", explain_status=True)
+
+
+def complete_facts(source_id):
+    return patched_facts(
+        None,
+        BusinessFactPatch.model_validate(
+            {
+                "kind": {"state": "known", "value": "expense"},
+                "amount": {"state": "known", "value": "71"},
+                "occurred_on": {"state": "known", "value": "2026-10-08"},
+                "funding": {"state": "known", "value": {"kind": "owner_funds"}},
+                "business_share": {"state": "known", "value": {"kind": "all"}},
+            }
+        ),
+        (source_id,),
+        origin="owner_stated",
+    )
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        None,
+        {"amount": {"state": "unknown"}},
+        {"funding": {"state": "owner_does_not_know"}},
+        {"kind": {"state": "known", "value": "income"}},
+        {"business_share": {"state": "known", "value": {"kind": "none"}}},
+    ],
+)
+def test_model_requirements_are_canonical_and_preserve_uncertainty_and_other_kinds(patch):
+    draft_id, source_id = uuid4(), uuid4()
+    facts = complete_facts(source_id)
+    if patch is not None:
+        facts = patched_facts(
+            facts,
+            BusinessFactPatch.model_validate(patch),
+            (source_id,),
+            origin="owner_stated",
+        )
+    raw = snapshot(draft_id)
+    raw["drafts"][0]["facts"] = facts.model_dump(mode="json")
+    projected = model_business_context(raw)
+    assert projected["drafts"][0]["blockers"] == [
+        blocker.model_dump(mode="json") for blocker in blockers(facts)
+    ]
+    assert projected["required_fact_fields"] == [
+        blocker.field
+        for blocker in blockers(BusinessFacts())
+        if blocker.code == "fact_required"
+    ]
+    assert "counterparty" not in projected["required_fact_fields"]
+    assert projected["drafts"][0]["facts"]["kind"]["value"] == facts.kind.value
+    assert projected["drafts"][0]["facts"]["funding"]["state"] == facts.funding.state
+    assert "source_ids" not in json.dumps(projected)
+    assert "version" not in projected["drafts"][0]
+    assert raw["drafts"][0]["facts"] == facts.model_dump(mode="json")
+
+
+def test_single_share_and_date_patch_keeps_funding_source_and_is_one_mutation():
+    draft_id, old_source, current_source = uuid4(), uuid4(), uuid4()
+    before = complete_facts(old_source)
+    plan = compile_records(
+        BusinessRecordIntent(
+            target_draft_id=draft_id,
+            facts={
+                "occurred_on": {"state": "known", "value": "2026-10-09"},
+                "business_share": {"state": "known", "value": {"kind": "all"}},
+            },
+        ),
+        context=snapshot(draft_id),
+        source_id=current_source,
+    )
+    assert [action.action for action in plan.actions] == ["business_propose_activity"]
+    action = plan.actions[0]
+    after = patched_facts(before, action.facts, action.source_ids, origin="owner_stated")
+    assert after.funding == before.funding
+    assert (
+        after.occurred_on.source_ids
+        == after.business_share.source_ids
+        == (current_source,)
+    )
+    assert blockers(after) == []
+
+
+@pytest.mark.parametrize("state", ["known", "unknown", "owner_does_not_know"])
+def test_explicit_funding_proposal_keeps_current_source_even_when_value_matches(state):
+    draft_id, old_source, current_source = uuid4(), uuid4(), uuid4()
+    before = complete_facts(old_source)
+    funding = {"state": state}
+    if state == "known":
+        funding["value"] = {"kind": "owner_funds"}
+    plan = compile_records(
+        BusinessRecordIntent(target_draft_id=draft_id, facts={"funding": funding}),
+        context=snapshot(draft_id),
+        source_id=current_source,
+    )
+    action = plan.actions[0]
+    after = patched_facts(before, action.facts, action.source_ids, origin="owner_stated")
+    assert after.funding.state == state
+    assert after.funding.source_ids == (current_source,)
+    assert after.kind == before.kind
+
+
+def test_requiredness_projection_does_not_remove_an_explicit_optional_question():
+    draft_id = uuid4()
+    raw = snapshot(draft_id)
+    raw["drafts"][0]["facts"] = complete_facts(uuid4()).model_dump(mode="json")
+    assert model_business_context(raw)["drafts"][0]["blockers"] == []
+    plan = compile_records(
+        BusinessRecordIntent(
+            target_draft_id=draft_id,
+            question={
+                "field": "counterparty",
+                "asked_of": "owner",
+                "prompt": "Who was the supplier?",
+            },
+        ),
+        context=raw,
+    )
+    assert [action.action for action in plan.actions] == ["business_ask"]
+    assert plan.actions[0].field == "counterparty"

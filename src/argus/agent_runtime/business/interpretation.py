@@ -44,8 +44,14 @@ class BusinessRecordIntent(Contract):
         default=None,
         description="Sparse stated or corrected facts: omit absent fields; preserve explicit unknown and owner_does_not_know changes. Omitted facts retain canonical values or server defaults.",
     )
-    allocation: BusinessAllocationIntent | None = None
-    question: BusinessQuestionIntent | None = None
+    allocation: BusinessAllocationIntent | None = Field(
+        default=None,
+        description="Propose both funding and business share only when stated or corrected in this message; put a single changed field in sparse facts. Preserve explicitly sourced uncertainty.",
+    )
+    question: BusinessQuestionIntent | None = Field(
+        default=None,
+        description="A useful remaining factual question, using canonical required_fact_fields and current blockers together with proposed facts; preserve an explicitly requested optional question.",
+    )
     attach_current_source: bool = False
     find_related: bool = False
     explain_status: bool = False
@@ -74,7 +80,12 @@ def business_interpretation_prompt(payload: dict[str, Any]) -> list[dict[str, st
                 "Do not fill absent facts with unknown. Explicit unknown and owner_does_not_know "
                 "are real sourced changes and must be preserved. Leave unnamed currency omitted; "
                 "the domain alone supplies its unverified default. An account's currency does not "
-                "establish the transaction currency. Do not invent amount, date, bank, funding, "
+                "establish the transaction currency. "
+                "Use allocation only when both funding and business share are stated or corrected "
+                "in this message. Put a single changed funding or share in sparse facts alongside "
+                "other changes. Never copy stored funding or share to complete an allocation. "
+                "Explicit unknown and owner_does_not_know still represent sourced changes. "
+                "Do not invent amount, date, bank, funding, "
                 "business share, supplier or fiscal facts. Activity kind and payment instrument "
                 "are separate facts. Money spent on paid goods or services is an expense only "
                 "when supported by the source. A card mention alone does not establish later payment or a payable. "
@@ -83,7 +94,11 @@ def business_interpretation_prompt(payload: dict[str, Any]) -> list[dict[str, st
                 "with an absent amount, ask for the amount first. Once the amount is known, ask "
                 "about unknown funding before other missing facts. Do not require confirmation "
                 "of facts already supplied. After a known answer, propose at most one useful "
-                "still-required owner fact as a question to persist with Ask. Keep any still-open "
+                "still-required owner fact as a question to persist with Ask. "
+                "Use the supplied canonical required_fact_fields; current blockers describe facts "
+                "before this proposal. Consider facts supplied in this message when deciding what "
+                "remains required. Optional unknown facts can remain for accountant review. "
+                "Preserve an explicitly requested factual question. Keep any still-open "
                 "owner question without duplicating it. An owner_does_not_know answer moves its "
                 "existing question to the accountant; do not duplicate or reask it. A purchase "
                 "paid personally uses owner_funds only when stated. Income stays income. "
