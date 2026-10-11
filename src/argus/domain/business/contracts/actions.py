@@ -137,6 +137,11 @@ class ApproveExpense(Contract):
     action: Literal["record_expense"]
 
 
+class ApproveIncome(Contract):
+    version: int = Field(ge=1, strict=True)
+    action: Literal["record_income"]
+
+
 class ReviewCommand(Contract):
     action: Literal["review_draft"] = "review_draft"
     draft_id: UUID
@@ -176,7 +181,19 @@ class CaptureCommand(Contract):
     request: CaptureNote
 
 
-Command = BusinessAction | ReviewCommand | ApprovalCommand | CaptureCommand
+class IncomeApprovalCommand(Contract):
+    action: Literal["approve_income"] = "approve_income"
+    draft_id: UUID
+    request: ApproveIncome
+
+
+Command = (
+    BusinessAction
+    | ReviewCommand
+    | ApprovalCommand
+    | CaptureCommand
+    | IncomeApprovalCommand
+)
 
 
 class Applied(Contract):
