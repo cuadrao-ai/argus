@@ -20,6 +20,7 @@ export type AuthFormSubmissionResult = {
 
 type AuthFormProps = {
   mode: AuthFormMode;
+  brand?: "argus" | "cuadrao";
   allowModeSwitch?: boolean;
   embedded?: boolean;
   onModeChange?: (mode: AuthFormMode) => void;
@@ -162,6 +163,7 @@ export function localizedAuthErrorMessage(
 
 export default function AuthForm({
   mode,
+  brand = "argus",
   allowModeSwitch = true,
   embedded = false,
   onModeChange,
@@ -215,6 +217,7 @@ export default function AuthForm({
 
   return (
     <div
+      data-auth-brand={brand}
       className={
         embedded
           ? "w-full"
@@ -354,7 +357,9 @@ export default function AuthForm({
             <p className="mt-5 text-center text-[15px] tracking-wide text-gray-500 dark:text-gray-400">
               {isSignup
                 ? t("landing.already_account", "Already have an account?")
-                : t("auth.signup.new_account", "New to Argus?")}{" "}
+                : brand === "cuadrao"
+                  ? t("auth.signup.new_account_cuadrao", "New to Cuadrao?")
+                  : t("auth.signup.new_account", "New to Argus?")}{" "}
               <button
                 type="button"
                 className="font-medium text-black transition-opacity hover:opacity-80 dark:text-white"
