@@ -176,6 +176,39 @@ export type BusinessSearchResult = {
   accounts: BusinessAccount[];
 };
 
+export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number } };
+export type BusinessCapture = {
+  draft_id: string;
+  version: number;
+  source_id: string;
+  text: string;
+  received_at: string;
+  review_state: BusinessDossier["review_state"];
+};
+
+export async function captureBusinessNote(input: BusinessCaptureInput, key: string): Promise<BusinessDossier> {
+  const authHeaders = await authenticatedRequestHeaders();
+  const response = await fetch(`${ARGUS_API_BASE_URL}/business/captures`, {
+    method: "POST",
+    credentials: "include",
+    headers: argusApiRequestHeaders({ "Idempotency-Key": key }, authHeaders),
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { code?: unknown; detail?: unknown };
+    const problem = typeof body.detail === "object" && body.detail !== null ? body.detail as { code?: unknown } : body;
+    const code = typeof problem.code === "string" ? problem.code : "unknown";
+    throw Object.assign(new Error("Capture request could not be confirmed"), { status: response.status, code });
+  }
+  return response.json() as Promise<BusinessDossier>;
+}
+
+export async function listBusinessCaptures(query = "", limit = 20): Promise<BusinessCapture[]> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  const page = await apiFetch<{ items: BusinessCapture[] }>(`/business/captures?${params}`);
+  return page.items;
+}
+
 export type ExpenseInput = {
   account_id: string;
   amount: DecimalString;

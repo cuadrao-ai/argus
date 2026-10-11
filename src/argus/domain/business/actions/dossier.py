@@ -18,9 +18,14 @@ from argus.domain.business.contracts.dossier import (
     SourceEvidence,
     UnsettledApproval,
 )
-from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.contracts.facts import (
+    BusinessAccountFunding,
+    BusinessFacts,
+    Known,
+)
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.reconcile.model import EventNotFound
+from argus.domain.recording.money_schemas import ELIGIBILITY
 
 SOURCE = TypeAdapter(SourceEvidence)
 
@@ -39,7 +44,7 @@ def record_context(tx: ActionTransaction) -> RecordContext:
     )
 
 
-def blockers(facts: BusinessFacts) -> list[Blocker]:
+def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[Blocker]:
     result = [
         Blocker(code="fact_required", field=name)
         for name in (
@@ -52,8 +57,40 @@ def blockers(facts: BusinessFacts) -> list[Blocker]:
         )
         if not isinstance(getattr(facts, name), Known)
     ]
-    if isinstance(facts.kind, Known) and facts.kind.value != "expense":
+    if isinstance(facts.kind, Known) and facts.kind.value not in {"expense", "income"}:
         result.append(Blocker(code="activity_kind_unsupported", field="kind"))
+    if (
+        isinstance(facts.kind, Known)
+        and facts.kind.value == "income"
+        and isinstance(facts.funding, Known)
+        and not isinstance(facts.funding.value, BusinessAccountFunding)
+    ):
+        result.append(Blocker(code="business_funding_unsupported", field="funding"))
+    if (
+        isinstance(facts.kind, Known)
+        and facts.kind.value == "income"
+        and isinstance(facts.funding, Known)
+        and isinstance(facts.funding.value, BusinessAccountFunding)
+    ):
+        account = next(
+            (item for item in accounts if item.id == facts.funding.value.account_id),
+            None,
+        )
+        if account is None:
+            result.append(Blocker(code="business_record_not_found", field="funding"))
+        elif (
+            isinstance(facts.currency, Known) and account.currency != facts.currency.value
+        ):
+            result.append(Blocker(code="import_currency_mismatch", field="funding"))
+        elif account.type not in ELIGIBILITY["income"]:
+            result.append(Blocker(code="account_ineligible", field="funding"))
+    if (
+        isinstance(facts.kind, Known)
+        and facts.kind.value == "income"
+        and isinstance(facts.category_id, Known)
+        and facts.category_id.value is not None
+    ):
+        result.append(Blocker(code="business_category_unsupported", field="category_id"))
     if isinstance(facts.amount, Known) and Decimal(facts.amount.value) <= 0:
         result.append(Blocker(code="amount_positive_required", field="amount"))
     if (
@@ -108,7 +145,8 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         else:
             value["text"] = row["text_content"]
         evidence.append(SOURCE.validate_python(value))
-    blocked = blockers(facts)
+    context = record_context(tx)
+    blocked = blockers(facts, context.accounts)
     if any(
         q.state in {"open", "owner_does_not_know", "waiting_for_window"}
         for q in questions
@@ -121,7 +159,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
     approvals = tx.rows(
         "select actor,command,outcome from public.business_action_receipts"
-        " where space_id=%s and command->>'action'='approve_expense'"
+        " where space_id=%s and command->>'action' in ('approve_expense','approve_income')"
         " and command->>'draft_id'=%s"
         + approval_filter
         + " order by created_at desc limit 1",
@@ -149,7 +187,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
                 code=outcome.get("code", "approval_failed"),
             )
     return BusinessDossier(
-        **record_context(tx).model_dump(),
+        **context.model_dump(),
         draft_id=draft_id,
         version=event.version,
         review_state=event.state,
