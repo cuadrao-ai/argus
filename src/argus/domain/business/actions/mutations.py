@@ -330,7 +330,9 @@ def prepare_attachment(
     if before is not None:
         merged = before.model_dump(mode="json")
         for name in values:
-            merged[name] = _retain_or_fill(merged[name], facts[name])
+            merged[name] = _retain_or_fill(
+                merged[name], facts[name], currency=name == "currency"
+            )
         if merged["fiscal"] is None:
             merged["fiscal"] = facts["fiscal"]
         else:
@@ -341,10 +343,21 @@ def prepare_attachment(
     return save_revision(tx, event, before, after, (source_id,), actor, None)
 
 
-def _retain_or_fill(prior: dict, incoming: dict) -> dict:
+def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> dict:
     if incoming["state"] != "known":
         return prior
     if prior["state"] == "unknown":
+        return (
+            prior
+            if prior.get("origin") in {"owner_stated", "member_set", "matched"}
+            else incoming
+        )
+    if (
+        currency
+        and prior.get("origin") == "default"
+        and prior["value"] == "DOP"
+        and not prior["source_ids"]
+    ):
         return incoming
     if prior["state"] == "known" and prior["value"] == incoming["value"]:
         return prior

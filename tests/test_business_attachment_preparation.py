@@ -227,3 +227,69 @@ def test_existing_receipt_facts_are_never_silently_replaced(
         assert (after.amount if field == "amount" else after.fiscal.itbis) == (
             prior.amount if field == "amount" else prior.fiscal.itbis
         )
+
+
+@pytest.mark.parametrize("origin", ["owner_stated", "member_set", "matched"])
+def test_explicit_uncertainty_survives_a_known_extraction(origin):
+    from argus.domain.business.actions.mutations import _retain_or_fill
+
+    prior = {
+        "state": "unknown",
+        "value": None,
+        "origin": origin,
+        "source_ids": [str(uuid4())],
+        "verified": False,
+    }
+    incoming = {
+        "state": "known",
+        "value": "250.5",
+        "origin": "extracted",
+        "source_ids": [str(uuid4())],
+        "verified": False,
+    }
+    assert _retain_or_fill(prior, incoming) == prior
+
+
+@pytest.mark.parametrize("origin", [None, "extracted"])
+def test_extraction_fills_unassigned_or_extracted_unknown(origin):
+    from argus.domain.business.actions.mutations import _retain_or_fill
+
+    prior = {
+        "state": "unknown",
+        "value": None,
+        "origin": origin,
+        "source_ids": [],
+        "verified": False,
+    }
+    incoming = {
+        "state": "known",
+        "value": "250.5",
+        "origin": "extracted",
+        "source_ids": [str(uuid4())],
+        "verified": False,
+    }
+    assert _retain_or_fill(prior, incoming) == incoming
+
+
+@pytest.mark.parametrize("currency", ["DOP", "USD"])
+def test_extracted_currency_replaces_unsourced_dop_default(currency):
+    from argus.domain.business.actions.mutations import _retain_or_fill
+
+    prior = {
+        "state": "known",
+        "value": "DOP",
+        "origin": "default",
+        "source_ids": [],
+        "verified": False,
+    }
+    incoming = {
+        "state": "known",
+        "value": currency,
+        "origin": "extracted",
+        "source_ids": [str(uuid4())],
+        "verified": False,
+    }
+    assert _retain_or_fill(prior, incoming, currency=True) == incoming
+    if currency != "DOP":
+        with pytest.raises(ActionError, match="receipt_requires_review"):
+            _retain_or_fill(prior, incoming)

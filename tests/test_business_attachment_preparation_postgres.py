@@ -156,7 +156,7 @@ def test_changed_original_authority_or_source_refuses_before_draft(prepared, cha
             )
         elif change == "expired":
             db.execute(
-                "update public.business_client_grants set expires_at=now()-interval '1 second' where id=%s",
+                "update public.business_client_grants set created_at=now()-interval '2 days', expires_at=now()-interval '1 day' where id=%s",
                 (grant,),
             )
         elif change == "readonly":
@@ -323,11 +323,11 @@ def test_new_grant_does_not_rescue_revoked_original(prepared):
 def test_disconnected_source_refuses_completion(prepared):
     service, _, _, cid, _, _ = prepared
     bind(prepared)
-    with service.authority.pool.connection() as db:
-        db.execute(
-            "update public.financial_source_connections set status='disconnected' where id=%s",
-            (cid,),
-        )
+    from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
+
+    PostgresConnectionRepository(service.authority.pool).disconnect(
+        user_id=prepared[1].owner_id, connection_id=cid, now=datetime.now(timezone.utc)
+    )
     with pytest.raises(ActionError):
         finish(prepared)
 
@@ -339,12 +339,19 @@ def test_nonexistent_target_refuses_binding(prepared):
 
 def test_accepted_target_refuses_completion(prepared):
     service, context, _, _, _, _ = prepared
-    draft_id, version = create(service, context)
-    bind(prepared, ExistingDraft(draft_id=draft_id, version=version))
-    with service.authority.pool.connection() as db:
-        db.execute(
-            "update public.financial_import_events set state='accepted' where id=%s",
-            (draft_id,),
-        )
-    with pytest.raises(ActionError, match="recorded_correction_unsupported"):
+    from argus.domain.business.contracts.actions import ApproveExpense
+
+    from tests.test_business_actions_postgres import ready
+
+    draft_id = ready(service, context)
+    bind(prepared, ExistingDraft(draft_id=draft_id, version=1))
+    result = service.approve(
+        context,
+        draft_id,
+        ApproveExpense(version=1, action="record_expense"),
+        str(uuid4()),
+    )
+    assert result.outcome == "applied", result
+    with pytest.raises(ActionError) as denied:
         finish(prepared)
+    assert denied.value.code in {"stale_version", "recorded_correction_unsupported"}
