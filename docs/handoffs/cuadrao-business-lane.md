@@ -117,8 +117,10 @@ The E1 funding-follow-up oracle/source reconciliation is retained at
 `233701a7ab2f6335d70d728ff6d9e354b331ed49`, Business implementation tree
 `4038a181838fcbe85653e1b3dcad06f453b0b3b7`, fixture digest
 `b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`.
-Its narrow review and 24 free tests passed; actual Postgres recapture and live
-quality remain PENDING. The earlier held-out Haiku capture remains FAILED and
+Its narrow review and 24 free tests passed. Current E1 head
+`cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205` is under root corpus
+Postgres proof; no completed result is claimed. Live quality remains PENDING.
+The earlier held-out Haiku capture remains FAILED and
 is not retroactively relabeled. E1 alone owns two additional existing-harness
 paths for generic full-schema fake transport reconciliation:
 `tests/evals/chat_runtime_trajectory_adapters.py` and
@@ -127,16 +129,16 @@ trajectory assertions, product labels and the rubric stay intact.
 
 Root's separate controlled local connected readback at
 `/Users/garces/Documents/Codex/2026-10-10/task/cuadrao-connected-browser-final-db-readback.json`
-records one authenticated conversation to a draft at v3, human review at v4,
-and approval at v6 of reviewed v4: one 850 Money record, zero Business-bank and
+records registered-accountant sign-in, one authenticated conversation to a draft
+at v3, human PATCH/review at v4, and approval at v6 of reviewed v4: one 850 Money record, zero Business-bank and
 Personal balance/version movements, and HTTP 404 outside the named grant.
-The fresh Spanish (`es-419`) browser readback passed and retained
+The fresh Spanish (`es-419`) browser and database readback passed and retained
 `output/playwright/connected-flow-spanish-approved.png`. This verifies a local
 synthetic first flow, not a phone, hosted WhatsApp delivery, calibrated live
 quality, consent or customer readiness. The observed generic `Member` actor
 display label remains a presentation defect; C0's bounded full-name repair
-at `6d10d49a01f25a7bcbaff531bf8e9e1451316956` has 75 offline tests passed,
-14 Postgres tests unrun and independent review PENDING. It changes no grants,
+at `9bbdeb8783d851b02113defc6a78eb651fcefd86` retains the prior 75-offline
+proof; 14 Postgres tests and independent review remain PENDING. It changes no grants,
 schema or historical backfill.
 
 The [latest approved evaluation direction](../specs/argus-decision-log.md#october-11-2026-product-derived-evaluation-and-replaceable-model-configuration)
@@ -153,11 +155,12 @@ one-owner-question/funding-first policy `a9b9756481a054479696309ece1a352f25d7262
 retain the existing execution-spec rules at source lines294 and577/J1. At a9b975,
 raw Linux400 tests yielded398PASS,2FAIL,0skip; both unmeasured Business
 fingerprint gates actually failed, so this is not a full pass. The
-newer T1 three-path schema-eligibility delta is frozen but uncommitted at
-`be33e20ae55fbfa962461e7f60cc8c6c54049e3c`: 208 provider-policy tests
-passed, while its broader run had 719 passes and 19 real failures (17 existing
-fake-provider harness recognition failures and two unmeasured Business gates).
-Generic fake-transport reconciliation belongs to E1; no check is waived. The
+newer T1 schema-eligibility source is committed at
+`b922a642452f2d759f44688c8dcf7a55eeba1f8c`: its latest reported
+broader run has 764 passes and two real failures, both unmeasured Business gates.
+The earlier be33 run had 208 provider-policy passes and 17 fake-provider
+harness recognition failures among 19 failures; E1 owns the generic
+fake-transport reconciliation. No check is waived. The
 live gate, passing Business measurement and precisely named future evidence paths
 remain pending. Actions' exact owner-funds fixture forwarding is approved by M1,
 preserving 422 human_approval_required. E1's two exact Business acceptance entry

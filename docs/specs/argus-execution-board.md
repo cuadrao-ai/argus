@@ -66,13 +66,13 @@ PENDING, as do actual quality, judge, consent and hosted gates.
 | Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
 | `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; retained owner source `3cc1ee9d03982e198bfe836aaf9b2141f2fef8c7`, authorized canonical #961 import `265caad5f3cfd15e88baf042ffde2e5836c403ab` | #954, #958 and #960 LANDED; current four-path E1/C0 ownership allocation PENDING independent review. Authored scope is ownership metadata and these two docs only. |
-| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, original source `2cf078c323816ca01e3a7022306ab9e52b7ec475`, current display-label repair `6d10d49a01f25a7bcbaff531bf8e9e1451316956` | C0 #955 and server BoundDraft #961 LANDED. Source-backed full-name presentation repair PENDING independent review and 14 Postgres tests; 75 offline passed. It changes no grants, schema or historical data. |
+| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, original source `2cf078c323816ca01e3a7022306ab9e52b7ec475`, current display-label repair `9bbdeb8783d851b02113defc6a78eb651fcefd86` | C0 #955 and server BoundDraft #961 LANDED. Source-backed full-name presentation repair PENDING independent review and 14 Postgres tests; prior 75-offline proof retained. It changes no grants, schema or historical data. |
 | `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, reviewed source `76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c` | #959 LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`; postmerge CI38107050284 and smoke38107050280 succeeded. #961 subsequently LANDED server BoundDraft. Business quality/hosted acceptance remain pending. |
 | M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | LANDED PR #957 as eb62ad5e, reviewed tree b0c7c44c with parent0ebfd08e. Prior bounded fix retained; postmerge CI38099618928/smoke38099618926 SUCCESS (terminal comment6104002935). No new semantics grant. |
 | `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
-| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, retained guard `1a904bd00862998d0f97da6b4d92ea1666725730`, scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1`, generic product policy `a9b9756481a054479696309ece1a352f25d7262a`, current frozen dirty schema-eligibility source `be33e20ae55fbfa962461e7f60cc8c6c54049e3c` | PENDING integration/live scorecard/fingerprint. Provider-policy proof 208 PASS; broader 719 PASS/19 real FAIL, comprising 17 fake-provider harness recognition failures and two unmeasured Business gates. E1 owns generic fake-transport reconciliation. Preserve 25 legacy entries and `last_measured` exactly; no waiver or quality pass. |
+| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, retained guard `1a904bd00862998d0f97da6b4d92ea1666725730`, scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1`, generic product policy `a9b9756481a054479696309ece1a352f25d7262a`, current schema-eligibility source `b922a642452f2d759f44688c8dcf7a55eeba1f8c` | PENDING integration/live scorecard/fingerprint. Latest reported broader run 764 PASS/two real FAIL, both unmeasured Business gates. E1 owns generic fake-transport reconciliation; earlier be33 17 harness failures are not counted in this latest run. Preserve 25 legacy entries and `last_measured` exactly; no waiver or quality pass. |
 | `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING root graft/integration; final full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
-| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`, retained source `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`, funding follow-up `233701a7ab2f6335d70d728ff6d9e354b331ed49` | Funding follow-up implementation tree `4038a181838fcbe85653e1b3dcad06f453b0b3b7`, fixture digest `b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`; narrow review and 24 free tests passed. Postgres recapture and live quality PENDING; earlier failed Haiku capture retained. Exact two generic fake-transport harness paths allocated with typed validation, trajectory assertions and labels preserved. Both Grok calibrations FAILED; no calibrated judge. |
+| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`, retained source `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`, funding follow-up `233701a7ab2f6335d70d728ff6d9e354b331ed49`, current E1 head `cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205` | Funding follow-up implementation tree `4038a181838fcbe85653e1b3dcad06f453b0b3b7`, fixture digest `b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`; narrow review and 24 free tests passed. Root corpus Postgres proof is running with no completed verdict; live quality PENDING and earlier failed Haiku capture retained. Exact two generic fake-transport harness paths allocated with typed validation, trajectory assertions and labels preserved. Both Grok calibrations FAILED; no calibrated judge. |
 | `/root` / verification and serialized delivery | `/tmp/cuadrao-hosted-verification-20261010`; exact candidate recorded by root at each gate | Sole merge, live caller and staging owner. Reconcile dependent sources, review exact head, require CI/compatibility and distinguish local from hosted acceptance. |
 | Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` / P0 Counsel audit | Existing read-only inventory and retained private source excerpts | Bounded 105-commit inventory DELIVERED in private /tmp/business953-private-handoff.md. Approved missing capture/search families retained in the existing handoff below; no blanket approval or wholesale publication. |
 
@@ -123,8 +123,10 @@ independent review pending at that earlier checkpoint. The newer E1
 funding-follow-up source `233701a7ab2f6335d70d728ff6d9e354b331ed49`
 has implementation tree `4038a181838fcbe85653e1b3dcad06f453b0b3b7`
 and fixture digest `b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`.
-Its narrow review and 24 free tests passed; Postgres recapture and live quality
-remain PENDING. The earlier failed Haiku capture remains failed. E1 alone owns
+Its narrow review and 24 free tests passed. Current E1 head
+`cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205` is under root corpus
+Postgres proof with no completed verdict; live quality remains PENDING. The
+earlier failed Haiku capture remains failed. E1 alone owns
 `tests/evals/chat_runtime_trajectory_adapters.py` and
 `tests/evals/test_chat_runtime_trajectory_harness.py` for generic full-schema
 fake-transport reconciliation in the existing harness, preserving typed
@@ -285,12 +287,12 @@ explicit per-run `judge_model` and successful receipts keyed by task role,
 schema and model. Runtime and judge receipts must each prove their own call;
 same-model usage cannot stand in for a missing judge. Keep rubric, labels,
 schema and cases fixed. The earlier three-file hardening was committed at
-3baaefa9 with 35 free tests passed. Current T1 schema-eligibility work is frozen
-but uncommitted at `be33e20ae55fbfa962461e7f60cc8c6c54049e3c`: 208
-provider-policy tests passed, while the broader run has 719 passes and 19 real
-failures (17 fake-provider harness recognition failures and two unmeasured
-Business fingerprint gates). E1 owns generic fake-transport reconciliation;
-no check is waived. This is not a measured
+3baaefa9 with 35 free tests passed. Current T1 schema-eligibility source is committed
+at `b922a642452f2d759f44688c8dcf7a55eeba1f8c`: its latest reported
+broader run has 764 passes and two real failures, both unmeasured Business
+fingerprint gates. The earlier be33 provider-policy proof passed 208 tests,
+while its broader run had 17 additional fake-provider harness failures. E1
+owns generic fake-transport reconciliation; no check is waived. This is not a measured
 quality pass or a new evaluation framework.
 
 Freeze runtime-tuning holdouts `en_funding_correction` and
@@ -319,15 +321,16 @@ Do not disable checks or claim that existing fingerprint gate is clear.
 C0 is landed; dependent runtime/evaluation and hosted readiness remain open.
 Root's controlled local connected readback
 `/Users/garces/Documents/Codex/2026-10-10/task/cuadrao-connected-browser-final-db-readback.json`
-records authenticated conversation → draft v3 → human review v4 → approval v6
+records registered-accountant sign-in → authenticated conversation → draft v3 →
+human PATCH/review v4 → approval v6
 of reviewed v4, one 850 Money record, zero Business-bank and Personal
 balance/version movement, and HTTP 404 outside the named grant. The Spanish
-`es-419` browser proof passed with retained screenshot
+`es-419` fresh browser and database readback passed with retained screenshot
 `output/playwright/connected-flow-spanish-approved.png`. It proves a local
 synthetic first flow, not phone, hosted WhatsApp, live calibrated quality,
 consent or customer acceptance. The generic `Member` actor label remains a
 presentation defect. C0's bounded source-backed full-name repair at
-`6d10d49a01f25a7bcbaff531bf8e9e1451316956` passed 75 offline tests;
+`9bbdeb8783d851b02113defc6a78eb651fcefd86` retains the prior 75-offline proof;
 14 Postgres tests and independent review remain PENDING. C0 alone owns
 `src/argus/domain/business/authority.py` and
 `tests/test_business_actor_labels_postgres.py` for this change; no grants,
