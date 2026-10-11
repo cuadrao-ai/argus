@@ -1,7 +1,12 @@
 # Cuadrao Business lane handoff
 
 **Current checkpoint under the October 10 23:37 UTC continuation.** Canonical
-integration is `eb62ad5e7718bd103b0205cf91d15a61c22628d6`, M1 #957 landed
+integration is `7def08fe07be52f04a345c3df5029200a437eff0`, #958 owner-handoff
+LANDED with [postmerge CI38102305608](https://github.com/lagarcess/argus/actions/runs/38102305608)
+and [smoke38102305601](https://github.com/lagarcess/argus/actions/runs/38102305601)
+fully successful. Its tree equals retained context source
+fc7fe954a. Earlier M1 #957 landed at
+`eb62ad5e7718bd103b0205cf91d15a61c22628d6`
 with reviewed tree `b0c7c44c1602265979960e375bfaf64ec5eca6a8` and parent
 `0ebfd08ed22dcd1108496fc0af427073ec219dc8`. M1 postmerge
 [CI38099618928](https://github.com/lagarcess/argus/actions/runs/38099618928)/
@@ -14,7 +19,20 @@ CI and smoke all succeeded ([comment 6103620102](https://github.com/lagarcess/ar
 `77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`, with passed exact
 [CI](https://github.com/lagarcess/argus/actions/runs/38087059299) and
 [smoke](https://github.com/lagarcess/argus/actions/runs/38087059317).
-No hosted customer acceptance follows from these landings. Consumer retains
+Actions PR #959 remains PENDING backend CI diagnosis at
+`76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c`, with no root merge.
+The latest October 11 parent-thread01a11879 authorization bounds C0/T1 semantic
+input → server-verified target/receipt revision and capability-based omission of
+Luna-unsupported parameters. C0 owns durable contracts/reference resolution;
+T1 owns semantic input/compiler/stages and the approved shared LLM change.
+Exact allocation in the existing manifest has C0 seven named paths, Actions one
+new split test and T1 four new paths. The shared LunaPro omission applies across
+requests/tasks from verified bare/dated model capability, preserving strict
+parameters/schema/reasoning/token bounds, with no per-call lookup or new routing
+platform. Current ARCH trust roots and deterministic authority/revision/idempotency
+remain. Implementation, review
+and actual model quality remain PENDING; no V2 platform, provider/key or deploy
+expansion follows. No hosted customer acceptance follows from these landings. Consumer retains
 its acceptance ownership.
 
 The [Business execution spec](../specs/lanes/cuadrao-business-agent-execution-spec.md)
