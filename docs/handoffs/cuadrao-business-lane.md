@@ -1,12 +1,18 @@
 # Cuadrao Business lane handoff
 
 **Current October 11 coordinator checkpoint.** Canonical integration is
-`7ac57b6d7ebb4940f7c13c3bb0ee5c392a1f2da8`: #963 label repair LANDED from
-reviewed source `09a84ba20282d1509eaf8b5e5de8476d31dc92b1`, parent 479cc,
-tree `8e1c5a920618047c89f6e837babf962f25d77bce`. Its
+`1612602c4d94b104378b5a787d3e19abfc07052c`: #964 LANDED at
+`2026-10-11T07:15:19Z` from published source
+`5b7cdff54c357b9b946d18ee33a4c9d0de18f2ab`. Fresh remote evidence shows
+[CI38120748626](https://github.com/lagarcess/argus/actions/runs/38120748626)
+IN PROGRESS and [smoke38120748633](https://github.com/lagarcess/argus/actions/runs/38120748633)
+SUCCESS, not a full postmerge pass. #963 label repair LANDED at
+`7ac57b6d7ebb4940f7c13c3bb0ee5c392a1f2da8` from reviewed source
+`09a84ba20282d1509eaf8b5e5de8476d31dc92b1`, parent 479cc, tree
+`8e1c5a920618047c89f6e837babf962f25d77bce`; its
 [postmerge CI38119452790](https://github.com/lagarcess/argus/actions/runs/38119452790)
 and [smoke38119452833](https://github.com/lagarcess/argus/actions/runs/38119452833)
-remain PENDING. #962 source `d0605ce6e1c76113f60064705f8d1dd35f43405f` LANDED
+fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/963#issuecomment-6106543558)). #962 source `d0605ce6e1c76113f60064705f8d1dd35f43405f` LANDED
 at `479cc10918db57b454fff27c9c6b9b453bdfa4a6`; postmerge
 [CI38110738783](https://github.com/lagarcess/argus/actions/runs/38110738783) and
 [smoke38110738798](https://github.com/lagarcess/argus/actions/runs/38110738798)
@@ -70,6 +76,16 @@ dependencies. C0 is landed; use its contracts when reconciling retained sources
 against J1 to J3. Writers need their current exclusive assignment before edits. "Pagué 850" is one example.
 The real hosted flow must handle varied natural-language transactions and
 follow-ups, explicit unknowns and corrections without phrase or regex intent gates.
+The latest coordinator-relayed parent allocation decision after #964 landing
+lets messy Dominican Spanish stay concise: clear business-purpose meaning can
+support draft use without a redundant allocation question. Ambiguous/conflicting
+amount or use remains unknown or asks one relevant question. Human approval,
+provenance and attributable corrections remain. Any fixture expectation change
+records its previous expectation, this decision source, changed case and new
+expectation in existing eval evidence; retain mixed-use tests, versioned suites
+and held-out accounting. Earlier failed captures keep their actual verdicts.
+See the [manifest's decision accounting](../specs/argus-execution-board.md#latest-allocation-meaning-and-fixture-accounting).
+No phrase whitelist, model-specific loosening or consent answer follows.
 
 #925 remains excluded at `1426404d82ade9ac1eaed255b0e68ed7db9d4a1a`. The
 sandbox remains preserved at `df208f7ec2379cd84efd55eea0deb685d67c5360`.
@@ -117,8 +133,10 @@ remaining under the authorized $300 ceiling was **$72.504528323**, before
 unknown reservations or concurrent usage; expiry remains `2026-10-12T02:21:00Z`.
 The earlier 01:04:26Z read is historical. Refresh before further calls.
 The manifest retains each capability outcome separately from database acceptance.
-There is no calibrated judge or live runtime scorecard. Next paid judge choice is pending; do not
-automatically select Haiku as judge. Runtime comparison with approved Haiku is
+There is no calibrated judge or live runtime scorecard. The latest relayed parent
+grant now authorizes root alone to run one fresh `anthropic/claude-haiku-5.5`
+eight-case calibration under the same shared-key ceiling/expiry; it supersedes
+the pending choice for that run, without claiming success. Runtime comparison with approved Haiku is
 allowed under existing authority; no blind retry or live-gate bypass follows. The manifest retains the exact8141 local PG17/17
 proof and reviewed E1 v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`,
 with fixtures and labels unchanged. Consent policy remains pending.
@@ -182,11 +200,12 @@ files extend the existing harness only; no broader ownership follows. Earlier E1
 underlying runtime source unchanged at that checkpoint. It passes explicit
 per-run `judge_model` through the existing invocation/scorecard and requires
 successful task-role/schema/model receipts for runtime and judge separately.
-Keep rubric/labels/schema/cases fixed. Runtime tuning holds out
+That hardening preserves rubric/labels/schema/cases; later approved fixture
+changes follow the explicit decision accounting above. Runtime tuning holds out
 `en_funding_correction` and `es_owner_does_not_know_amount`; later verification
 still runs all seven deterministic cases. The eight used judge cases are not
 held out. The DeepSeek probe ended after one unknown-outcome timeout; no
-prompt tuning, accepted measurement or new judge selection is inferred.
+prompt tuning or accepted measurement is inferred from that probe.
 Instrumented latency/capability tests are bounded under existing budget/approved
 IDs; dated capability and failed first-flow outcomes above are retained. The [scoped Business grant](../specs/argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics)
 accepts real production-message input → draft → authorized human approval →
@@ -302,9 +321,11 @@ outcomes remain PENDING until their own implementation/acceptance evidence.
 `/root/accountant_ui_review` now owns a read-only source/decision/coverage audit
 of these five approved outcomes. Root has now assigned only the first manual-note
 backend package to existing C0/Actions owners; it does not close any of the five
-families or promote the sandbox wholesale. C0 clean source is `09a84ba20282d1509eaf8b5e5de8476d31dc92b1`;
+families or promote the sandbox wholesale. C0 manual contract fix is `4322f397d06bf228817e908407201e167582aaf7`,
+111 offline PASS and 15 Postgres skips, with independent rereview PENDING;
 Actions clean reconciliation is `935beb3642d5ad12daab28ceeb78885147cb3639`, whose tree
-equals 479cc. The [manifest's bounded allocation](../specs/argus-execution-board.md#bounded-manual-note-restoration-allocation)
+equals 479cc at that retained checkpoint; its manual capture draft is now
+uncommitted in the same worktree, awaiting cleared C0 contract. The [manifest's bounded allocation](../specs/argus-execution-board.md#bounded-manual-note-restoration-allocation)
 reserves 70000 for C0 and assigns eight exact new allow paths. C0 alone freezes
 human Command/recovery, shared contract tests and API/data docs; Actions alone
 implements capture/list and generates OpenAPI afterward. Atomic immutable
@@ -317,7 +338,7 @@ No model action or fake turn replaces a human note command. Open-draft capture
 changes no Money/balance; accepted-record amendments and grant-only new-client
 creation are outside this first slice. Spec 3.3 **X1 and CSV/Excel with funding
 and receipts remain required now**, separately pending bounded assignments.
-T1 failed/unmeasured quality, judge choice, consent and hosted gates remain open.
+T1 failed/unmeasured quality, judge calibration, consent and hosted gates remain open.
 
 Counsel's exact original six-rule approval source remains UNKNOWN. Later direct
 human grant/model direction supersedes old rigid-custodian/role maps, fixed
