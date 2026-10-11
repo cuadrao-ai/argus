@@ -29,6 +29,7 @@ from argus.api.business import (
     require_business_document_write,
     require_business_person,
     require_business_surface,
+    require_business_workspace,
 )
 from argus.api.business_drafts import (
     action_problem,
@@ -190,7 +191,7 @@ def rename_space(
 
 @router.get("/workspace", response_model=BusinessWorkspace)
 def get_workspace(
-    context: BusinessContext = Depends(require_business),  # noqa: B008
+    context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
     return context.service.workspace(context.scope)
 
