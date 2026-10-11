@@ -42,6 +42,37 @@ LINK = "/api/v1/whatsapp/link"
 CODES = "/api/v1/whatsapp/link-codes"
 
 
+@pytest.mark.parametrize("extra", ["owner_id", "space_id", "sender_link_id", "route"])
+def test_ai_consent_rejects_browser_authority(wa_client, extra):
+    response = wa_client.post(
+        "/api/v1/whatsapp/ai-consent",
+        headers={**bearer(ALICE), "Idempotency-Key": "fixture-consent"},
+        json={"action": "enable", "disclosure_token": "a" * 64, extra: "foreign"},
+    )
+    assert response.status_code == 422
+
+
+def test_ai_consent_missing_persistence_does_not_enable(wa_client):
+    response = wa_client.post(
+        "/api/v1/whatsapp/ai-consent",
+        headers={**bearer(ALICE), "Idempotency-Key": "fixture-consent"},
+        json={"action": "enable", "disclosure_token": "a" * 64},
+    )
+    assert response.status_code == 503
+
+
+def test_ai_consent_revoke_remains_reachable_with_intake_disabled(wa_client, monkeypatch):
+    calls = []
+    monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
+    monkeypatch.setattr(app.state, "financial_accounts_pool", object(), raising=False)
+    monkeypatch.setattr(
+        "argus.api.routers.whatsapp.AIConsentStore.revoke",
+        lambda self, owner: calls.append(owner),
+    )
+    response = wa_client.delete("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
+    assert response.status_code == 204 and len(calls) == 1
+
+
 @pytest.fixture
 def graph() -> FakeGraph:
     return FakeGraph()

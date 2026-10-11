@@ -148,6 +148,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_sources",
         "public.business_turns",
         "public.business_turns_arrival_sequence_seq",
+        "public.business_whatsapp_ai_consents",
         "public.checkpoint_blobs",
         "public.checkpoint_migrations",
         "public.checkpoint_writes",

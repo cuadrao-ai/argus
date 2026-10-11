@@ -27,6 +27,7 @@ class CapturedText:
     language: str
     composition_state: str
     envelope: TextEnvelope
+    ai_consent_id: UUID | None = None
 
     @property
     def turn_key(self) -> str:
@@ -34,8 +35,9 @@ class CapturedText:
 
 
 class BusinessCaptureStore:
-    def __init__(self, pool: ConnectionPool, codec: EnvelopeCodec) -> None:
+    def __init__(self, pool: ConnectionPool, codec: EnvelopeCodec, consent=None) -> None:
         self.pool, self.codec = pool, codec
+        self.consent = consent
 
     def capture(self, message: TextMessage) -> bool:
         if not message.body or looks_like_link_attempt(message.body):
@@ -51,11 +53,16 @@ class BusinessCaptureStore:
             ).fetchone()
             if link is None:
                 return False
+            consent_id = (
+                self.consent.capture_consent(connection, link[0])
+                if self.consent
+                else None
+            )
             connection.execute(
                 "insert into public.whatsapp_inbound_messages"
                 " (provider_message_key,sender_hash,destination_owner_id,status,received_at,updated_at,"
-                " sender_link_id,destination_space_id,sent_at,transport_envelope,transport_key_id)"
-                " values (%s,%s,%s,'captured',clock_timestamp(),clock_timestamp(),%s,%s,%s,%s,%s)"
+                " sender_link_id,destination_space_id,sent_at,transport_envelope,transport_key_id,ai_consent_id)"
+                " values (%s,%s,%s,'captured',clock_timestamp(),clock_timestamp(),%s,%s,%s,%s,%s,%s)"
                 " on conflict (provider_message_key) do nothing",
                 (
                     key,
@@ -66,6 +73,7 @@ class BusinessCaptureStore:
                     message.sent_at,
                     sealed,
                     self.codec.box.key_id,
+                    consent_id,
                 ),
             )
             original = connection.execute(
@@ -123,6 +131,7 @@ class BusinessCaptureStore:
                 received_at=row["received_at"],
                 language=row["reply_language"],
                 composition_state=row["composition_state"],
+                ai_consent_id=row["ai_consent_id"],
                 envelope=self.codec.open(
                     row["transport_envelope"],
                     message_key=key,

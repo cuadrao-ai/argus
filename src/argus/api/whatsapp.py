@@ -31,6 +31,7 @@ from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
+from argus.domain.ingestion.whatsapp.ai_consent import AIConsentStore
 from argus.domain.ingestion.whatsapp.business_worker import BusinessWhatsAppWorker
 from argus.domain.ingestion.whatsapp.config import (
     WhatsAppSettings,
@@ -128,6 +129,7 @@ class WhatsAppRuntime:
     intake: WhatsAppIntake
     settings: WhatsAppSettings
     worker: BusinessWhatsAppWorker | None = None
+    consent: AIConsentStore | None = None
 
 
 _runtime: WhatsAppRuntime | None = None
@@ -151,6 +153,8 @@ def build_whatsapp(
     client: httpx.AsyncClient,
     app_origin: str | None = None,
     pool=None,
+    runner=None,
+    route_resolver=None,
 ) -> WhatsAppRuntime:
     access_token = settings.access_token.get_secret_value()
     max_bytes = load_document_extraction_settings().max_bytes
@@ -163,15 +167,32 @@ def build_whatsapp(
             graph_api_version=settings.graph_api_version,
         )
     worker = None
+    consent = None
     keys = WhatsAppKeys(settings.sender_key.get_secret_value())
     if pool is not None and documents.hub.box is not None:
         from argus.api.whatsapp_worker import build_worker
+        from argus.domain.business.actions import BusinessActions
+        from argus.domain.ingestion.reconcile.service import ReconciliationService
+
+        actions = None
+        if isinstance(documents.hub.sink, ReconciliationService):
+            from argus.agent_runtime.business.runner import (
+                BusinessTurnRunner,
+                business_provider_route,
+            )
+
+            actions = BusinessActions(pool, documents.hub.sink)
+            runner = runner or BusinessTurnRunner()
+            consent = AIConsentStore(pool, route_resolver or business_provider_route)
 
         worker = build_worker(
             pool,
             box=documents.hub.box,
             keys=keys,
             transport=transport,
+            actions=actions,
+            runner=runner,
+            consent=consent,
             enabled=lambda: business_pilot_enabled()
             and load_whatsapp_settings().intake_ready
             and load_document_extraction_settings().enabled,
@@ -193,7 +214,7 @@ def build_whatsapp(
         max_bytes=max_bytes,
         capture_text=worker.captures.capture if worker is not None else None,
     )
-    return WhatsAppRuntime(intake, settings, worker)
+    return WhatsAppRuntime(intake, settings, worker, consent)
 
 
 def start_whatsapp(app: object) -> None:

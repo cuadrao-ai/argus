@@ -1,0 +1,272 @@
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from datetime import timedelta
+from uuid import uuid4
+
+import pytest
+from argus.domain.business.authority import ActionError, BusinessAuthority
+from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.ingestion.whatsapp.ai_consent import (
+    AIConsentStore,
+    ConsentError,
+    EnableAIConsent,
+)
+from psycopg import errors
+
+from tests import test_business_whatsapp_transport_postgres as shared
+
+users, world, pytestmark = shared.users, shared.world, shared.pytestmark
+
+
+@pytest.fixture
+def consent(world):
+    route = {
+        "gateway": "openrouter",
+        "interpretation": [{"model": "scripted-fixture", "provider": None}],
+        "reply": [{"model": "scripted-fixture", "provider": None}],
+    }
+    store = AIConsentStore(world.pool, lambda: route)
+    world.captures.consent = store
+    return store, route
+
+
+def enable(world, store, key=None):
+    request = EnableAIConsent(
+        action="enable", disclosure_token=store.status(world.owner)["disclosure_token"]
+    )
+    key = key or str(uuid4())
+    return request, key, store.enable(world.owner, request, key)
+
+
+def captured(world):
+    message = world.message()
+    world.captures.capture(message)
+    lease = world.turns.acquire(
+        space_id=world.space,
+        sender_hash=world.keys.sender(message.sender).hex(),
+        holder=uuid4(),
+        duration=timedelta(minutes=1),
+    )
+    capture = world.captures.read(world.keys.message(message.id), lease=lease)
+    actor = TrustedActor(
+        actor_id=world.owner, actor_kind="owner_via_agent", space_id=world.space
+    )
+    ctx = BusinessAuthority(world.pool).resolve_actor(
+        actor, grant_id=world.actions.grant_id
+    )
+    return capture, ctx, lease
+
+
+def test_enable_replay_and_revoke_do_not_reactivate(world, consent):
+    store, _ = consent
+    request, key, view = enable(world, store)
+    assert view["enabled"] and view["consented_at"]
+    assert store.enable(world.owner, request, key) == view
+    store.revoke(world.owner)
+    store.revoke(world.owner)
+    replay = store.enable(world.owner, request, key)
+    assert not replay["enabled"] and replay["revoked_at"]
+    assert replay["consented_at"] == view["consented_at"]
+
+
+def test_old_capture_never_adopts_new_consent(world, consent):
+    store, _ = consent
+    old, ctx, lease = captured(world)
+    assert old.ai_consent_id is None
+    enable(world, store)
+    with pytest.raises(ConsentError):
+        store.require_access(old, ctx, lease=lease)
+    with world.pool.connection() as db:
+        assert db.execute(
+            "select ai_consent_id from whatsapp_inbound_messages where id=%s", (old.id,)
+        ).fetchone() == (None,)
+
+
+def test_revocation_regrant_route_and_lease_are_checked(world, consent):
+    store, route = consent
+    enable(world, store)
+    capture, ctx, lease = captured(world)
+    store.require_access(capture, ctx, lease=lease)
+    route["reply"][0]["model"] = "different-fixture"
+    with pytest.raises(ConsentError):
+        store.require_access(capture, ctx, lease=lease)
+    route["reply"][0]["model"] = "scripted-fixture"
+    store.revoke(world.owner)
+    enable(world, store)
+    with pytest.raises(ConsentError):
+        store.require_access(capture, ctx, lease=lease)
+    world.turns.release(lease)
+
+
+def test_cross_sender_or_actor_context_cannot_use_consent(world, consent):
+    store, _ = consent
+    enable(world, store)
+    capture, ctx, lease = captured(world)
+    with pytest.raises(ConsentError):
+        store.require_access(replace(capture, sender_hash=b"x" * 32), ctx, lease=lease)
+    with pytest.raises(ConsentError):
+        store.require_access(replace(capture, owner_id=uuid4()), ctx, lease=lease)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "update business_whatsapp_ai_consents set scope_version=2 where id=%s",
+        "update business_whatsapp_ai_consents set grant_id=gen_random_uuid() where id=%s",
+        "delete from business_whatsapp_ai_consents where id=%s",
+    ],
+)
+def test_consent_original_cannot_be_rewritten_or_directly_erased(
+    world, consent, mutation
+):
+    store, _ = consent
+    enable(world, store)
+    capture, _, _ = captured(world)
+    with world.pool.connection() as db, pytest.raises(errors.CheckViolation):
+        db.execute(mutation, (capture.ai_consent_id,))
+
+
+def test_capture_consent_cannot_be_replaced_and_link_delete_purges(world, consent):
+    store, _ = consent
+    enable(world, store)
+    capture, _, lease = captured(world)
+    with world.pool.connection() as db, pytest.raises(errors.CheckViolation):
+        db.execute(
+            "update whatsapp_inbound_messages set ai_consent_id=null where id=%s",
+            (capture.id,),
+        )
+    world.turns.release(lease)
+    with world.pool.connection() as db:
+        db.execute("delete from whatsapp_sender_links where id=%s", (world.link,))
+        assert (
+            db.execute(
+                "select count(*) from business_whatsapp_ai_consents where sender_link_id=%s",
+                (world.link,),
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            db.execute(
+                "select count(*) from whatsapp_inbound_messages where id=%s",
+                (capture.id,),
+            ).fetchone()[0]
+            == 0
+        )
+
+
+def test_stale_disclosure_and_key_drift_are_conflicts(world, consent):
+    store, route = consent
+    request = EnableAIConsent(
+        action="enable", disclosure_token=store.status(world.owner)["disclosure_token"]
+    )
+    route["reply"][0]["model"] = "new-fixture"
+    with pytest.raises(ConsentError, match="disclosure_stale"):
+        store.enable(world.owner, request, str(uuid4()))
+    _, key, _ = enable(world, store)
+    with pytest.raises(ConsentError, match="idempotency_conflict"):
+        store.enable(world.owner, request, key)
+
+
+def test_concurrent_same_command_creates_one_original_receipt(world, consent):
+    store, _ = consent
+    request = EnableAIConsent(
+        action="enable", disclosure_token=store.status(world.owner)["disclosure_token"]
+    )
+    key = str(uuid4())
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        results = list(
+            workers.map(lambda _: store.enable(world.owner, request, key), range(2))
+        )
+    assert results[0] == results[1]
+    with world.pool.connection() as db:
+        assert (
+            db.execute(
+                "select count(*) from business_whatsapp_ai_consents where owner_id=%s",
+                (world.owner,),
+            ).fetchone()[0]
+            == 1
+        )
+
+
+def test_relink_requires_new_opt_in_and_cannot_revive_old_capture(world, consent):
+    store, _ = consent
+    enable(world, store)
+    capture, ctx, lease = captured(world)
+    with world.pool.connection() as db:
+        db.execute(
+            "update whatsapp_sender_links set status='revoked',revoked_at=clock_timestamp() where id=%s",
+            (world.link,),
+        )
+        db.execute(
+            "insert into whatsapp_sender_links(destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
+            " values (%s,%s,'1234','es-419','active',clock_timestamp())",
+            (world.owner, capture.sender_hash),
+        )
+    assert not store.status(world.owner)["enabled"]
+    enable(world, store)
+    with pytest.raises(ConsentError):
+        store.require_access(capture, ctx, lease=lease)
+
+
+def test_original_grant_revocation_denies_access_and_command_replay(world, consent):
+    store, _ = consent
+    request, key, _ = enable(world, store)
+    capture, ctx, lease = captured(world)
+    with world.pool.connection() as db:
+        db.execute(
+            "update business_client_grants set revoked_at=clock_timestamp() where id=%s",
+            (world.actions.grant_id,),
+        )
+        db.execute(
+            "insert into business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
+            " values (%s,%s,%s,array['read','prepare'])",
+            (world.space, world.owner, world.owner),
+        )
+    assert not store.status(world.owner)["enabled"]
+    with pytest.raises((ConsentError, ActionError)) as failure:
+        store.require_access(capture, ctx, lease=lease)
+    assert getattr(failure.value, "code", "") in {
+        "business_record_not_found",
+        "whatsapp_ai_consent_authority_changed",
+    }
+    with pytest.raises(ConsentError, match="authority_changed"):
+        store.enable(world.owner, request, key)
+
+
+def test_client_cannot_read_permission_and_service_cannot_truncate(world, consent):
+    store, _ = consent
+    enable(world, store)
+    for role, statement in [
+        ("authenticated", "select * from business_whatsapp_ai_consents"),
+        ("service_role", "truncate business_whatsapp_ai_consents"),
+    ]:
+        with world.pool.connection() as db, pytest.raises(errors.InsufficientPrivilege):
+            db.execute(f"set local role {role}")
+            db.execute(statement)
+
+
+@pytest.mark.parametrize("parent", ["spaces", "auth.users"])
+def test_business_or_account_parent_purges_consent_and_transport(world, consent, parent):
+    store, _ = consent
+    enable(world, store)
+    capture, _, lease = captured(world)
+    world.turns.release(lease)
+    with world.pool.connection() as db:
+        db.execute(
+            f"delete from {parent} where id=%s",
+            (world.space if parent == "spaces" else world.owner,),
+        )
+        assert (
+            db.execute(
+                "select count(*) from business_whatsapp_ai_consents where owner_id=%s",
+                (world.owner,),
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            db.execute(
+                "select count(*) from whatsapp_inbound_messages where id=%s",
+                (capture.id,),
+            ).fetchone()[0]
+            == 0
+        )

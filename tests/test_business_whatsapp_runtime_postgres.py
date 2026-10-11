@@ -8,6 +8,7 @@ from argus.domain.business.actions import BusinessActions
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.ingestion.reconcile.store_postgres import PostgresImportStore
 from argus.domain.ingestion.secrets import SecretBox
+from argus.domain.ingestion.whatsapp.ai_consent import AIConsentStore, EnableAIConsent
 from argus.domain.recording.money_service import MoneyService
 from argus.domain.recording.postgres_repository import PostgresFinancialAccountRepository
 from argus.domain.recording.service import FinancialAccountService
@@ -53,10 +54,22 @@ def runtime(world):
         ),
     )
     interpreter = ScriptedInterpreter()
-    consent = [True]
+    consent = AIConsentStore(
+        world.pool,
+        lambda: {"gateway": "synthetic-offline", "interpretation": [], "reply": []},
+    )
+    consent.enable(
+        world.owner,
+        EnableAIConsent(
+            action="enable",
+            disclosure_token=consent.status(world.owner)["disclosure_token"],
+        ),
+        "synthetic-explicit-owner-opt-in",
+    )
+    world.captures.consent = consent
 
     def worker(*, sending=True, with_consent=True):
-        options = {"has_consent": lambda space, actor: consent[0]} if with_consent else {}
+        options = {"consent": consent} if with_consent else {}
         return build_worker(
             world.pool,
             box=SecretBox(bytes(range(32))),
@@ -146,7 +159,7 @@ async def test_actual_pending_reply_rechecks_live_authority(world, runtime, with
     world.captures.capture(message)
     assert await worker(sending=False).run_once()
     if withdrawal == "consent":
-        consent[0] = False
+        consent.revoke(world.owner)
     else:
         with world.pool.connection() as db:
             db.execute(

@@ -29,11 +29,18 @@ def build_worker(
     actions=None,
     runner=None,
     has_consent: Callable[[UUID, UUID], bool] = no_ai_consent,
+    consent=None,
 ) -> BusinessWhatsAppWorker:
     async def execute(
         *, captured, turn, lease, authorization, begin_reply, history
     ) -> str:
         from argus.agent_runtime.business.context import AuthorizedBusinessContext
+
+        def require_access():
+            if consent is None or not enabled():
+                raise PermissionError("whatsapp_ai_consent_required")
+            consent.require_access(captured, authorization, lease=lease)
+            actions.plan_for_turn(authorization, captured.turn_key, lease=lease)
 
         context = AuthorizedBusinessContext(
             actions=actions,
@@ -45,6 +52,7 @@ def build_worker(
             channel="whatsapp",
             begin_reply=begin_reply,
             language=captured.language,
+            require_access=require_access,
         )
         result = await runner.run(
             context=context, turn=turn, message=captured.envelope.text, history=history
@@ -52,7 +60,7 @@ def build_worker(
         return result.reply_text
 
     return BusinessWhatsAppWorker(
-        captures=BusinessCaptureStore(pool, EnvelopeCodec(box, keys)),
+        captures=BusinessCaptureStore(pool, EnvelopeCodec(box, keys), consent),
         turns=BusinessTurnStore(pool),
         outbox=BusinessOutbox(pool),
         delivery=BusinessDeliveryStore(pool),
@@ -60,6 +68,7 @@ def build_worker(
         actions=actions,
         execute_turn=execute if runner is not None and actions is not None else None,
         has_consent=has_consent,
+        consent=consent,
         enabled=enabled,
         send_enabled=send_enabled,
     )

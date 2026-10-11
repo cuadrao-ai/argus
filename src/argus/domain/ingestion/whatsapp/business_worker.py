@@ -66,6 +66,7 @@ class BusinessWhatsAppWorker:
         actions: WorkerActions | None = None,
         execute_turn: TurnExecutor | None = None,
         has_consent: Callable[[UUID, UUID], bool] = no_ai_consent,
+        consent=None,
         enabled: Callable[[], bool] = lambda: True,
         send_enabled: Callable[[], bool] = lambda: True,
     ) -> None:
@@ -77,6 +78,7 @@ class BusinessWhatsAppWorker:
         )
         self.transport, self.actions, self.execute_turn = transport, actions, execute_turn
         self.has_consent, self.enabled = has_consent, enabled
+        self.consent = consent
         self.send_enabled = send_enabled
         self.holder = uuid4()
 
@@ -214,13 +216,21 @@ class BusinessWhatsAppWorker:
                 raise
 
     def _may_interpret(self, captured: CapturedText, lease: SenderLease) -> bool:
-        return bool(
+        available = bool(
             self.enabled()
             and self.actions is not None
             and self.execute_turn is not None
-            and self.has_consent(captured.space_id, captured.owner_id)
             and self.captures.live_binding(captured, lease=lease)
         )
+        if not available:
+            return False
+        if self.consent is None:
+            return self.has_consent(captured.space_id, captured.owner_id)
+        if captured.ai_consent_id is None:
+            return False
+        context = self._authorization(captured, self.turns.load_turn(captured.turn_key))
+        self.consent.require_access(captured, context, lease=lease)
+        return True
 
     def _authorization(self, captured: CapturedText, turn: DurableTurn | None) -> Any:
         return self.actions.resolve_actor(
@@ -231,6 +241,8 @@ class BusinessWhatsAppWorker:
             ),
             grant_id=turn.plan_actor.grant_id
             if turn is not None and turn.plan_actor is not None
+            else self.consent.original_grant(captured)
+            if self.consent
             else None,
         )
 
@@ -247,9 +259,11 @@ class BusinessWhatsAppWorker:
         def authorized() -> bool:
             if turn is None:
                 return True
-            if self.actions is None or not self.has_consent(
-                captured.space_id, captured.owner_id
-            ):
+            if self.actions is None:
+                return False
+            if self.consent is not None:
+                self.consent.require_access(captured, context, lease=lease)
+            elif not self.has_consent(captured.space_id, captured.owner_id):
                 return False
             self.actions.plan_for_turn(context, captured.turn_key, lease=lease)
             return True
@@ -264,7 +278,9 @@ class BusinessWhatsAppWorker:
                 and self.send_enabled()
                 and allowed
                 and (
-                    turn is None or self.has_consent(captured.space_id, captured.owner_id)
+                    turn is None
+                    or self.consent is not None
+                    or self.has_consent(captured.space_id, captured.owner_id)
                 ),
             )
             if claim.state == "waiting_for_window":
@@ -281,6 +297,12 @@ class BusinessWhatsAppWorker:
             if claim.state != "sending":
                 return
             try:
+                if (
+                    not self.enabled()
+                    or not self.send_enabled()
+                    or not await asyncio.to_thread(authorized)
+                ):
+                    raise PermissionError("whatsapp_ai_consent_required")
                 await self.transport.send(
                     reply_payload(
                         to=captured.envelope.sender,
