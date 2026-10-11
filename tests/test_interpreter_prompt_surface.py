@@ -575,3 +575,36 @@ def test_question_policy_qualifies_funding_priority_and_preserves_uncertainty():
         in prompt
     )
     assert "Do not require confirmation of facts already supplied" in prompt
+
+
+def test_allocation_guidance_sources_both_fields_from_the_current_message():
+    from argus.agent_runtime.business.interpretation import BusinessRecordIntent
+
+    properties = BusinessRecordIntent.model_json_schema()["properties"]
+    description = properties["allocation"]["description"]
+    assert "both funding and business share" in description
+    assert "this message" in description
+    assert "single changed field in sparse facts" in description
+    prompt = business_interpretation_prompt({})[0]["content"]
+    assert "Never copy stored funding or share to complete an allocation" in prompt
+    assert (
+        "Explicit unknown and owner_does_not_know still represent sourced changes"
+        in prompt
+    )
+
+
+def test_question_guidance_uses_projected_requirements_without_banning_requested_questions():
+    from argus.agent_runtime.business.interpretation import BusinessRecordIntent
+
+    description = BusinessRecordIntent.model_json_schema()["properties"]["question"][
+        "description"
+    ]
+    assert "canonical required_fact_fields and current blockers" in description
+    prompt = business_interpretation_prompt({})[0]["content"]
+    assert "current blockers describe facts before this proposal" in prompt
+    assert (
+        "Consider facts supplied in this message when deciding what remains required"
+        in prompt
+    )
+    assert "Optional unknown facts can remain for accountant review" in prompt
+    assert "Preserve an explicitly requested factual question" in prompt

@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from argus.agent_runtime.business.interpretation import BusinessInterpretation
+from argus.domain.business.actions.dossier import blockers
 from argus.domain.business.contracts.actions import (
     Ask,
     AttachSource,
@@ -20,6 +21,7 @@ from argus.domain.business.contracts.actions import (
     TurnPlan,
 )
 from argus.domain.business.contracts.dossier import ReviewQuestion
+from argus.domain.business.contracts.facts import BusinessFacts
 
 
 class BusinessBindingError(ValueError):
@@ -67,8 +69,22 @@ def model_business_context(snapshot: dict[str, Any]) -> dict[str, Any]:
 
     return {
         **snapshot,
+        "required_fact_fields": [
+            blocker.field
+            for blocker in blockers(BusinessFacts())
+            if blocker.code == "fact_required"
+        ],
         "drafts": [
-            {"id": row["id"], "facts": without_sources(row.get("facts", {}))}
+            {
+                "id": row["id"],
+                "facts": without_sources(row.get("facts", {})),
+                "blockers": [
+                    blocker.model_dump(mode="json")
+                    for blocker in blockers(
+                        BusinessFacts.model_validate(row.get("facts", {}))
+                    )
+                ],
+            }
             for row in snapshot["drafts"]
         ],
         "questions": [
