@@ -52,10 +52,13 @@ synthetic live calls, reservations, concurrency and token bounds. Both Grok
 calibrations FAILED strict: v1 had nine actual POSTs, eight verdicts and six
 criterion errors across four cases; v2 had eight POSTs/verdicts and four criterion
 errors across four cases, despite binary 7/8. Known costs were $0.00607355 and
-$0.00699355 respectively: 17 actual POSTs, $0.01306710 known cost, plus the
-unresolved $0.156 reservation. There is no calibrated judge or live runtime
-scorecard. The next Haiku/Luna/hold decision remains pending; no blind retry or
-live-gate bypass follows. The manifest retains the exact8141 local PG17/17
+$0.00699355 respectively. One subsequent DeepSeek runtime-case POST at c563
+timed out at 20.009 seconds with no response/cost receipt and no retry, retaining
+$0.32048. Aggregate: 18 actual POSTs, $0.01306710 known cost and $0.47648 unknown
+reservations (original v1 $0.156 plus DeepSeek $0.32048). There is no calibrated
+judge or live runtime scorecard. Next paid judge choice is pending; do not
+automatically select Haiku as judge. Runtime comparison with approved Haiku is
+allowed under existing authority; no blind retry or live-gate bypass follows. The manifest retains the exact8141 local PG17/17
 proof and reviewed E1 v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`,
 with fixtures and labels unchanged. Consent policy remains pending.
 
@@ -66,15 +69,24 @@ contracts, deterministic authority/state/idempotency, and the same versioned
 suite plus held-out cases on swaps; record model/version/parameters/results.
 Do not add a new framework or model-specific prompt hacks. T1's exact two guard
 files are assigned; the global live gate, fingerprint and precisely named future
-evidence paths remain pending. Root's bounded pending hardening passes explicit
+evidence paths remain pending. Current E1 hardening is committed at
+`3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`: three files, 35 free tests passed,
+underlying runtime source unchanged; independent review pending. It passes explicit
 per-run `judge_model` through the existing invocation/scorecard and requires
 successful task-role/schema/model receipts for runtime and judge separately.
 Keep rubric/labels/schema/cases fixed. Runtime tuning holds out
 `en_funding_correction` and `es_owner_does_not_know_amount`; later verification
 still runs all seven deterministic cases. The eight used judge cases are not
-held out. Root is preparing a maximum-six-POST DeepSeek first-case runtime
-probe at c563; no prompt tuning, completed measurement or new judge selection
-is inferred. C0 is landed, while
+held out. The DeepSeek probe ended after one unknown-outcome timeout; no
+prompt tuning, accepted measurement or new judge selection is inferred.
+Instrumented latency/capability tests are bounded under existing budget/approved
+IDs; further diagnostics have not run. The [scoped Business grant](../specs/argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics)
+accepts real production-message input → draft → authorized human approval →
+Money state with a controlled synthetic database. Legacy equity/Alpaca benchmark
+is NOT RUN and is not a first-flow prerequisite; request no investment access.
+The earlier broad selection came from the blanket prompt freeze. Applicable
+Consumer regressions, live scorecard/fingerprint and T1's pending read-only scope
+proof remain. No checker weakening or gate-clear claim follows. C0 is landed, while
 dependent runtime/evaluation and hosted acceptance remain open. Sonnet 5.5
 still needs a demonstrated need and fresh confirmation before use. The coordinator sequences a direct named-accountant per-business grant
 for the existing one-owner, one-authorized-accountant milestone. Full L11 firm

@@ -771,3 +771,37 @@ remain. A failed calibration does not certify a judge or waive those gates.
 The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
 owns actual calibration results, current owner heads and pending decisions;
 this record authorizes no additional provider, secret, deployment or spend scope.
+
+
+### October 11, 2026 scoped Business acceptance and instrumented diagnostics
+
+Authorization was relayed through trusted Codex delegation from parent thread
+`01a11879-059d-7459-b082-41e5001210f8`, received approximately
+`2026-10-11T00:55Z`. No Sentinel identifier was supplied; this records the
+coordinator-relayed parent authorization without inventing one.
+
+The coordinator relayed explicit authorization to scope the first Business
+acceptance to a real production-message input, durable draft, authorized human
+approval and resulting Money state, exercised against a controlled synthetic
+database. The legacy equity/Alpaca global benchmark is NOT RUN and is not a
+prerequisite for this Business first flow. Request no investment credentials
+or investment-access expansion for that scope. Retain applicable Consumer
+regressions and deterministic authority, state and idempotency checks.
+
+The broad benchmark was initially selected because the existing blanket
+model-facing prompt freeze covers every eval-reachable prompt builder and
+schema description: shared text can regress other surfaces. This justified
+checking scope; it did not create a new investment-provider dependency for
+Business. The explicit Business scope above preserves the measured live
+scorecard/fingerprint obligation. T1 is read-only diagnosing the existing
+fingerprint guard and the minimal Consumer/Business scope proof; the gate is
+not claimed clear. Do not weaken the checker or disable a required check.
+
+Bounded instrumented latency/capability tests are authorized under the existing
+development allowance and approved model IDs. Keep fixed product targets,
+rubric, labels, structured contracts and held-outs. No blind retry, automatic
+Haiku judge selection or new provider/access scope follows. Further diagnostics
+have not run at this checkpoint; next paid judge choice remains pending.
+The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+records timeout receipts, reservations and current owner proof separately from
+an accepted runtime or calibrated judge.

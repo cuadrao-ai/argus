@@ -43,12 +43,12 @@ Only `/root` serializes reconciliation, merge, live calls and staging.
 | --- | --- | --- |
 | `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d`, retained audit source `3cc7763eb36069713ed52db11e70b49f4858c320`, one-way UI merge `f4eef7499aefc874b7c8e44c21df8c5b61b1e887`, retained reviewed docs `8bc68c2556488101caf4fc10807a88acbb9f4619`, one-way M1 merge `f3462d21f2d85ab243500a6fec21830272c0e64a` | #954 LANDED; this owner-handoff/ownership continuation PENDING reviewed delivery. Docs and ownership metadata only. |
 | `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, source `2cf078c323816ca01e3a7022306ab9e52b7ec475` | LANDED #955 as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; all postmerge CI and smoke succeeded (comment 6103620102). |
-| `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, `9cccf6cb7e4f7c92a8c514b48dc7a20dfe1775f5` | PENDING integration; final full independent review CLEAR. Depends on C0 and M1. Root reconciles shared ingestion/API overlap before landing. |
+| `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, original `9cccf6cb7e4f7c92a8c514b48dc7a20dfe1775f5`, artifact publication `b632e5c8ef52693f4d75d7484631db09ae7c0e8d` | PENDING final artifact review/integration; original full independent review CLEAR. Depends on C0 and M1. Root reconciles shared ingestion/API overlap before landing. |
 | M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | LANDED PR #957 as eb62ad5e, reviewed tree b0c7c44c with parent0ebfd08e. Prior bounded fix retained; postmerge CI38099618928/smoke38099618926 pending. No new semantics grant. |
 | `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
 | `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, prior runtime source `4211c50f4e7dd66db475aa4c0658a3147dd18cb4`, current guard head `1a904bd00862998d0f97da6b4d92ea1666725730` | PENDING integration/live scorecard/fingerprint. Original runtime full review CLEAR with Linux272 pass. Only the two exact prompt-surface guard files added to ownership; dependencies C0, Actions, M1. No #925 dependency. |
 | `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING root graft/integration; final full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
-| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; dependency assembly `39148680e6ff691804b3223d602212e7d2d94141`, owned implementation `7dda2a0f88cb1e3d7e35b69a9edafabf20705fdf`, retained PG proof head `8141382aa57bdffddaf54b8903b8067e966f94b7`, current rubric-v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027` | PENDING integration/live quality; exact8141 PG17/17 and reviews CLEAR retained. Reviewed v2 clarifies criteria only; fixtures/labels unchanged. Both Grok calibrations FAILED strict; no calibrated judge or runtime scorecard. |
+| `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; dependency assembly `39148680e6ff691804b3223d602212e7d2d94141`, owned implementation `7dda2a0f88cb1e3d7e35b69a9edafabf20705fdf`, retained PG proof head `8141382aa57bdffddaf54b8903b8067e966f94b7`, retained rubric-v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`, current role-aware hardening `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb` | PENDING independent hardening review/integration/live quality. Three-file hardening has 35 free tests passed; underlying runtime source unchanged. Prior8141 PG17/17 retained. Both Grok calibrations FAILED; no calibrated judge/runtime scorecard. |
 | `/root` / verification and serialized delivery | `/tmp/cuadrao-hosted-verification-20261010`; exact candidate recorded by root at each gate | Sole merge, live caller and staging owner. Reconcile dependent sources, review exact head, require CI/compatibility and distinguish local from hosted acceptance. |
 | Existing Business lane, thread `01a0de75-29ee-71f0-8f58-0d2bb3934a33` / P0 Counsel audit | Existing read-only inventory and retained private source excerpts | Bounded 105-commit inventory DELIVERED in private /tmp/business953-private-handoff.md. Approved missing capture/search families retained in the existing handoff below; no blanket approval or wholesale publication. |
 
@@ -92,9 +92,11 @@ functional and comments reviews CLEAR. The prior owner-funding failure is
 superseded by that proof. This is synthetic local runtime/Postgres evidence,
 not live model quality or hosted customer acceptance. The rejected environment-file read was not retried; the direct DSN
 injection into the same local fixture stack was separately authorized. Current
-E1 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027` contains reviewed rubric-v2
-clarification only; fixtures and product labels are unchanged. Do not relabel
-that prior Postgres evidence as a live runtime scorecard.
+E1 rubric-v2 source `c563df7a8b6c79ac4f777c9d16017ae51b9b3027` is retained,
+with fixtures and product labels unchanged. The current role-aware hardening
+head is `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`, 35 free tests passed and
+independent review pending. Do not relabel free or prior Postgres evidence as
+a live runtime scorecard.
 
 Counsel delivered the bounded source inventory in
 `/tmp/business953-private-handoff.md`, pinned to integration `650b0fc` and
@@ -166,10 +168,14 @@ calibration runs and must be refreshed before further paid work. Strict results:
 | Rubric v1 | 9 / 8 | 6 / 4 | $0.00607355 | FAILED strict; one additional unknown outcome retains $0.156 reservation |
 | Rubric v2 | 8 / 8 | 4 / 4 | $0.00699355 | FAILED strict, despite binary 7/8 |
 
-Aggregate: 17 actual POSTs, $0.01306710 known cost plus the unresolved $0.156
-reservation. No calibrated judge or live runtime scorecard exists. Root asked
-for the next Haiku/Luna/hold decision; it remains pending. Do not waive the live
-gate, change product labels to fit Grok, or blindly retry the unknown call.
+Root then sent one DeepSeek runtime-case POST at c563. It timed out after
+20.009 seconds, with no response or cost receipt; $0.32048 remains reserved
+for its unknown outcome. No retry occurred. Aggregate across calibration and
+that probe: 18 actual POSTs, $0.01306710 known cost plus $0.47648 unresolved
+reservations ($0.156 original v1 and $0.32048 DeepSeek). No calibrated judge or
+live runtime scorecard exists. Next paid judge choice is pending; do not
+automatically use Haiku as judge. Approved runtime comparison can use Haiku.
+Do not waive the live gate, fit product labels to Grok, or blindly retry.
 The [latest evaluation decision](argus-decision-log.md#october-11-2026-product-derived-evaluation-and-replaceable-model-configuration)
 keeps fixed product-derived labels/rubric independent of a model, lean replaceable
 configuration/structured contracts, deterministic authority/state/idempotency,
@@ -180,17 +186,30 @@ Root approved bounded hardening within the existing invocation/scorecard:
 explicit per-run `judge_model` and successful receipts keyed by task role,
 schema and model. Runtime and judge receipts must each prove their own call;
 same-model usage cannot stand in for a missing judge. Keep rubric, labels,
-schema and cases fixed. This hardening is pending implementation/evidence,
-not a measured quality pass or a new evaluation framework.
+schema and cases fixed. The three-file hardening is committed at 3baaefa9 with
+35 free tests passed; independent review is pending. This is not a measured
+quality pass or a new evaluation framework.
 
 Freeze runtime-tuning holdouts `en_funding_correction` and
 `es_owner_does_not_know_amount`. The same seven deterministic runtime cases
 must all run later. The eight judge calibration cases already used are not
-held-out cases. Root is preparing the first bounded DeepSeek runtime case
-probe at `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`, maximum six POSTs;
-no prompt tuning or completed call/result is claimed by this record. The next
-paid judge decision remains pending, separately from this approved runtime
-probe. Full runtime/live scorecard and calibrated judge gates remain open.
+held-out cases. The DeepSeek first-case probe at
+`c563df7a8b6c79ac4f777c9d16017ae51b9b3027` ended after its first POST with the
+unknown timeout above; no prompt tuning or successful runtime result is claimed.
+Bounded instrumented latency/capability tests are approved under the existing
+budget and named model IDs; further diagnostics have not run. The next paid
+judge choice remains pending. Product targets stay fixed, with no blind retry.
+Full runtime/live scorecard and calibrated judge gates remain open.
+
+The [scoped Business acceptance grant](argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics)
+uses real production-message input → durable draft → authorized human approval
+→ Money state against a controlled synthetic database. Legacy equity/Alpaca
+global benchmark: **NOT RUN**, outside this first-flow prerequisite. Request no
+investment credentials or broader access. It was initially selected by the
+existing blanket model-facing prompt freeze, because shared text can affect
+other surfaces. Keep applicable Consumer regressions, the live scorecard and
+fingerprint; T1 is read-only diagnosing minimal Consumer/Business scope proof.
+Do not disable checks or claim that existing fingerprint gate is clear.
 
 C0 is landed; dependent runtime/evaluation and hosted readiness remain open.
 Sonnet 5.5 is a potential stretch choice that needs a demonstrated need and
