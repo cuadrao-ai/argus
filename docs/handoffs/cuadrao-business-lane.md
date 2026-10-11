@@ -1,7 +1,23 @@
 # Cuadrao Business lane handoff
 
 **Current October 11 coordinator checkpoint.** Canonical integration is
-`39c5322d5e2a3d6470d1dbd2d3661e557a824f14`: #961 BoundDraft LANDED
+`1612602c4d94b104378b5a787d3e19abfc07052c`: #964 LANDED at
+`2026-10-11T07:15:19Z` from published source
+`5b7cdff54c357b9b946d18ee33a4c9d0de18f2ab`. Fresh remote evidence confirms
+[CI38120748626](https://github.com/lagarcess/argus/actions/runs/38120748626)
+and [smoke38120748633](https://github.com/lagarcess/argus/actions/runs/38120748633)
+fully SUCCESS ([terminal comment](https://github.com/lagarcess/argus/pull/964#issuecomment-6106683343)). #963 label repair LANDED at
+`7ac57b6d7ebb4940f7c13c3bb0ee5c392a1f2da8` from reviewed source
+`09a84ba20282d1509eaf8b5e5de8476d31dc92b1`, parent 479cc, tree
+`8e1c5a920618047c89f6e837babf962f25d77bce`; its
+[postmerge CI38119452790](https://github.com/lagarcess/argus/actions/runs/38119452790)
+and [smoke38119452833](https://github.com/lagarcess/argus/actions/runs/38119452833)
+fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/963#issuecomment-6106543558)). #962 source `d0605ce6e1c76113f60064705f8d1dd35f43405f` LANDED
+at `479cc10918db57b454fff27c9c6b9b453bdfa4a6`; postmerge
+[CI38110738783](https://github.com/lagarcess/argus/actions/runs/38110738783) and
+[smoke38110738798](https://github.com/lagarcess/argus/actions/runs/38110738798)
+fully succeeded ([terminal comment](https://github.com/lagarcess/argus/pull/962#issuecomment-6106294794)).
+The retained integration `39c5322d5e2a3d6470d1dbd2d3661e557a824f14`: #961 BoundDraft LANDED
 on parent `598e1c3db0ff58108f8cfd83fa37c579dc11054d`, tree
 `71fc8f9eafdc4cfb4b10e2dc6b242259ce9d69f3`. Its
 [postmerge smoke 38108733609](https://github.com/lagarcess/argus/actions/runs/38108733609)
@@ -13,7 +29,7 @@ successful. #960 boundary allocation LANDED at `52ce3620a729b2d8fb80d3bdfe99fddd
 reviewed tree `0a4279fc0be5b72efada7c516dcb3b92d4d62a37`. The additional T1
 existing-module path `src/argus/llm/openrouter_model_env.py` remains allocated
 for capability metadata/helper. Current T1 schema-delivery work, actual Business
-quality, calibrated judge, consent and hosted gates remain PENDING. Earlier #958 owner-handoff
+quality, calibrated judge, consent implementation and hosted gates remain PENDING. Earlier #958 owner-handoff
 LANDED with [postmerge CI38102305608](https://github.com/lagarcess/argus/actions/runs/38102305608)
 and [smoke38102305601](https://github.com/lagarcess/argus/actions/runs/38102305601)
 fully successful. Its tree equals retained context source
@@ -60,6 +76,17 @@ dependencies. C0 is landed; use its contracts when reconciling retained sources
 against J1 to J3. Writers need their current exclusive assignment before edits. "Pagué 850" is one example.
 The real hosted flow must handle varied natural-language transactions and
 follow-ups, explicit unknowns and corrections without phrase or regex intent gates.
+The latest coordinator-relayed parent allocation decision after #964 landing
+lets messy Dominican Spanish stay concise: clear business-purpose meaning can
+support draft use without a redundant allocation question. Ambiguous/conflicting
+amount or use remains unknown or asks one relevant question. Human approval,
+provenance and attributable corrections remain. Any fixture expectation change
+records its previous expectation, this decision source, changed case and new
+expectation in existing eval evidence; retain mixed-use tests, versioned suites
+and held-out accounting. Earlier failed captures keep their actual verdicts.
+See the [manifest's decision accounting](../specs/argus-execution-board.md#latest-allocation-meaning-and-fixture-accounting).
+No phrase whitelist or model-specific loosening follows. The separate approved
+Business consent design below owns opt-in; actual-user consent remains required.
 
 #925 remains excluded at `1426404d82ade9ac1eaed255b0e68ed7db9d4a1a`. The
 sandbox remains preserved at `df208f7ec2379cd84efd55eea0deb685d67c5360`.
@@ -107,20 +134,33 @@ remaining under the authorized $300 ceiling was **$72.504528323**, before
 unknown reservations or concurrent usage; expiry remains `2026-10-12T02:21:00Z`.
 The earlier 01:04:26Z read is historical. Refresh before further calls.
 The manifest retains each capability outcome separately from database acceptance.
-There is no calibrated judge or live runtime scorecard. Next paid judge choice is pending; do not
-automatically select Haiku as judge. Runtime comparison with approved Haiku is
-allowed under existing authority; no blind retry or live-gate bypass follows. The manifest retains the exact8141 local PG17/17
+There is no calibrated judge or live runtime scorecard. The latest relayed parent
+grant now authorizes root alone to run one fresh `anthropic/claude-haiku-5.5`
+eight-case calibration under the same shared-key ceiling/expiry; it supersedes
+the pending choice for that run. The actual attempt is **AUTO_REVIEW_BLOCKED**
+before CreateProcess, with **zero new generation POSTs** at
+`2026-10-11T07:23:54.216374Z`. Auto-review treated the trusted request as lane
+coordination and paid OpenRouter payload/destination approval as unconfirmed,
+despite the parent grant. Root retained `cuadrao-haiku-judge-auto-review-block.json`
+and an explicit approval question is pending. No bypass/retry or calibration pass
+follows; prior Grok failures remain unchanged. The manifest retains the exact8141 local PG17/17
 proof and reviewed E1 v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`,
-with fixtures and labels unchanged. Consent policy remains pending.
+with fixtures and labels unchanged at that historical checkpoint. Business
+consent design is approved below; implementation and actual scoped opt-in proof remain pending.
 
 The E1 funding-follow-up oracle/source reconciliation is retained at
 `233701a7ab2f6335d70d728ff6d9e354b331ed49`, Business implementation tree
 `4038a181838fcbe85653e1b3dcad06f453b0b3b7`, fixture digest
 `b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`.
-Its narrow review and 24 free tests passed. Current E1 head
+Its narrow review and 24 free tests passed. Retained E1 head
 `cf3a5ee063d00b1c6a8cb6ff448cca15b2e4b205` passed root corpus
 Postgres proof 8/8, zero skips, covering all seven cases and foreign denial.
-Live quality remains PENDING.
+Current E1 `a2323ed9e92abb968d43786250ba806d00ea56f1` is reviewed:
+24 free PASS and eight scripted actual Postgres PASS, not live quality. Original
+Luna stays FAILED; live quality remains PENDING. The
+[explicit fixture accounting](../specs/argus-execution-board.md#latest-allocation-meaning-and-fixture-accounting)
+records a232's A1/A2 unknown-to-owner-stated business-share expectation and
+original-message provenance; mixed-use tests and pre-approval zero Money remain.
 The earlier held-out Haiku capture remains FAILED and
 is not retroactively relabeled. E1 alone owns two additional existing-harness
 paths for generic full-schema fake transport reconciliation:
@@ -136,8 +176,9 @@ Personal balance/version movements, and HTTP 404 outside the named grant.
 The fresh Spanish (`es-419`) browser and database readback passed and retained
 `output/playwright/connected-flow-spanish-approved.png`. This verifies a local
 synthetic first flow, not a phone, hosted WhatsApp delivery, calibrated live
-quality, consent or customer readiness. The observed generic `Member` actor
-display label remains a presentation defect; C0's bounded full-name repair
+quality, consent or customer readiness. The earlier readback showed a generic `Member` actor
+display label; its bounded repair has now LANDED through #963, with fresh visible
+validation separate; C0's bounded full-name repair
 at `9bbdeb8783d851b02113defc6a78eb651fcefd86` passed 63/63 actual
 Postgres tests (28 new and 35 Actions/bound-reference tests); its independent
 whitespace follow-up review is CLEAR. It changes no grants,
@@ -171,11 +212,12 @@ files extend the existing harness only; no broader ownership follows. Earlier E1
 underlying runtime source unchanged at that checkpoint. It passes explicit
 per-run `judge_model` through the existing invocation/scorecard and requires
 successful task-role/schema/model receipts for runtime and judge separately.
-Keep rubric/labels/schema/cases fixed. Runtime tuning holds out
+That hardening preserves rubric/labels/schema/cases; later approved fixture
+changes follow the explicit decision accounting above. Runtime tuning holds out
 `en_funding_correction` and `es_owner_does_not_know_amount`; later verification
 still runs all seven deterministic cases. The eight used judge cases are not
 held out. The DeepSeek probe ended after one unknown-outcome timeout; no
-prompt tuning, accepted measurement or new judge selection is inferred.
+prompt tuning or accepted measurement is inferred from that probe.
 Instrumented latency/capability tests are bounded under existing budget/approved
 IDs; dated capability and failed first-flow outcomes above are retained. The [scoped Business grant](../specs/argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics)
 accepts real production-message input → draft → authorized human approval →
@@ -194,6 +236,19 @@ staging API revision. The earlier workspace observation had no separate staging 
 any later authorized setup. No production,
 main promotion, public signup, marketing/legal launch or Apple TestFlight is
 included. Consumer compatibility and existing shared migration ownership remain.
+
+## Approved Business AI opt-in design
+
+Lucas's verified thumbs-up `Sentinel_77fe88ea7e008191ac48578d89f8bf38`
+approves one-time, revocable AI opt-in per Business owner and linked WhatsApp
+number, for message text plus necessary draft context. Record versioned scope,
+actor, time and revocation; freshly check it before every provider call, resume
+and retry, with clear disclosure of the selected route. Human Money approval
+remains separate. This approves the design, not blanket actual-user consent,
+new credentials or access expansion. The founder decision is resolved; do not
+ask again. Implementation, revocation proof, live quality and hosted acceptance
+remain PENDING. Deny external processing without an actual current scoped opt-in.
+Local runtime/hybrid staging evidence does not establish that consent.
 
 ## Approved unpublished branding and completion gate
 
@@ -281,7 +336,7 @@ that temporary grant standing authority for a new hosted cutover.
 | --- | --- | --- |
 | Email grouping and attachment context | `84730a0a5`, `9a14080d4`, evidence `eb7818b03` | PENDING: one attachment row with accessible email context; raw EML is not a second approvable receipt. Current UI message display does not restore email envelope/attachment grouping. |
 | Search dossier hover, touch and keyboard | `4ea00e4e2`, `1019f9c9e`, `63e116bd4`, tests `7666b8bf5` | PENDING: hover and saved-note preview remain absent in UI `7667ee1e`/`17d972bc`; click/Enter proof does not close hover. Preserve existing touch/keyboard behavior against new C0 dossier shapes. |
-| Saved manual notes | `effca690f`, restart proof `e4890166a` | PENDING web sparse-note entry, search and original-text continuity. Old `manual_capture_review_unavailable` dead-end is SUPERSEDED by current C0 draft/review flow. Capture alone changes neither balances nor expenses. |
+| Saved manual notes | `effca690f`, restart proof `e4890166a` | PENDING: bounded C0/Actions human CaptureNote backend allocation approved; sparse-note UI, search, original-text and later attachment continuity still need implementation/acceptance. Old `manual_capture_review_unavailable` dead-end is SUPERSEDED by current C0 draft/review flow. Capture alone changes neither balances nor expenses. |
 | Seven web formats and per-file recovery | `025fed4b0`, `26e0a35f5`, `7f8ac97dc`, `680409585`, byte proof `530114e69` | PENDING TXT/CSV/XLSX/EML and queue/retry beyond baseline PDF/JPEG/PNG. Seven counts JPEG and PNG separately. Preserve original bytes, per-file failure/siblings, safe recovery and Personal format policy. |
 | Email receiving, business routing and download retry | `eef83a5b4`, `5e435be86`, `3b02f4dc7`, `7f2f7426e`, `4bc4a7579` | PENDING signed receipt, exact configured recipient mapping, immutable business binding and bounded retry through current authority. Prior one-recipient local proof does not establish multi-customer or hosted readiness. |
 
@@ -289,10 +344,35 @@ Every abbreviated commit above resolves uniquely to a preserved source object
 under the sandbox head. C0 contracts are LANDED as #955; these channel and UX
 outcomes remain PENDING until their own implementation/acceptance evidence.
 `/root/accountant_ui_review` now owns a read-only source/decision/coverage audit
-of these five approved outcomes. Root coordinates existing capture,
-presentation, API/data and authority owners after that audit before assigning
-bounded restoration writers. This audit assigns no implementation writer or
-broad UI pass and does not promote the sandbox wholesale.
+of these five approved outcomes. Root has now assigned only the first manual-note
+backend package to existing C0/Actions owners; it does not close any of the five
+families or promote the sandbox wholesale. C0 current reconciliation
+`a41c9fb9d5c991b06a5608ad180247dbaadbfa70` is CLEAR, with 76 actual Postgres
+PASS/zero skips (15 new). Prior `4322f397d06bf228817e908407201e167582aaf7`
+independent90/owner111 offline PASS and 15 PG skips remain historical evidence.
+Actions current `f6924168412e02f63e6c6b4debb32f466b9c8f03` is CLEAR, with
+58 actual Postgres PASS/zero skips (11 new). Production SQL is unchanged;
+the fixture-only fix preserves prior56PASS/oneFAIL as evidence. Integration,
+UI and acceptance remain pending; retained reconciliation935beb/tree479cc stays
+preserved. The [manifest's bounded allocation](../specs/argus-execution-board.md#bounded-manual-note-restoration-allocation)
+reserves 70000 for C0 and retains eight exact C0/Actions additions plus seven
+new UI paths: fifteen total, all other policies unchanged. C0 alone freezes
+human Command/recovery, shared contract tests and API/data docs; Actions alone
+implements capture/list and generates OpenAPI afterward. Atomic immutable
+original/source/revision/receipt, live server-resolved grants, replay and denial
+proof precede acceptance. No worker DB/provider/deploy grant follows.
+
+UI owner at `0d8afb73e040f80a6df271435cac4a4aa29b8749` has actual visible replay/app
+captures active. Root now assigns the seven exact paths in the
+[manual-note UI allocation](../specs/argus-execution-board.md#bounded-manual-note-ui-allocation)
+for form/search/server-refusal/existing review; uncommitted UI work is retained.
+Optional error-only note grouping invents no hit and selects no chat architecture.
+Actual render and backend-integrated acceptance remain pending.
+No model action or fake turn replaces a human note command. Open-draft capture
+changes no Money/balance; accepted-record amendments and grant-only new-client
+creation are outside this first slice. Spec 3.3 **X1 and CSV/Excel with funding
+and receipts remain required now**, separately pending bounded assignments.
+T1 failed/unmeasured quality, judge calibration, consent implementation and hosted gates remain open.
 
 Counsel's exact original six-rule approval source remains UNKNOWN. Later direct
 human grant/model direction supersedes old rigid-custodian/role maps, fixed
