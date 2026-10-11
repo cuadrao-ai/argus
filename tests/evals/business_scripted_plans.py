@@ -69,6 +69,11 @@ SCRIPTED_INTERPRETATIONS: dict[tuple[str, int], dict[str, Any]] = {
                         {"kind": "business_account", "account_id": "@shop_cash"}
                     )
                 },
+                "question": {
+                    "field": "occurred_on",
+                    "asked_of": "owner",
+                    "prompt": "On what date was the paint bought?",
+                },
             }
         ]
     },

@@ -183,11 +183,18 @@ cases:
               funding: {state: known, value: {kind: business_account, account: shop_cash}, origin: owner_stated}
           questions:
             - {field: funding, asked_of: owner, state: answered, answer_source: message_b2}
+            - {field: occurred_on, asked_of: owner, state: open}
+          blockers:
+            - {code: fact_required, field: occurred_on}
+            - {code: fact_required, field: business_share}
+            - {code: business_questions_unresolved}
           money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, answers_question: funding}
+            - {name: business_ask, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           plan_references:
             - {action_index: 0, existing_draft: draft_b, version: 1}
+            - {action_index: 1, existing_draft: draft_b, version: 2}
           visible_sources: [message_b1, message_b2]
       - actor: owner_a
         channel: whatsapp
@@ -203,6 +210,11 @@ cases:
               funding: {state: known, value: {kind: owner_funds}, origin: owner_stated}
           questions:
             - {field: funding, asked_of: owner, state: answered, answer_source: message_b2}
+            - {field: occurred_on, asked_of: owner, state: open}
+          blockers:
+            - {code: fact_required, field: occurred_on}
+            - {code: fact_required, field: business_share}
+            - {code: business_questions_unresolved}
           money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
             - {name: business_propose_activity, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
