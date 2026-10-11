@@ -7,7 +7,6 @@ struct ConnectedTransactionSheet: View {
     @ObservedObject var model: FinancialActivityEditor
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
-    @Environment(\.dynamicTypeSize) private var typeSize
     @FocusState private var focused: Bool
     @State private var amountError = ""
     @State private var currency = ""
@@ -96,17 +95,8 @@ struct ConnectedTransactionSheet: View {
                 Text("debt.split.disclosure").font(.caption).foregroundStyle(.secondary)
             }
             if model.returning != nil { Text("debt.return.disclosure").font(.caption).foregroundStyle(.secondary) }
-            let datePicker = DatePicker(spanish ? "Fecha" : "Date", selection: $model.date, in: ...Date(), displayedComponents: .date)
+            DatePicker(spanish ? "Fecha" : "Date", selection: $model.date, in: ...Date(), displayedComponents: .date)
                 .accessibilityIdentifier("loop.date")
-            if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(spanish ? "Fecha" : "Date").font(.body)
-                        .fixedSize(horizontal: false, vertical: true)
-                    datePicker.labelsHidden()
-                }
-            } else {
-                datePicker
-            }
             if model.kind == .income {
                 choice(NSLocalizedString("loop.activity.source", comment: ""), selection: $model.sourceId,
                        values: model.options?.sources ?? [], id: "loop.sourceType",

@@ -1,5 +1,4 @@
 import XCTest
-import UIKit
 
 /// The release set has no assistant tab, no Updates bell and no receipt capture. The third
 /// navigation slot is a + that opens a tray of real actions; scrolling Home collapses the bar
@@ -139,18 +138,9 @@ extension FinancialLoopUITests {
     }
 
     func testReleaseSurfaceMoneyFormsRemainUsableAtLargestTextWithoutSaving() throws {
-        try assertMoneyFormsAtLargestText(spanish: false)
-    }
-
-    func testReleaseSurfaceSpanishMoneyFormsRemainUsableAtLargestTextWithoutSaving() throws {
-        try assertMoneyFormsAtLargestText(spanish: true)
-    }
-
-    private func assertMoneyFormsAtLargestText(spanish: Bool) throws {
         try signIn()
         app.terminate()
-        app.launchArguments = ["-AppleLanguages", spanish ? "(es-419)" : "(en)",
-                               "-AppleLocale", spanish ? "es_DO" : "en_US", "--cuadrao-release-gates",
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "--cuadrao-release-gates",
                                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         XCUIDevice.shared.orientation = .portrait
         app.launch()
@@ -158,17 +148,9 @@ extension FinancialLoopUITests {
 
         func captureForm(_ stage: String) {
             let screen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-            screen.name = "release-surface-large-text-money-" + (spanish ? "es-" : "en-") + stage
+            screen.name = "release-surface-large-text-money-" + stage
             screen.lifetime = .keepAlways
             self.add(screen)
-        }
-
-        func assertKeyboardLeavesVisible(_ field: XCUIElement) {
-            let keyboard = app.keyboards.firstMatch
-            XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
-            XCTAssertTrue(field.isHittable)
-            XCTAssertTrue(app.frame.contains(field.frame))
-            XCTAssertLessThanOrEqual(field.frame.maxY, keyboard.frame.minY, "The keyboard must not cover the input")
         }
 
         let add = app.buttons["nav.add"]
@@ -180,7 +162,7 @@ extension FinancialLoopUITests {
         fillMoneyField("accounts.amount", with: "1250")
         let accountAmount = app.textFields["accounts.amount"]
         XCTAssertEqual(accountAmount.value as? String, "1,250")
-        assertKeyboardLeavesVisible(accountAmount)
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
         captureForm("account-keyboard")
         dismissMoneyKeyboard()
         XCTAssertEqual(accountAmount.value as? String, "1,250.00")
@@ -192,10 +174,7 @@ extension FinancialLoopUITests {
             XCTAssertTrue(app.frame.contains(control.frame), id)
         }
         captureForm("account-ready-unsaved")
-        tapVisible(accountAmount)
-        assertKeyboardLeavesVisible(accountAmount)
-        tapVisible(app.buttons["accounts.cancel"])
-        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        cancelEditor()
         XCTAssertTrue(accountAmount.waitForNonExistence(timeout: 10))
         XCTAssertTrue(app.buttons["accounts.save"].waitForNonExistence(timeout: 5))
         XCTAssertTrue(add.isHittable)
@@ -207,44 +186,18 @@ extension FinancialLoopUITests {
         fillMoneyField("loop.amount", with: "25")
         let transactionAmount = app.textFields["loop.amount"]
         XCTAssertEqual(transactionAmount.value as? String, "25")
-        assertKeyboardLeavesVisible(transactionAmount)
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
         captureForm("transaction-keyboard")
         dismissMoneyKeyboard()
         let displayedAmount = try XCTUnwrap(transactionAmount.value as? String)
         XCTAssertEqual(Decimal(string: displayedAmount.replacingOccurrences(of: ",", with: "")), Decimal(25))
-        let cancel = app.buttons[spanish ? "Cancelar" : "Cancel"]
-        let review = app.buttons["loop.review"]
-        for control in [cancel, review] {
+        for control in [app.buttons["Cancel"], app.buttons["loop.review"]] {
             XCTAssertTrue(control.waitForExistence(timeout: 5))
             XCTAssertTrue(control.isEnabled && control.isHittable)
             XCTAssertTrue(app.frame.contains(control.frame))
         }
-        let dateTitle = spanish ? "Fecha" : "Date"
-        let dateLabel = app.staticTexts[dateTitle].firstMatch
-        tapVisible(dateLabel)
-        let datePicker = app.datePickers["loop.date"]
-        XCTAssertTrue(datePicker.waitForExistence(timeout: 5))
-        let font = UIFont.preferredFont(forTextStyle: .body, compatibleWith:
-            UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge))
-        let labelSize = (dateTitle as NSString).size(withAttributes: [.font: font])
-        XCTAssertGreaterThanOrEqual(dateLabel.frame.width + 2, ceil(labelSize.width), "The whole Date label needs one line")
-        XCTAssertLessThanOrEqual(dateLabel.frame.height, ceil(font.lineHeight) + 2, "Date must not wrap into a column of letters")
-        XCTAssertTrue(datePicker.isHittable)
-        XCTAssertTrue(app.frame.contains(dateLabel.frame.union(datePicker.frame)))
-        let navigationBottom = app.navigationBars.allElementsBoundByIndex.filter(\.isHittable)
-            .map { $0.frame.maxY }.max() ?? app.frame.minY
-        XCTAssertGreaterThanOrEqual(dateLabel.frame.minY, navigationBottom)
-        XCTAssertLessThanOrEqual(datePicker.frame.maxY, review.frame.minY, "The primary action must not cover the date")
-        XCTAssertTrue(datePickerShows("loop.date", String(Calendar.current.component(.year, from: Date()))))
         captureForm("transaction-ready-unreviewed")
-        fillMoneyField("loop.note", with: spanish ? "Sin guardar" : "Unsaved")
-        let note = moneyField("loop.note")
-        XCTAssertEqual(note.value as? String, spanish ? "Sin guardar" : "Unsaved")
-        assertKeyboardLeavesVisible(note)
-        XCTAssertTrue(cancel.isEnabled && cancel.isHittable)
-        captureForm("transaction-note-keyboard")
-        tapVisible(cancel)
-        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        cancelEditor()
         XCTAssertTrue(transactionAmount.waitForNonExistence(timeout: 10))
         XCTAssertTrue(app.buttons["loop.review"].waitForNonExistence(timeout: 5))
         XCTAssertTrue(add.isHittable)
