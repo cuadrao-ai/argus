@@ -21,6 +21,7 @@ MEASURED_ROOTS = (
 )
 
 FINGERPRINT_PATH = Path(".agent/interpreter_prompt_fingerprint.json")
+BUSINESS_DECLARATION_OWNER = "src/argus/domain/business/tools/declarations.py"
 # These composers send dictionary messages rather than LangChain messages.
 # Keep the API addition narrow: unrelated router prose is not this lane's scope.
 READOUT_MESSAGE_OWNERS = frozenset(
@@ -70,12 +71,44 @@ def _joined_constants(node: ast.AST) -> str:
     return "".join(parts)
 
 
+def _business_declaration_descriptions(node: ast.FunctionDef) -> list[tuple[str, str]]:
+    found = []
+    for expression in ast.walk(node):
+        if not isinstance(expression, ast.GeneratorExp):
+            continue
+        call = expression.elt
+        if not isinstance(call, ast.Call) or _callee_name(call) != "ToolDeclaration":
+            continue
+        description = next(
+            (keyword.value for keyword in call.keywords if keyword.arg == "description"),
+            None,
+        )
+        if not isinstance(description, ast.Name):
+            continue
+        for generator in expression.generators:
+            if not isinstance(generator.target, ast.Tuple) or not isinstance(
+                generator.iter, (ast.Tuple, ast.List)
+            ):
+                continue
+            for index, target in enumerate(generator.target.elts):
+                if not isinstance(target, ast.Name) or target.id != description.id:
+                    continue
+                for row in generator.iter.elts:
+                    if not isinstance(row, ast.Tuple) or index >= len(row.elts):
+                        continue
+                    value = row.elts[index]
+                    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                        found.append(("ToolDeclaration.description", value.value))
+    return found
+
+
 def _model_facing_strings(
     tree: ast.AST,
     *,
     include_dictionary_messages: bool = False,
     include_readout_instructions: bool = False,
     include_fact_sheet_text: bool = False,
+    include_business_declarations: bool = False,
 ) -> list[tuple[str, str]]:
     """(kind, text) for every string this module hands to a model."""
 
@@ -123,6 +156,12 @@ def _model_facing_strings(
                     found.append((f"dict.{role.value}.content", text))
             continue
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if (
+                include_business_declarations
+                and isinstance(node, ast.FunctionDef)
+                and node.name == "get_business_declarations"
+            ):
+                found.extend(_business_declaration_descriptions(node))
             if node.name.endswith(_PROMPT_FUNCTION_SUFFIXES):
                 body = _joined_constants(node)
                 if body:
@@ -197,6 +236,7 @@ def model_facing_surface(repository_root: Path) -> dict[str, dict[str, object]]:
             include_dictionary_messages=relative in READOUT_MESSAGE_OWNERS,
             include_readout_instructions=relative in READOUT_INSTRUCTION_OWNERS,
             include_fact_sheet_text=relative in READOUT_FACT_SHEET_OWNERS,
+            include_business_declarations=relative == BUSINESS_DECLARATION_OWNER,
         )
         if not strings:
             continue
