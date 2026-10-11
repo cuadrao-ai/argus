@@ -511,6 +511,7 @@
         "tests/test_chat_runtime_cutover.py",
         "tests/test_chat_runtime_reload_guardrails.py",
         "tests/test_chat_stream_contract.py",
+        "tests/test_guest_access_policy.py",
         "tests/test_personal_money_proposals.py"
       ],
       "deny": [

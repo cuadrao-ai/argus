@@ -331,8 +331,8 @@ readiness.
 ## Bounded checkpoint and Consumer donor registration
 
 The [existing execution manifest](../specs/argus-execution-board.md#active-checkpoint-personal-memory-voice-and-repair-allocation)
-records six approved exact policies:7 checkpoint,20 Personal,15 memory,7
-utterance voice,3 generic repair and6 live-delegation paths (58 total). Published
+records six approved exact policies:7 checkpoint,21 Personal,15 memory,7
+utterance voice,3 generic repair and6 live-delegation paths (59 total). Published
 #969 reconciled `dfd9332c7b7d7ae2997cbcac97c71581d524366a` retains the prior
 reviewedc547 three-file bytes and all15 incoming UI bytes; new-head CI is
 separate from old-head evidence; this registration uses a separate
@@ -378,7 +378,10 @@ missing/unavailable, synthetic fixtures only. Root additionally assigns exactly
 `tests/test_chat_stream_contract.py`, `tests/test_chat_runtime_cutover.py` and
 `tests/test_chat_runtime_reload_guardrails.py` for trusted synthetic Full fixtures
 on the fixed mocked development subject, empty default/reset None and unknown
-DENY; no global conftest, production fallback or assertion weakening.
+DENY; no global conftest, production fallback or assertion weakening. The
+additional exact `tests/test_guest_access_policy.py` allocation retains all eight
+old capability assertions and adds `can_use_agentic` false/no Grant coverage;
+raw94 PASS/2 FAIL remains preserved.
 Registration/admin/cohort/client
 claims do not create Full authority. Existing Free manual Money is unchanged.
 RevenueCat/prices/paywall and actual paid grants are future monetization, not
