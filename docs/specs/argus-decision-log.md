@@ -733,3 +733,77 @@ staging-only deployment grant remains. New costs or access expansion need
 concrete scoped confirmation. No secret change, real customer-data transmission
 or persistent tester grant follows from this record. Named testers and real
 grants still need actual business authorization and scoped setup.
+
+
+### October 10, 2026 23:37 UTC owner handoff and approved-work accounting
+
+Lucas requires a small mandatory owner handoff that accounts for the latest
+approved work as LANDED, PENDING or SUPERSEDED, with exact commit/source,
+including unpublished work. Provenance is
+`Sentinel_78ca7fbafb948191a7a6bb2a2b25cb3c`. A PR alone does not complete the
+approved scope. Pending retained source work cannot be silently excluded.
+Actual rendered latest approved branding on affected web/sign-in/signup
+surfaces and relevant browser regressions are required before READY. Local
+synthetic UI evidence remains distinct from hosted customer acceptance.
+
+The [existing execution manifest](argus-execution-board.md#mandatory-owner-completion-handoff)
+owns current owner rows, dependencies and this completion gate. The
+[Business handoff](../handoffs/cuadrao-business-lane.md#approved-unpublished-branding-and-completion-gate)
+retains bounded branding source commits and turn provenance. Reuse the existing
+ownership verifier and explicit lane allowlists. This direction creates no
+second process, blanket approval of the remaining 105-item audit, product
+scope expansion, public signup or production action grant. Persisted AI-consent
+policy remains pending and defaults to deny at the affected boundary.
+
+
+### October 11, 2026 product-derived evaluation and replaceable model configuration
+
+Lucas approved fixed product-derived labels and rubric, independent of any
+particular model. Provenance is `Sentinel_ed9f3b917d5081919e00f16339503f7b`.
+Keep configuration lean and replaceable, with structured contracts and
+deterministic authority, saved-state and idempotency checks. Do not add a new
+framework, model-specific prompt workaround or labels tailored to a candidate.
+
+A model swap uses the same versioned suite plus held-out cases. Record the exact
+model/version, parameters and results so the swap can be compared against the
+same product acceptance. Existing live-quality and prompt-fingerprint gates
+remain. A failed calibration does not certify a judge or waive those gates.
+The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+owns actual calibration results, current owner heads and pending decisions;
+this record authorizes no additional provider, secret, deployment or spend scope.
+
+
+### October 11, 2026 scoped Business acceptance and instrumented diagnostics
+
+Authorization was relayed through trusted Codex delegation from parent thread
+`01a11879-059d-7459-b082-41e5001210f8`, received approximately
+`2026-10-11T00:55Z`. No Sentinel identifier was supplied; this records the
+coordinator-relayed parent authorization without inventing one.
+
+The coordinator relayed explicit authorization to scope the first Business
+acceptance to a real production-message input, durable draft, authorized human
+approval and resulting Money state, exercised against a controlled synthetic
+database. The legacy equity/Alpaca global benchmark is NOT RUN and is not a
+prerequisite for this Business first flow. Request no investment credentials
+or investment-access expansion for that scope. Retain applicable Consumer
+regressions and deterministic authority, state and idempotency checks.
+
+The broad benchmark was initially selected because the existing blanket
+model-facing prompt freeze covers every eval-reachable prompt builder and
+schema description: shared text can regress other surfaces. This justified
+checking scope; it did not create a new investment-provider dependency for
+Business. The explicit Business scope above preserves the measured live
+scorecard/fingerprint obligation. T1 has bounded authorization to validate the
+Consumer/Business scope using the existing guards and fingerprint, preserving
+all 25 legacy entries and last_measured byte-for-byte. A Business placeholder
+stays unmeasured until accepted seven-case evidence; the gate is not claimed clear. Do not weaken the checker or disable a required check.
+
+Bounded instrumented latency/capability tests are authorized under the existing
+development allowance and approved model IDs. Keep fixed product targets,
+rubric, labels, structured contracts and held-outs. No blind retry, automatic
+Haiku judge selection or new provider/access scope follows. Subsequent instrumented
+capability observations and a failed Haiku first-flow validation are retained in
+the manifest as dated snapshots; next paid judge choice remains pending.
+The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+records timeout receipts, reservations and current owner proof separately from
+an accepted runtime or calibrated judge.
