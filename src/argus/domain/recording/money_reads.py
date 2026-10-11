@@ -35,6 +35,11 @@ def groups(
 def activity(
     accounts: list[StoredAccount], activity_id: str, revision: int | None = None
 ) -> dict[str, Any]:
+    for row in getattr(accounts, "owner_funded", ()):
+        if row.activity_id == activity_id:
+            if revision not in (None, 1):
+                raise AccountNotFound()
+            return row.response()
     canonical = getattr(accounts, "canonical", None)
     if canonical is None:
         return render_activity(activity_id, groups(accounts).get(activity_id), revision)
@@ -137,15 +142,18 @@ def render_activity(
 
 
 def current_activities(accounts: list[StoredAccount]) -> list[dict[str, Any]]:
+    funded = [row.response() for row in getattr(accounts, "owner_funded", ())]
     canonical = getattr(accounts, "canonical", None)
     if canonical is not None:
-        return [
+        return funded + [
             activity(accounts, aid, revision)
             for aid, revision in canonical.current_visible(
                 {s.account.id for s in accounts}
             ).items()
         ]
-    return [render_activity(aid, history) for aid, history in groups(accounts).items()]
+    return funded + [
+        render_activity(aid, history) for aid, history in groups(accounts).items()
+    ]
 
 
 def activity_in_currency(actual: dict[str, Any], currency: str) -> bool:

@@ -58,19 +58,21 @@ test.describe("Business pilot walkthrough", () => {
     await expect(panel(page)).toContainText("Waiting to prepare");
   });
 
-  test("2 review and confirm; a currency mismatch is explained", async ({ page }) => {
+  test("2 legacy review stays bounded and receipt entry requires separate human approval", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?view=inbox`);
     await panel(page).getByRole("button", { name: /Papelería Central/ }).click();
     await page.getByLabel(/Paid from/).selectOption({ label: "Business card · USD" });
-    await page.getByRole("button", { name: "Confirm expense" }).click();
+    await page.getByRole("button", { name: "Save review details" }).click();
     await expect(panel(page).getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
 
     await nav(page).getByRole("button", { name: /^Inbox/ }).click();
     await panel(page).getByRole("button", { name: /Ferretería La Esquina/ }).click();
     await page.getByLabel(/Paid from/).selectOption({ label: "Operating account · DOP" });
-    await page.getByRole("button", { name: "Confirm expense" }).click();
-    await expect(panel(page)).toContainText("Saved as one expense of RD$ 3,450.00");
-    await page.getByRole("button", { name: "View expenses" }).click();
+    await page.getByRole("button", { name: "Save review details" }).click();
+    await page.getByRole("button", { name: "Approve expense", exact: true }).click();
+    await expect(panel(page)).toContainText("One expense was recorded after approval");
+    await panel(page).getByRole("button", { name: "Expenses", exact: true }).click();
     await expect(heading(page, "Expenses")).toBeVisible();
     await expect(panel(page)).toContainText("Ferretería La Esquina");
   });

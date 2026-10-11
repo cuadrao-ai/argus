@@ -35,6 +35,10 @@ class MoneyService:
         activity_id: str | None = None,
     ) -> dict[str, Any]:
         activity_id = self._id(activity_id)
+        if request.owner_funding is not None:
+            from .owner_funds import preview
+
+            return preview(request, scope, self.accounts._clock(), activity_id)
         records = self.accounts.list_accounts(user_id=user_id, scope=scope)
         self.require_personal(records, request, activity_id)
         return plan(
@@ -55,6 +59,18 @@ class MoneyService:
     ) -> dict[str, Any]:
         from argus.domain.recording.money_storage import transact
 
+        if request.owner_funding is not None:
+            from .owner_funds import write
+
+            return write(
+                self.repository,
+                user_id,
+                request,
+                idempotency_key,
+                scope,
+                self.accounts._clock(),
+                activity_id,
+            )
         activity_id = self._id(activity_id)
 
         def planner(accounts: list[StoredAccount]) -> MoneyPlan:
@@ -93,6 +109,19 @@ class MoneyService:
         identity is the entered request, so a retry replays the first write
         even though that write moved the account versions a preview would name.
         """
+
+        if request.owner_funding is not None:
+            from .owner_funds import write
+
+            return write(
+                self.repository,
+                user_id,
+                request,
+                idempotency_key,
+                scope,
+                self.accounts._clock(),
+                entered=True,
+            )
 
         from argus.domain.recording.money_storage import transact
 
@@ -148,6 +177,9 @@ class MoneyService:
         records = self.accounts.list_accounts(user_id=user_id, scope=scope)
         aid = self._id(activity_id)
         assert aid is not None
+        for row in getattr(records, "owner_funded", ()):
+            if row.activity_id == aid:
+                return {"items": [row.response()], "next_cursor": None}
         revisions = groups(records).get(aid)
         if not revisions:
             raise AccountNotFound()
@@ -189,6 +221,18 @@ class MoneyService:
 
     @staticmethod
     def require_personal(records, request, activity_id):
+        referenced = {
+            activity_id,
+            request.purchase_activity_id,
+            request.reversal_of_activity_id,
+        }
+        if any(
+            row.activity_id in referenced for row in getattr(records, "owner_funded", ())
+        ):
+            raise RecordingInputError(
+                "recorded_correction_unsupported",
+                "Recorded owner-funded expenses cannot be changed.",
+            )
         canonical = getattr(records, "canonical", None)
         if canonical is not None:
             from argus.domain.household.access import dependencies
