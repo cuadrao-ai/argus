@@ -820,8 +820,11 @@ def _apply_reasoning_for_structured_artifact(
 ) -> None:
     if profile.task == "document_extraction":
         payload["provider"] = {"require_parameters": True, "data_collection": "deny", "zdr": True, "allow_fallbacks": False}
-        return
-    payload["reasoning"] = {"effort": profile.reasoning_effort}
+        if payload["model"] != model_policy.SONNET_5_5_MODEL:
+            return
+    payload["reasoning"] = model_policy.model_reasoning_parameters(
+        str(payload["model"]), profile.reasoning_effort
+    )
 
 
 def _messages_with_stable_prefix_prompt_cache(
@@ -975,7 +978,7 @@ async def _post_openrouter_json_schema(
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        if exc.response.status_code != 400 or "reasoning" not in payload:
+        if exc.response.status_code != 400 or not model_policy.can_retry_without_reasoning(payload):
             raise
         if (permit := _reserve_openrouter_attempt(*retry_attempt)) is None:
             return None
@@ -1002,7 +1005,7 @@ def _post_openrouter_json_schema_sync(
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        if exc.response.status_code != 400 or "reasoning" not in payload:
+        if exc.response.status_code != 400 or not model_policy.can_retry_without_reasoning(payload):
             raise
         if (permit := _reserve_openrouter_attempt(*retry_attempt)) is None:
             return None

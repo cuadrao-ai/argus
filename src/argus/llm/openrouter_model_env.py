@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+SONNET_5_5_MODEL = "anthropic/claude-sonnet-5.5"
+
 # Model-tier environment variable names consumed by openrouter.py's candidate
 # resolution. Keys are OpenRouterModelTier values; kept as plain strings here
 # so this module stays import-cycle-free.
@@ -23,8 +25,25 @@ TIER_FALLBACK_ENV: dict[str, tuple[str, ...]] = {
 
 
 _TEMPERATURE_UNSUPPORTED_MODELS = frozenset(
-    {"openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"}
+    {
+        "openai/gpt-6-luna-pro",
+        "openai/gpt-6-luna-pro-20260922",
+        SONNET_5_5_MODEL,
+    }
 )
+
+
+def model_reasoning_parameters(model: str, effort: str) -> dict[str, str | bool]:
+    if model != SONNET_5_5_MODEL:
+        return {"effort": effort}
+    return {
+        "effort": "low" if effort in {"none", "minimal"} else effort,
+        "exclude": True,
+    }
+
+
+def can_retry_without_reasoning(payload: dict[str, object]) -> bool:
+    return "reasoning" in payload and payload.get("model") != SONNET_5_5_MODEL
 
 
 def model_sampling_parameters(model: str, temperature: float) -> dict[str, float]:

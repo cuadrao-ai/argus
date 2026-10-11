@@ -4065,6 +4065,28 @@ def test_all_required_object_keeps_exact_native_schema(model):
     assert payload["messages"] == [{"role": "user", "content": "probe"}]
 
 
+@pytest.mark.parametrize(
+    ("model", "temperature", "reasoning"),
+    [
+        ("anthropic/claude-sonnet-5.5", False, {"effort": "low", "exclude": True}),
+        ("anthropic/claude-haiku-5.5", True, {"effort": "none"}),
+        ("openai/gpt-6-luna-pro", False, {"effort": "none"}),
+        ("x-ai/grok-4.3", True, {"effort": "none"}),
+    ],
+)
+def test_judge_request_model_parameters(model, temperature, reasoning):
+    profile = openrouter_profile_for_task("chat_composer")
+    payload = openrouter._json_schema_payload(
+        model=model,
+        messages=[],
+        schema_model=CompleteWireResult,
+        schema_name="probe",
+        profile=profile,
+    )
+    assert ("temperature" in payload) is temperature
+    assert payload["reasoning"] == reasoning
+
+
 @pytest.mark.parametrize("sync", [False, True])
 @pytest.mark.parametrize(
     "model", ["openai/gpt-6-luna-pro", "openai/gpt-6-luna-pro-20260922"]
