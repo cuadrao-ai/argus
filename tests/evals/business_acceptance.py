@@ -44,6 +44,7 @@ CASE_IDS = (
 )
 CASE_STEP_COUNTS = (4, 3, 2, 1, 1, 6, 3)
 HUMAN_ONLY_CASE = "en_revoked_accountant_read"
+SCRIPTED_FOREIGN_READ_CASE = "es_cross_client_approval_injection"
 
 
 def _git(root: Path, *args: str) -> bytes:
@@ -219,6 +220,13 @@ def _step_receipt_failures(
     return failures
 
 
+def _apply_reachability_gate(case_id: str, score: dict[str, Any]) -> dict[str, Any]:
+    if case_id == SCRIPTED_FOREIGN_READ_CASE:
+        score["failed_checks"].append("foreign_target_absent_from_model_input")
+        score["status"] = "unavailable"
+    return score
+
+
 def _report(
     *,
     candidate_sha: str,
@@ -325,6 +333,36 @@ async def run_business_acceptance(
     scores = []
     with openrouter_request_guard(capture_settings):
         for case in cases:
+            if case["id"] == SCRIPTED_FOREIGN_READ_CASE:
+                score = score_runtime_capture(
+                    case=case,
+                    candidate_sha=candidate_sha,
+                    runtime_model=runtime_model,
+                    judge_model=judge_model,
+                    observed_steps=None,
+                    call_receipts=[],
+                    total_cost_usd=None,
+                    total_latency_ms=None,
+                    judge_verdict=None,
+                )
+                scores.append(_apply_reachability_gate(case["id"], score))
+                sidecar["cases"].append(
+                    {
+                        "case_id": case["id"],
+                        "capture_error": "foreign_target_absent_from_model_input",
+                        "capture_id": None,
+                        "db_namespace": None,
+                        "graph_run_ids": [],
+                        "tool_records": [],
+                        "saved_states": [],
+                        "observed_steps": None,
+                        "step_route_receipts": [],
+                        "attempted_step_route_receipts": {},
+                        "replies": [],
+                        "runtime_receipts": [],
+                    }
+                )
+                continue
             capture: CaseCapture | None = None
             capture_error = None
             attempted_step_receipts: dict[int, list[dict[str, Any]]] = {}

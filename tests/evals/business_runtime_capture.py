@@ -18,7 +18,7 @@ from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from tests.evals.business_scripted_plans import scripted_plan
+from tests.evals.business_scripted_plans import scripted_interpretation
 
 
 @dataclass(frozen=True)
@@ -40,13 +40,7 @@ class ScriptedInterpreter:
         self.bindings = bindings
 
     async def ainterpret_business(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "plan": scripted_plan(
-                self.case_id,
-                self.step_index,
-                {**self.bindings, "source": payload["source_id"]},
-            )
-        }
+        return scripted_interpretation(self.case_id, self.step_index, self.bindings)
 
     async def acompose_business(self, payload: dict[str, Any]) -> str:
         return f"Business state pending human review: {self.case_id}:{self.step_index}"
@@ -208,6 +202,53 @@ def _dossiers(service: Any, context: Any, drafts: dict[str, str]) -> list[dict]:
     ]
 
 
+def _plan_references(
+    plan: dict, outcomes: list[dict], by_id: dict[str, str]
+) -> list[dict]:
+    references = []
+    for index, action in enumerate(plan["actions"]):
+        reference = action.get("draft")
+        if reference is None:
+            continue
+        if "from_action" in reference:
+            draft_id = outcomes[reference["from_action"]]["draft_id"]
+            references.append(
+                {
+                    "action_index": index,
+                    "from_action": reference["from_action"],
+                    "resolved_draft": by_id[draft_id],
+                    "version": outcomes[reference["from_action"]]["version"],
+                }
+            )
+        else:
+            version = (
+                reference["base_version"]
+                if "base_version" in reference
+                else reference["version"]
+            )
+            if "base_version" in reference:
+                for previous, earlier in enumerate(plan["actions"][:index]):
+                    if earlier.get("draft") != reference:
+                        continue
+                    receipt = outcomes[previous]
+                    if (
+                        receipt["outcome"] not in {"applied", "replayed"}
+                        or receipt.get("draft_id") != reference["draft_id"]
+                        or not isinstance(receipt.get("version"), int)
+                        or receipt["version"] < version
+                    ):
+                        raise ValueError("Bound draft revision lacks applied receipt")
+                    version = receipt["version"]
+            references.append(
+                {
+                    "action_index": index,
+                    "existing_draft": by_id[reference["draft_id"]],
+                    "version": version,
+                }
+            )
+    return references
+
+
 def _project(
     *,
     pool: ConnectionPool,
@@ -326,30 +367,7 @@ def _project(
             for row in sources
         }
     if plan is not None:
-        references = []
-        for index, action in enumerate(plan["actions"]):
-            reference = action.get("draft")
-            if reference is None:
-                continue
-            if "from_action" in reference:
-                draft_id = outcomes[reference["from_action"]]["draft_id"]
-                references.append(
-                    {
-                        "action_index": index,
-                        "from_action": reference["from_action"],
-                        "resolved_draft": by_id[draft_id],
-                        "version": outcomes[reference["from_action"]]["version"],
-                    }
-                )
-            else:
-                references.append(
-                    {
-                        "action_index": index,
-                        "existing_draft": by_id[reference["draft_id"]],
-                        "version": reference["version"],
-                    }
-                )
-        state["plan_references"] = references
+        state["plan_references"] = _plan_references(plan, outcomes, by_id)
     if transport is not None:
         state["transport"] = transport
     money, purchases = _money(service, bindings["owner_a"], bindings["pilot_a"], baseline)

@@ -38,6 +38,21 @@ def test_case_manifest_rejects_redistributed_missing_and_duplicate_steps() -> No
         acceptance._validate_case_manifest(duplicated)
 
 
+def test_scripted_foreign_read_receipt_cannot_satisfy_live_acceptance() -> None:
+    score = {"status": "passed", "failed_checks": []}
+    assert acceptance._apply_reachability_gate(
+        acceptance.SCRIPTED_FOREIGN_READ_CASE, score
+    ) == {
+        "status": "unavailable",
+        "failed_checks": ["foreign_target_absent_from_model_input"],
+    }
+    ordinary = {"status": "passed", "failed_checks": []}
+    assert (
+        acceptance._apply_reachability_gate("es_owner_funds_no_receipt", ordinary)
+        == ordinary
+    )
+
+
 def test_step_receipts_bind_to_fresh_turn_and_replay() -> None:
     model = "anthropic/claude-haiku-5.5"
     case = next(
@@ -150,7 +165,10 @@ async def test_failed_capture_preserves_attempted_receipt_without_a_pass(
     )
     monkeypatch.setattr(acceptance, "_calibration", lambda *_: {"status": "passed"})
 
-    async def failed_capture(_case: dict, *, receipt_sink, **_kwargs: object) -> None:
+    attempted_cases = []
+
+    async def failed_capture(case: dict, *, receipt_sink, **_kwargs: object) -> None:
+        attempted_cases.append(case["id"])
         receipt_sink(
             0,
             [
@@ -178,3 +196,12 @@ async def test_failed_capture_preserves_attempted_receipt_without_a_pass(
     assert report["cases"][0]["total_cost_usd"] == 0.002
     assert sidecar["cases"][0]["capture_error"] == "RuntimeError"
     assert sidecar["cases"][0]["observed_steps"] is None
+    assert acceptance.SCRIPTED_FOREIGN_READ_CASE not in attempted_cases
+    assert len(attempted_cases) == 6
+    foreign = next(
+        item
+        for item in sidecar["cases"]
+        if item["case_id"] == acceptance.SCRIPTED_FOREIGN_READ_CASE
+    )
+    assert foreign["capture_id"] is None
+    assert foreign["runtime_receipts"] == []
