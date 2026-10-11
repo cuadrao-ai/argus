@@ -7,6 +7,27 @@ retains the earlier build, design, service, and branch history. Its old next ste
 and acceptance gates are superseded by this checkpoint and the later founder
 instructions recorded below.
 
+## Handoff stop for Claude
+
+The nearest loop is closed at a prepared native CAPTCHA configuration build.
+Its source is `09a179f00b89968921d9a8f997eee53d19879f5a`. Build, packaged
+configuration readback, four mocked adapter tests, and independent review passed.
+The candidate has not been installed or launched. The final Search run remains
+failed at sign-in, before financial steps. Full signed-in Free MVEE acceptance
+is still open.
+
+The [frozen preparation record](../reports/evidence/consumer-core-checkpoint-20261011/native-auth-preparation-20261011/README.md)
+owns the build, simulator, private configuration and credential paths, without
+their values. It distinguishes the incompatible dummy CAPTCHA fixture from the
+unverified cause of the particular login rejection. The original failed run and
+all earlier passing evidence remain preserved.
+
+Lucas requested this handoff after the nearest testable step. No further login,
+challenge, financial test, or implementation phase is active. Consumer app and
+test processes are stopped. No phone, TestFlight, or hosted change occurred.
+The current local commits and separate UI/chat candidates below await their
+remaining acceptance and integration work.
+
 ## Scope and authority
 
 Read [documentation authority](../DOCUMENTATION_AUTHORITY.md), the
@@ -62,7 +83,7 @@ Repository `lagarcess/argus` uses `codex/private-alpha-next` for integration.
 The October 11 local merge `4a953d7e9c07b7b7d057506bb0b630287b6585b9`
 reconciles integration `e465c2fe4bf7e2749215bc677a1fa225adab384c`.
 Native product source still matches the tested Core revision
-`40ff4967040c854ca5dd0764115227544011a6e2` through handoff commit `fec08feba`.
+`40ff4967040c854ca5dd0764115227544011a6e2` through source `09a179f00`.
 The later test-only Search and Budget repairs are committed locally at
 `f9dae47a562e0c660d5c60d67506d0903ac02fea`, with their separate verification
 record below. Native product source is unchanged at that commit.
@@ -73,6 +94,12 @@ The incoming integration delta has no iOS edits, but includes shared
 `financial_accounts.py` and dependency changes. Native source parity does not
 establish the result of that backend reconciliation.
 Refresh remote state before acting; a dated snapshot is not the current tip.
+The read-only preflight against `53d2a234` calculated tree
+`1cb7e2310dbfa3f14b165fa6363cd9183bc1d4c5` without conflicts.
+Its 111 modularity inputs match the passing local tree. No branch merge or
+combined runtime test occurred. The coordinator subsequently reported C0 at
+`a6f1f4b3171837d50c82268effa7a12a83df590e`. That newer integration state has
+not been reconciled or tested in this Consumer worktree.
 
 | PR | Recorded state | Meaning |
 | --- | --- | --- |
@@ -83,6 +110,7 @@ Refresh remote state before acting; a dated snapshot is not the current tip.
 | [#938](https://github.com/lagarcess/argus/pull/938) | Merged as `35fae200034c51ef27cee64d76adc4a903c19672` | Reconciles the earlier handoff while preserving the original record through its pinned link |
 
 The coordinator merged #916, #952 and #938 into `codex/private-alpha-next`.
+An October 11 GitHub read reconfirmed all three as merged with that target branch.
 #916 preserves independent historical evidence. It adds no runtime prerequisite
 for #952. Future Consumer merges remain with the coordinator.
 
@@ -214,10 +242,58 @@ The following worktrees remain under
 | `agent-a3ea4bb6855947c8f` | `codex/cuadrao-guest-book`, `245703206` | Parked, no PR. Untracked `.venv` and `guest-mode-evidence/`; unfinished Search work and verification remain |
 | `agent-accef4746fb45a304` | `codex/cuadrao-transaction-sheet`, `3dfaa1691` | Parked, local only, no PR. Twenty staged paths plus `.venv` and untracked `transaction-sheet-mock/` remain intact |
 
+The final read-only inventory records the applier's current head as
+`0a39c28b031f5ef414f367d7c59657d7cb46ba19` and the handoff worktree's as
+`54d8bb7442877040822b26f80b802b93786c7b08`. Both are clean. The guest and
+transaction heads above remain unchanged with their unfinished files preserved.
+
 Do not reset, clean, publish, or reconcile the parked branches as part of this
 landing. The original handoff retains their detailed historical verification.
 Later reconciliation will need to account for shared native amount, toolbar,
 transaction-sheet, and test files. It needs its own assignment.
+
+### Other local Consumer candidates
+
+These worktrees are under `/Users/garces/.codex/worktrees/`, each with a
+`private-alpha-next` directory. Each branch uses `codex/` followed by the worktree
+name. The [exact inventory](../reports/evidence/consumer-core-checkpoint-20261011/native-auth-preparation-20261011/local-handoff-inventory.json)
+records full heads, paths, and unfinished file names. None of these local
+candidates is established as integrated or released by this handoff.
+
+| Worktree | Head | Verified result and remaining limit |
+| --- | --- | --- |
+| `consumer-core-native-repairs` | `07515c1e4dbc8457de1f496642f3955ceff178c2` | Core adopted the scroll helper separately. Date repair `55e06e929` stays parked. Untracked `ConsumerEntryDiagnosticUITests.swift` is preserved. |
+| `consumer-save-completion-test` | `1593f24e9fcfe3fc76fa57b2233b81ff7759542b` | Clean donor for the Back and Budget assertion repairs already adopted by Core. Preserve original history and evidence. |
+| `consumer-goal-screen-experiment` | `b04646cee860039af34b6230859267f2246b44f7` | Source `dac4e4923` builds; 20 completion/scroll and 9 scenario tests passed at their recorded sources. Actual Spanish copy passed, then the test overscrolled and failed before a contribution. Celebration and Reduce Motion remain unverified. Compact-card revision is unimplemented. |
+| `consumer-native-launch` | `30b88159d4617663eb21a5d56e118c8ac01c35e8` | Source `1a04e2bfc` builds. Three cold launches restored authenticated Home. Seamless startup failed because Welcome briefly appears. A two-file startup plan remains unapplied. |
+| `consumer-toggle-motion` | `e8cfe6280b4d0919b986b67a741fe0e1adaddba9` | Native Budget toggle prototype builds. Actual motion, rapid taps, save/cancel/relaunch, and phone feel remain unverified. |
+| `consumer-native-conversations` | `906b1612da25c0770410140e2535253300877a42` | Clean saved-history donor for buffered chat. Approved presentation source mapping remains separate from live chat acceptance. |
+| `consumer-native-stream` | `ac4fc9a44b19054dd0f21a953fb152615a3e402b` | Parser source and two untracked synthetic test files are retained. Authenticated incremental transport is parked. Automatic approval review rejected its production write; no workaround was attempted. Buffered chat is a separate candidate. |
+
+The Goal worker owns
+`docs/reports/evidence/consumer-goal-screen-experiment-20261011/completion/README.md`
+in its worktree. It retains the failed run, exact screenshots, build paths,
+synthetic records, and the rejected integration operation. The splash worker owns
+`docs/reports/evidence/consumer-native-launch-20261011/README.md` and
+`temp/consumer-startup-route-fix-plan.md`. The toggle worker owns
+`temp/consumer-toggle-motion-report.md` and
+`temp/consumer-toggle-motion-runtime-plan.md`. The native conversation donor owns
+`temp/connected-conversation-ui-handoff.md`.
+
+Core scratch retains the approved source map at
+`temp/consumer-approved-chat-voice-20261011/source-map.md`, the native shared
+contract map at `temp/consumer-native-chat-contract-20261011.md`, and the inert
+stream proposal at `temp/consumer-stream-approval-20261011/`. These documents
+record implementation gaps; they do not grant a new Full, voice, memory, or
+financial-action phase. Shared runtime work remains with its assigned owners.
+
+The final process check found no Consumer app, UI test runner, or `xcodebuild`
+job. Owned fixture session `30222` stopped at 22:07 UTC with exit 130.
+Consumer has no dependency on root session `90751` or ports 56500 through 56502.
+Shared XcodeBuildMCP processes and other lane services were left alone. No
+permanent deletion occurred. No disposable artifact was established, so the
+cleanup proposal has no deletion candidates. All worktrees, settings, simulator
+data, private credentials, candidate builds, and unique results remain available.
 
 Business owns the shared ingestion implementation. Consumer reuses the existing
 financial-documents services. Shared auth, API contracts, schemas, runtime, and
@@ -251,19 +327,28 @@ this same canonical backend with explicit consent for the source. No separate
 mobile extractor or model route is assigned. Free remains without agentic
 features; this record adds no receipt feature or UI change.
 
-## Resume the assigned Consumer work
+## Remaining work for the next owner
 
-1. Refresh the assigned PR and integration heads. The coordinator owns final
-   merges in this landing queue.
-2. Use a dedicated Consumer worktree. Merge current integration into the owning
-   branch without rebasing published or evidenced history. Inspect semantic overlap.
-3. Retain the #952 and October 11 evidence at their original tested sources.
-   Budget and Goal now have complete normal-size passes. Publish that evidence
-   with the three bounded test-helper repairs. Large-text acceptance stays deferred.
-4. Review each new bounded delta and run its applicable checks. Include modularity
-   on the combined tree. Retain unaffected native evidence with its original source.
-5. After an approved merge, verify the remote result and required integration checks.
-   Record the landing through the repository workflow. #877 remains open.
+The lane is stopped for handoff. These are unresolved gates, not instructions
+to begin another phase without the applicable action authority.
 
-Further product work follows the assigned signed-in free finish line. The
-current landing does not authorize changes to hosted state or the parked scopes.
+1. A normal native challenge and login need action-time confirmation. The existing
+   web adapter and local candidate are prepared. Hostname acceptance is unverified.
+   Any human challenge belongs to Lucas. The final Search journey remains open.
+2. Financial checks need confirmation of the approved backend revision first.
+   The recorded `cad1cbe1e` assignment does not authorize a newer deployment,
+   database change, fixture reset, or hosted authentication change.
+3. Core's local test/evidence commits need current integration reconciliation,
+   semantic overlap review, applicable checks, and coordinator publication.
+   The earlier `53d2a234` preflight does not cover later integration changes.
+4. Buffered chat needs native rendering and interaction proof, current integration
+   review, and its separate capability and runtime dependencies. Offline tests
+   do not establish actual Full access or paid-agent acceptance.
+5. The local Goal, splash, toggle, and deferred large-text candidates retain their
+   distinct gaps above. Guest, saved receipts, shared plans, the transaction
+   redesign, RevenueCat, phone work, and TestFlight retain their existing locks.
+
+The coordinator owns publication and merges. No new Core PR, push, or exact-head
+CI ran for `f9dae47a` or `09a179f00`. Draft preparation is retained at
+`temp/consumer-core-delivery-20261011-final/draft-pr-body.md`. Issue #877 remains
+open. Further implementation waits for the next assignment.

@@ -10,6 +10,12 @@ Goal and Search relaunch checks. They preserve the Search timing failures and
 the last attempt that stopped at fresh sign-in before checking the final test
 repair. The earlier evidence below retains its original source and time.
 
+The later [native authentication preparation](native-auth-preparation-20261011/README.md)
+closes at a built configuration-only candidate. It has not been installed or
+used for a challenge or login. The lane is stopped for Claude handoff, with
+final Search acceptance pending. That record also preserves the local branch
+inventory, artifact paths, integration preflight, and cleanup limits.
+
 ## Current result
 
 | Check | Result | Source |
