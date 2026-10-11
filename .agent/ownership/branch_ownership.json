@@ -109,6 +109,7 @@
         "src/argus/domain/business/actions/service.py",
         "src/argus/domain/business/actions/sources.py",
         "src/argus/domain/business/authority.py",
+        "src/argus/domain/business/contracts/facts.py",
         "src/argus/domain/business/receipts.py",
         "src/argus/domain/business/transactions.py",
         "src/argus/domain/business/transactions_legacy.py",
@@ -118,6 +119,7 @@
         "src/argus/domain/ingestion/reconcile/service.py",
         "tests/business/test_actions_api.py",
         "tests/business/test_actions_projection.py",
+        "tests/business/test_contracts.py",
         "tests/business/test_owner_funds_entry.py",
         "tests/test_business_actions_postgres.py"
       ],

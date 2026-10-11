@@ -65,9 +65,17 @@ $0.79696. The latest October 11 checkpoint adds Haiku's first-flow probe at
 because published BusinessFactPatch optional/null schema conflicts with domain
 explicit-null rejection. Latest total: 22 actual POSTs, $0.01739781198 known
 cost and $0.79696 unknown reserves. No first-flow pass or blind retry occurred.
-Root assigned bounded model-independent C0 schema alignment/contract tests,
-without domain weakening or JSON-null normalization; exact C0 paths await
-ownership authorization. Actions publication is paused for the reviewed import.
+Root's bounded model-independent C0 wire fix is reviewed CLEAR at
+`878d159d72ba5c87e7fb66af995d9403e8a617e5`, with 46 independent contract tests
+passed and unchanged domain validator/serializer; no JSON-null normalization.
+Actions owns exactly `src/argus/domain/business/contracts/facts.py` and
+`tests/business/test_contracts.py` for
+this reviewed import and regenerates OpenAPI before publication; no broader C0
+ownership transfers. T1/E1 reconcile the contract/product source before actual
+root model proof. At root's safe read `2026-10-11T01:04:26Z`, total key usage
+$227.449928862 leaves conservative $72.550071138 from the authorized $300
+ceiling before unknown reserves/concurrent usage, with the existing expiry.
+No provider call was running at that checkpoint; refresh before further calls.
 The manifest retains each capability outcome separately from database acceptance.
 There is no calibrated judge or live runtime scorecard. Next paid judge choice is pending; do not
 automatically select Haiku as judge. Runtime comparison with approved Haiku is
@@ -82,8 +90,13 @@ contracts, deterministic authority/state/idempotency, and the same versioned
 suite plus held-out cases on swaps; record model/version/parameters/results.
 Do not add a new framework or model-specific prompt hacks. T1's exact prompt-surface
 and freeze guards plus existing fingerprint path are assigned for bounded scope
-validation. Preserve 25 legacy entries and last_measured byte-for-byte; any
-Business placeholder stays unmeasured until accepted seven-case evidence. The
+validation. Preserve 25 legacy entries and last_measured byte-for-byte;
+exactly two Business scope placeholders stay unmeasured until accepted seven-case
+evidence. Scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1` and generic
+one-owner-question/funding-first policy `a9b9756481a054479696309ece1a352f25d7262a`
+retain the existing execution-spec rules at source lines294 and577/J1. At a9b975,
+raw Linux400 tests yielded398PASS,2FAIL,0skip; both unmeasured Business
+fingerprint gates actually failed, so this is not a full pass. The
 live gate, passing Business measurement and precisely named future evidence paths
 remain pending. Actions' exact owner-funds fixture forwarding is approved by M1,
 preserving 422 human_approval_required. E1's two exact Business acceptance entry

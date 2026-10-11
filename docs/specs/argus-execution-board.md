@@ -42,11 +42,11 @@ Only `/root` serializes reconciliation, merge, live calls and staging.
 | Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
 | `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; prior source `04c54b4e5c36dd26933891735eba023bf82b9640`, one-way C0 merge `b4ac5d635eb390324ae79e666ec3f10ab3248e2d`, retained audit source `3cc7763eb36069713ed52db11e70b49f4858c320`, one-way UI merge `f4eef7499aefc874b7c8e44c21df8c5b61b1e887`, retained reviewed docs `8bc68c2556488101caf4fc10807a88acbb9f4619`, one-way M1 merge `f3462d21f2d85ab243500a6fec21830272c0e64a` | #954 LANDED; this owner-handoff/ownership continuation PENDING reviewed delivery. Docs and ownership metadata only. |
-| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, source `2cf078c323816ca01e3a7022306ab9e52b7ec475` | LANDED #955 as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; all postmerge CI and smoke succeeded (comment 6103620102). |
+| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, source `2cf078c323816ca01e3a7022306ab9e52b7ec475` | LANDED #955 as `650b0fc660777cbcdfb1ea99a3be7beecbbe1a96`; all postmerge CI and smoke succeeded (comment 6103620102). Bounded wire follow-up878d159d is reviewed CLEAR with 46 independent contract tests passed; Actions import/artifact regeneration pending. |
 | `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, original `9cccf6cb7e4f7c92a8c514b48dc7a20dfe1775f5`, artifact publication `b632e5c8ef52693f4d75d7484631db09ae7c0e8d` | PENDING reviewed C0 contract-fix import, final artifact review/integration; publication paused to avoid stale contracts. Original full independent review CLEAR. M1 owner approved the exact read-only fixture forwarding; two author fixture tests passed. Depends on C0 and M1. Root reconciles shared ingestion/API overlap before landing. |
 | M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | LANDED PR #957 as eb62ad5e, reviewed tree b0c7c44c with parent0ebfd08e. Prior bounded fix retained; postmerge CI38099618928/smoke38099618926 SUCCESS (terminal comment6104002935). No new semantics grant. |
 | `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56` | LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
-| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, prior runtime source `4211c50f4e7dd66db475aa4c0658a3147dd18cb4`, current guard head `1a904bd00862998d0f97da6b4d92ea1666725730` | PENDING integration/live scorecard/fingerprint. Original runtime full review CLEAR with Linux272 pass. Exact prompt-surface/freeze guards and existing fingerprint path assigned for bounded scope validation; preserve 25 legacy entries and last_measured byte-for-byte. Business placeholder remains unmeasured until accepted evidence. Dependencies C0, Actions, M1. No #925 dependency. |
+| `/root/business_runtime_tools` / runtime tool adapter | `/tmp/cuadrao-business-runtime-tools-20261010`, prior runtime source `4211c50f4e7dd66db475aa4c0658a3147dd18cb4`, retained guard `1a904bd00862998d0f97da6b4d92ea1666725730`, scope guard `425330b36b38bb0ab013be0d7f7d944a1b5d0ff1`, generic product policy `a9b9756481a054479696309ece1a352f25d7262a` | PENDING integration/live scorecard/fingerprint. Original runtime full review CLEAR with Linux272 pass. Current raw Linux400:398PASS,2FAIL,0skip; both failures are unmeasured Business fingerprint gates, so no full pass. C0 wire-fix import/reconciliation pending before actual model proof. Exact prompt-surface/freeze guards and existing fingerprint path assigned for bounded scope validation; preserve 25 legacy entries and last_measured byte-for-byte. Exactly two Business scope placeholders remain unmeasured until accepted evidence. Dependencies C0, Actions, M1. No #925 dependency. |
 | `/root/business_contracts` / durable WhatsApp worker | `/tmp/cuadrao-business-durable-worker-20261010`; recovery source `d990643c4e08800b9052184d6b091bc1d4550ee2`, retained dependency merge `7be0590cce66f49d56e81a783f17bc2a751bf8aa`, final `7a8334ecb6a274180e1da6c5d9ce972fd3e6c23c` | PENDING root graft/integration; final full reviews CLEAR at 7a8334e, frozen local Postgres proof 174 passed. Depends on T1, Actions, M1, C0. Local worker/transport proof does not establish hosted delivery. |
 | `/root/business_eval` / evaluations | `/tmp/cuadrao-hosted-verification-20261010`; dependency assembly `39148680e6ff691804b3223d602212e7d2d94141`, owned implementation `7dda2a0f88cb1e3d7e35b69a9edafabf20705fdf`, retained PG proof head `8141382aa57bdffddaf54b8903b8067e966f94b7`, retained rubric-v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`, current role-aware hardening `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb` | PENDING independent hardening review/integration/live quality. Three-file hardening has 35 free tests passed; underlying runtime source unchanged. Prior8141 PG17/17 retained. Exact two Business acceptance entry files assigned within the existing harness. Both Grok calibrations FAILED; Haiku first-flow probe failed validation, no calibrated judge/runtime scorecard. |
 | `/root` / verification and serialized delivery | `/tmp/cuadrao-hosted-verification-20261010`; exact candidate recorded by root at each gate | Sole merge, live caller and staging owner. Reconcile dependent sources, review exact head, require CI/compatibility and distinguish local from hosted acceptance. |
@@ -189,10 +189,20 @@ one POST, HTTP200 stop after 7,129 ms, known cost $0.00180164, then
 optional/null value that the domain rejects as explicit null. Aggregate:
 22 actual POSTs, $0.01739781198 known cost and $0.79696 unresolved reservations.
 This is not a first-flow pass. Root assigned bounded model-independent C0 schema
-alignment and contract tests, preserving domain null rejection with no JSON-null
-normalization; exact C0 ownership paths await authorization. Actions publication
-is paused while its owner imports the reviewed fix. No blind retry occurred.
-No calibrated judge or live runtime scorecard exists. Next paid judge choice is pending; do not
+alignment and contract tests. Exact reviewed C0 source
+`878d159d72ba5c87e7fb66af995d9403e8a617e5` has full functional/comments
+reviews CLEAR and 46 independent contract tests passed; domain validator and
+serializer are unchanged, with no JSON-null normalization. Actions owns only
+`src/argus/domain/business/contracts/facts.py` and `tests/business/test_contracts.py`
+for importing this reviewed fix, followed by OpenAPI regeneration before
+publication. This transfers no broader C0 ownership. T1 and E1 reconcile that
+contract/product source before root's actual model proof. No blind retry occurred.
+At root's `2026-10-11T01:04:26Z` safe read, total development-key usage was
+$227.449928862 against the $300 authorized ceiling, leaving conservative
+$72.550071138 before unresolved reservations/concurrent usage; expiry remains
+`2026-10-12T02:21:00Z`. No provider call was running at this bounded checkpoint.
+Refresh before new calls. No calibrated judge or live runtime scorecard exists.
+Next paid judge choice is pending; do not
 automatically use Haiku as judge. Approved runtime comparison can use Haiku.
 Do not waive the live gate, fit product labels to Grok, or blindly retry.
 The [latest evaluation decision](argus-decision-log.md#october-11-2026-product-derived-evaluation-and-replaceable-model-configuration)
@@ -266,7 +276,15 @@ SimpleNamespace and read-only list_accounts forwarding, preserving
 422 human_approval_required with no writer or type bypass. E1 owns exactly
 `tests/evals/business_acceptance.py` and `tests/evals/test_business_acceptance.py`
 as scoped first-flow entry points in the existing harness, not a new framework.
-No other path expansion follows.
+T1's generic one-owner-question/funding-first policy is retained at
+`a9b9756481a054479696309ece1a352f25d7262a`, independently grounded in the
+[execution spec's question rule](lanes/cuadrao-business-agent-execution-spec.md#65-open-question)
+and J1 acceptance row (source lines294 and577). Scope guard
+`425330b36b38bb0ab013be0d7f7d944a1b5d0ff1` preserves 25 legacy entries and
+measured references; exactly two Business scopes stay unmeasured. At policy
+a9b975, raw Linux400 tests produced398PASS,2FAIL,0skip: both unmeasured
+Business fingerprint failures are actual failures, not a full pass. No other
+path expansion follows.
 
 Persisted AI-consent policy is still pending; default deny at the affected
 authorization boundary. Local runtime and any hybrid staging auth proof retain
