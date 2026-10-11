@@ -189,6 +189,13 @@ class BusinessWhatsAppWorker:
                     )
             elif self.actions is not None:
                 context = await asyncio.to_thread(self._authorization, captured, turn)
+                if turn is not None:
+                    turn = await asyncio.to_thread(
+                        self.turns.start_turn,
+                        turn_key=captured.turn_key,
+                        actor_id=captured.owner_id,
+                        lease=lease,
+                    )
             await self._send(captured, turn, context, lease)
         except BaseException as error:
             denied = isinstance(error, PermissionError) or getattr(
