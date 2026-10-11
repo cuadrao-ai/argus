@@ -2,16 +2,18 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import UUID
 
 import pytest
-from argus.domain.business.actions import BusinessActions, mutations
+from argus.domain.business.actions import BusinessActions, mutations, plans
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
     ApproveExpense,
+    CaptureCommand,
     CaptureNote,
+    OutcomeUnknown,
     ReviewDraft,
 )
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.facts import BusinessFactPatch
-from psycopg.types.json import Jsonb
+from argus.domain.business.transactions import transaction
 from psycopg_pool import ConnectionPool
 
 from tests import test_business_actions_postgres as shared
@@ -258,21 +260,24 @@ def test_capture_failure_rolls_back_source_candidate_and_receipt(actions, monkey
     assert note(service, context).outcome == "applied"
 
 
-def test_capture_unknown_outcome_is_not_reset(actions):
+@pytest.mark.parametrize("settled", [False, True], ids=["unset", "unknown"])
+def test_capture_unknown_outcome_is_not_reset(actions, settled):
     service, context, _ = actions
-    created = note(service, context)
-    with service.authority.pool.connection() as db:
-        db.execute(
-            "update public.business_action_receipts set outcome=%s where space_id=%s and idempotency_key='note'",
-            (
-                Jsonb({"outcome": "outcome_unknown", "code": "synthetic_unknown"}),
-                context.actor.space_id,
-            ),
-        )
-    result = note(service, context)
-    assert result.outcome == "outcome_unknown" and result.code == "synthetic_unknown"
-    assert service.dossier(context, created.draft_id).version == 1
-    assert counts(service, context) == (1, 1, 1, 0)
+    request = CaptureNote(text="Original pending note")
+    command = CaptureCommand(request=request)
+    expected = OutcomeUnknown(
+        code="synthetic_unknown" if settled else "business_action_unsettled"
+    )
+    with transaction(service.authority, context, "prepare") as tx:
+        plans.start_receipt(tx, "note", command)
+        if settled:
+            plans.finish_receipt(tx, "note", expected)
+        original = plans.receipt(tx, "note", command)
+    for _ in range(2):
+        assert service.capture(context, request, "note") == expected
+        assert counts(service, context) == (0, 0, 0, 0)
+        with transaction(service.authority, context) as tx:
+            assert plans.receipt(tx, "note", command) == original
 
 
 def test_capture_api_owner_scope_and_accountant_append(actions, users):
