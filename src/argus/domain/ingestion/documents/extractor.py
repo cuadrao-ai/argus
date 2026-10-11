@@ -9,9 +9,11 @@ import re
 from datetime import datetime
 from decimal import Decimal
 from typing import get_args
+from uuid import UUID
 
 from pydantic import ValidationError
 
+from argus.domain.business.contracts.facts import FiscalFacts
 from argus.domain.ingestion.contract import (
     AccountHint,
     Attachment,
@@ -29,6 +31,7 @@ from argus.domain.ingestion.documents.models import (
     ExtractionBatch,
     ExtractionResult,
     ProjectionIssue,
+    ReceiptDetails,
 )
 from argus.domain.ingestion.documents.preparation import prepare_document
 from argus.llm.openrouter import (
@@ -51,15 +54,42 @@ uncertain fields must be listed. A currency symbol $ alone does not identify a c
 Use positive decimal amounts (no thousands separators) and separate inflow/outflow.
 Bank debits are outflows and credits inflows; use the statement's account perspective.
 Opening, closing, available and running balances are balance evidence, never transactions.
-A receipt is one purchase at its final paid total, not one transaction per item, tax,
-subtotal or tender line. Card payment notices are not proof of a new purchase. Preserve
+A readable receipt that supports a purchase must
+include exactly one purchase in observations alongside receipt details.
+Use its printed final paid total and only source-supported date, currency and direction.
+Receipt details supplement this observation; they do not replace it. Never create separate
+transactions for items, tax, subtotal, tender or change. If the source does not support a
+purchase, do not invent an observation. Copy printed item amounts with their fractional
+digits intact; absent, unreadable or conflicting item values are null.
+Do not round or adjust item amounts to reconcile the receipt total.
+Card payment notices are not proof of a new purchase. Preserve
 statement periods separately. Do not infer a transaction from a change in balances.
 For each observation set page to its 1-based source page and row to its unique 1-based
 observation position on that page, in reading order. Include page numbers in pages_read.
 Only include account hints explicitly present in the source. Do not repeat complete
 account numbers, addresses, personal identifiers or document prose in descriptions.
 Descriptions and merchants should be short factual labels. Do not copy document text.
+For a receipt, read RNC, NCF, e-CF and the ITBIS monetary amount only when explicitly
+labeled in the source. These are unverified extracted evidence, never fiscal validation,
+issuance or a tax-treatment decision. Preserve printed identifiers in their own fields;
+do not infer NCF from e-CF or e-CF from NCF. If a fiscal value is absent, unreadable or
+conflicting, return null. Do not calculate ITBIS from a rate, subtotal or total, and do
+not substitute a generic tax line for ITBIS. Never invent fiscal defaults.
 """
+
+
+def fiscal_facts_from_receipt(receipt: ReceiptDetails, *, source_id: UUID) -> FiscalFacts:
+    facts = {}
+    for name in FiscalFacts.model_fields:
+        value = getattr(receipt, name)
+        facts[name] = {
+            "state": "unknown" if value is None else "known",
+            "value": value,
+            "origin": "extracted",
+            "verified": False,
+            "source_ids": (source_id,),
+        }
+    return FiscalFacts.model_validate(facts)
 
 
 def _plain_amount(value: str | None) -> bool:
