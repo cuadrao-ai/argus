@@ -3457,6 +3457,25 @@ a claim of one cross-service SQL transaction. Owner funds creates one expense
 without a Business bank debit and leaves capital/debt classification unresolved.
 Post-recording correction is unsupported in this slice.
 
+Migration `20261011110000_business_income_command.sql` extends the current
+`business_action_receipts_unplanned_command` constraint supplied by manual
+capture migration `20261011070000_business_manual_capture_command.sql`. It keeps
+`review_draft`, `approve_expense` and `capture_note`, and adds `approve_income`.
+The additional income constraint permits only actual `member` receipts without
+turn key or action index. Turn pairing, capture's human-only constraint,
+immutable actor/issuer/grant/command/hash, settled outcomes, RLS and lifecycle
+constraints are unchanged; no table, foreign key or client privilege is added.
+
+`IncomeApprovalCommand` stores the explicit `record_income` request and exact
+reviewed version. Its current facts remain `resolution.business`; the existing
+candidate acceptance claim and persisted canonical money request own recovery.
+No model action gains approval authority. Actions must recheck the original
+live grant and reviewed revision, require an explicit same-client receiving
+account, preserve income kind through the sole MoneyService and settle one
+canonical effect. Contract storage alone does not establish that income
+execution/readiness adapters have been delivered. Existing expense commands
+and their canonical hashes retain their behavior.
+
 Worker recovery consumes the persisted plan and receipts rather than asking the
 model to reinterpret a partially executed turn. Runtime compares normalized
 input hashes on replay and rejects changed input. Sender order and lease fences
