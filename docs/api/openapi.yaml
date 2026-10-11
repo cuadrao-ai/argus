@@ -10885,7 +10885,14 @@ components:
           - type: string
           - type: 'null'
         account_id:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
+          - type: 'null'
         occurred_on:
           type: string
           format: date
@@ -14755,6 +14762,11 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
+          - type: 'null'
         legs:
           items:
             $ref: '#/components/schemas/MoneyLegResponse'
@@ -16319,6 +16331,11 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
+          - type: 'null'
         legs:
           items:
             $ref: '#/components/schemas/MoneyLegResponse'
@@ -16498,6 +16515,10 @@ components:
           - refund
           - debt_payment
           - payment_reversal
+        owner_funding:
+          anyOf:
+          - $ref: '#/components/schemas/OwnerFunds'
+          - type: 'null'
         account_id:
           anyOf:
           - type: string
@@ -16918,6 +16939,19 @@ components:
       - reason
       - recorded_by
       - recorded_at
+    OwnerFunds:
+      properties:
+        owner_space_id:
+          type: string
+          format: uuid
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+      additionalProperties: false
+      type: object
+      required:
+      - owner_space_id
+      - currency
     PaginatedConversations:
       properties:
         items:
@@ -18456,6 +18490,11 @@ components:
         recorded_by:
           anyOf:
           - type: string
+          - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
           - type: 'null'
         legs:
           items:

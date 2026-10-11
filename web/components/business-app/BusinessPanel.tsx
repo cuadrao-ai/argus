@@ -17,7 +17,8 @@ export default function BusinessPanel() {
       {panel.kind === "inbox" ? <BusinessInboxPanel /> : null}
       {panel.kind === "expenses" ? <BusinessExpensesPanel /> : null}
       {panel.kind === "updates" ? <BusinessUpdatesPanel /> : null}
-      {panel.kind === "receipt" ? <ReceiptReviewPanel key={panel.receiptId} receiptId={panel.receiptId} /> : null}
+      {panel.kind === "receipt" ? <ReceiptReviewPanel key={panel.receiptId} target={{ kind: "receipt", id: panel.receiptId }} /> : null}
+      {panel.kind === "draft" ? <ReceiptReviewPanel key={panel.draftId} target={{ kind: "draft", id: panel.draftId }} /> : null}
     </div>
   );
 }
