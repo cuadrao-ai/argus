@@ -7,7 +7,7 @@ import {
   type HistoryItem,
   type TitleSource,
 } from "@/lib/argus-api";
-import { conversationDisplayTitle } from "@/lib/chat-title-display";
+import { conversationDisplayTitle, conversationTabTitle } from "@/lib/chat-title-display";
 
 type FallbackTitleConversation = {
   id: string;
@@ -97,14 +97,8 @@ export function useActiveConversationTitle({
   const headerConversationTitleSource = activeTitleRecord?.title_source ?? null;
 
   useEffect(() => {
-    const named =
-      isChatViewActive &&
-      activeTitleRecord &&
-      (activeTitleRecord.title_source === "ai_generated" ||
-        activeTitleRecord.title_source === "user_renamed") &&
-      activeTitleRecord.title.trim();
-    document.title = named ? `${activeTitleRecord.title} · Argus` : "Argus";
-  }, [isChatViewActive, activeTitleRecord]);
+    document.title = conversationTabTitle(activeTitleRecord, isChatViewActive, surface);
+  }, [isChatViewActive, activeTitleRecord, surface]);
 
   return {
     activeTitleRecord,

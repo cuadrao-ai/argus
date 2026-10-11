@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import AuthForm, {
   type AuthFormSubmission,
@@ -53,6 +54,7 @@ export default function LandingPage() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const isMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const [businessEntry, setBusinessEntry] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("intro");
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [profileProbeFailedClosed, setProfileProbeFailedClosed] =
@@ -60,6 +62,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     captureLandingIntentFromLocation();
+    setBusinessEntry(postAuthPath().split("?")[0] === "/biz");
     const nextAuthMode = authModeFromLocation();
     setAuthMode(nextAuthMode);
     if (skipAuthenticatedRedirect()) {
@@ -166,13 +169,20 @@ export default function LandingPage() {
   return (
     <>
       <DevModeBadge />
-      <main className="relative flex min-h-[100dvh] w-full flex-col justify-between overflow-hidden px-6 py-8 md:px-12">
+      <main className={`relative flex min-h-[100dvh] w-full flex-col justify-between overflow-hidden px-6 py-8 md:px-12 ${businessEntry ? "bg-[#fafbf8] dark:bg-[#172b26]" : ""}`}>
         <SettingsMenu />
 
         <div className="flex flex-grow items-center justify-center">
-          <h1 className="font-display text-6xl md:text-[80px] font-medium tracking-tight text-black dark:text-white z-10 select-none transition-colors">
-            argus
-          </h1>
+          {businessEntry ? (
+            <h1 className="z-10 w-[268px] max-w-full select-none" aria-label="Cuadrao">
+              <Image unoptimized loading="eager" src="/brand/cuadrao-lockup-light.svg" alt="" width={268} height={56} className="h-auto w-full dark:hidden" />
+              <Image unoptimized loading="eager" src="/brand/cuadrao-lockup-dark.svg" alt="" width={268} height={56} className="hidden h-auto w-full dark:block" />
+            </h1>
+          ) : (
+            <h1 className="font-display text-6xl md:text-[80px] font-medium tracking-tight text-black dark:text-white z-10 select-none transition-colors">
+              argus
+            </h1>
+          )}
         </div>
 
         <div className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4">
@@ -194,6 +204,7 @@ export default function LandingPage() {
               ) : (
                 <AuthForm
                   mode={isSignup ? "signup" : "login"}
+                  brand={businessEntry ? "cuadrao" : "argus"}
                   onModeChange={(mode) => updateAuthMode(mode)}
                   onSubmit={handleAuthSubmit}
                 />

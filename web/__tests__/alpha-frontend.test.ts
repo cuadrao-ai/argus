@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
+import assert from "node:assert/strict";
 import { join } from "node:path";
 import i18next from "i18next";
 import { createElement } from "react";
@@ -200,9 +201,10 @@ describe("Argus Alpha frontend contract", () => {
     expect(sidebar).toContain(
       '<PanelLeft className="h-5 w-5 text-black/60 dark:text-white/60" />',
     );
-    expect(sidebar).toContain(
-      '<ArgusLogo className="h-8 w-8 text-black dark:text-white" />',
-    );
+    assert.ok(sidebar.includes('useConversationSurface() === "business"'));
+    assert.ok(sidebar.includes('src="/brand/cuadrao-mark-light.svg"'));
+    assert.ok(sidebar.includes("<ArgusLogo"));
+    assert.ok(sidebar.includes('className="h-8 w-8 shrink-0 text-black dark:text-white"'));
     expect(existsSync(legacyPath)).toBe(true);
     expect(existsSync(faviconPath)).toBe(true);
 
