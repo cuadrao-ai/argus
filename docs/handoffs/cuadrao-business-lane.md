@@ -136,8 +136,13 @@ The manifest retains each capability outcome separately from database acceptance
 There is no calibrated judge or live runtime scorecard. The latest relayed parent
 grant now authorizes root alone to run one fresh `anthropic/claude-haiku-5.5`
 eight-case calibration under the same shared-key ceiling/expiry; it supersedes
-the pending choice for that run, without claiming success. Runtime comparison with approved Haiku is
-allowed under existing authority; no blind retry or live-gate bypass follows. The manifest retains the exact8141 local PG17/17
+the pending choice for that run. The actual attempt is **AUTO_REVIEW_BLOCKED**
+before CreateProcess, with **zero new generation POSTs** at
+`2026-10-11T07:23:54.216374Z`. Auto-review treated the trusted request as lane
+coordination and paid OpenRouter payload/destination approval as unconfirmed,
+despite the parent grant. Root retained `cuadrao-haiku-judge-auto-review-block.json`
+and an explicit approval question is pending. No bypass/retry or calibration pass
+follows; prior Grok failures remain unchanged. The manifest retains the exact8141 local PG17/17
 proof and reviewed E1 v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`,
 with fixtures and labels unchanged. Consent policy remains pending.
 
@@ -322,10 +327,12 @@ outcomes remain PENDING until their own implementation/acceptance evidence.
 of these five approved outcomes. Root has now assigned only the first manual-note
 backend package to existing C0/Actions owners; it does not close any of the five
 families or promote the sandbox wholesale. C0 manual contract fix is `4322f397d06bf228817e908407201e167582aaf7`,
-111 offline PASS and 15 Postgres skips, with independent rereview PENDING;
+independent rereview CLEAR (90 offline PASS), owner 111 offline PASS/15 Postgres
+skips. API-doc alignment is authorized; contract freeze and root Postgres proof
+remain PENDING.
 Actions clean reconciliation is `935beb3642d5ad12daab28ceeb78885147cb3639`, whose tree
 equals 479cc at that retained checkpoint; its manual capture draft is now
-uncommitted in the same worktree, awaiting cleared C0 contract. The [manifest's bounded allocation](../specs/argus-execution-board.md#bounded-manual-note-restoration-allocation)
+uncommitted in the same worktree, awaiting frozen C0 contract/API-doc alignment. The [manifest's bounded allocation](../specs/argus-execution-board.md#bounded-manual-note-restoration-allocation)
 reserves 70000 for C0 and assigns eight exact new allow paths. C0 alone freezes
 human Command/recovery, shared contract tests and API/data docs; Actions alone
 implements capture/list and generates OpenAPI afterward. Atomic immutable

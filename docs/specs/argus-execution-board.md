@@ -84,8 +84,8 @@ SUCCESS. This is not a full postmerge pass.
 | Owner / package | Worktree and source head | Disposition and dependency |
 | --- | --- | --- |
 | `/root/shared_context` / shared onboarding | `/tmp/cuadrao-hosted-context-20261010`, branch `codex/cuadrao-hosted-context-20261010`; retained owner source `d0605ce6e1c76113f60064705f8d1dd35f43405f`, retained reviewed allocation `02870b224d5423c18579cc8b9d3e2bdb72d07fb0`, authorized #964 import `8962a8575f682e7b5f1d6c68609d7921bcdc63a8` | #954, #958, #960 and #962 LANDED; current eight-path manual-note allocation PENDING independent review. Authored scope is ownership metadata and these two docs only. |
-| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, original source `2cf078c323816ca01e3a7022306ab9e52b7ec475`, retained label repair `9bbdeb8783d851b02113defc6a78eb651fcefd86`, manual contract fix `4322f397d06bf228817e908407201e167582aaf7` | #955, #961 and label repair #963 LANDED; #963 postmerge CI/smoke SUCCESS. Earlier 63/63 local Postgres proof retained. Manual contract fix has 111 offline PASS and 15 Postgres skips; independent rereview PENDING. Assigned CaptureNote contract/recovery/70000 migration and SQL proof before Actions; restoration remains PENDING and changes no approval authority. |
-| `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, retained reviewed source `76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c`, retained clean reconciliation `935beb3642d5ad12daab28ceeb78885147cb3639` (tree equals 479cc) | #959 LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`; postmerge CI38107050284 and smoke38107050280 succeeded. Manual capture/list implementation is retained uncommitted in this worktree, awaiting cleared C0 contract before generated OpenAPI/review; restoration PENDING. #961 subsequently LANDED server BoundDraft. Business quality/hosted acceptance remain pending. |
+| `/root/business_contracts` / C0 | `/tmp/cuadrao-hosted-runtime-20261010`, original source `2cf078c323816ca01e3a7022306ab9e52b7ec475`, retained label repair `9bbdeb8783d851b02113defc6a78eb651fcefd86`, manual contract fix `4322f397d06bf228817e908407201e167582aaf7` | #955, #961 and label repair #963 LANDED; #963 postmerge CI/smoke SUCCESS. Earlier 63/63 local Postgres proof retained. Manual contract fix has independent rereview CLEAR (90 offline PASS), owner 111 offline PASS/15 Postgres skips. API-doc alignment is authorized but freeze/root Postgres proof remain PENDING. Assigned CaptureNote contract/recovery/70000 migration and SQL proof before Actions; restoration remains PENDING and changes no approval authority. |
+| `/root/business_actions` / canonical draft actions | `/tmp/cuadrao-business-actions-20261010`, retained reviewed source `76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c`, retained clean reconciliation `935beb3642d5ad12daab28ceeb78885147cb3639` (tree equals 479cc) | #959 LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`; postmerge CI38107050284 and smoke38107050280 succeeded. Manual capture/list implementation is retained uncommitted in this worktree, awaiting frozen C0 contract/API-doc alignment before generated OpenAPI/review; restoration PENDING. #961 subsequently LANDED server BoundDraft. Business quality/hosted acceptance remain pending. |
 | M1 / owner-funded expenses; `/root/business_contracts` as bounded publication maintainer | `/tmp/cuadrao-owner-funds-20261010`; accepted source `09bcac9e4fec3b332f967f57a993f36723f5ea23`, maintained census `faf32a9400d0611847c52c2ce7e02868bd09de95`, publication `2660c7914e010bca4897a5ba1b0baf9e7e29d1fa`, bounded fix `5b6dd4c932246691c8f1b19245ef7e5e4ce3deb2` | LANDED PR #957 as eb62ad5e, reviewed tree b0c7c44c with parent0ebfd08e. Prior bounded fix retained; postmerge CI38099618928/smoke38099618926 SUCCESS (terminal comment6104002935). No new semantics grant. |
 | `/root/accountant_view` / accountant record and branding | `/tmp/cuadrao-hosted-web-20261010`; reviewed `85d564ae1b998d3f372828728855dab26e5b5deb`, C0 reconciliation `7667ee1e19589bed2e00aa1b9c08600965554860`, evidence publication `17d972bcbb2a8d18bd6155afb5810cbccc7f9e56`, current clean `0d8afb73e040f80a6df271435cac4a4aa29b8749` | Actual visible replay and app captures active. Manual-capture UI depends on backend freeze; no new UI path assigned here. LANDED PR #956 as 0ebfd08e at 00:19:57Z; exact published-head CI/smokes succeeded, 53-file external ownership passed and five image hashes matched. Postmerge smoke38098062178/fullCI38098062185 fully SUCCESS; terminal comment6103805934. Hosted acceptance and missing retained hover/note outcomes remain open. |
 | `/root/accountant_ui_review` / preserved capture and search audit | Read-only original human approvals and preserved sandbox `df208f7ec2379cd84efd55eea0deb685d67c5360` | Read-only source/decision/coverage audit continues for the remaining families. The first bounded manual-note backend slice is now assigned to C0/Actions; the audit grants no broader implementation scope. |
@@ -355,8 +355,14 @@ judge or live runtime scorecard exists.
 The latest coordinator-relayed parent grant authorizes root alone to run one
 fresh `anthropic/claude-haiku-5.5` eight-case judge calibration under the
 existing shared-key ceiling and expiry. This supersedes the pending judge-choice
-blocker for that bounded run; no successful calibration is claimed. Approved
-runtime comparison can also use Haiku.
+blocker for that bounded run. The actual attempt is **AUTO_REVIEW_BLOCKED**:
+review rejected it before CreateProcess, with **zero new generation POSTs** at
+`2026-10-11T07:23:54.216374Z`. It treated the trusted user request as lane
+coordination only and the paid OpenRouter payload/destination approval as
+unconfirmed despite the explicit parent grant. Root retained
+`cuadrao-haiku-judge-auto-review-block.json` in the root task workspace and asked
+for explicit approval; the question is pending. No bypass or retry occurred.
+Both prior Grok failures stay unchanged; no calibrated judge is claimed.
 Do not waive the live gate, fit product labels to Grok, or blindly retry.
 The [latest evaluation decision](argus-decision-log.md#october-11-2026-product-derived-evaluation-and-replaceable-model-configuration)
 keeps fixed product-derived labels/rubric independent of a model, lean replaceable
@@ -387,7 +393,8 @@ unknown timeout above; no prompt tuning or successful runtime result is claimed.
 Bounded instrumented latency/capability tests are approved under the existing
 budget and named model IDs; the dated capability and failed first-flow probes
 above retain their actual outcomes. The freshly authorized Haiku eight-case
-judge calibration remains unproven. Product targets stay fixed, with no blind retry.
+judge attempt is AUTO_REVIEW_BLOCKED with zero new calls. Product targets stay
+fixed, with no blind retry.
 Full runtime/live scorecard and calibrated judge gates remain open.
 
 The [scoped Business acceptance grant](argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics)
