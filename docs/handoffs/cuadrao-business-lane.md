@@ -1,13 +1,19 @@
 # Cuadrao Business lane handoff
 
-**Current checkpoint under the October 10 23:37 UTC continuation.** Canonical
-integration is `52ce3620a729b2d8fb80d3bdfe99fdddeae19931`, #960 boundary allocation
-LANDED with reviewed tree `0a4279fc0be5b72efada7c516dcb3b92d4d62a37`; postmerge
-CI verification is pending. Root approved only the additional T1 existing-module
-path `src/argus/llm/openrouter_model_env.py` to move Luna capability metadata/helper,
-preserving profiles/behavior with no new module/framework or budget bypass.
-That follow-up, foreign fixture reconciliation, actual quality, judge, consent
-and hosted gates remain PENDING. Earlier #958 owner-handoff
+**Current October 11 coordinator checkpoint.** Canonical integration is
+`39c5322d5e2a3d6470d1dbd2d3661e557a824f14`: #961 BoundDraft LANDED
+on parent `598e1c3db0ff58108f8cfd83fa37c579dc11054d`, tree
+`71fc8f9eafdc4cfb4b10e2dc6b242259ce9d69f3`. Its
+[postmerge smoke 38108733609](https://github.com/lagarcess/argus/actions/runs/38108733609)
+succeeded; [required CI 38108733535](https://github.com/lagarcess/argus/actions/runs/38108733535)
+is pending at this checkpoint. #959 Actions LANDED at `598e1c3db0ff58108f8cfd83fa37c579dc11054d`
+with [postmerge CI 38107050284](https://github.com/lagarcess/argus/actions/runs/38107050284)
+and [smoke 38107050280](https://github.com/lagarcess/argus/actions/runs/38107050280)
+successful. #960 boundary allocation LANDED at `52ce3620a729b2d8fb80d3bdfe99fdddeae19931`,
+reviewed tree `0a4279fc0be5b72efada7c516dcb3b92d4d62a37`. The additional T1
+existing-module path `src/argus/llm/openrouter_model_env.py` remains allocated
+for capability metadata/helper. Current T1 schema-delivery work, actual Business
+quality, calibrated judge, consent and hosted gates remain PENDING. Earlier #958 owner-handoff
 LANDED with [postmerge CI38102305608](https://github.com/lagarcess/argus/actions/runs/38102305608)
 and [smoke38102305601](https://github.com/lagarcess/argus/actions/runs/38102305601)
 fully successful. Its tree equals retained context source
@@ -25,8 +31,6 @@ CI and smoke all succeeded ([comment 6103620102](https://github.com/lagarcess/ar
 `77ddf2c7d33cc4c7273cc4c39354b5152fe01e91`, with passed exact
 [CI](https://github.com/lagarcess/argus/actions/runs/38087059299) and
 [smoke](https://github.com/lagarcess/argus/actions/runs/38087059317).
-Actions PR #959 remains PENDING backend CI diagnosis at
-`76df8349994c28dd8bb6a3ddb7bc0b13cf61c51c`, with no root merge.
 The latest October 11 parent-thread01a11879 authorization bounds C0/T1 semantic
 input → server-verified target/receipt revision and capability-based omission of
 Luna-unsupported parameters. C0 owns durable contracts/reference resolution;
@@ -36,8 +40,8 @@ new split test and T1 four new paths. The shared LunaPro omission applies across
 requests/tasks from verified bare/dated model capability, preserving strict
 parameters/schema/reasoning/token bounds, with no per-call lookup or new routing
 platform. Current ARCH trust roots and deterministic authority/revision/idempotency
-remain. Implementation, review
-and actual model quality remain PENDING; no V2 platform, provider/key or deploy
+remain. The C0 server binding is LANDED in #961; T1's current schema-eligibility
+reconciliation and actual model quality remain PENDING, with no V2 platform, provider/key or deploy
 expansion follows. No hosted customer acceptance follows from these landings. Consumer retains
 its acceptance ownership.
 
@@ -84,10 +88,10 @@ $0.32048). A subsequent October 11 21-call snapshot adds DeepSeek's small-schema
 capability pass (5,732 ms), full 16,211-byte schema timeout (20.023 seconds,
 $0.32048 unknown reservation), and Haiku's full-schema structured-plan pass
 (6,548 ms, no database proof): total known cost $0.01559617198, unknown reserves
-$0.79696. The latest October 11 checkpoint adds Haiku's first-flow probe at
+$0.79696. An earlier October 11 checkpoint added Haiku's first-flow probe at
 3baaefa9: one POST, HTTP200 stop, 7,129 ms, $0.00180164, then ValidationError
 because published BusinessFactPatch optional/null schema conflicts with domain
-explicit-null rejection. Latest total: 22 actual POSTs, $0.01739781198 known
+explicit-null rejection. That checkpoint totaled 22 actual POSTs, $0.01739781198 known
 cost and $0.79696 unknown reserves. No first-flow pass or blind retry occurred.
 Root's bounded model-independent C0 wire fix is reviewed CLEAR at
 `878d159d72ba5c87e7fb66af995d9403e8a617e5`, with 46 independent contract tests
@@ -96,16 +100,44 @@ Actions owns exactly `src/argus/domain/business/contracts/facts.py` and
 `tests/business/test_contracts.py` for
 this reviewed import and regenerates OpenAPI before publication; no broader C0
 ownership transfers. T1/E1 reconcile the contract/product source before actual
-root model proof. At root's safe read `2026-10-11T01:04:26Z`, total key usage
-$227.449928862 leaves conservative $72.550071138 from the authorized $300
-ceiling before unknown reserves/concurrent usage, with the existing expiry.
-No provider call was running at that checkpoint; refresh before further calls.
+root model proof. The latest root accounting is **79 actual POSTs**, known cost
+**$0.06294062698** and unresolved unknown-outcome reservations **$1.43792**.
+At the safe key read `2026-10-11T03:34:02.221575Z`, conservative allowance
+remaining under the authorized $300 ceiling was **$72.504528323**, before
+unknown reservations or concurrent usage; expiry remains `2026-10-12T02:21:00Z`.
+The earlier 01:04:26Z read is historical. Refresh before further calls.
 The manifest retains each capability outcome separately from database acceptance.
 There is no calibrated judge or live runtime scorecard. Next paid judge choice is pending; do not
 automatically select Haiku as judge. Runtime comparison with approved Haiku is
 allowed under existing authority; no blind retry or live-gate bypass follows. The manifest retains the exact8141 local PG17/17
 proof and reviewed E1 v2 head `c563df7a8b6c79ac4f777c9d16017ae51b9b3027`,
 with fixtures and labels unchanged. Consent policy remains pending.
+
+The E1 funding-follow-up oracle/source reconciliation is retained at
+`233701a7ab2f6335d70d728ff6d9e354b331ed49`, Business implementation tree
+`4038a181838fcbe85653e1b3dcad06f453b0b3b7`, fixture digest
+`b48528df9ee8f1cc42951d1117060c17c9ef8f338ead268084fb39768a23acac`.
+Its narrow review and 24 free tests passed; actual Postgres recapture and live
+quality remain PENDING. The earlier held-out Haiku capture remains FAILED and
+is not retroactively relabeled. E1 alone owns two additional existing-harness
+paths for generic full-schema fake transport reconciliation:
+`tests/evals/chat_runtime_trajectory_adapters.py` and
+`tests/evals/test_chat_runtime_trajectory_harness.py`. Typed validation,
+trajectory assertions, product labels and the rubric stay intact.
+
+Root's separate controlled local connected readback at
+`/Users/garces/Documents/Codex/2026-10-10/task/cuadrao-connected-browser-final-db-readback.json`
+records one authenticated conversation to a draft at v3, human review at v4,
+and approval at v6 of reviewed v4: one 850 Money record, zero Business-bank and
+Personal balance/version movements, and HTTP 404 outside the named grant.
+The fresh Spanish (`es-419`) browser readback passed and retained
+`output/playwright/connected-flow-spanish-approved.png`. This verifies a local
+synthetic first flow, not a phone, hosted WhatsApp delivery, calibrated live
+quality, consent or customer readiness. The observed generic `Member` actor
+display label remains a presentation defect; C0's bounded full-name repair
+at `6d10d49a01f25a7bcbaff531bf8e9e1451316956` has 75 offline tests passed,
+14 Postgres tests unrun and independent review PENDING. It changes no grants,
+schema or historical backfill.
 
 The [latest approved evaluation direction](../specs/argus-decision-log.md#october-11-2026-product-derived-evaluation-and-replaceable-model-configuration)
 (`Sentinel_ed9f3b917d5081919e00f16339503f7b`) fixes product-derived labels/rubric
@@ -121,12 +153,17 @@ one-owner-question/funding-first policy `a9b9756481a054479696309ece1a352f25d7262
 retain the existing execution-spec rules at source lines294 and577/J1. At a9b975,
 raw Linux400 tests yielded398PASS,2FAIL,0skip; both unmeasured Business
 fingerprint gates actually failed, so this is not a full pass. The
+newer T1 three-path schema-eligibility delta is frozen but uncommitted at
+`be33e20ae55fbfa962461e7f60cc8c6c54049e3c`: 208 provider-policy tests
+passed, while its broader run had 719 passes and 19 real failures (17 existing
+fake-provider harness recognition failures and two unmeasured Business gates).
+Generic fake-transport reconciliation belongs to E1; no check is waived. The
 live gate, passing Business measurement and precisely named future evidence paths
 remain pending. Actions' exact owner-funds fixture forwarding is approved by M1,
 preserving 422 human_approval_required. E1's two exact Business acceptance entry
-files extend the existing harness only; no broader ownership follows. Current E1 hardening is committed at
+files extend the existing harness only; no broader ownership follows. Earlier E1 hardening was committed at
 `3baaefa911d3dbc3da99b0fc89d06a42b52cfabb`: three files, 35 free tests passed,
-underlying runtime source unchanged; independent review pending. It passes explicit
+underlying runtime source unchanged at that checkpoint. It passes explicit
 per-run `judge_model` through the existing invocation/scorecard and requires
 successful task-role/schema/model receipts for runtime and judge separately.
 Keep rubric/labels/schema/cases fixed. Runtime tuning holds out
