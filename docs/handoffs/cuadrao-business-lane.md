@@ -1,8 +1,10 @@
 # Cuadrao Business lane handoff
 
 **Current October 11 coordinator checkpoint.** #970 MERGED at canonical
-`b8c84da159bab701aeb3bdefbd7c38f3c516978c`; root postmerge smoke SUCCESS,
-CI RUNNING, no post-CI PASS claimed. Prior #969 MERGED at
+`b8c84da159bab701aeb3bdefbd7c38f3c516978c`; exact postmerge
+CI38137452792/smoke38137452793 SUCCESS, verified by root at2026-10-11
+12:12:33UTC (`cuadrao-pr970-postmerge-audit.json`, terminalcomment6108893236).
+Earlier postsmoke SUCCESS/CI RUNNING observation remains historical evidence. Prior #969 MERGED at
 `e465c2fe4bf7e2749215bc677a1fa225adab384c` from exact reviewedce2c. Root
 Postmerge CI38134421380 and smoke38134421396 terminal SUCCESS after normal
 same-head retries; preserve attempt1 Git disconnect and frontend Next tarball
@@ -640,7 +642,9 @@ PASS/zero skips; income Actions `1bdebf814a28fa5bc947a4bc337717167bd09f13`
 has root126 actual PG PASS/zero skips; export
 `c30c40aade7f07f80bc161dade4734ed4ad8ea8a` has root106 actual PG PASS/zero
 skips. Income C0 is now LANDED as #970 atb8c84da159bab701aeb3bdefbd7c38f3c516978c,
-postsmoke SUCCESS/CI RUNNING. Actions and export remain local/unlanded; their
+exact postmerge CI38137452792/smoke38137452793 SUCCESS; earlier postsmoke
+SUCCESS/CI RUNNING observation retained as historical. Actions and export remain
+local/unlanded; their
 publication and all hosted acceptance remain pending.
 Root holds Income Actions #971 for required generated-artifact reconciliation:
 initial exact-source OpenAPI selection24 produced22 PASS/2 FAIL, retained. The
