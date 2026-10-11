@@ -6,12 +6,17 @@ alter table public.financial_document_extractions
             and preparation_binding->'schema_version' = '1'::jsonb
             and preparation_binding ?& array['binding_id','space_id','owner_id',
                 'connection_id','source_sha256','actor','target','consent','captured_at']
+            and jsonb_typeof(preparation_binding->'binding_id') = 'string'
+            and jsonb_typeof(preparation_binding->'captured_at') = 'string'
+            and jsonb_typeof(preparation_binding->'source_sha256') = 'string'
             and preparation_binding->>'connection_id' = connection_id::text
             and preparation_binding->>'owner_id' = user_id::text
             and preparation_binding->>'source_sha256' ~ '^[0-9a-f]{64}$'
             and preparation_binding->'consent' = 'true'::jsonb
             and jsonb_typeof(preparation_binding->'actor') = 'object'
             and preparation_binding->'actor'->>'actor_kind' = 'extractor'
+            and jsonb_typeof(preparation_binding->'actor'->'display_name') = 'string'
+            and jsonb_typeof(preparation_binding->'actor'->'issuer_display_name') = 'string'
             and (preparation_binding->'target' = 'null'::jsonb or (
                 jsonb_typeof(preparation_binding->'target') = 'object'
                 and preparation_binding->'target' ?& array['draft_id','version']

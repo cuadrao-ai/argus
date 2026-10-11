@@ -296,3 +296,17 @@ def test_connection_delete_purges_binding_and_personal_unbound_is_unchanged(
         " where connection_id=%s",
         (personal,),
     ).fetchone() == (None,)
+
+
+@pytest.mark.parametrize("field", ["binding_id", "captured_at", "display_name"])
+def test_original_binding_rejects_null_audit_identity(
+    db: Connection,
+    binding: dict,
+    field: str,
+) -> None:
+    if field == "display_name":
+        binding["actor"][field] = None
+    else:
+        binding[field] = None
+    with pytest.raises(errors.CheckViolation), db.transaction():
+        capture(db, binding)
