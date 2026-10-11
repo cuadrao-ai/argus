@@ -455,3 +455,123 @@ def test_business_model_prompt_uses_capabilities_without_execution_schema():
         '"TurnPlan"',
     ):
         assert internal not in prompt
+
+
+def test_sparse_fact_policy_distinguishes_absence_from_explicit_uncertainty():
+    from argus.agent_runtime.business.interpretation import BusinessRecordIntent
+
+    description = BusinessRecordIntent.model_json_schema()["properties"]["facts"][
+        "description"
+    ]
+    assert "omit absent fields" in description
+    assert "explicit unknown" in description
+    prompt = business_interpretation_prompt({})[0]["content"]
+    assert "Include only facts stated or corrected by this message" in prompt
+    assert "Do not fill absent facts with unknown" in prompt
+    assert "Leave unnamed currency omitted" in prompt
+
+
+def test_activity_kind_policy_does_not_infer_debt_from_a_payment_instrument():
+    prompt = business_interpretation_prompt({})[0]["content"]
+    assert "A card mention alone does not establish later payment or a payable" in prompt
+    assert "Preserve explicit income, credit, loan and uncertain debt semantics" in prompt
+
+
+@pytest.mark.parametrize(
+    "currency",
+    [
+        None,
+        {"state": "unknown"},
+        {"state": "owner_does_not_know"},
+        {"state": "known", "value": "USD"},
+    ],
+)
+def test_semantic_sparse_currency_preserves_canonical_default_and_explicit_states(
+    currency,
+):
+    from uuid import uuid4
+
+    from argus.agent_runtime.business.binding import (
+        capture_business_snapshot,
+        compile_business_plan,
+    )
+    from argus.agent_runtime.business.interpretation import BusinessInterpretation
+    from argus.domain.business.actions.facts import patched_facts
+
+    source_id = uuid4()
+    facts = {
+        "kind": {"state": "known", "value": "expense"},
+        "amount": {"state": "known", "value": "37"},
+    }
+    if currency is not None:
+        facts["currency"] = currency
+    interpretation = BusinessInterpretation.model_validate(
+        {"records": [{"facts": facts}]}
+    )
+    plan = compile_business_plan(
+        interpretation,
+        snapshot=capture_business_snapshot({"drafts": [], "questions": []}),
+        source_id=source_id,
+    )
+    after = patched_facts(
+        None, plan.actions[0].facts, plan.actions[0].source_ids, origin="owner_stated"
+    )
+    if currency is None:
+        assert after.currency.value == "DOP"
+        assert after.currency.origin == "default"
+        assert after.currency.source_ids == ()
+    else:
+        assert after.currency.state == currency["state"]
+        assert after.currency.value == currency.get("value")
+        assert after.currency.origin == "owner_stated"
+        assert after.currency.source_ids == (source_id,)
+    assert after.currency.verified is False
+    assert after.occurred_on.origin is None
+    assert after.occurred_on.source_ids == ()
+
+
+def test_omitted_currency_and_date_retain_prior_sources_during_a_correction():
+    from uuid import uuid4
+
+    from argus.domain.business.actions.facts import patched_facts
+    from argus.domain.business.contracts.facts import BusinessFactPatch
+
+    first_source, correction_source = uuid4(), uuid4()
+    before = patched_facts(
+        None,
+        BusinessFactPatch(
+            currency={"state": "known", "value": "USD"},
+            occurred_on={"state": "known", "value": "2026-10-08"},
+            amount={"state": "known", "value": "37"},
+        ),
+        (first_source,),
+        origin="owner_stated",
+    )
+    after = patched_facts(
+        before,
+        BusinessFactPatch(amount={"state": "known", "value": "29"}),
+        (correction_source,),
+        origin="owner_stated",
+    )
+    assert after.currency == before.currency
+    assert after.occurred_on == before.occurred_on
+    assert after.amount.value == "29"
+    assert after.amount.source_ids == (correction_source,)
+
+
+def test_question_policy_qualifies_funding_priority_and_preserves_uncertainty():
+    prompt = business_interpretation_prompt({})[0]["content"]
+    assert "with an absent amount, ask for the amount first" in prompt
+    assert (
+        "Once the amount is known, ask about unknown funding before other missing facts"
+        in prompt
+    )
+    assert (
+        "After a known answer, propose at most one useful still-required owner fact as a question to persist with Ask"
+        in prompt
+    )
+    assert (
+        "An owner_does_not_know answer moves its existing question to the accountant; do not duplicate or reask it"
+        in prompt
+    )
+    assert "Do not require confirmation of facts already supplied" in prompt
