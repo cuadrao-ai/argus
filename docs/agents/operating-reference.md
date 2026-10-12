@@ -1036,8 +1036,8 @@ Never:
 `scripts/ops/staging_env.py` makes the two Render staging services
 (`cuadrao-api-staging`, `cuadrao-web-staging`) match
 `scripts/ops/staging_env_manifest.json`, the one owner of their variable names.
-Plain values live in the manifest; secrets never do. Staging only: `apply`
-refuses a service whose Render name differs from the manifest. Output carries
+Plain values live in the manifest; secrets never do. Staging only. The two service ids are pinned in the code, and the
+Render name is checked before any read. `apply` writes only with `--confirm`. Output carries
 names, never values. It needs `RENDER_API_KEY` in the shell (not read from `.env`).
 
 Secrets come from `~/.cuadrao/staging-secrets.env` (mode 600, `NAME=value`).
@@ -1046,8 +1046,8 @@ The two generated names (`CUADRAO_WHATSAPP_VERIFY_TOKEN`,
 
 ```bash
 python3 scripts/ops/staging_env.py plan [api|web]        # names only: add, update, ok, delete, hold, extra, MISSING
-python3 scripts/ops/staging_env.py apply --dry-run       # same, plus guards; writes nothing
-python3 scripts/ops/staging_env.py apply [api|web]       # one Render env update per service, so one deploy
+python3 scripts/ops/staging_env.py apply [api|web]       # dry run: same as plan plus guards; writes nothing
+python3 scripts/ops/staging_env.py apply --confirm [api|web]  # writes: one Render env update per service, so one deploy
 python3 scripts/ops/staging_env.py check [api|web]       # exit 1 when a manifest name is missing live
 python3 scripts/ops/staging_env.py clipboard api|web     # .env block to the macOS clipboard, for Render "Add from .env"
 python3 scripts/ops/staging_env.py show-verify-token     # copies the verify token for Meta, never prints it

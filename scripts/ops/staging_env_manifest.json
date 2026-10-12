@@ -157,12 +157,18 @@
         {
           "name": "ARGUS_HOUSEHOLDS_ENABLED",
           "kind": "plain",
-          "value": "true"
+          "value": "true",
+          "requires": [
+            "ARGUS_INVITE_CODE_SECRET"
+          ]
         },
         {
           "name": "ARGUS_BETA_INVITES_ENABLED",
           "kind": "plain",
-          "value": "true"
+          "value": "true",
+          "requires": [
+            "ARGUS_INVITE_CODE_SECRET"
+          ]
         },
         {
           "name": "ARGUS_IN_PLACE_CARD_EDITS_ENABLED",
@@ -186,6 +192,11 @@
           "name": "ARGUS_INVITE_FOUNDER_USER_ID",
           "kind": "secret",
           "optional": true
+        },
+        {
+          "name": "ARGUS_CORS_ALLOW_ORIGINS",
+          "kind": "plain",
+          "value": "https://cuadrao-web-staging.onrender.com"
         }
       ],
       "remove": [

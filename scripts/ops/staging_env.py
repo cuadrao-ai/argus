@@ -1,6 +1,6 @@
 """Make the two Render staging services match scripts/ops/staging_env_manifest.json.
 
-Commands: plan, apply [--dry-run], check, clipboard api|web, show-verify-token.
+Commands: plan, apply [--confirm], check, clipboard api|web, show-verify-token.
 Output carries variable names only, never values. Staging services only: the
 manifest names both service ids and apply refuses any service whose Render name
 differs from the manifest's.
@@ -21,6 +21,8 @@ from pathlib import Path
 from typing import Any, Callable, Protocol
 
 MANIFEST_PATH = Path(__file__).with_name("staging_env_manifest.json")
+STAGING_IDS = {"api": "srv-db4mrrvlk1mc73d733j0", "web": "srv-db5ihr7lot8c73f3b3h0"}
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SECRETS_FILE = Path.home() / ".cuadrao" / "staging-secrets.env"
 RENDER_API = "https://api.render.com/v1"
 VERIFY_TOKEN_NAME = "CUADRAO_WHATSAPP_VERIFY_TOKEN"
@@ -74,7 +76,10 @@ class HttpRenderClient:
             suffix = f"&cursor={cursor}" if cursor else ""
             rows = self._call("GET", f"/services/{service_id}/env-vars?limit=100{suffix}")
             for row in rows:
-                env[row["envVar"]["key"]] = row["envVar"].get("value") or ""
+                key, value = row["envVar"]["key"], row["envVar"].get("value")
+                if value is None:
+                    raise RenderError(f"{key} has no readable value; refusing to overwrite it")
+                env[key] = value
             if len(rows) < 100:
                 return env
             cursor = rows[-1]["cursor"]
@@ -91,8 +96,15 @@ def load_manifest(path: Path = MANIFEST_PATH) -> dict[str, Any]:
 
 
 def validate_manifest(manifest: dict[str, Any]) -> None:
+    if set(manifest["services"]) != set(STAGING_IDS):
+        raise ManifestError("manifest must describe exactly the api and web staging services")
     for label, service in manifest["services"].items():
+        if service["service_id"] != STAGING_IDS[label]:
+            raise ManifestError(f"{label}: service id is not the pinned staging service")
         entries = {e["name"]: e for e in service["entries"]}
+        for entry in service["entries"]:
+            if any(r not in entries for r in entry.get("requires", [])):
+                raise ManifestError(f"{label}: {entry['name']} requires an entry that is missing")
         names = [e["name"] for e in service["entries"]]
         names += [r["name"] for r in service["remove"]] + [h["name"] for h in service["hold"]]
         duplicates = sorted({n for n in names if names.count(n) > 1})
@@ -122,6 +134,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
 
 
 def read_secrets(path: Path) -> dict[str, str]:
+    if REPO_ROOT in path.resolve().parents:
+        raise ManifestError("secrets file must live outside the repository")
     if not path.exists():
         return {}
     if path.stat().st_mode & 0o077:
@@ -163,8 +177,14 @@ def compute_plan(
     generator: Callable[[], str] = lambda: secrets_module.token_urlsafe(48),
 ) -> Plan:
     plan = Plan(final=dict(live))
-    for entry in service["entries"]:
+    ordered = sorted(service["entries"], key=lambda e: bool(e.get("requires")))
+    for entry in ordered:
         name, kind = entry["name"], entry["kind"]
+        unmet = [r for r in entry.get("requires", []) if r not in plan.final]
+        if unmet:
+            plan.problems.append(f"{name} waits for {', '.join(unmet)}")
+            plan.actions.append((name, "blocked"))
+            continue
         desired: str | None = None
         if kind == "plain" and "value" in entry:
             desired = str(entry["value"])
@@ -236,6 +256,12 @@ def to_clipboard(text: str) -> None:
     subprocess.run(["pbcopy"], input=text.encode(), check=True)
 
 
+def read_live(client: RenderClient, service: dict[str, Any]) -> dict[str, str]:
+    if client.service_name(service["service_id"]) != service["service_name"]:
+        raise RenderError(f"service id does not match {service['service_name']}; refusing")
+    return client.list_env(service["service_id"])
+
+
 def _services(manifest: dict[str, Any], which: str) -> list[tuple[str, dict[str, Any]]]:
     items = list(manifest["services"].items())
     return items if which == "all" else [(which, manifest["services"][which])]
@@ -254,7 +280,6 @@ def run(
     out: Callable[[str], None] = print,
 ) -> int:
     parser = argparse.ArgumentParser(prog="staging_env")
-    parser.add_argument("--manifest", type=Path, default=MANIFEST_PATH)
     parser.add_argument(
         "--secrets-file",
         type=Path,
@@ -265,12 +290,12 @@ def run(
         sub.add_parser(name).add_argument("service", nargs="?", default="all", choices=["all", "api", "web"])
     apply_parser = sub.add_parser("apply")
     apply_parser.add_argument("service", nargs="?", default="all", choices=["all", "api", "web"])
-    apply_parser.add_argument("--dry-run", action="store_true")
+    apply_parser.add_argument("--confirm", action="store_true", help="write to Render; without it apply is a dry run")
     sub.add_parser("clipboard").add_argument("service", choices=["api", "web"])
     sub.add_parser("show-verify-token")
     args = parser.parse_args(argv)
 
-    manifest = load_manifest(args.manifest)
+    manifest = load_manifest()
     file_secrets = read_secrets(args.secrets_file)
 
     if args.command == "show-verify-token":
@@ -278,7 +303,7 @@ def run(
         if token is None:
             api = manifest["services"]["api"]
             if os.environ.get("RENDER_API_KEY"):
-                token = _client(client_factory).list_env(api["service_id"]).get(VERIFY_TOKEN_NAME)
+                token = read_live(_client(client_factory), api).get(VERIFY_TOKEN_NAME)
             if token is None:
                 token = secrets_module.token_urlsafe(48)
                 append_secret(args.secrets_file, VERIFY_TOKEN_NAME, token)
@@ -291,7 +316,7 @@ def run(
         service = manifest["services"][args.service]
         live: dict[str, str] = {}
         if os.environ.get("RENDER_API_KEY"):
-            live = _client(client_factory).list_env(service["service_id"])
+            live = read_live(_client(client_factory), service)
         plan = compute_plan(service, live, file_secrets)
         managed = {e["name"] for e in service["entries"]} - set(plan.missing)
         block = {k: v for k, v in plan.final.items() if k in managed}
@@ -306,7 +331,7 @@ def run(
     client = _client(client_factory)
     failed = False
     for label, service in _services(manifest, args.service):
-        live = client.list_env(service["service_id"])
+        live = read_live(client, service)
         plan = compute_plan(service, live, file_secrets)
         out(render_plan(label, plan, service))
         if args.command == "plan":
@@ -318,13 +343,11 @@ def run(
             out(f"  not applying {label}: fix the items above first")
             failed = True
             continue
-        if client.service_name(service["service_id"]) != service["service_name"]:
-            raise RenderError(f"{label}: service id does not match {service['service_name']}; refusing")
         if not plan.changes:
             out(f"  {label}: already matches the manifest")
             continue
-        if args.dry_run:
-            out(f"  dry run: nothing written to {label}")
+        if not args.confirm:
+            out(f"  dry run: nothing written to {label}; add --confirm to apply")
             continue
         for name, value in plan.generated.items():
             append_secret(args.secrets_file, name, value)

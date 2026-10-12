@@ -152,7 +152,7 @@ def test_apply_single_put_per_service_and_never_prints_values(manifest, tmp_path
     client, secrets_path = make_env(tmp_path, manifest)
     write_secrets(secrets_path, full_secrets())
     lines: list[str] = []
-    code = se.run(["--secrets-file", str(secrets_path), "apply"], client_factory=lambda k: client, out=lines.append)
+    code = se.run(["--secrets-file", str(secrets_path), "apply", "--confirm"], client_factory=lambda k: client, out=lines.append)
     assert code == 0
     assert [sid for sid, _ in client.puts] == ["srv-db4mrrvlk1mc73d733j0", "srv-db5ihr7lot8c73f3b3h0"]
     api_env = client.puts[0][1]
@@ -169,11 +169,11 @@ def test_apply_second_run_is_noop(manifest, tmp_path, monkeypatch):
     monkeypatch.setenv("RENDER_API_KEY", "k")
     client, secrets_path = make_env(tmp_path, manifest)
     write_secrets(secrets_path, full_secrets())
-    se.run(["--secrets-file", str(secrets_path), "apply"], client_factory=lambda k: client, out=lambda s: None)
+    se.run(["--secrets-file", str(secrets_path), "apply", "--confirm"], client_factory=lambda k: client, out=lambda s: None)
     for sid, env in client.puts:
         client.live[sid] = env
     client.puts.clear()
-    se.run(["--secrets-file", str(secrets_path), "apply"], client_factory=lambda k: client, out=lambda s: None)
+    se.run(["--secrets-file", str(secrets_path), "apply", "--confirm"], client_factory=lambda k: client, out=lambda s: None)
     assert client.puts == []
 
 
@@ -181,16 +181,27 @@ def test_apply_refuses_when_secrets_missing(manifest, tmp_path, monkeypatch):
     monkeypatch.setenv("RENDER_API_KEY", "k")
     client, secrets_path = make_env(tmp_path, manifest)
     write_secrets(secrets_path, {})
-    code = se.run(["--secrets-file", str(secrets_path), "apply", "api"], client_factory=lambda k: client, out=lambda s: None)
+    code = se.run(["--secrets-file", str(secrets_path), "apply", "--confirm", "api"], client_factory=lambda k: client, out=lambda s: None)
     assert code == 1 and client.puts == []
 
 
 def test_dry_run_writes_nothing_and_does_not_create_secrets(manifest, tmp_path, monkeypatch):
     monkeypatch.setenv("RENDER_API_KEY", "k")
     client, secrets_path = make_env(tmp_path, manifest)
-    code = se.run(["--secrets-file", str(secrets_path), "apply", "--dry-run"], client_factory=lambda k: client, out=lambda s: None)
+    code = se.run(["--secrets-file", str(secrets_path), "apply"], client_factory=lambda k: client, out=lambda s: None)
     assert client.puts == [] and not secrets_path.exists()
     assert code == 1  # secrets still missing
+
+
+def test_apply_without_confirm_never_writes(manifest, tmp_path, monkeypatch):
+    monkeypatch.setenv("RENDER_API_KEY", "k")
+    client, secrets_path = make_env(tmp_path, manifest)
+    write_secrets(secrets_path, full_secrets())
+    lines: list[str] = []
+    code = se.run(["--secrets-file", str(secrets_path), "apply"], client_factory=lambda k: client, out=lines.append)
+    assert code == 0 and client.puts == [] and any("--confirm" in l for l in lines)
+    se.run(["--secrets-file", str(secrets_path), "apply", "--confirm"], client_factory=lambda k: client, out=lambda s: None)
+    assert len(client.puts) == 2
 
 
 def test_generated_values_are_created_once_and_kept(manifest, tmp_path, monkeypatch):
@@ -198,14 +209,14 @@ def test_generated_values_are_created_once_and_kept(manifest, tmp_path, monkeypa
     client, secrets_path = make_env(tmp_path, manifest)
     secrets = {k: v for k, v in full_secrets().items() if "VERIFY" not in k and "SENDER" not in k}
     write_secrets(secrets_path, secrets)
-    se.run(["--secrets-file", str(secrets_path), "apply", "api"], client_factory=lambda k: client, out=lambda s: None)
+    se.run(["--secrets-file", str(secrets_path), "apply", "--confirm", "api"], client_factory=lambda k: client, out=lambda s: None)
     stored = se.read_secrets(secrets_path)
     assert len(stored["CUADRAO_WHATSAPP_VERIFY_TOKEN"]) >= 43 and len(stored["CUADRAO_WHATSAPP_SENDER_KEY"]) >= 43
     sid, env = client.puts[0]
     assert env["CUADRAO_WHATSAPP_VERIFY_TOKEN"] == stored["CUADRAO_WHATSAPP_VERIFY_TOKEN"]
     before = dict(stored)
     client.live[sid] = env
-    se.run(["--secrets-file", str(secrets_path), "apply", "api"], client_factory=lambda k: client, out=lambda s: None)
+    se.run(["--secrets-file", str(secrets_path), "apply", "--confirm", "api"], client_factory=lambda k: client, out=lambda s: None)
     assert se.read_secrets(secrets_path) == before
 
 
@@ -215,7 +226,7 @@ def test_apply_refuses_wrong_service_name(manifest, tmp_path, monkeypatch):
     client.names["srv-db4mrrvlk1mc73d733j0"] = "argus-api-production"
     write_secrets(secrets_path, full_secrets())
     with pytest.raises(se.RenderError):
-        se.run(["--secrets-file", str(secrets_path), "apply", "api"], client_factory=lambda k: client, out=lambda s: None)
+        se.run(["--secrets-file", str(secrets_path), "apply", "--confirm", "api"], client_factory=lambda k: client, out=lambda s: None)
     assert client.puts == []
 
 
@@ -277,3 +288,88 @@ def test_show_verify_token_clipboard_only(manifest, tmp_path, monkeypatch, capsy
     assert sent == [token.encode()]
     assert token not in capsys.readouterr().out
     assert path.stat().st_mode & 0o777 == 0o600
+
+
+def manifest_file(tmp_path, mutate):
+    data = json.loads(se.MANIFEST_PATH.read_text())
+    mutate(data)
+    path = tmp_path / "m.json"
+    path.write_text(json.dumps(data))
+    return path
+
+
+def test_unpinned_service_id_refused(tmp_path):
+    path = manifest_file(tmp_path, lambda d: d["services"]["api"].update(service_id="srv-production-1"))
+    with pytest.raises(se.ManifestError):
+        se.load_manifest(path)
+
+
+def test_no_manifest_flag_exists(tmp_path):
+    with pytest.raises(SystemExit):
+        se.run(["--manifest", str(tmp_path / "m.json"), "plan"])
+
+
+def test_name_mismatch_refuses_before_any_read(manifest, tmp_path, monkeypatch):
+    monkeypatch.setenv("RENDER_API_KEY", "k")
+    client, secrets_path = make_env(tmp_path, manifest)
+    client.names["srv-db4mrrvlk1mc73d733j0"] = "argus-api-production"
+    reads: list[str] = []
+    original = client.list_env
+    client.list_env = lambda sid: reads.append(sid) or original(sid)
+    for command in (["plan", "api"], ["check", "api"], ["apply", "--confirm", "api"]):
+        with pytest.raises(se.RenderError):
+            se.run(["--secrets-file", str(secrets_path), *command], client_factory=lambda k: client, out=lambda s: None)
+    assert reads == [] and client.puts == []
+
+
+def test_null_env_value_raises_instead_of_blanking():
+    class Http:
+        def request(self, method, path, **kwargs):
+            class R:
+                status_code = 200
+
+                def json(self):
+                    return [{"envVar": {"key": "DATABASE_URL", "value": None}, "cursor": "c"}]
+
+            return R()
+
+    client = se.HttpRenderClient.__new__(se.HttpRenderClient)
+    client._http = Http()
+    with pytest.raises(se.RenderError) as err:
+        client.list_env("srv-1")
+    assert "DATABASE_URL" in str(err.value)
+
+
+def test_secrets_file_inside_repo_refused():
+    with pytest.raises(se.ManifestError):
+        se.read_secrets(se.REPO_ROOT / "temp" / "secrets.env")
+
+
+def test_cors_origin_in_manifest(manifest):
+    entry = next(e for e in manifest["services"]["api"]["entries"] if e["name"] == "ARGUS_CORS_ALLOW_ORIGINS")
+    assert entry["value"] == "https://cuadrao-web-staging.onrender.com"
+
+
+def test_households_wait_for_invite_secret(manifest):
+    service = manifest["services"]["api"]
+    for entry in service["entries"]:
+        if entry["name"] == "ARGUS_INVITE_CODE_SECRET":
+            entry["kind"] = "secret"
+    live = live_for(manifest, "api", AUDIT_API)
+    plan = se.compute_plan(service, live, {})
+    actions = dict(plan.actions)
+    assert actions["ARGUS_HOUSEHOLDS_ENABLED"] == "blocked" and actions["ARGUS_BETA_INVITES_ENABLED"] == "blocked"
+    assert "ARGUS_HOUSEHOLDS_ENABLED" not in plan.final
+
+
+def test_plan_and_dry_run_output_never_leak_values(manifest, tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("RENDER_API_KEY", "rnd_APIKEYVALUE")
+    client, secrets_path = make_env(tmp_path, manifest)
+    write_secrets(secrets_path, full_secrets())
+    secrets = list(full_secrets().values()) + SECRET_VALUES + ["rnd_APIKEYVALUE", "guest-different-EEEE5555"]
+    secrets += [v for env in client.live.values() for v in env.values()]
+    for command in (["plan"], ["apply"], ["check"]):
+        capsys.readouterr()
+        se.run(["--secrets-file", str(secrets_path), *command], client_factory=lambda k: client)
+        captured = capsys.readouterr()
+        assert not [v for v in secrets if v in captured.out + captured.err]
