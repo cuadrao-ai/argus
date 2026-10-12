@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, MessageSquareWarning } from "lucide-react";
-import type { WorkspaceSearch, WorkspaceSearchGroup } from "@/components/chat/ChatWorkspace";
+import type { WorkspaceSearch, WorkspaceSearchGroup, WorkspaceSearchHit } from "@/components/chat/ChatWorkspace";
 import { panelFailureIconClass } from "@/lib/failure-treatment";
 import { searchQueryIsIndexable } from "@/lib/search-text";
 
 const DEBOUNCE_MS = 200;
+export const HOVER_PREVIEW_MS = 200;
 const HIT = "data-workspace-hit";
 
 export type WorkspaceSearchState =
@@ -89,13 +90,28 @@ export function WorkspaceSearchResults({
   state,
   retry,
   onOpened,
+  onPreview,
+  onSelect,
+  selectedKey,
 }: {
   search: WorkspaceSearch;
   state: WorkspaceSearchState;
   retry: () => void;
   onOpened: () => void;
+  /** Hover and keyboard focus show the hit's record without opening it. */
+  onPreview?: (groupId: string, hit: WorkspaceSearchHit) => void;
+  /** Click and Enter keep the hit's record in the pane or sheet. */
+  onSelect?: (groupId: string, hit: WorkspaceSearchHit) => void;
+  selectedKey?: string;
 }) {
   const { copy } = search;
+  // Hover waits a beat so a pointer crossing the list does not fetch every record.
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelHover = () => {
+    if (hoverTimer.current !== null) clearTimeout(hoverTimer.current);
+    hoverTimer.current = null;
+  };
+  useEffect(() => cancelHover, []);
   if (state.status === "idle") return null;
   if (state.status === "loading") {
     return (
@@ -140,7 +156,21 @@ export function WorkspaceSearchResults({
                 type="button"
                 {...{ [HIT]: "" }}
                 data-row-action
-                onClick={() => {
+                aria-pressed={onSelect && hit.preview ? selectedKey === `${group.id}:${hit.id}` : undefined}
+                onMouseEnter={hit.preview && onPreview ? () => {
+                  cancelHover();
+                  hoverTimer.current = setTimeout(() => onPreview(group.id, hit), HOVER_PREVIEW_MS);
+                } : undefined}
+                onMouseLeave={hit.preview ? cancelHover : undefined}
+                onFocus={hit.preview ? () => onPreview?.(group.id, hit) : undefined}
+                onClick={(event) => {
+                  cancelHover();
+                  // One pointer click or tap keeps the record in the pane; Enter,
+                  // Space and a double click open it, as every row did before.
+                  if (onSelect && hit.preview && event.detail === 1) {
+                    onSelect(group.id, hit);
+                    return;
+                  }
                   onOpened();
                   hit.open();
                 }}

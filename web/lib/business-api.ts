@@ -83,6 +83,34 @@ export type ReceiptDetail = ReceiptSummary & BusinessRecordContext & {
   missing_fields: (keyof ReceiptReviewFields)[];
 };
 
+export function businessExportPeriodValid(start: string, end: string): boolean {
+  const date = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000-")) return NaN;
+    const parsed = Date.parse(`${value}T00:00:00Z`);
+    return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === value ? parsed : NaN;
+  };
+  const days = (date(end) - date(start)) / 86_400_000;
+  return days >= 0 && days <= 365;
+}
+
+export async function fetchBusinessExport(draftId: string, start: string, end: string, signal?: AbortSignal): Promise<Blob> {
+  const authHeaders = await authenticatedRequestHeaders();
+  signal?.throwIfAborted();
+  const query = new URLSearchParams({ start, end, draft_id: draftId });
+  const response = await fetch(`${ARGUS_API_BASE_URL}/business/exports?${query}`, {
+    headers: authHeaders, credentials: "include", cache: "no-store", signal,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const error = new Error("Business export unavailable") as Error & { status: number; code: string };
+    error.status = response.status;
+    error.code = body?.detail?.code ?? body?.code ?? "unknown";
+    throw error;
+  }
+  if (response.headers.get("Content-Type")?.split(";")[0].trim() !== "application/zip") throw new Error("Invalid Business export response");
+  return response.blob();
+}
+
 export async function getBusinessDossier(draftId: string): Promise<BusinessDossier> {
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/dossier`);
 }

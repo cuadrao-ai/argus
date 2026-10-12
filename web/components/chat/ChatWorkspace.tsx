@@ -46,6 +46,8 @@ export type WorkspaceSearchHit = Readonly<{
   detail: string;
   amount: string | null;
   open: () => void;
+  /** The record behind the hit, shown beside the results before it opens. */
+  preview?: ReactNode;
 }>;
 
 export type WorkspaceSearchGroup = Readonly<{
@@ -60,6 +62,8 @@ export type WorkspaceSearchGroup = Readonly<{
  * Each group is already authorized and matched by the workspace's backend.
  */
 export type WorkspaceSearch = Readonly<{
+  /** Hits carry previews, so the palette keeps its dossier pane and sheet. */
+  previewAvailable?: boolean;
   find: (query: string) => Promise<readonly WorkspaceSearchGroup[]>;
   copy: Readonly<{
     placeholder: string;
