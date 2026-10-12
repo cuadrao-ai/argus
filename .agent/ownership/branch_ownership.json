@@ -678,9 +678,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-file-types-20261012": {
@@ -704,6 +704,94 @@
         "tests/ingestion/test_documents_api.py",
         "tests/ingestion/test_email_source.py",
         "tests/test_document_extractions_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        ".env.*",
+        "web/.env.*",
+        "web/.env.local"
+      ]
+    },
+    "codex/cuadrao-business-upload-queue-20261012": {
+      "description": "Business receipt upload queue: several files per upload with per-file rejection, failure and retry; UI only, no backend ownership.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/receipt-upload-queue.test.ts",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ReceiptIntakeDialog.tsx",
+        "web/components/business-app/receipt-file.ts",
+        "web/components/business-app/receipt-upload-queue.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-business-notes-inbox-20261012": {
+      "description": "Business Inbox lists saved notes awaiting review from the landed captures API; UI only, no backend ownership.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-inbox-notes.test.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-business-email-intake-20261012": {
+      "description": "Business email receiving: signed Resend webhook, exact recipient routes bound to a live grant, durable delivery queue with bounded retry, per-part capture into the owner's Business. Code and synthetic tests only; no hosted credentials.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "docs/specs/lanes/account-deletion-fk-census.md",
+        "src/argus/api/app_setup.py",
+        "src/argus/api/documents.py",
+        "src/argus/api/email_intake.py",
+        "src/argus/api/routers/email_intake.py",
+        "src/argus/api/routers/financial_accounts.py",
+        "src/argus/domain/business/receipts.py",
+        "src/argus/domain/ingestion/documents/config.py",
+        "src/argus/domain/ingestion/documents/email_source.py",
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "src/argus/domain/ingestion/documents/preparation.py",
+        "src/argus/domain/ingestion/documents/tabular.py",
+        "src/argus/domain/ingestion/email_intake/__init__.py",
+        "src/argus/domain/ingestion/email_intake/config.py",
+        "src/argus/domain/ingestion/email_intake/envelope.py",
+        "src/argus/domain/ingestion/email_intake/models.py",
+        "src/argus/domain/ingestion/email_intake/provider.py",
+        "src/argus/domain/ingestion/email_intake/service.py",
+        "src/argus/domain/ingestion/email_intake/signatures.py",
+        "src/argus/domain/ingestion/email_intake/store.py",
+        "supabase/migrations/20261012020000_document_source_media_types.sql",
+        "supabase/migrations/20261012030000_business_email_intake.sql",
+        "tests/business/test_business_api.py",
+        "tests/business/test_business_email_api.py",
+        "tests/ingestion/test_document_flat_files.py",
+        "tests/ingestion/test_document_preparation.py",
+        "tests/ingestion/test_documents_api.py",
+        "tests/ingestion/test_email_intake_service.py",
+        "tests/ingestion/test_email_source.py",
+        "tests/test_business_email_intake_postgres.py",
+        "tests/test_client_grants_postgres.py",
+        "tests/test_document_extractions_postgres.py",
+        "tests/test_email_intake_provider.py",
+        "tests/test_email_intake_settings.py"
       ],
       "deny": [
         ".env",

@@ -24,7 +24,7 @@ const es: PrivacyCopy = {
       id: "data",
       title: "Qué datos recibimos",
       paragraphs: [
-        "Si nos escribes: tu nombre, tu correo, el comentario opcional y el idioma de la página. Los usamos para responderte.",
+        "Si nos escribes: tu nombre, tu correo, el comentario opcional, el idioma de la página y, si lo compartes, tu número de WhatsApp. Los usamos para responderte.",
         "Si pides acceso anticipado a Cuadrao Personal: tu correo, el idioma de la página, la fecha del registro y la versión de este texto que aceptaste. Los usamos solo para avisarte cuando haya acceso disponible. Registrarte no crea una cuenta ni garantiza acceso inmediato.",
         "Cuando visitas el sitio: el proveedor de alojamiento puede registrar datos técnicos de la conexión, como la dirección IP.",
         "Para frenar envíos automáticos, el sitio guarda tu dirección IP y, si nos escribes, tu correo en la memoria del servidor, no en una base de datos. Se olvidan en un máximo de dos horas, o antes si el servicio se reinicia.",
@@ -79,7 +79,7 @@ const en: PrivacyCopy = {
       id: "data",
       title: "What data we receive",
       paragraphs: [
-        "If you write to us: your name, your email, the optional comment and the page language. We use them to reply to you.",
+        "If you write to us: your name, your email, the optional comment, the page language and, if you share it, your WhatsApp number. We use them to reply to you.",
         "If you request Cuadrao Personal early access: your email, the page language, the signup date and the version of this text you accepted. We use them only to tell you when access is available. Signing up does not create an account or guarantee immediate access.",
         "When you visit the site: the hosting provider may record technical connection data, such as the IP address.",
         "To slow down automated submissions, the site keeps your IP address and, if you write to us, your email in the server's memory, not in a database. They are forgotten after at most two hours, or sooner if the service restarts.",
