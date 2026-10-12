@@ -6,6 +6,7 @@ struct ConnectedCuadraoShell: View {
     @EnvironmentObject private var auth: ProfileAuthModel
     @Environment(\.locale) private var locale
     @State private var tab: CuadraoTab = .home
+    @StateObject private var saveResult = CuadraoSaveResult()
     @State private var destination: AppDestination = .home
     @State private var sheet: FoundationSheet?
     @State private var navigationScroll = CuadraoNavigationScroll()
@@ -71,6 +72,9 @@ struct ConnectedCuadraoShell: View {
             if let loop = auth.financialLoop { FinancialEditorPresenter(loop: loop, appearance: appearance) }
         }
         .background {
+            if let loop = auth.financialLoop { ConnectedSaveNoticeObserver(loop: loop, result: saveResult, spanish: spanish, view: viewActivity) }
+        }
+        .background {
             if let accounts = auth.accounts, let loop = auth.financialLoop {
                 FinancialDomainPresenter(accounts: accounts, plan: loop.plan, loop: loop, search: auth.financialSearch)
             }
@@ -126,6 +130,8 @@ struct ConnectedCuadraoShell: View {
             chat: chat,
             spanish: spanish
         )
+        .environmentObject(saveResult)
+        .cuadraoSaveResult(saveResult, spanish: spanish)
         .tint(WelcomePalette.pine)
         .foregroundStyle(WelcomePalette.ink)
         .background(WelcomePalette.background.ignoresSafeArea())
@@ -138,6 +144,12 @@ struct ConnectedCuadraoShell: View {
             searchDetail = false
             chat = CuadraoChatPreview(spanish: spanish, includeExamples: false)
         }
+    }
+
+    /// "Ver" on a save notice opens the new movement from wherever the person is.
+    private func viewActivity(_ id: UUID) {
+        tab = .home
+        homePath = [.activity(id)]
     }
 
     private var showsNavigation: Bool {

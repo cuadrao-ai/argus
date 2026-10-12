@@ -18,7 +18,6 @@ struct ConnectedCuadraoHome: View {
     @State private var sheet: HomeSheet?
     @State private var moreAccount: FinancialAccount?
     @State private var archivedID: UUID?
-    @StateObject private var result = CuadraoSaveResult()
     @State private var accountOrder: [UUID] = []
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
@@ -137,20 +136,6 @@ struct ConnectedCuadraoHome: View {
                 CuadraoToast(text: spanish ? "Cuenta archivada" : "Account archived", actionTitle: spanish ? "Deshacer" : "Undo",
                     actionIdentifier: "accounts.archived.undo", action: { restore(archivedID) }, spanish: spanish,
                     closeIdentifier: "accounts.archived.close", token: archivedID, close: { self.archivedID = nil })
-            }
-        }
-        .cuadraoSaveResult(result, spanish: spanish)
-        .onChange(of: loop.saveNotice) { _, notice in
-            guard let notice else { return }
-            // A connected create has no authorized delete, so the notice offers "Ver", never Undo.
-            if let id = notice.activityID, !notice.corrected {
-                result.saved(spanish ? "Movimiento guardado" : "Transaction saved", highlight: id,
-                             actionTitle: spanish ? "Ver" : "View", actionIdentifier: "toast.view") {
-                    homePath.append(.activity(id)); result.dismiss()
-                }
-            } else {
-                result.saved(notice.corrected ? (spanish ? "Cambios guardados" : "Changes saved") : (spanish ? "Guardado" : "Saved"),
-                             highlight: notice.activityID)
             }
         }
         .onChange(of: accounts.identity?.revision) { _, _ in archivedID = nil }
