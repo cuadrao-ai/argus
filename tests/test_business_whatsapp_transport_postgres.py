@@ -75,6 +75,18 @@ async def test_interrupted_provider_outcome_is_never_retried(world, failure):
 
 
 @pytest.mark.asyncio
+async def test_without_ai_consent_the_owner_hears_that_plainly_and_no_model_runs(world):
+    message = world.message()
+    world.captures.capture(message)
+    assert await world.worker(synthetic_consent=False).run_once()
+    assert world.executor.interpretations == []
+    assert [m["text"]["body"] for m in world.transport.messages] == [
+        "Todavía no has dado permiso para que Cuadrao lea tus mensajes con IA. "
+        "Puedes activarlo en Ajustes, en WhatsApp."
+    ]
+
+
+@pytest.mark.asyncio
 async def test_invalid_model_output_tells_the_owner_once_and_is_never_replayed(world):
     world.executor.invalid_output = True
     message = world.message()

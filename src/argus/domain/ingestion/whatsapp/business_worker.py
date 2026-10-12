@@ -143,11 +143,17 @@ class BusinessWhatsAppWorker:
                             self.outbox.mark_unknown, captured, lease=lease
                         )
                         return
+                    missing = await asyncio.to_thread(
+                        self._consent_missing, captured, lease
+                    )
                     await asyncio.to_thread(
                         self.outbox.save_reply,
                         captured,
                         compose_reply(
-                            "whatsapp_receipt_missing", language=captured.language
+                            "whatsapp_ai_consent_missing"
+                            if missing
+                            else "whatsapp_receipt_missing",
+                            language=captured.language,
                         ),
                         lease=lease,
                         fixed=True,
@@ -246,6 +252,22 @@ class BusinessWhatsAppWorker:
             lease=lease,
             fixed=True,
         )
+
+    def _consent_missing(self, captured: CapturedText, lease: SenderLease) -> bool:
+        """The agent is otherwise able to answer, but the owner has not given
+        permission for AI reading yet."""
+
+        available = bool(
+            self.enabled()
+            and self.actions is not None
+            and self.execute_turn is not None
+            and self.captures.live_binding(captured, lease=lease)
+        )
+        if not available:
+            return False
+        if self.consent is None:
+            return not self.has_consent(captured.space_id, captured.owner_id)
+        return captured.ai_consent_id is None
 
     def _may_interpret(self, captured: CapturedText, lease: SenderLease) -> bool:
         available = bool(
