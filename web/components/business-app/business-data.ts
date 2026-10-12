@@ -16,6 +16,7 @@ import type {
   ReceiptDetail,
   ReceiptReviewFields,
   ReceiptSummary,
+  BusinessAccess,
 } from "@/lib/business-api";
 
 /**
@@ -56,6 +57,10 @@ export type BusinessDataSource = Readonly<{
   emailDeliveries: () => Promise<BusinessEmailDelivery[]>;
   emailDelivery: (id: string) => Promise<BusinessEmailDetail>;
   retryEmailDelivery: (id: string) => Promise<{ id: string }>;
+  access: () => Promise<BusinessAccess>;
+  giveAccess: (email: string) => Promise<BusinessAccess>;
+  revokeAccessGrant: (id: string) => Promise<void>;
+  revokeAccessInvite: (id: string) => Promise<void>;
 }>;
 
 export const liveBusinessDataSource: BusinessDataSource = {
@@ -85,6 +90,10 @@ export const liveBusinessDataSource: BusinessDataSource = {
   emailDeliveries: api.listBusinessEmailDeliveries,
   emailDelivery: api.getBusinessEmailDelivery,
   retryEmailDelivery: api.retryBusinessEmailDelivery,
+  access: api.getBusinessAccess,
+  giveAccess: api.giveBusinessAccess,
+  revokeAccessGrant: api.revokeBusinessAccessGrant,
+  revokeAccessInvite: api.revokeBusinessAccessInvite,
 };
 
 export function withBusinessSpace(
@@ -132,5 +141,9 @@ export function withBusinessSpace(
     emailDeliveries: after(source.emailDeliveries),
     emailDelivery: source.emailDelivery,
     retryEmailDelivery: source.retryEmailDelivery,
+    access: after(source.access),
+    giveAccess: after(source.giveAccess),
+    revokeAccessGrant: source.revokeAccessGrant,
+    revokeAccessInvite: source.revokeAccessInvite,
   };
 }

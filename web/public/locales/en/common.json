@@ -2601,5 +2601,32 @@
     "out_of_range": "This amount is too large to record.",
     "ambiguous_currency": "$ could mean RD$ or US$. Enter the amount without a symbol, or with RD$ or US$.",
     "same_amount": "Same amount, no conversion."
+  },
+  "business_access": {
+    "nav": "Access",
+    "title": "Access",
+    "subtitle": "Who can see and prepare your business records. Only you approve.",
+    "owner": "Owner",
+    "member": "Reads and prepares",
+    "since": "Since {{date}}",
+    "pending_title": "Pending invites",
+    "pending_until": "Expires {{date}}",
+    "pending_note": "Gets access the first time they sign in with this confirmed email.",
+    "give_title": "Give access to your accountant",
+    "give_body": "Enter their email. They can see and prepare receipts. They can never approve.",
+    "email_label": "Email address",
+    "give": "Give access",
+    "giving": "Giving access...",
+    "remove": "Remove access",
+    "remove_confirm": "Remove access for {{who}}? They stop seeing and preparing at once.",
+    "remove_invite": "Cancel invite",
+    "remove_invite_confirm": "Cancel the invite for {{who}}?",
+    "confirm": "Yes, remove",
+    "cancel": "Cancel",
+    "error": "We couldn't load access. Try again.",
+    "invalid_email": "Enter an email address.",
+    "give_error": "We couldn't give access. Try again.",
+    "remove_error": "We couldn't remove access. Try again.",
+    "owner_locked": "Your own access cannot be removed."
   }
 }
