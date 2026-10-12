@@ -1025,7 +1025,19 @@
       "problem_unavailable": "WhatsApp is not available yet.",
       "problem_space_missing": "Start your business space first, then link your number.",
       "problem_rate_limited": "Too many codes. Wait a few minutes and try again.",
-      "problem_failed": "WhatsApp could not be reached. Try again."
+      "problem_failed": "WhatsApp could not be reached. Try again.",
+      "problem_stale": "The text changed since you last read it. Read it again and try once more.",
+      "ai_title": "Let AI read my WhatsApp messages",
+      "ai_on": "On. You can turn it off at any time.",
+      "ai_off": "Off. Cuadrao cannot answer your messages yet.",
+      "ai_models": "Provider: OpenRouter. Models: {{models}}.",
+      "ai_approval": "You always approve money records yourself in Cuadrao.",
+      "ai_reason_unavailable": "AI reading cannot be turned on right now.",
+      "ai_reason_whatsapp_link_required": "Link your number first.",
+      "ai_reason_business_permission_denied": "Your account cannot turn it on for this business.",
+      "ai_reason_business_unavailable": "Create your business space first.",
+      "ai_reason_whatsapp_unavailable": "WhatsApp is not available yet.",
+      "ai_reason_whatsapp_ai_route_unavailable": "The AI service is not available right now. Try again later."
     },
     "title": "Settings",
     "profile": {
