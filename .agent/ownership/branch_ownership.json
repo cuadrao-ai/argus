@@ -1062,6 +1062,24 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-single-candidate-draft-20261012": {
+      "description": "A clean single-purchase read always becomes one draft; a saved read whose hosted hand-off refused or failed is retryable from the inbox with its real code, never a dead 'no purchase found'.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "src/argus/domain/business/receipts.py",
+        "src/argus/domain/ingestion/receipt_review.py",
+        "tests/business/test_business_handoff_retry.py",
+        "tests/test_business_single_candidate_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }

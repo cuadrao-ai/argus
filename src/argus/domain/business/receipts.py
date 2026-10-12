@@ -192,6 +192,9 @@ class Receipt:
         if blocker == "not_prepared":
             if not self.draft.source_available:
                 return "source_unavailable"
+            if self.review.evidence is not None:
+                # The read is saved; only the hand-off to a record failed.
+                return "interrupted"
             return _UNREAD_ATTENTION.get(self.draft.error_code or "", "other")
         if self.entered_by_owner:
             # The owner's entry stopped before it reached review.
