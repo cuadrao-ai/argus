@@ -91,7 +91,8 @@ def recorded_counts(world):
             for sql in (
                 "select count(*) from business_sources where space_id=%s",
                 "select count(*) from financial_import_events where owner_space_id=%s",
-                "select count(*) from business_action_receipts where space_id=%s",
+                "select count(*) from business_action_receipts where space_id=%s"
+                " and command->>'action' <> 'owner_grant'",
                 "select count(*) from financial_records where owner_space_id=%s",
             )
         )
@@ -128,7 +129,9 @@ async def test_actual_graph_actions_and_outbox_replay_one_original_message(
             == message.body
         )
         rows = db.execute(
-            "select actor from business_action_receipts where space_id=%s", (world.space,)
+            "select actor from business_action_receipts where space_id=%s"
+            " and command->>'action' <> 'owner_grant'",
+            (world.space,),
         ).fetchall()
         assert all(row[0] == turn.plan_actor.model_dump(mode="json") for row in rows)
 

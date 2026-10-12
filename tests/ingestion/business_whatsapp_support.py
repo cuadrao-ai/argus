@@ -169,6 +169,12 @@ def build_world(pool, owner, space):
     turns = BusinessTurnStore(pool)
     actions = ScriptedActions(turns, pool)
     with pool.connection() as connection:
+        # A new space is born with the owner's own grant; this world uses its own.
+        connection.execute(
+            "update public.business_client_grants set revoked_at=clock_timestamp()"
+            " where space_id=%s and grantee_id=%s and revoked_at is null",
+            (space, owner),
+        )
         connection.execute(
             "insert into public.business_client_grants(id,space_id,grantee_id,issuer_id,capabilities)"
             " values (%s,%s,%s,%s,array['read','prepare'])",

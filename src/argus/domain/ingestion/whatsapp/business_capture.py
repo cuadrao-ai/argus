@@ -10,7 +10,6 @@ from psycopg_pool import ConnectionPool
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.ingestion.whatsapp.business_envelope import EnvelopeCodec, TextEnvelope
 from argus.domain.ingestion.whatsapp.business_store import BusinessTurnStore
-from argus.domain.ingestion.whatsapp.identity import looks_like_link_attempt
 from argus.domain.ingestion.whatsapp.payload import TextMessage
 
 
@@ -40,7 +39,7 @@ class BusinessCaptureStore:
         self.consent = consent
 
     def capture(self, message: TextMessage) -> bool:
-        if not message.body or looks_like_link_attempt(message.body):
+        if not message.body:
             return False
         key = self.codec.keys.message(message.id)
         sender = self.codec.keys.sender(message.sender)
