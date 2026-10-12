@@ -151,29 +151,19 @@ struct CuadraoSearchEmptyState: View {
 
     private var browsing: Bool { query.isEmpty && filterCount == 0 }
     var body: some View {
-        ContentUnavailableView {
-            Label {
-                Text(title ?? (browsing ? emptyTitle : (spanish ? "Sin resultados" : "No results")))
-                    .accessibilityIdentifier(accessibility.prefix + ".empty")
-            } icon: {
-                Image(systemName: "magnifyingglass")
-            }
-        } description: {
-            Text(detail ?? (browsing ? emptyDetail : (spanish ? "Prueba otro nombre o cambia los filtros." : "Try another name or change the filters.")))
-        } actions: {
-            if !query.isEmpty {
-                Button(spanish ? "Borrar búsqueda" : "Clear search") { query = "" }
-                    .accessibilityIdentifier(accessibility.clearEmptyQuery)
-            }
-            if filterCount > 0 {
-                Button(spanish ? "Restablecer filtros" : "Reset filters", action: clearFilters)
-                    .accessibilityIdentifier(accessibility.prefix + ".reset")
-            }
-            if kind != .all {
-                Button(spanish ? "Buscar en todo" : "Search everything") { kind = .all }
-                    .accessibilityIdentifier(accessibility.prefix + ".everything")
-            }
-        }
+        CuadraoEmptyView(
+            title: title ?? (browsing ? emptyTitle : (spanish ? "Sin resultados" : "No results")),
+            detail: detail ?? (browsing ? emptyDetail : (spanish ? "Prueba otro nombre o cambia los filtros." : "Try another name or change the filters.")),
+            actionTitle: action?.title, action: action?.run, identifier: accessibility.prefix + ".empty",
+            actionIdentifier: action?.identifier)
+    }
+
+    /// One action, the most useful first: undo the filters that hide results, then clear the words, then widen the kind.
+    private var action: (title: String, run: () -> Void, identifier: String)? {
+        if filterCount > 0 { return (spanish ? "Restablecer filtros" : "Reset filters", clearFilters, accessibility.prefix + ".reset") }
+        if !query.isEmpty { return (spanish ? "Borrar búsqueda" : "Clear search", { query = "" }, accessibility.clearEmptyQuery) }
+        if kind != .all { return (spanish ? "Buscar en todo" : "Search everything", { kind = .all }, accessibility.prefix + ".everything") }
+        return nil
     }
 
     private var emptyTitle: String {

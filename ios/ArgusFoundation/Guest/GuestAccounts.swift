@@ -111,7 +111,11 @@ extension GuestAccountDetail {
     /// The account's own movements, newest first.
     @ViewBuilder fileprivate func history(_ account: BookAccount) -> some View {
         let movements = model.book.liveMovements(of: account.id)
-        if !movements.isEmpty {
+        if movements.isEmpty {
+            CuadraoEmptyView(title: spanish ? "Aún no hay movimientos" : "No activity yet",
+                             detail: account.archived ? nil : (spanish ? "Añade el primero con el botón de arriba." : "Add the first with the button above."),
+                             identifier: "guest.account.empty")
+        } else {
             VStack(alignment: .leading, spacing: 12) {
                 Text(spanish ? "Movimientos" : "Activity").font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
                 VStack(spacing: 0) {
