@@ -201,6 +201,9 @@ export type BusinessOverview = {
   needs_attention: number;
   last_received_at: string | null;
   last_confirmed_at: string | null;
+  /** Saved expenses the chosen period leaves out, so none looks vanished. */
+  outside_period_count: number;
+  outside_period_latest_on: string | null;
 };
 
 export type BusinessUpdate = {

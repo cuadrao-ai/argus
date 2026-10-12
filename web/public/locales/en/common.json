@@ -2559,6 +2559,14 @@
       "consent": "Prepare it with AI after saving. The receipt is sent to our AI provider to fill in the details for your review. Leave this off to fill them in yourself."
     },
     "period": {
+      "all": "All",
+      "custom": "Custom",
+      "from": "From",
+      "to": "Through",
+      "apply": "Show",
+      "outside_one": "{{count}} expense saved outside this period, on {{date}}.",
+      "outside_other": "{{count}} expenses saved outside this period, the latest on {{date}}.",
+      "show_all": "Show all",
       "this_month": "This month",
       "last_month": "Last month",
       "last_30_days": "Last 30 days",

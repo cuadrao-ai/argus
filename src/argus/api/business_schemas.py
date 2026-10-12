@@ -215,6 +215,9 @@ class BusinessOverview(_Wire):
     needs_attention: int
     last_received_at: datetime | None
     last_confirmed_at: datetime | None
+    # Saved expenses the chosen period leaves out, so none looks vanished.
+    outside_period_count: int = 0
+    outside_period_latest_on: date | None = None
 
 
 class BusinessUpdate(_Wire):

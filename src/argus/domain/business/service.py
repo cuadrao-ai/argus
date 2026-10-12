@@ -437,10 +437,19 @@ class BusinessService:
         receipts = self.receipts(scope)
         activities = self._activities(scope)
         recorded = ledger.recorded_at(activities)
+        outside = [
+            item
+            for item in ledger.expenses(activities, {}, date.min, date.max)
+            if not start <= item["occurred_on"] <= end
+        ]
         return {
             "from": start,
             "to": end,
             "totals": ledger.totals(ledger.expenses(activities, {}, start, end)),
+            "outside_period_count": len(outside),
+            "outside_period_latest_on": max(
+                (item["occurred_on"] for item in outside), default=None
+            ),
             "awaiting_review": sum(r.status in AWAITING_REVIEW for r in receipts),
             "needs_attention": sum(r.status == "needs_attention" for r in receipts),
             "last_received_at": max((r.draft.created_at for r in receipts), default=None),

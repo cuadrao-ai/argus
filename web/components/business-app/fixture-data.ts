@@ -371,6 +371,8 @@ export function createFixtureBusinessDataSource(
           count: total.count,
         })),
         needs_attention: receipts.filter((item) => item.status === "needs_attention").length,
+        outside_period_count: expenses.length - inPeriod.length,
+        outside_period_latest_on: expenses.filter((item) => !inPeriod.includes(item)).map((item) => item.occurred_on).sort().at(-1) ?? null,
         last_received_at: receipts[0]?.received_at ?? null,
         last_confirmed_at: daysAgo(6),
       };

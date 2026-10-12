@@ -12152,6 +12152,14 @@ components:
           - type: string
             format: date-time
           - type: 'null'
+        outside_period_count:
+          type: integer
+          default: 0
+        outside_period_latest_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       additionalProperties: false
       type: object
       required:

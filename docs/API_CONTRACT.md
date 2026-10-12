@@ -9250,6 +9250,11 @@ accept path recorded.
   (`business_preparation_binding_live`), without a binding
   (`business_preparation_binding_missing`), or for anyone but the owner
   (`business_owner_required`).
+- GET `/api/v1/business/overview?from&to` also returns `outside_period_count`
+  (saved expenses whose date falls outside `[from, to]`) and
+  `outside_period_latest_on` (the latest such date, or null), so a saved
+  expense never looks vanished behind a period filter; the web offers this
+  month, last month, last 30 days, all (from 2000-01-01) and a typed range.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake
