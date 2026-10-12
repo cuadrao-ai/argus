@@ -2169,6 +2169,19 @@
     }
   },
   "business": {
+    "export": {
+      "title": "Exportar registros del negocio",
+      "scope": "{{name}} · CSV, Excel y originales conservados en un ZIP.",
+      "start": "Desde",
+      "end": "Hasta",
+      "period_hint": "Elige entre 1 y 366 días, incluyendo ambas fechas. Los registros pendientes van separados del dinero registrado; el manifiesto indica los originales faltantes.",
+      "download": "Descargar CSV, Excel y originales",
+      "downloading": "Descargando…",
+      "access_error": "La exportación no está disponible con tu acceso actual.",
+      "limit_error": "La exportación supera un límite del paquete. Elige un período más corto.",
+      "error": "No se pudo descargar la exportación. Revisa tu acceso e inténtalo de nuevo.",
+      "preview": "Las descargas están disponibles en la vista conectada del negocio."
+    },
     "dossier": {
       "title": "Revisar registro",
       "unknown": "Desconocido",
@@ -2469,6 +2482,8 @@
     "search": {
       "placeholder": "Buscar gastos, recibos y chats",
       "placeholder_records": "Buscar gastos y recibos",
+      "open_record": "Abrir registro",
+      "record_unavailable": "Este registro no está disponible.",
       "no_results_hint": "Prueba con el nombre de un comercio o de un archivo.",
       "region": "Registros del negocio",
       "loading": "Buscando en tu negocio",

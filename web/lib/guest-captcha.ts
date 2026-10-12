@@ -10,8 +10,11 @@ type TurnstileApi = {
       sitekey: string;
       appearance: "interaction-only";
       theme: "light" | "dark";
+      retry: "never";
+      "refresh-expired": "never";
+      "refresh-timeout": "never";
       callback: (token: string) => void;
-      "error-callback": () => boolean;
+      "error-callback": (code?: string) => boolean;
       "expired-callback": () => void;
       "before-interactive-callback": () => void;
     },
@@ -40,6 +43,7 @@ export type GuestEntryErrorKind = "generic" | typeof CAPTCHA_UNAVAILABLE_CODE;
 
 type CaptchaUnavailableError = Error & {
   code: typeof CAPTCHA_UNAVAILABLE_CODE;
+  turnstileCode?: string;
 };
 
 type TurnstileShell = {
@@ -54,11 +58,14 @@ function captchaAbortError(): Error {
   return error;
 }
 
-function captchaUnavailableError(): CaptchaUnavailableError {
+function captchaUnavailableError(providerCode?: string): CaptchaUnavailableError {
   const error = new Error(
     "Browser CAPTCHA could not be verified.",
   ) as CaptchaUnavailableError;
   error.code = CAPTCHA_UNAVAILABLE_CODE;
+  if (typeof providerCode === "string" && /^[0-9]{6}$/.test(providerCode)) {
+    error.turnstileCode = providerCode;
+  }
   return error;
 }
 
@@ -104,11 +111,13 @@ export function guestCaptchaPlanForEnvironment(input: {
   apiUrl: string | undefined;
   localQaToken: string | undefined;
   turnstileSiteKey: string | undefined;
+  cuadraoTurnstileSiteKey?: string;
   browserCaptchaToken?: string | null;
 }): GuestCaptchaPlan {
   const token = guestCaptchaTokenForEnvironment(input);
   if (token) return { kind: "token", token };
-  const siteKey = input.turnstileSiteKey?.trim() ?? "";
+  const siteKey =
+    input.cuadraoTurnstileSiteKey?.trim() || input.turnstileSiteKey?.trim() || "";
   if (input.nodeEnv === "production" && siteKey) {
     return { kind: "turnstile", siteKey };
   }
@@ -123,6 +132,7 @@ function guestCaptchaPlan(
     apiUrl: process.env.NEXT_PUBLIC_ARGUS_API_URL,
     localQaToken: process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN,
     turnstileSiteKey: process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY,
+    cuadraoTurnstileSiteKey: process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY,
     browserCaptchaToken,
   });
 }
@@ -339,6 +349,7 @@ export function acquireTurnstileChallenge(input: {
     let widgetId = "";
     let widgetRemoved = false;
     let settled = false;
+    let cleanupDeferred = false;
     let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
     const onAbort = () => {
       fail(captchaAbortError());
@@ -358,23 +369,30 @@ export function acquireTurnstileChallenge(input: {
         // The provider may already have removed a completed widget.
       }
     };
-    const cleanup = () => {
+    const cleanup = (complete: () => void, defer = false) => {
       signal?.removeEventListener("abort", onAbort);
       if (timeoutId !== null) globalThis.clearTimeout(timeoutId);
-      removeWidget();
-      shell.destroy();
+      const finish = () => {
+        removeWidget();
+        shell.destroy();
+        // An abort during the deferred tick wins over the provider's token.
+        if (signal?.aborted) reject(captchaAbortError());
+        else complete();
+      };
+      cleanupDeferred = defer;
+      // Let the provider finish its callback before removing its container.
+      if (defer) globalThis.setTimeout(finish, 0);
+      else finish();
     };
     const succeed = (token: string) => {
       if (settled) return;
       settled = true;
-      cleanup();
-      resolve(token);
+      cleanup(() => resolve(token), true);
     };
-    function fail(error: Error = captchaUnavailableError()) {
+    function fail(error: Error = captchaUnavailableError(), defer = false) {
       if (settled) return true;
       settled = true;
-      cleanup();
-      reject(error);
+      cleanup(() => reject(error), defer);
       return true;
     }
 
@@ -389,10 +407,20 @@ export function acquireTurnstileChallenge(input: {
         sitekey: siteKey,
         appearance: "interaction-only",
         theme,
+        retry: "never",
+        "refresh-expired": "never",
+        "refresh-timeout": "never",
         callback: succeed,
-        "error-callback": () => fail(),
+        "error-callback": (code) => {
+          if (settled) return true;
+          const error = captchaUnavailableError(code);
+          if (error.turnstileCode) {
+            console.warn("turnstile_challenge_failed", error.turnstileCode);
+          }
+          return fail(error, true);
+        },
         "expired-callback": () => {
-          fail();
+          fail(captchaUnavailableError(), true);
         },
         "before-interactive-callback": () => {
           if (settled) return;
@@ -400,7 +428,7 @@ export function acquireTurnstileChallenge(input: {
           startTimeout(interactiveTimeoutMs);
         },
       });
-      if (settled) removeWidget();
+      if (settled && !cleanupDeferred) removeWidget();
     } catch {
       fail();
     }
@@ -454,10 +482,17 @@ export async function acquirePasswordAuthCaptchaToken(signal?: AbortSignal): Pro
       throw new Error("captcha_token_out_of_bounds");
     }
     return token;
-  } catch {
+  } catch (cause) {
     const error = new Error(
       "The browser security check could not be completed.",
-    ) as Error & { code: string };
+    ) as CaptchaUnavailableError;
+    if (
+      cause instanceof Error &&
+      "turnstileCode" in cause &&
+      typeof cause.turnstileCode === "string"
+    ) {
+      error.turnstileCode = captchaUnavailableError(cause.turnstileCode).turnstileCode;
+    }
     error.code = CAPTCHA_UNAVAILABLE_CODE;
     throw error;
   }
