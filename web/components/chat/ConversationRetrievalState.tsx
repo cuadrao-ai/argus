@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageSquareWarning } from "lucide-react";
-import { ArgusLogo } from "@/components/ArgusLogo";
+import { CuadraoMark } from "@/components/CuadraoMark";
 import { useTranslation } from "react-i18next";
 import { panelFailureIconClass } from "@/lib/failure-treatment";
 
@@ -66,10 +66,7 @@ export default function ConversationRetrievalState(
       aria-hidden="true"
       className="flex min-h-[45vh] flex-col items-center justify-center gap-4 px-6 text-center"
     >
-      <ArgusLogo
-        aria-hidden="true"
-        className="h-7 w-7 animate-pulse text-black/30 motion-reduce:animate-none dark:text-white/30"
-      />
+      <CuadraoMark size={28} className="h-7 w-7 animate-pulse motion-reduce:animate-none" />
       <p className="text-[13px] text-black/45 dark:text-white/45">
         {t("chat.opening_conversation", "Opening conversation…")}
       </p>

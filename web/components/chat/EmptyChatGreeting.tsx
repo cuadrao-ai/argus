@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArgusLogo } from "@/components/ArgusLogo";
+import { CuadraoMark } from "@/components/CuadraoMark";
 import { getMarketSession } from "@/lib/argus-api";
 import {
   greetingAudience,
@@ -117,10 +117,7 @@ export default function EmptyChatGreeting({
       className="mb-8 flex min-h-[108px] flex-col items-center gap-5"
       data-testid="empty-chat-greeting"
     >
-      <ArgusLogo
-        aria-hidden="true"
-        className="h-12 w-12 text-black/15 dark:text-white/15"
-      />
+      <CuadraoMark size={48} className="h-12 w-12" />
       <p
         aria-hidden="true"
         className="font-display min-h-[1.4em] text-balance text-center text-[24px] font-medium leading-[1.3] tracking-[-0.24px] text-black/80 sm:text-[28px] dark:text-white/80"

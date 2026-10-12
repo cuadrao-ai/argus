@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { WEB_APP_NAME } from "@/lib/app-brand";
+import { WEB_APP_DESCRIPTION, WEB_APP_NAME } from "@/lib/app-brand";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { THEME_STORAGE_KEY } from "@/lib/browser-storage";
@@ -20,7 +20,7 @@ const spaceGrotesk = localFont({
 
 export const metadata: Metadata = {
   title: WEB_APP_NAME,
-  description: "Next Generation Platform",
+  description: WEB_APP_DESCRIPTION,
   manifest: "/manifest.json",
   // iOS ignores manifest icons, so the home-screen icon comes from this link.
   icons: {
@@ -28,15 +28,15 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "Argus",
+    title: WEB_APP_NAME,
     statusBarStyle: "default",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#191c1f" },
+    { media: "(prefers-color-scheme: light)", color: "#fafbf8" },
+    { media: "(prefers-color-scheme: dark)", color: "#172b26" },
   ],
 };
 

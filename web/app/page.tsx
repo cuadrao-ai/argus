@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
+import { CuadraoLockup } from "@/components/CuadraoLockup";
 import { useRouter } from "next/navigation";
 import AuthForm, {
   type AuthFormSubmission,
@@ -54,7 +54,6 @@ export default function LandingPage() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const isMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
-  const [businessEntry, setBusinessEntry] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("intro");
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [profileProbeFailedClosed, setProfileProbeFailedClosed] =
@@ -62,7 +61,6 @@ export default function LandingPage() {
 
   useEffect(() => {
     captureLandingIntentFromLocation();
-    setBusinessEntry(postAuthPath().split("?")[0] === "/biz");
     const nextAuthMode = authModeFromLocation();
     setAuthMode(nextAuthMode);
     if (skipAuthenticatedRedirect()) {
@@ -169,28 +167,22 @@ export default function LandingPage() {
   return (
     <>
       <DevModeBadge />
-      <main className={`relative flex min-h-[100dvh] w-full flex-col justify-between overflow-hidden px-6 py-8 md:px-12 ${businessEntry ? "bg-[#fafbf8] dark:bg-[#172b26]" : ""}`}>
+      <main className="relative flex min-h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#fafbf8] px-6 py-8 md:px-12 dark:bg-[#172b26]">
         <SettingsMenu />
 
         <div className="flex flex-grow items-center justify-center">
-          {businessEntry ? (
-            <h1 className="z-10 w-[268px] max-w-full select-none" aria-label="Cuadrao">
-              <Image unoptimized loading="eager" src="/brand/cuadrao-lockup-light.svg" alt="" width={268} height={56} className="h-auto w-full dark:hidden" />
-              <Image unoptimized loading="eager" src="/brand/cuadrao-lockup-dark.svg" alt="" width={268} height={56} className="hidden h-auto w-full dark:block" />
-            </h1>
-          ) : (
-            <h1 className="font-display text-6xl md:text-[80px] font-medium tracking-tight text-black dark:text-white z-10 select-none transition-colors">
-              argus
-            </h1>
-          )}
+          <h1 className="z-10 max-w-full select-none" aria-label="Cuadrao">
+            <CuadraoLockup width={268} />
+          </h1>
         </div>
 
-        <div className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4">
+        <div data-auth-brand="cuadrao" className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4">
           {authMode === "intro" ? (
             <button
               type="button"
               onClick={showRequest}
-              className="font-display flex w-full max-w-sm items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:bg-white dark:text-black dark:focus-visible:ring-white"
+              data-testid="landing-request-access"
+              className="font-display flex w-full max-w-sm items-center justify-center rounded-[9999px] bg-[#2f5a49] px-[32px] py-[14px] text-[16px] font-medium !text-[#fafbf8] transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-[#2f5a49] dark:bg-[#abd4bf] dark:!text-[#172b26] dark:focus-visible:ring-[#abd4bf]"
             >
               {t("auth.access_request.submit")}
             </button>
@@ -204,7 +196,7 @@ export default function LandingPage() {
               ) : (
                 <AuthForm
                   mode={isSignup ? "signup" : "login"}
-                  brand={businessEntry ? "cuadrao" : "argus"}
+                  brand="cuadrao"
                   onModeChange={(mode) => updateAuthMode(mode)}
                   onSubmit={handleAuthSubmit}
                 />
@@ -214,24 +206,24 @@ export default function LandingPage() {
 
           {authMode === "intro" && (
             <>
-              <p className="text-[16px] tracking-wide text-gray-500 dark:text-gray-400">
+              <p className="text-[16px] tracking-wide">
                 {t('landing.already_account')}{" "}
                 <button
                   type="button"
-                  className="font-medium text-black transition-opacity hover:opacity-80 dark:text-white"
+                  className="font-medium transition-opacity hover:opacity-80"
                   onClick={showLogin}
                 >
                   {t('landing.sign_in')}
                 </button>
               </p>
 
-              <p className="mt-4 w-full px-4 text-center text-[11px] md:text-[12px] text-zinc-500 tracking-tight">
+              <p className="mt-4 w-full px-4 text-center text-[11px] md:text-[12px] tracking-tight">
                 {t('landing.legal_prefix', 'By joining, you agree to our')}{" "}
-                <a href="/terms" className="font-semibold text-zinc-800 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-colors">
+                <a href="/terms" className="font-semibold transition-opacity hover:opacity-80">
                   {t('landing.terms')}
                 </a>{" "}
                 {t('common.and', 'and')}{" "}
-                <a href="/privacy" className="font-semibold text-zinc-800 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-colors">
+                <a href="/privacy" className="font-semibold transition-opacity hover:opacity-80">
                   {t('landing.privacy')}
                 </a>.
               </p>

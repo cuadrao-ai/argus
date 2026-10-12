@@ -53,8 +53,8 @@
   "legal": {
     "eyebrow": "Legal de acceso anticipado",
     "effective_date": "Fecha de entrada en vigor: 7 de agosto de 2026",
-    "footer_label": "Acceso anticipado de Argus",
-    "back_to_argus": "Volver a Argus",
+    "footer_label": "Acceso anticipado de Cuadrao",
+    "back_to_argus": "Volver a Cuadrao",
     "terms": {
       "title": "Términos de uso",
       "intro": "Argus es un producto en acceso anticipado para investigación educativa de inversión. Estos términos describen cómo funciona Argus hoy. Argus sigue en construcción, así que estos términos van a cambiar conforme cambie el producto.",
@@ -1012,7 +1012,7 @@
       "default_user": "Usuario",
       "edit_display_name": "Editar nombre para mostrar",
       "delete_account": "Eliminar cuenta",
-      "delete_account_note": "Elimina para siempre tu cuenta de Argus y tus datos.",
+      "delete_account_note": "Elimina para siempre tu cuenta de Cuadrao y tus datos.",
       "display_name_save_error": "No pudimos guardar ese nombre todavía.",
       "display_name_too_long": "Usa {{count}} caracteres o menos.",
       "preferred_name": "¿Cómo quieres que Argus te llame?",
@@ -1053,8 +1053,8 @@
         "error": "No pudimos eliminar tu cuenta en este momento. Inténtalo de nuevo.",
         "unavailable": "Todavía no se puede eliminar desde la app aquí. Soporte puede eliminar tu cuenta por ti.",
         "email_fallback": "Enviar correo a soporte",
-        "email_subject": "Solicitud de eliminación de cuenta de Argus",
-        "email_body": "Ayúdame a solicitar la eliminación de mi cuenta de Argus{{account_hint}}.",
+        "email_subject": "Solicitud de eliminación de cuenta de Cuadrao",
+        "email_body": "Ayúdame a solicitar la eliminación de mi cuenta de Cuadrao{{account_hint}}.",
         "close": "Cerrar eliminación de cuenta"
       }
     },
@@ -1440,8 +1440,8 @@
       "verifying": "Verificando que no eres un bot…"
     },
     "access_request": {
-      "title": "Solicita acceso a Argus",
-      "description": "Argus está en acceso anticipado. Comparte tu correo para solicitar acceso. Si se aprueba, te enviaremos un correo cuando puedas crear una cuenta.",
+      "title": "Solicita acceso a Cuadrao",
+      "description": "Cuadrao está en acceso anticipado. Comparte tu correo para solicitar acceso. Si se aprueba, te enviaremos un correo cuando puedas crear una cuenta.",
       "email_label": "Correo electrónico",
       "submit": "Solicitar acceso",
       "submitting": "Solicitando acceso...",
@@ -1454,7 +1454,7 @@
       "error": "No pudimos enviar tu solicitud. Inténtalo de nuevo."
     },
     "login": {
-      "brand": "argus",
+      "brand": "cuadrao",
       "subtitle": "Inicia sesión para continuar",
       "email_placeholder": "Correo electrónico",
       "password_placeholder": "Contraseña",
@@ -1465,12 +1465,12 @@
       }
     },
     "signup": {
-      "subtitle": "Crea tu cuenta de Argus",
+      "subtitle": "Crea tu cuenta de Cuadrao",
       "name_placeholder": "Nombre",
       "submit": "Registrarse",
       "loading": "Creando cuenta...",
       "new_account_cuadrao": "¿Nuevo en Cuadrao?",
-      "new_account": "¿Nuevo en Argus?",
+      "new_account": "¿Nuevo en Cuadrao?",
       "password_requirement": "Mínimo 8 caracteres.",
       "confirmation_title": "Revisa tu correo",
       "confirmation_description": "Usa el enlace de confirmación que enviamos para terminar de crear tu cuenta. Luego vuelve aquí para iniciar sesión."
@@ -1505,20 +1505,20 @@
       "password_rejected": "No pudimos actualizar la contraseña. Revisa los requisitos o solicita un enlace de recuperación nuevo.",
       "password_updated": "Tu contraseña fue actualizada.",
       "reset_complete": "Tu contraseña fue actualizada. Inicia sesión de nuevo en cada navegador.",
-      "revocation_warning": "Argus no pudo confirmar que todas las sesiones se cerraron. Vuelve a intentarlo antes de iniciar sesión de nuevo.",
+      "revocation_warning": "Cuadrao no pudo confirmar que todas las sesiones se cerraron. Vuelve a intentarlo antes de iniciar sesión de nuevo.",
       "retry_revocation": "Reintentar cerrar todas las sesiones",
       "retrying_revocation": "Reintentando...",
-      "revocation_retry_error": "Argus aún no pudo confirmar que todas las sesiones se cerraron. Inténtalo de nuevo.",
+      "revocation_retry_error": "Cuadrao aún no pudo confirmar que todas las sesiones se cerraron. Inténtalo de nuevo.",
       "cleanup_warning": "Las sesiones fueron revocadas, pero este navegador no pudo confirmar la limpieza de cookies. Aún necesitas iniciar sesión de nuevo."
     },
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
-      "captcha_unavailable": "Este navegador no pasó la verificación de seguridad. Abre Argus en un navegador normal, o actualiza la página.",
+      "captcha_unavailable": "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
       "unauthorized": "No pudimos verificar los datos de la cuenta. Revísalos e inténtalo de nuevo.",
       "auth_signup_failed": "No pudimos crear la cuenta. Inténtalo de nuevo.",
       "too_many_requests": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
       "guest_access_unavailable": "El acceso para invitados no está disponible en este momento.",
-      "internal_error": "Argus no pudo completar esta solicitud de cuenta. Inténtalo de nuevo.",
+      "internal_error": "Cuadrao no pudo completar esta solicitud de cuenta. Inténtalo de nuevo.",
       "account_already_registered": "Esta sesión ya pertenece a una cuenta permanente.",
       "guest_bootstrap_failed": "No pudimos iniciar una conversación temporal. Inténtalo de nuevo.",
       "account_exists_use_login": "Ya tienes una cuenta. Inicia sesión: tu conversación te acompaña.",
@@ -1541,9 +1541,9 @@
   "account_security": {
     "title": "Seguridad de la cuenta",
     "description": "Cambia tu contraseña o elige exactamente qué sesiones cerrar.",
-    "back": "Volver a Argus",
+    "back": "Volver a Cuadrao",
     "loading": "Verificando tu sesión...",
-    "session_check_unavailable": "Argus no pudo verificar tu sesión en este momento. Inténtalo de nuevo.",
+    "session_check_unavailable": "Cuadrao no pudo verificar tu sesión en este momento. Inténtalo de nuevo.",
     "retry": "Reintentar",
     "cookie_sync_warning": "Las sesiones fueron revocadas, pero no se pudo confirmar la limpieza local de cookies.",
     "password": {
@@ -1555,7 +1555,7 @@
       "submit": "Cambiar contraseña",
       "changing": "Cambiando...",
       "changed": "Contraseña cambiada. Inicia sesión de nuevo en cada navegador.",
-      "revocation_warning": "La contraseña cambió, pero Argus no pudo confirmar que todas las sesiones se cerraron. Vuelve a intentar Cerrar todas las sesiones.",
+      "revocation_warning": "La contraseña cambió, pero Cuadrao no pudo confirmar que todas las sesiones se cerraron. Vuelve a intentar Cerrar todas las sesiones.",
       "error": "No pudimos cambiar la contraseña. Verifica la contraseña actual e inténtalo de nuevo."
     },
     "sessions": {
@@ -1566,7 +1566,7 @@
       "sign_out_all": "Cerrar todas las sesiones",
       "others_complete": "Las otras sesiones se cerraron. Este navegador sigue conectado.",
       "signed_out": "Las sesiones seleccionadas se cerraron.",
-      "revocation_warning": "Argus no pudo confirmar que las sesiones seleccionadas se cerraron. Intenta de nuevo la acción de sesión.",
+      "revocation_warning": "Cuadrao no pudo confirmar que las sesiones seleccionadas se cerraron. Intenta de nuevo la acción de sesión.",
       "error": "No pudimos completar ese cambio de sesión. Inténtalo de nuevo.",
       "confirm_others_title": "¿Cerrar las otras sesiones?",
       "confirm_others_description": "Los otros navegadores perderán acceso. Este navegador seguirá conectado.",
@@ -1584,9 +1584,9 @@
   },
   "guest": {
     "entry": {
-      "loading": "Abriendo Argus",
+      "loading": "Abriendo Cuadrao",
       "sending": "Enviando...",
-      "error": "Argus no pudo abrir un chat temporal. Inténtalo de nuevo.",
+      "error": "Cuadrao no pudo abrir un chat temporal. Inténtalo de nuevo.",
       "reload": "Actualizar"
     },
     "expired": {
@@ -1595,10 +1595,10 @@
       "start_new": "Iniciar un nuevo chat temporal",
       "sign_in": "Iniciar sesión",
       "create_account": "Crear cuenta",
-      "restart_error": "Argus no pudo iniciar un nuevo chat temporal. Inténtalo de nuevo."
+      "restart_error": "Cuadrao no pudo iniciar un nuevo chat temporal. Inténtalo de nuevo."
     },
     "conversion": {
-      "eyebrow": "Sigue con Argus",
+      "eyebrow": "Sigue con Cuadrao",
       "sign_in_title": "Iniciar sesión",
       "create_title": "Crea tu cuenta",
       "simulation_limit": "Inicia sesión para ejecutar otra simulación.",
