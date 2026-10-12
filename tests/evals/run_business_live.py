@@ -35,6 +35,7 @@ from tests.evals.business_eval import (
     judge_reply,
     load_calibration,
 )
+from tests.evals.business_invariants import run_business_invariants
 from tests.evals.business_variety import check_variety, load_variety_cases
 
 
@@ -218,9 +219,25 @@ async def acceptance(
     )
 
 
+async def invariants(
+    args: argparse.Namespace, ledger: Ledger
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    return await run_business_invariants(
+        repository_root=args.root,
+        candidate_sha=git_head(args.root),
+        dsn=args.dsn,
+        runtime_model=args.runtime_model,
+        judge_model=args.judge_model,
+        calibration_report=args.calibration,
+        interpreter_factory=lambda *_: LiveInterpreter(args.runtime_model),
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("calibrate", "variety", "acceptance"))
+    parser.add_argument(
+        "command", choices=("calibrate", "variety", "acceptance", "invariants")
+    )
     parser.add_argument("--dsn", required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--env-file", type=Path, required=True)
@@ -249,6 +266,11 @@ def main() -> None:
             report = asyncio.run(variety(args, ledger))
             write(args.out / "variety-report.json", report)
             print("variety", report["totals"])
+        elif args.command == "invariants":
+            report, sidecar = asyncio.run(invariants(args, ledger))
+            write(args.out / "business-invariants.json", report)
+            write(args.out / "business-invariants-sidecar.json", sidecar)
+            print("invariants", report["status"], report["totals"])
         else:
             report, sidecar = asyncio.run(acceptance(args, ledger))
             write(args.out / "business-acceptance.json", report)

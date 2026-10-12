@@ -76,3 +76,14 @@ def test_actual_foreign_target_read_is_denied_without_foreign_mutation(
         "outcome": "not_found",
         "code": "business_record_not_found",
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", load_cases(), ids=lambda case: case["id"])
+async def test_invariants_hold_for_the_scripted_frozen_flow(case: dict) -> None:
+    from tests.evals.business_invariants import check_invariants
+
+    if not DSN:
+        pytest.skip("ARGUS_DISPOSABLE_DATABASE_URL is required for real Business capture")
+    capture = await capture_case(case, dsn=DSN, interpreter_factory=scripted_interpreter)
+    assert check_invariants(case, capture.observed_steps) == []
