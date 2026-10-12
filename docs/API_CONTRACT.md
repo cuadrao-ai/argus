@@ -9091,6 +9091,33 @@ accept path recorded.
   `X-Document-Filename` is URL-encoded. A receipt's identity is its bytes, so
   a retry returns the same receipt. It answers a `ReceiptSummary` that is
   `queued` with consent and `saved` without it.
+- Business email receiving (default off; `ARGUS_BUSINESS_EMAIL_CAPTURE_ENABLED`,
+  `ARGUS_BUSINESS_EMAIL_INTAKE_ENABLED`, `ARGUS_BUSINESS_EMAIL_DOMAIN`,
+  `RESEND_BUSINESS_API_KEY`, `ARGUS_RESEND_WEBHOOK_SECRET`). The Business is
+  chosen only by the receiving address; message headers choose nothing.
+  - POST `/api/v1/webhooks/resend` takes Resend's `email.received` event with
+    Svix headers over the unchanged bytes (401 otherwise, 404 while receiving is
+    off, 413 above 64 KB, 204 for other event types). 202 means a durable
+    delivery row; the worker fetches the message later. An address with no
+    active route, two routes or a revoked grant is recorded as rejected and
+    never fetched.
+  - GET `/api/v1/business/email` returns `{enabled, receiving_address}`:
+    configuration readiness for the caller's Business, not provider health.
+  - POST `/api/v1/business/email` (prepare capability) mints one address per
+    Business, `recibos-<8 hex>@<domain>`, bound to the caller's own live grant.
+    A replay returns the existing address with 200. 503
+    `email_receiving_unconfigured` without a domain or Postgres.
+  - DELETE `/api/v1/business/email` switches the address off. A route can be
+    switched off, never pointed at another Business or person.
+  - GET `/api/v1/business/email/deliveries` and `/{id}` list the Business's
+    deliveries with state, error code, subject, sender, `retryable` and one
+    `parts[]` row per attachment (`pending|captured|rejected`, `document_id`).
+    POST `/{id}/retry` (prepare capability) re-queues a `partial` delivery.
+  - Every captured part is an ordinary saved document with `consent=false`; AI
+    preparation still waits for the owner's choice. The grant is checked again
+    before each fetch, and the provider's recipients must equal the signed
+    event's recipients. Retries back off and stop after eight attempts until an
+    explicit retry.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake

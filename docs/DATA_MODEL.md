@@ -160,6 +160,9 @@ Default-off, service-role only (`ARGUS_WHATSAPP_INTAKE_ENABLED`):
 whatsapp_link_codes
 whatsapp_sender_links
 whatsapp_inbound_messages
+business_email_routes
+business_email_deliveries
+business_email_parts
 ```
 
 Optional or later:
