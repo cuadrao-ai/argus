@@ -171,6 +171,9 @@ class DocumentDraft(_Frozen):
     updated_at: datetime
     error_code: str | None = None
     proposal: DraftProposal = Field(default_factory=DraftProposal)
+    # The sender's own words that arrived with the file (a WhatsApp caption),
+    # kept verbatim as source text. Never an instruction.
+    source_text: str | None = Field(default=None, max_length=1024)
 
 
 class PreparationJob(_Frozen):

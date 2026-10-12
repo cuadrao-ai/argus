@@ -11,7 +11,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import Coroutine
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 from fastapi import Depends, HTTPException, Request
@@ -89,7 +91,13 @@ class DocumentsDestination:
         self.documents, self.spaces = documents, spaces
 
     async def capture(
-        self, *, owner_id: str, content: bytes, filename: str, media_type: str
+        self,
+        *,
+        owner_id: str,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        source_text: str | None,
     ) -> Captured:
         # A link needs a space, so an owner without one has no link to send through.
         scope = resolve_business_scope(self.spaces, owner_id)
@@ -102,6 +110,7 @@ class DocumentsDestination:
                 filename=filename,
                 media_type=media_type,
                 consent=False,
+                source_text=source_text,
                 scope=scope.owner,
             )
         except DocumentExtractionError as error:
@@ -124,12 +133,30 @@ class DocumentsDestination:
         )
 
 
+class BackgroundWork:
+    """Runs the work behind an acknowledged delivery and lets shutdown wait for it."""
+
+    def __init__(self) -> None:
+        self._tasks: set[asyncio.Task[None]] = set()
+
+    def start(self, work: Coroutine[Any, Any, None]) -> None:
+        task = asyncio.get_running_loop().create_task(work)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    async def drain(self, timeout: float) -> None:
+        pending = set(self._tasks)
+        if pending:
+            await asyncio.wait(pending, timeout=timeout)
+
+
 @dataclass(frozen=True)
 class WhatsAppRuntime:
     intake: WhatsAppIntake
     settings: WhatsAppSettings
     worker: BusinessWhatsAppWorker | None = None
     consent: AIConsentStore | None = None
+    work: BackgroundWork | None = None
 
 
 _runtime: WhatsAppRuntime | None = None
@@ -155,6 +182,7 @@ def build_whatsapp(
     pool=None,
     runner=None,
     route_resolver=None,
+    work: BackgroundWork | None = None,
 ) -> WhatsAppRuntime:
     access_token = settings.access_token.get_secret_value()
     max_bytes = load_document_extraction_settings().max_bytes
@@ -213,8 +241,9 @@ def build_whatsapp(
         app_origin=app_origin,
         max_bytes=max_bytes,
         capture_text=worker.captures.capture if worker is not None else None,
+        background=work.start if work is not None else None,
     )
-    return WhatsAppRuntime(intake, settings, worker, consent)
+    return WhatsAppRuntime(intake, settings, worker, consent, work)
 
 
 def start_whatsapp(app: object) -> None:
@@ -246,6 +275,7 @@ def start_whatsapp(app: object) -> None:
                 client=httpx.AsyncClient(),
                 app_origin=(os.getenv("ARGUS_APP_ORIGIN") or "").strip() or None,
                 pool=pool if api_state.PERSISTENCE_MODE == "supabase" else None,
+                work=BackgroundWork(),
             )
         )
     except Exception as exc:
@@ -254,6 +284,14 @@ def start_whatsapp(app: object) -> None:
             failure_mode=type(exc).__name__,
         )
         configure_whatsapp(None)
+
+
+async def drain_whatsapp(timeout: float = 20.0) -> None:
+    """Shutdown: give acknowledged deliveries time to settle before the pool closes."""
+
+    runtime = whatsapp_runtime()
+    if runtime is not None and runtime.work is not None:
+        await runtime.work.drain(timeout)
 
 
 def unavailable_problem(request: Request) -> HTTPException:

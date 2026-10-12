@@ -101,6 +101,8 @@ class ReceiptSummary(_Wire):
     id: str
     channel: Literal["web", "whatsapp"]
     filename: str | None
+    # The sender's own words sent with the file (a WhatsApp caption), verbatim.
+    source_text: str | None = None
     media_type: str
     size_bytes: int
     received_at: datetime

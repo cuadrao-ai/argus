@@ -10,10 +10,10 @@ the owner's choice in the web app.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
-from typing import Protocol
+from typing import Any, Protocol
 
 from loguru import logger
 
@@ -85,7 +85,13 @@ class IntakeDestination(Protocol):
     """Where a linked sender's receipt lands: the owner's Business space."""
 
     async def capture(
-        self, *, owner_id: str, content: bytes, filename: str, media_type: str
+        self,
+        *,
+        owner_id: str,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        source_text: str | None,
     ) -> Captured: ...
 
     async def discard(self, *, owner_id: str, connection_id: str) -> None: ...
@@ -101,6 +107,17 @@ class IssuedCode:
     expires_at: datetime
 
 
+@dataclass(frozen=True)
+class _Held:
+    """One message whose claim this worker holds."""
+
+    message: InboundMessage
+    sender: bytes
+    key: bytes
+    held: datetime | None
+    log: Any
+
+
 class WhatsAppIntake:
     def __init__(
         self,
@@ -114,10 +131,15 @@ class WhatsAppIntake:
         app_origin: str | None = None,
         max_bytes: int,
         capture_text: Callable[[TextMessage], bool] | None = None,
+        background: Callable[[Coroutine[Any, Any, None]], None] | None = None,
     ) -> None:
         self.store, self.keys, self.media = store, keys, media
         self.destination, self.clock = destination, clock
         self.transport, self.app_origin, self.max_bytes = transport, app_origin, max_bytes
+        # With a runner, ``handle`` returns once every message has a committed
+        # claim and the work runs behind the acknowledgement. Without one the
+        # work finishes inside ``handle``.
+        self.background = background
         self.processing_seconds: float = PROCESSING_SECONDS
         self.capture_text = capture_text
 
@@ -152,18 +174,49 @@ class WhatsAppIntake:
         )
         in_flight = False
         first_error: Exception | None = None
+        held: list[_Held] = []
         for message in delivery.messages:
             try:
-                in_flight = not await self._one(message) or in_flight
+                claimed = await self._claim(message)
             except Exception as error:
                 first_error = first_error or error
+                continue
+            if isinstance(claimed, _Held):
+                held.append(claimed)
+            else:
+                in_flight = not claimed or in_flight
+        if self.background is not None:
+            if held:
+                self.background(self._run(held))
+        else:
+            for item in held:
+                try:
+                    in_flight = not await self._process(item) or in_flight
+                except Exception as error:
+                    first_error = first_error or error
         if first_error is not None:
             raise first_error
         if in_flight:
             raise DeliveryInFlight()
 
-    async def _one(self, message: InboundMessage) -> bool:
-        """Process one message; ``False`` while another claim still holds it unsettled."""
+    async def _run(self, held: list[_Held]) -> None:
+        """Background work for claims already committed. A failure is settled
+        by ``_process``; the sender is told to send it again."""
+
+        for item in held:
+            try:
+                await self._process(item)
+            except Exception:
+                await self._reply(
+                    item.message,
+                    Settlement("failed", error_code="whatsapp_processing_failed"),
+                    item.log,
+                )
+
+    async def _claim(self, message: InboundMessage) -> _Held | bool:
+        """Commit this message's claim. A ``_Held`` means this worker owns it;
+        otherwise ``True`` when it is already settled and ``False`` while
+        another claim still holds it unsettled."""
 
         if isinstance(message, TextMessage) and self.capture_text is not None:
             if await asyncio.to_thread(self.capture_text, message):
@@ -182,7 +235,18 @@ class WhatsAppIntake:
         if not claim.claimed:
             log.info("WhatsApp message replayed", status=claim.record.status)
             return claim.record.status not in RETRYABLE
-        held = claim.record.claim_until
+        return _Held(message, sender, key, claim.record.claim_until, log)
+
+    async def _process(self, item: _Held) -> bool:
+        """Finish one claimed message; ``False`` when the claim was lost first."""
+
+        message, sender, key, held, log = (
+            item.message,
+            item.sender,
+            item.key,
+            item.held,
+            item.log,
+        )
         try:
             settlement = await asyncio.wait_for(
                 self._decide(message, sender), timeout=self.processing_seconds
@@ -295,6 +359,7 @@ class WhatsAppIntake:
                 content=fetched.content,
                 filename=message.filename,
                 media_type=fetched.mime_type,
+                source_text=message.caption,
             )
         except (MediaRejected, CaptureRejected) as error:
             return Settlement("rejected", owner, error_code=error.code)

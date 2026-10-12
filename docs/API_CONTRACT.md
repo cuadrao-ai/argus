@@ -8782,8 +8782,9 @@ owner's consent on the web. Spec and activation:
 Owners send or forward receipts from their own WhatsApp number to the one
 receiving number, and only those owner-initiated messages are processed. A
 forwarded message (`context.forwarded` or `context.frequently_forwarded`) or
-one with a caption is captured exactly like a direct send. Captions are never
-read. The adapter makes two kinds of request to Meta. It GETs the delivered
+one with a caption is captured exactly like a direct send. A caption is kept
+verbatim (at most 1024 characters) as the document's `source_text`, returned on
+the receipt summary. It is never read as an instruction and never chooses an owner. The adapter makes two kinds of request to Meta. It GETs the delivered
 media id from Graph, then the download URL Graph returns. Outbound replies are
 a third kind, and they are off by default. It never reads message history,
 contacts or profiles.
@@ -8812,9 +8813,14 @@ answers the not-linked reply.
   over 512 KiB is 413 `whatsapp_webhook_too_large`; a signed body that is not
   a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. 200
   `{received: true}` means every image, document and text message in it has a
-  settled delivery record; other message types and statuses are ignored. A
-  failure or timeout after the record commits, or a redelivery while another
-  worker still holds an unsettled message, answers 503
+  committed delivery record with a live claim; other message types and statuses
+  are ignored. The media download, saving and reply run after the answer, in
+  order, and settle the record. A work failure behind the answer settles the
+  record `failed` and the sender gets the "send it again" reply. Shutdown waits
+  up to 20 seconds for this work; a process killed sooner leaves the record
+  unsettled until its claim expires, and the sender must send the file again.
+  A failure to commit a claim, or a redelivery while another worker still holds
+  an unsettled message, answers 503
   `whatsapp_webhook_retry`, and Meta's redelivery resumes that record. A
   replayed message never captures twice or replies twice. The webhook query
   string is redacted from uvicorn access logs.
