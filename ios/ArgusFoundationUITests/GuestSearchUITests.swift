@@ -11,6 +11,7 @@ extension FinancialLoopUITests {
         field.tap()
         field.typeText(name)
         if let currency {
+            dismissGuestKeyboard()
             app.buttons["guest.account.currency"].tap()
             let search = app.searchFields.firstMatch
             XCTAssertTrue(search.waitForExistence(timeout: 10))
@@ -20,6 +21,7 @@ extension FinancialLoopUITests {
             XCTAssertTrue(app.buttons["guest.account.currency"].waitForExistence(timeout: 5))
         }
         if let amount {
+            dismissGuestKeyboard()
             app.textFields["guest.account.amount"].tap()
             app.textFields["guest.account.amount"].typeText(amount)
         }
@@ -133,7 +135,7 @@ extension FinancialLoopUITests {
         XCTAssertEqual(results("guest.search.").count, 4)
 
         app.buttons["search.filters"].tap()
-        let currency = app.buttons["Currency"].firstMatch
+        let currency = app.buttons["search.currency"]
         XCTAssertTrue(currency.waitForExistence(timeout: 5))
         currency.tap()
         app.buttons["JPY"].firstMatch.tap()

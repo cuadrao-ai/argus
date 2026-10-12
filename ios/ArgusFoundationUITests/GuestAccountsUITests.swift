@@ -9,6 +9,7 @@ extension FinancialLoopUITests {
 
     private func fillAmount(_ text: String) {
         let amount = app.textFields["guest.account.amount"]
+        dismissGuestKeyboard()
         amount.tap()
         amount.typeText(text)
     }
@@ -16,6 +17,7 @@ extension FinancialLoopUITests {
     private func closeKeyboard() { dismissGuestKeyboard() }
 
     private func chooseCurrency(_ code: String) {
+        dismissGuestKeyboard()
         app.buttons["guest.account.currency"].tap()
         let search = app.searchFields.firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 10), "the currency picker searches")
@@ -102,6 +104,7 @@ extension FinancialLoopUITests {
         app.buttons["guest.account.type.cash"].tap()
         chooseCurrency("JPY")
         let amount = app.textFields["guest.account.amount"]
+        dismissGuestKeyboard()
         amount.tap()
         amount.typeText("12.5")
         let error = app.staticTexts["amount-error"]
@@ -231,7 +234,7 @@ extension FinancialLoopUITests {
             ["First", "Second", "Third"].sorted { guestRow($0).frame.minY < guestRow($1).frame.minY }
         }
         XCTAssertEqual(order(), ["First", "Second", "Third"], "new accounts are added at the end")
-        guestRow("Third").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 1.0, thenDragTo: guestRow("Second").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)))
+        guestRow("Third").press(forDuration: 1.2, thenDragTo: guestRow("Second"))
         let moved = NSPredicate { _, _ in order() == ["First", "Third", "Second"] }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 10), .completed,
                        "dragging Third onto the top of Second puts it before Second: \(order())")
