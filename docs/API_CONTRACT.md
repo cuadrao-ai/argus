@@ -8849,9 +8849,8 @@ answers the not-linked reply.
 The Business agent over WhatsApp has its own switch,
 `CUADRAO_WHATSAPP_AGENT_ENABLED` (older `ARGUS_WHATSAPP_AGENT_ENABLED`), off by
 default. Off: text from a linked owner never reaches the agent and gets the
-ordinary reply, the worker does nothing, `GET /api/v1/whatsapp/ai-consent`
-answers `available: false` with `reason: whatsapp_agent_off` and no disclosure
-token, and `POST /api/v1/whatsapp/ai-consent` answers 404 `whatsapp_agent_off`.
+ordinary reply, and the worker does nothing. The receipt reading permission
+(`/api/v1/whatsapp/ai-consent`, below) does not depend on this switch, and
 `DELETE` stays reachable so an owner can always revoke.
 
 Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
@@ -8860,6 +8859,32 @@ link's `reply_language`, or Spanish for a sender with no active link. A new mess
 whose bytes the owner's inbox already holds gets the duplicate reply. A message whose WhatsApp
 timestamp is more than 24 hours old is still captured but gets no reply, so
 nothing is sent outside the service window.
+
+#### Linked-number receipt reading permission
+
+The one WhatsApp AI switch (`/api/v1/whatsapp/ai-consent`) is the owner's
+permission to read the receipts they send by WhatsApp: scope version 2, purpose
+`business_whatsapp_receipt_reading`, route `document_extraction`. `GET` takes an
+optional `language`; a Spanish language returns the Spanish disclosure text for
+display. The stored and hashed disclosure is the text shown. One active
+permission exists per linked number: turning receipt reading on replaces an
+agent permission (scope 1) and the reverse, never a second row. The read also
+returns `active_scope_version`, the scope of any active permission, so a screen
+can say another permission is on. `POST` takes an optional `language`; the text
+shown in that language is the one stored and hashed, and the token binds it.
+Changing the words an owner was shown asks for consent again. With the
+permission off, a received receipt is saved unread, and
+`POST /api/v1/business/receipts/{id}/prepare` on a WhatsApp receipt returns 409
+`whatsapp_receipt_reading_off` instead of queueing it. With it on, the receipt is
+read after the acknowledgement. The permission is checked again just before the
+provider call, whoever asks for the read, against the owner who received the
+receipt; the only window left is the commit and the request start. One
+follow-up message tells the sender what was read, only inside the 24 hour
+window. It names the merchant, amount and currency only when the read found one
+clear purchase with nothing marked uncertain and a merchant of letters, digits,
+spaces and & ' - . only (no domain-like text); otherwise it says only that the
+receipt is read. With document jobs on, the job reads the receipt later and no follow-up
+is sent; the acknowledgement link stands.
 
 #### Linked-number Business AI permission
 

@@ -30,6 +30,18 @@ REPLIES: dict[str, tuple[str, str]] = {
         "Recibido. Revísalo aquí: {link}",
         "Received. Review it here: {link}",
     ),
+    "read_ready": (
+        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: {link}",
+        "We read your receipt. Review and confirm it in Cuadrao: {link}",
+    ),
+    "read_summary": (
+        "Leí: {merchant}, {amount} {currency}. Revísalo antes de guardar: {link}",
+        "I read: {merchant}, {amount} {currency}. Review it before saving: {link}",
+    ),
+    "read_attention": (
+        "No pudimos leer bien tu recibo. Ábrelo en Cuadrao para completarlo: {link}",
+        "We couldn't read your receipt clearly. Open it in Cuadrao to finish it: {link}",
+    ),
     "duplicate": (
         "Ya lo teníamos. Revísalo aquí: {link}",
         "We already had this one. Review it here: {link}",
@@ -119,12 +131,13 @@ def compose_reply(
     language: str | None,
     link: str | None = None,
     limit_mb: int = 10,
+    read: dict[str, str] | None = None,
 ) -> str:
     """One language only: English when the owner's language is en, else Spanish."""
 
     spanish, english = REPLIES[key]
     body = (english if language == "en" else spanish).format(
-        link=link or "", limit_mb=limit_mb
+        link=link or "", limit_mb=limit_mb, **(read or {})
     )
     # A reply that ends in a link, sent without one, ends as a plain sentence.
     return body if link or not body.endswith(": ") else body[:-2] + "."

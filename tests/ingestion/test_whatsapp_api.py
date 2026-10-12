@@ -49,7 +49,7 @@ CODES = "/api/v1/whatsapp/link-codes"
 def consent_reads(wa_client):
     calls = []
 
-    def status(owner, reason):
+    def status(owner, reason, language=None):
         calls.append((owner, reason))
         return {
             "linked": True,
@@ -67,7 +67,7 @@ def consent_reads(wa_client):
         }
 
     configure_whatsapp(
-        replace(whatsapp_runtime(), consent=SimpleNamespace(status=status))
+        replace(whatsapp_runtime(), receipts=SimpleNamespace(status=status))
     )
     return calls
 
@@ -86,22 +86,15 @@ def test_registered_consent_read_works_with_flags_off_and_no_enable_token(
     assert consent_reads == [(UUID(identities[ALICE]["id"]), "whatsapp_unavailable")]
 
 
-def test_with_the_agent_off_the_permission_reads_unavailable_and_cannot_be_enabled(
+def test_with_the_agent_off_the_receipt_permission_is_still_available(
     wa_client, consent_reads, monkeypatch
 ):
     monkeypatch.setenv("ARGUS_WHATSAPP_AGENT_ENABLED", "false")
     response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
     assert response.status_code == 200
     body = response.json()
-    assert body["reason"] == "whatsapp_agent_off"
-    assert not body["available"] and body["disclosure_token"] is None
-    enable = wa_client.post(
-        "/api/v1/whatsapp/ai-consent",
-        headers={**bearer(ALICE), "Idempotency-Key": "fixture-consent"},
-        json={"action": "enable", "disclosure_token": "a" * 64},
-    )
-    assert enable.status_code == 404
-    assert enable.json()["code"] == "whatsapp_agent_off"
+    assert body["available"] and body["reason"] is None
+    assert body["disclosure_token"] is not None
 
 
 def test_guest_and_anonymous_cannot_read_owner_consent(wa_client, consent_reads):
@@ -132,11 +125,11 @@ def test_status_uses_authenticated_owner_not_foreign_query(
 def test_status_storage_failure_is_not_unlinked(wa_client, consent_reads):
     from psycopg import OperationalError
 
-    def unavailable(*args):
+    def unavailable(*args, **kwargs):
         raise OperationalError("synthetic unavailable")
 
     configure_whatsapp(
-        replace(whatsapp_runtime(), consent=SimpleNamespace(status=unavailable))
+        replace(whatsapp_runtime(), receipts=SimpleNamespace(status=unavailable))
     )
     response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
     assert response.status_code == 503

@@ -35,7 +35,6 @@ from argus.domain.ingestion.whatsapp.ai_consent import (
     ConsentError,
     EnableAIConsent,
 )
-from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
 from argus.domain.ingestion.whatsapp.identity import link_message, signature_matches
 from argus.domain.ingestion.whatsapp.payload import PayloadInvalid, parse_delivery
 from argus.domain.ingestion.whatsapp.store import ReplyLanguage
@@ -87,6 +86,7 @@ class AIConsentResponse(BaseModel):
     last4: str | None
     scope_version: int
     purpose: str
+    active_scope_version: int | None = None
     disclosure: str
     route: dict | None
     disclosure_token: str | None
@@ -117,15 +117,7 @@ async def _consent_call(request: Request, callback, *args):
 
 
 def _consent_store(request: Request, context: WhatsAppOwnerContext) -> AIConsentStore:
-    if not load_whatsapp_settings().agent_enabled:
-        raise problem(
-            request,
-            status_code=404,
-            code="whatsapp_agent_off",
-            title="Not Found",
-            detail="The WhatsApp agent is not available.",
-        )
-    store = context.runtime.consent
+    store = context.runtime.receipts
     if store is None:
         raise problem(
             request,
@@ -141,6 +133,7 @@ def _consent_store(request: Request, context: WhatsAppOwnerContext) -> AIConsent
 async def get_whatsapp_ai_consent(
     request: Request,
     user: Annotated[User, Depends(current_user)],
+    language: str | None = Query(default=None, max_length=16),
 ) -> AIConsentResponse:
     if account_context(request).kind != "registered":
         raise problem(
@@ -151,31 +144,29 @@ async def get_whatsapp_ai_consent(
             detail="A registered account is required.",
         )
     runtime = whatsapp_runtime()
-    store = runtime.consent if runtime else None
+    store = runtime.receipts if runtime else None
     if store is None:
-        pool = _consent_pool(request)
-        from argus.agent_runtime.business.runner import business_provider_route
+        from argus.domain.ingestion.whatsapp.receipt_consent import (
+            receipt_consent_store,
+        )
 
-        store = AIConsentStore(pool, business_provider_route)
+        store = receipt_consent_store(_consent_pool(request))
     reason = (
         None
-        if runtime is not None and runtime.consent is not None
+        if runtime is not None and runtime.receipts is not None
         else "whatsapp_unavailable"
     )
     try:
         require_whatsapp_surface(request)
     except HTTPException:
         reason = "whatsapp_unavailable"
-    status = await _consent_call(request, store.status, UUID(user.id), reason)
-    if not load_whatsapp_settings().agent_enabled:
-        # WhatsApp is receipt intake only: the permission cannot be turned on.
-        status = {
-            **status,
-            "available": False,
-            "reason": "whatsapp_agent_off",
-            "disclosure_token": None,
-        }
-    return status
+    return await _consent_call(
+        request,
+        store.status,
+        UUID(user.id),
+        reason,
+        language,
+    )
 
 
 @link_router.post("/ai-consent", response_model=AIConsentResponse)

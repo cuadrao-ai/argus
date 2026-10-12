@@ -9791,6 +9791,15 @@ paths:
       tags:
       - financial-accounts
       - whatsapp
+      parameters:
+      - name: language
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 16
+          - type: 'null'
       responses:
         '200':
           description: Successful Response
@@ -9798,6 +9807,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AIConsentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -9951,6 +9966,10 @@ components:
           type: integer
         purpose:
           type: string
+        active_scope_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
         disclosure:
           type: string
         route:
@@ -14540,6 +14559,11 @@ components:
         disclosure_token:
           type: string
           pattern: ^[0-9a-f]{64}$
+        language:
+          anyOf:
+          - type: string
+            maxLength: 16
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
