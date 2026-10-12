@@ -28,6 +28,7 @@ from argus.domain.business.contracts.actions import (
     FindRelated,
     PrepareAttachmentCommand,
     ReadContext,
+    RebindAttachmentCommand,
     ReviewCommand,
     ReviewDraft,
     SettleRemainder,
@@ -423,6 +424,64 @@ class BusinessActions:
                 (Jsonb(binding.model_dump(mode="json")), connection_id),
             )
             return binding
+
+    def rebind_attachment_preparation(
+        self, context: ActionContext, connection_id: UUID
+    ) -> AttachmentPreparationBinding:
+        """Owner action: a receipt bound to a grant that is no longer live is
+        bound again to the owner's current grant, with one ledger row.
+
+        A binding whose grant is still live is left alone (``binding_live``),
+        so this never silently moves authority that still works."""
+
+        if context.actor.actor_kind != "member":
+            raise ActionError("permission_denied", "business_human_command_required")
+        if str(context.actor.actor_id) != context.owner_id:
+            raise ActionError("permission_denied", "business_owner_required")
+        with transaction(self.authority, context, "prepare") as tx:
+            row = self._attachment_row(tx, connection_id)
+            if row["preparation_binding"] is None:
+                raise ActionError("invalid_input", "business_preparation_binding_missing")
+            binding = AttachmentPreparationBinding.model_validate(
+                row["preparation_binding"]
+            )
+            try:
+                authorize(
+                    tx.connection,
+                    TrustedActor(
+                        actor_id=binding.actor.actor_id,
+                        actor_kind="extractor",
+                        space_id=binding.space_id,
+                    ),
+                    binding.actor.grant_id,
+                )
+            except ActionError:
+                pass
+            else:
+                raise ActionError("invalid_input", "business_preparation_binding_live")
+            rebound = binding.model_copy(
+                update={
+                    "binding_id": uuid4(),
+                    "actor": tx.authorization.provenance.model_copy(
+                        update={"actor_kind": "extractor"}
+                    ),
+                    "captured_at": datetime.now(timezone.utc),
+                }
+            )
+            command = RebindAttachmentCommand(
+                previous_binding_id=binding.binding_id,
+                previous_grant_id=binding.actor.grant_id,
+                binding=rebound,
+            )
+            key = f"rebind:{rebound.binding_id}"
+            plans.start_receipt(tx, key, command)
+            tx.rows(
+                "update public.financial_document_extractions set preparation_binding=%s"
+                " where connection_id=%s",
+                (Jsonb(rebound.model_dump(mode="json")), connection_id),
+            )
+            plans.finish_receipt(tx, key, Applied(outcome="applied"))
+            return rebound
 
     @staticmethod
     def _attachment_row(tx: ActionTransaction, connection_id: UUID) -> dict:

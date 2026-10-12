@@ -477,3 +477,8 @@ export async function revokeBusinessAccessGrant(id: string): Promise<void> {
 export async function revokeBusinessAccessInvite(id: string): Promise<void> {
   await apiFetch(`/business/access/invites/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
+
+/** Owner action: bind a receipt whose preparation grant is no longer live to the owner's current grant. */
+export async function rebindBusinessReceipt(id: string): Promise<ReceiptDetail> {
+  return apiFetch(`/business/receipts/${encodeURIComponent(id)}/rebind`, { method: "POST" });
+}

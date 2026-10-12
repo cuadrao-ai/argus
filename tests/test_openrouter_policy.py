@@ -2996,7 +2996,9 @@ def test_openrouter_failure_log_reports_raising_origin(monkeypatch) -> None:
         message = _captured_failure_log(monkeypatch, exc)
 
     assert "error_type=ValueError" in message
-    assert "OpenRouter interpretation returned an incomplete strategy draft" not in message
+    assert (
+        "OpenRouter interpretation returned an incomplete strategy draft" not in message
+    )
     # Points at the raising line so a deterministic local rejection is
     # distinguishable from a provider transport failure.
     assert "error_origin=test_openrouter_policy.py:" in message

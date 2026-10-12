@@ -7,8 +7,12 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
+from argus.agent_runtime.stages.interpret import StructuredInterpretation
 from argus.api import state as api_state
+from argus.llm.openrouter import _SCHEMA_IN_PROMPT_INSTRUCTION
+from pydantic import ValidationError
 
 from tests.evals.chat_runtime_eval_harness import (
     ALPHA_TRAJECTORY_PATH,
@@ -20,6 +24,61 @@ from tests.evals.chat_runtime_eval_harness import (
     write_trajectory_scorecard,
 )
 from tests.evals.chat_runtime_trajectory_adapters import ConcreteTrajectoryRuntime
+
+
+def _typed_transport_content(mode: str, content: str) -> str:
+    schema_text = _SCHEMA_IN_PROMPT_INSTRUCTION + json.dumps(
+        StructuredInterpretation.model_json_schema()
+    )
+    schema_content: str | list[dict[str, str]] = schema_text
+    if mode == "cache_block":
+        schema_content = [{"type": "text", "text": schema_text}]
+    messages: list[dict[str, Any]] = [{"role": "user", "content": content}]
+    if mode != "native":
+        messages.insert(0, {"role": "system", "content": schema_content})
+    payload: dict[str, Any] = {"messages": messages}
+    if mode == "native":
+        payload["response_format"] = {"type": "json_schema"}
+    request = httpx.Request(
+        "POST", "https://openrouter.ai/api/v1/chat/completions", json=payload
+    )
+    response = ConcreteTrajectoryRuntime._typed_provider_response(request)
+    return response.json()["choices"][0]["message"]["content"]
+
+
+@pytest.mark.parametrize("mode", ["native", "prompt_text", "cache_block"])
+def test_trajectory_provider_recognizes_complete_typed_transport(mode: str) -> None:
+    typed = StructuredInterpretation(
+        intent="conversation_followup",
+        task_relation="new_task",
+        user_goal_summary="Test a supplied interpretation.",
+    ).model_dump_json()
+    assert _typed_transport_content(mode, typed) == typed
+
+
+def test_trajectory_provider_rejects_wrong_schema_and_malformed_typed_output() -> None:
+    typed = StructuredInterpretation(
+        intent="conversation_followup",
+        task_relation="new_task",
+        user_goal_summary="Test a supplied interpretation.",
+    ).model_dump_json()
+    wrong = _SCHEMA_IN_PROMPT_INSTRUCTION + json.dumps({"type": "object"})
+    request = httpx.Request(
+        "POST",
+        "https://openrouter.ai/api/v1/chat/completions",
+        json={
+            "messages": [
+                {"role": "system", "content": wrong},
+                {"role": "user", "content": typed},
+            ]
+        },
+    )
+    fallback = ConcreteTrajectoryRuntime._typed_provider_response(request)
+    assert fallback.json()["choices"][0]["message"]["content"] != typed
+    for mode in ("native", "prompt_text", "cache_block"):
+        with pytest.raises(ValidationError):
+            _typed_transport_content(mode, "not-json")
+
 
 EXPECTED_ALPHA_LABELS = {f"alpha_session_{index:02d}" for index in range(1, 8)}
 ISSUE_LABELS = {
