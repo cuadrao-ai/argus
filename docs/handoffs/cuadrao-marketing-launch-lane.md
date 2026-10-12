@@ -469,12 +469,8 @@ The founder resumed Marketing polish, working with Claude, and said work ends at
 
 Lint, typecheck, 191 unit tests, a production build with the social flag unset (as CI builds it), and the full browser suite (199 passed, 1 skipped as before, including the accessibility checks on all eight pages). The modularity budget guard reports no violation. Not tested: a physical phone, a real provider, or the hosted site.
 
-### Founder approvals still needed before any publication
+### Founder approvals
 
-- **New Spanish copy, string by string:** the five rotating phrases and their English drafts, the form labels and helper text, the next-step line, the footer legal and social labels, and the simplified limits answer.
-- **Privacy:** the added WhatsApp-number sentence in the notice and under the form.
-- **Operator and LLC wording:** the footer copyright reads "Cuadrao LLC" and "Términos" and "Quién es responsable" are placeholders. They stay unpublished until the founder confirms the company is formed and operates the site.
-- **Business positioning:** the rotating phrases come from the founder's October 8 call with José. Whether the hero's promise changes is the founder's call.
+The founder approved, in chat on October 11, 2026, the new copy of this round (rotating phrases and their English, form labels and helper text, the next-step line, footer labels, the simplified limits answer), the WhatsApp-number privacy wording, the "Cuadrao LLC" footer wording as it appears, and the Business hero direction from the October 8 customer call. This is approval of the source in this PR, not of publication. Unchanged: the footer's Terms and Who-is-responsible entries stay non-clickable until their pages exist; the LLC and operator holds, public forms, deployment, the migration, Render and cutover each still need their own yes; nothing goes to `main`.
 
 The scope above is source only. Reconciling this into the release candidate (#927) is not part of this round.
-
