@@ -92,7 +92,7 @@ struct GuestMovementSheet: View {
             spanish: spanish, reviewing: false,
             title: editedID == nil ? (spanish ? "Añadir movimiento" : "Add transaction") : (spanish ? "Editar movimiento" : "Edit transaction"),
             primaryTitle: spanish ? "Guardar" : "Save", primaryEnabled: valid, primaryIdentifier: "guest.movement.save",
-            back: {}, primary: save) {
+            showsAccountHeader: false, back: {}, primary: save) {
             content
         }
         .cuadraoFormKeyboard()
@@ -108,31 +108,26 @@ struct GuestMovementSheet: View {
         counterpartID = destinations.first?.id
     }
 
+    private var copy: MovementEntryCopy { MovementEntryCopy(spanish: spanish) }
+
     @ViewBuilder private var content: some View {
-        kindRow
-        choice(kind == .transfer ? (spanish ? "Desde" : "From") : (spanish ? "Cuenta" : "Account"),
-               selection: $accountID, values: choices.map(\.id), id: "guest.movement.account") {
-            GuestMovementPresentation.accountTitle($0, in: book, spanish: spanish)
-        }
-        if kind == .transfer {
-            if destinations.isEmpty {
-                Text(spanish ? "Necesitas otra cuenta en \(account?.currency ?? "") para transferir."
-                     : "You need another \(account?.currency ?? "") account to transfer.")
-                    .font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("guest.movement.noDestination")
-            } else {
-                choice(spanish ? "Hacia" : "To", selection: Binding(get: { counterpartID ?? destinations[0].id }, set: { counterpartID = $0 }),
-                       values: destinations.map(\.id), id: "guest.movement.destination") {
-                    GuestMovementPresentation.accountTitle($0, in: book, spanish: spanish)
-                }
-            }
-        }
         CuadraoAmountField(raw: $amount, currency: .constant(account?.currency ?? "DOP"), error: $amountError, spanish: spanish,
-                           currencySelectable: false, identifier: "guest.movement.amount")
-        DatePicker(spanish ? "Fecha" : "Date", selection: $date, in: (tracking ?? .distantPast)...Date(), displayedComponents: .date)
-            .accessibilityIdentifier("guest.movement.date")
-        if kind == .expense {
-            choice(spanish ? "Categoría" : "Category", selection: $category, values: ExpenseCategory.allCases,
-                   id: "guest.movement.category") { GuestMovementPresentation.categoryTitle($0, spanish: spanish) }
+                           currencySelectable: false, identifier: "guest.movement.amount", hero: true, autofocus: editedID == nil)
+        kindRow
+        if kind == .transfer { transferCards }
+        MovementChipFlow {
+            MovementDateChip(caption: spanish ? "Fecha" : "Date", date: $date, range: (tracking ?? .distantPast)...Date(),
+                             identifier: "guest.movement.date")
+            if kind == .expense {
+                MovementChoiceChip(caption: spanish ? "Categoría" : "Category", symbol: "tag", selection: $category,
+                                   values: ExpenseCategory.allCases) { GuestMovementPresentation.categoryTitle($0, spanish: spanish) }
+                    .accessibilityIdentifier("guest.movement.category")
+            }
+            if kind != .transfer {
+                MovementChoiceChip(caption: copy.account, symbol: "building.columns", selection: $accountID,
+                                   values: choices.map(\.id)) { GuestMovementPresentation.accountTitle($0, in: book, spanish: spanish) }
+                    .accessibilityIdentifier("guest.movement.account")
+            }
         }
         VStack(alignment: .leading, spacing: 8) {
             TextField(spanish ? "Concepto (opcional)" : "Description (optional)", text: $note, axis: .vertical)
@@ -145,6 +140,29 @@ struct GuestMovementSheet: View {
         if let status {
             Text(status).font(.subheadline).foregroundStyle(.red).accessibilityIdentifier("guest.movement.error")
         }
+    }
+
+    @ViewBuilder private var transferCards: some View {
+        if destinations.isEmpty {
+            Text(spanish ? "Necesitas otra cuenta en \(account?.currency ?? "") para transferir."
+                 : "You need another \(account?.currency ?? "") account to transfer.")
+                .font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("guest.movement.noDestination")
+        } else {
+            MovementTransferCards(
+                copy: copy, from: $accountID,
+                to: Binding(get: { counterpartID ?? destinations[0].id }, set: { counterpartID = $0 }),
+                fromValues: choices.map(\.id), toValues: destinations.map(\.id),
+                valueTitle: { GuestMovementPresentation.accountTitle($0, in: book, spanish: spanish) },
+                swap: swapAccounts, canSwap: counterpartID.flatMap { book.account($0) }.map { !$0.archived } ?? false,
+                fromIdentifier: "guest.movement.account", toIdentifier: "guest.movement.destination",
+                swapIdentifier: "guest.movement.swap")
+        }
+    }
+
+    private func swapAccounts() {
+        guard let destination = counterpartID else { return }
+        counterpartID = accountID
+        accountID = destination
     }
 
     private var kindRow: some View {
@@ -161,15 +179,6 @@ struct GuestMovementSheet: View {
                 }
             }
         }.scrollIndicators(.hidden)
-    }
-
-    private func choice<Value: Hashable>(_ caption: String, selection: Binding<Value>, values: [Value], id: String,
-                                         title: @escaping (Value) -> String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(caption).font(.caption).foregroundStyle(.secondary)
-            CuadraoChoiceMenu(title: caption, selection: selection, values: values, valueTitle: title)
-                .accessibilityIdentifier(id)
-        }
     }
 
     private func save() {

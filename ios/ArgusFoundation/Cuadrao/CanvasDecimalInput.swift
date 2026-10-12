@@ -12,6 +12,7 @@ struct CanvasDecimalInput: UIViewRepresentable {
     var title: String? = nil
     var size: CuadraoTypography.MoneySize = .prominent
     var alignment: NSTextAlignment = .right
+    var autofocus = false
     var onFocus: (Bool) -> Void = { _ in }
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.cuadraoCurrencyRules) private var rules
@@ -45,6 +46,7 @@ struct CanvasDecimalInput: UIViewRepresentable {
         field.backgroundColor = .clear
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         context.coordinator.field = field
+        if autofocus { DispatchQueue.main.async { field.becomeFirstResponder() } }
         return field
     }
     func updateUIView(_ field: UITextField, context: Context) {

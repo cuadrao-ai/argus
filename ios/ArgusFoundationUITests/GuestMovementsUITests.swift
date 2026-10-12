@@ -178,6 +178,28 @@ extension FinancialLoopUITests {
         XCTAssertTrue(movementRow("Coffee").exists, "the movements are still there")
     }
 
+    /// Amount first: the amount has focus on open, and with the keyboard up the date, category and Save are all still on screen.
+    func testMovementSheetKeepsDateCategoryAndSaveAboveTheKeyboard() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book"])
+        enterGuestBook()
+        app.buttons["nav.add"].tap()
+        XCTAssertTrue(app.buttons["add.tray.account"].waitForExistence(timeout: 5))
+        app.buttons["nav.add"].tap()
+        addAccount(type: "checking", name: "Main", currency: "USD", amount: "1000")
+        openMovementSheet()
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 10), "the amount takes focus when the sheet opens")
+        for id in ["guest.movement.amount", "guest.movement.category", "guest.movement.save"] {
+            let element = app.descendants(matching: .any)[id]
+            XCTAssertTrue(element.waitForExistence(timeout: 5), id)
+            XCTAssertLessThanOrEqual(element.frame.maxY, keyboard.frame.minY + 1, "\(id) stays above the keyboard")
+        }
+        let date = app.datePickers["guest.movement.date"]
+        XCTAssertTrue(date.exists)
+        XCTAssertLessThanOrEqual(date.frame.maxY, keyboard.frame.minY + 1, "the date stays above the keyboard")
+        capture("guest-movement-amount-first")
+    }
+
     func testGuestMovementsInSpanish() throws {
         launchSignedOut(arguments: ["--cuadrao-guest-book"], language: "es-419")
         enterGuestBook()
