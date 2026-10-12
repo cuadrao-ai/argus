@@ -67,6 +67,15 @@ typed reply asking to send the message again. A measurement may rerun one such
 unavailable case once at the same commit. The scorecard keeps both attempts,
 and the rerun is the one counted.
 
+Agent cost and wire rules set with the same change:
+
+- Each owner has a rolling 24 hour allowance of agent turns, checked before any
+  model call. Over it the owner gets one typed reply.
+- The default allowance is 200 turns. `CUADRAO_BUSINESS_AGENT_DAILY_TURNS` sets
+  it, with `ARGUS_BUSINESS_AGENT_DAILY_TURNS` as the older name.
+- Delivering a sparse schema to OpenAI models in the prompt applies to the
+  Business schemas only. Every other route keeps its native strict wire.
+
 ## October 7, 2026 Business connected flow and offline E0 plan
 
 Lucas approved the [connected-flow specification](cuadrao-business-connected-flow-spec.md)
