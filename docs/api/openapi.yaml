@@ -1546,6 +1546,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/receipts/{receipt_id}/rebind:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'Owner action: bind a receipt whose preparation grant is no longer live
+
+        to the owner''s current grant, with a ledger row. 409 while the old grant
+
+        still works.'
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptDetail'
+        '403':
+          description: '`business_owner_required`: only the owner, as a person, may move a
+            binding; `business_permission_denied` without prepare permission.'
+        '404':
+          description: '`business_record_not_found`: no such receipt in this Business.'
+        '409':
+          description: '`business_action_required`: the hosted bridge is not wired for this
+            request.'
+        '422':
+          description: '`business_preparation_binding_live`: the old grant still works; `business_preparation_binding_missing`:
+            nothing is bound yet.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/receipts/{receipt_id}/review:
     patch:
       tags:

@@ -2526,6 +2526,9 @@
     },
     "review": {
       "see_original": "Ver el recibo ya guardado",
+      "rebind_note": "El acceso que preparó este recibo ya no es válido. Vincúlalo a tu acceso actual y vuelve a prepararlo.",
+      "rebind": "Vincular a mi acceso actual",
+      "rebind_failed": "No pudimos vincular este recibo. Inténtalo de nuevo.",
       "account": "Pagado desde",
       "amount": "Total",
       "category": "Categoría",

@@ -9208,6 +9208,14 @@ accept path recorded.
   `business_remainder_none` when nothing is left. An
   unreadable read is still refused to the document layer, which keeps the
   receipt enterable by hand.
+- POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt
+  whose preparation grant was revoked to the owner's current grant, writes one
+  `business_action_receipts` row (`rebind_attachment`, previous binding and
+  grant kept in the command) and returns the receipt; the owner then prepares
+  it again. Refused while the old grant is still live
+  (`business_preparation_binding_live`), without a binding
+  (`business_preparation_binding_missing`), or for anyone but the owner
+  (`business_owner_required`).
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake
