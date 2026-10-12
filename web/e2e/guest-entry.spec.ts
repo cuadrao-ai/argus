@@ -396,7 +396,7 @@ async function mockGuestJourney(
 }
 
 async function readGuestEmptySurface(page: Page) {
-  const heading = page.getByRole("heading", { name: "argus" });
+  const heading = page.getByRole("heading", { name: "Cuadrao", exact: true });
   const starterActions = page
     .getByTestId("starter-actions")
     .getByRole("button");
@@ -521,7 +521,7 @@ test("@guest-shell a null landing profile stays auth-first without guest work", 
   const evidence = await mockGuestJourney(page, { initialProfileNull: true });
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByRole("heading", { name: "argus" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cuadrao", exact: true })).toBeVisible();
   await expect(page.getByTestId("chat-input")).toHaveCount(0);
   expect({
     bootstrap: evidence.bootstrapCalls,
@@ -1213,7 +1213,7 @@ test("@guest-shell capability chrome stays visible and opens typed conversion", 
 
   await page.getByRole("button", { name: "Sign in" }).click();
   const requestAccessDialog = page.getByRole("dialog", {
-    name: "Request access to Argus",
+    name: "Request access to Cuadrao",
   });
   await expect(requestAccessDialog).toBeVisible();
   await expect(requestAccessDialog).toContainText(
@@ -1499,7 +1499,7 @@ test("@guest-shell hints require typed artifacts and dismiss locally without wri
   );
   await page.getByRole("button", { name: "Add decision" }).click();
   const decisionDialog = page.getByRole("dialog", {
-    name: "Request access to Argus",
+    name: "Request access to Cuadrao",
   });
   await expect(decisionDialog).toContainText(
     "Share your email to request access.",

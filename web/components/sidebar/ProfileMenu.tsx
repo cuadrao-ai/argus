@@ -881,12 +881,12 @@ export default function ProfileMenu({
   const supportMailto = `mailto:${supportEmail}?subject=${encodeURIComponent(
     t(
       "settings.profile.request_deletion.email_subject",
-      "Argus account deletion request",
+      "Cuadrao account deletion request",
     ),
   )}&body=${encodeURIComponent(
     t(
       "settings.profile.request_deletion.email_body",
-      "Please help me request deletion for my Argus account{{account_hint}}.",
+      "Please help me request deletion for my Cuadrao account{{account_hint}}.",
       { account_hint: accountHint },
     ),
   )}`;
@@ -1145,7 +1145,7 @@ export default function ProfileMenu({
               <span className="pl-6 text-[11px] leading-snug text-black/35 dark:text-white/35">
                 {t(
                   "settings.profile.delete_account_note",
-                  "Permanently delete your Argus account and your data.",
+                  "Permanently delete your Cuadrao account and your data.",
                 )}
               </span>
             </button>

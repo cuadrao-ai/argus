@@ -279,11 +279,11 @@ describe("password auth CAPTCHA and confirmation contract", () => {
     expect(form).toContain("captcha_unavailable");
     expect(en.auth.signup.confirmation_title).toBe("Check your email");
     expect(en.auth.errors.captcha_unavailable).toBe(
-      "This browser didn’t pass the security check. Open Argus in a regular browser, or reload the page.",
+      "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
     );
     expect(es.auth.signup.confirmation_title).toBe("Revisa tu correo");
     expect(es.auth.errors.captcha_unavailable).toBe(
-      "Este navegador no pasó la verificación de seguridad. Abre Argus en un navegador normal, o actualiza la página.",
+      "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
     );
     expect(en.auth.errors.captcha_unavailable).not.toMatch(/try again/i);
     expect(es.auth.errors.captcha_unavailable).not.toMatch(/int[eé]ntalo de nuevo/i);
