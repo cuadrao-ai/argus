@@ -1,6 +1,8 @@
 -- The owner may move a receipt's preparation binding from a grant that is no
 -- longer live to their current grant. That move is a turn-less ledger row by a
--- member, so the receipts check grows by one action, and the binding guard
+-- member, so the receipts check grows by one action (the list is the union
+-- with the settle_remainder action so the two migrations apply in either
+-- order), and the binding guard
 -- admits exactly that move: same document, same source, old grant no longer
 -- live, new binding held by a live grant of the space.
 
@@ -11,7 +13,7 @@ alter table public.business_action_receipts
         (command->>'action' in ('review_draft', 'approve_expense', 'capture_note',
             'approve_income', 'prepare_attachment',
             'owner_grant', 'grant_access', 'invite_access', 'accept_invite', 'revoke_grant', 'revoke_invite',
-            'rebind_attachment')) is true
+            'rebind_attachment', 'settle_remainder')) is true
     ),
     add constraint business_action_receipts_rebind_human check (
         command->>'action' is distinct from 'rebind_attachment'
