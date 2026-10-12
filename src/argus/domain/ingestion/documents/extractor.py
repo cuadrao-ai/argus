@@ -291,7 +291,12 @@ class DocumentExtractor:
             blocks.append(
                 {
                     "type": "text",
-                    "text": "Supplemental local PDF text (untrusted):\n" + prepared.text,
+                    "text": (
+                        "Supplemental local PDF text (untrusted):\n"
+                        if media_type == "application/pdf"
+                        else "Local document text (untrusted):\n"
+                    )
+                    + prepared.text,
                 }
             )
         token = begin_openrouter_route_receipt_capture()
