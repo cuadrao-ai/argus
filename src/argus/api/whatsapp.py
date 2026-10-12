@@ -203,14 +203,13 @@ def build_whatsapp(
 ) -> WhatsAppRuntime:
     access_token = settings.access_token.get_secret_value()
     max_bytes = load_document_extraction_settings().max_bytes
-    transport = None
-    if settings.outbound_enabled:
-        transport = CloudApiTransport(
-            client=client,
-            access_token=access_token,
-            phone_number_id=settings.phone_number_id,
-            graph_api_version=settings.graph_api_version,
-        )
+    # Built once; whether it is used is re-read from the setting at each send.
+    transport = CloudApiTransport(
+        client=client,
+        access_token=access_token,
+        phone_number_id=settings.phone_number_id,
+        graph_api_version=settings.graph_api_version,
+    )
     worker = None
     consent = None
     keys = WhatsAppKeys(settings.sender_key.get_secret_value())
@@ -259,6 +258,7 @@ def build_whatsapp(
         max_bytes=max_bytes,
         capture_text=_capture_when_enabled(worker) if worker is not None else None,
         background=work.start if work is not None else None,
+        send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
     )
     return WhatsAppRuntime(intake, settings, worker, consent, work)
 
