@@ -1,3 +1,4 @@
+import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, ARGUS_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
@@ -401,4 +402,25 @@ export async function createBusinessAccount(
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(input),
   });
+}
+
+export async function getBusinessEmailIntake(): Promise<BusinessEmailIntake> {
+  return apiFetch("/business/email");
+}
+
+export async function createBusinessEmailAddress(): Promise<BusinessEmailIntake> {
+  return apiFetch("/business/email", { method: "POST" });
+}
+
+export async function listBusinessEmailDeliveries(): Promise<BusinessEmailDelivery[]> {
+  const page = await apiFetch<{ items: BusinessEmailDelivery[] }>("/business/email/deliveries");
+  return page.items;
+}
+
+export async function getBusinessEmailDelivery(id: string): Promise<BusinessEmailDetail> {
+  return apiFetch(`/business/email/deliveries/${encodeURIComponent(id)}`);
+}
+
+export async function retryBusinessEmailDelivery(id: string): Promise<{ id: string }> {
+  return apiFetch(`/business/email/deliveries/${encodeURIComponent(id)}/retry`, { method: "POST" });
 }

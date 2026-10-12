@@ -1,4 +1,5 @@
 import * as api from "@/lib/business-api";
+import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
 import type { ArgusLanguage } from "@/lib/language-features";
 import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
 import type {
@@ -50,6 +51,11 @@ export type BusinessDataSource = Readonly<{
     input: { nickname: string; type: string; currency: string },
     key: string,
   ) => Promise<BusinessAccount>;
+  emailIntake: () => Promise<BusinessEmailIntake>;
+  createEmailAddress: () => Promise<BusinessEmailIntake>;
+  emailDeliveries: () => Promise<BusinessEmailDelivery[]>;
+  emailDelivery: (id: string) => Promise<BusinessEmailDetail>;
+  retryEmailDelivery: (id: string) => Promise<{ id: string }>;
 }>;
 
 export const liveBusinessDataSource: BusinessDataSource = {
@@ -74,6 +80,11 @@ export const liveBusinessDataSource: BusinessDataSource = {
   confirmReceipt: api.confirmBusinessReceipt,
   recordExpense: api.recordBusinessExpense,
   createAccount: api.createBusinessAccount,
+  emailIntake: api.getBusinessEmailIntake,
+  createEmailAddress: api.createBusinessEmailAddress,
+  emailDeliveries: api.listBusinessEmailDeliveries,
+  emailDelivery: api.getBusinessEmailDelivery,
+  retryEmailDelivery: api.retryBusinessEmailDelivery,
 };
 
 export function withBusinessSpace(
@@ -116,5 +127,10 @@ export function withBusinessSpace(
     confirmReceipt: source.confirmReceipt,
     recordExpense: after(source.recordExpense),
     createAccount: after(source.createAccount),
+    emailIntake: after(source.emailIntake),
+    createEmailAddress: after(source.createEmailAddress),
+    emailDeliveries: after(source.emailDeliveries),
+    emailDelivery: source.emailDelivery,
+    retryEmailDelivery: source.retryEmailDelivery,
   };
 }

@@ -720,6 +720,28 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-business-email-inbox-20261012": {
+      "description": "Business Inbox shows received emails with their attachments grouped under one row and the receiving address; UI only on top of the email receiving API.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-email.test.tsx",
+        "web/components/business-app/BusinessEmailDeliveries.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/business-data.ts",
+        "web/components/business-app/fixture-data.ts",
+        "web/lib/business-api.ts",
+        "web/lib/business-email.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }

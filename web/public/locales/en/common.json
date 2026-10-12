@@ -2380,6 +2380,54 @@
       "empty_title": "You're all caught up",
       "empty_body": "Upload a receipt or send one by WhatsApp. It will wait here for your review."
     },
+    "email": {
+      "title": "Received emails",
+      "subtitle": "Each email keeps its attachments together. Nothing here is an expense until you confirm it.",
+      "no_address": "This business has no receiving address yet.",
+      "activate": "Get a receiving address",
+      "activate_failed": "Email receiving is not available for this business yet.",
+      "forward_to": "Forward receipts to this address:",
+      "copy": "Copy address",
+      "copied": "Address copied.",
+      "copy_failed": "Could not copy. Select the address to copy it.",
+      "no_subject": "No subject",
+      "no_sender": "Sender unavailable",
+      "attachments_one": "{{count}} attachment",
+      "attachments_other": "{{count}} attachments",
+      "original": "Open the original email",
+      "open_receipt": "Open receipt",
+      "no_filename": "Unnamed attachment",
+      "body_failed": "Could not load the message.",
+      "no_body": "No message text.",
+      "reload": "Refresh",
+      "address_failed": "Could not load the receiving address.",
+      "list_failed": "Could not load received emails.",
+      "empty": "No emails received yet.",
+      "retry": "Try again",
+      "retrying": "Requesting…",
+      "retry_accepted": "Retry requested. The status updates after processing.",
+      "retry_failed": "Could not request a retry. Saved attachments are unchanged.",
+      "state": {
+        "received": "Received",
+        "processing": "Reading",
+        "partial": "Partly saved",
+        "captured": "Saved",
+        "rejected": "Not saved"
+      },
+      "part_state": {
+        "pending": "Waiting",
+        "captured": "Saved",
+        "rejected": "Not saved"
+      },
+      "error": {
+        "email_parts_rejected": "Some attachments could not be saved as receipts.",
+        "email_capture_incomplete": "Some attachments are still waiting to be saved.",
+        "email_route_unavailable": "This address is not active.",
+        "email_route_revoked": "The access behind this address was removed.",
+        "email_recipient_mismatch": "The message did not match this address.",
+        "other": "Part of this email could not be saved."
+      }
+    },
     "review": {
       "source_error": "We couldn't open the original receipt with your current access.",
       "source": "Original receipt",

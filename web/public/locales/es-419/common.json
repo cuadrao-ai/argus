@@ -2366,6 +2366,54 @@
       "subtitle": "Recibos que esperan tu revisión. Nada aquí es un gasto hasta que lo confirmes.",
       "title": "Bandeja"
     },
+    "email": {
+      "title": "Correos recibidos",
+      "subtitle": "Cada correo mantiene juntos sus adjuntos. Nada aquí es un gasto hasta que lo confirmes.",
+      "no_address": "Este negocio todavía no tiene una dirección para recibir correos.",
+      "activate": "Obtener una dirección",
+      "activate_failed": "La recepción por correo todavía no está disponible para este negocio.",
+      "forward_to": "Reenvía los recibos a esta dirección:",
+      "copy": "Copiar dirección",
+      "copied": "Dirección copiada.",
+      "copy_failed": "No se pudo copiar. Selecciona la dirección para copiarla.",
+      "no_subject": "Sin asunto",
+      "no_sender": "Remitente no disponible",
+      "attachments_one": "{{count}} adjunto",
+      "attachments_other": "{{count}} adjuntos",
+      "original": "Abrir el correo original",
+      "open_receipt": "Abrir recibo",
+      "no_filename": "Adjunto sin nombre",
+      "body_failed": "No se pudo cargar el mensaje.",
+      "no_body": "Sin texto en el mensaje.",
+      "reload": "Actualizar",
+      "address_failed": "No se pudo cargar la dirección de recepción.",
+      "list_failed": "No se pudieron cargar los correos recibidos.",
+      "empty": "Todavía no has recibido correos.",
+      "retry": "Reintentar",
+      "retrying": "Solicitando…",
+      "retry_accepted": "Reintento solicitado. El estado se actualiza después de procesarlo.",
+      "retry_failed": "No se pudo solicitar el reintento. Los adjuntos guardados no cambian.",
+      "state": {
+        "received": "Recibido",
+        "processing": "Leyendo",
+        "partial": "Guardado en parte",
+        "captured": "Guardado",
+        "rejected": "No guardado"
+      },
+      "part_state": {
+        "pending": "En espera",
+        "captured": "Guardado",
+        "rejected": "No guardado"
+      },
+      "error": {
+        "email_parts_rejected": "Algunos adjuntos no se pudieron guardar como recibos.",
+        "email_capture_incomplete": "Algunos adjuntos siguen esperando para guardarse.",
+        "email_route_unavailable": "Esta dirección no está activa.",
+        "email_route_revoked": "Se retiró el acceso detrás de esta dirección.",
+        "email_recipient_mismatch": "El mensaje no coincidió con esta dirección.",
+        "other": "Una parte de este correo no se pudo guardar."
+      }
+    },
     "intake": {
       "camera": "Tomar foto",
       "choose": "Elegir archivo",
