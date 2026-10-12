@@ -1,3 +1,4 @@
+import { publicApiUrl, publicLocalQaCaptchaToken, publicTurnstileSiteKey } from "./public-env";
 export type GuestCaptchaPlan =
   | { kind: "token"; token: string }
   | { kind: "turnstile"; siteKey: string }
@@ -129,9 +130,9 @@ function guestCaptchaPlan(
 ): GuestCaptchaPlan {
   return guestCaptchaPlanForEnvironment({
     nodeEnv: process.env.NODE_ENV,
-    apiUrl: process.env.NEXT_PUBLIC_ARGUS_API_URL,
-    localQaToken: process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN,
-    turnstileSiteKey: process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY,
+    apiUrl: publicApiUrl(),
+    localQaToken: publicLocalQaCaptchaToken(),
+    turnstileSiteKey: publicTurnstileSiteKey(),
     cuadraoTurnstileSiteKey: process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY,
     browserCaptchaToken,
   });

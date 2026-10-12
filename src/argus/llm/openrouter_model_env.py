@@ -6,7 +6,7 @@ SONNET_5_5_MODEL = "anthropic/claude-sonnet-5.5"
 # resolution. Keys are OpenRouterModelTier values; kept as plain strings here
 # so this module stays import-cycle-free.
 TIER_PRIMARY_ENV: dict[str, tuple[str, ...]] = {
-    "vision": ("ARGUS_VISION_MODEL",),
+    "vision": ("CUADRAO_VISION_MODEL", "ARGUS_VISION_MODEL"),
     "utility": ("ARGUS_UTILITY_MODEL",),
     "chat": ("ARGUS_CHAT_MODEL",),
     "structured": ("ARGUS_STRUCTURED_MODEL",),

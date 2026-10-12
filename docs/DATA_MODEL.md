@@ -162,7 +162,7 @@ whatsapp_sender_links
 whatsapp_inbound_messages
 ```
 
-Default-off, service-role only (`ARGUS_BUSINESS_EMAIL_CAPTURE_ENABLED`): one
+Default-off, service-role only (`CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`, or the older `ARGUS_` name): one
 receiving address per Business, naming the Business owner as the documents'
 owner and a member's live client grant as the authority checked before each
 capture; a durable delivery queue; one row per attachment part.

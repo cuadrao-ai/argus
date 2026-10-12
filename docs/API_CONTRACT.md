@@ -9173,9 +9173,10 @@ accept path recorded.
   `X-Document-Filename` is URL-encoded. A receipt's identity is its bytes, so
   a retry returns the same receipt. It answers a `ReceiptSummary` that is
   `queued` with consent and `saved` without it.
-- Business email receiving (default off; `ARGUS_BUSINESS_EMAIL_CAPTURE_ENABLED`,
-  `ARGUS_BUSINESS_EMAIL_INTAKE_ENABLED`, `ARGUS_BUSINESS_EMAIL_DOMAIN`,
-  `RESEND_BUSINESS_API_KEY`, `ARGUS_RESEND_WEBHOOK_SECRET`). The Business is
+- Business email receiving (default off; `CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`,
+  `CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED`, `CUADRAO_BUSINESS_EMAIL_DOMAIN`,
+  `RESEND_BUSINESS_API_KEY`, `CUADRAO_RESEND_WEBHOOK_SECRET`; the older
+  `ARGUS_` names still work as a fallback). The Business is
   chosen only by the receiving address; message headers choose nothing.
   - POST `/api/v1/webhooks/resend` takes Resend's `email.received` event with
     Svix headers over the unchanged bytes (401 otherwise, 404 while receiving is
