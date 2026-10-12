@@ -311,6 +311,8 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
                 "text/plain",
                 "text/csv",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/xml",
+                "text/xml",
                 "message/rfc822",
             ],
         },
