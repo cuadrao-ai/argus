@@ -85,8 +85,8 @@ struct ReceiptJourneyCopy {
         spanish ? "El recibo sigue en este iPhone. Inténtalo cuando vuelva la conexión." : "The receipt is still on this iPhone. Try again when you are back online."
     }
     var offlineLater: String {
-        spanish ? "No podemos leerlo ahora. Guárdalo para después y lo enviamos solo cuando vuelva la conexión."
-                : "We cannot read it now. Save it for later and we send it by itself when you are back online."
+        spanish ? "No podemos leerlo ahora. Lo guardamos en este iPhone y lo enviamos cuando vuelva la conexión."
+                : "We can't read it now. We saved it on this iPhone and will send it when you are back online."
     }
     var offlineRetry: String { spanish ? "¿Ya volvió la conexión?" : "Back online already?" }
     var saveForLater: String { spanish ? "Guardar para después" : "Save for later" }

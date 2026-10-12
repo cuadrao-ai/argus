@@ -68,6 +68,8 @@ final class ReceiptJourneyModel: ObservableObject {
     private var lastReading: DocumentReceipt?
     private let pendingStore: (String) -> ReceiptPendingStore?
     private var sendingPending = false
+    /// Files kept on this iPhone when the send failed offline, until they are sent, saved for later or discarded.
+    private var keptIDs: [UUID] = []
 
     init(transport: any ReceiptJourneyTransport, currentSession: @escaping @Sendable () async -> SessionSnapshot,
          pause: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
@@ -85,6 +87,8 @@ final class ReceiptJourneyModel: ObservableObject {
     func bind(_ snapshot: SessionSnapshot?) {
         let next = snapshot?.phase == .authenticated ? snapshot : nil
         guard identity != next else { return }
+        // Signing out, deleting the account or switching accounts takes that account's kept receipts off the iPhone.
+        if let previous = identity?.profile?.id, previous != next?.profile?.id { pendingStore(previous)?.clear() }
         identity = next
         readingAllowed = permissionKey.map { defaults.bool(forKey: $0) } ?? false
         reset()
@@ -95,18 +99,14 @@ final class ReceiptJourneyModel: ObservableObject {
     private var pending: ReceiptPendingStore? { identity?.profile.flatMap { pendingStore($0.id) } }
 
     /// True while the files could not be sent for lack of a connection and can be kept on this iPhone.
-    var canSaveForLater: Bool { phase == .failed(.couldNotSend(.offline)) && !held.isEmpty && pending != nil }
+    var canSaveForLater: Bool { phase == .failed(.couldNotSend(.offline)) && !keptIDs.isEmpty }
 
     /// Keeps the unsent files on this iPhone with the person's answer and closes the journey. They are sent when the
     /// network returns, through the same send, and read only if the person said yes.
     func saveForLater() {
-        guard canSaveForLater, let pending else { return }
-        do {
-            try pending.keep(held, consent: consented)
-            reset()
-        } catch {
-            phase = .failed(.couldNotSend(.couldNotSave))
-        }
+        guard canSaveForLater else { return }
+        keptIDs = []
+        reset()
     }
 
     /// Sends what was kept for later, oldest first, while the journey is not in use. Stops at the first failure and
@@ -115,13 +115,23 @@ final class ReceiptJourneyModel: ObservableObject {
         guard !sendingPending, phase == .idle, let identity, let pending else { return }
         sendingPending = true
         defer { sendingPending = false }
-        for entry in pending.entries {
-            guard let data = pending.data(entry) else { pending.remove(entry); continue }
+        for entry in pending.entries where entry.rejected != true {
+            guard let data = pending.data(entry) else {
+                // Gone for good: forget it. Unreadable for now (a locked phone): keep it for the next try.
+                if pending.missing(entry) { pending.remove(entry) }
+                continue
+            }
             do {
+                // A file sent twice after a crash is recognised by its content and not saved again.
                 _ = try await transport.upload(data, mediaType: SavedReceiptsModel.mediaType((data, entry.name, entry.pdf)),
                                                filename: entry.name, consent: entry.consent, identity: identity)
                 pending.remove(entry)
-            } catch { return }
+            } catch SessionFailure.rejected {
+                pending.markRejected(entry)
+            } catch {
+                // The network or the server is away: stop and try everything again on the next return.
+                return
+            }
         }
     }
 
@@ -137,6 +147,8 @@ final class ReceiptJourneyModel: ObservableObject {
     func reset() {
         ticket = UUID(); phase = .idle; held = []; sent = []; waiting = []; connectionID = nil; acceptKey = nil; options = nil; preview = nil
         lastReading = nil
+        // Closing an offline receipt without saving it for later discards the copy kept on this iPhone.
+        if !keptIDs.isEmpty { pending?.remove(keptIDs); keptIDs = [] }
     }
 
     /// True when the receipt was not read into a review and the shell can take it to the movement sheet.
@@ -187,6 +199,7 @@ final class ReceiptJourneyModel: ObservableObject {
                 sent.append(capture.connectionID)
                 replayed = replayed && capture.replayed
             }
+            if !keptIDs.isEmpty { pending?.remove(keptIDs); keptIDs = [] }
             guard allowed else { phase = .savedOnly(alreadySaved: replayed); return }
             let first = sent.removeFirst()
             waiting = sent
@@ -195,7 +208,10 @@ final class ReceiptJourneyModel: ObservableObject {
             await follow(first, mine: mine)
         } catch {
             guard mine == ticket, !(await identityChanged(mine)) else { return }
-            phase = .failed(.couldNotSend(SavedReceiptFailure(error)))
+            let failure = SavedReceiptFailure(error)
+            // Offline, the unsent files are kept on this iPhone at once, so closing the app loses nothing.
+            if failure == .offline, keptIDs.isEmpty, let pending { keptIDs = (try? pending.keep(held, consent: allowed)) ?? [] }
+            phase = .failed(.couldNotSend(failure))
         }
     }
 
