@@ -5,6 +5,7 @@ preparation then finishes under the new grant. A live grant is never moved."""
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from uuid import UUID, uuid4
 
 import psycopg
@@ -137,8 +138,8 @@ def test_only_a_person_may_rebind_and_only_in_their_own_business(prepared, users
     shared.bind(prepared)
     owner = _owner(service, context)
     # The owner's extractor identity is not a person.
-    robot = owner.model_copy(
-        update={"actor": owner.actor.model_copy(update={"actor_kind": "extractor"})}
+    robot = replace(
+        owner, actor=owner.actor.model_copy(update={"actor_kind": "extractor"})
     )
     with pytest.raises(ActionError, match="business_human_command_required"):
         service.rebind_attachment_preparation(robot, UUID(cid))
@@ -256,19 +257,20 @@ def test_the_route_answers_owner_200_accountant_403_and_bad_id_404(
         return await call_next(request)
 
     app.include_router(routes.router)
+    app.dependency_overrides[business_api.require_business_surface] = lambda: None
     app.dependency_overrides[business_api.require_business_document_write] = (
         lambda request: scoped_legacy(request, documents, hub, caller["id"], None)
     )
     monkeypatch.setattr(routes, "ingestion_hub", lambda: hub)
     with TestClient(app) as client:
         caller["id"] = users["other"]
-        refused = client.post(f"/api/v1/business/receipts/{cid}/rebind")
+        refused = client.post(f"/business/receipts/{cid}/rebind")
         assert refused.status_code == 403, refused.text
         assert refused.json()["detail"]["code"] == "business_owner_required"
         caller["id"] = users["owner"]
-        missing = client.post("/api/v1/business/receipts/not-a-uuid/rebind")
+        missing = client.post("/business/receipts/not-a-uuid/rebind")
         assert missing.status_code == 404, missing.text
-        moved = client.post(f"/api/v1/business/receipts/{cid}/rebind")
+        moved = client.post(f"/business/receipts/{cid}/rebind")
         assert moved.status_code == 200, moved.text
         assert moved.json()["id"] == cid
     assert _ledger(service, context.actor.space_id) == ["rebind_attachment"]
