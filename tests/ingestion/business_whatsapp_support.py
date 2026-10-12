@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
+from argus.domain.business.contracts.recovery import BusinessModelOutputInvalid
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp.business_capture import BusinessCaptureStore
 from argus.domain.ingestion.whatsapp.business_delivery import BusinessDeliveryStore
@@ -87,6 +88,7 @@ class ScriptedExecutor:
         self.histories = []
         self.reply = "Guardé el borrador para revisión."
         self.fail_before_plan = False
+        self.invalid_output = False
         self.fail_composition = False
 
     async def __call__(
@@ -95,6 +97,8 @@ class ScriptedExecutor:
         self.histories.append(history)
         if turn.plan is None:
             self.interpretations.append(captured.envelope.text)
+            if self.invalid_output:
+                raise BusinessModelOutputInvalid()
             if self.fail_before_plan:
                 raise RuntimeError("synthetic interrupted interpretation")
             with self.actions.pool.connection() as connection:

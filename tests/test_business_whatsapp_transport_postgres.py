@@ -75,6 +75,27 @@ async def test_interrupted_provider_outcome_is_never_retried(world, failure):
 
 
 @pytest.mark.asyncio
+async def test_invalid_model_output_tells_the_owner_once_and_is_never_replayed(world):
+    world.executor.invalid_output = True
+    message = world.message()
+    world.captures.capture(message)
+    assert await world.worker(synthetic_consent=True).run_once()
+    assert not await world.worker(synthetic_consent=True).run_once()
+    assert len(world.executor.interpretations) == 1
+    assert world.states(message) == [("sent",)]
+    assert [m["text"]["body"] for m in world.transport.messages] == [
+        "No pude entender tu mensaje esta vez. Envíalo de nuevo, por favor."
+    ]
+    turn = world.turns.load_turn(world.keys.message(message.id).hex())
+    assert (turn.model_state, turn.plan) == ("unknown", None)
+    follow_up = world.message()
+    world.captures.capture(follow_up)
+    world.executor.invalid_output = False
+    assert await world.worker(synthetic_consent=True).run_once()
+    assert len(world.executor.interpretations) == 2
+
+
+@pytest.mark.asyncio
 async def test_transport_unknown_never_resends_or_sends_later_chunks(world):
     world.transport.fail = True
     world.executor.reply = "x" * 5000
