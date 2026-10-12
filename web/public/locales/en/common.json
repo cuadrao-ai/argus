@@ -2215,6 +2215,10 @@
       "error": "The export could not be downloaded. Check your access and try again.",
       "preview": "Downloads are available in the connected Business view."
     },
+    "panel": {
+      "crashed": "This part couldn't be shown. Your receipts are saved.",
+      "retry": "Try again"
+    },
     "dossier": {
       "read_purchases_title": "Purchases read on this receipt",
       "read_purchases_note": "The read showed more than one purchase. Complete this record with one of them; the rest stay here as evidence.",
