@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -245,3 +246,84 @@ async def test_worker_lifecycle_has_one_owned_task_and_awaits_shutdown(monkeypat
     assert stopped.is_set() and original.done()
     assert app.state.business_whatsapp_worker is None
     await stop_worker(app)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("pilot", ["false", "true"])
+async def test_text_reaches_the_agent_only_while_the_worker_is_enabled(
+    monkeypatch, pilot
+):
+    import httpx
+    from argus.api.whatsapp import build_whatsapp
+    from argus.domain.ingestion.reconcile.service import ReconciliationService
+    from argus.domain.ingestion.secrets import SecretBox
+    from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
+
+    from tests.ingestion.whatsapp_support import ENV
+
+    for key, value in ENV.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", pilot)
+    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", pilot)
+    captured = []
+
+    class Pool:
+        def connection(self):
+            captured.append("touched")
+            raise RuntimeError("the pool must not be used while disabled")
+
+    documents = SimpleNamespace(
+        hub=SimpleNamespace(
+            sink=ReconciliationService(object(), object(), lambda: None),
+            box=SecretBox(bytes(range(32))),
+            clock=lambda: None,
+        )
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: None))
+    runtime = build_whatsapp(
+        load_whatsapp_settings(),
+        documents=documents,
+        spaces=object(),
+        store=object(),
+        client=client,
+        pool=Pool(),
+    )
+    message = TextMessage("wamid.X", ALICE_PHONE, datetime.now(timezone.utc), "hola")
+    if pilot == "false":
+        assert runtime.intake.capture_text(message) is False
+        assert captured == []
+    else:
+        with pytest.raises(RuntimeError):
+            runtime.intake.capture_text(message)
+        assert captured == ["touched"]
+    await client.aclose()
+
+
+@pytest.mark.parametrize(
+    "env,expected",
+    [
+        ({}, 200),
+        ({"ARGUS_BUSINESS_AGENT_DAILY_TURNS": "50"}, 50),
+        ({"CUADRAO_BUSINESS_AGENT_DAILY_TURNS": "30"}, 30),
+        (
+            {
+                "CUADRAO_BUSINESS_AGENT_DAILY_TURNS": "30",
+                "ARGUS_BUSINESS_AGENT_DAILY_TURNS": "50",
+            },
+            30,
+        ),
+        ({"CUADRAO_BUSINESS_AGENT_DAILY_TURNS": "many"}, 200),
+        ({"CUADRAO_BUSINESS_AGENT_DAILY_TURNS": "0"}, 200),
+    ],
+)
+def test_the_daily_allowance_setting_names_and_default(monkeypatch, env, expected):
+    from argus.api.whatsapp_worker import agent_daily_turns
+
+    for name in (
+        "CUADRAO_BUSINESS_AGENT_DAILY_TURNS",
+        "ARGUS_BUSINESS_AGENT_DAILY_TURNS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    assert agent_daily_turns() == expected

@@ -8866,7 +8866,7 @@ lists, each with the actual model and provider-routing payload; a null provider
 means automatic routing, not a promised fixed vendor. The owner is always the
 authenticated caller; accountant grants cannot select another owner's link.
 No link is explicit (`linked=false`, `reason="whatsapp_link_required"`), while
-unreachable storage returns503. `last4`, `route` and `disclosure_token` may be
+unreachable storage returns 503. `last4`, `route` and `disclosure_token` may be
 null. A token exists only when `available=true`: the current owner, Business,
 prepare grant, link, route and runtime are eligible. Unavailable reasons are
 `whatsapp_unavailable`, `whatsapp_ai_route_unavailable`, `business_unavailable`

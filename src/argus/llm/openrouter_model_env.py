@@ -67,9 +67,23 @@ def _has_optional_object_properties(node: object) -> bool:
     return any(_has_optional_object_properties(item) for item in node.values())
 
 
-def uses_schema_message(model: str, schema: object, *, projected: bool = False) -> bool:
+# Only the Business routes deliver a sparse schema for OpenAI models in the
+# prompt. Every other route keeps its native strict wire unchanged.
+BUSINESS_SCHEMA_NAMES = frozenset(
+    {"BusinessInterpretation", "BusinessReply", "BusinessE1JudgeVerdict"}
+)
+
+
+def uses_schema_message(
+    model: str,
+    schema: object,
+    *,
+    projected: bool = False,
+    schema_name: str = "",
+) -> bool:
     return model.startswith("anthropic/") or (
         model.startswith("openai/")
         and not projected
+        and schema_name in BUSINESS_SCHEMA_NAMES
         and _has_optional_object_properties(schema)
     )

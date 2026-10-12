@@ -117,7 +117,7 @@ def test_openai_optional_object_schema_is_delivered_exactly_in_prompt(
         model=model,
         messages=[{"role": "user", "content": "probe"}],
         schema_model=schema_model,
-        schema_name="probe",
+        schema_name="BusinessInterpretation",
         profile=profile,
     )
     assert "response_format" not in payload
@@ -281,7 +281,7 @@ def test_openai_structured_wire_retains_exact_local_validation(
         model_name=model,
         messages=[{"role": "user", "content": "probe"}],
         schema_model=schema_model,
-        schema_name=schema_model.__name__,
+        schema_name="BusinessInterpretation",
     )
 
     def invoke():
@@ -333,3 +333,28 @@ def test_nested_request_observers_preserve_order_and_restore_on_exception(failur
         }
     assert events == ["outer", "inner", "outer"]
     assert openrouter._guard_request("interpretation", payload) is payload
+
+
+@pytest.mark.parametrize(
+    "model", ["openai/gpt-oss-120b", "openai/gpt-5.6-luna", "openai/gpt-6-luna"]
+)
+@pytest.mark.parametrize("task", ["interpretation", "chat_composer"])
+def test_other_routes_keep_the_native_strict_wire_for_sparse_schemas(model, task):
+    profile = openrouter_profile_for_task(task)
+    payload = openrouter._json_schema_payload(
+        model=model,
+        messages=[{"role": "user", "content": "probe"}],
+        schema_model=SparseWireResult,
+        schema_name="result_summary",
+        profile=profile,
+    )
+    assert payload["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "result_summary",
+            "strict": True,
+            "schema": SparseWireResult.model_json_schema(),
+        },
+    }
+    assert payload["provider"] == {"require_parameters": True}
+    assert payload["temperature"] == profile.temperature

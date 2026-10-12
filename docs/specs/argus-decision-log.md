@@ -61,6 +61,12 @@ that states a true fact one turn earlier fails them even when the reply and the
 saved state are honest, so they do not match how real owners write. The
 invariants keep every safeguard that protects the owner's money and records.
 
+A turn whose model answer is not a valid structure is one failure, not a case
+result. The existing call loop retries it. If it still fails, the owner gets one
+typed reply asking to send the message again. A measurement may rerun one such
+unavailable case once at the same commit. The scorecard keeps both attempts,
+and the rerun is the one counted.
+
 ## October 7, 2026 Business connected flow and offline E0 plan
 
 Lucas approved the [connected-flow specification](cuadrao-business-connected-flow-spec.md)

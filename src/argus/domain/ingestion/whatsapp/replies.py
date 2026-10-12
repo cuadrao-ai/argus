@@ -58,6 +58,10 @@ REPLIES: dict[str, tuple[str, str]] = {
         "Por aquí solo recibimos recibos. Envía la foto o el PDF del recibo.",
         "We only take receipts here. Send a photo or PDF of the receipt.",
     ),
+    "whatsapp_daily_limit": (
+        "Llegaste al límite de mensajes de hoy. Escríbenos de nuevo mañana.",
+        "You reached today's message limit. Please write again tomorrow.",
+    ),
     "whatsapp_media_unsupported": (
         "Solo podemos recibir fotos JPG o PNG y archivos PDF.",
         "We can only take JPG or PNG photos and PDF files.",

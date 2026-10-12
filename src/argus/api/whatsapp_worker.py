@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import Callable
 from contextlib import suppress
 from uuid import UUID
@@ -16,6 +17,20 @@ from argus.domain.ingestion.whatsapp.business_worker import (
     no_ai_consent,
 )
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
+
+
+def agent_daily_turns() -> int:
+    """Per-owner turns in 24 hours. ``CUADRAO_BUSINESS_AGENT_DAILY_TURNS`` first,
+    the ``ARGUS_`` name second, 200 when unset or not a positive whole number."""
+
+    for name in (
+        "CUADRAO_BUSINESS_AGENT_DAILY_TURNS",
+        "ARGUS_BUSINESS_AGENT_DAILY_TURNS",
+    ):
+        value = os.getenv(name, "").strip()
+        if value:
+            return int(value) if value.isdigit() and int(value) > 0 else 200
+    return 200
 
 
 def build_worker(
@@ -71,6 +86,7 @@ def build_worker(
         consent=consent,
         enabled=enabled,
         send_enabled=send_enabled,
+        daily_turns=agent_daily_turns,
     )
 
 

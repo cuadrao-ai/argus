@@ -47,6 +47,7 @@ from argus.domain.ingestion.whatsapp.intake import (
     WhatsAppIntake,
 )
 from argus.domain.ingestion.whatsapp.media import GraphMedia
+from argus.domain.ingestion.whatsapp.payload import TextMessage
 from argus.domain.ingestion.whatsapp.replies import CloudApiTransport
 from argus.domain.ingestion.whatsapp.store import (
     SENDER_LINK_REVOKED,
@@ -171,6 +172,23 @@ def configure_whatsapp(runtime: WhatsAppRuntime | None) -> None:
     _runtime = runtime
 
 
+def _capture_when_enabled(worker: BusinessWhatsAppWorker):  # noqa: ANN202
+    """Text goes to the Business agent only while the worker can answer it.
+
+    With the Business pilot, intake or the extraction switch off, or without
+    canonical actions, text keeps the ordinary reply instead of being stored
+    for an agent that never runs."""
+
+    def capture(message: TextMessage) -> bool:
+        return bool(
+            worker.enabled()
+            and worker.actions is not None
+            and worker.captures.capture(message)
+        )
+
+    return capture
+
+
 def build_whatsapp(
     settings: WhatsAppSettings,
     *,
@@ -240,7 +258,7 @@ def build_whatsapp(
         transport=transport,
         app_origin=app_origin,
         max_bytes=max_bytes,
-        capture_text=worker.captures.capture if worker is not None else None,
+        capture_text=_capture_when_enabled(worker) if worker is not None else None,
         background=work.start if work is not None else None,
     )
     return WhatsAppRuntime(intake, settings, worker, consent, work)

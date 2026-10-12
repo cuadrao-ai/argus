@@ -886,7 +886,9 @@ def _json_schema_payload(
         if projected_document or openrouter_model_tier_for_task(profile.task) == "readout"
         else model_policy.model_sampling_parameters(model, profile.temperature)
     )
-    if model_policy.uses_schema_message(model, schema, projected=projected_document):
+    if model_policy.uses_schema_message(
+        model, schema, projected=projected_document, schema_name=schema_name
+    ):
         # Native grammar eligibility never changes the canonical schema.
         # Prompt-schema responses still require exact local typed validation.
         schema_message = {
