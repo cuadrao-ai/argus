@@ -16,6 +16,7 @@ struct CuadraoDesignGallery: View {
     @State private var distribution = false
     @State private var period: CanvasHistoryRange = .month
     @State private var toast: CuadraoToastMessage?
+    @State private var retries = 0
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -103,6 +104,11 @@ struct CuadraoDesignGallery: View {
                             Button(spanish ? "Alerta" : "Warning") { CuadraoHaptics.warning() }.frame(minHeight: 44)
                             Button(spanish ? "Selección" : "Selection") { CuadraoHaptics.selection() }.frame(minHeight: 44)
                         }
+                    }
+                    sample(spanish ? "No se pudo cargar" : "Could not load") {
+                        CuadraoRetryState(message: "loop.error.connection", identifier: "gallery-retry-state",
+                                          retryIdentifier: "gallery-retry-action") { retries += 1; CuadraoHaptics.selection() }
+                        Text("\(retries)").font(CuadraoTypography.caption).foregroundStyle(.secondary).accessibilityIdentifier("gallery-retry-count")
                     }
                     sample(spanish ? "Carga en curso" : "Loading in progress") {
                         CuadraoChartState(title: spanish ? "Reuniendo tu historia" : "Gathering your history",

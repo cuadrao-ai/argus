@@ -19,7 +19,6 @@ struct CuadraoSkeleton: View {
             .modifier(CuadraoShimmer(motionEnabled: motionEnabled))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(NSLocalizedString("skeleton.loading", comment: ""))
-            .accessibilityAddTraits(.updatesFrequently)
             .accessibilityIdentifier(identifier)
     }
 
