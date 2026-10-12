@@ -7,7 +7,7 @@ import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
 import { EmailDeliveryRow, EmailReceivingAddress } from "../components/business-app/BusinessEmailDeliveries";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { businessReceivingAddress, emailDeliveriesNeedRefresh, receiptsGroupedUnderEmails, type BusinessEmailDelivery } from "../lib/business-email";
+import { businessReceivingAddress, emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "../lib/business-email";
 
 const delivery = (overrides: Partial<BusinessEmailDelivery> = {}): BusinessEmailDelivery => ({
   id: "email-1", state: "captured", received_at: "2026-10-12T14:00:00Z", updated_at: "2026-10-12T14:01:00Z",
@@ -17,15 +17,10 @@ const delivery = (overrides: Partial<BusinessEmailDelivery> = {}): BusinessEmail
 });
 
 describe("received emails in the Inbox", () => {
-  test("an email with a saved attachment groups its own .eml document; others leave it visible", () => {
-    const items = [
-      delivery(),
-      delivery({ id: "email-2", original_document_id: "rcpt-body-only", parts: [] }),
-      delivery({ id: "email-3", original_document_id: "rcpt-rejected", parts: [{ id: "1.2", filename: "x.zip", media_type: "application/zip", state: "rejected", document_id: null, error_code: "unsupported_media_type" }] }),
-    ];
-    assert.deepEqual([...receiptsGroupedUnderEmails(items)], ["rcpt-eml"]);
-    assert.equal(emailDeliveriesNeedRefresh(items), false);
+  test("refresh is needed only while a delivery is still moving; the address shows only when enabled", () => {
+    assert.equal(emailDeliveriesNeedRefresh([delivery()]), false);
     assert.equal(emailDeliveriesNeedRefresh([delivery({ state: "partial" })]), true);
+    assert.equal(emailDeliveriesNeedRefresh([delivery({ state: "received" })]), true);
     assert.equal(businessReceivingAddress({ enabled: false, receiving_address: "x@y.test" }), null);
     assert.equal(businessReceivingAddress({ enabled: true, receiving_address: "x@y.test" }), "x@y.test");
   });
@@ -64,7 +59,10 @@ describe("received emails in the Inbox", () => {
     assert.equal(items.length, 2);
     assert.equal("text_body" in items[0], false);
     assert.equal((await source.emailDelivery("email-ferreteria")).text_body?.startsWith("Buenas tardes"), true);
-    assert.deepEqual([...receiptsGroupedUnderEmails(items)], ["rcpt-saved"]);
+    const inbox = await source.receipts("all");
+    const original = inbox.find((item) => item.id === "rcpt-saved");
+    assert.equal(original?.email_original, true);
+    assert.deepEqual(original?.email_delivery_ids, ["email-ferreteria"]);
     assert.deepEqual(await source.retryEmailDelivery("email-boletin"), { id: "email-boletin" });
   });
 });

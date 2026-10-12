@@ -2402,6 +2402,7 @@
       "reload": "Refresh",
       "address_failed": "Could not load the receiving address.",
       "list_failed": "Could not load received emails.",
+      "poll_stopped": "Some emails are still being read. Use Refresh to see the latest state.",
       "empty": "No emails received yet.",
       "retry": "Try again",
       "retrying": "Requesting…",
@@ -2430,6 +2431,7 @@
     },
     "review": {
       "source_error": "We couldn't open the original receipt with your current access.",
+      "email_original": "This is the email itself. Its attachment is the receipt to review.",
       "source": "Original receipt",
       "download": "Download",
       "error": "This receipt isn't available. It may have been removed.",

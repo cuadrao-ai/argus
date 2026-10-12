@@ -35,17 +35,3 @@ export function businessReceivingAddress(intake: BusinessEmailIntake): string | 
 export function emailDeliveriesNeedRefresh(items: readonly BusinessEmailDelivery[]): boolean {
   return items.some((item) => item.state === "received" || item.state === "processing" || item.state === "partial");
 }
-
-/**
- * Receipt ids that belong to an email and already have a captured attachment.
- * The Inbox shows those emails as one row with their attachments, not as a
- * separate ".eml" receipt beside its own attachments.
- */
-export function receiptsGroupedUnderEmails(items: readonly BusinessEmailDelivery[]): ReadonlySet<string> {
-  const grouped = new Set<string>();
-  for (const delivery of items) {
-    const captured = delivery.parts.some((part) => part.state === "captured" && part.document_id);
-    if (captured && delivery.original_document_id) grouped.add(delivery.original_document_id);
-  }
-  return grouped;
-}

@@ -170,6 +170,8 @@ function seedReceipts(): ReceiptDetail[] {
     }),
     receipt({
       id: "rcpt-saved",
+      email_delivery_ids: ["email-ferreteria"],
+      email_original: true,
       status: "saved",
       filename: "almuerzo-cliente.png",
       media_type: "image/png",

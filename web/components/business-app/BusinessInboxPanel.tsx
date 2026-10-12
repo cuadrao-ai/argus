@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronRight, FileText, ImageIcon, MessageCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
-import { receiptsGroupedUnderEmails, type BusinessEmailDelivery } from "@/lib/business-email";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatMoney, formatRelativeTime } from "./business-format";
@@ -51,10 +49,9 @@ export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpe
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
   const { records, openPanel, actions } = useBusiness();
-  // An email's own ".eml" document stays inside its email row once an attachment is saved.
-  const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
-  const items = records.inbox?.filter((receipt) => !receipt.email_original && !grouped.has(receipt.id)) ?? null;
-  const onGrouped = (deliveries: readonly BusinessEmailDelivery[]) => setGrouped(receiptsGroupedUnderEmails(deliveries));
+  // The server marks an email's own ".eml" document once an attachment is a receipt;
+  // it lives inside its email row, never in this list.
+  const items = records.inbox?.filter((receipt) => !receipt.email_original) ?? null;
 
   const upload = actions.create.find((action) => action.id === "upload_receipt");
 
@@ -71,7 +68,7 @@ export default function BusinessInboxPanel() {
           ) : null
         }
       />
-      <BusinessEmailDeliveries onGrouped={onGrouped} />
+      <BusinessEmailDeliveries />
       {records.error ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.inbox.error", "We couldn't load your inbox. Try again.")}

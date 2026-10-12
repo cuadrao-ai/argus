@@ -203,6 +203,11 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
         (409, "email_original_not_a_receipt")
     ] * 3
     assert alice.get(f"/receipts/{original_id}/source").status_code == 200
+    searched = {
+        item["id"]: item
+        for item in alice.get("/search", q="forwarded").json()["receipts"]
+    }
+    assert searched[original_id]["email_original"] is True
     # The attachment is the receipt: it still prepares.
     prepared = alice.post(
         f"/receipts/{attachment_id}/prepare", **{"X-Extraction-Consent": "true"}

@@ -109,31 +109,32 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
 }
 
 /** Received emails, newest first, and the address that receives them. */
-export default function BusinessEmailDeliveries({ onGrouped }: { onGrouped?: (items: readonly BusinessEmailDelivery[]) => void }) {
+export default function BusinessEmailDeliveries() {
   const { t } = useTranslation();
   const { source, openPanel, revision } = useBusiness();
   const [intake, setIntake] = useState<Load<BusinessEmailIntake>>({ status: "loading" });
   const [deliveries, setDeliveries] = useState<Load<BusinessEmailDelivery[]>>({ status: "loading" });
   const [expanded, setExpanded] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [stalled, setStalled] = useState(false);
   useEffect(() => {
     let current = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let polls = 0;
+    setStalled(false);
     source.emailIntake().then((data) => { if (current) setIntake({ status: "ready", data }); }).catch(() => { if (current) setIntake({ status: "error" }); });
     const refresh = async () => {
       try {
         const items = await source.emailDeliveries();
         if (!current) return;
         setDeliveries({ status: "ready", data: items });
-        onGrouped?.(items);
-        if (emailDeliveriesNeedRefresh(items) && polls++ < 6) timer = setTimeout(() => void refresh(), 5000);
+        if (!emailDeliveriesNeedRefresh(items)) return;
+        if (polls++ < 6) timer = setTimeout(() => void refresh(), 5000);
+        else setStalled(true);
       } catch { if (current) setDeliveries({ status: "error" }); }
     };
     void refresh();
     return () => { current = false; clearTimeout(timer); };
-  // onGrouped is a stable setter from the Inbox.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, attempt, revision]);
   if (intake.status === "error" && deliveries.status === "error") return null;
   const ready = intake.status === "ready" ? intake.data : null;
@@ -150,6 +151,7 @@ export default function BusinessEmailDeliveries({ onGrouped }: { onGrouped?: (it
         {intake.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.address_failed", "Could not load the receiving address.")}</p> : null}
         {ready ? <EmailReceivingAddress intake={ready} onActivate={async () => { const next = await source.createEmailAddress(); setIntake({ status: "ready", data: next }); }} /> : null}
         {deliveries.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.list_failed", "Could not load received emails.")}</p> : null}
+        {stalled ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.poll_stopped", "Some emails are still being read. Use Refresh to see the latest state.")}</p> : null}
         {deliveries.status === "ready" ? (deliveries.data.length ? (
           <ul className="space-y-2" data-testid="business-email-deliveries">
             {deliveries.data.map((delivery) => <EmailDeliveryRow key={delivery.id} delivery={delivery} expanded={expanded === delivery.id} onExpanded={(open) => setExpanded(open ? delivery.id : null)} loadDetail={source.emailDelivery} retryDelivery={source.retryEmailDelivery} openReceipt={(id) => openPanel({ kind: "receipt", receiptId: id })} />)}

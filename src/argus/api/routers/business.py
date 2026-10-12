@@ -464,9 +464,15 @@ def search(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        return context.service.search(context.scope, q, limit)
+        found = context.service.search(context.scope, q, limit)
     except Exception as error:
         raise _problem(request, error) from None
+    flags = email_receipt_flags(context.scope.owner.space_id)
+    for item in found["receipts"]:
+        if item["id"] in flags:
+            item["email_delivery_ids"] = list(flags[item["id"]][0])
+            item["email_original"] = flags[item["id"]][1]
+    return found
 
 
 @router.get("/overview", response_model=BusinessOverview)
