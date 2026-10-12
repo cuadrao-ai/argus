@@ -7,14 +7,20 @@ create table public.business_email_routes (
     id uuid primary key default gen_random_uuid(),
     recipient text not null unique
         check (recipient = lower(recipient) and length(recipient) <= 254),
-    space_id uuid not null references public.spaces(id) on delete cascade,
+    space_id uuid not null,
     principal_id uuid not null references auth.users(id) on delete cascade,
     granted_by uuid not null references auth.users(id) on delete cascade,
-    grant_id uuid not null references public.business_client_grants(id) on delete cascade,
+    grant_id uuid not null,
     active boolean not null default true,
-    created_at timestamptz not null default now()
+    created_at timestamptz not null default now(),
+    -- The principal owns the captured documents, so it is the Business owner:
+    -- source connections pin (owner_space_id, user_id) to spaces (id, created_by).
+    foreign key (space_id, principal_id) references public.spaces(id, created_by) on delete cascade,
+    -- The grant checked before each capture belongs to the same Business.
+    foreign key (grant_id, space_id) references public.business_client_grants(id, space_id) on delete cascade
 );
-create index business_email_routes_space on public.business_email_routes(space_id) where active;
+-- One live address per Business: a concurrent create returns the same route.
+create unique index business_email_routes_one_active on public.business_email_routes(space_id) where active;
 
 create table public.business_email_deliveries (
     id uuid primary key default gen_random_uuid(),

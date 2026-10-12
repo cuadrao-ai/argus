@@ -172,7 +172,7 @@ async def test_signed_event_becomes_one_capture_with_original_and_parts_and_no_c
     ]
     assert all(d.consent is False and d.status == "saved" for d in drafts)
     assert world.provider.calls == 1
-    assert world.checks == [world.route.id, world.route.id]
+    assert world.checks == [world.route.id] * 3
     # The provider's replay of the same event is the same row and no second capture.
     assert world.enqueue(external_id=delivery.external_id).id == delivery.id
     assert not await world.runtime.next()

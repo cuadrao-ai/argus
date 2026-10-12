@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable, Iterator, Protocol, TypedDict
 from uuid import uuid4
 
+from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
@@ -126,16 +127,26 @@ class PostgresEmailStore:
         self.pool = pool
 
     def create_route(self, *, recipient, space_id, principal_id, granted_by, grant_id):
-        with (
-            self.pool.connection() as connection,
-            connection.cursor(row_factory=dict_row) as cursor,
-        ):
-            row = cursor.execute(
-                "insert into public.business_email_routes(recipient,space_id,principal_id,granted_by,grant_id) "
-                "values(%s,%s,%s,%s,%s) returning *",
-                (recipient, space_id, principal_id, granted_by, grant_id),
-            ).fetchone()
-            return _route(row)
+        """The Business's live route: the new one, or the one a concurrent create won."""
+
+        try:
+            with (
+                self.pool.connection() as connection,
+                connection.cursor(row_factory=dict_row) as cursor,
+            ):
+                row = cursor.execute(
+                    "insert into public.business_email_routes(recipient,space_id,principal_id,granted_by,grant_id) "
+                    "values(%s,%s,%s,%s,%s) returning *",
+                    (recipient, space_id, principal_id, granted_by, grant_id),
+                ).fetchone()
+                return _route(row)
+        except UniqueViolation as error:
+            if error.diag.constraint_name != "business_email_routes_one_active":
+                raise
+        existing = self.route_for_space(space_id)
+        if existing is None:
+            raise LookupError("email_route_unavailable")
+        return existing
 
     def deactivate_routes(self, space_id: str) -> int:
         with self.pool.connection() as connection:
@@ -394,6 +405,9 @@ class InMemoryEmailStore:
         self._parts: dict[str, dict[str, EmailDeliveryPart]] = {}
 
     def create_route(self, *, recipient, space_id, principal_id, granted_by, grant_id):
+        existing = self.route_for_space(space_id)
+        if existing is not None:
+            return existing
         if any(route.recipient == recipient for route in self._routes.values()):
             raise ValueError("email_route_exists")
         route = RecipientRoute(

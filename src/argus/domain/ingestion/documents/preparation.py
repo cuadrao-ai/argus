@@ -199,6 +199,10 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
     from argus.domain.ingestion.documents.email_source import parse_email
 
     parsed = parse_email(content)
+    if not parsed.readable:
+        raise DocumentExtractionError(
+            "unsupported_email_attachment" if parsed.skipped else "empty_document"
+        )
     pages, images, texts = 1, [], []
     if parsed.text.strip():
         texts.append("Page 1 (email message text):\n" + parsed.text)
@@ -221,10 +225,16 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
                 f"Attachment {part.filename!r}, starting at page {pages + 1}:\n{text}"
             )
             pages += count
-        else:
-            raise DocumentExtractionError("unsupported_email_attachment")
         if pages > settings.max_pages:
             raise DocumentExtractionError("document_page_limit")
+    if parsed.skipped:
+        texts.append(
+            "Parts not read: "
+            + "; ".join(
+                f"{part.filename} ({part.media_type}, {part.reason})"
+                for part in parsed.skipped
+            )
+        )
     text = "\n\n".join(texts)
     if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
         raise DocumentExtractionError("document_text_limit")
@@ -240,14 +250,12 @@ def validate_source(content: bytes, media_type: str) -> None:
     if media_type == "message/rfc822":
         from argus.domain.ingestion.documents.email_source import parse_email
 
-        for part in parse_email(content).attachments:
-            if part.media_type not in (
-                "image/jpeg",
-                "image/png",
-                "application/pdf",
-                *FLAT_MEDIA_TYPES,
-            ):
-                raise DocumentExtractionError("unsupported_email_attachment")
+        parsed = parse_email(content)
+        if not parsed.readable:
+            raise DocumentExtractionError(
+                "unsupported_email_attachment" if parsed.skipped else "empty_document"
+            )
+        for part in parsed.attachments:
             validate_source(part.content, part.media_type)
     elif media_type in FLAT_MEDIA_TYPES:
         flat_text(content, media_type)
