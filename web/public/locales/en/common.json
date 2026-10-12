@@ -2457,6 +2457,9 @@
       }
     },
     "review": {
+      "rebind_note": "The access that prepared this receipt is no longer valid. Bind it to your current access, then prepare it again.",
+      "rebind": "Bind to my current access",
+      "rebind_failed": "We couldn't rebind this receipt. Try again.",
       "source_error": "We couldn't open the original receipt with your current access.",
       "email_original": "This is the email itself. Its attachment is the receipt to review.",
       "source": "Original receipt",

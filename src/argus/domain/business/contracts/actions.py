@@ -245,6 +245,16 @@ class PrepareAttachmentCommand(Contract):
     batch_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class RebindAttachmentCommand(Contract):
+    """The owner moved a receipt's preparation binding from a grant that is
+    no longer live to their current one. The ledger row of that move."""
+
+    action: Literal["rebind_attachment"] = "rebind_attachment"
+    previous_binding_id: UUID
+    previous_grant_id: UUID
+    binding: AttachmentPreparationBinding
+
+
 Command = (
     BusinessAction
     | ReviewCommand
@@ -252,6 +262,7 @@ Command = (
     | CaptureCommand
     | IncomeApprovalCommand
     | PrepareAttachmentCommand
+    | RebindAttachmentCommand
 )
 
 

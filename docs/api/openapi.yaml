@@ -1489,6 +1489,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/receipts/{receipt_id}/rebind:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'Owner action: bind a receipt whose preparation grant is no longer live
+
+        to the owner''s current grant, with a ledger row. 409 while the old grant
+
+        still works.'
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptDetail'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/receipts/{receipt_id}/review:
     patch:
       tags:

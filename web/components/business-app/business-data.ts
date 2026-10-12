@@ -41,6 +41,7 @@ export type BusinessDataSource = Readonly<{
   captures: (query?: string, limit?: number) => Promise<BusinessCapture[]>;
   uploadReceipt: (file: File, consentToPrepare: boolean, key: string) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
+  rebindReceipt: (id: string) => Promise<ReceiptDetail>;
   saveReview: (
     id: string,
     version: number,
@@ -81,6 +82,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   captures: api.listBusinessCaptures,
   uploadReceipt: api.uploadBusinessReceipt,
   prepareReceipt: api.prepareBusinessReceipt,
+  rebindReceipt: api.rebindBusinessReceipt,
   saveReview: api.saveBusinessReceiptReview,
   confirmReceipt: api.confirmBusinessReceipt,
   recordExpense: api.recordBusinessExpense,
@@ -132,6 +134,7 @@ export function withBusinessSpace(
     captures: source.captures,
     uploadReceipt: after(source.uploadReceipt),
     prepareReceipt: source.prepareReceipt,
+    rebindReceipt: source.rebindReceipt,
     saveReview: source.saveReview,
     confirmReceipt: source.confirmReceipt,
     recordExpense: after(source.recordExpense),
