@@ -75,6 +75,67 @@ async def test_interrupted_provider_outcome_is_never_retried(world, failure):
 
 
 @pytest.mark.asyncio
+async def test_a_failed_binding_is_a_retryable_model_failure_with_the_same_reply(world):
+    from argus.agent_runtime.business.binding import BusinessBindingError
+
+    world.executor.invalid_output = BusinessBindingError("business_target_not_in_context")
+    message = world.message()
+    world.captures.capture(message)
+    assert await world.worker(synthetic_consent=True).run_once()
+    assert [m["text"]["body"] for m in world.transport.messages] == [
+        "No pude entender tu mensaje esta vez. Envíalo de nuevo, por favor."
+    ]
+    turn = world.turns.load_turn(world.keys.message(message.id).hex())
+    assert (turn.model_state, turn.plan) == ("unknown", None)
+
+
+@pytest.mark.asyncio
+async def test_invalid_output_after_a_plan_exists_is_not_a_resend_request(world):
+    from argus.domain.business.contracts.recovery import BusinessModelOutputInvalid
+
+    world.executor.fail_composition = BusinessModelOutputInvalid()
+    message = world.message()
+    world.captures.capture(message)
+    assert await world.worker(synthetic_consent=True).run_once()
+    assert world.transport.messages == []
+    turn = world.turns.load_turn(world.keys.message(message.id).hex())
+    assert turn.plan is not None
+
+
+@pytest.mark.asyncio
+async def test_without_ai_consent_the_owner_hears_that_plainly_and_no_model_runs(world):
+    message = world.message()
+    world.captures.capture(message)
+    assert await world.worker(synthetic_consent=False).run_once()
+    assert world.executor.interpretations == []
+    assert [m["text"]["body"] for m in world.transport.messages] == [
+        "Todavía no has dado permiso para que Cuadrao lea tus mensajes con IA. "
+        "Puedes activarlo en Ajustes, en WhatsApp."
+    ]
+
+
+@pytest.mark.asyncio
+async def test_invalid_model_output_tells_the_owner_once_and_is_never_replayed(world):
+    world.executor.invalid_output = True
+    message = world.message()
+    world.captures.capture(message)
+    assert await world.worker(synthetic_consent=True).run_once()
+    assert not await world.worker(synthetic_consent=True).run_once()
+    assert len(world.executor.interpretations) == 1
+    assert world.states(message) == [("sent",)]
+    assert [m["text"]["body"] for m in world.transport.messages] == [
+        "No pude entender tu mensaje esta vez. Envíalo de nuevo, por favor."
+    ]
+    turn = world.turns.load_turn(world.keys.message(message.id).hex())
+    assert (turn.model_state, turn.plan) == ("unknown", None)
+    follow_up = world.message()
+    world.captures.capture(follow_up)
+    world.executor.invalid_output = False
+    assert await world.worker(synthetic_consent=True).run_once()
+    assert len(world.executor.interpretations) == 2
+
+
+@pytest.mark.asyncio
 async def test_transport_unknown_never_resends_or_sends_later_chunks(world):
     world.transport.fail = True
     world.executor.reply = "x" * 5000

@@ -10,7 +10,11 @@ from loguru import logger
 from pydantic import ValidationError
 
 from argus.domain.business.contracts.authority import TrustedActor
-from argus.domain.business.contracts.recovery import DurableTurn, SenderLease
+from argus.domain.business.contracts.recovery import (
+    BusinessModelOutputInvalid,
+    DurableTurn,
+    SenderLease,
+)
 from argus.domain.ingestion.secrets import SecretUnreadable
 from argus.domain.ingestion.whatsapp.business_capture import (
     BusinessCaptureStore,
@@ -139,11 +143,17 @@ class BusinessWhatsAppWorker:
                             self.outbox.mark_unknown, captured, lease=lease
                         )
                         return
+                    missing = await asyncio.to_thread(
+                        self._consent_missing, captured, lease
+                    )
                     await asyncio.to_thread(
                         self.outbox.save_reply,
                         captured,
                         compose_reply(
-                            "whatsapp_receipt_missing", language=captured.language
+                            "whatsapp_ai_consent_missing"
+                            if missing
+                            else "whatsapp_receipt_missing",
+                            language=captured.language,
                         ),
                         lease=lease,
                         fixed=True,
@@ -178,14 +188,24 @@ class BusinessWhatsAppWorker:
                         lease=lease,
                         grant_id=context.grant_id,
                     )
-                    reply = await self.execute_turn(
-                        captured=captured,
-                        turn=turn,
-                        lease=lease,
-                        authorization=context,
-                        begin_reply=begin_reply,
-                        history=history,
-                    )
+                    try:
+                        reply = await self.execute_turn(
+                            captured=captured,
+                            turn=turn,
+                            lease=lease,
+                            authorization=context,
+                            begin_reply=begin_reply,
+                            history=history,
+                        )
+                    except BusinessModelOutputInvalid:
+                        persisted = await asyncio.to_thread(
+                            self.turns.load_turn, captured.turn_key
+                        )
+                        if persisted is not None and persisted.plan is not None:
+                            raise
+                        await self._model_output_invalid(captured, lease)
+                        await self._send(captured, None, None, lease)
+                        return
                     await asyncio.to_thread(
                         self.outbox.save_reply, captured, reply, lease=lease
                     )
@@ -214,6 +234,45 @@ class BusinessWhatsAppWorker:
                 pass
             if not denied:
                 raise
+
+    async def _model_output_invalid(
+        self, captured: CapturedText, lease: SenderLease
+    ) -> None:
+        """The model answered with an invalid interpretation before any plan.
+        The turn stays unknown, so it is never replayed. The owner gets one
+        typed, fixed reply asking to send the message again."""
+
+        logger.warning(
+            "Business model output invalid",
+            event="business_model_output_invalid",
+            turn_ref=captured.turn_key[:12],
+        )
+        await asyncio.to_thread(
+            self.outbox.save_reply,
+            captured,
+            compose_reply("whatsapp_agent_unavailable", language=captured.language),
+            lease=lease,
+            fixed=True,
+        )
+        await asyncio.to_thread(
+            self.turns.mark_model_unknown, turn_key=captured.turn_key, lease=lease
+        )
+
+    def _consent_missing(self, captured: CapturedText, lease: SenderLease) -> bool:
+        """The agent is otherwise able to answer, but the owner has not given
+        permission for AI reading yet."""
+
+        available = bool(
+            self.enabled()
+            and self.actions is not None
+            and self.execute_turn is not None
+            and self.captures.live_binding(captured, lease=lease)
+        )
+        if not available:
+            return False
+        if self.consent is None:
+            return not self.has_consent(captured.space_id, captured.owner_id)
+        return captured.ai_consent_id is None
 
     def _may_interpret(self, captured: CapturedText, lease: SenderLease) -> bool:
         available = bool(

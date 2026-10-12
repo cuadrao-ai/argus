@@ -64,6 +64,16 @@ REPLIES: dict[str, tuple[str, str]] = {
         "We can't take voice notes, audio, stickers or videos yet. "
         "Send a photo or PDF of the receipt.",
     ),
+    "whatsapp_agent_unavailable": (
+        "No pude entender tu mensaje esta vez. Envíalo de nuevo, por favor.",
+        "I couldn't process your message this time. Please send it again.",
+    ),
+    "whatsapp_ai_consent_missing": (
+        "Todavía no has dado permiso para que Cuadrao lea tus mensajes con IA. "
+        "Puedes activarlo en Ajustes, en WhatsApp.",
+        "You haven't given permission for AI to read your messages yet. "
+        "You can turn it on in Settings, under WhatsApp.",
+    ),
     "whatsapp_media_unsupported": (
         "Solo podemos recibir fotos JPG o PNG y archivos PDF.",
         "We can only take JPG or PNG photos and PDF files.",

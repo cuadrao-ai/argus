@@ -335,26 +335,67 @@ def test_nested_request_observers_preserve_order_and_restore_on_exception(failur
     assert openrouter._guard_request("interpretation", payload) is payload
 
 
+class _Inner(BaseModel):
+    value: str
+
+
+class _Sparse(BaseModel):
+    name: str
+    inner: _Inner | None = None
+
+
+_SPARSE_SCHEMA = {
+    "$defs": {
+        "_Inner": {
+            "properties": {"value": {"title": "Value", "type": "string"}},
+            "required": ["value"],
+            "title": "_Inner",
+            "type": "object",
+        }
+    },
+    "properties": {
+        "inner": {
+            "anyOf": [{"$ref": "#/$defs/_Inner"}, {"type": "null"}],
+            "default": None,
+        },
+        "name": {"title": "Name", "type": "string"},
+    },
+    "required": ["name"],
+    "title": "_Sparse",
+    "type": "object",
+}
+
+
 @pytest.mark.parametrize(
-    "model", ["openai/gpt-oss-120b", "openai/gpt-5.6-luna", "openai/gpt-6-luna"]
+    "model,task,extra",
+    [
+        ("openai/gpt-5.6-luna", "result_summary", {"reasoning": {"effort": "none"}}),
+        (
+            "openai/gpt-oss-120b",
+            "capability_conflict",
+            {"reasoning": {"effort": "medium"}, "temperature": 0},
+        ),
+    ],
 )
-@pytest.mark.parametrize("task", ["interpretation", "chat_composer"])
-def test_other_routes_keep_the_native_strict_wire_for_sparse_schemas(model, task):
-    profile = openrouter_profile_for_task(task)
+def test_consumer_routes_keep_their_whole_payload_for_sparse_schemas(model, task, extra):
+    """Whole-payload snapshot taken from the integration code before the Business
+    prompt-schema rule existed."""
+
     payload = openrouter._json_schema_payload(
         model=model,
         messages=[{"role": "user", "content": "probe"}],
-        schema_model=SparseWireResult,
-        schema_name="result_summary",
-        profile=profile,
+        schema_model=_Sparse,
+        schema_name=task,
+        profile=openrouter_profile_for_task(task),
     )
-    assert payload["response_format"] == {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "result_summary",
-            "strict": True,
-            "schema": SparseWireResult.model_json_schema(),
+    assert payload == {
+        "model": model,
+        "messages": [{"role": "user", "content": "probe"}],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": task, "strict": True, "schema": _SPARSE_SCHEMA},
         },
+        "provider": {"require_parameters": True},
+        "max_tokens": 700,
+        **extra,
     }
-    assert payload["provider"] == {"require_parameters": True}
-    assert payload["temperature"] == profile.temperature
