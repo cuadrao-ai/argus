@@ -43,6 +43,18 @@ def test_the_overview_counts_saved_expenses_outside_the_period(alice: Owner) -> 
     )
 
 
+def test_the_business_day_follows_the_one_clock_in_santo_domingo(
+    freeze_new_york_clock,  # noqa: ANN001
+) -> None:
+    """03:30 UTC on the 12th is still the 11th in Santo Domingo (UTC-4)."""
+    from datetime import datetime, timezone
+
+    from argus.domain.business import ledger
+
+    freeze_new_york_clock(datetime(2026, 10, 12, 3, 30, tzinfo=timezone.utc))
+    assert ledger.today().isoformat() == "2026-10-11"
+
+
 def test_the_server_is_the_one_clock_and_a_reversed_range_is_refused(
     alice: Owner,  # noqa: F811
 ) -> None:
