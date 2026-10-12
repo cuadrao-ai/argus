@@ -245,18 +245,17 @@ async def test_unsupported_sibling_never_blocks_the_good_attachment():
     delivery = world.enqueue()
     assert await world.runtime.next()
     saved = world.store.get(delivery.id, world.route.space_id)
-    assert (saved.state, saved.error_code, saved.original_document_id) == (
-        "captured",
-        "email_parts_rejected",
-        None,
-    )
+    # The whole message stays one readable document: the bad part is noted
+    # inside it, and refused only as a document of its own.
+    assert (saved.state, saved.error_code) == ("captured", "email_parts_rejected")
+    assert saved.original_document_id is not None
     assert [
         (p.filename, p.state, p.error_code) for p in world.store.parts(delivery.id)
     ] == [
         ("recibo.png", "captured", None),
         ("virus.exe", "rejected", "unsupported_media_type"),
     ]
-    assert [d.filename for d in world.drafts()] == ["recibo.png"]
+    assert sorted(d.filename for d in world.drafts()) == ["forwarded.eml", "recibo.png"]
 
 
 @pytest.mark.asyncio

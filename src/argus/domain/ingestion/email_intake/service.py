@@ -222,8 +222,8 @@ class EmailCapture:
         )
         original_rejected = False
         if delivery.original_document_id is None:
-            # The whole message is the first document. One unsupported sibling
-            # refuses it as a document; its good parts still capture below.
+            # The whole message is the first document. It is refused only when
+            # nothing in it is readable; each part still captures on its own below.
             try:
                 outcome = await self.documents.upload(
                     user_id=delivery.principal_id,
