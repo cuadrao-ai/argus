@@ -166,6 +166,9 @@ Every uuid column whose name marks a person or a membership, or that has a forei
 | `beta_invite_quota_grants.user_id` | no | `auth.users` CASCADE |
 | `business_action_receipts.actor_id` | no | `auth.users` CASCADE |
 | `business_client_grants.grantee_id` | no | `auth.users` CASCADE |
+| `business_email_deliveries.principal_id` | yes | `auth.users` CASCADE |
+| `business_email_routes.granted_by` | no | `auth.users` CASCADE |
+| `business_email_routes.principal_id` | no | `auth.users` CASCADE |
 | `business_client_grants.issuer_id` | no | `auth.users` CASCADE |
 | `business_turns.actor_id` | no | `auth.users` CASCADE |
 | `chat_turn_lifecycles.user_id` | no | `profiles` CASCADE |
@@ -426,6 +429,23 @@ The October 10 C0 catalog adds sixteen foreign keys, all nondeferrable `ON DELET
 | `business_sources` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Delete message, web-action and other original evidence with its Business space at step 7; no retention exception. |
 | `business_turns` | `actor_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the actual actor at step 7, including its indexed action receipts. |
 | `business_turns` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the Business space at step 7, including its indexed action receipts. |
+
+### Business email receiving
+
+The October 12 email receiving migration adds ten foreign keys, all nondeferrable and `ON UPDATE NO ACTION`. A route names the Business owner as the documents' owner, pinned to `spaces (id, created_by)` like every source connection, and the member's live grant, pinned to the same Business. Deliveries and parts keep a nullable pointer to the captured source; deleting or disconnecting that source scrubs the retained message text through the `tombstone_business_email_source` trigger.
+
+| Table | Column(s) | References | On delete | On update | Deferrable | Re-key to a placeholder | Plain delete, live probe | Lane 6 must |
+|---|---|---|---|---|---|---|---|---|
+| `business_email_deliveries` | `original_document_id` | `financial_source_connections` | SET NULL | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here. | None after step 2: the trigger scrubs subject, sender and text when the source goes. |
+| `business_email_deliveries` | `principal_id` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is nullable, so it can be set to null instead. | Catalog only. The probes had no rows here. | None. The delivery record goes with the Business owner at step 7. |
+| `business_email_deliveries` | `route_id` | `business_email_routes` | CASCADE | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here. | None. Goes with its route at step 7. |
+| `business_email_deliveries` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
+| `business_email_parts` | `delivery_id` | `business_email_deliveries` | CASCADE | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here. | None. Goes with its delivery at step 7. |
+| `business_email_parts` | `document_id` | `financial_source_connections` | SET NULL | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here. | None after step 2: the trigger marks the part rejected and drops its filename. |
+| `business_email_routes` | `grant_id, space_id` | `business_client_grants` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | The route goes with its grant at step 7; do not rebind it to another grant. |
+| `business_email_routes` | `granted_by` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is `not null`. | Catalog only. The probes had no rows here. | The route goes with the member who bound it at step 7; receiving stops. |
+| `business_email_routes` | `principal_id` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is `not null`. | Catalog only. The probes had no rows here. | Goes with the Business owner at step 7. |
+| `business_email_routes` | `space_id, principal_id` | `spaces` | CASCADE | NO ACTION | no | Composite owner key, ON UPDATE NO ACTION, not deferrable: the route can never name an owner other than the space's creator. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
 
 ### Connected sources and documents
 
