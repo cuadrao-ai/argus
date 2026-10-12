@@ -114,14 +114,13 @@ extension FinancialLoopUITests {
         XCTAssertEqual(add.label, "Add", "and the + is a + again")
     }
 
-    /// Large text on a short landscape screen leaves little room above the bar; the + menu scrolls instead of leaving the screen.
-    func testReleaseSurfaceAddMenuStaysOnScreenAtLargeTextInLandscape() throws {
+    /// The app is portrait only. Large text leaves little room above the bar; the + menu scrolls instead of leaving the screen.
+    func testReleaseSurfaceAddMenuStaysOnScreenAtLargeText() throws {
         try signIn()
         app.terminate()
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "--cuadrao-release-gates",
                                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
-        XCUIDevice.shared.orientation = .landscapeLeft
-        defer { XCUIDevice.shared.orientation = .portrait }
+        XCUIDevice.shared.orientation = .portrait
         app.launch()
         let add = app.buttons["nav.add"]
         XCTAssertTrue(add.waitForExistence(timeout: 20))
@@ -132,7 +131,7 @@ extension FinancialLoopUITests {
         XCTAssertLessThanOrEqual(tray.frame.maxY, add.frame.minY, "and stops above the bar")
         for row in ["account", "transaction", "plan"] { XCTAssertTrue(app.buttons["add.tray." + row].exists, row) }
         let screen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        screen.name = "release-surface-add-menu-landscape-large-text"
+        screen.name = "release-surface-add-menu-large-text"
         screen.lifetime = .keepAlways
         self.add(screen)
     }
