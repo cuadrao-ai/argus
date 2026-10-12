@@ -47,6 +47,8 @@ struct ReceiptJourneyCopy {
     var merchant: String { spanish ? "Comercio" : "Merchant" }
     var date: String { spanish ? "Fecha" : "Date" }
     var total: String { spanish ? "Total" : "Total" }
+    var chooseDate: String { spanish ? "Elegir fecha" : "Choose a date" }
+    var useDate: String { spanish ? "Usar esta fecha" : "Use this date" }
     var category: String { spanish ? "Categoría" : "Category" }
     var noCategory: String { spanish ? "Sin categoría" : "No category" }
     var account: String { spanish ? "Cuenta" : "Account" }

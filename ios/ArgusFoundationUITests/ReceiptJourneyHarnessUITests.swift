@@ -63,6 +63,24 @@ final class ReceiptJourneyHarnessUITests: XCTestCase {
         capture("receipt-journey-inline-edit")
     }
 
+    func testAReceiptWithoutADateSaysSoUntilOneIsChosen() {
+        launch("es")
+        app.buttons["harness.undated"].tap()
+        readUntilReview()
+        let missing = app.buttons["receipt.review.date.missing"]
+        XCTAssertTrue(missing.waitForExistence(timeout: 5))
+        XCTAssertTrue(missing.label.contains("Sin dato"), missing.label)
+        XCTAssertFalse(app.descendants(matching: .any)["receipt.review.date"].exists, "no date is shown that the reading did not find")
+        app.buttons["receipt.review.account"].tap()
+        app.buttons["Banreservas"].firstMatch.tap()
+        XCTAssertFalse(app.buttons["receipt.journey.confirm"].isEnabled, "the date comes first")
+        capture("receipt-review-no-date-es")
+        missing.tap()
+        app.buttons["receipt.review.date.use"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["receipt.review.date"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["receipt.journey.confirm"].isEnabled)
+    }
+
     func testADuplicateIsAskedOnTopWithAddToThatMovementFirst() {
         launch("es")
         app.buttons["harness.duplicate"].tap()

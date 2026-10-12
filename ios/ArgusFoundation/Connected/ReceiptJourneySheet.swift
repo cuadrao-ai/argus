@@ -8,6 +8,8 @@ struct ReceiptJourneySheet: View {
     let spanish: Bool
     let finished: () -> Void
     @State private var newPurchase = false
+    @State private var choosingDay = false
+    @State private var pickedDay = Date.now
     @State private var amountError = ""
     @State private var detent = PresentationDetent.medium
 
@@ -172,11 +174,15 @@ struct ReceiptJourneySheet: View {
                 TextField(copy.merchant, text: binding(draft, \.merchant), axis: .vertical)
                     .font(CuadraoTypography.section).lineLimit(1...3)
                     .accessibilityLabel(copy.merchant).accessibilityIdentifier("receipt.review.merchant")
-                DatePicker(copy.date, selection: Binding(get: { draft.occurredOn ?? .now }, set: { value in
-                    var next = draft; next.occurredOn = value; model.update(next)
-                }), in: ...Date.now, displayedComponents: .date)
-                    .labelsHidden().environment(\.locale, Locale(identifier: spanish ? "es_DO" : "en_US"))
-                    .accessibilityLabel(copy.date).accessibilityIdentifier("receipt.review.date")
+                if let day = draft.occurredOn {
+                    DatePicker(copy.date, selection: Binding(get: { day }, set: { value in
+                        var next = draft; next.occurredOn = value; model.update(next)
+                    }), in: ...Date.now, displayedComponents: .date)
+                        .labelsHidden().environment(\.locale, Locale(identifier: spanish ? "es_DO" : "en_US"))
+                        .accessibilityLabel(copy.date).accessibilityIdentifier("receipt.review.date")
+                } else {
+                    missingDay(draft)
+                }
             }
         }
         CuadraoAmountField(raw: binding(draft, \.amount), currency: .constant(draft.currency), error: $amountError,
@@ -194,6 +200,30 @@ struct ReceiptJourneySheet: View {
             accountChoice(draft)
         }
         if let receipt = draft.receipt, !receipt.items.isEmpty { items(receipt) }
+    }
+
+    /// The reading found no date: say so, and let the person pick one. No date is saved until they do.
+    private func missingDay(_ draft: ReceiptReviewDraft) -> some View {
+        Button { pickedDay = .now; choosingDay = true } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(copy.date + ": " + copy.unknown).foregroundStyle(.secondary)
+                Text(copy.chooseDate)
+            }
+            .font(CuadraoTypography.body).frame(minHeight: 44, alignment: .leading)
+        }
+        .accessibilityIdentifier("receipt.review.date.missing")
+        .popover(isPresented: $choosingDay) {
+            VStack(spacing: 12) {
+                DatePicker(copy.date, selection: $pickedDay, in: ...Date.now, displayedComponents: .date)
+                    .datePickerStyle(.graphical).environment(\.locale, Locale(identifier: spanish ? "es_DO" : "en_US"))
+                Button(copy.useDate) {
+                    var next = draft; next.occurredOn = pickedDay; model.update(next); choosingDay = false
+                }
+                .buttonStyle(.borderedProminent).tint(WelcomePalette.pine).frame(minHeight: 44)
+                .accessibilityIdentifier("receipt.review.date.use")
+            }
+            .padding(16).presentationCompactAdaptation(.popover)
+        }
     }
 
     /// Asked before anything else: this purchase may already be recorded. Adding the receipt to it comes first.

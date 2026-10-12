@@ -366,6 +366,20 @@ final class ReceiptJourneyModelTests: XCTestCase {
         XCTAssertTrue(keys.isEmpty)
     }
 
+    func testAMissingDateIsNeitherShownAsTodayNorSaved() async throws {
+        let model = model(ScriptedReceiptServer())
+        model.begin([file])
+        await model.answerConsent(true)
+        var draft = try XCTUnwrap(review(model))
+        draft.accountID = UUID()
+        draft.occurredOn = nil
+        model.update(draft)
+        XCTAssertFalse(try XCTUnwrap(review(model)).isComplete, "no expense without a date the person chose")
+        XCTAssertNil(draft.changes(timeZone: .current).occurredOn, "nothing invents a date")
+        await model.confirm()
+        XCTAssertNotNil(review(model), "confirming waits for the date")
+    }
+
     func testWritingByHandIsNotOfferedOnAReadableReceipt() async throws {
         let model = model(ScriptedReceiptServer())
         model.writeByHand = { _ in XCTFail("not handed over") }
