@@ -38,6 +38,8 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
     var eagerRows = false
     /// Shown instead of the results while nothing is typed, no filter is on and the filter is All.
     var start: CuadraoSearchStart?
+    /// Whose recent searches these are; a different key never sees them.
+    var recentsKey = "preview"
     @ViewBuilder let results: () -> Results
     @ViewBuilder let filters: () -> Filters
     @State private var showingFilters = false
@@ -45,14 +47,14 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
 
     private var showsStart: Bool {
         guard let start, query.isEmpty, kind == .all, filterCount == 0 else { return false }
-        return !start.suggestions.isEmpty || !recents.items.isEmpty
+        return !start.suggestions.isEmpty || !recents.items(for: recentsKey).isEmpty
     }
 
     var body: some View {
         ScrollView {
             Group {
                 if showsStart, let start {
-                    CuadraoSearchStartView(start: start, spanish: spanish, prefix: accessibility.prefix) { query = $0 }
+                    CuadraoSearchStartView(start: start, spanish: spanish, prefix: accessibility.prefix, recentsKey: recentsKey) { query = $0 }
                 } else if eagerRows {
                     VStack(alignment: .leading, spacing: 0, content: results)
                 } else {
@@ -63,7 +65,7 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
             .modifier(CuadraoSearchRefresh(action: refresh))
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier(accessibility.prefix + ".results")
-            .onDisappear { recents.remember(query) }
+            .onDisappear { recents.remember(query, key: recentsKey) }
             .overlay(alignment: .top) {
                 if loading {
                     ProgressView("accounts.loading").padding(.vertical, 12)
@@ -122,10 +124,10 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
             TextField(spanish ? "Buscar" : "Search", text: $query)
                 .focused(focused).autocorrectionDisabled().textInputAutocapitalization(.never)
-                .submitLabel(.search).onSubmit { recents.remember(query); focused.wrappedValue = false }
+                .submitLabel(.search).onSubmit { recents.remember(query, key: recentsKey); focused.wrappedValue = false }
                 .accessibilityIdentifier(accessibility.prefix + ".query")
             if !query.isEmpty {
-                Button { recents.remember(query); query = "" } label: { Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44) }
+                Button { recents.remember(query, key: recentsKey); query = "" } label: { Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44) }
                     .foregroundStyle(.secondary).accessibilityLabel(spanish ? "Borrar búsqueda" : "Clear search")
                     .accessibilityIdentifier(accessibility.clearQuery)
             }

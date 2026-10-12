@@ -87,7 +87,7 @@ struct GuestSearchTab: View {
         NavigationStack {
             CuadraoSearchContent(query: $query, kind: $kind, kinds: kinds, spanish: spanish, filterCount: filterCount,
                                  filterSummary: currency, clearFilters: { currency = "" }, focused: $focused,
-                                 accessibility: .connected, start: start) {
+                                 accessibility: .connected, start: start, recentsKey: "guest") {
                 if hits.isEmpty && receiptHits.isEmpty {
                     CuadraoSearchEmptyState(query: $query, kind: $kind, spanish: spanish, filterCount: filterCount,
                         clearFilters: { currency = "" }, title: emptyTitle, detail: emptyDetail, accessibility: .connected)

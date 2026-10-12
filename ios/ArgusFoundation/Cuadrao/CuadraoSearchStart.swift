@@ -14,44 +14,48 @@ struct CuadraoSearchStart {
     }
 }
 
-/// Recent queries live in memory for this launch only, so a signed-out account never leaves words behind.
+/// Recent queries live in memory for this launch only, kept per identity key so another person who signs in
+/// during the same launch starts with an empty list.
 @MainActor final class CuadraoSearchRecents: ObservableObject {
     static let shared = CuadraoSearchRecents()
-    @Published private(set) var items: [String] = []
-    func remember(_ query: String) {
+    @Published private var store: [String: [String]] = [:]
+    func items(for key: String) -> [String] { store[key] ?? [] }
+    func remember(_ query: String, key: String) {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text.count >= 2 else { return }
-        items = Array(([text] + items.filter { $0.caseInsensitiveCompare(text) != .orderedSame }).prefix(5))
+        store[key] = Array(([text] + items(for: key).filter { $0.caseInsensitiveCompare(text) != .orderedSame }).prefix(5))
     }
-    func clear() { items = [] }
+    func clear(key: String) { store[key] = nil }
 }
 
 struct CuadraoSearchCopy {
     let spanish: Bool
     var recents: String { spanish ? "Recientes" : "Recent" }
     var clear: String { spanish ? "Borrar" : "Clear" }
-    var suggestions: String { spanish ? "Prueba buscar" : "Try searching" }
+    var suggestions: String { spanish ? "Prueba buscando" : "Try searching" }
 }
 
 struct CuadraoSearchStartView: View {
     let start: CuadraoSearchStart
     let spanish: Bool
     let prefix: String
+    let recentsKey: String
     let pick: (String) -> Void
     @ObservedObject private var recents = CuadraoSearchRecents.shared
 
+    private var items: [String] { recents.items(for: recentsKey) }
     private var copy: CuadraoSearchCopy { CuadraoSearchCopy(spanish: spanish) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if !recents.items.isEmpty {
+            if !items.isEmpty {
                 HStack {
                     Text(copy.recents).font(CuadraoTypography.supporting).foregroundStyle(.secondary)
                     Spacer()
-                    Button(copy.clear) { recents.clear() }.font(.subheadline).frame(minHeight: 44)
+                    Button(copy.clear) { recents.clear(key: recentsKey) }.font(.subheadline).frame(minHeight: 44)
                         .accessibilityIdentifier(prefix + ".recents.clear")
                 }.padding(.top, 18)
-                ForEach(Array(recents.items.enumerated()), id: \.element) { index, item in
+                ForEach(Array(items.enumerated()), id: \.element) { index, item in
                     Button { pick(item) } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary).accessibilityHidden(true)
@@ -64,7 +68,7 @@ struct CuadraoSearchStartView: View {
             }
             if !start.suggestions.isEmpty {
                 Text(copy.suggestions).font(CuadraoTypography.supporting).foregroundStyle(.secondary)
-                    .padding(.top, recents.items.isEmpty ? 18 : 28).padding(.bottom, 8)
+                    .padding(.top, items.isEmpty ? 18 : 28).padding(.bottom, 8)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(Array(start.suggestions.enumerated()), id: \.element) { index, item in
