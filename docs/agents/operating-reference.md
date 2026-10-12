@@ -1030,3 +1030,16 @@ Never:
 - Hide broken work in a broad checkpoint.
 - Use vague commit messages.
 - Leave large exploratory diffs without explaining rollback risk.
+
+## Parallel workers: file ownership and landing
+
+Several agents, from different vendors, work in this repository at the same time. These rules apply to every agent and need no private files.
+
+- **One owner per file.** No two workers edit the same file. Claims live in `.agent/ownership/branch_ownership.json` (enforced by the ownership gate in CI) and in the owner table of the execution manifest. If a worker needs a file another worker owns, it stops and tells the coordinator.
+- **Builder and polisher work as a pair.** The builder owns logic: data, API calls, state and tests. The polisher owns presentation: layout, spacing, type, color, motion, loading, empty and error states, haptics, and the strings of its own screens. They split by file, never by line. A file that mixes both is split first, in a small PR by the builder, before polish starts.
+- **Shared hot files are append only.** Locale files, `docs/api/openapi.yaml`, the ownership manifest, `docs/API_CONTRACT.md` and `docs/DATA_MODEL.md`. Add one block for your own keys. Never reorder or reformat.
+- **One small PR per task, no stacks.** Merge the integration branch into your branch right before the last push. Do not rebase a published branch.
+- **Landing follows the Shipping playbook of the agent tooling in use.** Green checks are not enough. Each PR gets an independent verdict, and the integration branch must be green before the next merge. After a merge, check the integration run before landing another PR.
+- **Model-facing text** needs a committed scorecard and a fingerprint update under Never-Violate Standard 12. The Business scope gate is the invariant measurement recorded in `docs/specs/argus-decision-log.md`.
+- **Settings are named `CUADRAO_*`.** The old `ARGUS_*` name is read only as a fallback. Do not add new `ARGUS_*` names.
+- **Clean up.** Delete every temp file, dev server, build folder and worktree you create. Do not add Markdown notes outside the existing docs.
