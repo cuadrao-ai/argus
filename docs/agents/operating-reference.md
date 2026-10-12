@@ -549,6 +549,16 @@ manually juggle backend mode flags for normal work.
 
 ### Local Environment Doctrine
 
+- Cuadrao settings use `CUADRAO_*` names (`CUADRAO_BUSINESS_PILOT_ENABLED`,
+  `CUADRAO_INGESTION_ENABLED`, `CUADRAO_DOCUMENT_EXTRACTION_*`,
+  `CUADRAO_DOCUMENT_JOBS_*`, `CUADRAO_VISION_MODEL`,
+  `CUADRAO_FINANCIAL_ACCOUNTS_ENABLED`, `CUADRAO_BUSINESS_EMAIL_*`,
+  `CUADRAO_RESEND_WEBHOOK_SECRET`, `CUADRAO_APP_ORIGIN`, and the web
+  `NEXT_PUBLIC_CUADRAO_*` names). `argus.settings_names` and
+  `web/lib/public-env.ts` read the Cuadrao name first and the older `ARGUS_`
+  name second, so an older file or dashboard value keeps working until it is
+  renamed. When both are set, the Cuadrao name wins. WhatsApp settings keep
+  their own names.
 - Python is pinned by `.python-version` (`3.10.x`; currently `3.10.20`).
   `.github/setup.sh` enforces the pinned runtime. A green run on Python 3.14 is
   not deployed-runtime evidence.

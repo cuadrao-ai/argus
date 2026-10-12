@@ -8772,7 +8772,8 @@ uncertain fields, and more than 18 digits leaves the amount unresolved.
 
 ### WhatsApp receipt intake (default-off)
 
-Off unless `ARGUS_WHATSAPP_INTAKE_ENABLED` is true, its credentials are set and
+Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` (or the older `ARGUS_WHATSAPP_INTAKE_ENABLED`; the
+Cuadrao name wins when both are set; every WhatsApp setting follows this rule) is true, its credentials are set and
 the document surface above is on. While off, every route below except
 `DELETE /api/v1/whatsapp/link` answers 404 `whatsapp_unavailable`. A WhatsApp receipt becomes a document draft with
 `consent: false` and `status: saved`; AI preparation still waits for the
@@ -8831,7 +8832,7 @@ answers the not-linked reply.
   that language for every WhatsApp reply. The code is single use, lives
   10 minutes and replaces any unused code for the same destination.
   `message_text` is `CUADRAO <code>`; `wa_me_url` is null until
-  `ARGUS_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
+  `CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
   429 `whatsapp_link_code_rate_limited`.
 - GET `/api/v1/whatsapp/link` returns `{linked, last4, linked_at, reply_language}`.
 - DELETE `/api/v1/whatsapp/link` revokes the signed-in person's active link and
@@ -8842,7 +8843,7 @@ answers the not-linked reply.
   only when Postgres cannot be reached; in memory mode without intake nothing
   holds a link and it answers 204. Unauthenticated calls answer 401.
 
-Replies are sent only when `ARGUS_WHATSAPP_OUTBOUND_ENABLED` is true, always as
+Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
 a free-form answer to the person's own message, in one language: the sender
 link's `reply_language`, or Spanish for a sender with no active link. A new message
 whose bytes the owner's inbox already holds gets the duplicate reply. A message whose WhatsApp
@@ -9127,9 +9128,10 @@ accept path recorded.
   `X-Document-Filename` is URL-encoded. A receipt's identity is its bytes, so
   a retry returns the same receipt. It answers a `ReceiptSummary` that is
   `queued` with consent and `saved` without it.
-- Business email receiving (default off; `ARGUS_BUSINESS_EMAIL_CAPTURE_ENABLED`,
-  `ARGUS_BUSINESS_EMAIL_INTAKE_ENABLED`, `ARGUS_BUSINESS_EMAIL_DOMAIN`,
-  `RESEND_BUSINESS_API_KEY`, `ARGUS_RESEND_WEBHOOK_SECRET`). The Business is
+- Business email receiving (default off; `CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`,
+  `CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED`, `CUADRAO_BUSINESS_EMAIL_DOMAIN`,
+  `RESEND_BUSINESS_API_KEY`, `CUADRAO_RESEND_WEBHOOK_SECRET`; the older
+  `ARGUS_` names still work as a fallback). The Business is
   chosen only by the receiving address; message headers choose nothing.
   - POST `/api/v1/webhooks/resend` takes Resend's `email.received` event with
     Svix headers over the unchanged bytes (401 otherwise, 404 while receiving is

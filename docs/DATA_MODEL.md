@@ -155,14 +155,14 @@ financial_import_observations
 financial_import_account_links
 ```
 
-Default-off, service-role only (`ARGUS_WHATSAPP_INTAKE_ENABLED`):
+Default-off, service-role only (`CUADRAO_WHATSAPP_INTAKE_ENABLED`):
 ```text
 whatsapp_link_codes
 whatsapp_sender_links
 whatsapp_inbound_messages
 ```
 
-Default-off, service-role only (`ARGUS_BUSINESS_EMAIL_CAPTURE_ENABLED`): one
+Default-off, service-role only (`CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`, or the older `ARGUS_` name): one
 receiving address per Business, naming the Business owner as the documents'
 owner and a member's live client grant as the authority checked before each
 capture; a durable delivery queue; one row per attachment part.
@@ -3374,7 +3374,7 @@ write it. Proven by `tests/test_ingestion_shortcuts_postgres.py`.
 WhatsApp receipt intake keeps three service-role-only tables (migration
 `20261008130000_whatsapp_intake.sql`). Phone numbers, provider message ids and
 link codes are stored only as HMAC-SHA256 digests under
-`ARGUS_WHATSAPP_SENDER_KEY`. `destination_owner_id` references `auth.users`
+`CUADRAO_WHATSAPP_SENDER_KEY`. `destination_owner_id` references `auth.users`
 and is the person today; it becomes the business principal if the Business
 boundary proposal is approved.
 
