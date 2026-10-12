@@ -27,6 +27,8 @@ DEFAULT_SECRETS_FILE = Path.home() / ".cuadrao" / "staging-secrets.env"
 RENDER_API = "https://api.render.com/v1"
 VERIFY_TOKEN_NAME = "CUADRAO_WHATSAPP_VERIFY_TOKEN"
 KINDS = ("plain", "secret", "generated")
+API_URL_NAMES = ("NEXT_PUBLIC_CUADRAO_API_URL", "NEXT_PUBLIC_ARGUS_API_URL")
+API_URL_SHAPE = re.compile(r"https://[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*(:\d+)?/api/v1")
 SECRETISH_NAME = re.compile(
     r"SECRET|TOKEN|PASSWORD|API_KEY|SERVICE_ROLE|DATABASE_URL|PRIVATE|SENDER_KEY", re.I
 )
@@ -61,9 +63,13 @@ class HttpRenderClient:
         try:
             response = self._http.request(method, path, **kwargs)
         except Exception as exc:  # transport errors can echo URLs and headers
-            raise RenderError(f"{method} {path.split('?')[0]} failed: {type(exc).__name__}") from None
+            raise RenderError(
+                f"{method} {path.split('?')[0]} failed: {type(exc).__name__}"
+            ) from None
         if response.status_code >= 400:
-            raise RenderError(f"{method} {path.split('?')[0]} failed: HTTP {response.status_code}")
+            raise RenderError(
+                f"{method} {path.split('?')[0]} failed: HTTP {response.status_code}"
+            )
         return response.json()
 
     def service_name(self, service_id: str) -> str:
@@ -78,7 +84,9 @@ class HttpRenderClient:
             for row in rows:
                 key, value = row["envVar"]["key"], row["envVar"].get("value")
                 if value is None:
-                    raise RenderError(f"{key} has no readable value; refusing to overwrite it")
+                    raise RenderError(
+                        f"{key} has no readable value; refusing to overwrite it"
+                    )
                 env[key] = value
             if len(rows) < 100:
                 return env
@@ -97,16 +105,22 @@ def load_manifest(path: Path = MANIFEST_PATH) -> dict[str, Any]:
 
 def validate_manifest(manifest: dict[str, Any]) -> None:
     if set(manifest["services"]) != set(STAGING_IDS):
-        raise ManifestError("manifest must describe exactly the api and web staging services")
+        raise ManifestError(
+            "manifest must describe exactly the api and web staging services"
+        )
     for label, service in manifest["services"].items():
         if service["service_id"] != STAGING_IDS[label]:
             raise ManifestError(f"{label}: service id is not the pinned staging service")
         entries = {e["name"]: e for e in service["entries"]}
         for entry in service["entries"]:
             if any(r not in entries for r in entry.get("requires", [])):
-                raise ManifestError(f"{label}: {entry['name']} requires an entry that is missing")
+                raise ManifestError(
+                    f"{label}: {entry['name']} requires an entry that is missing"
+                )
         names = [e["name"] for e in service["entries"]]
-        names += [r["name"] for r in service["remove"]] + [h["name"] for h in service["hold"]]
+        names += [r["name"] for r in service["remove"]] + [
+            h["name"] for h in service["hold"]
+        ]
         duplicates = sorted({n for n in names if names.count(n) > 1})
         if duplicates:
             raise ManifestError(f"{label}: duplicate or conflicting names: {duplicates}")
@@ -115,19 +129,36 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
             if kind not in KINDS:
                 raise ManifestError(f"{label}: {name} has unknown kind")
             if kind != "plain" and "value" in entry:
-                raise ManifestError(f"{label}: {name} is {kind} and must not carry a value")
+                raise ManifestError(
+                    f"{label}: {name} is {kind} and must not carry a value"
+                )
             if kind == "plain":
                 modes = [k for k in ("value", "keep_current", "copy_from") if k in entry]
                 if len(modes) != 1:
-                    raise ManifestError(f"{label}: {name} needs exactly one of value, keep_current, copy_from")
-                if "value" in entry and (
-                    SECRETISH_NAME.search(name) or SECRETISH_VALUE.search(str(entry["value"]))
+                    raise ManifestError(
+                        f"{label}: {name} needs exactly one of value, keep_current, copy_from"
+                    )
+                if (
+                    "value" in entry
+                    and name in API_URL_NAMES
+                    and not API_URL_SHAPE.fullmatch(str(entry["value"]))
                 ):
-                    raise ManifestError(f"{label}: {name} looks like a secret and cannot hold a plain value")
+                    raise ManifestError(
+                        f"{label}: {name} must be https://host/api/v1 with no trailing dot"
+                    )
+                if "value" in entry and (
+                    SECRETISH_NAME.search(name)
+                    or SECRETISH_VALUE.search(str(entry["value"]))
+                ):
+                    raise ManifestError(
+                        f"{label}: {name} looks like a secret and cannot hold a plain value"
+                    )
         for removal in service["remove"]:
             required = removal.get("requires")
             if required and required not in entries:
-                raise ManifestError(f"{label}: removal of {removal['name']} requires an entry that is missing")
+                raise ManifestError(
+                    f"{label}: removal of {removal['name']} requires an entry that is missing"
+                )
         for pair in service.get("distinct", []):
             if any(name not in entries for name in pair):
                 raise ManifestError(f"{label}: distinct pair names an unknown entry")
@@ -163,7 +194,9 @@ class Plan:
     problems: list[str] = field(default_factory=list)
     final: dict[str, str] = field(default_factory=dict)
     generated: dict[str, str] = field(default_factory=dict)
-    missing: list[str] = field(default_factory=list)  # managed names absent after this plan
+    missing: list[str] = field(
+        default_factory=list
+    )  # managed names absent after this plan
 
     @property
     def changes(self) -> bool:
@@ -199,7 +232,9 @@ def compute_plan(
         elif kind == "generated":
             n = entry.get("b64_bytes")
             desired = plan.generated[name] = (
-                base64.urlsafe_b64encode(secrets_module.token_bytes(n)).decode() if n else generator()
+                base64.urlsafe_b64encode(secrets_module.token_bytes(n)).decode()
+                if n
+                else generator()
             )
         if desired is None and entry.get("optional"):
             plan.actions.append((name, "skip"))
@@ -208,7 +243,9 @@ def compute_plan(
             plan.missing.append(name)
             plan.actions.append((name, "missing"))
             continue
-        action = "add" if name not in live else "update" if live[name] != desired else "ok"
+        action = (
+            "add" if name not in live else "update" if live[name] != desired else "ok"
+        )
         plan.final[name] = desired
         plan.actions.append((name, action))
     for removal in service["remove"]:
@@ -225,6 +262,11 @@ def compute_plan(
         plan.actions.append((hold["name"], "hold"))
     known = {n for n, _ in plan.actions}
     plan.actions += [(n, "extra") for n in sorted(live) if n not in known]
+    for name in API_URL_NAMES:
+        if name in plan.final and not API_URL_SHAPE.fullmatch(plan.final[name]):
+            plan.problems.append(
+                f"{name} must be https://host/api/v1 with no trailing dot"
+            )
     for pair in service.get("distinct", []):
         values = [plan.final.get(n) for n in pair]
         if all(values) and len(set(values)) < len(values):
@@ -238,7 +280,11 @@ def render_plan(label: str, plan: Plan, service: dict[str, Any]) -> str:
     lines += [f"  PROBLEM  {p}" for p in plan.problems]
     for name in plan.missing:
         entry = next(e for e in service["entries"] if e["name"] == name)
-        hint = "add to the secrets file" if entry["kind"] == "secret" and not entry.get("keep_current") else "not set live"
+        hint = (
+            "add to the secrets file"
+            if entry["kind"] == "secret" and not entry.get("keep_current")
+            else "not set live"
+        )
         lines.append(f"  MISSING  {name} ({hint})")
     return "\n".join(lines)
 
@@ -247,7 +293,11 @@ def env_block(env: dict[str, str]) -> str:
     def quote(value: str) -> str:
         if re.fullmatch(r"[A-Za-z0-9_./:@+=-]*", value):
             return value
-        return '"' + value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
+        return (
+            '"'
+            + value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+            + '"'
+        )
 
     return "".join(f"{k}={quote(v)}\n" for k, v in env.items())
 
@@ -258,7 +308,9 @@ def to_clipboard(text: str) -> None:
 
 def read_live(client: RenderClient, service: dict[str, Any]) -> dict[str, str]:
     if client.service_name(service["service_id"]) != service["service_name"]:
-        raise RenderError(f"service id does not match {service['service_name']}; refusing")
+        raise RenderError(
+            f"service id does not match {service['service_name']}; refusing"
+        )
     return client.list_env(service["service_id"])
 
 
@@ -283,14 +335,24 @@ def run(
     parser.add_argument(
         "--secrets-file",
         type=Path,
-        default=Path(os.environ.get("CUADRAO_STAGING_SECRETS_FILE", DEFAULT_SECRETS_FILE)),
+        default=Path(
+            os.environ.get("CUADRAO_STAGING_SECRETS_FILE", DEFAULT_SECRETS_FILE)
+        ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ("plan", "check"):
-        sub.add_parser(name).add_argument("service", nargs="?", default="all", choices=["all", "api", "web"])
+        sub.add_parser(name).add_argument(
+            "service", nargs="?", default="all", choices=["all", "api", "web"]
+        )
     apply_parser = sub.add_parser("apply")
-    apply_parser.add_argument("service", nargs="?", default="all", choices=["all", "api", "web"])
-    apply_parser.add_argument("--confirm", action="store_true", help="write to Render; without it apply is a dry run")
+    apply_parser.add_argument(
+        "service", nargs="?", default="all", choices=["all", "api", "web"]
+    )
+    apply_parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="write to Render; without it apply is a dry run",
+    )
     sub.add_parser("clipboard").add_argument("service", choices=["api", "web"])
     sub.add_parser("show-verify-token")
     args = parser.parse_args(argv)
@@ -307,7 +369,9 @@ def run(
             if token is None:
                 token = secrets_module.token_urlsafe(48)
                 append_secret(args.secrets_file, VERIFY_TOKEN_NAME, token)
-                out(f"created {VERIFY_TOKEN_NAME} in the secrets file; run apply to send it to Render")
+                out(
+                    f"created {VERIFY_TOKEN_NAME} in the secrets file; run apply to send it to Render"
+                )
         to_clipboard(token)
         out("verify token copied to the clipboard; paste it into Meta")
         return 0
@@ -362,7 +426,10 @@ def main() -> int:
     try:
         return run(sys.argv[1:])
     except (RenderError, ManifestError, subprocess.CalledProcessError) as exc:
-        print(f"error: {exc if not isinstance(exc, subprocess.CalledProcessError) else 'pbcopy failed'}", file=sys.stderr)
+        print(
+            f"error: {exc if not isinstance(exc, subprocess.CalledProcessError) else 'pbcopy failed'}",
+            file=sys.stderr,
+        )
         return 2
 
 
