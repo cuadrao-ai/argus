@@ -127,7 +127,7 @@
 "accounts.signedBalance" = "Saldo con signo: un monto negativo indica dinero que debes.";
 "accounts.scope" = "Estas son tus cuentas registradas. La actividad, el uso compartido y los totales aún no están disponibles.";
 "accounts.retry" = "Reintentar";
-"home.loadFailed" = "No pudimos cargar tu inicio.";
+"home.stillLoading" = "Todavía cargando…";
 "skeleton.loading" = "Cargando";
 "accounts.loading" = "Cargando cuentas";
 "accounts.saving" = "Guardando";

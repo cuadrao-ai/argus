@@ -70,14 +70,12 @@ private struct GuestModeHost<Content: View>: View {
     }
 }
 
-/// Home's blocks while the saved book opens. The top space follows the text size, as Home's greeting does.
+/// Home's blocks while the saved book opens, inset as the real Home is: 24 pt at the sides, 28 pt at the top.
 private struct GuestLaunchSkeleton: View {
-    @ScaledMetric(relativeTo: .largeTitle) private var top = 72
-
     var body: some View {
         ZStack(alignment: .top) {
             WelcomePalette.brandPaper.ignoresSafeArea()
-            CuadraoSkeleton(layout: .home, identifier: "guest.loading").padding(.horizontal, 20).padding(.top, top)
+            CuadraoSkeleton(layout: .home, identifier: "guest.loading").padding(.horizontal, 24).padding(.top, 28)
         }
     }
 }
