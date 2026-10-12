@@ -111,6 +111,7 @@ export function useAttentionLabel() {
           several_purchases: t("business.attention.several_purchases", "Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense."),
           source_unavailable: t("business.attention.source_unavailable", "The original file is no longer available. Enter the details yourself."),
           check_details: t("business.attention.check_details", "Cuadrao couldn't read every part of this receipt. Check the details against the original before you confirm."),
+          duplicate: t("business.attention.duplicate", "This looks like a receipt you already saved: same merchant, date and total. It won't be saved as a second expense."),
           other: t("business.attention.other", "Something went wrong with this receipt. It is still saved. Enter the details yourself."),
         } satisfies Record<ReceiptAttention, string>)[attention]
       : "";

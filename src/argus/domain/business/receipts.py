@@ -46,6 +46,7 @@ Attention = Literal[
     "several_purchases",
     "source_unavailable",
     "check_details",
+    "duplicate",
     "other",
 ]
 # Preparation failures with nothing read, by the code the draft records.
@@ -124,6 +125,8 @@ class Receipt:
     # The whole message of an email whose attachment is already a receipt: it
     # is context for that receipt, never a second one to prepare or approve.
     email_original: bool = False
+    # The upload that produced this view found the same bytes already saved.
+    replayed: bool = False
 
     @property
     def id(self) -> str:
@@ -156,6 +159,7 @@ class Receipt:
         return (
             not self.email_original
             and self.review.blocker is not None
+            and self.review.blocker != "possible_duplicate"
             and self.draft.status not in _BUSY
             and all(
                 read.state in ("open", "dismissed") for read in self.review.read_purchases
@@ -196,6 +200,8 @@ class Receipt:
             return "unreadable"
         if blocker == "no_purchase_found":
             return "no_purchase_found"
+        if blocker == "possible_duplicate":
+            return "duplicate"
         return "several_purchases"
 
     @property
@@ -218,6 +224,8 @@ class Receipt:
             "status": self.status,
             "error_code": self.error_code,
             "attention": self.attention,
+            "duplicate_of": self.review.duplicate_of,
+            "replayed": self.replayed,
             "preparable": self.preparable,
             "enterable": self.enterable,
             "expense_id": self.review.expense_id,

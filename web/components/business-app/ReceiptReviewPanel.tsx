@@ -227,6 +227,11 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
                 <span>{attentionLabel(detail.attention)}</span>
               </p>
+              {detail.duplicate_of ? (
+                <button type="button" data-testid="receipt-duplicate-original" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "receipt", receiptId: detail.duplicate_of as string })}>
+                  {t("business.review.see_original", "See the receipt already saved")}
+                </button>
+              ) : null}
               {detail.preparable && detail.capabilities.includes("prepare") ? (
                 <>
                   <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">
