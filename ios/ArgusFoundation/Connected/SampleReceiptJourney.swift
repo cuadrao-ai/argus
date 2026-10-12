@@ -125,6 +125,28 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
     }
 }
 
+/// `--cuadrao-synthetic-receipt`: the + tray's receipt rows hand the real journey this drawn receipt instead of opening
+/// the camera, photos or files, so a staging check can read a known synthetic receipt. Nothing else changes.
+enum SyntheticReceipt {
+    static var active: Bool { ProcessInfo.processInfo.arguments.contains("--cuadrao-synthetic-receipt") }
+
+    static func file() -> (data: Data, name: String, pdf: Bool) {
+        let lines = ["SUPERMERCADO LA SIRENA", "Av. 27 de Febrero, Santo Domingo", "Fecha: 10/10/2026", "",
+                     "Arroz 1 lb            150.00", "Leche 1 L             100.50", "",
+                     "SUBTOTAL              250.50", "TOTAL RD$             250.50", "", "Gracias por su compra"]
+        let rect = CGRect(x: 0, y: 0, width: 600, height: 900)
+        let image = UIGraphicsImageRenderer(size: rect.size).image { context in
+            UIColor.white.setFill(); context.fill(rect)
+            let font = UIFont.monospacedSystemFont(ofSize: 26, weight: .regular)
+            for (index, line) in lines.enumerated() {
+                (line as NSString).draw(at: CGPoint(x: 40, y: 60 + CGFloat(index) * 52),
+                                        withAttributes: [.font: font, .foregroundColor: UIColor.black])
+            }
+        }
+        return (image.jpegData(compressionQuality: 0.9) ?? Data(), "Recibo sintetico La Sirena.jpg", false)
+    }
+}
+
 /// `--receipt-journey-harness`: the receipt journey alone, against the sample server and a synthetic session,
 /// so its screens can be checked without signing in.
 struct ReceiptJourneyHarness: View {

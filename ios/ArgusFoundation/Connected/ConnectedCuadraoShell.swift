@@ -239,6 +239,10 @@ struct ConnectedCuadraoShell: View {
             keep(SampleSavedReceiptsTransport.files(for: source))
             return
         }
+        if SyntheticReceipt.active {
+            keep([SyntheticReceipt.file()])
+            return
+        }
         #endif
         if source == .scan && !SavedReceiptFiles.scannerAvailable {
             auth.savedReceipts?.fail(.scannerUnavailable)

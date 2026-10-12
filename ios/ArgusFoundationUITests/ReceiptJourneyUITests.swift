@@ -60,4 +60,57 @@ extension FinancialLoopUITests {
         app.buttons["receipt.journey.later"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["receipt.journey"].waitForNonExistence(timeout: 10), "Después keeps the receipt for later")
     }
+
+    /// Against a real API (`--cuadrao-synthetic-receipt` draws a known receipt): the reading fills the review, the
+    /// person picks the account, the expense is recorded once, and the movement shows its receipt.
+    func testStagingReceiptJourneyRecordsTheExpenseWithItsReceipt() throws {
+        try signIn()
+        app.terminate()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "--cuadrao-saved-receipts", "--cuadrao-synthetic-receipt"]
+        app.launch()
+        let add = app.buttons["nav.add"]
+        XCTAssertTrue(add.waitForExistence(timeout: 30))
+        add.tap()
+        app.buttons["add.tray.scanCamera"].tap()
+        XCTAssertTrue(app.buttons["receipt.journey.read"].waitForExistence(timeout: 10))
+        capture("staging-receipt-consent")
+        app.buttons["receipt.journey.read"].tap()
+
+        let merchant = app.descendants(matching: .any)["receipt.review.merchant"]
+        let failed = app.descendants(matching: .any)["receipt.journey.failed"]
+        let still = app.descendants(matching: .any)["receipt.journey.still"]
+        let settled = NSPredicate { _, _ in merchant.exists || failed.exists || still.exists }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 150), .completed)
+        capture("staging-receipt-after-reading")
+        XCTAssertTrue(merchant.exists, failed.exists ? "reading failed: \(failed.label)" : "still reading after the wait")
+        XCTAssertTrue(app.descendants(matching: .any)["receipt.review.total"].label.contains("250.50"),
+                      app.descendants(matching: .any)["receipt.review.total"].label)
+
+        app.buttons["receipt.review.account"].tap()
+        // The menu lists "Choose the account that paid" first, then the accounts that can pay; take the first account.
+        let firstAccount = app.collectionViews.buttons.element(boundBy: 1)
+        XCTAssertTrue(firstAccount.waitForExistence(timeout: 5), "an open DOP account can pay")
+        firstAccount.tap()
+        let confirm = app.buttons["receipt.journey.confirm"]
+        XCTAssertTrue(confirm.isEnabled, "an account was chosen")
+        capture("staging-receipt-review")
+        confirm.tap()
+        XCTAssertTrue(app.staticTexts["Expense saved"].waitForExistence(timeout: 60), "the expense is recorded")
+        capture("staging-receipt-saved")
+        app.buttons["receipt.journey.done"].tap()
+
+        // The movement on Home carries its receipt.
+        app.revealConnectedTabBar()
+        app.buttons["tab.home"].tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home.activity.' AND label CONTAINS[c] 'sirena'")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 20), "the expense is on Home")
+        openMovement(row)
+        let view = app.buttons["activity.receipt"]
+        for _ in 0..<4 where !(view.exists && view.isHittable) { app.swipeUp() }
+        XCTAssertTrue(view.waitForExistence(timeout: 20), "the recorded movement shows its receipt")
+        capture("staging-movement-receipt")
+        view.tap()
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 20), "the receipt opens from the movement")
+        app.buttons["Done"].tap()
+    }
 }

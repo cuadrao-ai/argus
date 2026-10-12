@@ -465,7 +465,8 @@ final class FinancialLoopUITests: XCTestCase {
                 if permission.waitForExistence(timeout: 1) { permission.tap() }
                 UIPasteboard.general.items = []
                 app.buttons["auth.submit"].tap()
-                XCTAssertTrue(app.buttons["header.profile"].waitForExistence(timeout: 30))
+                // A hosted CAPTCHA may need a person to solve it, so the wait is generous; it returns as soon as Home opens.
+                XCTAssertTrue(app.buttons["header.profile"].waitForExistence(timeout: 240))
                 app.buttons["header.profile"].tap()
                 XCTAssertTrue(app.buttons["auth.signOut"].waitForExistence(timeout: 10))
             }
