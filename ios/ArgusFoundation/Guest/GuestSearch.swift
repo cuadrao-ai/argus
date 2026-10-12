@@ -76,12 +76,18 @@ struct GuestSearchTab: View {
     private var hits: [SearchEntry] { SearchIndex.filter(entries, query: query, scope: scope, currency: currency.isEmpty ? nil : currency) }
     private func hits(_ section: SearchSection) -> [SearchEntry] { hits.filter { $0.section == section } }
     private var filterCount: Int { currency.isEmpty ? 0 : 1 }
+    private var start: CuadraoSearchStart {
+        CuadraoSearchStart(suggestions: CuadraoSearchStart.suggestions(
+            frequent: book.liveMovements().filter { $0.kind == .expense }.compactMap { $0.category }
+                .map { GuestMovementPresentation.categoryTitle($0, spanish: spanish) },
+            names: book.accounts.filter { !$0.archived }.map { GuestAccountPresentation.title($0, spanish: spanish) }))
+    }
 
     var body: some View {
         NavigationStack {
             CuadraoSearchContent(query: $query, kind: $kind, kinds: kinds, spanish: spanish, filterCount: filterCount,
                                  filterSummary: currency, clearFilters: { currency = "" }, focused: $focused,
-                                 accessibility: .connected) {
+                                 accessibility: .connected, start: start, recentsKey: "guest") {
                 if hits.isEmpty && receiptHits.isEmpty {
                     CuadraoSearchEmptyState(query: $query, kind: $kind, spanish: spanish, filterCount: filterCount,
                         clearFilters: { currency = "" }, title: emptyTitle, detail: emptyDetail, accessibility: .connected)
