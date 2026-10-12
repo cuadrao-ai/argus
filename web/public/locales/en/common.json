@@ -1006,6 +1006,27 @@
     }
   },
   "settings": {
+    "whatsapp": {
+      "title": "WhatsApp",
+      "number": "Linked number",
+      "loading": "Reading your link…",
+      "linked": "Number ending in {{last4}}",
+      "unlinked": "No number is linked.",
+      "create": "Get a link code",
+      "new_code": "Get a new code",
+      "send_steps": "Send this message from your own WhatsApp to the Cuadrao number. The code works once and expires soon.",
+      "open": "Open WhatsApp",
+      "no_link": "Open WhatsApp and send the message above to the Cuadrao number.",
+      "check": "I sent it, check",
+      "unlink": "Unlink number",
+      "confirm_unlink": "Unlink your number? New messages will no longer be accepted from it. Receipts already received stay in your Inbox.",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "problem_unavailable": "WhatsApp is not available yet.",
+      "problem_space_missing": "Start your business space first, then link your number.",
+      "problem_rate_limited": "Too many codes. Wait a few minutes and try again.",
+      "problem_failed": "WhatsApp could not be reached. Try again."
+    },
     "title": "Settings",
     "profile": {
       "display_name": "Display name",
