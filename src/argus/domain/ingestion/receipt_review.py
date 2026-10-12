@@ -150,7 +150,9 @@ def receipt_review(
         if any(_from_receipt(o, this_receipt, this_entry) for o in event["observations"])
     ]
     blocker: Blocker | None = None
-    if batch is None:
+    if batch is None or (not entered and not purchases and _handoff_failed(draft, batch)):
+        # No read yet, or a read that was saved but never became a record
+        # (the hand-off refused or failed): another preparation can finish it.
         blocker = "not_prepared"
     elif entered:
         blocker = None
@@ -217,6 +219,13 @@ def receipt_review(
         if repeated
         else None,
     )
+
+
+def _handoff_failed(draft: DocumentDraft, batch: ExtractionBatch) -> bool:
+    """The draft carries an error the read itself did not produce."""
+
+    code = draft.error_code
+    return code is not None and not any(issue.code == code for issue in batch.issues)
 
 
 def _receipt_of(

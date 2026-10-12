@@ -37,6 +37,10 @@ pytestmark = shared.pytestmark
 
 @pytest.fixture
 def two_purchases(actions):  # noqa: ANN001
+    return saved_two_purchases(actions)
+
+
+def saved_two_purchases(actions):  # noqa: ANN001
     """A saved document whose read shows two purchases of one receipt."""
 
     service, context, grant = actions

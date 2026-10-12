@@ -9269,6 +9269,12 @@ accept path recorded.
   `receipt_purchase_ambiguous`, keeps the rows as evidence and holds the read
   for a person; a source that names no currency never fires it. The batch
   metadata records `document_currency`.
+- A read that was saved but never became a record (the hosted hand-off refused
+  or failed after the extractor answered) is `needs_attention` with attention
+  `interrupted`, `preparable: true` and the real cause in `error_code`; "Try
+  again with AI" replays the saved read without a new provider call and runs
+  the hand-off again. It is never reported as `no_purchase_found`, which stays
+  for a read that found nothing.
 - A read that shows several purchases, or one it cannot settle, still becomes
   one open draft on the hosted bridge: the facts every read purchase shares are
   known, the amount stays unknown for a person to set, and each read purchase

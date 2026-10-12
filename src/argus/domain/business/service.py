@@ -22,7 +22,6 @@ from argus.domain.business.receipts import (
     CLOSED,
     Receipt,
     compose,
-    review_fields,
     updates,
 )
 from argus.domain.business.scope import BusinessScope
@@ -359,11 +358,20 @@ class BusinessService:
             _wire(item) for item in ledger.expenses(activities, receipt_of, start, end)
         ]
 
-    def search(self, scope: BusinessScope, q: str, limit: int) -> dict[str, Any]:
+    def search(
+        self,
+        scope: BusinessScope,
+        q: str,
+        limit: int,
+        views: Mapping[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Expenses and accounts through the canonical financial search, plus
         receipts matched by the same rule on merchant, filename and amount.
 
-        A receipt whose expense is already a hit is left out: the expense opens it.
+        ``views`` are the receipt summaries as the API shows them (a linked draft
+        owns merchant, amount and expense), so the match sees what the person
+        sees. A receipt whose expense is already a hit is left out: the expense
+        opens it.
         """
 
         query = financial_search.query_text(q)
@@ -377,11 +385,13 @@ class BusinessService:
         ]
         expenses = self._expenses(scope, activities, date.min, date.max)[:limit]
         listed = {expense["id"] for expense in expenses}
+        shown = views or {}
         receipts = [
-            receipt.summary()
+            summary
             for receipt in self.receipts(scope)
-            if receipt.review.expense_id not in listed
-            and financial_search.matches(query, _receipt_text(receipt))
+            for summary in [shown.get(receipt.id) or receipt.summary()]
+            if summary["expense_id"] not in listed
+            and financial_search.matches(query, _summary_text(summary))
         ]
         accounts = [
             {
@@ -462,8 +472,12 @@ class BusinessService:
             "last_confirmed_at": max(recorded.values(), default=None),
         }
 
-    def updates(self, scope: BusinessScope) -> list[dict[str, Any]]:
-        return updates(self.receipts(scope), ledger.recorded_at(self._activities(scope)))
+    def updates(
+        self, scope: BusinessScope, views: Mapping[str, dict[str, Any]] | None = None
+    ) -> list[dict[str, Any]]:
+        return updates(
+            self.receipts(scope), ledger.recorded_at(self._activities(scope)), views
+        )
 
     def inbox(self, scope: BusinessScope) -> list[Receipt]:
         return [r for r in self.receipts(scope) if r.status not in CLOSED]
@@ -474,10 +488,9 @@ class BusinessService:
         )
 
 
-def _receipt_text(receipt: Receipt) -> str:
-    fields = review_fields(receipt.review)
+def _summary_text(summary: Mapping[str, Any]) -> str:
     return " ".join(
-        filter(None, [fields["merchant"], receipt.draft.filename, fields["amount"]])
+        filter(None, [summary["merchant"], summary["filename"], summary["amount"]])
     )
 
 

@@ -35,8 +35,13 @@ from argus.api.business import (
 )
 from argus.api.business_drafts import (
     action_problem,
+    overview_with_drafts,
     receipt_detail,
+    receipt_summaries,
+    receipt_summary,
     require_legacy_receipt_write,
+    search_with_drafts,
+    updates_with_drafts,
 )
 from argus.api.business_schemas import (
     BusinessAccess,
@@ -452,7 +457,7 @@ async def upload_receipt(
             )
     except Exception as error:
         raise _problem(request, error) from None
-    return receipt.summary()
+    return receipt_summary(context, receipt)
 
 
 @router.get("/receipts", response_model=ReceiptPage)
@@ -461,16 +466,10 @@ def list_receipts(
     view: Literal["inbox", "all"] = "inbox",
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
-    service = context.service
     try:
-        receipts = (
-            service.inbox(context.scope)
-            if view == "inbox"
-            else service.receipts(context.scope)
-        )
+        return {"items": receipt_summaries(context, view)}
     except Exception as error:
         raise _problem(request, error) from None
-    return {"items": [receipt.summary() for receipt in _email_flagged(context, receipts)]}
 
 
 @router.get("/receipts/{receipt_id}", response_model=ReceiptDetail)
@@ -533,7 +532,7 @@ async def prepare_receipt(
         [receipt] = _email_flagged(
             context, [context.service.receipt(context.scope, receipt_id)]
         )
-        return receipt.summary()
+        return receipt_summary(context, receipt)
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -679,7 +678,7 @@ def search(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        found = context.service.search(context.scope, q, limit)
+        found = search_with_drafts(context, q, limit)
     except Exception as error:
         raise _problem(request, error) from None
     flags = email_receipt_flags(context.scope.owner.space_id)
@@ -699,7 +698,7 @@ def get_overview(
 ) -> dict[str, Any]:
     _period(request, start, end)
     try:
-        return context.service.overview(context.scope, start, end)
+        return overview_with_drafts(context, start, end)
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -710,6 +709,6 @@ def list_updates(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        return {"items": context.service.updates(context.scope)}
+        return {"items": updates_with_drafts(context)}
     except Exception as error:
         raise _problem(request, error) from None

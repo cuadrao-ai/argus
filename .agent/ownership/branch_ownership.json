@@ -1039,6 +1039,31 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-single-candidate-draft-20261012": {
+      "description": "A clean single-purchase read always becomes one draft; a saved read whose hosted hand-off refused or failed is retryable from the inbox with its real code, never a dead 'no purchase found'.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "src/argus/api/business_drafts.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/domain/business/receipts.py",
+        "src/argus/domain/business/service.py",
+        "src/argus/domain/ingestion/receipt_review.py",
+        "tests/business/test_business_handoff_retry.py",
+        "tests/business/test_business_search.py",
+        "tests/business/test_receipt_views_leave_through_the_overlay.py",
+        "tests/test_business_multi_purchase_postgres.py",
+        "tests/test_business_receipt_views_postgres.py",
+        "tests/test_business_single_candidate_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-upload-review-crash-20261012": {
       "description": "Staging crash after an upload with AI consent: the review panel read capabilities and accounts at the top of the receipt detail while the API nests them under record_context; the panel now reads the nested context (read-only when absent), the data source is chosen once per visit so a record is not refetched on every address-bar write, and a panel error boundary keeps a crash inside the workspace with a retry.",
       "base_ref": "origin/codex/private-alpha-next",
