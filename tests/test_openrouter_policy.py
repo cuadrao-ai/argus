@@ -3922,3 +3922,146 @@ def test_contract_rejection_is_recorded_as_a_distinct_route_receipt(
     }
     assert all(receipt.outcome == "failed" for receipt in rejected)
     assert interpreter.last_failure_kind == "contract_rejected"
+
+
+@pytest.mark.parametrize("sync", [False, True])
+@pytest.mark.parametrize("invalid_date", [False, True])
+def test_gemini_document_native_wire_keeps_privacy_and_local_validation(
+    monkeypatch, respx_mock, sync, invalid_date
+) -> None:
+    import json
+
+    import httpx
+    from argus.domain.ingestion.documents.models import ExtractionResult
+    from pydantic import ValidationError
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "synthetic-document-key")
+    monkeypatch.setenv("ARGUS_VISION_MODEL", "google/gemini-3.8-flash")
+    output = ExtractionResult.model_validate(
+        {
+            "complete": True,
+            "readable": True,
+            "pages_read": [1],
+            "observations": [
+                {
+                    "page": 1,
+                    "row": 1,
+                    "evidence": "due_notice",
+                    "amount": "73.64",
+                    "currency": "USD",
+                }
+            ],
+        }
+    ).model_dump(mode="json")
+    if invalid_date:
+        output["observations"][0]["occurred_on"] = "not-a-date"
+    route = respx_mock.post("https://openrouter.ai/api/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"finish_reason": "stop", "message": {"content": json.dumps(output)}}
+                ]
+            },
+        )
+    )
+    arguments = dict(
+        task="document_extraction",
+        model_name="google/gemini-3.8-flash",
+        messages=[{"role": "user", "content": "Synthetic unknown document"}],
+        schema_model=ExtractionResult,
+        schema_name="document_observations",
+    )
+
+    def invoke():
+        with openrouter_traffic_class("registered"):
+            if sync:
+                return openrouter.invoke_openrouter_json_schema_sync(**arguments)
+            return asyncio.run(openrouter.invoke_openrouter_json_schema(**arguments))
+
+    if invalid_date:
+        with pytest.raises(ValidationError):
+            invoke()
+    else:
+        parsed = invoke()
+        assert parsed.model_dump(mode="json") == output
+        assert parsed.receipt is None
+        assert parsed.observations[0].direction == "unknown"
+        assert parsed.observations[0].status == "unknown"
+    assert route.call_count == 1
+    payload = json.loads(route.calls[0].request.content)
+    assert "temperature" not in payload
+    assert payload["max_tokens"] == 12000
+    assert payload["provider"] == {
+        "require_parameters": True,
+        "data_collection": "deny",
+        "zdr": True,
+        "allow_fallbacks": False,
+    }
+    assert payload["messages"] == arguments["messages"]
+    assert payload["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "document_observations",
+            "strict": True,
+            "schema": openrouter._document_wire_schema(
+                ExtractionResult.model_json_schema()
+            ),
+        },
+    }
+    profile = openrouter_profile_for_task("document_extraction")
+    assert (profile.timeout_seconds, profile.max_retries) == (90, 0)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "google/gemini-3.8-flash",
+        "google/gemini-3.8-flash-preview",
+        "google/gemini-2.5-flash",
+        "google/gemini-3.8-flash:nitro",
+    ],
+)
+def test_every_google_document_route_gets_the_projected_payload(model):
+    from argus.domain.ingestion.documents.models import ExtractionResult
+
+    profile = openrouter_profile_for_task("document_extraction")
+    payload = openrouter._json_schema_payload(
+        model=model,
+        messages=[{"role": "user", "content": "Synthetic unknown document"}],
+        schema_model=ExtractionResult,
+        schema_name="ExtractionResult",
+        profile=profile,
+    )
+    assert "temperature" not in payload
+    assert payload["max_tokens"] == profile.max_tokens
+    assert "max_completion_tokens" not in payload
+    assert payload["response_format"]["json_schema"][
+        "schema"
+    ] == openrouter._document_wire_schema(ExtractionResult.model_json_schema())
+
+
+@pytest.mark.parametrize(
+    "model,task",
+    [
+        ("x-ai/grok-4.3", "document_extraction"),
+        ("google/gemini-3.8-flash", "interpretation"),
+    ],
+)
+def test_gemini_document_projection_does_not_change_other_native_routes(model, task):
+    from argus.domain.ingestion.documents.models import ExtractionResult
+
+    profile = openrouter_profile_for_task(task)
+    payload = openrouter._json_schema_payload(
+        model=model,
+        messages=[{"role": "user", "content": "Synthetic unknown document"}],
+        schema_model=ExtractionResult,
+        schema_name="ExtractionResult",
+        profile=profile,
+    )
+    assert payload["temperature"] == profile.temperature
+    assert (
+        payload["response_format"]["json_schema"]["schema"]
+        == ExtractionResult.model_json_schema()
+    )

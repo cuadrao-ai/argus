@@ -885,9 +885,9 @@ def _json_schema_payload(
     schema_name: str,
     profile: OpenRouterProfile,
 ) -> dict[str, object]:
-    openai_document = profile.task == "document_extraction" and model.startswith("openai/")
+    projected_document = profile.task == "document_extraction" and model.startswith(("openai/", "google/"))
     sampling_parameters = (
-        {} if openai_document or openrouter_model_tier_for_task(profile.task) == "readout"
+        {} if projected_document or openrouter_model_tier_for_task(profile.task) == "readout"
         else {"temperature": profile.temperature}
     )
     if model.startswith("anthropic/"):
@@ -919,12 +919,12 @@ def _json_schema_payload(
             "json_schema": {
                 "name": schema_name,
                 "strict": True,
-                "schema": _document_wire_schema(schema_model.model_json_schema()) if openai_document else schema_model.model_json_schema(),
+                "schema": _document_wire_schema(schema_model.model_json_schema()) if projected_document else schema_model.model_json_schema(),
             },
         },
         "provider": {"require_parameters": True},
         **sampling_parameters,
-        "max_completion_tokens" if openai_document else "max_tokens": profile.max_tokens,
+        "max_completion_tokens" if profile.task == "document_extraction" and model.startswith("openai/") else "max_tokens": profile.max_tokens,
     }
     _apply_reasoning_for_structured_artifact(payload, profile)
     return payload

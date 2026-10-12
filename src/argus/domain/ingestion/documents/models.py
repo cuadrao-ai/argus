@@ -54,7 +54,12 @@ class ReceiptItem(_Frozen):
     description: str | None = Field(default=None, max_length=300)
     quantity: str | None = Field(default=None, max_length=80)
     unit_price: str | None = Field(default=None, max_length=80)
-    total: str | None = Field(default=None, max_length=80)
+    total: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Printed line total with its fractional digits intact. Null if "
+        "absent, unreadable or conflicting; never infer or adjust it to balance a receipt.",
+    )
     suggested_category: str | None = Field(default=None, max_length=120)
 
 
@@ -69,6 +74,31 @@ class ReceiptDetails(_Frozen):
     service: str | None = Field(default=None, max_length=80)
     tip: str | None = Field(default=None, max_length=80)
     total: str | None = Field(default=None, max_length=80)
+    rnc: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Unverified RNC explicitly labeled in the receipt source, exactly "
+        "as printed. Null if absent, unreadable or conflicting; never infer a default.",
+    )
+    ncf: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Unverified NCF explicitly labeled in the receipt source, exactly "
+        "as printed. Null if absent, unreadable or conflicting; do not infer from e-CF.",
+    )
+    ecf: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Unverified e-CF explicitly labeled in the receipt source, exactly "
+        "as printed. Null if absent, unreadable or conflicting; do not infer from NCF.",
+    )
+    itbis: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Unverified ITBIS monetary amount explicitly labeled in the receipt "
+        "source, as extracted decimal text. Null if absent, unreadable or conflicting. "
+        "Never calculate it from a rate, subtotal, total or generic tax.",
+    )
 
 
 # A receipt whose rows do not reduce to one purchase at its total.
@@ -86,7 +116,13 @@ class ExtractionResult(_Frozen):
     complete: bool = Field(strict=True)
     readable: bool = Field(strict=True)
     pages_read: tuple[int, ...] = Field(max_length=8)
-    observations: tuple[ExtractedObservation, ...] = Field(max_length=300)
+    observations: tuple[ExtractedObservation, ...] = Field(
+        max_length=300,
+        description="Financial evidence from the source. Include one source-supported "
+        "receipt purchase at its printed final paid total alongside receipt details, "
+        "never separate item, tax, subtotal, tender or change transactions. Empty when "
+        "unreadable or no financial observation is supported.",
+    )
     receipt: ReceiptDetails | None = None
 
 
