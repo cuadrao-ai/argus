@@ -160,6 +160,13 @@ Default-off, service-role only (`ARGUS_WHATSAPP_INTAKE_ENABLED`):
 whatsapp_link_codes
 whatsapp_sender_links
 whatsapp_inbound_messages
+```
+
+Default-off, service-role only (`ARGUS_BUSINESS_EMAIL_CAPTURE_ENABLED`): one
+receiving address per Business, naming the Business owner as the documents'
+owner and a member's live client grant as the authority checked before each
+capture; a durable delivery queue; one row per attachment part.
+```text
 business_email_routes
 business_email_deliveries
 business_email_parts

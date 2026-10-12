@@ -9104,8 +9104,12 @@ accept path recorded.
   - GET `/api/v1/business/email` returns `{enabled, receiving_address}`:
     configuration readiness for the caller's Business, not provider health.
   - POST `/api/v1/business/email` (prepare capability) mints one address per
-    Business, `recibos-<8 hex>@<domain>`, bound to the caller's own live grant.
-    A replay returns the existing address with 200. 503
+    Business, `recibos-<8 hex>@<domain>`. The route names the Business owner
+    as the captured documents' owner and the caller's own live grant as the
+    authority checked before each capture. A replay, or a concurrent create,
+    returns the one live address with 200. 409 `email_route_revoked` when that
+    address's grant is no longer live and 409 `email_route_unavailable` while
+    capture is off: stop receiving, then create a new address. 503
     `email_receiving_unconfigured` without a domain or Postgres.
   - DELETE `/api/v1/business/email` switches the address off. A route can be
     switched off, never pointed at another Business or person.

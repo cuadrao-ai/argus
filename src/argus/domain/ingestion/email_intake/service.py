@@ -3,16 +3,19 @@
 The route is the only thing that chooses a Business. Message headers, the
 sender and the provider's recipient list prove nothing on their own: the
 provider list must equal the recipients the signed event named, and the
-route's grant is checked again, live, before any bytes are read."""
+route's grant is checked again, live, before any bytes are read and once more
+before anything is written. Database work runs in worker threads; the event
+loop only waits on the provider."""
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
-from contextlib import contextmanager
 from dataclasses import replace
-from typing import Iterator, Protocol
+from typing import Protocol
 from uuid import UUID
 
+from loguru import logger
 from psycopg_pool import ConnectionPool
 
 from argus.domain.business.authority import ActionError, authorize
@@ -43,11 +46,11 @@ RouteAuthority = Callable[[RecipientRoute], None]
 
 
 def grant_route_authority(pool: ConnectionPool) -> RouteAuthority:
-    """The route's principal must still hold the route's grant with prepare."""
+    """The member who bound the route must still hold its grant with prepare."""
 
     def check(route: RecipientRoute) -> None:
         actor = TrustedActor(
-            actor_id=UUID(route.principal_id),
+            actor_id=UUID(route.granted_by),
             actor_kind="member",
             space_id=UUID(route.space_id),
         )
@@ -76,23 +79,26 @@ class EmailCapture:
         self.route_authority = route_authority
         self.receiving_enabled = receiving_enabled or (lambda: self.provider is not None)
 
-    @contextmanager
-    def authorized_route(self, route: RecipientRoute) -> Iterator[None]:
+    def check_route(self, route: RecipientRoute) -> None:
+        """Raise unless the route is live and its grant still allows prepare.
+
+        Two short transactions, never nested: the row lock is released before
+        the grant is read, so one pool connection is enough."""
+
         with self.store.locked_route(route.id) as live:
             if not self.enabled() or live is None or not live.active or live != route:
                 raise ActionError("permission_denied", "email_route_unavailable")
-            try:
-                self.route_authority(live)
-            except ActionError:
-                raise ActionError("permission_denied", "email_route_revoked") from None
-            yield
+        try:
+            self.route_authority(route)
+        except ActionError:
+            raise ActionError("permission_denied", "email_route_revoked") from None
 
     def route_usable(self, route: RecipientRoute) -> bool:
         try:
-            with self.authorized_route(route):
-                return True
+            self.check_route(route)
         except ActionError:
             return False
+        return True
 
     def enqueue_resend(
         self, external_id: str, recipients: tuple[str, ...]
@@ -108,18 +114,19 @@ class EmailCapture:
             )
         route = routes[0]
         try:
-            with self.authorized_route(route):
-                return self.store.enqueue(
-                    "resend",
-                    external_id,
-                    recipients,
-                    route_id=route.id,
-                    space_id=route.space_id,
-                    principal_id=route.principal_id,
-                )
+            self.check_route(route)
         except ActionError:
             delivery = self.store.enqueue("resend", external_id, recipients)
             return self.store.reject_unclaimed(delivery.id, "email_route_revoked")
+        # The binding is checked again by the worker before any fetch.
+        return self.store.enqueue(
+            "resend",
+            external_id,
+            recipients,
+            route_id=route.id,
+            space_id=route.space_id,
+            principal_id=route.principal_id,
+        )
 
     def retryable(self, delivery: EmailDelivery) -> bool:
         return bool(
@@ -133,65 +140,80 @@ class EmailCapture:
     async def next(self) -> bool:
         if not self.enabled() or not self.receiving_enabled():
             return False
-        delivery = self.store.claim()
+        delivery = await asyncio.to_thread(self.store.claim)
         if delivery is None:
             return False
         await self.process(delivery)
         return True
 
+    def _bound_route(self, delivery: EmailDelivery) -> RecipientRoute:
+        routes = self.store.routes(delivery.recipients)
+        if len(routes) != 1:
+            raise EmailProviderError(
+                "email_route_ambiguous" if len(routes) > 1 else "email_route_unavailable"
+            )
+        route = routes[0]
+        if (delivery.route_id, delivery.space_id, delivery.principal_id) != (
+            route.id,
+            route.space_id,
+            route.principal_id,
+        ):
+            raise EmailProviderError("email_route_changed")
+        self.check_route(route)
+        return route
+
     async def process(self, delivery: EmailDelivery) -> None:
         try:
-            routes = self.store.routes(delivery.recipients)
-            if len(routes) != 1:
-                raise EmailProviderError(
-                    "email_route_ambiguous"
-                    if len(routes) > 1
-                    else "email_route_unavailable"
+            route = await asyncio.to_thread(self._bound_route, delivery)
+            if delivery.original_document_id:
+                raw = await asyncio.to_thread(
+                    self.documents.source_bytes,
+                    user_id=delivery.principal_id,
+                    connection_id=delivery.original_document_id,
+                    scope=BusinessSpace(delivery.space_id),
                 )
-            route = routes[0]
-            if (delivery.route_id, delivery.space_id, delivery.principal_id) != (
-                route.id,
-                route.space_id,
-                route.principal_id,
-            ):
-                raise EmailProviderError("email_route_changed")
-            with self.authorized_route(route):
-                if delivery.original_document_id:
-                    raw = self.documents.source_bytes(
-                        user_id=delivery.principal_id,
-                        connection_id=delivery.original_document_id,
-                        scope=BusinessSpace(delivery.space_id),
-                    )
-                else:
-                    if self.provider is None:
-                        raise EmailProviderError(
-                            "email_provider_unavailable", retryable=True
-                        )
-                    received = await self.provider.raw_message(delivery.external_id)
-                    expected = {address.lower() for address in delivery.recipients}
-                    actual = {address.lower() for address in received.recipients}
-                    if actual != expected:
-                        raise EmailProviderError("email_recipient_mismatch")
-                    raw = received.raw
-                await self._capture(delivery, raw)
+            else:
+                if self.provider is None:
+                    raise EmailProviderError("email_provider_unavailable", retryable=True)
+                received = await self.provider.raw_message(delivery.external_id)
+                expected = {address.lower() for address in delivery.recipients}
+                actual = {address.lower() for address in received.recipients}
+                if actual != expected:
+                    raise EmailProviderError("email_recipient_mismatch")
+                raw = received.raw
+            # The fetch took time; the grant is read once more before any write.
+            await asyncio.to_thread(self.check_route, route)
+            await self._capture(delivery, raw)
         except LeaseLost:
             return
         except ActionError as error:
-            self.store.finish(delivery, "rejected", error.code)
+            await self._finish(delivery, "rejected", error.code)
         except (EmailProviderError, DocumentServiceError) as error:
-            self.store.finish(
+            await self._finish(
                 delivery, "partial" if error.retryable else "rejected", error.code
             )
         except DocumentExtractionError as error:
-            self.store.finish(delivery, "rejected", error.code)
-        except Exception:
-            self.store.finish(delivery, "partial", "email_capture_unavailable")
+            await self._finish(delivery, "rejected", error.code)
+        except Exception as error:  # noqa: BLE001 - the row stays retryable; only the class is logged
+            logger.warning(
+                "email_capture_failed",
+                delivery_id=delivery.id,
+                error=type(error).__name__,
+            )
+            await self._finish(delivery, "partial", "email_capture_unavailable")
+
+    async def _finish(
+        self, delivery: EmailDelivery, state: str, error_code: str | None = None
+    ) -> None:
+        await asyncio.to_thread(self.store.finish, delivery, state, error_code)
 
     async def _capture(self, delivery: EmailDelivery, raw: bytes) -> None:
-        self.store.renew(delivery)
+        run = asyncio.to_thread
+        await run(self.store.renew, delivery)
         scope = BusinessSpace(delivery.space_id)
-        envelope = parse_envelope(raw)
-        self.store.update(
+        envelope = await run(parse_envelope, raw)
+        await run(
+            self.store.update,
             delivery,
             subject=envelope.subject,
             sender=envelope.sender,
@@ -211,22 +233,28 @@ class EmailCapture:
                     media_type="message/rfc822",
                     consent=False,
                 )
-                self.store.update(delivery, original_document_id=outcome.connection_id)
+                await run(
+                    self.store.update,
+                    delivery,
+                    original_document_id=outcome.connection_id,
+                )
             except DocumentExtractionError:
                 original_rejected = True
-        existing = {part.id: part for part in self.store.parts(delivery.id)}
+        existing = {part.id: part for part in await run(self.store.parts, delivery.id)}
         transient = False
         for part in envelope.parts:
-            self.store.renew(delivery)
+            await run(self.store.renew, delivery)
             previous = existing.get(part.id)
             if previous and previous.state in ("captured", "rejected"):
                 continue
             result = EmailDeliveryPart(
                 part.id, part.filename, part.media_type, "pending", None, part.error_code
             )
-            self.store.put_part(delivery, result)
+            await run(self.store.put_part, delivery, result)
             if part.error_code:
-                self.store.put_part(delivery, replace(result, state="rejected"))
+                await run(
+                    self.store.put_part, delivery, replace(result, state="rejected")
+                )
                 continue
             try:
                 outcome = await self.documents.upload(
@@ -249,11 +277,11 @@ class EmailCapture:
                     state="pending" if error.retryable else "rejected",
                     error_code=error.code,
                 )
-            self.store.put_part(delivery, result)
+            await run(self.store.put_part, delivery, result)
         rejected = original_rejected or any(
-            part.state == "rejected" for part in self.store.parts(delivery.id)
+            part.state == "rejected" for part in await run(self.store.parts, delivery.id)
         )
-        self.store.finish(
+        await self._finish(
             delivery,
             "partial" if transient else "captured",
             "email_capture_incomplete"

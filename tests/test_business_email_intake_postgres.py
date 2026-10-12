@@ -67,8 +67,8 @@ def rig(actions, users):
     route = store.create_route(
         recipient=recipient,
         space_id=str(context.actor.space_id),
-        principal_id=users["other"],
-        granted_by=users["owner"],
+        principal_id=users["owner"],
+        granted_by=users["other"],
         grant_id=str(grant),
     )
     provider = Provider(message(), (recipient,))
@@ -104,7 +104,7 @@ def test_route_capture_lands_in_the_business_as_unprepared_documents(rig):
     scope = BusinessSpace(rig["route"].space_id)
     for connection_id in (saved.original_document_id, parts[0].document_id):
         draft = rig["documents"].get(
-            user_id=rig["users"]["other"], connection_id=connection_id, scope=scope
+            user_id=rig["users"]["owner"], connection_id=connection_id, scope=scope
         )
         assert draft.consent is False and draft.status == "saved"
     # The same event again is the same row; nothing is fetched or saved twice.
@@ -139,6 +139,30 @@ def test_revoked_grant_rejects_new_mail_and_the_route_cannot_move(rig):
         )
     assert rig["store"].deactivate_routes(rig["route"].space_id) == 1
     assert rig["store"].route_for_space(rig["route"].space_id) is None
+
+
+def test_a_route_names_the_business_owner_and_one_address_is_live(rig):
+    store, users, space_id = rig["store"], rig["users"], rig["route"].space_id
+    assert (
+        store.create_route(
+            recipient=f"recibos-{uuid4().hex[:8]}@recibos.example.test",
+            space_id=space_id,
+            principal_id=users["owner"],
+            granted_by=users["other"],
+            grant_id=str(rig["grant"]),
+        ).id
+        == rig["route"].id
+    )
+    assert store.deactivate_routes(space_id) == 1
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        store.create_route(
+            recipient=f"recibos-{uuid4().hex[:8]}@recibos.example.test",
+            space_id=space_id,
+            principal_id=users["other"],
+            granted_by=users["other"],
+            grant_id=str(rig["grant"]),
+        )
+    assert store.route_for_space(space_id) is None
 
 
 def test_clients_cannot_read_the_queue(rig):

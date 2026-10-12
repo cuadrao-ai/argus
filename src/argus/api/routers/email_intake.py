@@ -147,19 +147,36 @@ def receiving(
     return _readiness(_runtime(request), context.scope.owner.space_id)
 
 
+def _require_usable(request: Request, runtime: EmailCapture, route) -> None:  # noqa: ANN001
+    """An existing address that can no longer receive is a typed refusal, not a 200 with nothing in it."""
+
+    try:
+        runtime.check_route(route)
+    except ActionError as error:
+        detail = (
+            "This address's grant is no longer live. Stop receiving, then create a new address."
+            if error.code == "email_route_revoked"
+            else "Email receiving is off."
+        )
+        raise _problem(request, 409, error.code, detail) from None
+
+
 @router.post("", status_code=201)
 def create_receiving_address(
     request: Request,
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business_document_write)],
 ) -> dict[str, Any]:
-    """One address per Business, bound to the caller's own live grant. Replays return it."""
+    """One address per Business. The Business owner owns the captured documents;
+    the caller's own live grant is the authority checked before each capture.
+    A replay or a concurrent create returns the one live address."""
 
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     space_id = context.scope.owner.space_id
     existing = runtime.store.route_for_space(space_id)
     if existing is not None:
+        _require_usable(request, runtime, existing)
         response.status_code = 200
         return _readiness(runtime, space_id)
     domain = EmailIntakeSettings().receiving_domain.strip().lower()
@@ -189,13 +206,16 @@ def create_receiving_address(
         raise _problem(
             request, 403, error.code, "Your current access cannot receive email."
         ) from None
-    runtime.store.create_route(
+    route = runtime.store.create_route(
         recipient=f"recibos-{secrets.token_hex(4)}@{domain}",
         space_id=space_id,
-        principal_id=context.scope.person_id,
+        principal_id=actor.owner_id,
         granted_by=context.scope.person_id,
         grant_id=str(actor.grant_id),
     )
+    if route.granted_by != context.scope.person_id:
+        _require_usable(request, runtime, route)
+        response.status_code = 200
     return _readiness(runtime, space_id)
 
 
