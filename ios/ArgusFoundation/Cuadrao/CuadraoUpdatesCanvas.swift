@@ -29,6 +29,7 @@ struct CuadraoUpdatesCanvas: View {
     @State private var unreadOnly = false
     @State private var path: [CanvasUpdate] = []
     @State private var accountSheet: CanvasAccountSheet?
+    @State private var refreshedAt: Date?
     private var items: [CanvasUpdate] { CanvasUpdate.available(accounts: accounts, plans: plans) }
     private var visible: [CanvasUpdate] { items.filter { !unreadOnly || !readIDs.contains($0) } }
     private var unread: [CanvasUpdate] { items.filter { !readIDs.contains($0) } }
@@ -38,7 +39,9 @@ struct CuadraoUpdatesCanvas: View {
             CuadraoUpdatesLayout(spanish: spanish, unreadOnly: $unreadOnly,
                 hasUnread: !unread.isEmpty,
                 emptyState: visible.isEmpty ? (items.isEmpty ? .empty : .read) : nil,
-                markAllRead: { readIDs.formUnion(visible) }) {
+                markAllRead: { readIDs.formUnion(visible) },
+                // Design preview only: nothing is loaded here, the stamp just shows the pattern. Never wire this to a connected path.
+                refresh: { try? await Task.sleep(for: .milliseconds(400)); refreshedAt = Date() }, refreshedAt: refreshedAt) {
                 updateSection(spanish ? "Por revisar" : "To review", entries: visible.filter {
                     if case .accountReview = $0 { return true }; return false
                 })

@@ -21,6 +21,7 @@ struct AccountDetailView: View {
     var body: some View {
         let account = current
         VStack(alignment: .leading, spacing: 30) {
+            CuadraoLastUpdated(date: model.refreshedAt[account.id], spanish: spanish)
             if account.isOptionalAsset {
                 AssetDetailView(account: account, model: model, loop: loop)
             } else {

@@ -144,6 +144,7 @@ extension FinancialLoopUITests {
         guestRow("Open later").tap()
         XCTAssertTrue(app.descendants(matching: .any)["guest.account.detail"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["No balance recorded"].exists)
+        XCTAssertTrue(app.staticTexts["guest.account.empty"].exists, "an account with no movements shows the shared empty state")
         app.buttons["guest.account.edit"].tap()
         XCTAssertTrue(app.buttons["guest.account.currency"].waitForExistence(timeout: 10), "no balance yet, so the currency can still change")
         XCTAssertFalse(app.staticTexts["account-lock-note"].exists)
