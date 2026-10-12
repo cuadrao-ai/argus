@@ -186,7 +186,7 @@ struct CuadraoReceiptCapture: View {
                     Button(spanish ? "Guardar de nuevo" : "Save again") { commit(pending, example: selectedSource == .sample) }
                         .accessibilityIdentifier("receipt-retry")
                 } else if selectedSource != .scan || VNDocumentCameraViewController.isSupported {
-                    Button(spanish ? "Intentar de nuevo" : "Try again") { begin(selectedSource) }
+                    Button(spanish ? "Reintentar" : "Try again") { begin(selectedSource) }
                         .accessibilityIdentifier("receipt-retry")
                 }
                 ForEach(ReceiptSourceChoice.allCases.filter { $0 != .scan }) { alternative in
