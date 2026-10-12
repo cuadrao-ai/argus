@@ -9,7 +9,7 @@ from argus.domain.ingestion.connections import InMemoryConnectionRepository
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store import InMemoryDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
-from argus.domain.ingestion.whatsapp.identity import link_code_in, signature_matches
+from argus.domain.ingestion.whatsapp.identity import code_candidates, signature_matches
 from argus.domain.ingestion.whatsapp.media import trusted_download_url
 from argus.domain.ingestion.whatsapp.payload import (
     MediaMessage,
@@ -87,6 +87,7 @@ def test_payload_projects_handled_types_and_ignores_the_rest() -> None:
             media_id="700000000000001",
             mime_type="image/png",
             filename="whatsapp-image",
+            caption="Recibo",
         ),
     )
     text = parse_delivery(
@@ -118,13 +119,14 @@ def test_payload_projects_handled_types_and_ignores_the_rest() -> None:
         )
 
 
-def test_link_token_is_an_exact_protocol_word_and_code() -> None:
-    assert link_code_in("CUADRAO ABCD2345") == "ABCD2345"
-    assert link_code_in("  cuadrao   abcd2345 ") == "ABCD2345"
-    assert link_code_in("Hola CUADRAO ABCD2345") is None
-    assert link_code_in("CUADRAO ABCD2345 gracias") is None
-    assert link_code_in("CUADRAO ABCD234O") is None
-    assert link_code_in("CUADRAO 15550101234") is None
+def test_code_candidates_are_structure_only() -> None:
+    assert code_candidates("CUADRAO ABCD2345") == ("ABCD2345",)
+    assert code_candidates("  cuadrao   abcd2345 ") == ("ABCD2345",)
+    assert code_candidates("hola, este es mi código abcd2345 gracias") == ("ABCD2345",)
+    assert code_candidates("Cuadrao, le metí 850 a los materiales") == ()
+    assert code_candidates("ABCD234O") == ()
+    assert code_candidates("15550101234") == ()
+    assert code_candidates("ABCD2345 abcd2345 EFGH6789") == ("ABCD2345", "EFGH6789")
 
 
 def test_every_outcome_code_has_a_reply_without_long_dashes() -> None:

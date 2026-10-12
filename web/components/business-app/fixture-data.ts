@@ -4,6 +4,8 @@ import type {
   BusinessUpdate,
   ReceiptDetail,
   ReceiptReviewFields,
+  BusinessAccessGrant,
+  BusinessAccessInvite,
 } from "@/lib/business-api";
 import { createDossierFixtures, dossierFixtureIds } from "./dossier-fixtures";
 import { normalizeSearchText } from "@/lib/search-text";
@@ -284,6 +286,15 @@ const delay = (ms = 240) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export type FixtureOptions = Readonly<{ chatAvailable: boolean }>;
 
+/** Sample access: the owner and one accountant with read and prepare. */
+const access: { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] } = {
+  grants: [
+    { id: "grant-owner", email: null, display_name: "Lucía", capabilities: ["read", "prepare", "approve"], created_at: "2026-10-01T12:00:00Z", owner: true },
+    { id: "grant-contadora", email: "contadora@example.test", display_name: "Marta", capabilities: ["read", "prepare"], created_at: "2026-10-05T15:30:00Z", owner: false },
+  ],
+  invites: [],
+};
+
 export function createFixtureBusinessDataSource(
   { chatAvailable }: FixtureOptions = { chatAvailable: true },
 ): BusinessDataSource {
@@ -553,6 +564,31 @@ export function createFixtureBusinessDataSource(
     retryEmailDelivery: async (id) => {
       await delay();
       return { id };
+    },
+    access: async () => {
+      await delay();
+      return { grants: [...access.grants], invites: [...access.invites] };
+    },
+    giveAccess: async (email) => {
+      await delay();
+      const address = email.trim().toLowerCase();
+      if (!address.includes("@")) throw Object.assign(new Error("invalid_email"), { status: 422 });
+      if (!access.invites.some((item) => item.email === address) && !access.grants.some((item) => item.email === address)) {
+        const now = new Date();
+        access.invites.push({ id: `inv-${access.invites.length + 1}`, email: address, created_at: now.toISOString(), expires_at: new Date(now.getTime() + 14 * 86_400_000).toISOString() });
+      }
+      return { grants: [...access.grants], invites: [...access.invites] };
+    },
+    revokeAccessGrant: async (id) => {
+      await delay();
+      const found = access.grants.find((item) => item.id === id);
+      if (!found) throw Object.assign(new Error("not_found"), { status: 404 });
+      if (found.owner) throw Object.assign(new Error("owner_grant_required"), { status: 409 });
+      access.grants = access.grants.filter((item) => item.id !== id);
+    },
+    revokeAccessInvite: async (id) => {
+      await delay();
+      access.invites = access.invites.filter((item) => item.id !== id);
     },
   };
 }

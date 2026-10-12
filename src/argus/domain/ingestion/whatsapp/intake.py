@@ -19,9 +19,8 @@ from loguru import logger
 
 from argus.domain.ingestion.whatsapp.identity import (
     WhatsAppKeys,
+    code_candidates,
     last4,
-    link_code_in,
-    looks_like_link_attempt,
     mint_code,
     ref,
 )
@@ -86,7 +85,13 @@ class IntakeDestination(Protocol):
     """Where a linked sender's receipt lands: the owner's Business space."""
 
     async def capture(
-        self, *, owner_id: str, content: bytes, filename: str, media_type: str
+        self,
+        *,
+        owner_id: str,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        source_text: str | None,
     ) -> Captured: ...
 
     async def discard(self, *, owner_id: str, connection_id: str) -> None: ...
@@ -297,34 +302,9 @@ class WhatsAppIntake:
         )
 
     async def _decide(self, message: InboundMessage, sender: bytes) -> Settlement:
-        if isinstance(message, TextMessage) and looks_like_link_attempt(message.body):
-            code = link_code_in(message.body)
-            linked = None
-            if code is not None:
-                linked = await asyncio.to_thread(
-                    self.store.redeem_code,
-                    code_digest=self.keys.code(code),
-                    sender_hash=sender,
-                    last4=last4(message.sender),
-                    now=self.clock(),
-                )
-            if linked is None:
-                current = await asyncio.to_thread(
-                    self.store.sender_link, sender_hash=sender
-                )
-                return Settlement(
-                    "rejected",
-                    error_code="whatsapp_link_code_invalid",
-                    reply_language=current.reply_language if current else None,
-                )
-            return Settlement(
-                "linked",
-                destination_owner_id=linked.destination_owner_id,
-                reply_language=linked.reply_language,
-            )
         link = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
         if link is None:
-            return Settlement("rejected", error_code="whatsapp_sender_not_linked")
+            return await self._unlinked(message, sender)
         owner, language = link.destination_owner_id, link.reply_language
         if isinstance(message, TextMessage):
             return Settlement(
@@ -336,6 +316,34 @@ class WhatsAppIntake:
         settlement = await self._capture(message, owner)
         return replace(settlement, reply_language=language)
 
+    async def _unlinked(self, message: InboundMessage, sender: bytes) -> Settlement:
+        """A sender with no active link can only link: no word is read for
+        meaning, a code-shaped token is looked up by digest."""
+
+        tried = False
+        if isinstance(message, TextMessage):
+            for code in code_candidates(message.body):
+                tried = True
+                linked = await asyncio.to_thread(
+                    self.store.redeem_code,
+                    code_digest=self.keys.code(code),
+                    sender_hash=sender,
+                    last4=last4(message.sender),
+                    now=self.clock(),
+                )
+                if linked is not None:
+                    return Settlement(
+                        "linked",
+                        destination_owner_id=linked.destination_owner_id,
+                        reply_language=linked.reply_language,
+                    )
+        return Settlement(
+            "rejected",
+            error_code="whatsapp_link_code_invalid"
+            if tried
+            else "whatsapp_sender_not_linked",
+        )
+
     async def _capture(self, message: MediaMessage, owner: str) -> Settlement:
         if message.mime_type not in ACCEPTED_MEDIA_TYPES:
             return Settlement("rejected", owner, error_code="whatsapp_media_unsupported")
@@ -346,6 +354,7 @@ class WhatsAppIntake:
                 content=fetched.content,
                 filename=message.filename,
                 media_type=fetched.mime_type,
+                source_text=message.caption,
             )
         except (MediaRejected, CaptureRejected) as error:
             return Settlement("rejected", owner, error_code=error.code)

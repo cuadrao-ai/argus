@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from itertools import count
 from uuid import uuid4
@@ -594,12 +594,14 @@ async def forwarded_and_captioned_messages_capture_like_a_direct_send(
         direct = copy.deepcopy(body)
         direct_message = direct["entry"][0]["changes"][0]["value"]["messages"][0]
         direct_message.pop("context", None)
-        direct_message[direct_message["type"]].pop("caption", None)
-        assert parse_delivery(
+        caption = direct_message[direct_message["type"]].pop("caption", None)
+        parsed = parse_delivery(
             encode(body, world.clock.now), phone_number_id=PHONE_NUMBER_ID
-        ) == parse_delivery(
+        ).messages[0]
+        assert parsed.caption == caption
+        assert replace(parsed, caption=None) == parse_delivery(
             encode(direct, world.clock.now), phone_number_id=PHONE_NUMBER_ID
-        )
+        ).messages[0]
         before = len(world.graph.requests)
 
         await world.deliver(body)
@@ -617,6 +619,7 @@ async def forwarded_and_captioned_messages_capture_like_a_direct_send(
             "saved",
             False,
         )
+        assert draft.source_text == caption
         fetched = world.graph.requests[before:]
         assert [(r.method, r.url.host) for r in fetched] == [
             ("GET", "graph.facebook.com"),
@@ -629,6 +632,40 @@ async def forwarded_and_captioned_messages_capture_like_a_direct_send(
     assert world.store.sender_link(sender_hash=world.keys.sender(ALICE_PHONE)) == (
         link_before
     )
+    assert RefusingExtractor.calls == 0
+
+
+CAPTIONS = (
+    "le metí 850 a los materiales",
+    "  gasolina de ayer, saqué de mi bolsillo\n\ny mil pesos del peaje  ",
+    "como dos mil de la reparación, creo q fue el martes",
+    "Paid cash for the printer ink, no sé si hay factura",
+    "",
+    "   ",
+)
+
+
+async def a_caption_is_kept_verbatim_as_source_text(world: World) -> None:
+    await world.link(world.alice, ALICE_PHONE)
+    for number, caption in enumerate(CAPTIONS):
+        media_id = f"70000000000{number:04d}"
+        message_id = f"wamid.CASE-CAPTION-{number}"
+        content = RECEIPT_PNG + bytes([number])
+        world.graph.media[media_id] = Media(content, "image/png")
+        body = image(media_id, message_id)
+        message = body["entry"][0]["changes"][0]["value"]["messages"][0]
+        message["image"]["caption"] = caption
+        await world.deliver(body)
+        record = world.record(message_id)
+        assert record.status == "captured"
+        draft = world.documents.get(
+            user_id=world.alice,
+            connection_id=record.connection_id,
+            scope=world.business(world.alice),
+        )
+        assert draft.source_text == (caption.strip() or None)
+        assert draft.status == "saved"
+        assert draft.consent is False
     assert RefusingExtractor.calls == 0
 
 
@@ -687,13 +724,55 @@ async def a_link_revoked_before_settling_answers_in_the_links_language(
     )
 
 
-async def a_failed_code_answers_in_the_senders_linked_language(world: World) -> None:
+async def a_linked_sender_text_is_never_a_link_attempt(world: World) -> None:
     await world.link(world.alice, ALICE_PHONE, "en")
+    other = world.issue(world.bob)
+    texts = {
+        "wamid.CASE-LINKED-WORD": "Cuadrao, le metí 850 a los materiales",
+        "wamid.CASE-LINKED-CODE": f"CUADRAO {other.code}",
+        "wamid.CASE-LINKED-BAD": "CUADRAO ZZZZ2222",
+    }
+    for message_id, text in texts.items():
+        await world.deliver(fixture("text_message.json", id=message_id, text=text))
+        record = world.record(message_id)
+        assert (record.status, record.error_code) == (
+            "rejected",
+            "whatsapp_receipt_missing",
+        )
+    link = world.store.destination_link(destination_owner_id=world.alice)
+    assert link.last4 == "1234"
+    assert world.store.destination_link(destination_owner_id=world.bob) is None
+    assert set(world.transport.bodies()[-3:]) == {
+        "We only take receipts here. Send a photo or PDF of the receipt."
+    }
+
+
+async def an_unlinked_sender_links_with_a_code_anywhere_in_the_text(
+    world: World,
+) -> None:
+    issued = world.issue(world.alice)
     await world.deliver(
         fixture(
-            "text_link_code.json", id="wamid.CASE-BAD-LINKED", text="CUADRAO ZZZZ2222"
+            "text_message.json",
+            id="wamid.CASE-ADDRESSED",
+            text="Cuadrao, le metí 850 a los materiales",
         )
     )
+    await world.deliver(
+        fixture(
+            "text_message.json",
+            id="wamid.CASE-SENTENCE",
+            text=f"hola! mi codigo es {issued.code.lower()}, gracias",
+        )
+    )
+    assert world.record("wamid.CASE-ADDRESSED").error_code == (
+        "whatsapp_sender_not_linked"
+    )
+    assert world.record("wamid.CASE-SENTENCE").status == "linked"
+    assert world.store.sender_link(sender_hash=world.keys.sender(ALICE_PHONE)) is not None
+
+
+async def a_failed_code_from_a_stranger_answers_in_spanish(world: World) -> None:
     await world.deliver(
         fixture(
             "text_link_code.json",
@@ -702,10 +781,9 @@ async def a_failed_code_answers_in_the_senders_linked_language(world: World) -> 
             text="CUADRAO ZZZZ2222",
         )
     )
-    assert world.transport.bodies()[-2:] == [
-        "That code has expired or was already used. Create a new one in Cuadrao.",
-        "Ese código venció o ya se usó. Crea uno nuevo en Cuadrao.",
-    ]
+    assert world.transport.bodies()[-1] == (
+        "Ese código venció o ya se usó. Crea uno nuevo en Cuadrao."
+    )
 
 
 async def one_failing_message_does_not_stop_the_rest(world: World) -> None:
@@ -785,9 +863,12 @@ CASES = (
     no_reply_outside_the_service_window,
     same_bytes_in_a_new_message_get_the_duplicate_reply,
     forwarded_and_captioned_messages_capture_like_a_direct_send,
+    a_caption_is_kept_verbatim_as_source_text,
     a_link_revoked_before_settling_keeps_no_capture,
     a_link_revoked_before_settling_answers_in_the_links_language,
-    a_failed_code_answers_in_the_senders_linked_language,
+    a_linked_sender_text_is_never_a_link_attempt,
+    an_unlinked_sender_links_with_a_code_anywhere_in_the_text,
+    a_failed_code_from_a_stranger_answers_in_spanish,
     one_failing_message_does_not_stop_the_rest,
     media_urls_off_the_meta_allowlist_are_never_fetched,
 )

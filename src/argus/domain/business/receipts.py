@@ -211,6 +211,7 @@ class Receipt:
             "email_delivery_ids": list(self.email_delivery_ids),
             "email_original": self.email_original,
             "filename": self.draft.filename,
+            "source_text": self.draft.source_text,
             "media_type": self.draft.media_type,
             "size_bytes": self.draft.size_bytes,
             "received_at": self.draft.created_at,

@@ -165,6 +165,7 @@ Every uuid column whose name marks a person or a membership, or that has a forei
 | `beta_invite_quota_grants.granted_by` | yes | `auth.users` SET NULL |
 | `beta_invite_quota_grants.user_id` | no | `auth.users` CASCADE |
 | `business_action_receipts.actor_id` | no | `auth.users` CASCADE |
+| `business_access_invites.issuer_id` | no | `auth.users` CASCADE |
 | `business_client_grants.grantee_id` | no | `auth.users` CASCADE |
 | `business_email_deliveries.principal_id` | yes | `auth.users` CASCADE |
 | `business_email_routes.granted_by` | no | `auth.users` CASCADE |
@@ -413,6 +414,9 @@ The October 10 C0 catalog adds sixteen foreign keys, all nondeferrable `ON DELET
 
 | Table | Column(s) | References | On delete | On update | Deferrable | Re-key to a placeholder | Plain delete, live probe | Lane 6 must |
 |---|---|---|---|---|---|---|---|---|
+| `business_access_invites` | `accepted_grant_id` | `business_client_grants` | SET NULL | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here. | None. The accepted invite keeps its record; the grant goes with its grantee or space at step 7. |
+| `business_access_invites` | `issuer_id` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is `not null`. | Catalog only. The probes had no rows here. | The pending invite goes with the owner who sent it at step 7. |
+| `business_access_invites` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
 | `business_action_receipts` | `actor_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the actual actor at step 7; do not substitute a historical actor. |
 | `business_action_receipts` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the Business space at step 7. |
 | `business_action_receipts` | `turn_key, space_id, actor_id` | `business_turns` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with its canonical turn at step 7; human receipts without a turn follow their actor or space. |
