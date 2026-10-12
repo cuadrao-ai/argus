@@ -8814,8 +8814,11 @@ answers the not-linked reply.
   over 512 KiB is 413 `whatsapp_webhook_too_large`; a signed body that is not
   a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. 200
   `{received: true}` means every image, document and text message in it has a
-  committed delivery record with a live claim; other message types and statuses
-  are ignored. The media download, saving and reply run after the answer, in
+  committed delivery record with a live claim. A voice note, audio, sticker or
+  video from a linked sender is settled `rejected` (`whatsapp_message_unsupported`)
+  and gets one short reply saying it is not supported yet; from an unlinked
+  sender it gets the not-linked reply. Other message types and statuses are
+  ignored. The media download, saving and reply run after the answer, in
   order, and settle the record. A work failure behind the answer settles the
   record `failed` and the sender gets the "send it again" reply. Shutdown waits
   up to 20 seconds for this work; a process killed sooner leaves the record
