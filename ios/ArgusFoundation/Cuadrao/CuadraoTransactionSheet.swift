@@ -21,6 +21,8 @@ struct CuadraoTransactionSheet<Content: View>: View {
     var cancelDisabled = false
     var dismissDisabled = false
     var scrollTarget: String? = nil
+    /// False when the body already names the account, so the name shows once.
+    var showsAccountHeader = true
     let back: () -> Void
     let primary: () -> Void
     @ViewBuilder let content: () -> Content
@@ -31,7 +33,7 @@ struct CuadraoTransactionSheet<Content: View>: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {
-                        HStack(spacing: 12) {
+                        if showsAccountHeader { HStack(spacing: 12) {
                             if let kind = account.artwork {
                                 CanvasAccountIcon(kind: kind)
                             } else {
@@ -39,7 +41,7 @@ struct CuadraoTransactionSheet<Content: View>: View {
                                     .frame(width: 23, height: 23).accessibilityHidden(true)
                             }
                             Text(account.title).font(CuadraoTypography.action)
-                        }.padding(.top, 8)
+                        }.padding(.top, 8) }
                         content()
                     }.padding(24)
                 }
