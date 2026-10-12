@@ -39,7 +39,7 @@ extension FinancialLoopUITests {
 /// A receipt kept before any movement exists still leads somewhere: the sheet offers to add the movement.
 extension FinancialLoopUITests {
     func testGuestReceiptWithNoMovementsOffersToAddOne() throws {
-        launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-saved-receipts-sample"])
+        launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-saved-receipts-sample", "--toasts-on"])
         enterGuestBook()
         app.buttons["nav.add"].tap()
         app.buttons["add.tray.account"].tap()
@@ -59,5 +59,12 @@ extension FinancialLoopUITests {
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = "guest-receipt-saved-no-movements-en"; image.lifetime = .keepAlways; add(image)
         addMovement.tap()
         XCTAssertTrue(app.buttons["guest.movement.save"].waitForExistence(timeout: 10), "the movement sheet opens")
+        // The receipt sheet gave way to the movement sheet; the save is still noticed from the book before the first one opened.
+        app.textFields["guest.movement.amount"].tap()
+        app.textFields["guest.movement.amount"].typeText("120")
+        dismissGuestKeyboard()
+        app.buttons["guest.movement.save"].tap()
+        XCTAssertTrue(app.buttons["guest.movement.save"].waitForNonExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Transaction saved"].waitForExistence(timeout: 5), "a sheet swap keeps the book snapshot")
     }
 }

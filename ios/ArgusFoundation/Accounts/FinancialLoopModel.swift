@@ -384,8 +384,8 @@ final class FinancialLoopModel: ObservableObject {
         accounts.accept(receipt.accounts)
         let corrected = activityEditor?.correcting != nil
         activityEditor = nil
-        saveNotice = SaveNotice(activityID: receipt.activity.activityId, corrected: corrected)
         await refresh()
+        saveNotice = SaveNotice(activityID: receipt.activity.activityId, corrected: corrected)
         for account in receipt.accounts where accountReads[account.id] != nil { await open(account) }
     }
 
@@ -415,8 +415,8 @@ final class FinancialLoopModel: ObservableObject {
         guard generation == ticket, identity != nil else { return }
         accounts.accept(account)
         editor = nil
-        saveNotice = SaveNotice(activityID: nil, corrected: false)
         await refresh()
+        saveNotice = SaveNotice(activityID: nil, corrected: false)
         await open(account)
     }
 
@@ -428,7 +428,6 @@ final class FinancialLoopModel: ObservableObject {
             bind(snapshot); sessionChanged?(snapshot)
         } else if let accountID, accountReads[accountID]?.request == request {
             accountReads[accountID]?.errorKey = FinancialEditor.message(error)
-            CuadraoHaptics.warning()
         }
     }
 }

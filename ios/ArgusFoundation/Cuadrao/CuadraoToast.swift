@@ -47,8 +47,9 @@ struct CuadraoToast: View {
         }.font(.subheadline).padding(.leading, 20).padding(.trailing, 6)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
             .padding(.horizontal, 20).padding(.bottom, 90)
-            .onAppear { UIAccessibility.post(notification: .announcement, argument: text) }
             .task(id: token ?? AnyHashable(text)) {
+                // Keyed like the timer, so a second message in the same view is announced too.
+                UIAccessibility.post(notification: .announcement, argument: text)
                 guard !Self.staysForUITests else { return }
                 let seconds = Self.autoDismissSeconds(voiceOver: UIAccessibility.isVoiceOverRunning)
                 try? await Task.sleep(for: .seconds(seconds))

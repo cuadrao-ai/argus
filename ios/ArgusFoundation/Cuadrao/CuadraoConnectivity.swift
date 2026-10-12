@@ -2,37 +2,48 @@ import Network
 import SwiftUI
 
 /// One watch on the network for the signed-in app. Saves are not queued: while offline they do not go through.
+/// A loss of signal shows only after it lasts `debounce`, so a Wi-Fi to cellular handoff or a blip at launch never flashes the strip.
 @MainActor
 final class CuadraoConnectivity: ObservableObject {
     @Published private(set) var online = true
-    private let monitor = NWPathMonitor()
+    private let monitor: NWPathMonitor?
+    private let debounce: Duration
+    private var pendingLoss: Task<Void, Never>?
     private var settled = false
 
-    init() {
-        #if DEBUG
-        // Test hook: `--simulate-offline` starts offline and comes back after 12 seconds.
-        if ProcessInfo.processInfo.arguments.contains("--simulate-offline") {
-            online = false
-            settled = true
-            Task { try? await Task.sleep(for: .seconds(12)); self.update(true) }
-            return
-        }
-        #endif
+    /// `monitoring: false` is for the gallery, which drives `report` by hand and never touches the real network.
+    init(monitoring: Bool = true, debounce: Duration = .seconds(1)) {
+        self.debounce = debounce
+        guard monitoring else { monitor = nil; return }
+        let monitor = NWPathMonitor()
+        self.monitor = monitor
         monitor.pathUpdateHandler = { [weak self] path in
             let satisfied = path.status == .satisfied
-            Task { @MainActor in self?.update(satisfied) }
+            Task { @MainActor in self?.report(satisfied) }
         }
         monitor.start(queue: DispatchQueue(label: "cuadrao.connectivity"))
     }
 
-    deinit { monitor.cancel() }
+    deinit { monitor?.cancel() }
 
-    private func update(_ satisfied: Bool) {
-        defer { settled = true }
+    func report(_ satisfied: Bool) {
+        if satisfied {
+            pendingLoss?.cancel(); pendingLoss = nil
+            apply(true)
+        } else if online, pendingLoss == nil {
+            pendingLoss = Task {
+                try? await Task.sleep(for: debounce)
+                guard !Task.isCancelled else { return }
+                pendingLoss = nil
+                apply(false)
+            }
+        }
+        settled = true
+    }
+
+    private func apply(_ satisfied: Bool) {
         guard satisfied != online else { return }
         online = satisfied
-        // The first answer is the starting state, not a change.
-        guard settled else { return }
         if satisfied { CuadraoHaptics.success() } else { CuadraoHaptics.warning() }
     }
 }

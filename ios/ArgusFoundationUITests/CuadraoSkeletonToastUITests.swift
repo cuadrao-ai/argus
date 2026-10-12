@@ -55,19 +55,25 @@ final class CuadraoSkeletonToastUITests: XCTestCase {
         shot(app, "toast-large-text-es")
     }
 
-    func testOfflineBannerShowsThenClearsAndRetryTemplateRuns() {
+    func testOfflineStripWaitsAboutASecondThenShowsAndClears() {
         continueAfterFailure = false
-        let app = XCUIApplication.cuadraoPreview()
-        app.launchArguments = CuadraoPreviewLaunch.arguments + ["--design-gallery", "--simulate-offline", "-cuadrao.design.appearance", "light"]
-        app.launch()
+        let app = gallery()
         app.switches["gallery-reduce-motion"].tap()
         let banner = app.descendants(matching: .any)["cuadrao.offline.banner"]
-        XCTAssertTrue(banner.waitForExistence(timeout: 5), "the strip shows while offline")
-        shot(app, "offline-banner-light-es")
-        XCTAssertTrue(banner.waitForNonExistence(timeout: 20), "the strip clears when the network returns")
+        XCTAssertFalse(banner.exists)
+        app.switches["gallery-offline"].tap()
+        XCTAssertFalse(banner.exists, "a loss shorter than about a second never flashes the strip")
+        XCTAssertTrue(banner.waitForExistence(timeout: 4), "a lasting loss shows the strip")
+        shot(app, "offline-strip-light-es")
+        app.switches["gallery-offline"].tap()
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 3), "the strip clears when the network returns")
+    }
+
+    func testRetryTemplateRunsItsAction() {
+        continueAfterFailure = false
+        let app = gallery()
         let retry = app.buttons["gallery-retry-action"]
         reveal(app, retry)
-        shot(app, "retry-state-light-es")
         retry.tap()
         XCTAssertEqual(app.staticTexts["gallery-retry-count"].label, "1")
     }

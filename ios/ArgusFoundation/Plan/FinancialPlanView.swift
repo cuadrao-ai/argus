@@ -51,7 +51,7 @@ struct FinancialPlanView: View {
                 }
             }
             if let error = model.errorKey {
-                CuadraoRetryState(message: LocalizedStringKey(error), spanish: spanish, identifier: "plan.error",
+                CuadraoRetryState(message: LocalizedStringKey(error), identifier: "plan.error",
                                   retryIdentifier: "plan.retry") { Task { await model.refresh() } }
             }
             if let projection = model.projection { overview(projection) }

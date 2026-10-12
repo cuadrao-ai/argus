@@ -24,7 +24,7 @@ struct AccountActivityView: View {
             Text(spanish ? "Movimientos" : "Activity").font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
             if page.loading && page.activity.isEmpty { CuadraoSkeleton(layout: .rows(3), identifier: "accounts.activity.loading") }
             if let error = page.errorKey {
-                CuadraoRetryState(message: LocalizedStringKey(error), spanish: spanish, identifier: "accounts.activity.error",
+                CuadraoRetryState(message: LocalizedStringKey(error), identifier: "accounts.activity.error",
                                   retryIdentifier: "accounts.activity.retry") { Task { await loop.open(account) } }
                     .disabled(page.loading)
             }
