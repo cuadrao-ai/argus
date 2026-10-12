@@ -2169,6 +2169,19 @@
     }
   },
   "business": {
+    "export": {
+      "title": "Export Business records",
+      "scope": "{{name}} · CSV, Excel and retained originals in one ZIP.",
+      "start": "From",
+      "end": "Through",
+      "period_hint": "Choose 1–366 days, including both dates. Pending records are separate from recorded money; the manifest reports missing originals.",
+      "download": "Download CSV, Excel and originals",
+      "downloading": "Downloading…",
+      "access_error": "This export isn't available with your current access.",
+      "limit_error": "This export exceeds a package limit. Choose a shorter period.",
+      "error": "The export could not be downloaded. Check your access and try again.",
+      "preview": "Downloads are available in the connected Business view."
+    },
     "dossier": {
       "title": "Review record",
       "unknown": "Unknown",

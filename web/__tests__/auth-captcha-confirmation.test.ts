@@ -11,6 +11,7 @@ const originalFetch = globalThis.fetch;
 const originalNodeEnv = process.env.NODE_ENV;
 const originalLocalToken =
   process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
+const originalCuadraoSiteKey = process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
 const originalTurnstileSiteKey =
   process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
 const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
@@ -27,6 +28,7 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
   delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
+  delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
 });
 
 afterEach(() => {
@@ -36,6 +38,11 @@ afterEach(() => {
     delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
   } else {
     process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN = originalLocalToken;
+  }
+  if (originalCuadraoSiteKey === undefined) {
+    delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
+  } else {
+    process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY = originalCuadraoSiteKey;
   }
   if (originalTurnstileSiteKey === undefined) {
     delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
