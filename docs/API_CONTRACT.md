@@ -9163,6 +9163,16 @@ accept path recorded.
   saved receipt) is never `preparable` or `enterable`; prepare, review and
   confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
   receipt.
+- Duplicates never record money twice. Uploading the same bytes again, from
+  any entry point, answers with the receipt already saved and `replayed:
+  true`; nothing new is stored. A second document whose read merchant, date,
+  amount and currency equal another draft or expense of the Business is set
+  aside with `status: needs_attention`, `attention: "duplicate"` and
+  `duplicate_of` (the receipt it may repeat); what was read stays visible,
+  `enterable` and `preparable` are false, and review or confirm answer 409
+  `possible_duplicate`. The mark is the import event's own
+  `possible_duplicate` attention; the hosted bridge sets it when it prepares
+  the attachment, the local app's import pass sets it the same way.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake
