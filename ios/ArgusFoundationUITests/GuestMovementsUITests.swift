@@ -205,6 +205,21 @@ extension FinancialLoopUITests {
         capture("guest-movement-amount-first")
     }
 
+    /// A very long account name truncates inside its own chip instead of running off the screen.
+    func testMovementChipWithAVeryLongAccountNameStaysOnScreen() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book"])
+        enterGuestBook()
+        app.buttons["nav.add"].tap()
+        XCTAssertTrue(app.buttons["add.tray.account"].waitForExistence(timeout: 5))
+        app.buttons["nav.add"].tap()
+        addAccount(type: "checking", name: String(repeating: "Cuenta de ahorros para el viaje largo ", count: 2), currency: "USD", amount: "1000")
+        openMovementSheet()
+        let chip = app.buttons["guest.movement.account"]
+        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        XCTAssertLessThanOrEqual(chip.frame.maxX, app.frame.maxX, "the chip stays inside the screen")
+        XCTAssertGreaterThanOrEqual(chip.frame.minX, app.frame.minX)
+    }
+
     func testGuestMovementsInSpanish() throws {
         launchSignedOut(arguments: ["--cuadrao-guest-book"], language: "es-419")
         enterGuestBook()
