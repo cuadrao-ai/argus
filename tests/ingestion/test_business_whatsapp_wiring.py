@@ -297,3 +297,61 @@ async def test_text_reaches_the_agent_only_while_the_worker_is_enabled(
             runtime.intake.capture_text(message)
         assert captured == ["touched"]
     await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_the_agent_turn_runs_with_the_registered_traffic_class(monkeypatch):
+    """Hosted environments refuse a model call that has no traffic class."""
+
+    from datetime import datetime, timezone
+    from uuid import uuid4
+
+    from argus.api.whatsapp_worker import build_worker
+    from argus.domain.ingestion.secrets import SecretBox
+    from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
+    from argus.llm.openrouter_key_policy import (
+        _current_traffic_class,
+        resolve_openrouter_api_key,
+    )
+
+    monkeypatch.setenv("APP_ENV", "staging")
+    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    seen = []
+
+    class Runner:
+        async def run(self, **kwargs):
+            seen.append((_current_traffic_class.get(), resolve_openrouter_api_key()))
+            return SimpleNamespace(reply_text="ok")
+
+    worker = build_worker(
+        object(),
+        box=SecretBox(bytes(range(32))),
+        keys=WhatsAppKeys("synthetic-key"),
+        transport=None,
+        enabled=lambda: True,
+        send_enabled=lambda: False,
+        actions=object(),
+        runner=Runner(),
+    )
+    space_id = uuid4()
+    captured = SimpleNamespace(
+        turn_key="t",
+        id=uuid4(),
+        received_at=datetime.now(timezone.utc),
+        language="es-419",
+        envelope=SimpleNamespace(text="hola"),
+    )
+    reply = await worker.execute_turn(
+        captured=captured,
+        turn=object(),
+        lease=SimpleNamespace(space_id=space_id),
+        authorization=SimpleNamespace(
+            actor=SimpleNamespace(actor_kind="owner_via_agent", space_id=space_id)
+        ),
+        begin_reply=lambda: None,
+        history=[],
+    )
+    assert reply == "ok"
+    assert seen == [("registered", "registered-key")]
+    assert _current_traffic_class.get() is None
