@@ -24,6 +24,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import Refused
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.dossier import AccountChoice, RecordContext
+from argus.domain.business.contracts.facts import BusinessResolution, Known
 from argus.domain.business.scope import BusinessScope
 from argus.domain.business.service import BusinessService
 from argus.domain.business.transactions import GrantImportStore, transaction
@@ -147,6 +148,37 @@ def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> N
                 raise ActionError("invalid_input", "business_action_required")
 
 
+def read_attention(event) -> dict:  # noqa: ANN001
+    """Why a prepared receipt still needs a person, from what the read left on
+    the draft: several purchases, none it could settle, or purchases the
+    recorded expense does not cover (until a person records or settles them)."""
+
+    business = event.resolution.get("business")
+    if business is None:
+        return {}
+    resolution = BusinessResolution.model_validate(business)
+    read = resolution.read_purchases
+    if event.state == "open" and read:
+        return {
+            "status": "needs_attention",
+            "attention": "several_purchases",
+            "error_code": "several_purchases_found",
+        }
+    if (
+        event.state == "open"
+        and resolution.read_total is not None
+        and not isinstance(resolution.facts.amount, Known)
+    ):
+        return {
+            "status": "needs_attention",
+            "attention": "no_purchase_found",
+            "error_code": "no_purchase_found",
+        }
+    if event.state == "accepted" and resolution.unrecorded_purchases():
+        return {"attention": "several_purchases", "error_code": "purchases_unrecorded"}
+    return {}
+
+
 def receipt_detail(context: BusinessContext, receipt) -> dict:
     detail = receipt.detail()
     store = context.service.imports.store
@@ -158,21 +190,7 @@ def receipt_detail(context: BusinessContext, receipt) -> dict:
             if draft_id is not None and legacy_id is None:
                 event = tx.imports.event(str(draft_id))
                 detail.update(version=event.version, preparable=False, enterable=False)
-                read = (event.resolution.get("business") or {}).get(
-                    "read_purchases"
-                ) or ()
-                if (
-                    event.state == "open"
-                    and len(read) != 1
-                    and (read or detail["amount"] is None)
-                ):
-                    # Several purchases, or none the read could settle: the one
-                    # draft waits for a person, with the read kept as evidence.
-                    detail.update(
-                        status="needs_attention",
-                        attention="several_purchases",
-                        error_code="several_purchases_found",
-                    )
+                detail.update(read_attention(event))
             detail["record_context"] = record_context(tx).model_dump(mode="json")
             if ambiguous:
                 detail.update(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Generic, Literal, TypeVar
 from uuid import UUID
 
@@ -183,6 +184,34 @@ class BusinessResolution(Contract):
     #: Empty for a single clean read. Several entries mean the read showed
     #: several purchases; the facts above hold only what they all share.
     read_purchases: tuple[ReadPurchase, ...] = ()
+    #: The receipt total the read showed when it could not settle on one purchase.
+    read_total: str | None = None
+    #: A person settled the read purchases this draft does not record.
+    remainder_settled: bool = False
+
+    def unrecorded_purchases(self) -> int:
+        """Read purchases this draft's amount does not account for. One read
+        purchase with the draft's amount is the one this draft records; the
+        count is 0 once a person settled the rest."""
+
+        if self.remainder_settled:
+            return 0
+        remaining = list(self.read_purchases)
+        amount = self.facts.amount
+        if isinstance(amount, Known):
+            recorded = _decimal(amount.value)
+            for purchase in remaining:
+                if recorded is not None and _decimal(purchase.amount) == recorded:
+                    remaining.remove(purchase)
+                    break
+        return len(remaining)
+
+
+def _decimal(value: str | None) -> Decimal | None:
+    try:
+        return None if value is None else Decimal(value)
+    except InvalidOperation:
+        return None
 
 
 class KnownInput(Contract, Generic[T]):

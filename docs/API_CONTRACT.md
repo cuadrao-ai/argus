@@ -9169,8 +9169,18 @@ accept path recorded.
   one open draft on the hosted bridge: the facts every read purchase shares are
   known, the amount stays unknown for a person to set, and each read purchase
   is kept on the draft as `read_purchases` (index, amount, currency, date,
-  merchant), returned on the dossier. The receipt shows `needs_attention` with
-  attention `several_purchases` until a person completes and approves it. An
+  merchant), returned on the dossier with `read_total` (the receipt total the
+  read showed) and `unrecorded_purchases` (the read purchases the draft's
+  amount does not cover). The receipt shows `needs_attention` with attention
+  `several_purchases` until a person completes and approves it; a read with a
+  total and no purchase shows `no_purchase_found`. One approval records exactly
+  one purchase. After approval the receipt keeps attention `several_purchases`
+  (error code `purchases_unrecorded`) while `unrecorded_purchases` is above 0.
+  `POST /api/v1/business/drafts/{draft_id}/remainder/settle` with `{version}`
+  and an `Idempotency-Key` lets a person with `approve` permission settle the
+  rest (ledger action `settle_remainder`); the dossier then reports 0. 409
+  `stale_version`; 422 `business_draft_not_recorded` before approval and
+  `business_remainder_none` when nothing is left. An
   unreadable read is still refused to the document layer, which keeps the
   receipt enterable by hand.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:

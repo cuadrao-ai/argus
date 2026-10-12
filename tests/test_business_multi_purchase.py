@@ -88,6 +88,125 @@ def test_two_purchases_become_one_open_draft_with_both_kept(checked, monkeypatch
         (1, "245", "Colmado La Esquina"),
         (2, "95", "Colmado La Esquina"),
     ]
+    assert resolution.read_total == "340.00"
+    assert resolution.unrecorded_purchases() == 2
+
+
+def test_three_purchases_are_all_kept_and_all_unrecorded(checked, monkeypatch) -> None:  # noqa: ANN001, F811
+    _, _, _, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    batch = ExtractionBatch(
+        complete=True,
+        readable=True,
+        candidates=tuple(
+            _candidate(draft, amount, "Colmado", "2026-10-11")
+            for amount in ("100.00", "200.00", "40.00")
+        ),
+        receipt=ReceiptDetails(total="340.00", currency="DOP"),
+    )
+    _, resolution, _ = _prepared(checked, monkeypatch, batch)
+    assert [p.index for p in resolution.read_purchases] == [1, 2, 3]
+    assert (resolution.read_total, resolution.unrecorded_purchases()) == ("340.00", 3)
+
+
+def test_a_read_with_no_purchase_keeps_the_total_and_names_nothing_read(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    from argus.api.business_drafts import read_attention
+    from argus.domain.ingestion.reconcile.model import ImportEvent
+
+    batch = ExtractionBatch(
+        complete=True,
+        readable=True,
+        candidates=(),
+        receipt=ReceiptDetails(total="340.00", currency="DOP"),
+    )
+    _, resolution, _ = _prepared(checked, monkeypatch, batch)
+    assert (resolution.read_purchases, resolution.read_total) == ((), "340.00")
+    assert resolution.facts.amount.state == "unknown"
+    event = Mock(
+        spec=ImportEvent,
+        state="open",
+        resolution={"business": resolution.model_dump(mode="json")},
+    )
+    assert read_attention(event)["attention"] == "no_purchase_found"
+
+
+def test_only_a_known_kind_reaches_the_consensus(checked, monkeypatch) -> None:  # noqa: ANN001, F811
+    _, _, _, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+
+    def batch(*hints: str) -> ExtractionBatch:
+        return ExtractionBatch(
+            complete=True,
+            readable=True,
+            candidates=tuple(
+                _candidate(draft, "10.00", "Colmado", "2026-10-11").model_copy(
+                    update={"kind_hint": hint}
+                )
+                for hint in hints
+            ),
+            receipt=ReceiptDetails(total="20.00", currency="DOP"),
+        )
+
+    _, agreed, _ = _prepared(checked, monkeypatch, batch("expense", "expense"))
+    assert agreed.facts.kind.value == "expense"
+    _, mixed, _ = _prepared(checked, monkeypatch, batch("expense", "purchase"))
+    assert mixed.facts.kind.state == "unknown"
+    assert [p.kind_hint for p in mixed.read_purchases] == ["expense", None]
+
+
+def test_the_remainder_follows_the_recorded_amount_until_settled() -> None:
+    from argus.domain.business.contracts.facts import BusinessFacts, ReadPurchase
+
+    read = tuple(
+        ReadPurchase(index=i, amount=a) for i, a in ((1, "245.00"), (2, "95.00"))
+    )
+    facts = BusinessFacts().model_dump(mode="json")
+    open_draft = BusinessResolution(facts=BusinessFacts(), read_purchases=read)
+    assert open_draft.unrecorded_purchases() == 2
+    facts["amount"] = {
+        "state": "known",
+        "value": "245",
+        "origin": "member_set",
+        "verified": False,
+        "source_ids": [str(uuid4())],
+    }
+    recorded = BusinessResolution(
+        facts=BusinessFacts.model_validate(facts), read_purchases=read
+    )
+    assert recorded.unrecorded_purchases() == 1
+    assert (
+        recorded.model_copy(update={"remainder_settled": True}).unrecorded_purchases()
+        == 0
+    )
+
+
+def test_a_later_revision_keeps_the_read_total_and_purchases(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    _, tx, binding, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    batch = ExtractionBatch(
+        complete=True,
+        readable=True,
+        candidates=(
+            _candidate(draft, "245.00", "Colmado", "2026-10-11"),
+            _candidate(draft, "95.00", "Colmado", "2026-10-11"),
+        ),
+        receipt=ReceiptDetails(total="340.00", currency="DOP"),
+    )
+    _, resolution, _ = _prepared(checked, monkeypatch, batch)
+    saved = tx.imports.put_event.call_args.args[0]
+    mutations.save_revision(
+        tx, saved, resolution.facts, resolution.facts, (), binding.actor, None
+    )
+    again = BusinessResolution.model_validate(
+        tx.imports.put_event.call_args.args[0].resolution["business"]
+    )
+    assert (again.read_total, len(again.read_purchases)) == ("340.00", 2)
 
 
 def test_purchases_that_disagree_leave_those_facts_open(checked, monkeypatch) -> None:  # noqa: ANN001, F811
@@ -118,8 +237,9 @@ def test_purchases_that_disagree_leave_those_facts_open(checked, monkeypatch) ->
 
 
 def test_an_ambiguous_single_read_keeps_its_purchase_as_evidence(
-    checked, monkeypatch
-) -> None:  # noqa: ANN001, F811
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
     _, _, _, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
     batch = ExtractionBatch(
@@ -150,10 +270,9 @@ def test_a_single_clean_purchase_is_unchanged(checked, monkeypatch) -> None:  # 
 
 
 def test_an_unreadable_read_is_still_refused_to_the_document_layer(
-    checked, monkeypatch
-) -> None:  # noqa: ANN001, F811
-    _, _, _, row = checked
-    draft = DocumentDraft.model_validate(row["draft"])
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
     batch = ExtractionBatch(complete=True, readable=False, candidates=(), receipt=None)
     with pytest.raises(ActionError, match="receipt_requires_review"):
         _prepared(checked, monkeypatch, batch)

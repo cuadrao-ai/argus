@@ -170,6 +170,15 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       if (id === dossierFixtureIds.saveUnknown && version === 2) throw new TypeError("Synthetic saved response interrupted");
       return get(id);
     },
+    settleRemainder: async (id: string, version: number) => {
+      const current = get(id);
+      if (!current.capabilities.includes("approve")) fail(403, "permission_denied");
+      if (current.version !== version) fail(409, "stale_version");
+      if (current.review_state !== "accepted") fail(422, "business_draft_not_recorded");
+      if (!current.unrecorded_purchases) fail(422, "business_remainder_none");
+      dossiers.set(id, { ...current, version: current.version + 1, unrecorded_purchases: 0 });
+      return get(id);
+    },
     approveDraft: async (id: string, version: number) => {
       const current = get(id);
       if (id === dossierFixtureIds.denied) fail(403, "permission_denied");

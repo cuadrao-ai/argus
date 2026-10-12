@@ -25,6 +25,39 @@ export function ReceiptApprovalGuidance({ dossier }: { dossier: BusinessDossier 
   return <div className={`${cardClass} text-[13px] text-black/70 dark:text-white/70`}><p className="font-medium">{t("business.dossier.before_approval", "Before approval")}</p><ul className="mt-2 space-y-2">{dossier.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}>{t(`business.dossier.blocker.${blocker.code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))}{blocker.field ? ` · ${t(`business.dossier.field.${blocker.field}`, blocker.field)}` : ""}</li>)}</ul></div>;
 }
 
+/** The purchases a read showed on one receipt, what this record covers of its total, and the settle action once the record is recorded. */
+export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: BusinessDossier; busy?: boolean; onSettle?: () => void }) {
+  const { t, i18n } = useTranslation();
+  const purchases = dossier.read_purchases ?? [];
+  if (!purchases.length) return null;
+  const unrecorded = dossier.unrecorded_purchases ?? purchases.length;
+  const recorded = dossier.review_state === "accepted" && dossier.facts.amount.state === "known";
+  const currency = dossier.facts.currency.state === "known" ? dossier.facts.currency.value : null;
+  const money = (amount: string) => (currency ? formatMoney(amount, currency, i18n.resolvedLanguage ?? "en") : amount);
+  const note = !recorded
+    ? t("business.dossier.read_purchases_note", "The read showed more than one purchase. Complete this record with one of them; the rest stay here as evidence.")
+    : unrecorded > 0 && dossier.read_total
+      ? t("business.dossier.read_remainder", "Recorded {{recorded}} of a total of {{total}}. {{count}} purchases on this receipt are still unrecorded.", { recorded: money(dossier.facts.amount.state === "known" ? dossier.facts.amount.value : "0"), total: money(dossier.read_total), count: unrecorded })
+      : unrecorded > 0
+        ? t("business.dossier.read_unrecorded", "{{count}} purchases on this receipt are still unrecorded.", { count: unrecorded })
+        : t("business.dossier.read_settled", "The rest of this receipt is settled.");
+  return (
+    <div className={cardClass} data-testid="dossier-read-purchases">
+      <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.read_purchases_title", "Purchases read on this receipt")}</h3>
+      <p className="mb-3 mt-1 text-[13px] text-black/55 dark:text-white/55" data-testid="dossier-read-remainder">{note}</p>
+      <ul className="divide-y divide-black/[0.05] dark:divide-white/[0.05]">
+        {purchases.map((purchase) => (
+          <li key={purchase.index} className="flex items-baseline justify-between gap-3 py-2 text-[14px]">
+            <span className="min-w-0 truncate text-black/80 dark:text-white/80">{purchase.merchant ?? t("business.dossier.read_purchase", "Purchase {{index}}", { index: purchase.index })}{purchase.occurred_on ? ` · ${purchase.occurred_on}` : ""}</span>
+            <span className="shrink-0 tabular-nums text-black dark:text-white">{purchase.amount ? `${purchase.amount}${purchase.currency ? ` ${purchase.currency}` : ""}` : t("business.dossier.unknown_amount", "Amount unknown")}</span>
+          </li>
+        ))}
+      </ul>
+      {recorded && unrecorded > 0 && onSettle ? <button type="button" data-testid="dossier-settle-remainder" className={`${secondaryButtonClass} mt-3`} disabled={busy} onClick={onSettle}>{t("business.dossier.settle_remainder", "The rest is already handled")}</button> : null}
+    </div>
+  );
+}
+
 export function finishPeriodExportRequest(request: { current: AbortController | null }, controller: AbortController, setBusy: (busy: boolean) => void) {
   if (request.current !== controller) return;
   request.current = null;
@@ -104,6 +137,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
   const [captureTarget, setCaptureTarget] = useState<BusinessCaptureInput["draft"]>();
   const [captureRetained, setCaptureRetained] = useState(false);
   const [capturePending, setCapturePending] = useState(false);
+  const [settling, setSettling] = useState(false);
   const inFlight = useRef(false);
   const reviewRequest = useRef<{ version: number; facts: BusinessFactPatch; key: string } | null>(null);
   const approvalKey = useRef<{ version: number; key: string } | null>(null);
@@ -119,6 +153,20 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
     });
     return () => { cancelled = true; };
   }, [draftId, onUnprepared, source, t]);
+
+  const settle = async () => {
+    if (!dossier || settling || inFlight.current) return;
+    setSettling(true);
+    setProblem(null);
+    try {
+      setDossier(await source.settleRemainder(draftId, dossier.version, randomId()));
+      reload();
+    } catch {
+      setProblem(t("business.dossier.settle_failed", "The rest could not be marked as handled. Check the current record before trying again."));
+    } finally {
+      setSettling(false);
+    }
+  };
 
   const refresh = async () => {
     setChecking(true);
@@ -217,20 +265,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
           {attachments.map((attachment) => <ReceiptSourcePreview key={attachment.id} detail={{ id: attachment.connection_id, filename: attachment.filename, media_type: attachment.media_type, received_at: attachment.received_at, channel: attachment.channel }} />)}
           <ReceiptMessages sources={dossier.sources} />
           {!attachments.length ? <div className={`${cardClass} text-[14px] text-black/65 dark:text-white/65`}>{dossier.facts.receipt_state.state === "known" && dossier.facts.receipt_state.value === "no_receipt" ? t("business.dossier.no_receipt", "No receipt was supplied.") : t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</div> : null}
-          {dossier.read_purchases?.length ? (
-            <div className={cardClass} data-testid="dossier-read-purchases">
-              <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.read_purchases_title", "Purchases read on this receipt")}</h3>
-              <p className="mb-3 mt-1 text-[13px] text-black/55 dark:text-white/55">{t("business.dossier.read_purchases_note", "The read showed more than one purchase. Complete this record with one of them; the rest stay here as evidence.")}</p>
-              <ul className="divide-y divide-black/[0.05] dark:divide-white/[0.05]">
-                {dossier.read_purchases.map((purchase) => (
-                  <li key={purchase.index} className="flex items-baseline justify-between gap-3 py-2 text-[14px]">
-                    <span className="min-w-0 truncate text-black/80 dark:text-white/80">{purchase.merchant ?? t("business.dossier.read_purchase", "Purchase {{index}}", { index: purchase.index })}{purchase.occurred_on ? ` · ${purchase.occurred_on}` : ""}</span>
-                    <span className="shrink-0 tabular-nums text-black dark:text-white">{purchase.amount ? `${purchase.amount}${purchase.currency ? ` ${purchase.currency}` : ""}` : t("business.dossier.unknown_amount", "Amount unknown")}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+          <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
           <ReceiptHistory history={dossier.history} accounts={accounts} />
         </div>
         <div className="space-y-4">

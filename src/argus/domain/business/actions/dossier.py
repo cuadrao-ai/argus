@@ -187,6 +187,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
                 reviewed_version=version,
                 code=outcome.get("code", "approval_failed"),
             )
+    resolution = BusinessResolution.model_validate(event.resolution["business"])
     return BusinessDossier(
         **context.model_dump(),
         draft_id=draft_id,
@@ -199,7 +200,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         blockers=tuple(blocked),
         approval_available=not blocked and "approve" in tx.authorization.capabilities,
         approval_result=approval,
-        read_purchases=BusinessResolution.model_validate(
-            event.resolution["business"]
-        ).read_purchases,
+        read_purchases=resolution.read_purchases,
+        read_total=resolution.read_total,
+        unrecorded_purchases=resolution.unrecorded_purchases(),
     )

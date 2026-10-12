@@ -68,6 +68,9 @@ export type BusinessReadPurchase = { index: number; amount: string | null; curre
 
 export type BusinessDossier = BusinessRecordContext & {
   read_purchases?: BusinessReadPurchase[];
+  /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
+  read_total?: string | null;
+  unrecorded_purchases?: number;
   draft_id: string;
   version: number;
   review_state: "open" | "accepting" | "accepted" | "dismissed";
