@@ -24,11 +24,10 @@ struct CuadraoAccountCanvas: View {
                         Text(spanish ? "Movimientos" : "Activity").font(CuadraoTypography.section)
                         let entries = data.activity.filter { $0.accountID == accountID }.sorted { $0.date > $1.date }
                         if entries.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(spanish ? "Aún no hay movimientos." : "No activity yet.").font(.body)
-                                Text(spanish ? "Añade el primero cuando lo necesites." : "Add the first when you need to.")
-                                    .font(.subheadline).foregroundStyle(.secondary)
-                            }.padding(.vertical, 18)
+                            CuadraoEmptyView(title: spanish ? "Aún no hay movimientos" : "No activity yet",
+                                detail: spanish ? "Añade el primero cuando lo necesites." : "Add the first when you need to.",
+                                actionTitle: spanish ? "Añadir movimiento" : "Add transaction", action: { record(accountID) },
+                                identifier: "account-detail.empty", actionIdentifier: "account-detail.empty.record")
                         } else {
                             ForEach(entries) { entry in
                                 NavigationLink {
