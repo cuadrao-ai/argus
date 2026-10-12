@@ -20,6 +20,7 @@ import {
 } from "@/components/chat/ChatWorkspace";
 import {
   businessChatAvailable,
+  type BusinessCapture,
   type BusinessOverview,
   type BusinessWorkspaceInfo,
   type ReceiptSummary,
@@ -50,6 +51,9 @@ type Records = {
   workspace: BusinessWorkspaceInfo | null;
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
+  /** Saved notes, newest first; null until loaded. A notes outage never hides receipts. */
+  notes: BusinessCapture[] | null;
+  notesError: boolean;
   error: boolean;
 };
 
@@ -146,6 +150,8 @@ export function BusinessWorkspaceProvider({
     workspace: null,
     overview: null,
     inbox: null,
+    notes: null,
+    notesError: false,
     error: false,
   });
   const [revision, setRevision] = useState(0);
@@ -172,9 +178,13 @@ export function BusinessWorkspaceProvider({
       source.workspace(),
       source.overview(period.from, period.to),
       source.receipts("inbox"),
+      source.captures("", 50).then(
+        (notes) => ({ notes, notesError: false }),
+        () => ({ notes: [] as BusinessCapture[], notesError: true }),
+      ),
     ])
-      .then(([workspace, overview, inbox]) => {
-        if (!cancelled) setRecords({ workspace, overview, inbox, error: false });
+      .then(([workspace, overview, inbox, saved]) => {
+        if (!cancelled) setRecords({ workspace, overview, inbox, ...saved, error: false });
       })
       .catch(() => {
         if (!cancelled) setRecords((current) => ({ ...current, error: true }));

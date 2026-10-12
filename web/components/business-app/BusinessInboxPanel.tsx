@@ -1,11 +1,72 @@
 "use client";
 
-import { ChevronRight, FileText, ImageIcon, MessageCircle } from "lucide-react";
+import { ChevronRight, FileText, ImageIcon, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { ReceiptSummary } from "@/lib/business-api";
+import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, StatusPill, useAttentionLabel } from "./business-ui";
+
+export type OpenNote = { draftId: string; text: string; receivedAt: string; version: number; earlier: number };
+
+/**
+ * One row per draft still awaiting review: its latest note, and how many came
+ * before it. Recorded and dismissed drafts leave the Inbox.
+ */
+export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote[] {
+  const byDraft = new Map<string, OpenNote>();
+  for (const note of captures) {
+    if (note.review_state !== "open" && note.review_state !== "accepting") continue;
+    const current = byDraft.get(note.draft_id);
+    if (!current) {
+      byDraft.set(note.draft_id, { draftId: note.draft_id, text: note.text, receivedAt: note.received_at, version: note.version, earlier: 0 });
+    } else if (note.received_at > current.receivedAt) {
+      byDraft.set(note.draft_id, { ...current, text: note.text, receivedAt: note.received_at, version: Math.max(note.version, current.version), earlier: current.earlier + 1 });
+    } else {
+      current.earlier += 1;
+      current.version = Math.max(note.version, current.version);
+    }
+  }
+  return [...byDraft.values()].sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
+}
+
+export function NotesAwaitingReview({ notes, error, onOpen }: { notes: OpenNote[]; error: boolean; onOpen: (draftId: string) => void }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? "en";
+  if (!error && notes.length === 0) return null;
+  return (
+    <section aria-label={t("business.inbox.notes_title", "Notes awaiting review")} className="mb-6">
+      <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business.inbox.notes_title", "Notes awaiting review")}</h3>
+      <p className="mb-3 mt-0.5 text-[13px] text-black/55 dark:text-white/55">{t("business.inbox.notes_subtitle", "Saved in your own words. Open one to add facts or a receipt.")}</p>
+      {error ? (
+        <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">{t("business.inbox.notes_error", "We couldn't load your notes. Receipts are shown below.")}</p>
+      ) : (
+        <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-inbox-notes">
+          {notes.map((note) => (
+            <li key={note.draftId}>
+              <button
+                type="button"
+                onClick={() => onOpen(note.draftId)}
+                className="flex w-full items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
+                  <NotebookPen className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-2 whitespace-pre-line break-words text-[15px] text-black dark:text-white">{note.text.trim()}</span>
+                  <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
+                    {[formatRelativeTime(note.receivedAt, locale), t("business.dossier.revision", "Revision {{version}}", { version: note.version }), note.earlier ? t("business.inbox.note_more", "{{count}} earlier notes", { count: note.earlier }) : null].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpen: () => void }) {
   const { t, i18n } = useTranslation();
@@ -49,6 +110,7 @@ export default function BusinessInboxPanel() {
   const { t } = useTranslation();
   const { records, openPanel, actions } = useBusiness();
   const items = records.inbox;
+  const notes = records.notes === null ? null : openNotesByDraft(records.notes);
 
   const upload = actions.create.find((action) => action.id === "upload_receipt");
 
@@ -69,9 +131,9 @@ export default function BusinessInboxPanel() {
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.inbox.error", "We couldn't load your inbox. Try again.")}
         </p>
-      ) : items === null ? (
+      ) : items === null || notes === null ? (
         <LoadingRows />
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && notes.length === 0 && !records.notesError ? (
         <div className={`${cardClass} text-center`}>
           <p className="font-display text-[18px] font-medium text-black dark:text-white">
             {t("business.inbox.empty_title", "You're all caught up")}
@@ -81,15 +143,20 @@ export default function BusinessInboxPanel() {
           </p>
         </div>
       ) : (
-        <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
-          {items.map((receipt) => (
-            <ReceiptRow
-              key={receipt.id}
-              receipt={receipt}
-              onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
-            />
-          ))}
-        </ul>
+        <>
+          <NotesAwaitingReview notes={notes} error={records.notesError} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
+          {items.length ? (
+            <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
+              {items.map((receipt) => (
+                <ReceiptRow
+                  key={receipt.id}
+                  receipt={receipt}
+                  onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
+                />
+              ))}
+            </ul>
+          ) : null}
+        </>
       )}
     </section>
   );

@@ -2350,6 +2350,11 @@
       "empty_body": "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.",
       "empty_title": "Estás al día",
       "error": "No pudimos cargar tu bandeja. Reintenta.",
+      "notes_title": "Notas en revisión",
+      "notes_subtitle": "Guardadas con tus palabras. Abre una para agregar datos o un recibo.",
+      "notes_error": "No pudimos cargar tus notas. Los recibos se muestran abajo.",
+      "note_more_one": "{{count}} nota anterior",
+      "note_more_other": "{{count}} notas anteriores",
       "subtitle": "Recibos que esperan tu revisión. Nada aquí es un gasto hasta que lo confirmes.",
       "title": "Bandeja"
     },
