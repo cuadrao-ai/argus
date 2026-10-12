@@ -94,8 +94,19 @@ extension FinancialLoopUITests {
         for id in ["search.filter.all", "search.filter.account", "search.filter.activity", "search.filter.plans"] {
             XCTAssertTrue(app.buttons[id].exists, id)
         }
-        XCTAssertEqual(results("guest.search.").count, 4, "everything is listed before a query")
-        capture("guest-search-all-es")
+        XCTAssertTrue(app.descendants(matching: .any)["search.start"].waitForExistence(timeout: 5), "Search opens on its start, not on every record")
+        XCTAssertEqual(results("guest.search.").count, 0, "nothing is listed before a query")
+        let chips = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search.suggestion.'"))
+        XCTAssertTrue((1...4).contains(chips.count), "up to four suggestions from the person's own data")
+        capture("guest-search-start-es")
+        chips.firstMatch.tap()
+        XCTAssertFalse(app.textFields["search.query"].value as? String == "", "a suggestion fills the query")
+        XCTAssertGreaterThan(results("guest.search.").count, 0, "and shows its results")
+        app.buttons["search.clear"].tap()
+        XCTAssertTrue(app.buttons["search.recent.0"].waitForExistence(timeout: 5), "the search just left is the first recent")
+        app.buttons["search.filter.plans"].tap()
+        app.buttons["search.filter.all"].tap()
+        XCTAssertEqual(results("guest.search.").count, 0, "All with no query returns to the start")
 
         search("ANO")
         XCTAssertEqual(results("guest.search.account.").count, 1, "case and accents do not matter")
@@ -132,7 +143,11 @@ extension FinancialLoopUITests {
         createPlan(kind: "budget", name: "Food", target: "300")
         for _ in 0..<3 { app.swipeDown(velocity: .fast) }
         app.buttons["tab.search"].tap()
-        XCTAssertEqual(results("guest.search.").count, 4)
+        XCTAssertTrue(app.descendants(matching: .any)["search.start"].waitForExistence(timeout: 5))
+        app.buttons["search.filter.activity"].tap()
+        app.buttons["search.filter.account"].tap()
+        XCTAssertEqual(results("guest.search.").count, 2, "a kind filter still lists its records without a query")
+        app.buttons["search.filter.all"].tap()
 
         app.buttons["search.filters"].tap()
         let currency = app.buttons["search.currency"]
@@ -144,7 +159,7 @@ extension FinancialLoopUITests {
         XCTAssertEqual(results("guest.search.").count, 1, "only the yen account")
         XCTAssertTrue(app.staticTexts["search.filter-summary"].exists)
         app.buttons["Clear filters"].tap()
-        XCTAssertEqual(results("guest.search.").count, 4)
+        XCTAssertEqual(results("guest.search.").count, 0, "with no query and no filter Search returns to its start")
 
         search("taxi")
         results("guest.search.movement.").firstMatch.tap()

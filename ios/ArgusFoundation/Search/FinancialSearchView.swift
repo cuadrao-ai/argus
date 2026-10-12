@@ -88,6 +88,10 @@ struct FinancialSearchView: View {
         unavailableKind == nil && model.origin.currency != nil ? 1 : 0
     }
     private var filterSummary: String { model.origin.currency ?? "" }
+    private var start: CuadraoSearchStart {
+        CuadraoSearchStart(suggestions: CuadraoSearchStart.suggestions(
+            frequent: [], names: accounts.accounts.map { $0.nickname ?? NSLocalizedString("accounts.type." + $0.type, comment: "") }))
+    }
 
     var body: some View {
         NavigationStack {
@@ -95,7 +99,7 @@ struct FinancialSearchView: View {
                 kinds: kinds, spanish: spanish,
                 filterCount: filterCount, filterSummary: filterSummary, clearFilters: clearFilters,
                 focused: $focused, accessibility: .connected, loading: showsProgress,
-                refresh: { if unavailableKind == nil { await model.refresh() } }, eagerRows: true) {
+                refresh: { if unavailableKind == nil { await model.refresh() } }, eagerRows: true, start: start) {
                 FinancialScrollProbe(controller: scroll).frame(height: 0)
                 results
             } filters: {
