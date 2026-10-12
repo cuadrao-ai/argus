@@ -273,12 +273,11 @@ def test_settle_remainder_refusals(two_purchases, users):  # noqa: ANN001
     machine = service.settle_remainder(
         robot, first.draft_id, SettleRemainder(version=version), "robot"
     )
-    # An extractor identity holds no approve permission, so the grant check
+    # An extractor identity holds read and prepare at most, so the grant check
     # refuses it before the person check would.
-    assert machine.outcome == "permission_denied"
-    assert machine.code in (
+    assert (machine.outcome, machine.code) == (
+        "permission_denied",
         "business_permission_denied",
-        "business_human_command_required",
     )
     # A grant without approve permission is refused.
     with service.authority.pool.connection() as db:
