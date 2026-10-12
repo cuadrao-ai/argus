@@ -64,8 +64,8 @@ async def test_link_language_wins_over_the_default_english_profile(pool, users) 
     world = _world(pool, users)
     await world.link(world.alice, cases.ALICE_PHONE, "es-419")
     assert world.transport.bodies() == [
-        "Listo. Este WhatsApp quedó conectado a tu negocio en Cuadrao. "
-        "Envía aquí la foto o el PDF de un recibo."
+        "Listo, este WhatsApp quedó conectado. "
+        "Envía aquí la foto o el PDF de tus recibos."
     ]
     with pool.connection() as connection:
         [stored] = connection.execute(

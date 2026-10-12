@@ -167,15 +167,11 @@ def test_every_outcome_code_has_a_reply_without_long_dashes() -> None:
 
 def test_reply_uses_one_language_spanish_unless_the_owner_is_english() -> None:
     url = "https://app.test/biz?receipt=abc"
-    spanish = (
-        "Recibimos tu recibo y lo guardamos en tu bandeja. "
-        "Revísalo y confírmalo en Cuadrao: https://app.test/biz?receipt=abc"
-    )
+    spanish = "Recibido. Revísalo aquí: https://app.test/biz?receipt=abc"
     assert compose_reply("captured", language="es-419", link=url) == spanish
     assert compose_reply("captured", language=None, link=url) == spanish
     assert compose_reply("captured", language="en", link=url) == (
-        "We got your receipt and saved it to your inbox. "
-        "Review and confirm it in Cuadrao: https://app.test/biz?receipt=abc"
+        "Received. Review it here: https://app.test/biz?receipt=abc"
     )
     assert compose_reply("whatsapp_media_too_large", language="en") == (
         "The file is larger than 10 MB. Send a smaller photo or PDF."
@@ -204,3 +200,36 @@ def test_trusted_download_url_is_https_on_a_meta_cdn_host_only() -> None:
         "https://user@lookaside.fbsbx.com/a",
     ):
         assert not trusted_download_url(url), url
+
+
+def test_a_reply_that_ends_in_a_link_ends_as_a_sentence_without_one() -> None:
+    assert compose_reply("whatsapp_receipt_missing", language="es-419") == (
+        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao."
+    )
+    assert (
+        compose_reply(
+            "whatsapp_receipt_missing", language="en", link="https://app.test/biz"
+        )
+        == "We only take receipts here. For everything else use Cuadrao: https://app.test/biz"
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "le metí 850 a los materiales",
+        "Cuadrao, cuánto llevo gastado este mes?",
+        "hola",
+        "I paid 400 for paint, as sorry typo",
+        "mil pesos de la luz",
+    ],
+)
+@pytest.mark.asyncio
+async def test_any_text_from_a_linked_owner_gets_the_same_one_reply(text: str) -> None:
+    world = _world()
+    await world.link(world.alice, cases.ALICE_PHONE)
+    await world.deliver(fixture("text_message.json", id="wamid.ANY", text=text))
+    assert world.record("wamid.ANY").error_code == "whatsapp_receipt_missing"
+    assert world.transport.bodies()[-1] == (
+        f"Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {cases.ORIGIN}/biz"
+    )
