@@ -23,6 +23,7 @@ from argus.domain.ingestion.documents.config import (
     load_document_extraction_settings,
 )
 from argus.domain.ingestion.documents.models import DocumentExtractionError
+from argus.domain.ingestion.documents.tabular import FLAT_MEDIA_TYPES, flat_text
 
 MAX_PIXELS = 20_000_000
 MAX_TEXT_BYTES = 200_000
@@ -127,6 +128,13 @@ def prepare_document(
         raise DocumentExtractionError("empty_document")
     if len(content) > settings.max_bytes:
         raise DocumentExtractionError("document_too_large")
+    if media_type == "message/rfc822":
+        return _email(content, settings)
+    if media_type in FLAT_MEDIA_TYPES:
+        pages, text = flat_text(content, media_type)
+        if pages > settings.max_pages:
+            raise DocumentExtractionError("document_page_limit")
+        return PreparedDocument(pages, (), text)
     if media_type in ("image/png", "image/jpeg"):
         return PreparedDocument(1, (_image(content, media_type),))
     if media_type != "application/pdf":
@@ -182,13 +190,76 @@ def prepare_document(
         )
 
 
+def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocument:
+    """An email is one document: its text is page 1, each attachment adds pages.
+
+    Image pages keep the order of the attachments; text pages are labelled so the
+    model can number what it read."""
+
+    from argus.domain.ingestion.documents.email_source import parse_email
+
+    parsed = parse_email(content)
+    if not parsed.readable:
+        raise DocumentExtractionError(
+            "unsupported_email_attachment" if parsed.skipped else "empty_document"
+        )
+    pages, images, texts = 1, [], []
+    if parsed.text.strip():
+        texts.append("Page 1 (email message text):\n" + parsed.text)
+    for part in parsed.attachments:
+        if part.media_type in ("image/png", "image/jpeg"):
+            pages += 1
+            images.append(_image(part.content, part.media_type))
+        elif part.media_type == "application/pdf":
+            nested = prepare_document(part.content, "application/pdf", settings)
+            images.extend(nested.images)
+            if nested.text and nested.text.strip():
+                texts.append(
+                    f"Pages {pages + 1} to {pages + nested.pages} (attachment "
+                    f"{part.filename!r} PDF text):\n{nested.text}"
+                )
+            pages += nested.pages
+        elif part.media_type in FLAT_MEDIA_TYPES:
+            count, text = flat_text(part.content, part.media_type)
+            texts.append(
+                f"Attachment {part.filename!r}, starting at page {pages + 1}:\n{text}"
+            )
+            pages += count
+        if pages > settings.max_pages:
+            raise DocumentExtractionError("document_page_limit")
+    if parsed.skipped:
+        texts.append(
+            "Parts not read: "
+            + "; ".join(
+                f"{part.filename} ({part.media_type}, {part.reason})"
+                for part in parsed.skipped
+            )
+        )
+    text = "\n\n".join(texts)
+    if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
+        raise DocumentExtractionError("document_text_limit")
+    return PreparedDocument(pages, tuple(images), text or None)
+
+
 def validate_source(content: bytes, media_type: str) -> None:
     """Validate bounded capture without requiring extraction tools or credentials."""
     if not content:
         raise DocumentExtractionError("document_empty")
     if len(content) > load_document_extraction_settings().max_bytes:
         raise DocumentExtractionError("document_too_large")
-    if media_type in ("image/jpeg", "image/png"):
+    if media_type == "message/rfc822":
+        from argus.domain.ingestion.documents.email_source import parse_email
+
+        parsed = parse_email(content)
+        if not parsed.readable:
+            raise DocumentExtractionError(
+                "unsupported_email_attachment" if parsed.skipped else "empty_document"
+            )
+        for part in parsed.attachments:
+            validate_source(part.content, part.media_type)
+    elif media_type in FLAT_MEDIA_TYPES:
+        flat_text(content, media_type)
+    elif media_type in ("image/jpeg", "image/png"):
         _image(content, media_type)
     elif media_type == "application/pdf":
         if not content.startswith(b"%PDF-"):

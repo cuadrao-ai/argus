@@ -4,23 +4,23 @@
     "codex/section-3-backtest-engine": {
       "description": "Section 3 scope: real engine + market data + performance tests",
       "allow": [
+        "src/argus/analysis/**",
+        "src/argus/domain/backtest/**",
         "src/argus/domain/engine.py",
         "src/argus/domain/engine/**",
         "src/argus/domain/market_data/**",
-        "src/argus/domain/backtest/**",
-        "src/argus/analysis/**",
-        "tests/section3/**",
-        "tests/perf/section3/**"
+        "tests/perf/section3/**",
+        "tests/section3/**"
       ],
       "deny": [
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
         "src/argus/api/main.py",
         "src/argus/api/schemas.py",
         "src/argus/domain/supabase_gateway.py",
         "supabase/migrations/**",
         "tests/section4/**",
-        "web/**",
-        "docs/API_CONTRACT.md",
-        "docs/api/openapi.yaml"
+        "web/**"
       ]
     },
     "codex/section-4-persistence-model": {
@@ -30,61 +30,61 @@
         "src/argus/api/schemas.py",
         "src/argus/domain/supabase_gateway.py",
         "supabase/migrations/**",
+        "tests/section4/**",
         "tests/test_alpha_api.py",
         "tests/test_alpha_api_supabase.py",
-        "tests/section4/**",
-        "web/lib/argus-api.ts",
+        "web/components/chat/ChatInput.tsx",
         "web/components/chat/ChatInterface.tsx",
-        "web/components/chat/ChatInput.tsx"
+        "web/lib/argus-api.ts"
       ],
       "deny": [
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/analysis/**",
+        "src/argus/domain/backtest/**",
         "src/argus/domain/engine.py",
         "src/argus/domain/engine/**",
         "src/argus/domain/market_data/**",
-        "src/argus/domain/backtest/**",
-        "src/argus/analysis/**",
-        "tests/section3/**",
-        "docs/API_CONTRACT.md",
-        "docs/api/openapi.yaml"
+        "tests/section3/**"
       ]
     },
     "codex/section-3-phase2-engine-salvage": {
       "description": "Section 3 Phase 2 scope: archived engine/data salvage + policy gates",
       "allow": [
-        "src/argus/domain/engine.py",
-        "src/argus/domain/market_data/**",
+        ".agent/ownership/branch_ownership.json",
         "src/argus/api/main.py",
         "src/argus/api/schemas.py",
+        "src/argus/domain/engine.py",
+        "src/argus/domain/market_data/**",
         "src/argus/domain/supabase_gateway.py",
-        "tests/section3/**",
         "tests/perf/section3/**",
+        "tests/section3/**",
         "tests/test_alpha_api.py",
-        "tests/test_alpha_api_supabase.py",
-        ".agent/ownership/branch_ownership.json"
+        "tests/test_alpha_api_supabase.py"
       ],
       "deny": [
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
         "supabase/migrations/**",
         "tests/section4/**",
-        "web/**",
-        "docs/API_CONTRACT.md",
-        "docs/api/openapi.yaml"
+        "web/**"
       ]
     },
     "codex/cuadrao-hosted-context-20261010": {
       "description": "Shared onboarding/owner-handoff continuation; documentation and ownership metadata only.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
+        ".agent/ownership/branch_ownership.json",
         "AGENTS.md",
-        "docs/specs/argus-execution-board.md",
-        "docs/specs/argus-decision-log.md",
         "docs/handoffs/cuadrao-business-lane.md",
-        ".agent/ownership/branch_ownership.json"
+        "docs/specs/argus-decision-log.md",
+        "docs/specs/argus-execution-board.md"
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-actions-20261010": {
@@ -131,9 +131,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-owner-funds-20261010": {
@@ -161,9 +161,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-hosted-web-20261010": {
@@ -240,9 +240,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-runtime-tools-20261010": {
@@ -279,9 +279,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-durable-worker-20261010": {
@@ -321,9 +321,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-hosted-verification-20261010": {
@@ -346,9 +346,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-hosted-runtime-20261010": {
@@ -370,9 +370,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-whatsapp-settings-ui-20261011": {
@@ -391,9 +391,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-export-20261011": {
@@ -413,9 +413,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-income-contract-20261011": {
@@ -432,9 +432,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-income-actions-20261011": {
@@ -452,9 +452,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-receipt-fiscal-x1-20261011": {
@@ -472,9 +472,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-checkpoint-lifecycle-20261011": {
@@ -491,9 +491,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-personal-money-chat-20261011": {
@@ -536,9 +536,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-consumer-memory-20261011": {
@@ -563,9 +563,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-consumer-voice-transport-20261011": {
@@ -582,9 +582,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-haiku-boundary-repair-20261011": {
@@ -597,9 +597,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-live-delegation-foundation-20261011": {
@@ -615,9 +615,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-shared-receipt-extractor-20261011": {
@@ -657,9 +657,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-search-preview-20261012": {
@@ -675,6 +675,35 @@
         "web/components/sidebar/command-palette/WorkspaceSearchResults.tsx",
         "web/public/locales/en/common.json",
         "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-business-file-types-20261012": {
+      "description": "Document preparation for TXT, CSV, XLSX and EML sources with bounded inert decoding; shared Consumer/Business media types. No model prompt, schema or hosted settings ownership.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/documents.py",
+        "src/argus/domain/business/receipts.py",
+        "src/argus/domain/ingestion/documents/config.py",
+        "src/argus/domain/ingestion/documents/email_source.py",
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "src/argus/domain/ingestion/documents/preparation.py",
+        "src/argus/domain/ingestion/documents/tabular.py",
+        "supabase/migrations/20261012020000_document_source_media_types.sql",
+        "tests/business/test_business_api.py",
+        "tests/ingestion/test_document_flat_files.py",
+        "tests/ingestion/test_document_preparation.py",
+        "tests/ingestion/test_documents_api.py",
+        "tests/ingestion/test_email_source.py",
+        "tests/test_document_extractions_postgres.py"
       ],
       "deny": [
         ".env",

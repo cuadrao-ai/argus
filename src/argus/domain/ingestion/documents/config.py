@@ -21,7 +21,15 @@ from argus.api.financial_accounts import TRUE_VALUES
 # The bucket in 20261008100000 repeats both, checked by a real-Postgres test.
 SOURCE_MAX_BYTES = 10 * 1024 * 1024
 # Each accepted source type and the suffix its download is named with.
-SOURCE_MEDIA_TYPES = {"application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png"}
+SOURCE_MEDIA_TYPES = {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "text/plain": "txt",
+    "text/csv": "csv",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "message/rfc822": "eml",
+}
 _MAX_PAGES = 8
 _RECOGNIZED_OFF = frozenset({"0", "false", "no", "off"})
 _warned_flags: set[str] = set()
