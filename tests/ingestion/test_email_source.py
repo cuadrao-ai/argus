@@ -73,7 +73,9 @@ def test_email_without_text_body_still_counts_the_body_page():
     "content,code",
     [
         (
-            message((b"MZevil", "application", "octet-stream", "receipt.pdf.exe")),
+            message(
+                (b"MZevil", "application", "octet-stream", "receipt.pdf.exe"), body=" "
+            ),
             "unsupported_email_attachment",
         ),
         (message((b"not an image", "image", "png", "broken.png")), "invalid_document"),
@@ -94,7 +96,7 @@ def test_email_attachments_honor_the_page_budget():
         )
 
 
-def test_nested_message_attachments_are_refused():
+def test_nested_message_attachments_are_noted_and_never_opened():
     outer = EmailMessage()
     outer["From"] = "sender@example.test"
     outer.set_content("Forwarded")
@@ -102,5 +104,67 @@ def test_nested_message_attachments_are_refused():
     inner["From"] = "other@example.test"
     inner.set_content("Inner")
     outer.add_attachment(inner)
+    parsed = parse_email(outer.as_bytes())
+    assert parsed.text == "Forwarded\n" and not parsed.attachments
+    assert [(p.media_type, p.reason) for p in parsed.skipped] == [
+        ("message/rfc822", "unsupported")
+    ]
+    blank = EmailMessage()
+    blank["From"] = "sender@example.test"
+    blank.set_content(" ")
+    blank.add_attachment(inner)
     with pytest.raises(DocumentExtractionError, match="unsupported_email_attachment"):
-        parse_email(outer.as_bytes())
+        prepare_document(blank.as_bytes(), "message/rfc822")
+
+
+def test_unsupported_and_inline_parts_are_noted_and_never_block_the_readable_parts():
+    msg = EmailMessage()
+    msg["From"] = "sender@example.test"
+    msg.set_content("Factura adjunta")
+    msg.add_attachment(png(), maintype="image", subtype="png", filename="recibo.png")
+    msg.add_attachment(b"GIF89a", maintype="image", subtype="gif", filename="logo.gif")
+    msg.add_attachment(
+        b"sig", maintype="application", subtype="pkcs7-signature", filename="smime.p7s"
+    )
+    msg.add_attachment(
+        b"BEGIN:VCALENDAR", maintype="text", subtype="calendar", filename="invite.ics"
+    )
+    inline = EmailMessage()
+    inline.set_content(
+        png(),
+        maintype="image",
+        subtype="png",
+        disposition="inline",
+        cid="<logo@example.test>",
+    )
+    msg.attach(inline)
+    parsed = parse_email(msg.as_bytes())
+    assert [part.filename for part in parsed.attachments] == ["recibo.png"]
+    assert sorted((part.filename, part.reason) for part in parsed.skipped) == [
+        ("attachment", "inline"),
+        ("invite.ics", "unsupported"),
+        ("logo.gif", "unsupported"),
+        ("smime.p7s", "unsupported"),
+    ]
+    validate_source(msg.as_bytes(), "message/rfc822")
+    prepared = prepare_document(msg.as_bytes(), "message/rfc822")
+    assert prepared.pages == 2 and len(prepared.images) == 1
+    assert (
+        "Parts not read: " in prepared.text
+        and "logo.gif (image/gif, unsupported)" in prepared.text
+    )
+
+
+def test_html_body_is_used_only_without_plain_text_and_large_html_is_read_not_refused():
+    msg = EmailMessage()
+    msg["From"] = "sender@example.test"
+    msg.set_content("Texto plano")
+    msg.add_alternative("<p>HTML</p>" + "<p>relleno</p>" * 5000, subtype="html")
+    parsed = parse_email(msg.as_bytes())
+    assert parsed.text == "Texto plano\n"
+    only_html = EmailMessage()
+    only_html["From"] = "sender@example.test"
+    only_html.set_content(
+        "<p>Compra DOP 150</p>" + "<!-- " + "x" * (70 * 1024) + " -->", subtype="html"
+    )
+    assert parse_email(only_html.as_bytes()).text == "Compra DOP 150"

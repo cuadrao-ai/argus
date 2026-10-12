@@ -199,7 +199,7 @@ def test_bucket_and_reference_check_use_the_python_limits(
         with pytest.raises(_RolledBack):
             reference(media_type, SOURCE_MAX_BYTES)
     for media_type, size in (
-        ("text/plain", 1),
+        ("application/zip", 1),
         ("application/pdf", SOURCE_MAX_BYTES + 1),
     ):
         with pytest.raises(errors.CheckViolation):
