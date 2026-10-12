@@ -59,7 +59,7 @@ When both are set, the `CUADRAO_` name wins.
 | `CUADRAO_WHATSAPP_VERIFY_TOKEN` | step 4 |
 | `CUADRAO_WHATSAPP_APP_SECRET` | step 3 |
 | `CUADRAO_WHATSAPP_ACCESS_TOKEN` | step 2 token |
-| `CUADRAO_WHATSAPP_PHONE_NUMBER_ID` | step 2 Phone number ID |
+| `CUADRAO_WHATSAPP_NUMBER_ID` | step 2 Phone number ID |
 | `CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER` | the test number, for the `wa.me` link |
 | `CUADRAO_WHATSAPP_SENDER_KEY` | a new random secret; rotating it unlinks every sender |
 | `CUADRAO_WHATSAPP_GRAPH_API_VERSION` | optional, default `v23.0` |

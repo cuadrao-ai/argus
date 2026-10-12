@@ -53,7 +53,12 @@ class WhatsAppSettings(BaseSettings):
     access_token: Secret = Field(default=None, validation_alias=_names("ACCESS_TOKEN"))
     sender_key: Secret = Field(default=None, validation_alias=_names("SENDER_KEY"))
     phone_number_id: Optional = Field(
-        default=None, validation_alias=_names("PHONE_NUMBER_ID")
+        default=None,
+        validation_alias=AliasChoices(
+            "CUADRAO_WHATSAPP_NUMBER_ID",
+            "CUADRAO_WHATSAPP_PHONE_NUMBER_ID",
+            "ARGUS_WHATSAPP_PHONE_NUMBER_ID",
+        ),
     )
     display_phone_number: Optional = Field(
         default=None, validation_alias=_names("DISPLAY_PHONE_NUMBER")
