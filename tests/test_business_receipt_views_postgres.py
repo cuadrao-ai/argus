@@ -19,7 +19,11 @@ from argus.api.business_drafts import (
     search_with_drafts,
     updates_with_drafts,
 )
-from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
+from argus.domain.business.contracts.actions import (
+    ApproveExpense,
+    ReviewDraft,
+    SettleRemainder,
+)
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.scope import BusinessScope
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
@@ -315,3 +319,156 @@ def test_a_receipt_whose_grant_went_away_asks_the_owner_to_rebind(actions):  # n
         assert view["preparable"] is True
     # The web shows the rebind control from this code and the approve permission.
     assert "approve" in detail["record_context"]["capabilities"]
+
+
+def _linked(actions):  # noqa: ANN001
+    """One receipt read, bound and handed off: its draft owns it."""
+    saved = single._saved(actions, "expense")
+    bridge.bind(saved)
+    result = bridge.finish(saved)
+    assert result.outcome == "applied", result
+    return saved, result
+
+
+def test_a_dismissed_draft_closes_its_receipt_in_every_view(actions):  # noqa: ANN001
+    saved, result = _linked(actions)
+    service, context, _, cid, _, _ = saved
+    web = _web(service, context)
+    service.imports.dismiss(
+        user_id=context.owner_id,
+        event_id=str(result.draft_id),
+        version=service.dossier(context, result.draft_id).version,
+        scope=context.scope,
+    )
+    row, detail = _views(web, cid)
+    for view in (row, detail):
+        assert (view["status"], view["attention"], view["error_code"]) == (
+            "dismissed",
+            None,
+            None,
+        )
+        assert (view["preparable"], view["enterable"]) == (False, False)
+    assert detail["draft_id"] == str(result.draft_id)
+    # Closed: out of the inbox, out of the counts, and no update is announced for it.
+    assert receipt_summaries(web, "inbox") == []
+    counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
+    assert (counts["awaiting_review"], counts["needs_attention"]) == (0, 0)
+    assert [u for u in updates_with_drafts(web) if u["receipt_id"] == cid] == []
+
+
+def test_a_receipt_linked_to_two_drafts_asks_a_person_to_check(actions):  # noqa: ANN001
+    first, result1 = _linked(actions)
+    service, context, _, cid1, _, _ = first
+    second, result2 = _linked(actions)
+    _, _, _, cid2, _, _ = second
+    # The first receipt's source is linked to the second draft as well.
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_draft_sources(space_id,draft_id,source_id)"
+            " select s.space_id,%s,s.id from public.business_sources s"
+            " where s.space_id=%s and s.connection_id=%s",
+            (result2.draft_id, context.actor.space_id, UUID(cid1)),
+        )
+    web = _web(service, context)
+    row, detail = _views(web, cid1)
+    for view in (row, detail):
+        assert (view["status"], view["attention"], view["error_code"]) == (
+            "needs_attention",
+            "check_details",
+            "receipt_candidate_ambiguous",
+        )
+        assert (view["preparable"], view["enterable"]) == (False, False)
+    # No draft is named: a person decides which one, through the drafts.
+    assert detail["draft_id"] is None
+    # The second receipt keeps its own single draft (a repeat of the first).
+    other, _ = _views(web, cid2)
+    assert (other["status"], other["attention"]) == ("needs_attention", "duplicate")
+    counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
+    assert (counts["awaiting_review"], counts["needs_attention"]) == (0, 2)
+    [update] = [u for u in updates_with_drafts(web) if u["receipt_id"] == cid1]
+    assert (update["kind"], update["attention"]) == (
+        "receipt_needs_attention",
+        "check_details",
+    )
+    assert result1.draft_id != result2.draft_id
+
+
+def test_an_approved_draft_still_asking_for_purchases_says_so_in_every_view(actions):  # noqa: ANN001
+    from tests.test_business_multi_purchase_postgres import _account, saved_two_purchases
+
+    saved = saved_two_purchases(actions)
+    service, context, _, cid, _, _ = saved
+    bridge.bind(saved)
+    first = bridge.finish(saved)
+    assert first.outcome == "applied", first
+    account = _account(service, context)
+    version = service.dossier(context, first.draft_id).version
+    filled = service.review(
+        context,
+        first.draft_id,
+        ReviewDraft(
+            version=version,
+            facts=BusinessFactPatch.model_validate(
+                {
+                    "funding": {
+                        "state": "known",
+                        "value": {"kind": "business_account", "account_id": account},
+                    },
+                    "business_share": {"state": "known", "value": {"kind": "all"}},
+                }
+            ),
+        ),
+        "fill",
+    )
+    assert filled.outcome == "applied", filled
+    chosen = service.review(
+        context,
+        first.draft_id,
+        ReviewDraft(
+            version=filled.version,
+            facts=BusinessFactPatch.model_validate(
+                {"amount": {"state": "known", "value": "245.00"}}
+            ),
+        ),
+        "choose",
+    )
+    assert chosen.outcome == "applied", chosen
+    recorded = service.approve(
+        context,
+        first.draft_id,
+        ApproveExpense(version=chosen.version, action="record_expense"),
+        "approve",
+    )
+    assert recorded.outcome == "applied", recorded
+    web = _web(service, context)
+    row, detail = _views(web, cid)
+    # Saved, and still asking: one purchase is recorded, one is not.
+    for view in (row, detail):
+        assert (view["status"], view["attention"], view["error_code"]) == (
+            "confirmed",
+            "several_purchases",
+            "purchases_unrecorded",
+        )
+        assert view["expense_id"] == str(recorded.activity_id)
+        assert Decimal(view["amount"]) == Decimal("245.00")
+    assert receipt_summaries(web, "inbox") == []
+    counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
+    assert (counts["awaiting_review"], counts["needs_attention"]) == (0, 0)
+    [update] = [u for u in updates_with_drafts(web) if u["receipt_id"] == cid]
+    assert (update["kind"], update["attention"]) == (
+        "expense_confirmed",
+        "several_purchases",
+    )
+    # A person settles the rest: the receipt stops asking in every view.
+    after = service.dossier(context, first.draft_id)
+    settled = service.settle_remainder(
+        context, first.draft_id, SettleRemainder(version=after.version), "settle"
+    )
+    assert settled.outcome == "applied", settled
+    row, detail = _views(web, cid)
+    for view in (row, detail):
+        assert (view["status"], view["attention"], view["error_code"]) == (
+            "confirmed",
+            None,
+            None,
+        )

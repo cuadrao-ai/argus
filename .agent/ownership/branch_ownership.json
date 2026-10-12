@@ -892,6 +892,21 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-overlay-guard-cases-20261012": {
+      "description": "The receipt-view guard is an ast scan over all of src/argus, and the Postgres views cover a dismissed draft, a receipt linked to two drafts and an approved draft still asking for purchases.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "tests/business/test_receipt_views_leave_through_the_overlay.py",
+        "tests/test_business_receipt_views_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-owner-funds-20261010": {
       "description": "M1-owned owner funding source delta; canonical shared schema/census reconciliation remains coordinator-owned.",
       "base_ref": "origin/codex/private-alpha-next",
