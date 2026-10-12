@@ -116,6 +116,7 @@ def test_csv_rows_stay_separate_evidence_rows():
             "document_cell_limit",
         ),
         (b"<r>" + b"<a>1</a>" * 2001 + b"</r>", "text/xml", "document_row_limit"),
+        (b"<a>" * 33 + b"x" + b"</a>" * 33, "text/xml", "document_row_limit"),
         ("<r>\u00e9</r>".encode("utf-16"), "application/xml", "invalid_document"),
         (b"<r><unclosed></r>", "text/xml", "invalid_document"),
     ],
@@ -250,3 +251,24 @@ def test_a_plain_xml_names_no_currency_and_keeps_only_its_elements():
     ]
     # An e-CF root without a MontoTotal names nothing either.
     assert document_currency(b"<ECF><Encabezado/></ECF>", "text/xml") is None
+
+
+def test_xml_nesting_is_capped_before_its_paths_grow_quadratic():
+    from argus.domain.ingestion.documents.tabular import MAX_XML_DEPTH
+
+    nested = b"<a>" * MAX_XML_DEPTH + b"x" + b"</a>" * MAX_XML_DEPTH
+    assert xml_text(nested).splitlines()[-1].endswith(": x")
+    with pytest.raises(DocumentExtractionError, match="document_row_limit"):
+        xml_text(b"<a>" * (MAX_XML_DEPTH + 1) + b"x" + b"</a>" * (MAX_XML_DEPTH + 1))
+
+
+def test_the_ecf_summary_takes_the_invoice_level_other_currency():
+    content = (
+        b"<ECF><Encabezado><Totales><MontoTotal>100.00</MontoTotal></Totales>"
+        b"<OtraMoneda><TipoMoneda>USD</TipoMoneda><MontoTotalOtraMoneda>1.70</MontoTotalOtraMoneda></OtraMoneda>"
+        b"</Encabezado><DetallesItems><Item><TipoMoneda>EUR</TipoMoneda></Item></DetallesItems></ECF>"
+    )
+    lines = xml_text(content).splitlines()
+    assert lines[3] == (
+        "Total in another currency, informational only (USD, MontoTotalOtraMoneda): 1.70"
+    )

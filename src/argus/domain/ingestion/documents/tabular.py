@@ -23,6 +23,8 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 XML_MEDIA_TYPES = frozenset({"application/xml", "text/xml"})
 FLAT_MEDIA_TYPES = frozenset({"text/plain", "text/csv", XLSX, *XML_MEDIA_TYPES})
 MAX_XML_LEAVES = 2000
+# A document nests no deeper than this; each level costs a path copy.
+MAX_XML_DEPTH = 32
 MAX_TEXT_BYTES = 200_000
 MAX_ROWS = 300
 MAX_COLUMNS = 64
@@ -111,9 +113,11 @@ def _leaves(root: ET.Element) -> list[tuple[str, str]]:
     dropped from the path, attributes ignored. Bounded like a sheet."""
 
     leaves = []
-    stack = [(root, _local(root.tag))]
+    stack = [(root, _local(root.tag), 1)]
     while stack:
-        node, path = stack.pop()
+        node, path, depth = stack.pop()
+        if depth > MAX_XML_DEPTH:
+            _fail("document_row_limit")
         children = list(node)
         text = (node.text or "").strip()
         if text:
@@ -123,7 +127,8 @@ def _leaves(root: ET.Element) -> list[tuple[str, str]]:
             if len(leaves) > MAX_XML_LEAVES:
                 _fail("document_row_limit")
         stack.extend(
-            (child, f"{path}/{_local(child.tag)}") for child in reversed(children)
+            (child, f"{path}/{_local(child.tag)}", depth + 1)
+            for child in reversed(children)
         )
     return leaves
 
@@ -137,17 +142,22 @@ def _ecf_summary(root: ET.Element, leaves: list[tuple[str, str]]) -> list[str]:
     values = {}
     for path, text in leaves:
         values.setdefault(path.rsplit("/", 1)[-1], text)
+    # The invoice-level other currency lives in the header's OtraMoneda block;
+    # a line item may carry its own TipoMoneda, which is not the invoice's.
+    other = {
+        path.rsplit("/", 1)[-1]: text for path, text in leaves if "/OtraMoneda/" in path
+    }
     if "MontoTotal" not in values:
         return []
     lines = [
         "DGII e-CF electronic invoice. Invoice currency: DOP.",
         f"Total paid in DOP (MontoTotal): {values['MontoTotal']}",
     ]
-    if "MontoTotalOtraMoneda" in values:
+    if "MontoTotalOtraMoneda" in other:
         lines.append(
             f"Total in another currency, informational only"
-            f" ({values.get('TipoMoneda', 'unknown')}, MontoTotalOtraMoneda):"
-            f" {values['MontoTotalOtraMoneda']}"
+            f" ({other.get('TipoMoneda', 'unknown')}, MontoTotalOtraMoneda):"
+            f" {other['MontoTotalOtraMoneda']}"
         )
     for tag, label in (
         ("eNCF", "e-NCF"),
