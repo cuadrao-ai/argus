@@ -1,6 +1,6 @@
 """WhatsApp intake wiring, exposure gate and the Business destination.
 
-Default-off behind ``ARGUS_WHATSAPP_INTAKE_ENABLED`` and nested inside the
+Default-off behind ``CUADRAO_WHATSAPP_INTAKE_ENABLED`` and nested inside the
 document surface and the Business pilot: a WhatsApp receipt is a saved document
 draft in the owner's Business space, so intake cannot be on while either is
 off. Every route but unlinking answers 404 when off.
@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from dataclasses import dataclass
 
 import httpx
@@ -211,7 +210,7 @@ def start_whatsapp(app: object) -> None:
                 spaces=spaces,
                 store=store,
                 client=httpx.AsyncClient(),
-                app_origin=(os.getenv("ARGUS_APP_ORIGIN") or "").strip() or None,
+                app_origin=settings.app_origin,
             )
         )
     except Exception as exc:
