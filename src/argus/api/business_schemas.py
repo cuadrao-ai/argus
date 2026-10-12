@@ -63,6 +63,34 @@ class BusinessWorkspace(_Wire):
     receipt_limits: ReceiptLimits
 
 
+class BusinessAccessGrant(_Wire):
+    id: str
+    email: str | None
+    display_name: str
+    capabilities: list[Literal["read", "prepare", "approve"]]
+    created_at: datetime
+    #: The owner's own grant; it cannot be revoked here.
+    owner: bool
+
+
+class BusinessAccessInvite(_Wire):
+    id: str
+    email: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class BusinessAccess(_Wire):
+    grants: list[BusinessAccessGrant]
+    invites: list[BusinessAccessInvite]
+
+
+class GiveBusinessAccess(_Wire):
+    email: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=3, max_length=254)
+    ]
+
+
 class CreateBusinessAccount(_Wire):
     nickname: str = Field(min_length=1, max_length=200)
     type: ExpenseAccountType

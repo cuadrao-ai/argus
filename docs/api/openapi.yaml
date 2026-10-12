@@ -567,6 +567,122 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/access:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      description: 'Who can act in the owner''s Business: live grants and pending invites.'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessAccess'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'A read+prepare grant for a confirmed account, else a pending invite.
+
+
+        The reply is the access list either way, so nothing about an unknown
+
+        email is revealed beyond what the list shows. A replay answers 200.'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GiveBusinessAccess'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessAccess'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/access/grants/{grant_id}:
+    delete:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: grant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/access/invites/{invite_id}:
+    delete:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: invite_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/accounts:
     post:
       tags:
@@ -1509,7 +1625,12 @@ paths:
       tags:
       - financial-accounts
       - business
-      description: 'Idempotent: an existing space is returned unchanged, with 200.'
+      description: 'Idempotent: an existing space is returned unchanged, with 200.
+
+
+        A new space is born with the owner''s grant. An old space without one gets
+
+        it here, once.'
       requestBody:
         content:
           application/json:
@@ -11584,6 +11705,72 @@ components:
       required:
       - success
       - deleted_count
+    BusinessAccess:
+      properties:
+        grants:
+          items:
+            $ref: '#/components/schemas/BusinessAccessGrant'
+          type: array
+        invites:
+          items:
+            $ref: '#/components/schemas/BusinessAccessInvite'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - grants
+      - invites
+    BusinessAccessGrant:
+      properties:
+        id:
+          type: string
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        display_name:
+          type: string
+        capabilities:
+          items:
+            type: string
+            enum:
+            - read
+            - prepare
+            - approve
+          type: array
+        created_at:
+          type: string
+          format: date-time
+        owner:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - email
+      - display_name
+      - capabilities
+      - created_at
+      - owner
+    BusinessAccessInvite:
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - email
+      - created_at
+      - expires_at
     BusinessAccount:
       properties:
         id:
@@ -15051,6 +15238,16 @@ components:
       - replayed
       - activity
       - accounts
+    GiveBusinessAccess:
+      properties:
+        email:
+          type: string
+          maxLength: 254
+          minLength: 3
+      additionalProperties: false
+      type: object
+      required:
+      - email
     GoalAllocation:
       properties:
         account_id:

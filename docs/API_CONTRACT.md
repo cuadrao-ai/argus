@@ -8795,6 +8795,14 @@ appears in Personal documents or imports. Link codes and link status answer
 sender link ended before it settled is recorded `rejected` with
 `sender_link_revoked`, keeps no connection, and gets the not-linked reply.
 
+Linking is decided by the sender's link state, not by a word. A sender with an
+active link is never treated as linking: its text, whatever it says, is not
+looked up as a code, and the link changes only through `DELETE /api/v1/whatsapp/link`.
+A sender with no active link can only link: each token in its text shaped like
+a code (eight characters from the code alphabet) is looked up by digest, up to
+four. A failed lookup answers the expired-code reply; text with no such token
+answers the not-linked reply.
+
 - GET `/api/v1/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…`
   answers 200 `text/plain` with the challenge when the verify token matches,
   else 403 `whatsapp_webhook_verification_failed`.
@@ -9115,6 +9123,28 @@ person starts their space, every route below except POST `/space` answers 404
   `business_space_missing` before the space is started.
 - PATCH `/api/v1/business/space` takes `{name}` and returns the renamed space,
   or 404 `business_space_missing` before the space is started.
+- Access (owner only, the grant in `business_client_grants` is the only
+  authority). Starting a space creates the owner's own grant (read, prepare,
+  approve) in the same transaction; POST `/business/space` and GET
+  `/business/workspace` give an older space that grant once, with one ledger
+  row, never a duplicate.
+  - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
+    capabilities, created_at, owner}], invites: [{id, email, created_at,
+    expires_at}]}`: live grants, the owner first, and pending invites.
+  - POST `/api/v1/business/access` takes `{email}`. A confirmed account with
+    that email (case-insensitive) gets a read and prepare grant, never
+    approve; any other email gets a pending invite that lasts 14 days and
+    becomes the same grant the first time that confirmed email signs in (on
+    GET `/me`). The reply is the access list in both cases, 201 when something
+    new was created and 200 on a replay, so an unknown email reveals nothing.
+    422 `invalid_email` without one address.
+  - DELETE `/api/v1/business/access/grants/{id}` revokes a grant at once; 409
+    `owner_grant_required` for the owner's own grant; 404
+    `business_access_not_found` otherwise. DELETE
+    `/api/v1/business/access/invites/{id}` revokes a pending invite.
+  - Every change writes one `business_action_receipts` row (`owner_grant`,
+    `grant_access`, `invite_access`, `accept_invite`, `revoke_grant`,
+    `revoke_invite`). No firm, role or many-client feature exists.
 
 Each fact keeps its owner. A receipt is a document draft (`id` is its
 connection id). Its review is the import event its purchase created, composed
