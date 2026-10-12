@@ -1006,6 +1006,27 @@
     }
   },
   "settings": {
+    "whatsapp": {
+      "title": "WhatsApp",
+      "number": "Número vinculado",
+      "loading": "Leyendo tu vínculo…",
+      "linked": "Número que termina en {{last4}}",
+      "unlinked": "No hay ningún número vinculado.",
+      "create": "Obtener un código",
+      "new_code": "Obtener otro código",
+      "send_steps": "Envía este mensaje desde tu propio WhatsApp al número de Cuadrao. El código sirve una vez y vence pronto.",
+      "open": "Abrir WhatsApp",
+      "no_link": "Abre WhatsApp y envía el mensaje de arriba al número de Cuadrao.",
+      "check": "Ya lo envié, revisar",
+      "unlink": "Desvincular número",
+      "confirm_unlink": "¿Desvincular tu número? Ya no se aceptarán mensajes nuevos de ese número. Los recibos que ya llegaron siguen en tu Bandeja.",
+      "confirm": "Confirmar",
+      "cancel": "Cancelar",
+      "problem_unavailable": "WhatsApp todavía no está disponible.",
+      "problem_space_missing": "Primero crea tu espacio de negocio y luego vincula tu número.",
+      "problem_rate_limited": "Demasiados códigos. Espera unos minutos e inténtalo de nuevo.",
+      "problem_failed": "No pudimos conectar con WhatsApp. Inténtalo de nuevo."
+    },
     "title": "Ajustes",
     "profile": {
       "display_name": "Nombre para mostrar",
