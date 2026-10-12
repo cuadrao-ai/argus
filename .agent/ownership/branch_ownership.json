@@ -171,7 +171,6 @@
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
-        ".env.example",
         "docs/reports/evidence/942-cuadrao-record-ui/README.md",
         "docs/reports/evidence/942-cuadrao-record-ui/brand-signin-dark-spanish-390.png",
         "docs/reports/evidence/942-cuadrao-record-ui/brand-signin-light-spanish-1280.png",
@@ -179,7 +178,6 @@
         "docs/reports/evidence/942-cuadrao-record-ui/owner-funded-expenses-spanish.png",
         "docs/reports/evidence/942-cuadrao-record-ui/owner-funded-search-spanish.png",
         "docs/reports/evidence/942-cuadrao-record-ui/uncertain-retained-intent-spanish.png",
-        "web/.env.local.example",
         "web/__tests__/alpha-frontend.test.ts",
         "web/__tests__/auth-captcha-confirmation.test.ts",
         "web/__tests__/auth-form-copy.test.tsx",
@@ -242,7 +240,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local"
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
       ]
     },
     "codex/cuadrao-business-runtime-tools-20261010": {

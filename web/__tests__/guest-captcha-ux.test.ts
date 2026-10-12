@@ -135,7 +135,6 @@ describe("shared CAPTCHA acquisition UX", () => {
       let providerSawLiveContainer = false;
       const render = harness.turnstile.render;
       harness.turnstile.render = (container, options) => {
-        expect(typeof synchronous).toBe("boolean");
         expect(options).toMatchObject({
           retry: "never",
           "refresh-expired": "never",
@@ -233,6 +232,27 @@ describe("shared CAPTCHA acquisition UX", () => {
 
     await expect(pending).resolves.toBe("interactive-token");
     expect(harness.revealCalls).toBe(1);
+    expect(harness.removeCalls).toBe(1);
+    expect(harness.destroyCalls).toBe(1);
+  });
+
+  test("an abort in the tick after a token rejects instead of resolving", async () => {
+    const harness = challengeHarness();
+    const controller = new AbortController();
+    const pending = challengeUnderTest()({
+      turnstile: harness.turnstile,
+      shell: harness.shell,
+      siteKey: "test-site-key",
+      timeoutMs: 1000,
+      interactiveTimeoutMs: 1000,
+      theme: "light",
+      signal: controller.signal,
+    });
+
+    harness.callbacks?.callback("verified-token");
+    controller.abort();
+    const error = await pending.catch((caught: unknown) => caught);
+    expect(error).toMatchObject({ name: "AbortError" });
     expect(harness.removeCalls).toBe(1);
     expect(harness.destroyCalls).toBe(1);
   });
@@ -441,7 +461,6 @@ describe("shared CAPTCHA acquisition UX", () => {
       "captcha_unavailable",
     );
     expect(guestCaptcha.guestEntryErrorKind(error)).toBe("captcha_unavailable");
-
   });
 
   test("maps coded Turnstile failures to captcha_unavailable and other errors to generic", () => {

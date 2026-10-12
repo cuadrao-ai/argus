@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
-import { finishPeriodExportRequest, startPeriodExportRequest, ReceiptApprovalGuidance, ReceiptPeriodExport } from "@/components/business-app/ReceiptDossierReview";
+import { finishPeriodExportRequest, saveBlobDownload, startPeriodExportRequest, ReceiptApprovalGuidance, ReceiptPeriodExport } from "@/components/business-app/ReceiptDossierReview";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { businessExportPeriodValid, fetchBusinessExport, approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
 import { withBusinessSpace } from "@/components/business-app/business-data";
@@ -212,6 +212,31 @@ test("export transport reads only the explicit draft client and preserves the se
   }
 });
 
+
+test("export download clicks a named link and revokes its object URL only after a delay", () => {
+  const events: string[] = [];
+  const link = { href: "", download: "", click() { events.push(`click:${this.download}:${this.href}`); }, remove() { events.push("remove"); } };
+  const globals = globalThis as unknown as { document?: unknown; setTimeout: typeof setTimeout };
+  const original = { document: globals.document, setTimeout: globals.setTimeout, create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+  let revokeLater: (() => void) | null = null;
+  let revokeDelay = 0;
+  globals.document = { createElement: () => link, body: { appendChild: () => events.push("append") } };
+  globals.setTimeout = ((callback: () => void, delay: number) => { revokeLater = callback; revokeDelay = delay; return 0; }) as unknown as typeof setTimeout;
+  URL.createObjectURL = () => "blob:export";
+  URL.revokeObjectURL = (url: string) => { events.push(`revoke:${url}`); };
+  try {
+    saveBlobDownload(new Blob(["zip"]), "business-export-2026-10-01-2026-10-31.zip");
+    assert.deepEqual(events, ["append", "click:business-export-2026-10-01-2026-10-31.zip:blob:export", "remove"]);
+    assert.equal(revokeDelay, 30_000);
+    revokeLater!();
+    assert.deepEqual(events.at(-1), "revoke:blob:export");
+  } finally {
+    globals.document = original.document;
+    globals.setTimeout = original.setTimeout;
+    URL.createObjectURL = original.create;
+    URL.revokeObjectURL = original.revoke;
+  }
+});
 
 test("revoked export releases busy immediately and late settlement cannot unlock a restored request", () => {
   const request: { current: AbortController | null } = { current: null };

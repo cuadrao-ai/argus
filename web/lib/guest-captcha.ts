@@ -375,7 +375,9 @@ export function acquireTurnstileChallenge(input: {
       const finish = () => {
         removeWidget();
         shell.destroy();
-        complete();
+        // An abort during the deferred tick wins over the provider's token.
+        if (signal?.aborted) reject(captchaAbortError());
+        else complete();
       };
       cleanupDeferred = defer;
       // Let the provider finish its callback before removing its container.

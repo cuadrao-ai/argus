@@ -40,6 +40,16 @@ export function startPeriodExportRequest(request: { current: AbortController | n
   return controller;
 }
 
+export function saveBlobDownload(blob: Blob, filename: string, revokeAfterMs = 30_000) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  // Safari and Firefox read the object URL after click returns; revoke later.
+  try { link.click(); } finally { link.remove(); globalThis.setTimeout(() => URL.revokeObjectURL(url), revokeAfterMs); }
+}
+
 export function ReceiptPeriodExport({ dossier, start, end, available }: { dossier: BusinessDossier; start: string; end: string; available: boolean }) {
   const { t } = useTranslation();
   const [from, setFrom] = useState(start);
@@ -58,12 +68,7 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
     try {
       const blob = await fetchBusinessExport(dossier.draft_id, from, to, controller.signal);
       controller.signal.throwIfAborted();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `business-export-${from}-${to}.zip`;
-      document.body.appendChild(link);
-      try { link.click(); } finally { link.remove(); URL.revokeObjectURL(url); }
+      saveBlobDownload(blob, `business-export-${from}-${to}.zip`);
     } catch (error) {
       if (controller.signal.aborted) return;
       const status = (error as { status?: number }).status;
