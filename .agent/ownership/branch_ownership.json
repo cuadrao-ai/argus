@@ -986,6 +986,7 @@
         "src/argus/domain/business/service.py",
         "src/argus/domain/ingestion/receipt_review.py",
         "tests/business/test_business_handoff_retry.py",
+        "tests/business/test_business_search.py",
         "tests/business/test_receipt_views_leave_through_the_overlay.py",
         "tests/test_business_multi_purchase_postgres.py",
         "tests/test_business_receipt_views_postgres.py",
