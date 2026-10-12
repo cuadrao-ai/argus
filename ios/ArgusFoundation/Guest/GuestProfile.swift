@@ -2,12 +2,13 @@ import SwiftUI
 import CuadraoBook
 
 enum GuestProfileRoute: Hashable {
-    case preferences, privacy
+    case preferences, privacy, receipts
 
     func title(_ es: Bool) -> String {
         switch self {
         case .preferences: es ? "Preferencias" : "Preferences"
         case .privacy: es ? "Datos y privacidad" : "Data and privacy"
+        case .receipts: es ? "Recibos de este iPhone" : "Receipts on this iPhone"
         }
     }
 
@@ -15,6 +16,7 @@ enum GuestProfileRoute: Hashable {
         switch self {
         case .preferences: "slider.horizontal.3"
         case .privacy: "hand.raised"
+        case .receipts: "doc.text.viewfinder"
         }
     }
 }
@@ -29,6 +31,7 @@ struct GuestProfile: View {
     let leave: () -> Void
     let deleteData: () async -> Bool
     @Environment(\.locale) private var locale
+    @Environment(\.guestReceipts) private var receipts
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
 
@@ -50,6 +53,10 @@ struct GuestProfile: View {
                         link(.preferences, identifier: "guest.profile.preferences")
                         separator
                         link(.privacy, identifier: "guest.profile.privacy")
+                        if receipts != nil {
+                            separator
+                            link(.receipts, identifier: "guest.profile.receipts")
+                        }
                     }
                     legal
                 }
@@ -62,6 +69,8 @@ struct GuestProfile: View {
                 switch route {
                 case .preferences: GuestPreferences(model: model, appearance: $appearance, spanish: spanish)
                 case .privacy: GuestPrivacy(spanish: spanish, deleteData: deleteData)
+                case .receipts:
+                    if let receipts { GuestReceiptsList(store: receipts, model: model, spanish: spanish) }
                 }
             }
         }

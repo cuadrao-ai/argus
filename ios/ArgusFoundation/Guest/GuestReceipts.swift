@@ -21,6 +21,14 @@ struct GuestReceiptCopy {
     var later: String { spanish ? "Después" : "Later" }
     var cancel: String { spanish ? "Cancelar" : "Cancel" }
     var delete: String { spanish ? "Eliminar" : "Delete" }
+    var listEmpty: String {
+        spanish ? "Aún no tienes recibos en este iPhone. Toca + para guardar uno." : "You have no receipts on this iPhone yet. Tap + to save one."
+    }
+    var attachedTo: String { spanish ? "Adjunto a" : "Attached to" }
+    var deleteTitle: String { spanish ? "¿Eliminar este recibo?" : "Delete this receipt?" }
+    var deleteMessage: String {
+        spanish ? "Se borra de este iPhone. Tus movimientos no cambian." : "It is deleted from this iPhone. Your activity does not change."
+    }
     var couldNotSave: String { spanish ? "No pudimos guardar el recibo en este iPhone." : "We could not save the receipt on this iPhone." }
 }
 
@@ -146,7 +154,7 @@ struct GuestMovementReceiptActions: View {
 }
 
 /// The most recent live movements, newest first, as choices.
-private struct GuestMovementChoices: View {
+struct GuestMovementChoices: View {
     @ObservedObject var model: GuestBookModel
     let spanish: Bool
     let choose: (UUID) -> Void
@@ -179,7 +187,7 @@ private struct GuestMovementChoices: View {
     }
 }
 
-private struct GuestReceiptRow: View {
+struct GuestReceiptRow: View {
     let receipt: GuestReceipt
     let locale: Locale
     var body: some View {
@@ -195,5 +203,93 @@ private struct GuestReceiptRow: View {
             }
             Spacer(minLength: 8)
         }.frame(minHeight: 56).contentShape(Rectangle())
+    }
+}
+
+/// Profile › Receipts on this iPhone: every receipt the book keeps, to view, attach to a movement, remove from it, or delete.
+struct GuestReceiptsList: View {
+    @ObservedObject var store: GuestReceiptStore
+    @ObservedObject var model: GuestBookModel
+    let spanish: Bool
+    @Environment(\.locale) private var locale
+    @State private var viewing: ViewedReceipt?
+    @State private var attaching: GuestReceipt?
+    @State private var deleting: GuestReceipt?
+
+    private var copy: GuestReceiptCopy { GuestReceiptCopy(spanish: spanish) }
+
+    var body: some View {
+        Group {
+            if store.receipts.isEmpty {
+                Text(copy.listEmpty).font(CuadraoTypography.body).padding(24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .accessibilityIdentifier("guest.receipts.empty")
+            } else {
+                List {
+                    ForEach(store.receipts) { receipt in
+                        Button { view(receipt) } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                GuestReceiptRow(receipt: receipt, locale: locale)
+                                if let title = movementTitle(receipt) {
+                                    Text(copy.attachedTo + " " + title).font(CuadraoTypography.caption).foregroundStyle(.secondary)
+                                        .padding(.leading, 54)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("guest.receipts.row." + receipt.id.uuidString)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) { deleting = receipt } label: { Label(copy.delete, systemImage: "trash") }
+                        }
+                        .contextMenu {
+                            Button { view(receipt) } label: { Label(copy.view, systemImage: "doc.text.magnifyingglass") }
+                            if movementTitle(receipt) == nil {
+                                Button { attaching = receipt } label: { Label(copy.attachTo, systemImage: "paperclip") }
+                            } else {
+                                Button { try? store.attach(receipt.id, to: nil) } label: { Label(copy.remove, systemImage: "minus.circle") }
+                            }
+                            Button(role: .destructive) { deleting = receipt } label: { Label(copy.delete, systemImage: "trash") }
+                        }
+                    }
+                }.listStyle(.plain).accessibilityIdentifier("guest.receipts.list")
+            }
+        }
+        .background(WelcomePalette.background)
+        .navigationTitle(GuestProfileRoute.receipts.title(spanish))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .sheet(item: $viewing) { SavedReceiptViewer(receipt: $0, copy: SavedReceiptCopy(spanish: spanish)) }
+        .sheet(item: $attaching) { receipt in
+            NavigationStack {
+                ScrollView {
+                    GuestMovementChoices(model: model, spanish: spanish) { movementID in
+                        try? store.attach(receipt.id, to: movementID)
+                        attaching = nil
+                    }.padding(24)
+                }
+                .background(WelcomePalette.background)
+                .navigationTitle(copy.attachTo).navigationBarTitleDisplayMode(.inline)
+                .toolbar { CuadraoCancelToolbar(title: copy.cancel, identifier: "guest.receipts.attach.cancel") { attaching = nil } }
+            }.tint(WelcomePalette.pine)
+        }
+        .confirmationDialog(copy.deleteTitle, isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+                            titleVisibility: .visible, presenting: deleting) { receipt in
+            Button(copy.delete, role: .destructive) { try? store.delete(receipt.id) }
+                .accessibilityIdentifier("guest.receipts.delete.confirm")
+            Button(copy.cancel, role: .cancel) {}
+        } message: { _ in Text(copy.deleteMessage) }
+    }
+
+    private func movementTitle(_ receipt: GuestReceipt) -> String? {
+        guard let id = receipt.movementID, let movement = model.book.movement(id), !movement.deleted else { return nil }
+        return GuestMovementPresentation.title(movement, spanish: spanish)
+    }
+
+    private func view(_ receipt: GuestReceipt) {
+        guard let data = store.data(receipt) else { return }
+        let stamp = ISO8601DateFormatter().string(from: receipt.createdAt)
+        viewing = ViewedReceipt(document: SavedDocument(connectionID: receipt.id.uuidString, filename: receipt.name,
+            mediaType: receipt.mediaType, sizeBytes: data.count, sourceAvailable: true, status: "saved",
+            createdAt: stamp, updatedAt: stamp), data: data)
     }
 }

@@ -111,4 +111,40 @@ extension FinancialLoopUITests {
         XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10), "an attached receipt opens its movement")
         XCTAssertTrue(app.buttons["guest.movement.receipt.view"].exists)
     }
+
+    func testGuestProfileListsReceiptsToViewAttachRemoveAndDelete() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-saved-receipts-sample"])
+        enterGuestBook()
+        guestReceiptAccount()
+        guestReceiptExpense("250", note: "Colmado")
+        app.buttons["nav.add"].tap()
+        app.buttons["add.tray.chooseFile"].tap()
+        XCTAssertTrue(app.buttons["guest.receipt.later"].waitForExistence(timeout: 10))
+        app.buttons["guest.receipt.later"].tap()
+
+        app.buttons["header.profile"].tap()
+        let entry = app.buttons["guest.profile.receipts"]
+        for _ in 0..<4 where !(entry.exists && entry.isHittable) { app.swipeUp() }
+        entry.tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.receipts.row.'")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "the saved receipt is listed")
+        capture("guest-profile-receipts")
+
+        row.press(forDuration: 1.0)
+        app.buttons["Attach to a movement"].tap()
+        let choice = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.receipt.movement.' AND label CONTAINS 'Colmado'")).firstMatch
+        XCTAssertTrue(choice.waitForExistence(timeout: 10))
+        choice.tap()
+        XCTAssertTrue(app.staticTexts["Attached to Colmado"].waitForExistence(timeout: 10), "the list shows where it is attached")
+
+        row.press(forDuration: 1.0)
+        app.buttons["Remove receipt"].tap()
+        XCTAssertTrue(app.staticTexts["Attached to Colmado"].waitForNonExistence(timeout: 10), "removed from the movement, still listed")
+        XCTAssertTrue(row.exists)
+
+        row.swipeLeft()
+        app.buttons["Delete"].firstMatch.tap()
+        app.buttons["guest.receipts.delete.confirm"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.receipts.empty"].waitForExistence(timeout: 10), "deleted from the iPhone")
+    }
 }
