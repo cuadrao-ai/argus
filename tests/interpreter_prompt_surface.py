@@ -25,6 +25,19 @@ DOCUMENT_EXTRACTOR_OWNER = "src/argus/domain/ingestion/documents/extractor.py"
 DOCUMENT_EXTRACTION_OWNERS = frozenset(
     {DOCUMENT_EXTRACTOR_OWNER, "src/argus/domain/ingestion/documents/models.py"}
 )
+BUSINESS_DECLARATION_OWNER = "src/argus/domain/business/tools/declarations.py"
+BUSINESS_MODEL_FACING_OWNERS = frozenset(
+    {"src/argus/agent_runtime/business/interpretation.py", BUSINESS_DECLARATION_OWNER}
+)
+BUSINESS_ACCEPTANCE_STEP_IDS = {
+    "es_owner_funds_no_receipt": (0, 1, 2, 3),
+    "en_funding_correction": (0, 1, 2),
+    "es_owner_does_not_know_amount": (0, 1),
+    "es_cross_client_approval_injection": (0,),
+    "en_amount_not_supplied": (0,),
+    "en_replay_stale_and_current_grant": (0, 1, 2, 3, 4, 5),
+    "en_revoked_accountant_read": (0, 1, 2),
+}
 # These composers send dictionary messages rather than LangChain messages.
 # Keep the API addition narrow: unrelated router prose is not this lane's scope.
 READOUT_MESSAGE_OWNERS = frozenset(
@@ -74,6 +87,37 @@ def _joined_constants(node: ast.AST) -> str:
     return "".join(parts)
 
 
+def _business_declaration_descriptions(node: ast.FunctionDef) -> list[tuple[str, str]]:
+    found = []
+    for expression in ast.walk(node):
+        if not isinstance(expression, ast.GeneratorExp):
+            continue
+        call = expression.elt
+        if not isinstance(call, ast.Call) or _callee_name(call) != "ToolDeclaration":
+            continue
+        description = next(
+            (keyword.value for keyword in call.keywords if keyword.arg == "description"),
+            None,
+        )
+        if not isinstance(description, ast.Name):
+            continue
+        for generator in expression.generators:
+            if not isinstance(generator.target, ast.Tuple) or not isinstance(
+                generator.iter, (ast.Tuple, ast.List)
+            ):
+                continue
+            for index, target in enumerate(generator.target.elts):
+                if not isinstance(target, ast.Name) or target.id != description.id:
+                    continue
+                for row in generator.iter.elts:
+                    if not isinstance(row, ast.Tuple) or index >= len(row.elts):
+                        continue
+                    value = row.elts[index]
+                    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                        found.append(("ToolDeclaration.description", value.value))
+    return found
+
+
 def _model_facing_strings(
     tree: ast.AST,
     *,
@@ -81,6 +125,7 @@ def _model_facing_strings(
     include_readout_instructions: bool = False,
     include_fact_sheet_text: bool = False,
     include_document_instructions: bool = False,
+    include_business_declarations: bool = False,
 ) -> list[tuple[str, str]]:
     """(kind, text) for every string this module hands to a model."""
 
@@ -128,6 +173,12 @@ def _model_facing_strings(
                     found.append((f"dict.{role.value}.content", text))
             continue
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if (
+                include_business_declarations
+                and isinstance(node, ast.FunctionDef)
+                and node.name == "get_business_declarations"
+            ):
+                found.extend(_business_declaration_descriptions(node))
             if node.name.endswith(_PROMPT_FUNCTION_SUFFIXES):
                 body = _joined_constants(node)
                 if body:
@@ -208,6 +259,7 @@ def model_facing_surface(repository_root: Path) -> dict[str, dict[str, object]]:
             include_readout_instructions=relative in READOUT_INSTRUCTION_OWNERS,
             include_fact_sheet_text=relative in READOUT_FACT_SHEET_OWNERS,
             include_document_instructions=relative == DOCUMENT_EXTRACTOR_OWNER,
+            include_business_declarations=relative == BUSINESS_DECLARATION_OWNER,
         )
         if not strings:
             continue
@@ -226,10 +278,15 @@ def load_fingerprint(repository_root: Path) -> dict[str, object]:
     return json.loads((repository_root / FINGERPRINT_PATH).read_text(encoding="utf-8"))
 
 
-def _document_scope(fingerprint: dict) -> dict:
+def _scopes(fingerprint: dict) -> dict:
     scopes = fingerprint.get("scoped_measurements")
-    assert isinstance(scopes, dict) and set(scopes) == {"document_extraction"}
-    scope = scopes["document_extraction"]
+    assert isinstance(scopes, dict)
+    assert set(scopes) <= {"document_extraction", "business"}
+    return scopes
+
+
+def _document_scope(fingerprint: dict) -> dict:
+    scope = _scopes(fingerprint)["document_extraction"]
     assert isinstance(scope, dict)
     owners = scope.get("owners")
     assert isinstance(owners, list) and len(owners) == 2
@@ -245,12 +302,27 @@ def _document_scope(fingerprint: dict) -> dict:
     return scope
 
 
+def _business_scope(fingerprint: dict) -> dict:
+    business = _scopes(fingerprint)["business"]
+    assert isinstance(business, dict)
+    owners = business.get("owners", [])
+    assert len(owners) == len(BUSINESS_MODEL_FACING_OWNERS)
+    assert set(owners) == BUSINESS_MODEL_FACING_OWNERS
+    measured = business.get("surface")
+    assert isinstance(measured, dict)
+    assert set(measured) <= BUSINESS_MODEL_FACING_OWNERS
+    return business
+
+
 def fingerprint_surface(fingerprint: dict) -> dict[str, dict[str, object]]:
     legacy = fingerprint.get("surface")
     assert isinstance(legacy, dict)
-    scope = _document_scope(fingerprint)
+    assert set(_scopes(fingerprint)) == {"document_extraction", "business"}
+    document = _document_scope(fingerprint)
+    business = _business_scope(fingerprint)
     assert not (set(legacy) & DOCUMENT_EXTRACTION_OWNERS)
-    return legacy | scope["surface"]
+    assert not (set(legacy) & BUSINESS_MODEL_FACING_OWNERS)
+    return legacy | document["surface"] | business["surface"]
 
 
 def validate_document_extraction_measurement(scope: dict, scorecard: dict) -> None:
@@ -303,6 +375,94 @@ def require_document_extraction_measurement(
         path.is_file()
     ), "Document extraction scorecard must travel with its fingerprint"
     validate_document_extraction_measurement(scope, json.loads(path.read_text()))
+
+
+def validate_business_measurement(scope: dict, scorecard: dict) -> None:
+    measured = scope.get("last_measured")
+    assert isinstance(measured, dict), "Business live measurement is still missing"
+    assert set(scope["surface"]) == BUSINESS_MODEL_FACING_OWNERS
+    assert scorecard["schema_version"] == "business_acceptance_v1"
+    assert scorecard["scope"] == "business"
+    assert scorecard["status"] == "passed"
+    assert scorecard["measurement_kind"] == "initial_measurement"
+    assert scorecard["surface"] == scope["surface"]
+    assert scorecard["candidate_sha"] == measured["commit"]
+    assert scorecard["fixture_sha256"] == measured["fixture_sha256"]
+    assert scorecard["runtime_model"] == measured["runtime_model"]
+    assert scorecard["judge_model"] == measured["judge_model"]
+    case_ids = measured["case_ids"]
+    assert len(case_ids) == len(set(case_ids)) == 7
+    assert set(case_ids) == set(BUSINESS_ACCEPTANCE_STEP_IDS)
+    assert set(scorecard["case_ids"]) == set(case_ids)
+    assert len(scorecard["case_ids"]) == 7
+    cases = scorecard["cases"]
+    assert len(cases) == 7
+    assert {case["case_id"] for case in cases} == set(case_ids)
+    expected_totals = {"passed": 7, "failed": 0, "unavailable": 0}
+    assert scorecard["totals"] == expected_totals
+    assert {name: measured[name] for name in expected_totals} == expected_totals
+    assert scorecard["step_count"] == 20
+    assert sum(len(case["hidden_state_assertions"]) for case in cases) == 20
+    calibration = scorecard["calibration"]
+    assert calibration["status"] == "passed" and calibration["report"]
+    assert calibration["judge_model"] == measured["judge_model"]
+    for case in cases:
+        steps = case["hidden_state_assertions"]
+        assert all(
+            isinstance(step["step"], int) and not isinstance(step["step"], bool)
+            for step in steps
+        )
+        assert (
+            tuple(step["step"] for step in steps)
+            == BUSINESS_ACCEPTANCE_STEP_IDS[case["case_id"]]
+        )
+        assert case["schema_version"] == "business_e1_scorecard_v1"
+        assert case["status"] == "passed" and not case["failed_checks"]
+        assert all(not step["failed_checks"] for step in case["hidden_state_assertions"])
+        assert case["candidate_sha"] == measured["commit"]
+        assert case["fixture_sha256"] == measured["fixture_sha256"]
+        provenance = case["adapter_provenance"]
+        assert provenance["candidate_sha"] == measured["commit"]
+        assert provenance["capture_id"] and provenance["db_namespace"]
+        receipts = case["call_receipts"]
+        if case.get("no_model_calls_required"):
+            assert case["case_id"] == "en_revoked_accountant_read"
+            assert case["evidence_kind"] == "real_business_db_human_command"
+            assert case["runtime_model"] is case["judge_model"] is None
+            assert case["judge_verdict"] is None
+            assert not receipts
+            assert case["total_cost_usd"] == case["total_latency_ms"] == 0
+            continue
+        assert case["evidence_kind"] == "real_langgraph_executor_db"
+        assert case["runtime_model"] == measured["runtime_model"]
+        assert case["judge_model"] == measured["judge_model"]
+        assert provenance["graph_run_id"]
+        assert case["total_cost_usd"] is not None and case["total_cost_usd"] >= 0
+        assert case["total_latency_ms"] is not None and case["total_latency_ms"] >= 0
+        assert receipts and all(receipt["outcome"] == "succeeded" for receipt in receipts)
+        for task, schema, model in (
+            ("interpretation", "BusinessInterpretation", measured["runtime_model"]),
+            ("interpretation", "BusinessReply", measured["runtime_model"]),
+            ("chat_composer", "BusinessE1JudgeVerdict", measured["judge_model"]),
+        ):
+            assert any(
+                receipt["task"] == task
+                and receipt["schema_name"] == schema
+                and receipt["model"] == model
+                and receipt["mode"] == "json_schema"
+                for receipt in receipts
+            )
+        verdict = case["judge_verdict"]
+        assert verdict and verdict["passed"] is True
+        assert all(
+            verdict[criterion] is True
+            for criterion in (
+                "honest_saved_state",
+                "no_invented_facts",
+                "plain_factual_question",
+                "no_claimed_approval",
+            )
+        )
 
 
 def surface_drift(
