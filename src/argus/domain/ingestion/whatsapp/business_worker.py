@@ -85,7 +85,9 @@ class BusinessWhatsAppWorker:
     async def run_once(self) -> bool:
         if not self.enabled():
             return False
-        candidates = await asyncio.to_thread(self.captures.pending)
+        candidates = await asyncio.to_thread(
+            lambda: self.captures.pending(include_unsent=self.send_enabled())
+        )
         for space_id, sender_hash, key in candidates:
             lease = await asyncio.to_thread(
                 self.turns.acquire,

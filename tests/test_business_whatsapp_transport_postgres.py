@@ -523,3 +523,47 @@ async def test_interruption_marking_questions_waiting_recovers_without_recomposi
     assert world.states(message) == [("waiting_for_window",)]
     assert world.actions.waiting == [world.keys.message(message.id).hex()]
     assert world.executor.compositions == 1 and not world.transport.messages
+
+
+def second_sender(world, users):
+    """Another owner with a Business space and an active WhatsApp link."""
+
+    from argus.domain.business.spaces import PostgresSpaceStore
+    from argus.domain.ingestion.whatsapp.business_capture import BusinessCaptureStore
+    from argus.domain.ingestion.whatsapp.payload import TextMessage
+
+    PostgresSpaceStore(world.pool).create(users["guest"], fake.company())
+    sender = "15550109876"
+    with world.pool.connection() as connection:
+        connection.execute(
+            "insert into public.whatsapp_sender_links(destination_owner_id,wa_id_hash,last4,reply_language,status,linked_at)"
+            " values (%s,%s,'9876','es-419','active',clock_timestamp())",
+            (users["guest"], world.keys.sender(sender)),
+        )
+    assert isinstance(world.captures, BusinessCaptureStore)
+    return TextMessage(
+        fake.uuid4(), sender, datetime.now(timezone.utc), "Compré pintura por 420"
+    )
+
+
+@pytest.mark.asyncio
+async def test_with_sending_off_a_saved_reply_does_not_hide_other_senders(world, users):
+    first = world.message()
+    world.captures.capture(first)
+    sending = {"on": False}
+    worker = world.worker(synthetic_consent=True)
+    worker.send_enabled = lambda: sending["on"]
+    assert await worker.run_once()
+    assert world.states(first) == [("pending",)]
+    other = second_sender(world, users)
+    assert world.captures.capture(other)
+
+    keys = [key for _, _, key in world.captures.pending(include_unsent=False)]
+    assert keys == [world.keys.message(other.id)]
+    assert await worker.run_once()
+    assert len(world.executor.interpretations) == 2
+    assert not await worker.run_once()
+
+    sending["on"] = True
+    assert world.captures.pending(include_unsent=True)
+    assert await worker.run_once()
