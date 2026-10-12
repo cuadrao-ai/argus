@@ -213,6 +213,11 @@ struct FinancialSearchView: View {
         }
     }
 
+    private func refreshDetail() async {
+        guard case .account(let id) = model.destination, let account = accounts.accounts.first(where: { $0.id == id }) else { return }
+        await accounts.refresh(id); await loop.open(account)
+    }
+
     private var destination: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -230,7 +235,8 @@ struct FinancialSearchView: View {
                 case nil: EmptyView()
                 }
             }.padding(24).padding(.bottom, 32)
-        }.background(WelcomePalette.background).accessibilityIdentifier("search.detail")
+        }.refreshable { await refreshDetail() }
+            .background(WelcomePalette.background).accessibilityIdentifier("search.detail")
             .navigationTitle("").navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
     }

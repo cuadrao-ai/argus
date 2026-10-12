@@ -7,12 +7,14 @@ struct CuadraoAccountCanvas: View {
     let actions: (CanvasAccountSheet) -> Void
     let record: (UUID) -> Void
     @State private var showingBalanceInfo = false
+    @State private var refreshedAt: Date?
     @State private var chatFocus: CanvasChatFocus?
     @Environment(\.locale) private var locale
 
     var body: some View {
         if let account = data.account(accountID) {
             ScrollView {
+                CuadraoLastUpdated(date: refreshedAt, spanish: spanish).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 24)
                 CanvasAccountDetailContent(
                     value: CanvasAccountDetailValue(title: account.displayName(spanish), artwork: account.kind,
                         balanceLabel: account.balanceLabel(spanish), currency: account.currency,
@@ -45,7 +47,8 @@ struct CuadraoAccountCanvas: View {
                         }
                     }
                 }.padding(24).padding(.bottom, 32)
-            }.background(WelcomePalette.background)
+            }.refreshable { try? await Task.sleep(for: .milliseconds(400)); refreshedAt = Date() }
+                .background(WelcomePalette.background)
                 .navigationTitle("").navigationBarTitleDisplayMode(.inline)
                 .toolbar(.visible, for: .navigationBar)
                 .toolbar {

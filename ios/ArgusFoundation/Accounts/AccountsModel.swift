@@ -14,6 +14,8 @@ final class AccountsModel: ObservableObject {
     @Published private(set) var latest: FinancialAccount?
     @Published private(set) var needsReview = false
     @Published private(set) var identity: SessionSnapshot?
+    /// When each account's detail last loaded successfully, on the device clock.
+    @Published private(set) var refreshedAt: [UUID: Date] = [:]
     var confirmCreate: ((CreateFinancialAccountRequest) async throws -> FinancialAccount)?
     var financialChanged: (() -> Void)?
     var sessionChanged: ((SessionSnapshot) -> Void)?
@@ -32,7 +34,7 @@ final class AccountsModel: ObservableObject {
         guard snapshot?.revision != identity?.revision || snapshot?.profile?.id != identity?.profile?.id || snapshot?.phase != identity?.phase else { return }
         generation = UUID()
         identity = snapshot?.phase == .authenticated ? snapshot : nil
-        accounts = []; hasLoaded = false; selectedID = nil; draft = nil; latest = nil
+        accounts = []; refreshedAt = [:]; hasLoaded = false; selectedID = nil; draft = nil; latest = nil
         clearOpening(); pendingCreate = nil; busy = false; errorKey = nil; needsReview = false
     }
 
@@ -53,7 +55,7 @@ final class AccountsModel: ObservableObject {
 
     func refresh(_ accountID: UUID) async {
         await run(targetAccountID: accountID) { identity in let value = try await self.controller.financialAccount(id: accountID, expectedIdentity: identity)
-            if self.current(identity) { self.upsert(value) } }
+            if self.current(identity) { self.upsert(value); self.refreshedAt[accountID] = Date() } }
     }
 
     func back() { guard !busy else { return }; selectedID = nil; errorKey = nil }

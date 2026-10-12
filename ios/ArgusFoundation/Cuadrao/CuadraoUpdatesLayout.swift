@@ -10,6 +10,9 @@ struct CuadraoUpdatesLayout<Rows: View, Preferences: View>: View {
     let hasUnread: Bool
     let emptyState: CuadraoUpdatesEmptyState?
     let markAllRead: () -> Void
+    /// Pull to refresh and the line under the controls; both stay off for hosts that do not load anything.
+    var refresh: (() async -> Void)?
+    var refreshedAt: Date?
     @ViewBuilder let rows: () -> Rows
     @ViewBuilder let preferences: () -> Preferences
     @Environment(\.dismiss) private var dismiss
@@ -22,6 +25,7 @@ struct CuadraoUpdatesLayout<Rows: View, Preferences: View>: View {
                         Text(spanish ? "Todas" : "All").tag(false)
                         Text(spanish ? "Sin leer" : "Unread").tag(true)
                     }.pickerStyle(.segmented).accessibilityIdentifier("cuadrao.updates.filter")
+                    CuadraoLastUpdated(date: refreshedAt, spanish: spanish)
                     if hasUnread {
                         Button(spanish ? "Marcar todas como leídas" : "Mark all as read", action: markAllRead)
                             .font(.subheadline).accessibilityIdentifier("cuadrao.updates.read-all")
@@ -35,6 +39,7 @@ struct CuadraoUpdatesLayout<Rows: View, Preferences: View>: View {
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden).background(WelcomePalette.background)
+        .modifier(CuadraoOptionalRefresh(action: refresh))
         .navigationTitle(spanish ? "Novedades" : "Updates").navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) { preferences() }
@@ -92,5 +97,12 @@ struct ConnectedCuadraoUpdates: View {
                     .accessibilityIdentifier("cuadrao.updates.preferences")
             }
         }.tint(WelcomePalette.pine).foregroundStyle(WelcomePalette.ink)
+    }
+}
+
+private struct CuadraoOptionalRefresh: ViewModifier {
+    let action: (() async -> Void)?
+    @ViewBuilder func body(content: Content) -> some View {
+        if let action { content.refreshable { await action() } } else { content }
     }
 }
