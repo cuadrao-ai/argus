@@ -47,6 +47,7 @@ struct CuadraoAccountCanvas: View {
                         }
                     }
                 }.padding(24).padding(.bottom, 32)
+            // Design preview only: the data is in memory, so there is no load behind this stamp. Connected detail uses AccountsModel.refreshedAt.
             }.refreshable { try? await Task.sleep(for: .milliseconds(400)); refreshedAt = Date() }
                 .background(WelcomePalette.background)
                 .navigationTitle("").navigationBarTitleDisplayMode(.inline)

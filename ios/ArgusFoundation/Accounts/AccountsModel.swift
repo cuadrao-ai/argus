@@ -43,6 +43,8 @@ final class AccountsModel: ObservableObject {
             if self.current(identity) {
                 self.accounts = values
                 self.hasLoaded = true
+                let now = Date()
+                for value in values { self.refreshedAt[value.id] = now }
                 if !values.contains(where: { $0.id == self.selectedID }) { self.selectedID = nil }
             } }
     }

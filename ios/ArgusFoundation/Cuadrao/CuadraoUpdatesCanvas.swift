@@ -40,6 +40,7 @@ struct CuadraoUpdatesCanvas: View {
                 hasUnread: !unread.isEmpty,
                 emptyState: visible.isEmpty ? (items.isEmpty ? .empty : .read) : nil,
                 markAllRead: { readIDs.formUnion(visible) },
+                // Design preview only: nothing is loaded here, the stamp just shows the pattern. Never wire this to a connected path.
                 refresh: { try? await Task.sleep(for: .milliseconds(400)); refreshedAt = Date() }, refreshedAt: refreshedAt) {
                 updateSection(spanish ? "Por revisar" : "To review", entries: visible.filter {
                     if case .accountReview = $0 { return true }; return false
