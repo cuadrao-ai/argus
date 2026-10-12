@@ -9770,6 +9770,80 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/whatsapp/ai-consent:
+    get:
+      tags:
+      - financial-accounts
+      - whatsapp
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIConsentResponse'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - whatsapp
+      parameters:
+      - name: idempotency-key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 80
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnableAIConsent'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIConsentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - financial-accounts
+      - whatsapp
+      responses:
+        '204':
+          description: Successful Response
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/whatsapp/link:
     get:
       tags:
@@ -9843,6 +9917,62 @@ paths:
                 $ref: '#/components/schemas/Error'
 components:
   schemas:
+    AIConsentResponse:
+      properties:
+        linked:
+          type: boolean
+        available:
+          type: boolean
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+        last4:
+          anyOf:
+          - type: string
+          - type: 'null'
+        scope_version:
+          type: integer
+        purpose:
+          type: string
+        disclosure:
+          type: string
+        route:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+        disclosure_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+        enabled:
+          type: boolean
+        consented_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        revoked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - linked
+      - available
+      - reason
+      - last4
+      - scope_version
+      - purpose
+      - disclosure
+      - route
+      - disclosure_token
+      - enabled
+      - consented_at
+      - revoked_at
     AcceptBatchBody:
       properties:
         items:
@@ -14386,6 +14516,19 @@ components:
       - membership_id
       - expected_authorization_version
       - expected_plan_version
+    EnableAIConsent:
+      properties:
+        action:
+          type: string
+          const: enable
+        disclosure_token:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      - disclosure_token
     Error:
       type: object
       description: RFC 9457 Problem Details with code and request_id.

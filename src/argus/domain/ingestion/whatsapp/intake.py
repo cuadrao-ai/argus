@@ -131,6 +131,7 @@ class WhatsAppIntake:
         transport: ReplyTransport | None = None,
         app_origin: str | None = None,
         max_bytes: int,
+        capture_text: Callable[[TextMessage], bool] | None = None,
         background: Callable[[Coroutine[Any, Any, None]], None] | None = None,
     ) -> None:
         self.store, self.keys, self.media = store, keys, media
@@ -141,6 +142,7 @@ class WhatsAppIntake:
         # work finishes inside ``handle``.
         self.background = background
         self.processing_seconds: float = PROCESSING_SECONDS
+        self.capture_text = capture_text
 
     def issue_code(
         self, *, destination_owner_id: str, reply_language: ReplyLanguage
@@ -217,6 +219,9 @@ class WhatsAppIntake:
         otherwise ``True`` when it is already settled and ``False`` while
         another claim still holds it unsettled."""
 
+        if isinstance(message, TextMessage) and self.capture_text is not None:
+            if await asyncio.to_thread(self.capture_text, message):
+                return True
         sender = self.keys.sender(message.sender)
         key = self.keys.message(message.id)
         now = self.clock()
