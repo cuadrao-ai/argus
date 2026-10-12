@@ -82,6 +82,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(Path(__file__).with_name("CaptchaFramePolicyTests.swift"), tests / "CaptchaFramePolicyTests.swift")
     shutil.copy(Path(__file__).with_name("SavedReceiptsModelTests.swift"), tests / "SavedReceiptsModelTests.swift")
     shutil.copy(Path(__file__).with_name("ReceiptJourneyModelTests.swift"), tests / "ReceiptJourneyModelTests.swift")
+    shutil.copy(Path(__file__).with_name("ReceiptJourneyOfflineTests.swift"), tests / "ReceiptJourneyOfflineTests.swift")
     shutil.copy(Path(__file__).with_name("ReceiptSearchTests.swift"), tests / "ReceiptSearchTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedPlanMappingTests.swift"), tests / "ConnectedPlanMappingTests.swift")
     (package / "Package.swift").write_text('''// swift-tools-version: 6.0
