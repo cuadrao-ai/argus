@@ -150,6 +150,18 @@ class ApproveIncome(Contract):
     action: Literal["record_income"]
 
 
+class SettleRemainder(Contract):
+    """A person settles the read purchases a recorded draft does not cover."""
+
+    version: int = Field(ge=1)
+
+
+class SettleRemainderCommand(Contract):
+    action: Literal["settle_remainder"] = "settle_remainder"
+    draft_id: UUID
+    request: SettleRemainder
+
+
 class ReviewCommand(Contract):
     action: Literal["review_draft"] = "review_draft"
     draft_id: UUID
@@ -262,6 +274,7 @@ Command = (
     | CaptureCommand
     | IncomeApprovalCommand
     | PrepareAttachmentCommand
+    | SettleRemainderCommand
     | RebindAttachmentCommand
 )
 

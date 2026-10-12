@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from .authority import ActorProvenance, Capability
-from .facts import BusinessFacts, Contract, FactField
+from .facts import BusinessFacts, Contract, FactField, ReadPurchase
 
 
 class MessageSource(Contract):
@@ -129,3 +129,9 @@ class BusinessDossier(RecordContext):
     blockers: tuple[Blocker, ...]
     approval_available: bool
     approval_result: ApprovalResult | None = None
+    #: The purchases a document read showed when it could not settle on one,
+    #: the receipt total it showed, and how many of them this draft leaves
+    #: unrecorded (0 once a person settled the rest).
+    read_purchases: tuple[ReadPurchase, ...] = ()
+    read_total: str | None = None
+    unrecorded_purchases: int = Field(default=0, ge=0)

@@ -2204,6 +2204,15 @@
       "preview": "Downloads are available in the connected Business view."
     },
     "dossier": {
+      "read_purchases_title": "Purchases read on this receipt",
+      "read_purchases_note": "The read showed more than one purchase. Complete this record with one of them; the rest stay here as evidence.",
+      "read_purchase": "Purchase {{index}}",
+      "unknown_amount": "Amount unknown",
+      "read_remainder": "Recorded {{recorded}} of a total of {{total}}. {{count}} purchases on this receipt are still unrecorded.",
+      "read_unrecorded": "{{count}} purchases on this receipt are still unrecorded.",
+      "read_settled": "The rest of this receipt is settled.",
+      "settle_remainder": "The rest is already handled",
+      "settle_failed": "The rest could not be marked as handled. Check the current record before trying again.",
       "title": "Review record",
       "unknown": "Unknown",
       "owner_unknown": "Owner doesn't know",
