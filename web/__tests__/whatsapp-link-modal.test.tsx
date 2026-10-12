@@ -127,6 +127,12 @@ describe("WhatsApp AI permission", () => {
     expect(html).toMatch(/role="switch"[^>]*\sdisabled=""/);
   });
 
+  test("the receipt switch shows whether or not the agent is on", () => {
+    const html = render({ status: linked, consent });
+    expect(html).toContain("Read my receipts with AI");
+    expect(html).toContain("Unlink number");
+  });
+
   test("an unlinked owner sees no AI row", () => {
     expect(render({ consent })).not.toContain("Read my receipts with AI");
   });

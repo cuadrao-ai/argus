@@ -21,16 +21,14 @@ from argus.domain.ingestion.whatsapp.store import SENDER_LINK_REVOKED
 
 # Founder-approved copy, October 8, 2026 (docs/specs/lanes/cuadrao-whatsapp-intake.md).
 _RESEND = (
-    "No pudimos guardar el recibo. Envíalo de nuevo.",
-    "We couldn't save the receipt. Please send it again.",
+    "No pudimos guardarlo. Envíalo de nuevo.",
+    "We couldn't save it. Please send it again.",
 )
 
 REPLIES: dict[str, tuple[str, str]] = {
     "captured": (
-        "Recibimos tu recibo y lo guardamos en tu bandeja. "
-        "Revísalo y confírmalo en Cuadrao: {link}",
-        "We got your receipt and saved it to your inbox. "
-        "Review and confirm it in Cuadrao: {link}",
+        "Recibido. Revísalo aquí: {link}",
+        "Received. Review it here: {link}",
     ),
     "read_ready": (
         "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: {link}",
@@ -45,16 +43,13 @@ REPLIES: dict[str, tuple[str, str]] = {
         "We couldn't read your receipt clearly. Open it in Cuadrao to finish it: {link}",
     ),
     "duplicate": (
-        "Ya tenemos este recibo en tu bandeja, así que no lo guardamos dos veces. "
-        "Revísalo en Cuadrao: {link}",
-        "This receipt is already in your inbox, so we didn't save it twice. "
-        "Review it in Cuadrao: {link}",
+        "Ya lo teníamos. Revísalo aquí: {link}",
+        "We already had this one. Review it here: {link}",
     ),
     "linked": (
-        "Listo. Este WhatsApp quedó conectado a tu negocio en Cuadrao. "
-        "Envía aquí la foto o el PDF de un recibo.",
-        "Done. This WhatsApp is now connected to your business in Cuadrao. "
-        "Send a photo or PDF of a receipt here.",
+        "Listo, este WhatsApp quedó conectado. "
+        "Envía aquí la foto o el PDF de tus recibos.",
+        "Done, this WhatsApp is connected. Send a photo or PDF of your receipts here.",
     ),
     "whatsapp_link_code_invalid": (
         "Ese código venció o ya se usó. Crea uno nuevo en Cuadrao.",
@@ -67,8 +62,8 @@ REPLIES: dict[str, tuple[str, str]] = {
         "Connect it from Cuadrao on the web, then send the receipt again.",
     ),
     "whatsapp_receipt_missing": (
-        "Por aquí solo recibimos recibos. Envía la foto o el PDF del recibo.",
-        "We only take receipts here. Send a photo or PDF of the receipt.",
+        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {link}",
+        "We only take receipts here. For everything else use Cuadrao: {link}",
     ),
     "whatsapp_message_unsupported": (
         "Por ahora no podemos recibir audios, stickers ni videos. "
@@ -122,6 +117,10 @@ def reply_key(status: str, error_code: str | None, *, duplicate: bool = False) -
     return _SAME_REPLY.get(key, key)
 
 
+def inbox_url(app_origin: str) -> str:
+    return f"{app_origin.rstrip('/')}/biz"
+
+
 def review_url(app_origin: str, connection_id: str) -> str:
     return f"{app_origin.rstrip('/')}/biz?receipt={connection_id}"
 
@@ -137,9 +136,11 @@ def compose_reply(
     """One language only: English when the owner's language is en, else Spanish."""
 
     spanish, english = REPLIES[key]
-    return (english if language == "en" else spanish).format(
+    body = (english if language == "en" else spanish).format(
         link=link or "", limit_mb=limit_mb, **(read or {})
     )
+    # A reply that ends in a link, sent without one, ends as a plain sentence.
+    return body if link or not body.endswith(": ") else body[:-2] + "."
 
 
 def reply_payload(*, to: str, in_reply_to: str, body: str) -> dict[str, Any]:

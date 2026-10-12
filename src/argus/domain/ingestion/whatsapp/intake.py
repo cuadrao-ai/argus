@@ -41,6 +41,7 @@ from argus.domain.ingestion.whatsapp.replies import (
     ReplyFailed,
     ReplyTransport,
     compose_reply,
+    inbox_url,
     reply_key,
     reply_payload,
     review_url,
@@ -437,6 +438,8 @@ class WhatsAppIntake:
                 log.warning("WhatsApp acknowledgement skipped: no app origin")
                 return
             url = review_url(self.app_origin, settlement.connection_id or "")
+        elif settlement.error_code == "whatsapp_receipt_missing" and self.app_origin:
+            url = inbox_url(self.app_origin)
         body = compose_reply(
             key
             or reply_key(

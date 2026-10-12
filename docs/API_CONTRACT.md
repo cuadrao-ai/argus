@@ -8846,6 +8846,13 @@ answers the not-linked reply.
   only when Postgres cannot be reached; in memory mode without intake nothing
   holds a link and it answers 204. Unauthenticated calls answer 401.
 
+The Business agent over WhatsApp has its own switch,
+`CUADRAO_WHATSAPP_AGENT_ENABLED` (older `ARGUS_WHATSAPP_AGENT_ENABLED`), off by
+default. Off: text from a linked owner never reaches the agent and gets the
+ordinary reply, and the worker does nothing. The receipt reading permission
+(`/api/v1/whatsapp/ai-consent`, below) does not depend on this switch, and
+`DELETE` stays reachable so an owner can always revoke.
+
 Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
 a free-form answer to the person's own message, in one language: the sender
 link's `reply_language`, or Spanish for a sender with no active link. A new message

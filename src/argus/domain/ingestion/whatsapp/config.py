@@ -45,6 +45,9 @@ class WhatsAppSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
 
     intake_enabled: Flag = Field(default=False, validation_alias=_names("INTAKE_ENABLED"))
+    # The Business agent over WhatsApp. Off by default: WhatsApp is receipt
+    # intake only until this is turned on.
+    agent_enabled: Flag = Field(default=False, validation_alias=_names("AGENT_ENABLED"))
     outbound_enabled: Flag = Field(
         default=False, validation_alias=_names("OUTBOUND_ENABLED")
     )

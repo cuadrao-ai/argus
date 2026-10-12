@@ -100,8 +100,7 @@ async def test_with_the_switch_on_the_receipt_is_read_and_followed_up_once() -> 
     assert _status(world, connection_id) == "review_ready"
     assert extractor.calls == 1
     assert world.transport.bodies()[-2:] == [
-        "Recibimos tu recibo y lo guardamos en tu bandeja. "
-        f"Revísalo y confírmalo en Cuadrao: {link}",
+        f"Recibido. Revísalo aquí: {link}",
         f"Leí: Ferretería Ochoa, 850 DOP. Revísalo antes de guardar: {link}",
     ]
 
