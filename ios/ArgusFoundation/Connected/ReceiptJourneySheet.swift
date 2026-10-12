@@ -110,6 +110,13 @@ struct ReceiptJourneySheet: View {
                 RegistrationButton(title: copy.backToReview) { Task { await model.backToReview() } }
                     .accessibilityIdentifier("receipt.journey.backToReview")
             }
+        case .recorded, .linked, .stillPreparing, .failed:
+            if !model.waiting.isEmpty {
+                buttons {
+                    RegistrationButton(title: copy.nextReceipt(model.waiting.count)) { Task { await model.next() } }
+                        .accessibilityIdentifier("receipt.journey.next")
+                }
+            }
         default:
             EmptyView()
         }

@@ -9,7 +9,8 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
     private let files: SampleSavedReceiptsTransport
     private var reads = 0
     private var version = 1
-    private var accepted = false
+    private var acceptedIDs: Set<String> = []
+    private var accepted: Bool { acceptedIDs.contains(current) }
     private var current = "sample-receipt"
     /// A file named "Duplicado…" reads as a purchase that is already recorded.
     private var duplicate = false
@@ -20,7 +21,6 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
     func upload(_ bytes: Data, mediaType: String, filename: String, consent: Bool, identity: SessionSnapshot) async throws -> SavedDocumentCapture {
         let saved = try await files.save(bytes, mediaType: mediaType, filename: filename, identity: identity)
         reads = 0
-        accepted = false
         duplicate = filename.hasPrefix("Duplicado")
         return SavedDocumentCapture(connectionID: saved.connectionID, status: consent ? "queued" : "saved", replayed: saved.replayed)
     }
@@ -56,13 +56,13 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
     }
 
     func accept(_ event: FinancialImportEvent, request: FinancialActivityCommand, key: UUID, identity: SessionSnapshot) async throws -> FinancialImportAcceptance {
-        accepted = true
+        acceptedIDs.insert(current)
         return try Self.decode(["event": eventJSON(current, version: version, account: Self.accountID, activity: Self.activityID),
                                 "activity": Self.activity, "replayed": false])
     }
 
     func link(_ event: FinancialImportEvent, activityID: UUID, identity: SessionSnapshot) async throws -> FinancialImportEvent {
-        accepted = true
+        acceptedIDs.insert(current)
         return event
     }
 
@@ -160,10 +160,14 @@ struct ReceiptJourneyHarness: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Button("Receipt") { model.begin((SampleSavedReceiptsTransport.png("Recibo"), "Recibo.png", false)) }
+            Button("Receipt") { model.begin([(SampleSavedReceiptsTransport.png("Recibo"), "Recibo.png", false)]) }
                 .accessibilityIdentifier("harness.receipt")
-            Button("Duplicate") { model.begin((SampleSavedReceiptsTransport.png("Duplicado"), "Duplicado.png", false)) }
+            Button("Duplicate") { model.begin([(SampleSavedReceiptsTransport.png("Duplicado"), "Duplicado.png", false)]) }
                 .accessibilityIdentifier("harness.duplicate")
+            Button("Two receipts") {
+                model.begin([(SampleSavedReceiptsTransport.png("Primero"), "Primero.png", false),
+                             (SampleSavedReceiptsTransport.png("Segundo"), "Segundo.png", false)])
+            }.accessibilityIdentifier("harness.two")
             Text(result).accessibilityIdentifier("harness.result")
         }
         .onAppear { model.bind(Self.session) }

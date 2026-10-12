@@ -93,4 +93,20 @@ final class ReceiptJourneyHarnessUITests: XCTestCase {
         app.buttons["receipt.journey.later"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["receipt.journey"].waitForNonExistence(timeout: 10))
     }
+
+    func testTwoReceiptsShareOneAnswerAndAreReviewedInTurn() {
+        launch()
+        app.buttons["harness.two"].tap()
+        readUntilReview()
+        app.buttons["receipt.review.account"].tap()
+        app.buttons["Banreservas"].firstMatch.tap()
+        app.buttons["receipt.journey.confirm"].tap()
+        XCTAssertTrue(app.staticTexts["Expense saved"].waitForExistence(timeout: 10))
+        let next = app.buttons["receipt.journey.next"]
+        XCTAssertTrue(next.exists, "the second receipt waits its turn")
+        capture("receipt-journey-next")
+        next.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["receipt.review.merchant"].waitForExistence(timeout: 15), "the second review opens")
+        XCTAssertFalse(app.buttons["receipt.journey.read"].exists, "no second consent question")
+    }
 }

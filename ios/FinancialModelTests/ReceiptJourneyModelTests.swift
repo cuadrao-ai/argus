@@ -177,7 +177,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
     func testACapturedFileWaitsForConsentAndNothingIsSentBeforeTheAnswer() async {
         let server = ScriptedReceiptServer()
         let model = model(server)
-        model.begin(file)
+        model.begin([file])
         XCTAssertEqual(model.phase, .consent)
         let sent = await server.uploads
         XCTAssertTrue(sent.isEmpty)
@@ -186,7 +186,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
     func testDecliningSavesTheFileWithoutReadingAndStops() async {
         let server = ScriptedReceiptServer()
         let model = model(server)
-        model.begin(file)
+        model.begin([file])
         await model.answerConsent(false)
         XCTAssertEqual(model.phase, .savedOnly(alreadySaved: false))
         let sent = await server.uploads
@@ -196,7 +196,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
     func testConsentSendsWithItFollowsTheReadingAndOpensTheReviewFilledFromTheReceipt() async throws {
         let server = ScriptedReceiptServer()
         let model = model(server)
-        model.begin(file)
+        model.begin([file])
         await model.answerConsent(true)
         let sent = await server.uploads
         XCTAssertEqual(sent.map(\.consent), [true])
@@ -223,7 +223,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
     func testConfirmingSendsOnlyTheAnswersThenRecordsThePreviewedRequestWithItsToken() async throws {
         let server = ScriptedReceiptServer()
         let model = model(server)
-        model.begin(file)
+        model.begin([file])
         await model.answerConsent(true)
         var draft = try XCTUnwrap(review(model))
         draft.accountID = UUID(uuidString: accountID)
@@ -247,7 +247,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
         let server = ScriptedReceiptServer()
         await server.set(acceptFailures: 1)
         let model = model(server)
-        model.begin(file)
+        model.begin([file])
         await model.answerConsent(true)
         var draft = try XCTUnwrap(review(model))
         draft.accountID = UUID(uuidString: accountID)
@@ -269,7 +269,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
         let server = ScriptedReceiptServer()
         await server.set(previewReady: false)
         let model = model(server)
-        model.begin(file)
+        model.begin([file])
         await model.answerConsent(true)
         var draft = try XCTUnwrap(review(model))
         draft.accountID = UUID(uuidString: accountID)
@@ -283,7 +283,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
     func testAnIncompleteReviewCannotBeConfirmed() async throws {
         let server = ScriptedReceiptServer()
         let model = model(server)
-        model.begin(file)
+        model.begin([file])
         await model.answerConsent(true)
         await model.confirm()
         XCTAssertNotNil(review(model), "no account chosen, nothing happens")
@@ -294,7 +294,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
     func testAnAlreadyRecordedPurchaseTakesTheReceiptInsteadOfANewExpense() async throws {
         let server = ScriptedReceiptServer(open: [fixtureEvent(account: accountID, matches: [activityID])])
         let model = model(server)
-        model.begin(file)
+        model.begin([file])
         await model.answerConsent(true)
         let draft = try XCTUnwrap(review(model))
         XCTAssertEqual(draft.existingMatch, UUID(uuidString: activityID))
@@ -309,7 +309,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
     func testAFailedReadingWaitsForThePersonToAskAgain() async throws {
         let server = ScriptedReceiptServer(statuses: ["preparing", "needs_attention"])
         let model = model(server)
-        model.begin(file)
+        model.begin([file])
         await model.answerConsent(true)
         XCTAssertEqual(model.phase, .failed(.couldNotRead))
         let before = await server.prepares
@@ -323,7 +323,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
     func testALongReadingStopsWaitingAndAReopenPicksItUp() async throws {
         let server = ScriptedReceiptServer(statuses: ["preparing"])
         let model = model(server, pollLimit: 3)
-        model.begin(file)
+        model.begin([file])
         await model.answerConsent(true)
         XCTAssertEqual(model.phase, .stillPreparing("doc-1"))
         await server.set(statuses: ["review_ready"])
@@ -345,7 +345,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
         let server = ScriptedReceiptServer()
         await server.set(uploadFailure: SessionFailure.unavailable)
         let model = model(server)
-        model.begin(file)
+        model.begin([file])
         await model.answerConsent(true)
         XCTAssertEqual(model.phase, .failed(.couldNotSend(.couldNotSave)))
         await server.set(uploadFailure: nil)
@@ -364,6 +364,32 @@ final class ReceiptJourneyModelTests: XCTestCase {
         XCTAssertNil(other, "a movement typed by hand has no receipt")
         let data = await model.source(document)
         XCTAssertEqual(data, Data("%PDF".utf8))
+    }
+
+    func testSeveralFilesShareOneAnswerAndAreReviewedOneAfterAnother() async throws {
+        let server = ScriptedReceiptServer()
+        let model = model(server)
+        model.begin([file, (data: Data([0x89, 0x50, 0x4E, 0x47]), name: "Segundo.png", pdf: false)])
+        XCTAssertEqual(model.phase, .consent, "one question for the whole capture")
+        await model.answerConsent(true)
+        let sent = await server.uploads
+        XCTAssertEqual(sent.map(\.filename), ["Ticket.jpg", "Segundo.png"])
+        XCTAssertEqual(sent.map(\.consent), [true, true], "the answer covers every file")
+        XCTAssertNotNil(review(model), "the first receipt opens for review")
+        XCTAssertEqual(model.waiting.count, 1)
+        await model.next()
+        XCTAssertNotNil(review(model), "the second receipt follows")
+        XCTAssertTrue(model.waiting.isEmpty)
+    }
+
+    func testDecliningSavesEveryFileWithoutReading() async {
+        let server = ScriptedReceiptServer()
+        let model = model(server)
+        model.begin([file, file])
+        await model.answerConsent(false)
+        XCTAssertEqual(model.phase, .savedOnly(alreadySaved: false))
+        let sent = await server.uploads
+        XCTAssertEqual(sent.map(\.consent), [false, false])
     }
 
     func testChangesCarryOnlyWhatDiffers() {

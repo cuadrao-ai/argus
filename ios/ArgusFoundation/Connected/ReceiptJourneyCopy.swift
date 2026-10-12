@@ -77,6 +77,10 @@ struct ReceiptJourneyCopy {
         spanish ? "Esta cuenta necesita un saldo confirmado antes de este gasto. Revísala y vuelve a intentarlo."
                 : "This account needs a confirmed balance before this expense. Check it and try again."
     }
+    func nextReceipt(_ count: Int) -> String {
+        spanish ? (count == 1 ? "Revisar el siguiente recibo" : "Revisar el siguiente (quedan \(count))")
+                : (count == 1 ? "Review the next receipt" : "Review the next one (\(count) left)")
+    }
     var viewReceipt: String { spanish ? "Ver recibo" : "View receipt" }
     var backToReview: String { spanish ? "Volver a revisar" : "Back to review" }
     var retry: String { spanish ? "Reintentar" : "Try again" }

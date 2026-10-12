@@ -151,6 +151,8 @@ final class ReceiptJourneyModel: ObservableObject {
     @Published private(set) var phase = ReceiptJourneyPhase.idle
     /// The same accounts and categories the movement editor offers.
     @Published private(set) var options: FinancialActivityOptions?
+    /// Receipts from the same capture still to review, in order.
+    @Published private(set) var waiting: [String] = []
     var sessionChanged: ((SessionSnapshot) -> Void)?
 
     private let transport: any ReceiptJourneyTransport
@@ -160,7 +162,9 @@ final class ReceiptJourneyModel: ObservableObject {
     private let timeZone: TimeZone
     private var identity: SessionSnapshot?
     private var ticket = UUID()
-    private var held: (data: Data, name: String, pdf: Bool)?
+    private var held: [(data: Data, name: String, pdf: Bool)] = []
+    private var sent: [String] = []
+    private var consented = false
     private var connectionID: String?
     private var acceptKey: (eventID: String, key: UUID)?
 
@@ -183,29 +187,41 @@ final class ReceiptJourneyModel: ObservableObject {
     }
 
     func reset() {
-        ticket = UUID(); phase = .idle; held = nil; connectionID = nil; acceptKey = nil; options = nil
+        ticket = UUID(); phase = .idle; held = []; sent = []; waiting = []; connectionID = nil; acceptKey = nil; options = nil
     }
 
-    /// A captured file waits for the person's answer about reading.
-    func begin(_ file: (data: Data, name: String, pdf: Bool)) {
+    /// Captured files wait for the person's answer about reading. One answer covers every file of the capture.
+    func begin(_ files: [(data: Data, name: String, pdf: Bool)]) {
         reset()
-        held = file
+        guard !files.isEmpty else { return }
+        held = files
         phase = .consent
     }
 
-    /// Yes sends the file with consent and follows the reading. No saves it privately and stops there.
+    /// Yes sends every file with consent and follows the first reading; the rest wait their turn. No saves them
+    /// privately and stops there. After a failure, only the files not yet sent are sent again.
     func answerConsent(_ allowed: Bool) async {
-        guard phase == .consent || isSendFailure, let identity, let file = held else { return }
+        guard phase == .consent || isSendFailure, let identity, !held.isEmpty else { return }
         let mine = ticket
+        if phase == .consent { consented = allowed }
+        let allowed = consented
         phase = .sending
         do {
-            let capture = try await transport.upload(file.data, mediaType: SavedReceiptsModel.mediaType(file), filename: file.name,
-                                                     consent: allowed, identity: identity)
-            guard mine == ticket else { return }
-            held = nil
-            connectionID = capture.connectionID
-            guard allowed else { phase = .savedOnly(alreadySaved: capture.replayed); return }
-            await follow(capture.connectionID, mine: mine)
+            var replayed = true
+            while let file = held.first {
+                let capture = try await transport.upload(file.data, mediaType: SavedReceiptsModel.mediaType(file), filename: file.name,
+                                                         consent: allowed, identity: identity)
+                guard mine == ticket else { return }
+                held.removeFirst()
+                sent.append(capture.connectionID)
+                replayed = replayed && capture.replayed
+            }
+            guard allowed else { phase = .savedOnly(alreadySaved: replayed); return }
+            let first = sent.removeFirst()
+            waiting = sent
+            sent = []
+            connectionID = first
+            await follow(first, mine: mine)
         } catch {
             guard mine == ticket, !(await identityChanged(mine)) else { return }
             phase = .failed(.couldNotSend(SavedReceiptFailure(error)))
@@ -217,6 +233,15 @@ final class ReceiptJourneyModel: ObservableObject {
         reset()
         self.connectionID = connectionID
         await follow(connectionID, mine: ticket)
+    }
+
+    /// Moves to the next receipt of the same capture.
+    func next() async {
+        guard !waiting.isEmpty else { return }
+        var rest = waiting
+        let id = rest.removeFirst()
+        await open(id)
+        waiting = rest
     }
 
     /// A new reading after a failed one. It is a fresh provider attempt, so it happens only when the person asks.

@@ -66,7 +66,7 @@ extension FinancialLoopUITests {
     func testStagingReceiptJourneyRecordsTheExpenseWithItsReceipt() throws {
         try signIn()
         app.terminate()
-        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "--cuadrao-saved-receipts", "--cuadrao-synthetic-receipt"]
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "--cuadrao-release-gates", "--cuadrao-saved-receipts", "--cuadrao-synthetic-receipt"]
         app.launch()
         let add = app.buttons["nav.add"]
         XCTAssertTrue(add.waitForExistence(timeout: 30))

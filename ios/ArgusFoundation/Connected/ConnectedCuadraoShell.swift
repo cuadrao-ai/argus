@@ -223,11 +223,10 @@ struct ConnectedCuadraoShell: View {
         }
     }
 
-    /// One file goes through the receipt journey, which asks before anything is read. Several files are saved
-    /// privately without reading, as before.
+    /// Captured files go through the receipt journey, which asks once before any of them is read.
     private func keep(_ files: [(data: Data, name: String, pdf: Bool)]) {
-        if files.count == 1, let journey = auth.receiptJourney {
-            journey.begin(files[0])
+        if let journey = auth.receiptJourney {
+            journey.begin(files)
         } else {
             Task { await auth.savedReceipts?.save(files) }
         }
