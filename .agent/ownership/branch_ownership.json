@@ -619,6 +619,39 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-expense-period-20261012": {
+      "description": "Expenses and the home take a period of this month, last month, last 30 days, all, or a typed range; a saved expense the period leaves out is named with its date and a way to show it, never left to look vanished.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/domain/business/ledger.py",
+        "src/argus/domain/business/service.py",
+        "tests/business/test_business_overview_period.py",
+        "web/__tests__/business-period.test.ts",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
+        "web/components/business-app/BusinessOverviewPanel.tsx",
+        "web/components/business-app/BusinessPeriodControl.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/OutsidePeriodNote.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/business-data.ts",
+        "web/components/business-app/business-format.ts",
+        "web/components/business-app/fixture-data.ts",
+        "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-grant-rebind-20261012": {
       "description": "Known limit B: a receipt bound to a revoked and re-issued grant is bound again by one owner action with a ledger row, then prepared under the current grant. Tiny: one service method, one route, one migration line, one web button.",
       "base_ref": "origin/codex/private-alpha-next",

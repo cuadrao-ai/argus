@@ -29,7 +29,7 @@ import {
 } from "@/lib/business-api";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
-import { periodRange, type Period } from "./business-format";
+import { periodRange, type Period, type PeriodKey } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
 import BusinessSidebarNav from "./BusinessSidebarNav";
 import BusinessCreateMenu from "./BusinessCreateMenu";
@@ -69,7 +69,7 @@ export type BusinessContextValue = Readonly<{
   revision: number;
   reload: () => void;
   period: Period;
-  setPeriod: (key: Period["key"]) => void;
+  setPeriod: (next: PeriodKey | Period) => void;
   panel: BusinessPanelState;
   openPanel: (panel: BusinessPanelState) => void;
   actions: BusinessActions;
@@ -158,8 +158,8 @@ export function BusinessWorkspaceProvider({
   useEffect(() => {
     if (directRecord && panel.kind !== "receipt" && panel.kind !== "draft") setDirectRecord(false);
   }, [directRecord, panel.kind]);
-  const [periodKey, setPeriodKey] = useState<Period["key"]>("this_month");
-  const period = useMemo(() => periodRange(periodKey), [periodKey]);
+  const [period, setPeriodState] = useState<Period>(() => periodRange("this_month"));
+  const setPeriod = useCallback((next: PeriodKey | Period) => setPeriodState(typeof next === "string" ? periodRange(next) : next), []);
   const [records, setRecords] = useState<Records>({
     workspace: null,
     overview: null,
@@ -275,7 +275,7 @@ export function BusinessWorkspaceProvider({
       revision,
       reload,
       period,
-      setPeriod: setPeriodKey,
+      setPeriod,
       panel,
       openPanel,
       actions,
@@ -283,7 +283,7 @@ export function BusinessWorkspaceProvider({
       attachedReceipt,
       clearAttachedReceipt: () => setAttachedReceipt(null),
     }),
-    [actions, attachedReceipt, bridge, openPanel, panel, period, records, reload, revision, source],
+    [actions, attachedReceipt, bridge, openPanel, panel, period, records, reload, revision, setPeriod, source],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace);
@@ -292,7 +292,7 @@ export function BusinessWorkspaceProvider({
     chatAvailable,
     accounts: records.workspace?.accounts ?? NO_ACCOUNTS,
     openPanel,
-    setPeriod: setPeriodKey,
+    setPeriod,
   });
 
   const composerPlaceholder = records.workspace?.assistant_available

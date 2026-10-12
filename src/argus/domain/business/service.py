@@ -340,8 +340,9 @@ class BusinessService:
 
     # --- Expenses ---------------------------------------------------------
     def expenses(
-        self, scope: BusinessScope, start: date, end: date
+        self, scope: BusinessScope, start: date, end: date | None = None
     ) -> list[dict[str, Any]]:
+        end = end if end is not None else ledger.today()
         return self._expenses(scope, self._activities(scope), start, end)
 
     def _expenses(
@@ -433,14 +434,28 @@ class BusinessService:
             raise IdempotencyConflict()
         return _wire(recorded[0])
 
-    def overview(self, scope: BusinessScope, start: date, end: date) -> dict[str, Any]:
+    def overview(
+        self, scope: BusinessScope, start: date, end: date | None = None
+    ) -> dict[str, Any]:
+        today = ledger.today()
+        end = end if end is not None else today
         receipts = self.receipts(scope)
         activities = self._activities(scope)
         recorded = ledger.recorded_at(activities)
+        outside = [
+            item
+            for item in ledger.expenses(activities, {}, date.min, date.max)
+            if not start <= item["occurred_on"] <= end
+        ]
         return {
             "from": start,
             "to": end,
+            "today": today,
             "totals": ledger.totals(ledger.expenses(activities, {}, start, end)),
+            "outside_period_count": len(outside),
+            "outside_period_latest_on": max(
+                (item["occurred_on"] for item in outside), default=None
+            ),
             "awaiting_review": sum(r.status in AWAITING_REVIEW for r in receipts),
             "needs_attention": sum(r.status == "needs_attention" for r in receipts),
             "last_received_at": max((r.draft.created_at for r in receipts), default=None),

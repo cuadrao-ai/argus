@@ -7,12 +7,14 @@ import type { BusinessExpense } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatDay, formatMoney } from "./business-format";
 import { cardClass, LoadingRows, PanelHeading, secondaryButtonClass, useCategoryLabel } from "./business-ui";
+import BusinessPeriodControl from "./BusinessPeriodControl";
+import OutsidePeriodNote from "./OutsidePeriodNote";
 
 export default function BusinessExpensesPanel() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
-  const { source, revision, period, records, panel, openPanel, actions } = useBusiness();
+  const { source, revision, period, setPeriod, records, panel, openPanel, actions } = useBusiness();
   const found = panel.kind === "expenses" ? panel.expenseId : undefined;
   const [items, setItems] = useState<BusinessExpense[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -40,7 +42,7 @@ export default function BusinessExpensesPanel() {
         title={t("business.expenses.title", "Expenses")}
         subtitle={t("business.expenses.subtitle", "Saved expenses from {{from}} to {{to}}.", {
           from: formatDay(period.from, locale),
-          to: formatDay(period.to, locale),
+          to: formatDay(period.to ?? records.overview?.to ?? period.from, locale),
         })}
         action={
           record ? (
@@ -50,6 +52,10 @@ export default function BusinessExpensesPanel() {
           ) : null
         }
       />
+      <div className="mb-4">
+        <BusinessPeriodControl period={period} setPeriod={setPeriod} />
+        {records.overview ? <OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /> : null}
+      </div>
       {failed ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.expenses.error", "We couldn't load your expenses. Try again.")}

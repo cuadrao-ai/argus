@@ -2527,6 +2527,14 @@
       "title": "Tu negocio"
     },
     "period": {
+      "all": "Todo",
+      "custom": "Personalizado",
+      "from": "Desde",
+      "to": "Hasta",
+      "apply": "Ver",
+      "outside_one": "{{count}} gasto guardado fuera de este período, el {{date}}.",
+      "outside_other": "{{count}} gastos guardados fuera de este período, el último el {{date}}.",
+      "show_all": "Ver todos",
       "label": "Período",
       "last_30_days": "Últimos 30 días",
       "last_month": "Mes pasado",

@@ -346,8 +346,10 @@ export function createFixtureBusinessDataSource(
         },
       };
     },
-    overview: async (from, to) => {
+    overview: async (from, end) => {
       await delay();
+      const today = new Date().toISOString().slice(0, 10);
+      const to = end ?? today;
       const inPeriod = expenses.filter(
         (item) => item.occurred_on >= from && item.occurred_on <= to,
       );
@@ -362,12 +364,15 @@ export function createFixtureBusinessDataSource(
       return {
         from,
         to,
+        today,
         totals: [...byCurrency.entries()].map(([currency, total]) => ({
           currency,
           amount: total.amount.toFixed(2),
           count: total.count,
         })),
         needs_attention: receipts.filter((item) => item.status === "needs_attention").length,
+        outside_period_count: expenses.length - inPeriod.length,
+        outside_period_latest_on: expenses.filter((item) => !inPeriod.includes(item)).map((item) => item.occurred_on).sort().at(-1) ?? null,
         last_received_at: receipts[0]?.received_at ?? null,
         last_confirmed_at: daysAgo(6),
       };
@@ -407,8 +412,9 @@ export function createFixtureBusinessDataSource(
         }));
       return items;
     },
-    expenses: async (from, to) => {
+    expenses: async (from, end) => {
       await delay();
+      const to = end ?? new Date().toISOString().slice(0, 10);
       return expenses
         .filter((item) => item.occurred_on >= from && item.occurred_on <= to)
         .sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));

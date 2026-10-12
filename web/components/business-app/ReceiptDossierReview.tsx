@@ -125,7 +125,7 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
 
 export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftId: string; onUnprepared?: () => void }) {
   const { t, i18n } = useTranslation();
-  const { source, openPanel, reload, period } = useBusiness();
+  const { source, openPanel, reload, period, records } = useBusiness();
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [operation, setOperation] = useState<Operation>({ kind: "idle" });
@@ -276,7 +276,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
           {editing && operation.kind === "uncertain" && operation.action === "save" ? <div className={cardClass}><h3 className="mb-5 text-[14px] font-medium text-black dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
           {canPrepare && mutable && !editing && !dirty ? <button type="button" className={secondaryButtonClass} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
-          <ReceiptPeriodExport key={dossier.draft_id} dossier={dossier} start={period.from} end={period.to} available={source.mode === "live"} />
+          <ReceiptPeriodExport key={dossier.draft_id} dossier={dossier} start={period.from} end={period.to ?? records.overview?.to ?? period.from} available={source.mode === "live"} />
           <ReceiptApprovalGuidance dossier={dossier} />
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
           <div className={cardClass}>
