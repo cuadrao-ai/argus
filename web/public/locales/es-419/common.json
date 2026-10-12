@@ -2380,14 +2380,31 @@
       "paste": "Pegar",
       "clipboard_empty": "No hay una imagen o PDF de recibo para pegar. Copia uno primero o elige un archivo.",
       "failed": "No pudimos guardar este recibo. Revisa tu conexión y reintenta. No se guardará dos veces.",
-      "formats": "PDF, JPG o PNG, hasta {{size}} MB. El original es privado para ti.",
+      "formats": "{{formats}}, hasta {{size}} MB. El original es privado para ti.",
       "heic": "Esta es una foto HEIC de iPhone. Súbela desde el navegador de tu iPhone, que la convierte, o expórtala como JPG primero.",
       "replace": "Elegir otro",
       "save": "Guardar en la Bandeja",
       "saving": "Guardando…",
       "title": "Subir recibo",
+      "queue_title": "Subir recibos",
+      "busy": "Espera a que termine la subida actual antes de agregar archivos.",
+      "review_saved": "Revisar los recibos guardados",
+      "save_pending": "Guardar los archivos pendientes",
+      "drop_multiple": "Suelta tus recibos aquí.",
+      "choose_multiple": "Elegir archivos",
+      "remove_file": "Quitar {{name}} de esta lista",
+      "retry_consent": "Al reintentar se mantiene la opción de IA del primer intento.",
+      "keep_open": "Puedes cerrar este panel y volver a tus subidas. Mantén la página abierta hasta que se guarde cada archivo.",
+      "open_queue": "Subidas ({{count}})",
+      "queue_status": {
+        "queued": "Listo para subir",
+        "uploading": "Guardando…",
+        "saved": "Guardado en la Bandeja",
+        "failed": "No se guardó. Reintenta.",
+        "rejected": "No se puede subir"
+      },
       "too_large": "Este archivo pesa más de {{size}} MB. Usa una foto o un PDF más pequeño.",
-      "unsupported": "Este tipo de archivo no es compatible. Usa un PDF, JPG o PNG."
+      "unsupported": "Este tipo de archivo no es compatible. Usa {{formats}}."
     },
     "nav": {
       "expenses": "Gastos",
