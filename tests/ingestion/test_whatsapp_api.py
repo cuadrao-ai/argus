@@ -173,7 +173,7 @@ def wa_client(
         TestClient(app) as test_client,
     ):
         runtime = whatsapp_runtime()
-        assert runtime is not None and runtime.intake.transport is None
+        assert runtime is not None and not runtime.intake.send_enabled()
         configure_whatsapp(
             build_whatsapp(
                 runtime.settings,

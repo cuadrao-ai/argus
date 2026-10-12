@@ -79,7 +79,9 @@ export type ReceiptEvidenceLine = {
   amount: DecimalString | null;
 };
 
-export type ReceiptDetail = ReceiptSummary & BusinessRecordContext & {
+export type ReceiptDetail = ReceiptSummary & {
+  /** The Business this receipt belongs to and what the caller may do there; null when the API cannot say. */
+  record_context: BusinessRecordContext | null;
   draft_id: string | null;
   version: number;
   evidence: {

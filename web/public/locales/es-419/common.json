@@ -1025,7 +1025,19 @@
       "problem_unavailable": "WhatsApp todavía no está disponible.",
       "problem_space_missing": "Primero crea tu espacio de negocio y luego vincula tu número.",
       "problem_rate_limited": "Demasiados códigos. Espera unos minutos e inténtalo de nuevo.",
-      "problem_failed": "No pudimos conectar con WhatsApp. Inténtalo de nuevo."
+      "problem_failed": "No pudimos conectar con WhatsApp. Inténtalo de nuevo.",
+      "problem_stale": "La permisión cambió desde la última vez. Lee el texto de nuevo y vuelve a intentarlo.",
+      "ai_title": "Permitir que la IA lea mis mensajes de WhatsApp",
+      "ai_on": "Activado. Puedes desactivarlo cuando quieras.",
+      "ai_off": "Desactivado. Cuadrao todavía no puede responder tus mensajes.",
+      "ai_models": "Proveedor: OpenRouter. Modelos: {{models}}.",
+      "ai_approval": "Tú siempre apruebas los registros de dinero en Cuadrao.",
+      "ai_reason_unavailable": "Ahora no se puede activar la lectura con IA.",
+      "ai_reason_whatsapp_link_required": "Primero vincula tu número.",
+      "ai_reason_business_permission_denied": "Tu cuenta no tiene permiso para activarla en este negocio.",
+      "ai_reason_business_unavailable": "Primero crea tu espacio de negocio.",
+      "ai_reason_whatsapp_unavailable": "WhatsApp todavía no está disponible.",
+      "ai_reason_whatsapp_ai_route_unavailable": "El servicio de IA no está disponible ahora. Inténtalo más tarde."
     },
     "title": "Ajustes",
     "profile": {
@@ -2202,6 +2214,10 @@
       "limit_error": "La exportación supera un límite del paquete. Elige un período más corto.",
       "error": "No se pudo descargar la exportación. Revisa tu acceso e inténtalo de nuevo.",
       "preview": "Las descargas están disponibles en la vista conectada del negocio."
+    },
+    "panel": {
+      "crashed": "Esta parte no se pudo mostrar. Tus recibos están guardados.",
+      "retry": "Intentar de nuevo"
     },
     "dossier": {
       "read_purchases_title": "Compras leídas en este recibo",

@@ -89,7 +89,13 @@ class BusinessCaptureStore:
                 raise ValueError("whatsapp_message_identity_conflict")
             return True
 
-    def pending(self, *, limit: int = 16) -> list[tuple[UUID, str, bytes]]:
+    def pending(
+        self, *, limit: int = 16, include_unsent: bool = True
+    ) -> list[tuple[UUID, str, bytes]]:
+        """The oldest open message of each sender. A message whose reply is saved
+        but not sent stays open only while sending is on; with sending off it
+        would be picked again every second and hide every newer sender."""
+
         if not 1 <= limit <= 100:
             raise ValueError("invalid worker batch limit")
         with self.pool.connection() as connection:
@@ -98,9 +104,15 @@ class BusinessCaptureStore:
                 " select distinct on (i.destination_space_id,i.sender_hash) i.destination_space_id,"
                 " i.sender_hash,i.provider_message_key,i.arrival_sequence"
                 " from public.whatsapp_inbound_messages i where i.transport_envelope is not null"
-                " and (i.composition_state in ('not_started','started') or exists ("
-                " select 1 from public.whatsapp_outbox o where o.provider_message_key=i.provider_message_key"
-                " and o.state in ('pending','sending')))"
+                " and (i.composition_state in ('not_started','started')"
+                + (
+                    " or exists ("
+                    " select 1 from public.whatsapp_outbox o where o.provider_message_key=i.provider_message_key"
+                    " and o.state in ('pending','sending'))"
+                    if include_unsent
+                    else ""
+                )
+                + ")"
                 " order by i.destination_space_id,i.sender_hash,i.arrival_sequence"
                 " ) heads order by arrival_sequence limit %s",
                 (limit,),
