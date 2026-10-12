@@ -19,14 +19,13 @@ from tests.test_business_spaces_migration_postgres import connection
 
 actions = shared.actions
 users = shared.users
-prepared = shared.prepared
 pytestmark = shared.pytestmark
 
 
-def _another_receipt(prepared, content: bytes, merchant: str = "Synthetic shop"):  # noqa: ANN001
-    """A second document with other bytes whose read gives the same facts."""
+def _receipt(actions, content: bytes, merchant: str = "Synthetic shop"):  # noqa: ANN001
+    """A saved document whose read gives one dated purchase of 250.50 DOP."""
 
-    service, context, grant, _, _, _ = prepared
+    service, context, grant = actions
     digest = sha256(content).hexdigest()
     now = datetime.now(timezone.utc)
     holder = str(uuid4())
@@ -34,7 +33,7 @@ def _another_receipt(prepared, content: bytes, merchant: str = "Synthetic shop")
         cid = connection(db, context.owner_id, context.actor.space_id)
         draft = DocumentDraft(
             connection_id=cid,
-            filename="otra-foto.txt",
+            filename="foto.txt",
             media_type="text/plain",
             sha256=digest,
             size_bytes=len(content),
@@ -54,6 +53,7 @@ def _another_receipt(prepared, content: bytes, merchant: str = "Synthetic shop")
                         evidence="transaction",
                         amount="250.50",
                         currency="DOP",
+                        occurred_on="2026-10-11",
                         direction="outflow",
                         kind_hint="expense",
                         merchant=merchant,
@@ -80,7 +80,8 @@ def _another_receipt(prepared, content: bytes, merchant: str = "Synthetic shop")
             }
         )
         db.execute(
-            "insert into public.financial_document_extractions (connection_id,user_id,draft,source_bytes,batch) values (%s,%s,%s,%s,%s)",
+            "insert into public.financial_document_extractions"
+            " (connection_id,user_id,draft,source_bytes,batch) values (%s,%s,%s,%s,%s)",
             (
                 cid,
                 context.owner_id,
@@ -90,7 +91,8 @@ def _another_receipt(prepared, content: bytes, merchant: str = "Synthetic shop")
             ),
         )
         db.execute(
-            "update public.financial_source_connections set lease_holder=%s, lease_until=%s where id=%s",
+            "update public.financial_source_connections set lease_holder=%s,"
+            " lease_until=%s where id=%s",
             (holder, now + timedelta(minutes=3), cid),
         )
     return service, context, grant, cid, holder, batch
@@ -105,13 +107,14 @@ def _event(service, event_id):  # noqa: ANN001
 
 
 def test_the_second_receipt_with_the_same_read_is_marked_and_the_first_stays_clean(
-    prepared,
+    actions,
 ) -> None:  # noqa: ANN001
-    service, context, _, _, _, _ = prepared
-    shared.bind(prepared)
-    first = shared.finish(prepared)
+    service, context, _ = actions
+    original = _receipt(actions, b"synthetic receipt 250.50 DOP")
+    shared.bind(original)
+    first = shared.finish(original)
     assert first.outcome == "applied", first
-    second_receipt = _another_receipt(prepared, b"the same receipt, photographed again")
+    second_receipt = _receipt(actions, b"the same receipt, photographed again")
     shared.bind(second_receipt)
     second = shared.finish(second_receipt)
     assert second.outcome == "applied", second
@@ -129,12 +132,12 @@ def test_the_second_receipt_with_the_same_read_is_marked_and_the_first_stays_cle
         b.code for b in service.dossier(context, first.draft_id).blockers
     ]
     # A retried preparation of the original replays its receipt and never marks it.
-    again = shared.finish(prepared)
+    again = shared.finish(original)
     assert again.outcome in ("applied", "replayed")
     assert _event(service, first.draft_id) == (None, [], None)
     # A different merchant with the same amount and date is not a repeat.
-    third_receipt = _another_receipt(
-        prepared, b"another shop, same amount", merchant="Otra tienda"
+    third_receipt = _receipt(
+        actions, b"another shop, same amount", merchant="Otra tienda"
     )
     shared.bind(third_receipt)
     third = shared.finish(third_receipt)
