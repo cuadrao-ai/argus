@@ -95,7 +95,7 @@ class DocumentsDestination:
         content: bytes,
         filename: str,
         media_type: str,
-        source_text: str | None,
+        source_text: str | None = None,
     ) -> Captured:
         # A link needs a space, so an owner without one has no link to send through.
         scope = resolve_business_scope(self.spaces, owner_id)
