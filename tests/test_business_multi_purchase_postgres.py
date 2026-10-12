@@ -26,8 +26,8 @@ from argus.domain.recording.money_reads import current_activities
 from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
-from tests import test_financial_accounts_postgres as accounts
 from tests import test_business_attachment_preparation_postgres as bridge
+from tests import test_financial_accounts_postgres as accounts
 from tests.test_business_spaces_migration_postgres import connection
 
 actions = shared.actions
