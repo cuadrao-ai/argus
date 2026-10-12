@@ -112,7 +112,7 @@ def test_webhook_is_absent_when_receiving_is_off(
 
 
 def test_owner_sees_readiness_and_in_memory_app_cannot_mint_an_address(
-    alice: Owner,
+    alice: Owner,  # noqa: F811
     runtime,  # noqa: F811
 ) -> None:  # noqa: F811
     status = alice.get("/email")
