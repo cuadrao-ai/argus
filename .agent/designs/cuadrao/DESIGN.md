@@ -735,6 +735,15 @@ a receipt tray underneath it. After the original is saved, close capture before
 opening the review sheet. Cancel before acquisition returns to the originating
 screen without a receipt. An unfinished expense keeps its edits on return.
 
+AI reading is asked once per account, in a half sheet beside the receipt's thumbnail: a
+short question, two lines naming Google Gemini, then **Leer / Read** and **Solo guardar /
+Save only**. After a yes, each receipt shows only those two buttons. The long explanation
+lives under the **Leer recibos con IA / Read receipts with AI** toggle in Datos y
+privacidad; turning it off brings the question back. Waiting and failures keep the
+thumbnail with a short title and one plain line ([Lovi](https://mobbin.com/screens/378bedf0-ea07-4fcd-b005-985f0f1bd0a1),
+[Claude settings](https://mobbin.com/screens/1c9fbd84-3e16-410b-ac22-0b8a50a401dd),
+[Alan](https://mobbin.com/screens/714b9f3a-e212-4295-8ca5-85ca0452a47f)).
+
 Capture saves a draft and opens a compact review. **Después / Later** lets the person
 leave immediately; leaving never confirms an expense. A personal import can remain
 without a currency until review. Choose its currency once before editing amounts

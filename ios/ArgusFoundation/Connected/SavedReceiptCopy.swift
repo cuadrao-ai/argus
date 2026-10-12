@@ -26,6 +26,10 @@ struct SavedReceiptCopy {
     var limitReached: String {
         spanish ? "Llegaste al límite de recibos por ahora. Inténtalo más tarde." : "You reached the receipt limit for now. Try again later."
     }
+    var offline: String {
+        spanish ? "Sin conexión. El recibo sigue en este iPhone; inténtalo cuando vuelva la conexión."
+                : "No connection. The receipt is still on this iPhone; try again when you are back online."
+    }
     var couldNotSave: String { spanish ? "No pudimos guardar el recibo." : "We could not save the receipt." }
     var retry: String { spanish ? "Reintentar" : "Try again" }
     var view: String { spanish ? "Ver" : "View" }
@@ -62,6 +66,7 @@ struct SavedReceiptCopy {
         case .couldNotDelete: couldNotDelete
         case .unusableFile: unusableFile
         case .scannerUnavailable: scannerUnavailable
+        case .offline: offline
         }
     }
 }

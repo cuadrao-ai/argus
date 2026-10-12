@@ -48,7 +48,9 @@ extension FinancialLoopUITests {
         XCTAssertTrue(add.waitForExistence(timeout: 20))
         add.tap()
         app.buttons["add.tray.chooseFile"].tap()
-        XCTAssertTrue(app.staticTexts["¿Leemos este recibo?"].waitForExistence(timeout: 10))
+        let question = app.descendants(matching: .any)["receipt.journey.consent"]
+        XCTAssertTrue(question.waitForExistence(timeout: 10))
+        XCTAssertTrue(question.label.contains("¿Leemos tus recibos con IA?"))
         capture("receipt-journey-consent-es")
         app.buttons["receipt.journey.cancel"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["receipt.journey"].waitForNonExistence(timeout: 10), "cancel closes without sending")

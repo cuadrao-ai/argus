@@ -9,6 +9,7 @@ struct ReceiptJourneySheet: View {
     let finished: () -> Void
     @State private var correcting = false
     @State private var amountError = ""
+    @State private var detent = PresentationDetent.medium
 
     private var copy: ReceiptJourneyCopy { ReceiptJourneyCopy(spanish: spanish) }
 
@@ -25,8 +26,18 @@ struct ReceiptJourneySheet: View {
             .safeAreaInset(edge: .bottom, spacing: 0) { primary }
         }
         .tint(WelcomePalette.pine)
+        .presentationDetents([.medium, .large], selection: $detent)
+        .onChange(of: isLong, initial: true) { _, long in detent = long ? .large : .medium }
         .interactiveDismissDisabled(isBusy)
         .accessibilityIdentifier("receipt.journey")
+    }
+
+    /// Review needs the whole screen; choosing, waiting and outcomes fit a half sheet.
+    private var isLong: Bool {
+        switch model.phase {
+        case .review, .recording: true
+        default: false
+        }
     }
 
     private var isBusy: Bool {
@@ -40,7 +51,7 @@ struct ReceiptJourneySheet: View {
         switch model.phase {
         case .consent:
             CuadraoCancelToolbar(title: copy.cancel, identifier: "receipt.journey.cancel") { close() }
-        case .preparing, .stillPreparing, .review, .failed(.couldNotRead), .failed(.couldNotRecord):
+        case .preparing, .stillPreparing, .review, .failed(.couldNotRead), .failed(.couldNotRecord), .failed(.couldNotSend):
             CuadraoCancelToolbar(title: copy.later, identifier: "receipt.journey.later") { close() }
         case .recorded, .linked, .savedOnly, .failed:
             CuadraoDoneToolbar(title: copy.done, identifier: "receipt.journey.done") { close() }
@@ -54,14 +65,21 @@ struct ReceiptJourneySheet: View {
         case .idle:
             EmptyView()
         case .consent:
-            RegistrationHeading(title: copy.consentTitle, detail: copy.consentDetail)
-            Text(copy.consentSaveOnlyDetail).font(CuadraoTypography.caption).foregroundStyle(.secondary)
+            if model.readingAllowed {
+                header(copy.choiceTitle(model.preview?.count ?? 1), identifier: "receipt.journey.choice")
+            } else {
+                header(copy.consentTitle, identifier: "receipt.journey.consent")
+                Text(copy.consentDetail).font(CuadraoTypography.body).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("receipt.journey.disclosure")
+            }
         case .sending:
-            progress(copy.sending, detail: nil)
+            header(copy.sending, busy: true, identifier: "receipt.journey.progress")
         case .preparing:
-            progress(copy.reading, detail: copy.readingDetail)
+            header(copy.reading, busy: true, identifier: "receipt.journey.progress")
+            Text(copy.readingDetail).font(CuadraoTypography.caption).foregroundStyle(.secondary)
         case .stillPreparing:
-            notice(copy.stillReading, identifier: "receipt.journey.still")
+            header(copy.stillReadingTitle, identifier: "receipt.journey.still")
+            detail(copy.stillReading)
         case .review(let draft):
             review(draft)
         case .recording(let draft):
@@ -75,7 +93,9 @@ struct ReceiptJourneySheet: View {
             let saved = SavedReceiptCopy(spanish: spanish)
             outcome(alreadySaved ? saved.alreadySaved : saved.savedTitle, detail: saved.savedDetail, identifier: "receipt.journey.saved")
         case .failed(let failure):
-            notice(message(failure), identifier: "receipt.journey.failed")
+            let text = message(failure)
+            header(text.title, identifier: "receipt.journey.failed")
+            detail(text.detail)
         }
     }
 
@@ -83,7 +103,7 @@ struct ReceiptJourneySheet: View {
         switch model.phase {
         case .consent:
             buttons {
-                RegistrationButton(title: copy.consentRead) { Task { await model.answerConsent(true) } }
+                RegistrationButton(title: copy.read) { Task { await model.answerConsent(true) } }
                     .accessibilityIdentifier("receipt.journey.read")
                 Button(copy.consentSaveOnly) { Task { await model.answerConsent(false) } }
                     .frame(maxWidth: .infinity, minHeight: 44).accessibilityIdentifier("receipt.journey.saveOnly")
@@ -223,6 +243,19 @@ struct ReceiptJourneySheet: View {
         .accessibilityElement(children: .combine).accessibilityIdentifier(id)
     }
 
+    /// The receipt's thumbnail beside one line of state, so the person always sees which receipt this is.
+    private func header(_ title: String, busy: Bool = false, identifier: String) -> some View {
+        HStack(alignment: .center, spacing: 16) {
+            ReceiptThumbnail(preview: model.preview)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title).font(CuadraoTypography.section).fixedSize(horizontal: false, vertical: true)
+                if busy { ProgressView().accessibilityHidden(true) }
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine).accessibilityIdentifier(identifier)
+    }
+
     private func progress(_ title: String, detail: String?) -> some View {
         VStack(spacing: 12) {
             ProgressView()
@@ -237,18 +270,19 @@ struct ReceiptJourneySheet: View {
         RegistrationHeading(title: title, detail: detail).accessibilityIdentifier(identifier)
     }
 
-    private func notice(_ text: String, identifier: String) -> some View {
-        Text(text).font(CuadraoTypography.body).fixedSize(horizontal: false, vertical: true)
-            .accessibilityIdentifier(identifier)
+    /// A short title beside the receipt, and the plain explanation below it.
+    private func message(_ failure: ReceiptJourneyFailure) -> (title: String, detail: String) {
+        switch failure {
+        case .couldNotSend(.offline): (copy.offlineTitle, copy.offlineDetail)
+        case .couldNotSend(let reason): (copy.couldNotSendTitle, SavedReceiptCopy(spanish: spanish).failure(reason))
+        case .couldNotRead: (copy.couldNotReadTitle, copy.stillSaved)
+        case .nothingToRecord: (copy.nothingToRecordTitle, copy.stillSaved)
+        case .couldNotRecord(let code): (copy.couldNotRecord, copy.recordFailure(code))
+        }
     }
 
-    private func message(_ failure: ReceiptJourneyFailure) -> String {
-        switch failure {
-        case .couldNotSend(let reason): SavedReceiptCopy(spanish: spanish).failure(reason)
-        case .couldNotRead: copy.couldNotRead
-        case .nothingToRecord: copy.nothingToRecord
-        case .couldNotRecord(let code): copy.recordFailure(code)
-        }
+    private func detail(_ text: String) -> some View {
+        Text(text).font(CuadraoTypography.body).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
 
     private func binding<Value>(_ draft: ReceiptReviewDraft, _ path: WritableKeyPath<ReceiptReviewDraft, Value>) -> Binding<Value> {
@@ -299,5 +333,32 @@ private struct ReceiptJourneyPresentation: ViewModifier {
                 ReceiptJourneySheet(model: model, spanish: spanish, finished: {})
             }
         }
+    }
+}
+
+/// The captured receipt as a small card: the photo itself, or the document symbol for a PDF, with a count for several.
+struct ReceiptThumbnail: View {
+    let preview: ReceiptPreview?
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous).fill(WelcomePalette.surface)
+            if let data = preview?.image, let image = UIImage(data: data) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Image(systemName: "doc.text").font(.title2).foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 56, height: 72)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(WelcomePalette.separator, lineWidth: 0.5))
+        .overlay(alignment: .topTrailing) {
+            if let count = preview?.count, count > 1 {
+                Text("\(count)").font(.caption2.weight(.semibold)).monospacedDigit()
+                    .foregroundStyle(.white).padding(.horizontal, 6).frame(minWidth: 20, minHeight: 20)
+                    .background(Capsule().fill(WelcomePalette.pine)).offset(x: 6, y: -6)
+            }
+        }
+        .accessibilityHidden(true)
     }
 }

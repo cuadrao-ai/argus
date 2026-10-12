@@ -14,21 +14,25 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
     private var current = "sample-receipt"
     /// A file named "Duplicado…" reads as a purchase that is already recorded.
     private var duplicate = false
+    /// A file named "Ilegible…" cannot be read; "SinConexion…" never reaches the server.
+    private var unreadable = false
 
     /// Shares the sample file list, so a receipt saved here appears in Saved receipts.
     init(files: SampleSavedReceiptsTransport) { self.files = files }
 
     func upload(_ bytes: Data, mediaType: String, filename: String, consent: Bool, identity: SessionSnapshot) async throws -> SavedDocumentCapture {
+        if filename.hasPrefix("SinConexion") { throw URLError(.notConnectedToInternet) }
         let saved = try await files.save(bytes, mediaType: mediaType, filename: filename, identity: identity)
         reads = 0
         duplicate = filename.hasPrefix("Duplicado")
+        unreadable = filename.hasPrefix("Ilegible")
         return SavedDocumentCapture(connectionID: saved.connectionID, status: consent ? "queued" : "saved", replayed: saved.replayed)
     }
 
     func document(_ connectionID: String, identity: SessionSnapshot) async throws -> FinancialDocumentDetail {
         reads += 1
         current = connectionID
-        return try Self.decode(Self.document(connectionID, status: reads < 3 ? "preparing" : "review_ready"))
+        return try Self.decode(Self.document(connectionID, status: reads < 3 ? "preparing" : unreadable ? "needs_attention" : "review_ready"))
     }
 
     func prepare(_ connectionID: String, identity: SessionSnapshot) async throws -> SavedDocumentCapture {
@@ -164,10 +168,22 @@ enum SyntheticReceipt {
 struct ReceiptJourneyHarness: View {
     @StateObject private var model = ReceiptJourneyModel(
         transport: SampleReceiptJourneyTransport(files: SampleSavedReceiptsTransport()),
-        currentSession: { ReceiptJourneyHarness.session }, pause: { _ in try? await Task.sleep(for: .milliseconds(300)) })
+        currentSession: { ReceiptJourneyHarness.session }, pause: { _ in try? await Task.sleep(for: ReceiptJourneyHarness.readingStep) },
+        defaults: ReceiptJourneyHarness.defaults)
     @State private var result = ""
     @Environment(\.locale) private var locale
-    nonisolated private static let session = SessionSnapshot(phase: .authenticated, profile: nil, revision: 1)
+    nonisolated private static let session = SessionSnapshot(
+        phase: .authenticated, profile: try? JSONDecoder().decode(SessionProfile.self, from: Data(#"{"id":"harness"}"#.utf8)), revision: 1)
+    /// `--receipt-slow-reading` holds each poll long enough to see the reading state.
+    nonisolated private static let readingStep: Duration =
+        ProcessInfo.processInfo.arguments.contains("--receipt-slow-reading") ? .seconds(2) : .milliseconds(300)
+    /// Starts each launch unanswered; `--receipt-reading-allowed` starts as if reading was already allowed.
+    nonisolated(unsafe) private static let defaults: UserDefaults = {
+        let defaults = UserDefaults(suiteName: "receipt-journey-harness")!
+        defaults.removePersistentDomain(forName: "receipt-journey-harness")
+        if ProcessInfo.processInfo.arguments.contains("--receipt-reading-allowed") { defaults.set(true, forKey: "cuadrao.receiptReading.harness") }
+        return defaults
+    }()
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
 
     var body: some View {
@@ -180,6 +196,10 @@ struct ReceiptJourneyHarness: View {
                 model.begin([(SampleSavedReceiptsTransport.png("Primero"), "Primero.png", false),
                              (SampleSavedReceiptsTransport.png("Segundo"), "Segundo.png", false)])
             }.accessibilityIdentifier("harness.two")
+            Button("Unreadable") { model.begin([(SampleSavedReceiptsTransport.png("Ilegible"), "Ilegible.png", false)]) }
+                .accessibilityIdentifier("harness.unreadable")
+            Button("Offline") { model.begin([(SampleSavedReceiptsTransport.png("Sin conexión"), "SinConexion.png", false)]) }
+                .accessibilityIdentifier("harness.offline")
             Text(result).accessibilityIdentifier("harness.result")
         }
         .onAppear { model.bind(Self.session) }

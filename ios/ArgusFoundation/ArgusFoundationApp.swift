@@ -41,7 +41,7 @@ struct ArgusFoundationApp: App {
         } else if ProcessInfo.processInfo.arguments.contains("--captcha-harness") {
             CaptchaHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--receipt-journey-harness") {
-            ReceiptJourneyHarness()
+            ReceiptJourneyHarness().preferredColorScheme(appearance.colorScheme)
         } else {
             connectedContent
         }

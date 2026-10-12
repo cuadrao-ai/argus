@@ -174,6 +174,44 @@ final class ReceiptJourneyModelTests: XCTestCase {
         if case .review(let draft) = model.phase { draft } else { nil }
     }
 
+    private func signedIn(_ id: String, defaults: UserDefaults, server: ScriptedReceiptServer) throws -> ReceiptJourneyModel {
+        let profile = try JSONDecoder().decode(SessionProfile.self, from: Data(#"{"id":"\#(id)"}"#.utf8))
+        let snapshot = SessionSnapshot(phase: .authenticated, profile: profile, revision: 1)
+        let model = ReceiptJourneyModel(transport: server, currentSession: { snapshot }, pause: { _ in }, pollLimit: 10,
+                                        timeZone: TimeZone(identifier: "America/Santo_Domingo")!, defaults: defaults)
+        model.bind(snapshot)
+        return model
+    }
+
+    func testReadingIsAskedOnceRememberedPerAccountAndTurnedOffInSettings() async throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "receipt-reading-" + UUID().uuidString))
+        let server = ScriptedReceiptServer()
+        let alice = try signedIn("alice", defaults: defaults, server: server)
+        XCTAssertFalse(alice.readingAllowed, "the first receipt carries the disclosure")
+        alice.begin([file])
+        XCTAssertEqual(alice.preview, ReceiptPreview([file]), "the captured photo is shown while choosing")
+        await alice.answerConsent(true)
+        XCTAssertTrue(alice.readingAllowed)
+        XCTAssertNil(ReceiptPreview([]))
+
+        let again = try signedIn("alice", defaults: defaults, server: server)
+        XCTAssertTrue(again.readingAllowed, "the answer survives a relaunch")
+        XCTAssertFalse(try signedIn("bruno", defaults: defaults, server: server).readingAllowed, "another account is asked itself")
+
+        again.setReadingAllowed(false)
+        XCTAssertFalse(try signedIn("alice", defaults: defaults, server: server).readingAllowed, "Settings turns it off")
+    }
+
+    func testSavingOnlyLeavesTheQuestionForNextTime() async throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "receipt-reading-" + UUID().uuidString))
+        let model = try signedIn("alice", defaults: defaults, server: ScriptedReceiptServer())
+        model.begin([file])
+        await model.answerConsent(false)
+        XCTAssertFalse(model.readingAllowed, "one saved-only receipt is not a lasting answer")
+        model.reset()
+        XCTAssertNil(model.preview)
+    }
+
     func testACapturedFileWaitsForConsentAndNothingIsSentBeforeTheAnswer() async {
         let server = ScriptedReceiptServer()
         let model = model(server)

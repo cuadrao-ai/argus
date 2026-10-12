@@ -5,10 +5,11 @@ import XCTest
 final class ReceiptJourneyHarnessUITests: XCTestCase {
     private let app = XCUIApplication()
 
-    private func launch(_ language: String = "en") {
+    private func launch(_ language: String = "en", allowed: Bool = false, dark: Bool = false, slow: Bool = false) {
         continueAfterFailure = false
         let locale = language == "es" ? ["-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO"] : ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
-        app.launchArguments = locale + ["--receipt-journey-harness"]
+        app.launchArguments = locale + ["--receipt-journey-harness", "-appearancePreference", dark ? "dark" : "light"]
+            + (allowed ? ["--receipt-reading-allowed"] : []) + (slow ? ["--receipt-slow-reading"] : [])
         app.launch()
     }
 
@@ -28,8 +29,9 @@ final class ReceiptJourneyHarnessUITests: XCTestCase {
     func testConsentReadReviewChooseAccountAndConfirmSavesTheExpense() {
         launch()
         app.buttons["harness.receipt"].tap()
-        XCTAssertTrue(app.staticTexts["Should we read this receipt?"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.consent"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Google Gemini'")).firstMatch.exists, "names who reads it")
+        XCTAssertTrue(app.buttons["receipt.journey.saveOnly"].exists, "two choices only")
         capture("receipt-journey-consent")
         readUntilReview()
         XCTAssertTrue(app.descendants(matching: .any)["receipt.review.merchant"].label.contains("La Sirena"))
@@ -86,7 +88,8 @@ final class ReceiptJourneyHarnessUITests: XCTestCase {
     func testSpanishConsentAndLaterKeepsTheReceipt() {
         launch("es")
         app.buttons["harness.receipt"].tap()
-        XCTAssertTrue(app.staticTexts["¿Leemos este recibo?"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.consent"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Google Gemini lee la foto'")).firstMatch.exists)
         capture("receipt-journey-consent-es")
         app.buttons["receipt.journey.read"].tap()
         XCTAssertTrue(app.buttons["receipt.journey.later"].waitForExistence(timeout: 10))
@@ -108,5 +111,68 @@ final class ReceiptJourneyHarnessUITests: XCTestCase {
         next.tap()
         XCTAssertTrue(app.descendants(matching: .any)["receipt.review.merchant"].waitForExistence(timeout: 15), "the second review opens")
         XCTAssertFalse(app.buttons["receipt.journey.read"].exists, "no second consent question")
+    }
+
+    func testAfterTheFirstYesEachReceiptOffersOnlyReadAndSaveOnly() {
+        launch(allowed: true)
+        app.buttons["harness.receipt"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.choice"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.descendants(matching: .any)["receipt.journey.disclosure"].exists, "no long text after the first answer")
+        XCTAssertTrue(app.buttons["receipt.journey.read"].exists)
+        XCTAssertTrue(app.buttons["receipt.journey.saveOnly"].exists)
+        capture("receipt-choice-en")
+        readUntilReview()
+    }
+
+    func testUnreadableReceiptSaysSoAndOffersAnotherReading() {
+        launch("es")
+        app.buttons["harness.unreadable"].tap()
+        app.buttons["receipt.journey.read"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.failed"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["receipt.journey.readAgain"].exists)
+        capture("receipt-unreadable-es")
+    }
+
+    func testOfflineKeepsTheReceiptAndOffersToTryAgain() {
+        launch("es")
+        app.buttons["harness.offline"].tap()
+        app.buttons["receipt.journey.read"].tap()
+        let failed = app.descendants(matching: .any)["receipt.journey.failed"]
+        XCTAssertTrue(failed.waitForExistence(timeout: 10))
+        XCTAssertTrue(failed.label.contains("Sin conexión"))
+        XCTAssertTrue(app.buttons["receipt.journey.retry"].exists)
+        capture("receipt-offline-es")
+    }
+
+    /// The screens the founder reviews, Spanish first, light and dark: first question, choice, reading, review.
+    func testDesignScreensSpanishFirstLightAndDark() {
+        for (language, dark) in [("es", false), ("es", true), ("en", false), ("en", true)] {
+            let tag = language + (dark ? "-dark" : "-light")
+            launch(language, dark: dark, slow: true)
+            app.buttons["harness.receipt"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.consent"].waitForExistence(timeout: 10))
+            capture("receipt-first-question-" + tag)
+            app.buttons["receipt.journey.read"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.progress"].waitForExistence(timeout: 10))
+            capture("receipt-reading-" + tag)
+            XCTAssertTrue(app.descendants(matching: .any)["receipt.review.merchant"].waitForExistence(timeout: 15))
+            capture("receipt-review-" + tag)
+            app.terminate()
+            launch(language, allowed: true, dark: dark)
+            app.buttons["harness.two"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.choice"].waitForExistence(timeout: 10))
+            capture("receipt-choice-two-" + tag)
+            app.buttons["receipt.journey.cancel"].tap()
+            app.buttons["harness.offline"].tap()
+            app.buttons["receipt.journey.read"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.failed"].waitForExistence(timeout: 10))
+            capture("receipt-offline-" + tag)
+            app.buttons["receipt.journey.later"].tap()
+            app.buttons["harness.unreadable"].tap()
+            app.buttons["receipt.journey.read"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.failed"].waitForExistence(timeout: 15))
+            capture("receipt-unreadable-" + tag)
+            app.terminate()
+        }
     }
 }

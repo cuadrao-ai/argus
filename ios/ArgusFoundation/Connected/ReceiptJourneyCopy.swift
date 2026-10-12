@@ -5,16 +5,23 @@ import Foundation
 struct ReceiptJourneyCopy {
     let spanish: Bool
 
-    // Pending approval: consent. It names the data, who reads it and why, as the design guide requires.
-    var consentTitle: String { spanish ? "¿Leemos este recibo?" : "Should we read this receipt?" }
+    // Consent: asked once per account, until reading is turned off in Settings.
+    var consentTitle: String { spanish ? "¿Leemos tus recibos con IA?" : "Read your receipts with AI?" }
     var consentDetail: String {
-        spanish ? "Enviamos la imagen a un servicio de lectura con IA (Google Gemini) para sacar el comercio, la fecha, los artículos y el total. Así preparamos el gasto para que lo revises. No se guarda ningún gasto hasta que lo confirmes."
-                : "We send the image to an AI reading service (Google Gemini) to pick out the merchant, date, items and total. That prepares the expense for you to review. No expense is saved until you confirm it."
+        spanish ? "Google Gemini lee la foto y prepara el gasto para que lo revises. Nada se guarda hasta que lo confirmes. Puedes apagarlo en Perfil."
+                : "Google Gemini reads the photo and prepares the expense for you to review. Nothing is saved until you confirm. You can turn this off in Profile."
     }
-    var consentRead: String { spanish ? "Leer recibo" : "Read receipt" }
+    func choiceTitle(_ count: Int) -> String {
+        spanish ? (count == 1 ? "Recibo listo" : "\(count) recibos listos") : (count == 1 ? "Receipt ready" : "\(count) receipts ready")
+    }
+    var read: String { spanish ? "Leer" : "Read" }
     var consentSaveOnly: String { spanish ? "Solo guardar" : "Save only" }
-    var consentSaveOnlyDetail: String {
-        spanish ? "Solo guardar lo deja en Recibos guardados sin leerlo." : "Save only keeps it in Saved receipts without reading it."
+
+    // Settings: the long explanation lives here and in the first question only.
+    var settingTitle: String { spanish ? "Leer recibos con IA" : "Read receipts with AI" }
+    var settingFooter: String {
+        spanish ? "Cuando lees un recibo, enviamos la imagen a Google Gemini para sacar el comercio, la fecha, los artículos y el total. No se guarda ningún gasto hasta que lo confirmes. Si lo apagas, te preguntamos antes de leer otro recibo; los recibos guardados no cambian."
+                : "When you read a receipt, we send the image to Google Gemini to pick out the merchant, date, items and total. No expense is saved until you confirm it. If you turn this off, we ask before reading another receipt; saved receipts do not change."
     }
 
     // Pending approval: progress.
@@ -24,7 +31,7 @@ struct ReceiptJourneyCopy {
         spanish ? "Puedes cerrar esto. Lo encontrarás en Recibos guardados." : "You can close this. You will find it in Saved receipts."
     }
     var stillReading: String {
-        spanish ? "Todavía se está leyendo. Ábrelo luego desde Recibos guardados." : "It is still being read. Open it later from Saved receipts."
+        spanish ? "Ábrelo luego desde Recibos guardados." : "Open it later from Saved receipts."
     }
     var recording: String { spanish ? "Guardando gasto…" : "Saving expense…" }
 
@@ -65,13 +72,16 @@ struct ReceiptJourneyCopy {
     }
 
     // Pending approval: failures.
-    var couldNotRead: String {
-        spanish ? "No pudimos leer este recibo. Sigue guardado." : "We could not read this receipt. It is still saved."
+    var couldNotReadTitle: String { spanish ? "No pudimos leerlo" : "We could not read it" }
+    var nothingToRecordTitle: String { spanish ? "No encontramos un gasto" : "No expense found" }
+    var stillSaved: String { spanish ? "Sigue guardado en Recibos guardados." : "It is still in Saved receipts." }
+    var stillReadingTitle: String { spanish ? "Sigue leyéndose" : "Still reading" }
+    var offlineTitle: String { spanish ? "Sin conexión" : "No connection" }
+    var offlineDetail: String {
+        spanish ? "El recibo sigue en este iPhone. Inténtalo cuando vuelva la conexión." : "The receipt is still on this iPhone. Try again when you are back online."
     }
+    var couldNotSendTitle: String { spanish ? "No se pudo enviar" : "Could not send" }
     var readAgain: String { spanish ? "Leer de nuevo" : "Read again" }
-    var nothingToRecord: String {
-        spanish ? "No encontramos un gasto en este recibo. Sigue guardado." : "We did not find an expense on this receipt. It is still saved."
-    }
     var couldNotRecord: String { spanish ? "No pudimos guardar el gasto." : "We could not save the expense." }
     var balanceCheck: String {
         spanish ? "Esta cuenta necesita un saldo confirmado antes de este gasto. Revísala y vuelve a intentarlo."

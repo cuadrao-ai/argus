@@ -9,9 +9,10 @@ enum SavedReceiptOutcome: Equatable {
 }
 
 enum SavedReceiptFailure: Equatable {
-    case tooLarge, wrongType, limitReached, couldNotSave, couldNotDelete, unusableFile, scannerUnavailable
+    case tooLarge, wrongType, limitReached, couldNotSave, couldNotDelete, unusableFile, scannerUnavailable, offline
 
     init(_ error: Error) {
+        if error is URLError { self = .offline; return }
         guard case .rejected(_, let code)? = error as? SessionFailure else { self = .couldNotSave; return }
         switch code {
         case "document_too_large": self = .tooLarge

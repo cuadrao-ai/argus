@@ -127,7 +127,8 @@ enum ReceiptJourneyFailure: Equatable {
 
 enum ReceiptJourneyPhase: Equatable {
     case idle
-    /// Files are held while the person decides whether the server may read them.
+    /// Files are held while the person chooses to read them or only save them. The first time, and whenever
+    /// reading is off, the choice carries the AI disclosure.
     case consent
     case sending
     /// The server is reading the file. The person may close this; the receipt stays in Files.
@@ -153,6 +154,10 @@ final class ReceiptJourneyModel: ObservableObject {
     @Published private(set) var options: FinancialActivityOptions?
     /// Receipts from the same capture still to review, in order.
     @Published private(set) var waiting: [String] = []
+    /// The person's one answer about AI reading, kept per account on this iPhone and changed in Settings.
+    @Published private(set) var readingAllowed = false
+    /// The first captured file, shown while the person chooses and while it is read.
+    @Published private(set) var preview: ReceiptPreview?
     var sessionChanged: ((SessionSnapshot) -> Void)?
 
     private let transport: any ReceiptJourneyTransport
@@ -160,6 +165,7 @@ final class ReceiptJourneyModel: ObservableObject {
     private let pause: @Sendable (Duration) async -> Void
     private let pollLimit: Int
     private let timeZone: TimeZone
+    private let defaults: UserDefaults
     private var identity: SessionSnapshot?
     private var ticket = UUID()
     private var held: [(data: Data, name: String, pdf: Bool)] = []
@@ -170,9 +176,9 @@ final class ReceiptJourneyModel: ObservableObject {
 
     init(transport: any ReceiptJourneyTransport, currentSession: @escaping @Sendable () async -> SessionSnapshot,
          pause: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
-         pollLimit: Int = 40, timeZone: TimeZone = .current) {
+         pollLimit: Int = 40, timeZone: TimeZone = .current, defaults: UserDefaults = .standard) {
         self.transport = transport; self.currentSession = currentSession
-        self.pause = pause; self.pollLimit = pollLimit; self.timeZone = timeZone
+        self.pause = pause; self.pollLimit = pollLimit; self.timeZone = timeZone; self.defaults = defaults
     }
 
     convenience init(controller: SessionController) {
@@ -183,11 +189,21 @@ final class ReceiptJourneyModel: ObservableObject {
         let next = snapshot?.phase == .authenticated ? snapshot : nil
         guard identity != next else { return }
         identity = next
+        readingAllowed = permissionKey.map { defaults.bool(forKey: $0) } ?? false
         reset()
     }
 
+    private var permissionKey: String? { identity?.profile.map { "cuadrao.receiptReading." + $0.id } }
+
+    /// Settings turns AI reading on or off. Off brings the disclosure back before the next reading.
+    func setReadingAllowed(_ allowed: Bool) {
+        guard let key = permissionKey else { return }
+        readingAllowed = allowed
+        defaults.set(allowed, forKey: key)
+    }
+
     func reset() {
-        ticket = UUID(); phase = .idle; held = []; sent = []; waiting = []; connectionID = nil; acceptKey = nil; options = nil
+        ticket = UUID(); phase = .idle; held = []; sent = []; waiting = []; connectionID = nil; acceptKey = nil; options = nil; preview = nil
     }
 
     /// Captured files wait for the person's answer about reading. One answer covers every file of the capture.
@@ -195,6 +211,7 @@ final class ReceiptJourneyModel: ObservableObject {
         reset()
         guard !files.isEmpty else { return }
         held = files
+        preview = ReceiptPreview(files)
         phase = .consent
     }
 
@@ -203,7 +220,10 @@ final class ReceiptJourneyModel: ObservableObject {
     func answerConsent(_ allowed: Bool) async {
         guard phase == .consent || isSendFailure, let identity, !held.isEmpty else { return }
         let mine = ticket
-        if phase == .consent { consented = allowed }
+        if phase == .consent {
+            consented = allowed
+            if allowed, !readingAllowed { setReadingAllowed(true) }
+        }
         let allowed = consented
         phase = .sending
         do {
@@ -411,5 +431,17 @@ extension EnvironmentValues {
     var receiptJourney: ReceiptJourneyModel? {
         get { self[ReceiptJourneyKey.self] }
         set { self[ReceiptJourneyKey.self] = newValue }
+    }
+}
+
+/// What the sheet shows of a capture: the first image, or a document symbol for a PDF, and how many files came.
+struct ReceiptPreview: Equatable {
+    let image: Data?
+    let count: Int
+
+    init?(_ files: [(data: Data, name: String, pdf: Bool)]) {
+        guard let first = files.first else { return nil }
+        image = first.pdf ? nil : first.data
+        count = files.count
     }
 }

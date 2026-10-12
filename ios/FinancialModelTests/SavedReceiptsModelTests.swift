@@ -48,7 +48,10 @@ final class SavedReceiptsModelTests: XCTestCase {
         }
         let unknown = model(ScriptedTransport(saveFailure: URLError(.notConnectedToInternet)))
         await unknown.save([(Data([1]), "a.pdf", true)])
-        XCTAssertEqual(unknown.outcome, .failed(.couldNotSave))
+        XCTAssertEqual(unknown.outcome, .failed(.offline), "no connection says so; the receipt is still on the iPhone")
+        let server = model(ScriptedTransport(saveFailure: SessionFailure.unavailable))
+        await server.save([(Data([1]), "a.pdf", true)])
+        XCTAssertEqual(server.outcome, .failed(.couldNotSave), "a server failure is not called a lost connection")
     }
 
     func testRetryResendsTheSameFilesAfterACouldNotSaveAndOnlyThen() async {
