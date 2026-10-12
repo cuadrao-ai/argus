@@ -34,7 +34,9 @@ from tests.evals.measurement_eval_harness import (
 
 def _assert_requested_live_eval_credentials() -> None:
     if not (os.getenv("OPENROUTER_API_KEY") or "").strip():
-        raise RuntimeError("OPENROUTER_API_KEY is required for requested live evals")
+        raise RuntimeError(
+            "OPENROUTER_API_KEY is required for requested live evals"
+        )
 
 
 def test_measurement_live_eval_suite_writes_scorecard(monkeypatch) -> None:

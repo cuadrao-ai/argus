@@ -92,7 +92,9 @@ def test_result_action_eval_manifest_matches_current_and_stale_action_contracts(
     assert visible_actions == ["show_breakdown", "refine_strategy"]
 
     stale_actions = [
-        step for step in qa_9["conversation_steps"] if step["actor"] == "stale_action"
+        step
+        for step in qa_9["conversation_steps"]
+        if step["actor"] == "stale_action"
     ]
     assert stale_actions == [
         {

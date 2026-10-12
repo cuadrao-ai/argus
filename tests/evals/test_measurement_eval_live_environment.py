@@ -60,7 +60,9 @@ def _environment_sources(tmp_path: Path) -> Path:
         pytest.param("via/.env.example", True, id="link-to-a-tracked-file"),
         pytest.param("hop/live.env", True, id="link-through-a-tracked-symlink"),
         pytest.param("hard-link.env", True, id="hard-link-to-a-tracked-file"),
-        pytest.param("symlink-hard-link.env", True, id="hard-link-to-a-tracked-symlink"),
+        pytest.param(
+            "symlink-hard-link.env", True, id="hard-link-to-a-tracked-symlink"
+        ),
         pytest.param("repository/.env", False, id="gitignored-file-in-the-checkout"),
         pytest.param("live-eval.env", False, id="file-outside-the-checkout"),
         pytest.param("outside-link.env", False, id="link-to-an-untracked-file"),

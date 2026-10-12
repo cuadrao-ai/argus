@@ -67,7 +67,9 @@ def _issue_498_wiring(
         requested = CoverageDateRange(
             start=str(config["start_date"]), end=str(config["end_date"])
         )
-        window = CoverageDateRange(**effective_range) if effective_range else requested
+        window = (
+            CoverageDateRange(**effective_range) if effective_range else requested
+        )
         return PreparedMarketData(
             requested_date_range=requested,
             effective_date_range=window,
@@ -174,7 +176,9 @@ def _issue_498_case_configs() -> list[Any]:
                     EditOperation(
                         op="set",
                         target="date_window",
-                        date_window=LLMDateRangeIntent(kind="calendar_year", year=2023),
+                        date_window=LLMDateRangeIntent(
+                            kind="calendar_year", year=2023
+                        ),
                     )
                 ]
             ),

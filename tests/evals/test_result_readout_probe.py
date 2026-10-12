@@ -252,9 +252,7 @@ def test_real_composer_paths_dispatch_once_each_and_preserve_raw_invoice(
         deeper["language"] = "es-419"
     if failure == "deep_false_figure":
         deeper["text"] = "The return was 9999%."
-        deeper["figures"] = [
-            {"fact_key": "Total return on starting capital", "value": 9999}
-        ]
+        deeper["figures"] = [{"fact_key": "Total return on starting capital", "value": 9999}]
     raw_text = "{bad json" if failure == "deep_json" else json.dumps(deeper)
     response = agent_response(
         text=raw_text,

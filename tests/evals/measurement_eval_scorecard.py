@@ -112,7 +112,9 @@ def measurement_fixture_identity_at_git_sha(
             timeout=10,
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError) as exc:
-        raise RuntimeError("scorecard_provenance:candidate_commit_unavailable") from exc
+        raise RuntimeError(
+            "scorecard_provenance:candidate_commit_unavailable"
+        ) from exc
     if verified_commit != candidate_sha:
         raise RuntimeError("scorecard_provenance:candidate_commit_unavailable")
     try:
@@ -217,7 +219,9 @@ def build_scorecard_provenance(
 ) -> EvalScorecardProvenance:
     if evaluation_mode not in {"live", "mocked"}:
         raise ValueError("scorecard_provenance:evaluation_mode")
-    market_data_provider_mode = _resolved_provider_mode("ARGUS_MARKET_DATA_PROVIDER_MODE")
+    market_data_provider_mode = _resolved_provider_mode(
+        "ARGUS_MARKET_DATA_PROVIDER_MODE"
+    )
     asset_provider_mode = _resolved_provider_mode("ARGUS_ASSET_PROVIDER_MODE")
     candidate_sha = _candidate_sha(repository_root)
     python_version = platform.python_version()
@@ -295,7 +299,8 @@ def verify_live_market_data_environment(
         or probe.adjustment_reason != "calendar_alignment"
     ):
         raise RuntimeError(
-            "live_eval_market_data_probe_failed:" "expected_2024-01-02_calendar_alignment"
+            "live_eval_market_data_probe_failed:"
+            "expected_2024-01-02_calendar_alignment"
         )
     return probe
 
@@ -402,7 +407,9 @@ def validated_provenance_payload(
         live_probe_payload = provenance.live_market_data_probe.as_dict()
     if provenance.evaluation_mode == "live":
         if provenance.market_data_provider_mode != "live_provider":
-            raise ValueError("scorecard_provenance:live_market_data_provider_mode")
+            raise ValueError(
+                "scorecard_provenance:live_market_data_provider_mode"
+            )
         if (
             live_probe_payload is None
             or live_probe_payload["symbol"] != _LIVE_PROBE_SYMBOL

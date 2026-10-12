@@ -209,3 +209,5 @@ def truncate_retained_text(text: str) -> tuple[str, int]:
         + text[-PROSE_TEXT_RETENTION_TAIL:],
         omitted,
     )
+
+
