@@ -221,7 +221,7 @@ def test_the_route_answers_owner_200_accountant_403_and_bad_id_404(
     from argus.domain.ingestion.documents.service import DocumentsService
     from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
     from argus.domain.ingestion.hub import IngestionHub
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Request
     from fastapi.testclient import TestClient
 
     from tests.document_sources_support import source_objects
