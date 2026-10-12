@@ -35,7 +35,10 @@ from argus.api.business import (
 )
 from argus.api.business_drafts import (
     action_problem,
+    bridged,
+    overview_with_drafts,
     receipt_detail,
+    receipt_summaries,
     require_legacy_receipt_write,
 )
 from argus.api.business_schemas import (
@@ -449,7 +452,7 @@ async def upload_receipt(
             )
     except Exception as error:
         raise _problem(request, error) from None
-    return receipt.summary()
+    return bridged(context, [receipt.summary()])[0]
 
 
 @router.get("/receipts", response_model=ReceiptPage)
@@ -458,16 +461,10 @@ def list_receipts(
     view: Literal["inbox", "all"] = "inbox",
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
-    service = context.service
     try:
-        receipts = (
-            service.inbox(context.scope)
-            if view == "inbox"
-            else service.receipts(context.scope)
-        )
+        return {"items": receipt_summaries(context, view)}
     except Exception as error:
         raise _problem(request, error) from None
-    return {"items": [receipt.summary() for receipt in _email_flagged(context, receipts)]}
 
 
 @router.get("/receipts/{receipt_id}", response_model=ReceiptDetail)
@@ -530,7 +527,7 @@ async def prepare_receipt(
         [receipt] = _email_flagged(
             context, [context.service.receipt(context.scope, receipt_id)]
         )
-        return receipt.summary()
+        return bridged(context, [receipt.summary()])[0]
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -634,7 +631,7 @@ def get_overview(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        return context.service.overview(context.scope, start, end)
+        return overview_with_drafts(context, start, end)
     except Exception as error:
         raise _problem(request, error) from None
 

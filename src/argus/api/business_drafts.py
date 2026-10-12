@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Annotated
 from uuid import UUID
 
@@ -24,10 +25,15 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import Refused
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.dossier import AccountChoice, RecordContext
-from argus.domain.business.contracts.facts import BusinessResolution, Known
+from argus.domain.business.contracts.facts import (
+    BusinessAccountFunding,
+    BusinessResolution,
+    Known,
+)
 from argus.domain.business.scope import BusinessScope
 from argus.domain.business.service import BusinessService
 from argus.domain.business.transactions import GrantImportStore, transaction
+from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
 
@@ -179,27 +185,161 @@ def read_attention(event) -> dict:  # noqa: ANN001
     return {}
 
 
+_BRIDGE_STATUS = {
+    "open": "review_ready",
+    "accepting": "review_ready",
+    "accepted": "confirmed",
+    "dismissed": "dismissed",
+}
+
+
+def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # noqa: ANN001
+    """The bridge drafts each receipt is linked to, one query for all of them."""
+
+    if not connection_ids:
+        return {}
+    rows = tx.rows(
+        "select distinct s.connection_id, e.id, e.state, e.version, e.attention,"
+        " e.activity_id, e.possible_duplicates::text[] as possible_duplicates, e.resolution"
+        " from public.business_sources s"
+        " join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id"
+        " join public.financial_import_events e on e.id=l.draft_id and e.owner_space_id=l.space_id"
+        " where s.space_id=%s and s.connection_id = any(%s) and e.user_id=%s"
+        " and e.resolution ? 'business' order by e.id",
+        (
+            tx.context.actor.space_id,
+            [UUID(connection_id) for connection_id in connection_ids],
+            tx.context.owner_id,
+        ),
+    )
+    found: dict[str, list[dict]] = {}
+    for row in rows:
+        found.setdefault(str(row["connection_id"]), []).append(row)
+    return found
+
+
+def _receipt_of_draft(tx, draft_id: str) -> str | None:  # noqa: ANN001
+    rows = tx.rows(
+        "select s.connection_id from public.business_draft_sources l"
+        " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
+        " where l.draft_id=%s and l.space_id=%s and s.connection_id is not null limit 1",
+        (UUID(draft_id), tx.context.actor.space_id),
+    )
+    return str(rows[0]["connection_id"]) if rows else None
+
+
+def draft_overlay(summary: dict, drafts: list[dict], tx) -> dict:  # noqa: ANN001
+    """A receipt linked to a bridge draft takes its status, facts and message
+    from that draft, never from legacy import events. Keys absent from the
+    wire shape handed in (a summary has no draft id) stay absent."""
+
+    legacy = summary.get("draft_id")
+    ids = {str(row["id"]) for row in drafts}
+    if legacy:
+        ids.add(str(legacy))
+    if len(ids) > 1:
+        out = {
+            **summary,
+            "status": "needs_attention",
+            "attention": "check_details",
+            "error_code": "receipt_candidate_ambiguous",
+            "preparable": False,
+            "enterable": False,
+        }
+        if "draft_id" in summary:
+            out["draft_id"] = None
+        return out
+    if not drafts or legacy == str(drafts[0]["id"]):
+        return summary
+    row = drafts[0]
+    facts = BusinessResolution.model_validate(row["resolution"]["business"]).facts
+
+    def value(fact):  # noqa: ANN001, ANN202
+        return fact.value if isinstance(fact, Known) else None
+
+    funding = value(facts.funding)
+    out = {
+        **summary,
+        "status": _BRIDGE_STATUS.get(row["state"], "review_ready"),
+        "attention": None,
+        "error_code": None,
+        "preparable": False,
+        "enterable": False,
+        "expense_id": str(row["activity_id"]) if row["activity_id"] else None,
+        "merchant": value(facts.counterparty),
+        "amount": value(facts.amount),
+        "currency": value(facts.currency),
+        "occurred_on": (value(facts.occurred_on) or None)
+        and value(facts.occurred_on).isoformat(),
+        "category_id": value(facts.category_id),
+        "account_id": str(funding.account_id)
+        if isinstance(funding, BusinessAccountFunding)
+        else None,
+    }
+    for key, item in (("draft_id", str(row["id"])), ("version", row["version"])):
+        if key in summary:
+            out[key] = item
+    out.update(
+        read_attention(SimpleNamespace(state=row["state"], resolution=row["resolution"]))
+    )
+    if row["state"] == "open" and row["attention"] in DUPLICATE_WARNINGS:
+        original = next(iter(row["possible_duplicates"] or ()), None)
+        out.update(
+            status="needs_attention",
+            attention="duplicate",
+            error_code="possible_duplicate",
+            duplicate_of=_receipt_of_draft(tx, original) if original else None,
+        )
+    return out
+
+
+def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
+    """Every receipt view the API returns passes here: with the hosted bridge,
+    a linked draft owns the receipt's state."""
+
+    store = context.service.imports.store
+    if not isinstance(store, GrantImportStore) or not summaries:
+        return summaries
+    with transaction(store.authority, store.context) as tx:
+        drafts = linked_drafts(tx, [summary["id"] for summary in summaries])
+        return [
+            draft_overlay(summary, drafts.get(summary["id"], []), tx)
+            for summary in summaries
+        ]
+
+
+def receipt_summaries(context: BusinessContext, view: str) -> list[dict]:
+    """The receipt list, overlaid; the inbox leaves out what is saved or dismissed."""
+
+    from argus.api.routers.business import _email_flagged
+    from argus.domain.business.receipts import CLOSED
+
+    receipts = _email_flagged(context, context.service.receipts(context.scope))
+    items = bridged(context, [receipt.summary() for receipt in receipts])
+    if view == "inbox":
+        items = [item for item in items if item["status"] not in CLOSED]
+    return items
+
+
+def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa: ANN001
+    """The home overview with its receipt counts taken from the overlaid views,
+    so an approved draft is a saved expense, not a receipt awaiting review."""
+
+    from argus.domain.business.receipts import AWAITING_REVIEW
+
+    data = context.service.overview(context.scope, start, end)
+    items = receipt_summaries(context, "all")
+    data["awaiting_review"] = sum(item["status"] in AWAITING_REVIEW for item in items)
+    data["needs_attention"] = sum(item["status"] == "needs_attention" for item in items)
+    return data
+
+
 def receipt_detail(context: BusinessContext, receipt) -> dict:
-    detail = receipt.detail()
+    [detail] = bridged(context, [receipt.detail()])
     store = context.service.imports.store
     if isinstance(store, GrantImportStore):
         with transaction(store.authority, store.context) as tx:
-            legacy_id = UUID(detail["draft_id"]) if detail["draft_id"] else None
-            draft_id, ambiguous = draft_for_receipt(tx, UUID(receipt.id), legacy_id)
-            detail["draft_id"] = draft_id
-            if draft_id is not None and legacy_id is None:
-                event = tx.imports.event(str(draft_id))
-                detail.update(version=event.version, preparable=False, enterable=False)
-                detail.update(read_attention(event))
             detail["record_context"] = record_context(tx).model_dump(mode="json")
-            if ambiguous:
-                detail.update(
-                    status="needs_attention",
-                    attention="check_details",
-                    error_code="receipt_candidate_ambiguous",
-                    preparable=False,
-                    enterable=False,
-                )
         return detail
     if context.record_context is not None:
         detail["record_context"] = context.record_context.model_dump(mode="json")
