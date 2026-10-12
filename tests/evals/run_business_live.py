@@ -230,6 +230,7 @@ async def invariants(
         judge_model=args.judge_model,
         calibration_report=args.calibration,
         interpreter_factory=lambda *_: LiveInterpreter(args.runtime_model),
+        only=tuple(args.only),
     )
 
 

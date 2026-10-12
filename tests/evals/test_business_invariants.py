@@ -200,3 +200,29 @@ def test_a_scope_that_drifts_from_its_scorecard_is_refused(mutate) -> None:  # n
     mutate(scope, scorecard)
     with pytest.raises((AssertionError, KeyError)):
         validate_business_invariant_scope(scope, scorecard)
+
+
+def test_a_rerun_replaces_only_an_unavailable_case_and_keeps_both_attempts() -> None:
+    from tests.evals.business_invariants import compose_with_rerun
+
+    base = passing_scorecard()
+    base.update(candidate_sha="a" * 40)
+    case_id = base["cases"][0]["case_id"]
+    base["cases"][0].update(status="unavailable", failed_checks=["capture_error:X"])
+    base["totals"] = {"passed": len(base["cases"]) - 1, "failed": 0, "unavailable": 1}
+    base["status"] = "unavailable"
+    rerun = {
+        k: base[k] for k in ("candidate_sha", "runtime_model", "judge_model", "surface")
+    }
+    rerun["cases"] = [{**passing_scorecard()["cases"][0]}]
+    composed = compose_with_rerun(base, rerun, case_id)
+    assert composed["status"] == "passed"
+    assert composed["totals"]["passed"] == len(composed["cases"])
+    assert composed["cases"][0]["earlier_attempts"][0]["status"] == "unavailable"
+    passed_case = base["cases"][1]["case_id"]
+    with pytest.raises(AssertionError):
+        compose_with_rerun(
+            base,
+            {**rerun, "cases": [{**rerun["cases"][0], "case_id": passed_case}]},
+            passed_case,
+        )

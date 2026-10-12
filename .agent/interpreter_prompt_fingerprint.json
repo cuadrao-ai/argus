@@ -164,8 +164,38 @@
         "src/argus/agent_runtime/business/interpretation.py",
         "src/argus/domain/business/tools/declarations.py"
       ],
-      "surface": {},
-      "last_measured": null
+      "surface": {
+        "src/argus/agent_runtime/business/interpretation.py": {
+          "chars": 4610,
+          "entries": 6,
+          "sha256": "f8c5121a4acf1a9a486bcb62cc54f0aba2ee2058e8978e9920705baaafdeb666"
+        },
+        "src/argus/domain/business/tools/declarations.py": {
+          "chars": 428,
+          "entries": 7,
+          "sha256": "c3eab082a2014031d114c6a4398a4920c0280432b6160f4fad63bd7ad55327d3"
+        }
+      },
+      "last_measured": {
+        "measurement_kind": "invariant_measurement",
+        "commit": "434410e200cef9972849948defd14cfe1290eb1c",
+        "runtime_model": "anthropic/claude-haiku-5.5",
+        "judge_model": "anthropic/claude-sonnet-5.5",
+        "rubric_version": "cuadrao-business-reply-v2",
+        "calibration_fixture_sha256": "dc0850207a6e8d325e73bb2ec9452088da1f5a44773f10bffe2b81d7dfba33c6",
+        "frozen_fixture_sha256": "ae7f52c30847dde3587bbd2ac34a23089368150698f52de31714ac7293cef959",
+        "variety_fixture_sha256": "7fcc3e1246b4289981131541ceb954ceed8b887fe7647f182709c5ce64224874",
+        "passed": 31,
+        "failed": 0,
+        "unavailable": 0,
+        "scorecard": "docs/reports/evidence/cuadrao-business-agent-20261012/business-invariants.json"
+      },
+      "recorded_history": [
+        "docs/reports/evidence/cuadrao-business-agent-20261012/business-acceptance-run1-3of7.json",
+        "docs/reports/evidence/cuadrao-business-agent-20261012/business-acceptance-run2-2of7-share-and-default-currency-sentences.json",
+        "docs/reports/evidence/cuadrao-business-agent-20261012/business-invariants-run1-28-of-31.json",
+        "docs/reports/evidence/cuadrao-business-agent-20261012/business-invariants-run2-28-of-31-ask-sentence.json"
+      ]
     }
   }
 }

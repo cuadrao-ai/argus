@@ -245,6 +245,7 @@ async def run_business_invariants(
     judge_model: str,
     calibration_report: Path | None,
     interpreter_factory: Callable[[str, int, dict[str, str]], Any],
+    only: tuple[str, ...] = (),
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     root = repository_root.resolve()
     _committed_head(root, candidate_sha)
@@ -267,6 +268,8 @@ async def run_business_invariants(
     if calibration["status"] == "passed":
         for kind, cases in (("frozen", frozen), ("varied", varied)):
             for case in cases:
+                if only and case["id"] not in only:
+                    continue
                 score, side = await _run_case(
                     case,
                     kind,
@@ -379,3 +382,38 @@ def validate_business_invariant_scope(
         scorecard["calibration"]["fixture_sha256"]
         == measured["calibration_fixture_sha256"]
     )
+
+
+def compose_with_rerun(
+    base: dict[str, Any], rerun: dict[str, Any], case_id: str
+) -> dict[str, Any]:
+    """One scorecard from a full run and a single-case rerun at the same commit.
+
+    The rerun is allowed only for a case that was unavailable in the full run.
+    Both attempts stay in the scorecard; the rerun result is the one counted.
+    """
+
+    for name in ("candidate_sha", "runtime_model", "judge_model", "surface"):
+        assert base[name] == rerun[name]
+    assert [c["case_id"] for c in rerun["cases"]] == [case_id]
+    index = next(i for i, c in enumerate(base["cases"]) if c["case_id"] == case_id)
+    assert base["cases"][index]["status"] == "unavailable"
+    composed = {**base, "cases": list(base["cases"])}
+    composed["cases"][index] = {
+        **rerun["cases"][0],
+        "earlier_attempts": [base["cases"][index]],
+    }
+    totals = {
+        s: sum(c["status"] == s for c in composed["cases"])
+        for s in ("passed", "failed", "unavailable")
+    }
+    composed["totals"] = totals
+    composed["status"] = (
+        "passed"
+        if totals["passed"] == len(composed["cases"])
+        else "failed"
+        if totals["failed"]
+        else "unavailable"
+    )
+    composed["composed_from"] = ["full run", f"single-case rerun of {case_id}"]
+    return composed
