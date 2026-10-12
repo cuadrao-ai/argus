@@ -16,6 +16,7 @@ from argus.domain.ingestion.whatsapp.business_worker import (
     no_ai_consent,
 )
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
+from argus.llm.openrouter_key_policy import openrouter_traffic_class
 
 
 def build_worker(
@@ -54,9 +55,15 @@ def build_worker(
             language=captured.language,
             require_access=require_access,
         )
-        result = await runner.run(
-            context=context, turn=turn, message=captured.envelope.text, history=history
-        )
+        # Hosted environments refuse a model call without a traffic class. An
+        # owner is a registered account, so its calls use the registered key.
+        with openrouter_traffic_class("registered"):
+            result = await runner.run(
+                context=context,
+                turn=turn,
+                message=captured.envelope.text,
+                history=history,
+            )
         return result.reply_text
 
     return BusinessWhatsAppWorker(

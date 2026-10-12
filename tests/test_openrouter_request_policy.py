@@ -399,3 +399,41 @@ def test_consumer_routes_keep_their_whole_payload_for_sparse_schemas(model, task
         "max_tokens": 700,
         **extra,
     }
+
+
+_CONSUMER_SNAPSHOTS = {
+    # (model, task): (max_tokens, reasoning effort, temperature or None)
+    ("openai/gpt-oss-120b", "interpretation"): (3200, "medium", 0),
+    ("openai/gpt-oss-120b", "chat_composer"): (1200, "none", 0.2),
+    ("openai/gpt-5.6-luna", "interpretation"): (3200, "medium", 0),
+    ("openai/gpt-5.6-luna", "chat_composer"): (1200, "none", 0.2),
+    ("openai/gpt-6-luna", "interpretation"): (3200, "medium", 0),
+    ("openai/gpt-6-luna", "chat_composer"): (1200, "none", 0.2),
+}
+
+
+@pytest.mark.parametrize("model,task", list(_CONSUMER_SNAPSHOTS))
+def test_consumer_interpretation_and_composer_keep_their_whole_payload(model, task):
+    """Snapshot taken from the integration code before the Business-only
+    prompt-schema rule existed."""
+
+    max_tokens, effort, temperature = _CONSUMER_SNAPSHOTS[(model, task)]
+    payload = openrouter._json_schema_payload(
+        model=model,
+        messages=[{"role": "user", "content": "probe"}],
+        schema_model=_Sparse,
+        schema_name=task,
+        profile=openrouter_profile_for_task(task),
+    )
+    assert payload == {
+        "model": model,
+        "messages": [{"role": "user", "content": "probe"}],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": task, "strict": True, "schema": _SPARSE_SCHEMA},
+        },
+        "provider": {"require_parameters": True},
+        "max_tokens": max_tokens,
+        "reasoning": {"effort": effort},
+        "temperature": temperature,
+    }

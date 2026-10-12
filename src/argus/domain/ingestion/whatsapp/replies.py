@@ -65,9 +65,9 @@ REPLIES: dict[str, tuple[str, str]] = {
     ),
     "whatsapp_ai_consent_missing": (
         "Todavía no has dado permiso para que Cuadrao lea tus mensajes con IA. "
-        "Puedes activarlo en Ajustes, en WhatsApp.",
+        "Puedes activarlo en tu perfil, en App y luego WhatsApp.",
         "You haven't given permission for AI to read your messages yet. "
-        "You can turn it on in Settings, under WhatsApp.",
+        "You can turn it on in your profile menu, under App, then WhatsApp.",
     ),
     "whatsapp_media_unsupported": (
         "Solo podemos recibir fotos JPG o PNG y archivos PDF.",
