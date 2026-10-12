@@ -22,6 +22,7 @@ import {
 } from "@/components/chat/ChatWorkspace";
 import {
   businessChatAvailable,
+  type BusinessCapture,
   type BusinessOverview,
   type BusinessWorkspaceInfo,
   type ReceiptSummary,
@@ -53,6 +54,11 @@ type Records = {
   workspace: BusinessWorkspaceInfo | null;
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
+  /** Saved notes, newest first; null until loaded. A notes outage never hides receipts. */
+  notes: BusinessCapture[] | null;
+  notesError: boolean;
+  /** The captures list stops at the server's page size; older open notes are found through search. */
+  notesTruncated: boolean;
   error: boolean;
 };
 
@@ -80,6 +86,8 @@ export function useBusiness(): BusinessContextValue {
 }
 
 const NO_ACCOUNTS: never[] = [];
+// The captures endpoint's largest page; it has no cursor.
+const NOTES_PAGE = 50;
 const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "updates"]);
 
 // Read from the route's search params, not window.location: on a client-side
@@ -149,6 +157,9 @@ export function BusinessWorkspaceProvider({
     workspace: null,
     overview: null,
     inbox: null,
+    notes: null,
+    notesError: false,
+    notesTruncated: false,
     error: false,
   });
   const [revision, setRevision] = useState(0);
@@ -200,7 +211,7 @@ export function BusinessWorkspaceProvider({
       source.receipts("inbox"),
     ])
       .then(([workspace, overview, inbox]) => {
-        if (!cancelled) setRecords({ workspace, overview, inbox, error: false });
+        if (!cancelled) setRecords((current) => ({ ...current, workspace, overview, inbox, error: false }));
       })
       .catch(() => {
         if (!cancelled) setRecords((current) => ({ ...current, error: true }));
@@ -209,6 +220,22 @@ export function BusinessWorkspaceProvider({
       cancelled = true;
     };
   }, [directRecord, period.from, period.to, revision, source]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (directRecord) return;
+    source.captures("", NOTES_PAGE).then(
+      (notes) => {
+        if (!cancelled) setRecords((current) => ({ ...current, notes, notesError: false, notesTruncated: notes.length >= NOTES_PAGE }));
+      },
+      () => {
+        if (!cancelled) setRecords((current) => ({ ...current, notes: [], notesError: true, notesTruncated: false }));
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [directRecord, revision, source]);
 
   // The shell may replace the route while leaving a conversation; writing again
   // once that navigation lands keeps the panel in the address bar.

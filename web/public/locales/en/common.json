@@ -2377,6 +2377,12 @@
       "title": "Inbox",
       "subtitle": "Receipts waiting for you to review. Nothing here is an expense until you confirm it.",
       "error": "We couldn't load your inbox. Try again.",
+      "notes_title": "Notes awaiting review",
+      "notes_subtitle": "Saved in your own words. Open one to add facts or a receipt.",
+      "notes_error": "We couldn't load your notes. Try again.",
+      "notes_latest": "Showing the latest 50 saved notes. Older open notes are reachable through search.",
+      "note_more_one": "{{count}} earlier note",
+      "note_more_other": "{{count}} earlier notes",
       "empty_title": "You're all caught up",
       "empty_body": "Upload a receipt or send one by WhatsApp. It will wait here for your review."
     },
