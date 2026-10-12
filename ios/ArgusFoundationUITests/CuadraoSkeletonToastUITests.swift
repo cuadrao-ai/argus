@@ -62,8 +62,8 @@ final class CuadraoSkeletonToastUITests: XCTestCase {
         let banner = app.descendants(matching: .any)["cuadrao.offline.banner"]
         XCTAssertFalse(banner.exists)
         app.switches["gallery-offline"].tap()
-        XCTAssertFalse(banner.exists, "a loss shorter than about a second never flashes the strip")
-        XCTAssertTrue(banner.waitForExistence(timeout: 4), "a lasting loss shows the strip")
+        XCTAssertFalse(banner.exists, "the strip waits out a short loss (the gallery waits 2.5 s so this is checkable)")
+        XCTAssertTrue(banner.waitForExistence(timeout: 6), "a lasting loss shows the strip")
         shot(app, "offline-strip-light-es")
         app.switches["gallery-offline"].tap()
         XCTAssertTrue(banner.waitForNonExistence(timeout: 3), "the strip clears when the network returns")

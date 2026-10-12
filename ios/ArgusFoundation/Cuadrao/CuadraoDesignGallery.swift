@@ -17,7 +17,7 @@ struct CuadraoDesignGallery: View {
     @State private var period: CanvasHistoryRange = .month
     @State private var toast: CuadraoToastMessage?
     @State private var retries = 0
-    @StateObject private var connectivity = CuadraoConnectivity(monitoring: false)
+    @StateObject private var connectivity = CuadraoConnectivity(monitoring: false, debounce: .seconds(2.5))
     @State private var simulateOffline = false
     @Environment(\.dismiss) private var dismiss
 
