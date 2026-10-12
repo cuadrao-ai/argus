@@ -258,8 +258,12 @@ def test_the_route_answers_owner_200_accountant_403_and_bad_id_404(
 
     app.include_router(routes.router)
     app.dependency_overrides[business_api.require_business_surface] = lambda: None
+
+    def document_context(request: Request):  # noqa: ANN202
+        return scoped_legacy(request, documents, hub, caller["id"], None)
+
     app.dependency_overrides[business_api.require_business_document_write] = (
-        lambda request: scoped_legacy(request, documents, hub, caller["id"], None)
+        document_context
     )
     monkeypatch.setattr(routes, "ingestion_hub", lambda: hub)
     with TestClient(app) as client:
