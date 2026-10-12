@@ -82,8 +82,8 @@ export type WhatsAppAIConsent = {
   revoked_at: string | null;
 };
 
-export function getWhatsAppAIConsent(): Promise<WhatsAppAIConsent> {
-  return request("/whatsapp/ai-consent");
+export function getWhatsAppAIConsent(language?: string): Promise<WhatsAppAIConsent> {
+  return request(`/whatsapp/ai-consent${language ? `?language=${encodeURIComponent(language)}` : ""}`);
 }
 
 export function enableWhatsAppAI(

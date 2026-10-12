@@ -32,6 +32,14 @@ REPLIES: dict[str, tuple[str, str]] = {
         "We got your receipt and saved it to your inbox. "
         "Review and confirm it in Cuadrao: {link}",
     ),
+    "read_ready": (
+        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: {link}",
+        "We read your receipt. Review and confirm it in Cuadrao: {link}",
+    ),
+    "read_attention": (
+        "No pudimos leer bien tu recibo. Ábrelo en Cuadrao para completarlo: {link}",
+        "We couldn't read your receipt clearly. Open it in Cuadrao to finish it: {link}",
+    ),
     "duplicate": (
         "Ya tenemos este recibo en tu bandeja, así que no lo guardamos dos veces. "
         "Revísalo en Cuadrao: {link}",

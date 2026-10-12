@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import unicodedata
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
@@ -130,6 +131,9 @@ class DocumentsService:
     ) -> None:
         self.hub, self.store, self.extractor = hub, store, extractor
         self.business_actions = business_actions
+        # Asked at the moment of a read, so a permission withdrawn after the
+        # draft was queued stops a read that has not started.
+        self.read_gate: Callable[[str, str], bool] | None = None
         # An app with a Postgres pool never falls back to legacy Business
         # delivery; without a pool there is no canonical wiring to require.
         self.business_preparation_required = business_preparation_required
@@ -440,6 +444,14 @@ class DocumentsService:
             raise DocumentServiceError("document_preparation_not_queued")
         if draft.status == "preparing":
             raise DocumentServiceError("document_busy", retryable=True)
+        if (
+            batch is None
+            and self.read_gate is not None
+            and not self.read_gate(user_id, connection_id)
+        ):
+            if draft.status == "queued":
+                self._update(user_id, draft, status="saved", consent=False)
+            raise DocumentServiceError("document_reading_not_allowed")
         holder = str(uuid.uuid4())
         repo = self.hub.connections
         if not repo.lease(

@@ -49,7 +49,7 @@ CODES = "/api/v1/whatsapp/link-codes"
 def consent_reads(wa_client):
     calls = []
 
-    def status(owner, reason):
+    def status(owner, reason, language=None):
         calls.append((owner, reason))
         return {
             "linked": True,
@@ -67,7 +67,7 @@ def consent_reads(wa_client):
         }
 
     configure_whatsapp(
-        replace(whatsapp_runtime(), consent=SimpleNamespace(status=status))
+        replace(whatsapp_runtime(), receipts=SimpleNamespace(status=status))
     )
     return calls
 
@@ -114,11 +114,11 @@ def test_status_uses_authenticated_owner_not_foreign_query(
 def test_status_storage_failure_is_not_unlinked(wa_client, consent_reads):
     from psycopg import OperationalError
 
-    def unavailable(*args):
+    def unavailable(*args, **kwargs):
         raise OperationalError("synthetic unavailable")
 
     configure_whatsapp(
-        replace(whatsapp_runtime(), consent=SimpleNamespace(status=unavailable))
+        replace(whatsapp_runtime(), receipts=SimpleNamespace(status=unavailable))
     )
     response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
     assert response.status_code == 503

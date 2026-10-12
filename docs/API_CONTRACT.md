@@ -8853,6 +8853,20 @@ whose bytes the owner's inbox already holds gets the duplicate reply. A message 
 timestamp is more than 24 hours old is still captured but gets no reply, so
 nothing is sent outside the service window.
 
+#### Linked-number receipt reading permission
+
+The one WhatsApp AI switch (`/api/v1/whatsapp/ai-consent`) is the owner's
+permission to read the receipts they send by WhatsApp: scope version 2, purpose
+`business_whatsapp_receipt_reading`, route `document_extraction`. `GET` takes an
+optional `language`; a Spanish language returns the Spanish disclosure text for
+display, while the stored and hashed disclosure is the English text. One active
+permission exists per linked number: turning receipt reading on replaces an
+agent permission (scope 1) and the reverse, never a second row. With the
+permission off, a received receipt is saved unread. With it on, the receipt is
+read after the acknowledgement, and the permission is checked again at the
+moment of the read, so revoking stops a read that has not started. One
+follow-up message tells the sender the result, only inside the 24 hour window.
+
 #### Linked-number Business AI permission
 
 The owner must explicitly opt in before WhatsApp text and necessary authorized

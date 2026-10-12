@@ -105,7 +105,7 @@ const consent = {
 describe("WhatsApp AI permission", () => {
   test("one row shows the server disclosure and models beside a switch that is off", () => {
     const html = render({ status: linked, consent });
-    expect(html).toContain("Let AI read my WhatsApp messages");
+    expect(html).toContain("Read my receipts with AI");
     expect(html).toContain("Cuadrao sends your message text to an AI provider");
     expect(html).toContain("anthropic/claude-haiku-5.5");
     expect(html).toMatch(/role="switch"[^>]*aria-checked="false"/);
@@ -128,13 +128,13 @@ describe("WhatsApp AI permission", () => {
   });
 
   test("an unlinked owner sees no AI row", () => {
-    expect(render({ consent })).not.toContain("Let AI read my WhatsApp messages");
+    expect(render({ consent })).not.toContain("Read my receipts with AI");
   });
 
   test("Spanish first copy renders", () => {
     const html = render({ status: linked, consent }, "es-419");
-    expect(html).toContain("Permitir que la IA lea mis mensajes de WhatsApp");
-    expect(html).toContain("Desactivado. Cuadrao todavía no puede responder tus mensajes.");
+    expect(html).toContain("Leer mis recibos con IA");
+    expect(html).toContain("Desactivado. Los recibos que envíes esperan en tu bandeja para que los llenes tú.");
   });
 
   test("only a signed 64 character disclosure token can enable", async () => {

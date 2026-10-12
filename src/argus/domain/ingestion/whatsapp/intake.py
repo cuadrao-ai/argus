@@ -97,6 +97,11 @@ class IntakeDestination(Protocol):
 
     async def discard(self, *, owner_id: str, connection_id: str) -> None: ...
 
+    async def read(self, *, owner_id: str, connection_id: str) -> str | None:
+        """Read the saved receipt when the owner allows it: the draft's status
+        once settled, else ``None``."""
+        ...
+
 
 class MediaSource(Protocol):
     async def fetch(self, media_id: str) -> FetchedMedia: ...
@@ -280,7 +285,35 @@ class WhatsAppIntake:
             error_code=settlement.error_code,
         )
         await self._reply(message, settlement, log)
+        await self._followup(message, settlement, log)
         return True
+
+    async def _followup(
+        self, message: InboundMessage, settlement: Settlement, log
+    ) -> None:  # noqa: ANN001
+        """One more message, once the receipt is read: where it stands. Best
+        effort; the acknowledgement already carried the link."""
+
+        if settlement.status != "captured" or settlement.duplicate:
+            return
+        try:
+            status = await self.destination.read(
+                owner_id=settlement.destination_owner_id or "",
+                connection_id=settlement.connection_id or "",
+            )
+            if status not in ("review_ready", "needs_attention"):
+                return
+            await self._reply(
+                message,
+                settlement,
+                log,
+                key="read_ready" if status == "review_ready" else "read_attention",
+            )
+        except Exception as error:
+            log.warning(
+                "WhatsApp receipt read follow-up skipped",
+                failure_mode=type(error).__name__,
+            )
 
     async def _discard(self, captured: Settlement, log) -> None:  # noqa: ANN001
         """The link ended while this receipt was being saved; the sender is
@@ -382,7 +415,13 @@ class WhatsAppIntake:
             duplicate=captured.already_held,
         )
 
-    async def _reply(self, message: InboundMessage, settlement: Settlement, log) -> None:  # noqa: ANN001
+    async def _reply(
+        self,
+        message: InboundMessage,
+        settlement: Settlement,
+        log,  # noqa: ANN001
+        key: str | None = None,
+    ) -> None:
         if self.transport is None or not self.send_enabled():
             return
         if self.clock() - message.sent_at > SERVICE_WINDOW:
@@ -395,7 +434,8 @@ class WhatsAppIntake:
                 return
             url = review_url(self.app_origin, settlement.connection_id or "")
         body = compose_reply(
-            reply_key(
+            key
+            or reply_key(
                 settlement.status, settlement.error_code, duplicate=settlement.duplicate
             ),
             language=settlement.reply_language,

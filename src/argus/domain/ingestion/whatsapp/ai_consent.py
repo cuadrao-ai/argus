@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any, Literal
 from uuid import UUID
 
@@ -22,6 +23,38 @@ DISCLOSURE = (
     "message text and necessary authorized draft context through the disclosed "
     "provider routes to understand, clarify and prepare drafts. You can revoke "
     "this permission. Recording an expense still requires separate human approval."
+)
+
+
+@dataclass(frozen=True)
+class ConsentScope:
+    """What a permission covers. The English text is the one stored and hashed;
+    ``disclosure_es`` is only what a Spanish reader sees."""
+
+    version: int
+    purpose: str
+    disclosure: str
+    disclosure_es: str | None = None
+
+    def text(self, language: str | None) -> str:
+        spanish = bool(language) and language.lower().startswith("es")
+        return self.disclosure_es if spanish and self.disclosure_es else self.disclosure
+
+
+AGENT_SCOPE = ConsentScope(SCOPE_VERSION, PURPOSE, DISCLOSURE)
+# The one short disclosure for reading receipts. The legal wording pass changes
+# only these two sentences.
+RECEIPT_SCOPE = ConsentScope(
+    2,
+    "business_whatsapp_receipt_reading",
+    "Cuadrao reads the receipts you send by WhatsApp with AI: the photo or PDF "
+    "goes to OpenRouter and the model below, only to read the merchant, amount "
+    "and date. You can turn this off at any time. Recording money always needs "
+    "your approval.",
+    "Cuadrao lee con IA los recibos que envías por WhatsApp: la foto o el PDF va "
+    "a OpenRouter y al modelo de abajo, solo para leer comercio, monto y fecha. "
+    "Puedes desactivarlo cuando quieras. Registrar dinero siempre necesita tu "
+    "aprobación.",
 )
 
 
@@ -45,8 +78,13 @@ def digest(value: Any) -> str:
 
 
 class AIConsentStore:
-    def __init__(self, pool, route: Callable[[], dict[str, Any]]) -> None:
-        self.pool, self.route = pool, route
+    def __init__(
+        self,
+        pool,
+        route: Callable[[], dict[str, Any]],
+        scope: ConsentScope = AGENT_SCOPE,
+    ) -> None:
+        self.pool, self.route, self.scope = pool, route, scope
 
     def _route(self) -> dict[str, Any]:
         try:
@@ -85,12 +123,12 @@ class AIConsentStore:
             )
             return cursor.fetchone()
 
-    def _view(self, link, latest, route):
+    def _view(self, link, latest, route, language: str | None = None):
         token = digest(
             {
                 "link": str(link[0]),
-                "scope": SCOPE_VERSION,
-                "disclosure": DISCLOSURE,
+                "scope": self.scope.version,
+                "disclosure": self.scope.disclosure,
                 "route": route,
                 "previous": str(latest["id"]) if latest else None,
                 "revoked": str(latest["revoked_at"]) if latest else None,
@@ -101,9 +139,9 @@ class AIConsentStore:
             "available": True,
             "reason": None,
             "last4": link[4],
-            "scope_version": SCOPE_VERSION,
-            "purpose": PURPOSE,
-            "disclosure": DISCLOSURE,
+            "scope_version": self.scope.version,
+            "purpose": self.scope.purpose,
+            "disclosure": self.scope.text(language),
             "route": route,
             "disclosure_token": token,
             "enabled": bool(
@@ -115,15 +153,19 @@ class AIConsentStore:
             "revoked_at": latest["revoked_at"] if latest else None,
         }
 
-    @staticmethod
-    def _matches_disclosure(row, route) -> bool:
+    def _matches_disclosure(self, row, route) -> bool:
         return (
-            row["scope_version"] == SCOPE_VERSION
-            and row["disclosure"] == DISCLOSURE
+            row["scope_version"] == self.scope.version
+            and row["disclosure"] == self.scope.disclosure
             and row["route_hash"] == digest(route)
         )
 
-    def status(self, owner_id: UUID, unavailable_reason: str | None = None) -> dict:
+    def status(
+        self,
+        owner_id: UUID,
+        unavailable_reason: str | None = None,
+        language: str | None = None,
+    ) -> dict:
         with self.pool.connection() as connection, connection.transaction():
             link = connection.execute(
                 "select id,destination_space_id,destination_owner_id,wa_id_hash,last4"
@@ -136,9 +178,9 @@ class AIConsentStore:
                     "available": False,
                     "reason": "whatsapp_link_required",
                     "last4": None,
-                    "scope_version": SCOPE_VERSION,
-                    "purpose": PURPOSE,
-                    "disclosure": DISCLOSURE,
+                    "scope_version": self.scope.version,
+                    "purpose": self.scope.purpose,
+                    "disclosure": self.scope.text(language),
                     "route": None,
                     "disclosure_token": None,
                     "enabled": False,
@@ -151,7 +193,7 @@ class AIConsentStore:
                 route = None
                 unavailable_reason = "whatsapp_ai_route_unavailable"
             latest = self._latest(connection, link[0])
-            view = self._view(link, latest, route)
+            view = self._view(link, latest, route, language)
             view["enabled"] = view["enabled"] and self._valid_grant(connection, latest)
             owner = connection.execute(
                 "select 1 from public.spaces where id=%s and created_by=%s"
@@ -221,7 +263,14 @@ class AIConsentStore:
             if request.disclosure_token != view["disclosure_token"]:
                 raise ConsentError("whatsapp_consent_disclosure_stale", 409)
             if latest and latest["revoked_at"] is None:
-                raise ConsentError("whatsapp_consent_already_enabled", 409)
+                if latest["scope_version"] == self.scope.version:
+                    raise ConsentError("whatsapp_consent_already_enabled", 409)
+                # One active permission per number: this scope replaces the other.
+                connection.execute(
+                    "update public.business_whatsapp_ai_consents"
+                    " set revoked_at=clock_timestamp(),revoked_by=%s where id=%s",
+                    (owner_id, latest["id"]),
+                )
             connection.execute(
                 "insert into public.business_whatsapp_ai_consents"
                 " (sender_link_id,space_id,owner_id,sender_hash,consenting_actor_id,grant_id,issuer_id,"
@@ -235,9 +284,9 @@ class AIConsentStore:
                     owner_id,
                     auth.context.grant_id,
                     auth.provenance.issuer_id,
-                    SCOPE_VERSION,
-                    PURPOSE,
-                    DISCLOSURE,
+                    self.scope.version,
+                    self.scope.purpose,
+                    self.scope.disclosure,
                     Jsonb(route),
                     digest(route),
                     key,

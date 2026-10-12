@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
 
@@ -84,11 +84,18 @@ _REJECTED_CAPTURE = {
 
 
 class DocumentsDestination:
-    """Saves the bytes as a document draft in the owner's Business space, with
-    ``consent=False``; never queues."""
+    """Saves the bytes as a document draft in the owner's Business space. It is
+    read by the model only when the owner turned receipt reading on; else it
+    waits saved, unread."""
 
-    def __init__(self, documents: DocumentsService, spaces: SpaceStore) -> None:
+    def __init__(
+        self,
+        documents: DocumentsService,
+        spaces: SpaceStore,
+        reading_enabled: Callable[[str], bool] | None = None,
+    ) -> None:
         self.documents, self.spaces = documents, spaces
+        self.reading_enabled = reading_enabled
 
     async def capture(
         self,
@@ -103,13 +110,14 @@ class DocumentsDestination:
         scope = resolve_business_scope(self.spaces, owner_id)
         if scope is None:
             raise CaptureRejected(SENDER_LINK_REVOKED)
+        read = await asyncio.to_thread(self._reading, owner_id)
         try:
             outcome = await self.documents.upload(
                 user_id=owner_id,
                 content=content,
                 filename=filename,
                 media_type=media_type,
-                consent=False,
+                consent=read,
                 source_text=source_text,
                 scope=scope.owner,
             )
@@ -121,6 +129,40 @@ class DocumentsDestination:
             raise CaptureFailed("whatsapp_capture_failed") from None
         return Captured(outcome.connection_id, already_held=outcome.replayed)
 
+    def _reading(self, owner_id: str) -> bool:
+        if self.reading_enabled is None:
+            return False
+        try:
+            return self.reading_enabled(owner_id)
+        except Exception:
+            return False
+
+    async def read(self, *, owner_id: str, connection_id: str) -> str | None:
+        """Read a queued receipt through the owner's own preparation path, after
+        the acknowledgement. The draft's status when it settles, else ``None``."""
+
+        from fastapi import BackgroundTasks
+
+        from argus.api.documents import dispatch_preparation
+
+        scope = resolve_business_scope(self.spaces, owner_id)
+        if scope is None:
+            return None
+        current = self.documents.get(
+            user_id=owner_id, connection_id=connection_id, scope=scope.owner
+        )
+        if current.status != "queued":
+            return None
+        tasks = BackgroundTasks()
+        await dispatch_preparation(
+            self.documents, owner_id, connection_id, tasks, scope=scope.owner
+        )
+        await tasks()
+        settled = self.documents.get(
+            user_id=owner_id, connection_id=connection_id, scope=scope.owner
+        )
+        return settled.status
+
     async def discard(self, *, owner_id: str, connection_id: str) -> None:
         scope = resolve_business_scope(self.spaces, owner_id)
         if scope is None:
@@ -131,6 +173,21 @@ class DocumentsDestination:
             connection_id=connection_id,
             scope=scope.owner,
         )
+
+
+def _whatsapp_read_gate(store, reading):  # noqa: ANN001, ANN202
+    """A receipt that arrived by WhatsApp is read only while the owner's switch
+    is on at the moment of the read; other uploads carry their own consent."""
+
+    def allowed(user_id: str, connection_id: str) -> bool:
+        if connection_id not in store.captured_connections(destination_owner_id=user_id):
+            return True
+        try:
+            return reading(user_id)
+        except Exception:
+            return False
+
+    return allowed
 
 
 class BackgroundWork:
@@ -157,6 +214,7 @@ class WhatsAppRuntime:
     worker: BusinessWhatsAppWorker | None = None
     consent: AIConsentStore | None = None
     work: BackgroundWork | None = None
+    receipts: AIConsentStore | None = None
 
 
 _runtime: WhatsAppRuntime | None = None
@@ -213,6 +271,17 @@ def build_whatsapp(
     worker = None
     consent = None
     keys = WhatsAppKeys(settings.sender_key.get_secret_value())
+    reading = None
+    receipts = None
+    if pool is not None:
+        from argus.domain.ingestion.whatsapp.receipt_consent import (
+            receipt_consent_store,
+            receipt_reading_enabled,
+        )
+
+        receipts = receipt_consent_store(pool)
+        reading = lambda owner: receipt_reading_enabled(receipts, owner)  # noqa: E731
+        documents.read_gate = _whatsapp_read_gate(store, reading)
     if pool is not None and documents.hub.box is not None:
         from argus.api.whatsapp_worker import build_worker
         from argus.domain.business.actions import BusinessActions
@@ -251,7 +320,7 @@ def build_whatsapp(
             graph_api_version=settings.graph_api_version,
             max_bytes=max_bytes,
         ),
-        destination=DocumentsDestination(documents, spaces),
+        destination=DocumentsDestination(documents, spaces, reading),
         clock=documents.hub.clock,
         transport=transport,
         app_origin=app_origin,
@@ -260,7 +329,7 @@ def build_whatsapp(
         background=work.start if work is not None else None,
         send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
     )
-    return WhatsAppRuntime(intake, settings, worker, consent, work)
+    return WhatsAppRuntime(intake, settings, worker, consent, work, receipts)
 
 
 def start_whatsapp(app: object) -> None:

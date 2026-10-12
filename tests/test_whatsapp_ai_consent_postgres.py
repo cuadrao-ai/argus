@@ -299,20 +299,24 @@ def test_own_status_is_read_only_unlinked_and_route_unavailable(world, consent):
 def test_disclosure_drift_refuses_stale_post_and_old_queued_consent(
     world, consent, monkeypatch
 ):
-    from argus.domain.ingestion.whatsapp import ai_consent
-
     store, _ = consent
     unconfirmed = EnableAIConsent(
         action="enable", disclosure_token=store.status(world.owner)["disclosure_token"]
     )
-    original_text = ai_consent.DISCLOSURE
-    monkeypatch.setattr(ai_consent, "DISCLOSURE", original_text + "\n")
+    original_text = store.scope.disclosure
+    monkeypatch.setattr(
+        store, "scope", replace(store.scope, disclosure=original_text + "\n")
+    )
     with pytest.raises(ConsentError, match="disclosure_stale"):
         store.enable(world.owner, unconfirmed, str(uuid4()))
     request, key, view = enable(world, store)
     capture, ctx, lease = captured(world)
     store.require_access(capture, ctx, lease=lease)
-    monkeypatch.setattr(ai_consent, "DISCLOSURE", original_text + " Updated disclosure.")
+    monkeypatch.setattr(
+        store,
+        "scope",
+        replace(store.scope, disclosure=original_text + " Updated disclosure."),
+    )
     assert not store.status(world.owner)["enabled"]
     replay = store.enable(world.owner, request, key)
     assert not replay["enabled"] and replay["consented_at"] == view["consented_at"]
@@ -331,3 +335,30 @@ def test_disclosure_drift_refuses_stale_post_and_old_queued_consent(
     enable(world, store)
     with pytest.raises(ConsentError, match="consent_required"):
         store.require_access(capture, ctx, lease=lease)
+
+
+def test_receipt_permission_replaces_the_agent_permission_on_one_row(world, consent):
+    from argus.domain.ingestion.whatsapp.ai_consent import RECEIPT_SCOPE
+
+    agent, _ = consent
+    enable(world, agent)
+    receipts = AIConsentStore(world.pool, agent.route, RECEIPT_SCOPE)
+    assert not receipts.status(world.owner)["enabled"]
+    request = EnableAIConsent(
+        action="enable", disclosure_token=receipts.status(world.owner)["disclosure_token"]
+    )
+    receipts.enable(world.owner, request, str(uuid4()))
+    assert receipts.status(world.owner)["enabled"]
+    assert not agent.status(world.owner)["enabled"]
+    with world.pool.connection() as db:
+        [(active,)] = db.execute(
+            "select count(*) from business_whatsapp_ai_consents"
+            " where owner_id=%s and revoked_at is null",
+            (world.owner,),
+        ).fetchall()
+    assert active == 1
+    receipts.revoke(world.owner)
+    assert not receipts.status(world.owner)["enabled"]
+    assert receipts.status(world.owner, language="es-419")["disclosure"].startswith(
+        "Cuadrao lee con IA"
+    )
