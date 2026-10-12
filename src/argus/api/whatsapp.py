@@ -239,6 +239,7 @@ def build_whatsapp(
             consent=consent,
             enabled=lambda: business_pilot_enabled()
             and load_whatsapp_settings().intake_ready
+            and load_whatsapp_settings().agent_enabled
             and load_document_extraction_settings().enabled,
             send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
         )

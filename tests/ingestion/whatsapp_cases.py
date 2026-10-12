@@ -183,8 +183,7 @@ async def linked_image_is_saved_unqueued_and_replay_converges(world: World) -> N
     assert world.store.captured_connections(destination_owner_id=world.bob) == set()
     assert RefusingExtractor.calls == 0
     assert world.transport.bodies()[-1] == (
-        "Recibimos tu recibo y lo guardamos en tu bandeja. "
-        f"Revísalo y confírmalo en Cuadrao: {ORIGIN}/biz?receipt={connection_id}"
+        f"Recibido. Revísalo aquí: {ORIGIN}/biz?receipt={connection_id}"
     )
     assert len(world.transport.sent) == 2
     assert world.graph.hosts() == {"graph.facebook.com", "lookaside.fbsbx.com"}
@@ -412,12 +411,9 @@ async def english_owner_gets_english_only(world: World) -> None:
     [connection_id] = world.captures(world.alice)
     link = f"{ORIGIN}/biz?receipt={connection_id}"
     assert world.transport.bodies() == [
-        "Done. This WhatsApp is now connected to your business in Cuadrao. "
-        "Send a photo or PDF of a receipt here.",
-        "We got your receipt and saved it to your inbox. "
-        f"Review and confirm it in Cuadrao: {link}",
-        "This receipt is already in your inbox, so we didn't save it twice. "
-        f"Review it in Cuadrao: {link}",
+        "Done, this WhatsApp is connected. Send a photo or PDF of your receipts here.",
+        f"Received. Review it here: {link}",
+        f"We already had this one. Review it here: {link}",
     ]
 
 
@@ -434,10 +430,8 @@ async def same_bytes_in_a_new_message_get_the_duplicate_reply(world: World) -> N
         record = world.record(message_id)
         assert (record.status, record.connection_id) == ("captured", connection_id)
     assert world.transport.bodies()[1:] == [
-        "Recibimos tu recibo y lo guardamos en tu bandeja. "
-        f"Revísalo y confírmalo en Cuadrao: {link}",
-        "Ya tenemos este recibo en tu bandeja, así que no lo guardamos dos veces. "
-        f"Revísalo en Cuadrao: {link}",
+        f"Recibido. Revísalo aquí: {link}",
+        f"Ya lo teníamos. Revísalo aquí: {link}",
     ]
 
 
@@ -599,9 +593,12 @@ async def forwarded_and_captioned_messages_capture_like_a_direct_send(
             encode(body, world.clock.now), phone_number_id=PHONE_NUMBER_ID
         ).messages[0]
         assert parsed.caption == caption
-        assert replace(parsed, caption=None) == parse_delivery(
-            encode(direct, world.clock.now), phone_number_id=PHONE_NUMBER_ID
-        ).messages[0]
+        assert (
+            replace(parsed, caption=None)
+            == parse_delivery(
+                encode(direct, world.clock.now), phone_number_id=PHONE_NUMBER_ID
+            ).messages[0]
+        )
         before = len(world.graph.requests)
 
         await world.deliver(body)
@@ -743,7 +740,7 @@ async def a_linked_sender_text_is_never_a_link_attempt(world: World) -> None:
     assert link.last4 == "1234"
     assert world.store.destination_link(destination_owner_id=world.bob) is None
     assert set(world.transport.bodies()[-3:]) == {
-        "We only take receipts here. Send a photo or PDF of the receipt."
+        f"We only take receipts here. For everything else use Cuadrao: {ORIGIN}/biz"
     }
 
 

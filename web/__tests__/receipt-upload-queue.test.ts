@@ -121,6 +121,15 @@ test("untyped files take their type from the extension only when the server acce
   expect(receiptFileWithType(file("typed.csv", "text/plain"), server).type.startsWith("text/plain")).toBe(true);
 });
 
+test("an XML e-invoice is offered by the picker and typed from its extension when the server accepts XML", () => {
+  const server = { max_bytes: 20, media_types: ["application/pdf", "text/xml", "application/xml"] };
+  expect(receiptFormatLabels(server)).toEqual(["PDF", "XML", "XML"]);
+  expect(receiptFileAccept(server)).toBe("application/pdf,.pdf,text/xml,.xml,application/xml,.xml");
+  expect(receiptFileWithType(file("factura-E320000001234.xml", ""), server).type).toBe("text/xml");
+  const withoutXml = { max_bytes: 20, media_types: ["application/pdf"] };
+  expect(receiptFileWithType(file("factura.xml", ""), withoutXml).type).toBe("");
+});
+
 test("a file picked twice is listed once, and adding during a save is refused and reported", async () => {
   let finish!: (receipt: ReceiptSummary) => void;
   const queue = new ReceiptUploadQueue(() => new Promise((resolve) => { finish = resolve; }), () => undefined);
