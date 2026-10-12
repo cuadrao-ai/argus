@@ -1,3 +1,67 @@
+## October 11, 2026 — Claude handoff checkpoint (current)
+
+This section supersedes the historical next-step/status instructions below. Lucas asked lanes to close the nearest started loop, preserve work, and stop. No new task or hosted phase starts from this handoff. This documentation-only checkpoint is published on the existing bridge branch for remote resumption. Runtime source remains the ae9e9604 checkpoint; no reconciliation or feature work occurred.
+
+### Outcome and stopping point
+
+The receipt-to-canonical-draft bridge passes offline and disposable Postgres checks, and the web export action is implemented. We have NOT proved the full owner upload → extraction → correction → accountant journey through a normal browser or on staging. Core Flow 2 is not accepted end to end from these results.
+
+- **Bridge:** branch `codex/cuadrao-business-receipt-bridge-clean-20261011`, worktree `/private/tmp/cuadrao-business-receipt-bridge-clean-20261011`, frozen HEAD `ae9e9604ae9536a70efca23153309376f58a7c03`; runtime last changed at `edad3afb555c71dac6c61596fe38e35982d60ced`. Latest offline run:75 passed; modularity passed. Root's exact edad Postgres run:19 passed,0 failed/errors/skips. No bridge PR yet. Do not reconcile until shared extraction lands.
+- **C0:** root reports #975 landed at `a6f1f4b3171837d50c82268effa7a12a83df590e`; postmerge CI38181310050/smoke38181310054 was still root-owned work at handoff. Donor47608809469325c3db47219a00308312598991f8. Root reports clean124 migration test and1040PG/13Auth tests passed. Do not repeat DB work without its existing lease/authorization.
+- **Shared extraction:** #976 remains draft while its owner closes reconciliation/handoff. Earlier measured/config candidate91f17d4dce86fa1c3fa0c10c4fd791846e98aa8a includes native schema transport d06b9c794 and durable measurement bebe7fd46. Root reported both measured cases passed and228 affected tests. This is extractor evidence, NOT bridge/browser acceptance. Obtain current reconciled exact head from its owner; do not import older bridge extractor files over it.
+- **Web:** branch `codex/cuadrao-hosted-web-20261010`, worktree `/tmp/cuadrao-hosted-web-20261010`, PR974 HEAD `7a279654b42b49007a8b8eca940073f7818f197a`, clean.62 focused tests passed. GitHub read at handoff: both exact-head CI runs38178308726/38178313239 SUCCESS and smoke38178313246 SUCCESS; docs-only jobs correctly skipped. Root independent cumulative reviewCLEAR at e257c1037; latest allocation-only delta needs root disposition. Local export implementation is complete; normal authenticated screen/download proof remains pending. PR not merged by this lane.
+
+### Important runtime and actor limits
+
+Capture/extraction creates an unverified draft, never Money. Human/matched uncertainty and known provenance stay intact; conflicting facts require review. Original grant/issuer, consent, lease, source and saved-batch identity must pass at completion. Existing flags default off; no independent bridge toggle exists. A stored-batch resume can finalize without a new extraction call. Invoice amount due is not proof of payment. No #925/live chat/unpaid-invoice prompt change belongs in this delivery.
+
+New upload `POST /business/receipts` uses the logged-in user's OWN open Business, determined by `business_space_of(created_by)`. The client sends authenticated headers, Content-Type, Idempotency-Key, X-Document-Filename and affirmative X-Extraction-Consent; there is no target Business header. Real-pool `scoped_legacy` ALSO requires a live read+prepare client grant for that same actor. Owners have no implicit exemption. An accountant's grant to another Business cannot select that Business for a new upload. Existing receipt-ID preparation can resolve an accountant's granted record. Thus the intended two-person synthetic fixture needs two registered users, one Business and explicit owner preparation plus accountant read/prepare grants. A nonlogin owner scaffold plus accountant-only grant does NOT prove owner upload. Grant setup is trusted fixture work, not proven UI onboarding; retain this product gap.
+
+### Hosted state and approval boundaries
+
+Root last verified staging API at cad1cbe1ec27ff89c08eadbec31718a0e627383c, older than export/C0/bridge/current shared extraction. Stage ledger115; integration53d had123 migrations, C0 adds one for124. Eight tail migrations plus C0 remain hosted prerequisites per root. LocalAPI4b contains125 migrations and held chat/WhatsApp work: NEVER deploy it wholesale. Production untouched.
+
+Root reports public staging widget build LIVE and real staging verifier saved by Lucas. Staging Supabase ref skedzwocnmrhfigiwyzi; production client lgdhvepyrzbnscqssgqq. These identifiers do not prove complete current browser/API auth matching. Earlier normal local-browser code110200 established hostname rejection; reset error disappeared after lifecycle fix, not auth success. No hosted pipeline proof performed.
+
+Two dedicated synthetic staging users/Business and controlled local restart are now approved per root's final instruction, but NO hosted users/schema/API mutation has occurred. Root completed the approved local restart and then stopped its owned service90751 (web/API/proxy ports56500–56502). Fixture27273/PID55483, DB lease and Auth remain preserved per root verification. The normal UI proof phase was not started; do not infer acceptance from service readiness. No new staging phase starts now. Consumer credential file `/private/tmp/cuadrao-consumer-staging-test-login.json` is protected and must not become a Business fixture. No dedicated hosted Business credential path exists yet. Keep current services, fixture and environments; no cleanup/reset/new copies.
+
+Config names only: ARGUS_BUSINESS_PILOT_ENABLED, ARGUS_INGESTION_ENABLED, ARGUS_DOCUMENT_EXTRACTION_ENABLED, ARGUS_DOCUMENT_JOBS_ENABLED, NEXT_PUBLIC_BUSINESS_PILOT_ENABLED, NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY with NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY fallback. Public build input CLOUDFLARE_STG_SITE_KEY maps to canonical name; never expose secret keys. Model/config owner controls shared extraction configuration; no new model selection here.
+
+### Exact offline commands and preserved evidence
+
+Bridge (from its existing worktree):
+```sh
+PYTHONPATH=src:web /Users/garces/.codex/worktrees/7086031b-3547-4387-b461-0bf0f7973e17/private-alpha-next/.venv/bin/python3 -m pytest tests/ingestion/test_business_document_bridge.py tests/test_business_attachment_preparation.py tests/ingestion/test_document_extraction.py -q --no-cov --noconftest
+python3 scripts/check_modularity_budget.py
+```
+Web (from existing worktree/web):
+```sh
+bun test __tests__/business-dossier.test.ts __tests__/guest-session.test.ts __tests__/guest-captcha-ux.test.ts __tests__/auth-captcha-confirmation.test.ts
+```
+Local-only preserved files (not committed evidence):
+- `/tmp/cuadrao-business-backend-landing-plan-20261011.md`: ordered dependency/ownership plan.
+- `/tmp/cuadrao-business-hosted-actor-trace-20261011.md`: exact route/grant trace.
+- `/tmp/cuadrao-web-pr974-scope-handoff-20261011.md`:13 source paths plus allocation follow-up.
+- `/tmp/cuadrao-turnstile-lifecycle-fix-handoff-20261011.md` and `/tmp/cuadrao-turnstile-public-key-handoff-20261011.md`.
+- `/tmp/cuadrao-business-attachment-bridge-edad-review.md`; `/tmp/cuadrao-web-e257-independent-review-20261011.md`.
+- `/Users/garces/Documents/Codex/2026-10-10/task/cuadrao-receipt-bridge-edad3a-postgres-proof-20261011.json`.
+- `/Users/garces/Documents/Codex/2026-10-10/task/cuadrao-c0-clean124-ci-proof-20261011.json`.
+- `/Users/garces/Documents/Codex/2026-10-10/task/cuadrao-hosted-receipt-next-action-proposal-20261011.md`.
+
+### Remote resumption and Mac-only state
+
+Required source and this handoff are on existing branch `codex/cuadrao-business-receipt-bridge-clean-20261011`; the final documentation commit is its tip. Runtime parent checkpoint is ae9e9604ae9536a70efca23153309376f58a7c03. Web source is already remote on `codex/cuadrao-hosted-web-20261010` at7a279654b42b49007a8b8eca940073f7818f197a (#974). No required implementation remains only in an untracked file. Local notes above contain diagnostic detail summarized here; they are not separate product dependencies or hosted acceptance evidence.
+
+Indispensable Mac state for resuming the SAME unfinished local proof: root's retained synthetic fixture27273/PID55483 and leased database/Auth; root's frozen web source `/tmp/cuadrao-export-browser-web-source-20261011`; existing installed Python environment path in command above; root's private environment configuration and actual service start command. Web/API/proxy90751 are stopped. No credentials, environment values, session tokens or fixture database contents are committed. The service restart command/fixture values are root-owned and must be taken from the consolidated root handoff; do not invent or clone them. These dependencies prevent a blanket safe-to-archive verdict until root preserves or releases them. Machine-specific screenshots are diagnostic history; no completed browser acceptance relies on them.
+
+Prior disposable PG proof can be repeated only after root allocates an existing authorized disposable DB and supplies ARGUS_DISPOSABLE_DATABASE_URL privately, with the reviewed migration installed. Run tests/test_business_attachment_preparation_postgres.py through the same pytest environment; do not use staging/production or launch another DB. Receipt source and original access checks, immutable batch/checkpoint digest, replay without revision, stale target/refusal and rollback cases are in the committed test suite. Previous result19/19 applies to edad runtime, not future reconciliation.
+
+This lane has no active writer, test process or service consumer at stop. No archive/delete action was taken. A pushed branch is source recovery, not runtime acceptance.
+
+After explicit resumption: obtain #976's landed exact base, one-way merge integration into the frozen bridge (never stale donor overwrite), audit shared extractor/contracts/migration overlap, rerun only affected offline/PG verification under root control, publish bridge PR, complete final review/CI, then coordinate authorized schema/API/fixture deployment and normal hosted proof. Root owns .env.example overlap with shared model owner, API/DATA contract serialization, board updates and release decisions. Do not start these follow-ups during handoff freeze.
+
+---
+
 # Cuadrao Business lane handoff
 
 **Current October 11 coordinator checkpoint.** #970 MERGED at canonical
