@@ -88,6 +88,14 @@ struct FinancialSearchView: View {
         unavailableKind == nil && model.origin.currency != nil ? 1 : 0
     }
     private var filterSummary: String { model.origin.currency ?? "" }
+    private var start: CuadraoSearchStart {
+        let categories = model.items.compactMap { hit -> String? in
+            guard case .activity(let detail, let archived) = hit, !archived, detail.kind == .expense, let id = detail.categoryId else { return nil }
+            return NSLocalizedString("loop.category." + id, comment: "")
+        }
+        let names = accounts.accounts.filter { !$0.archived }.map { $0.nickname ?? NSLocalizedString("accounts.type." + $0.type, comment: "") }
+        return CuadraoSearchStart(suggestions: CuadraoSearchStart.suggestions(frequent: categories, names: names))
+    }
 
     var body: some View {
         NavigationStack {
@@ -95,7 +103,7 @@ struct FinancialSearchView: View {
                 kinds: kinds, spanish: spanish,
                 filterCount: filterCount, filterSummary: filterSummary, clearFilters: clearFilters,
                 focused: $focused, accessibility: .connected, loading: showsProgress,
-                refresh: { if unavailableKind == nil { await model.refresh() } }, eagerRows: true) {
+                refresh: { if unavailableKind == nil { await model.refresh() } }, eagerRows: true, start: start, recentsKey: model.ownerID ?? "signed-out") {
                 FinancialScrollProbe(controller: scroll).frame(height: 0)
                 results
             } filters: {
