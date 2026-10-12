@@ -1,10 +1,12 @@
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
+import { publicApiUrl } from "./public-env";
 
 export type AccountRequestOptions = RequestInit & { expectedUserId?: string };
 
 export const ARGUS_API_BASE_URL = (() => {
-  if (process.env.NEXT_PUBLIC_ARGUS_API_URL) {
-    return process.env.NEXT_PUBLIC_ARGUS_API_URL;
+  const configured = publicApiUrl();
+  if (configured) {
+    return configured;
   }
   if (typeof window !== "undefined") {
     return `${window.location.protocol}//${window.location.hostname}:8000/api/v1`;

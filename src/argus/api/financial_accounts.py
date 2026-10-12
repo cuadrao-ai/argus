@@ -1,6 +1,6 @@
 """Exposure gate and process wiring for the financial accounts surface.
 
-Default-off behind ``ARGUS_FINANCIAL_ACCOUNTS_ENABLED``. While off, or when
+Default-off behind ``CUADRAO_FINANCIAL_ACCOUNTS_ENABLED`` (or the older ``ARGUS_`` name). While off, or when
 durable mode has no database, the routes answer 404 so the surface does not
 exist. Guests are refused after authentication with the same problem the
 memory surface uses, because the product boundary is registration.
@@ -8,7 +8,6 @@ memory surface uses, because the product boundary is registration.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, Request
@@ -27,15 +26,18 @@ from argus.domain.recording.errors import (
 )
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
 from argus.domain.recording.service import FinancialAccountService
+from argus.settings_names import setting_value
 
-FLAG = "ARGUS_FINANCIAL_ACCOUNTS_ENABLED"
+FLAG = "CUADRAO_FINANCIAL_ACCOUNTS_ENABLED"
 TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
 _service: FinancialAccountService | None = None
 
 
 def financial_accounts_enabled() -> bool:
-    return os.getenv(FLAG, "").strip().lower() in TRUE_VALUES
+    return (
+        setting_value("FINANCIAL_ACCOUNTS_ENABLED") or ""
+    ).strip().lower() in TRUE_VALUES
 
 
 def financial_accounts_service() -> FinancialAccountService | None:

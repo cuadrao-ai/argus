@@ -964,6 +964,38 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-settings-names-20261012": {
+      "description": "Cuadrao setting names: CUADRAO_* read first, ARGUS_* as a fallback, for the Business pilot and chat, ingestion, document extraction and jobs, vision model, financial accounts, email intake, app origin and the web NEXT_PUBLIC_* names. Setting names only; no package, database or WhatsApp change. The example env files are documentation here; real env files stay denied.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        ".env.example",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/agents/operating-reference.md",
+        "render.yaml",
+        "src/argus/api/financial_accounts.py",
+        "src/argus/api/ingestion.py",
+        "src/argus/api/routers/ops.py",
+        "src/argus/domain/business/config.py",
+        "src/argus/domain/ingestion/documents/config.py",
+        "src/argus/domain/ingestion/email_intake/config.py",
+        "src/argus/domain/ingestion/secrets.py",
+        "src/argus/llm/openrouter_model_env.py",
+        "src/argus/settings_names.py",
+        "tests/test_setting_names.py",
+        "web/.env.local.example",
+        "web/__tests__/public-env.test.ts",
+        "web/lib/argus-api-transport.ts",
+        "web/lib/guest-captcha.ts",
+        "web/lib/public-env.ts",
+        "web/lib/support-email.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local"
+      ]
+    },
     "codex/cuadrao-duplicate-receipts-20261012": {
       "description": "Duplicate receipts never record money twice: same bytes come back as the saved receipt (replayed), same read facts set the second draft aside as a possible duplicate with an approval blocker, attention and a link to the original. No regex or phrase logic.",
       "base_ref": "origin/codex/private-alpha-next",
