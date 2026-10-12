@@ -21,10 +21,12 @@ from argus.api.business_drafts import (
 )
 from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
 from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.business.scope import BusinessScope
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
+from argus.domain.owner_scope import BusinessSpace
 from fastapi import FastAPI
 from psycopg.types.json import Jsonb
 from starlette.requests import Request
@@ -40,9 +42,27 @@ pytestmark = bridge.pytestmark
 
 
 def _web(service, context):  # noqa: ANN001
-    """The Business context the receipt routes build for the signed-in owner."""
+    """The Business context the receipt routes build for the signed-in owner.
+
+    The list routes resolve the signed-in person's own open space, so the
+    caller is the owner; the shared fixture makes the space by SQL, so the
+    owner's grant (born with a space started through the app, #988) is seeded."""
 
     pool = service.authority.pool
+    with pool.connection() as db:
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
+            " select %s,%s,%s,ARRAY['read','prepare','approve'] where not exists"
+            " (select 1 from public.business_client_grants where space_id=%s and grantee_id=%s"
+            " and revoked_at is null)",
+            (
+                context.actor.space_id,
+                context.owner_id,
+                context.owner_id,
+                context.actor.space_id,
+                context.owner_id,
+            ),
+        )
     hub = IngestionHub(
         PostgresConnectionRepository(pool),
         box=None,
@@ -65,7 +85,10 @@ def _web(service, context):  # noqa: ANN001
             "state": {"request_id": "synthetic-views"},
         }
     )
-    return scoped_legacy(request, documents, hub, context.owner_id, None)
+    scope = BusinessScope(
+        person_id=context.owner_id, owner=BusinessSpace(str(context.actor.space_id))
+    )
+    return scoped_legacy(request, documents, hub, context.owner_id, scope)
 
 
 def _views(web, cid: str):  # noqa: ANN001
