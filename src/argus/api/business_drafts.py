@@ -338,9 +338,11 @@ def receipt_summary(context: BusinessContext, receipt) -> dict:  # noqa: ANN001
 def search_with_drafts(context: BusinessContext, q: str, limit: int) -> dict:
     """The search result with its receipts overlaid; expenses and accounts as found."""
 
-    found = context.service.search(context.scope, q, limit)
-    found["receipts"] = bridged(context, found["receipts"])
-    return found
+    receipts = context.service.receipts(context.scope)
+    views = {
+        item["id"]: item for item in bridged(context, [r.summary() for r in receipts])
+    }
+    return context.service.search(context.scope, q, limit, views)
 
 
 def updates_with_drafts(context: BusinessContext) -> list[dict]:
