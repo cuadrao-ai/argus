@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowLeft, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ReceiptDossierReview from "./ReceiptDossierReview";
+import { rebindAndPrepare } from "./receipt-rebind";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
@@ -48,7 +49,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [failed, setFailed] = useState(false);
-  const [busy, setBusy] = useState<"prepare" | "save" | "refresh" | null>(null);
+  const [busy, setBusy] = useState<"prepare" | "rebind" | "save" | "refresh" | null>(null);
   const [uncertainVersion, setUncertainVersion] = useState<number | null>(null);
   const inFlight = useRef(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -71,7 +72,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     };
   }, [receiptId, source]);
 
-  const { accounts, canPrepare } = detail ? receiptReviewAccess(detail) : { accounts: [], canPrepare: false };
+  const { accounts, canPrepare, canApprove } = detail ? receiptReviewAccess(detail) : { accounts: [], canPrepare: false, canApprove: false };
   const currencies = [...new Set(accounts.map((account) => account.currency))];
   const missing = useMemo(
     () => (detail && draft ? detail.missing_fields.filter((key) => !draft[key]?.trim()) : []),
@@ -130,6 +131,20 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       reload();
     } catch {
       setProblem(t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again."));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const rebind = async () => {
+    setBusy("rebind");
+    setProblem(null);
+    try {
+      await rebindAndPrepare(source, detail.id, show);
+      setUnprepared(false);
+      reload();
+    } catch {
+      setProblem(t("business.review.rebind_failed", "We couldn't bind this receipt to your access. Check your permission and try again."));
     } finally {
       setBusy(null);
     }
@@ -232,6 +247,14 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 <button type="button" data-testid="receipt-duplicate-original" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "receipt", receiptId: detail.duplicate_of as string })}>
                   {t("business.review.see_original", "See the receipt already saved")}
                 </button>
+              ) : null}
+              {detail.error_code === "business_record_not_found" && canApprove ? (
+                <>
+                  <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">{t("business.review.rebind_note", "The access that prepared this receipt is no longer valid. Bind it to your current access, then prepare it again.")}</p>
+                  <button type="button" data-testid="receipt-rebind" disabled={busy !== null} onClick={() => void rebind()} className={`${secondaryButtonClass} mt-3`}>
+                    {t("business.review.rebind", "Bind to my current access")}
+                  </button>
+                </>
               ) : null}
               {detail.preparable && canPrepare ? (
                 <>

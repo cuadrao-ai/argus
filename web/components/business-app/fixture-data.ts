@@ -434,6 +434,10 @@ export function createFixtureBusinessDataSource(
       uploads.set(key, created);
       return created;
     },
+    rebindReceipt: async (id) => {
+      await delay();
+      return find(id);
+    },
     prepareReceipt: async (id) => {
       await delay();
       const current = find(id);

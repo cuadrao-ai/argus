@@ -1063,6 +1063,34 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-grant-rebind-20261012": {
+      "description": "Known limit B: a receipt bound to a revoked and re-issued grant is bound again by one owner action with a ledger row, then prepared under the current grant. Tiny: one service method, one route, one migration line, one web button.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/routers/business.py",
+        "src/argus/domain/business/actions/service.py",
+        "src/argus/domain/business/contracts/actions.py",
+        "supabase/migrations/20261012050000_business_rebind_attachment.sql",
+        "tests/test_business_rebind_postgres.py",
+        "web/components/business-app/ReceiptReviewPanel.tsx",
+        "web/__tests__/business-receipt-rebind.test.ts",
+        "web/components/business-app/receipt-rebind.ts",
+        "web/components/business-app/business-data.ts",
+        "web/components/business-app/fixture-data.ts",
+        "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-upload-review-crash-20261012": {
       "description": "Staging crash after an upload with AI consent: the review panel read capabilities and accounts at the top of the receipt detail while the API nests them under record_context; the panel now reads the nested context (read-only when absent), the data source is chosen once per visit so a record is not refetched on every address-bar write, and a panel error boundary keeps a crash inside the workspace with a retry.",
       "base_ref": "origin/codex/private-alpha-next",
