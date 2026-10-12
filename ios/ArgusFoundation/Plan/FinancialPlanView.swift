@@ -44,7 +44,12 @@ struct FinancialPlanView: View {
             CuadraoPlanHeader(spanish: spanish, createTitle: spanish ? "Crear plan" : "Create plan", canCreate: canCreate) { creating = true }
         } content: {
             if loop.pendingConfirmation != nil { PlanPendingView(loop: loop) }
-            if model.loading { ProgressView("accounts.loading") }
+            if model.loading && model.projection == nil {
+                VStack(alignment: .leading, spacing: 24) {
+                    CuadraoSkeleton(layout: .card, identifier: "plan.loading")
+                    CuadraoSkeleton(layout: .rows(3), identifier: "plan.loading.rows")
+                }
+            }
             if let error = model.errorKey {
                 Text(LocalizedStringKey(error)).foregroundStyle(.secondary)
                 Button("accounts.retry") { Task { await model.refresh() } }.frame(minHeight: 44)

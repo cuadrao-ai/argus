@@ -22,7 +22,7 @@ struct AccountActivityView: View {
                 } else { Button("debt.add") { loop.debts.create(account) }.frame(minHeight: 44).accessibilityIdentifier("accounts.debt") }
             }
             Text(spanish ? "Movimientos" : "Activity").font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
-            if page.loading { ProgressView("accounts.loading").accessibilityIdentifier("accounts.activity.loading") }
+            if page.loading && page.activity.isEmpty { CuadraoSkeleton(layout: .rows(3), identifier: "accounts.activity.loading") }
             if let error = page.errorKey {
                 Text(LocalizedStringKey(error)).foregroundStyle(.secondary)
                     .accessibilityIdentifier("accounts.activity.error")

@@ -25,6 +25,9 @@ final class GuestBookModel: ObservableObject {
     }
 
     private func load() async {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--guest-slow-load") { try? await Task.sleep(for: .seconds(3)) }
+        #endif
         switch await store.open() {
         case .fresh(let opened), .existing(let opened), .recovered(let opened):
             book = opened

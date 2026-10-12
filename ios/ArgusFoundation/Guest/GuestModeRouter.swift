@@ -53,7 +53,11 @@ private struct GuestModeHost<Content: View>: View {
             case .connected:
                 content.environment(\.cuadraoGuestEntry, { controller.enter() })
             case .launching:
-                WelcomePalette.brandPaper.ignoresSafeArea().accessibilityIdentifier("guest.launching")
+                // The brief wait while the saved book opens: blocks in the shape of Home, never an empty page.
+                ZStack(alignment: .top) {
+                    WelcomePalette.brandPaper.ignoresSafeArea()
+                    CuadraoSkeleton(layout: .home, identifier: "guest.loading").padding(.horizontal, 20).padding(.top, 72)
+                }
             case .guest:
                 if let model = controller.model {
                     GuestRoot(model: model, appearance: $appearance, webURL: auth.configuration?.webURL,

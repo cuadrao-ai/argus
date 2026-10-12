@@ -266,7 +266,7 @@ struct ConnectedCuadraoHome: View {
             }
             accountRows
             if activeAccounts.isEmpty {
-                if !accounts.hasLoaded && accounts.errorKey == nil { ProgressView("accounts.loading") }
+                if !accounts.hasLoaded && accounts.errorKey == nil { CuadraoSkeleton(layout: .rows(4), identifier: "accounts.loading") }
                 else if accounts.errorKey == nil { personalEmpty }
             }
         }

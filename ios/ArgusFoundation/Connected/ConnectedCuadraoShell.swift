@@ -160,8 +160,9 @@ struct ConnectedCuadraoShell: View {
                 ConnectedCuadraoHome(loop: loop, accounts: accounts, tab: $tab, homePath: $homePath,
                                      navigationScroll: navigationScroll, showUpdates: updatesAction)
             } else {
-                ProgressView("accounts.loading")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                CuadraoSkeleton(layout: .home, identifier: "home.loading")
+                    .padding(.horizontal, 20).padding(.top, 24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         case .plan:
             NavigationStack {
