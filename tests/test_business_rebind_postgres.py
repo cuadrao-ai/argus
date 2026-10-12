@@ -20,6 +20,21 @@ pytestmark = shared.pytestmark
 
 
 def _owner(service: BusinessActions, context):  # noqa: ANN001
+    # The shared fixture makes the space by SQL; give the owner the grant that
+    # starting a space through the app gives them (#988).
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
+            " select %s,%s,%s,ARRAY['read','prepare','approve'] where not exists"
+            " (select 1 from public.business_client_grants where space_id=%s and grantee_id=%s and revoked_at is null)",
+            (
+                context.actor.space_id,
+                context.owner_id,
+                context.owner_id,
+                context.actor.space_id,
+                context.owner_id,
+            ),
+        )
     return service.resolve_actor(
         TrustedActor(
             actor_id=UUID(context.owner_id),
