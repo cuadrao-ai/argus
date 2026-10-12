@@ -41,7 +41,6 @@ struct ReceiptJourneyCopy {
     var cancel: String { spanish ? "Cancelar" : "Cancel" }
     var confirm: String { spanish ? "Confirmar gasto" : "Confirm expense" }
     var recorded: String { spanish ? "Gasto guardado" : "Expense saved" }
-    var correct: String { spanish ? "Corregir datos" : "Correct details" }
 
     // Pending approval: review.
     var reviewTitle: String { spanish ? "Revisa el gasto" : "Review the expense" }
@@ -61,11 +60,14 @@ struct ReceiptJourneyCopy {
                 : "Items are receipt detail. One expense is saved for the total."
     }
     var unknown: String { spanish ? "Sin dato" : "Unknown" }
-    var alreadyRecorded: String { spanish ? "Ya anoté este gasto" : "I already recorded this" }
-    var alreadyRecordedDetail: String {
-        spanish ? "Encontramos un movimiento con el mismo monto. Puedes añadirle este recibo en vez de crear otro."
-                : "We found a movement with the same amount. You can add this receipt to it instead of creating another."
+    var alreadyRecorded: String { spanish ? "Añadir a ese movimiento" : "Add to that movement" }
+    var newPurchase: String { spanish ? "Es otro gasto" : "It is a new expense" }
+    var duplicateTitle: String { spanish ? "¿Ya anotaste este gasto?" : "Already recorded this?" }
+    func duplicateDetail(_ amount: String) -> String {
+        spanish ? "Hay un movimiento de \(amount). Puedes añadirle este recibo en vez de crear otro."
+                : "There is a movement of \(amount). You can add this receipt to it instead of creating another."
     }
+    var writeByHand: String { spanish ? "Escribirlo a mano" : "Write it by hand" }
     var linked: String { spanish ? "Recibo añadido al movimiento" : "Receipt added to the movement" }
     var recordedDetail: String {
         spanish ? "Está en tu cuenta con su recibo." : "It is in your account with its receipt."

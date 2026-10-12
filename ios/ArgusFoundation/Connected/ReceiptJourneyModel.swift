@@ -159,6 +159,9 @@ final class ReceiptJourneyModel: ObservableObject {
     /// The first captured file, shown while the person chooses and while it is read.
     @Published private(set) var preview: ReceiptPreview?
     var sessionChanged: ((SessionSnapshot) -> Void)?
+    /// Set by the shell that can open the movement sheet. When set, a receipt that could not be read offers to be
+    /// written by hand, and the sheet hands over what is known about it.
+    var writeByHand: ((ReceiptHandoff) -> Void)?
 
     private let transport: any ReceiptJourneyTransport
     private let currentSession: @Sendable () async -> SessionSnapshot
@@ -173,6 +176,8 @@ final class ReceiptJourneyModel: ObservableObject {
     private var consented = false
     private var connectionID: String?
     private var acceptKey: (eventID: String, key: UUID)?
+    /// The last reading of the receipt, even an incomplete one, so writing by hand starts from it.
+    private var lastReading: DocumentReceipt?
 
     init(transport: any ReceiptJourneyTransport, currentSession: @escaping @Sendable () async -> SessionSnapshot,
          pause: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
@@ -204,6 +209,25 @@ final class ReceiptJourneyModel: ObservableObject {
 
     func reset() {
         ticket = UUID(); phase = .idle; held = []; sent = []; waiting = []; connectionID = nil; acceptKey = nil; options = nil; preview = nil
+        lastReading = nil
+    }
+
+    /// True when the receipt was not read into a review and the shell can take it to the movement sheet.
+    var canWriteByHand: Bool {
+        guard writeByHand != nil, connectionID != nil else { return false }
+        switch phase {
+        case .failed(.couldNotRead), .failed(.nothingToRecord): return true
+        default: return false
+        }
+    }
+
+    /// Closes the journey and hands the receipt to the movement sheet with whatever the reading found. The receipt
+    /// stays saved; nothing is recorded here.
+    func handWrite() {
+        guard canWriteByHand, let connectionID, let writeByHand else { return }
+        let handoff = ReceiptHandoff(connectionID: connectionID, receipt: lastReading)
+        reset()
+        writeByHand(handoff)
     }
 
     /// Captured files wait for the person's answer about reading. One answer covers every file of the capture.
@@ -252,7 +276,15 @@ final class ReceiptJourneyModel: ObservableObject {
     func open(_ connectionID: String) async {
         reset()
         self.connectionID = connectionID
-        await follow(connectionID, mine: ticket)
+        let mine = ticket
+        if let identity {
+            Task { [transport] in
+                let data = try? await transport.source(connectionID, identity: identity)
+                guard mine == ticket, preview == nil, let data else { return }
+                preview = ReceiptPreview(image: data)
+            }
+        }
+        await follow(connectionID, mine: mine)
     }
 
     /// Moves to the next receipt of the same capture.
@@ -376,6 +408,7 @@ final class ReceiptJourneyModel: ObservableObject {
                 document = try await transport.document(connectionID, identity: identity)
             }
             guard mine == ticket else { return }
+            lastReading = document.preparation?.receipt
             switch document.status {
             case "needs_attention": phase = .failed(.couldNotRead); return
             case "saved": phase = .savedOnly(alreadySaved: true); return
@@ -443,5 +476,29 @@ struct ReceiptPreview: Equatable {
         guard let first = files.first else { return nil }
         image = first.pdf ? nil : first.data
         count = files.count
+    }
+
+    /// A saved receipt reopened later: its file, which shows as a photo or, for a PDF, as the document symbol.
+    init(image: Data) {
+        self.image = image
+        count = 1
+    }
+}
+
+/// What a receipt hands to the movement sheet when the person writes it by hand. Each field is what the reading
+/// found, if anything; the movement sheet still asks for the rest.
+struct ReceiptHandoff: Equatable {
+    let connectionID: String
+    let merchant: String?
+    let amount: String?
+    let currency: String?
+    let occurredOn: Date?
+
+    init(connectionID: String, receipt: DocumentReceipt?) {
+        self.connectionID = connectionID
+        merchant = receipt?.merchant.flatMap { $0.isEmpty ? nil : $0 }
+        amount = receipt?.total
+        currency = receipt?.currency
+        occurredOn = receipt?.occurredOn.flatMap(ReceiptReviewDraft.day)
     }
 }

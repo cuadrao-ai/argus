@@ -20,10 +20,10 @@ extension FinancialLoopUITests {
         app.buttons["receipt.journey.read"].tap()
 
         // The review shows what the reading found; confirming waits for the account that paid.
-        let merchant = app.descendants(matching: .any)["receipt.review.merchant"]
+        let merchant = app.textFields["receipt.review.merchant"]
         XCTAssertTrue(merchant.waitForExistence(timeout: 20), "the reading settles into the review")
-        XCTAssertTrue(merchant.label.contains("La Sirena"))
-        XCTAssertTrue(app.descendants(matching: .any)["receipt.review.total"].label.contains("250.50"))
+        XCTAssertTrue((merchant.value as? String ?? "").contains("La Sirena"))
+        XCTAssertTrue((app.textFields["receipt.review.total"].value as? String ?? "").contains("250.50"))
         XCTAssertTrue(app.descendants(matching: .any)["receipt.review.items"].exists)
         let confirm = app.buttons["receipt.journey.confirm"]
         XCTAssertFalse(confirm.isEnabled, "no account chosen yet")
@@ -78,15 +78,15 @@ extension FinancialLoopUITests {
         capture("staging-receipt-consent")
         app.buttons["receipt.journey.read"].tap()
 
-        let merchant = app.descendants(matching: .any)["receipt.review.merchant"]
+        let merchant = app.textFields["receipt.review.merchant"]
         let failed = app.descendants(matching: .any)["receipt.journey.failed"]
         let still = app.descendants(matching: .any)["receipt.journey.still"]
         let settled = NSPredicate { _, _ in merchant.exists || failed.exists || still.exists }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 150), .completed)
         capture("staging-receipt-after-reading")
         XCTAssertTrue(merchant.exists, failed.exists ? "reading failed: \(failed.label)" : "still reading after the wait")
-        XCTAssertTrue(app.descendants(matching: .any)["receipt.review.total"].label.contains("250.50"),
-                      app.descendants(matching: .any)["receipt.review.total"].label)
+        let total = app.textFields["receipt.review.total"].value as? String ?? ""
+        XCTAssertTrue(total.contains("250.50"), total)
 
         app.buttons["receipt.review.account"].tap()
         // The menu lists "Choose the account that paid" first, then the accounts that can pay; take the first account.
@@ -132,7 +132,7 @@ extension FinancialLoopUITests {
         app.buttons["add.tray.chooseFile"].tap()
         XCTAssertTrue(app.buttons["receipt.journey.read"].waitForExistence(timeout: 15), "consent")
         app.buttons["receipt.journey.read"].tap()
-        let merchant = app.descendants(matching: .any)["receipt.review.merchant"]
+        let merchant = app.textFields["receipt.review.merchant"]
         let failed = app.descendants(matching: .any)["receipt.journey.failed"]
         let still = app.descendants(matching: .any)["receipt.journey.still"]
         let settled = NSPredicate { _, _ in merchant.exists || failed.exists || still.exists }
@@ -140,9 +140,9 @@ extension FinancialLoopUITests {
         if !quiet { capture("file-receipt-outcome") }
         XCTAssertFalse(failed.exists, "outcome: failed")
         XCTAssertFalse(still.exists, "outcome: still reading")
-        let total = app.descendants(matching: .any)["receipt.review.total"].label
+        let total = app.textFields["receipt.review.total"].value as? String ?? ""
         let date = app.descendants(matching: .any)["receipt.review.date"].label
-        XCTAssertFalse(merchant.label.contains("Unknown"), "outcome: no merchant")
+        XCTAssertFalse((merchant.value as? String ?? "").isEmpty, "outcome: no merchant")
         XCTAssertFalse(date.contains("Unknown"), "outcome: no date")
         XCTAssertFalse(total.contains("Unknown"), "outcome: no total")
         print("RECEIPT_TOTAL_FOR_SYNTHETIC_CHECK " + (quiet ? "withheld" : total))

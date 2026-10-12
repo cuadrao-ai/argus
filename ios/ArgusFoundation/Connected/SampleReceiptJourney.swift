@@ -202,7 +202,10 @@ struct ReceiptJourneyHarness: View {
                 .accessibilityIdentifier("harness.offline")
             Text(result).accessibilityIdentifier("harness.result")
         }
-        .onAppear { model.bind(Self.session) }
+        .onAppear {
+            model.bind(Self.session)
+            model.writeByHand = { result = "by hand " + $0.connectionID }
+        }
         .onChange(of: model.phase) { _, phase in
             switch phase {
             case .recorded(let activity): result = "recorded " + (activity.amount ?? "")
