@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -66,7 +66,7 @@ function challengeHarness() {
   let callbacks:
     | {
         callback: (token: string) => void;
-        "error-callback": () => boolean;
+        "error-callback": (code?: string) => boolean;
         "expired-callback": () => void;
         "before-interactive-callback": () => void;
       }
@@ -87,7 +87,7 @@ function challengeHarness() {
       options: {
         theme: "auto" | "light" | "dark";
         callback: (token: string) => void;
-        "error-callback": () => boolean;
+        "error-callback": (code?: string) => boolean;
         "expired-callback": () => void;
         "before-interactive-callback": () => void;
       },
@@ -124,6 +124,52 @@ function challengeHarness() {
 }
 
 describe("shared CAPTCHA acquisition UX", () => {
+  test.each(
+    (["success", "error", "expired"] as const).flatMap((outcome) =>
+      [true, false].map((synchronous) => [outcome, synchronous] as const),
+    ),
+  )(
+    "keeps the provider container alive after %s (synchronous render: %s)",
+    async (outcome, synchronous) => {
+      const harness = challengeHarness();
+      let providerSawLiveContainer = false;
+      const render = harness.turnstile.render;
+      harness.turnstile.render = (container, options) => {
+        expect(options).toMatchObject({
+          retry: "never",
+          "refresh-expired": "never",
+          "refresh-timeout": "never",
+        });
+        const id = render(container, options);
+        const deliver = () => {
+          if (outcome === "success") options.callback("verified-token");
+          else if (outcome === "error") options["error-callback"]();
+          else options["expired-callback"]();
+          providerSawLiveContainer =
+            harness.destroyCalls === 0 && harness.removeCalls === 0;
+          options.callback("late-token");
+          options["error-callback"]();
+        };
+        if (synchronous) deliver();
+        else setTimeout(deliver, 0);
+        return id;
+      };
+      const result = await challengeUnderTest()({
+        turnstile: harness.turnstile,
+        shell: harness.shell,
+        siteKey: "test-site-key",
+        timeoutMs: 100,
+        interactiveTimeoutMs: 100,
+        theme: "light",
+      }).catch((error: unknown) => error);
+      expect(providerSawLiveContainer).toBe(true);
+      if (outcome === "success") expect(result).toBe("verified-token");
+      else expect(result).toMatchObject({ code: "captcha_unavailable" });
+      expect(harness.removeCalls).toBe(1);
+      expect(harness.destroyCalls).toBe(1);
+    },
+  );
+
   test("times out a Turnstile widget that never settles and ignores a late callback", async () => {
     const harness = challengeHarness();
     const pending = challengeUnderTest()({
@@ -190,6 +236,27 @@ describe("shared CAPTCHA acquisition UX", () => {
     expect(harness.destroyCalls).toBe(1);
   });
 
+  test("an abort in the tick after a token rejects instead of resolving", async () => {
+    const harness = challengeHarness();
+    const controller = new AbortController();
+    const pending = challengeUnderTest()({
+      turnstile: harness.turnstile,
+      shell: harness.shell,
+      siteKey: "test-site-key",
+      timeoutMs: 1000,
+      interactiveTimeoutMs: 1000,
+      theme: "light",
+      signal: controller.signal,
+    });
+
+    harness.callbacks?.callback("verified-token");
+    controller.abort();
+    const error = await pending.catch((caught: unknown) => caught);
+    expect(error).toMatchObject({ name: "AbortError" });
+    expect(harness.removeCalls).toBe(1);
+    expect(harness.destroyCalls).toBe(1);
+  });
+
   test("abort destroys a pending Turnstile shell before it can reveal", async () => {
     const harness = challengeHarness();
     const controller = new AbortController();
@@ -249,12 +316,14 @@ describe("shared CAPTCHA acquisition UX", () => {
     const originalNodeEnv = process.env.NODE_ENV;
     const originalLocalToken =
       process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
+    const originalCuadraoSiteKey = process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
     const originalTurnstileSiteKey =
       process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
     const originalApiUrl = process.env.NEXT_PUBLIC_ARGUS_API_URL;
     process.env.NODE_ENV = "production";
     delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
     delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
+    delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
     process.env.NEXT_PUBLIC_ARGUS_API_URL =
       "https://api.argus.example/api/v1";
     try {
@@ -272,6 +341,11 @@ describe("shared CAPTCHA acquisition UX", () => {
       } else {
         process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN =
           originalLocalToken;
+      }
+      if (originalCuadraoSiteKey === undefined) {
+        delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
+      } else {
+        process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY = originalCuadraoSiteKey;
       }
       if (originalTurnstileSiteKey === undefined) {
         delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
@@ -354,7 +428,9 @@ describe("shared CAPTCHA acquisition UX", () => {
     expect(captcha).not.toContain("Browser CAPTCHA could not load.");
   });
 
-  test("a Turnstile error-callback keeps captcha_unavailable when the provider passes a code", async () => {
+  test.each(["600010", "token-like-secret", "600010 extra"])("keeps only safe provider error codes: %s", async (providerCode) => {
+    const warning = spyOn(console, "warn").mockImplementation(() => {});
+    globalRestores.push(() => warning.mockRestore());
     const harness = challengeHarness();
     const pending = challengeUnderTest()({
       turnstile: harness.turnstile,
@@ -369,18 +445,22 @@ describe("shared CAPTCHA acquisition UX", () => {
       harness.callbacks?.["error-callback"] as
         | ((code?: string) => boolean)
         | undefined
-    )?.("600010");
+    )?.(providerCode);
+    harness.callbacks?.["error-callback"]?.(providerCode);
     const error = await pending.catch((caught: unknown) => caught);
+    expect(warning.mock.calls).toEqual(
+      providerCode === "600010" ? [["turnstile_challenge_failed", providerCode]] : [],
+    );
 
+    expect((error as { turnstileCode?: string }).turnstileCode).toBe(
+      providerCode === "600010" ? providerCode : undefined,
+    );
     expect(returned).toBe(true);
     expect(error).toBeInstanceOf(Error);
     expect((error as Error & { code?: string }).code).toBe(
       "captcha_unavailable",
     );
     expect(guestCaptcha.guestEntryErrorKind(error)).toBe("captcha_unavailable");
-    expect(readFileSync(join(root, "lib/guest-captcha.ts"), "utf-8")).toContain(
-      '"error-callback": () => fail()',
-    );
   });
 
   test("maps coded Turnstile failures to captcha_unavailable and other errors to generic", () => {
