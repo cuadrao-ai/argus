@@ -662,16 +662,20 @@
         ".agent/ownership/branch_ownership.json",
         "docs/API_CONTRACT.md",
         "docs/api/openapi.yaml",
+        "src/argus/api/documents.py",
+        "src/argus/domain/business/receipts.py",
         "src/argus/domain/ingestion/documents/config.py",
         "src/argus/domain/ingestion/documents/email_source.py",
         "src/argus/domain/ingestion/documents/extractor.py",
         "src/argus/domain/ingestion/documents/preparation.py",
         "src/argus/domain/ingestion/documents/tabular.py",
+        "supabase/migrations/20261012020000_document_source_media_types.sql",
         "tests/business/test_business_api.py",
         "tests/ingestion/test_document_flat_files.py",
         "tests/ingestion/test_document_preparation.py",
         "tests/ingestion/test_documents_api.py",
-        "tests/ingestion/test_email_source.py"
+        "tests/ingestion/test_email_source.py",
+        "tests/test_document_extractions_postgres.py"
       ],
       "deny": [
         ".env",
