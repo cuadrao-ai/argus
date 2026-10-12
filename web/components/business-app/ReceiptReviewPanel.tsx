@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowLeft, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ReceiptDossierReview from "./ReceiptDossierReview";
+import { rebindAndPrepare } from "./receipt-rebind";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
@@ -138,9 +139,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     setBusy("rebind");
     setProblem(null);
     try {
-      show(await source.rebindReceipt(detail.id));
-      await source.prepareReceipt(detail.id);
-      show(await source.receipt(detail.id));
+      await rebindAndPrepare(source, detail.id, show);
       setUnprepared(false);
       reload();
     } catch {

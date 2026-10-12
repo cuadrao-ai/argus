@@ -1009,6 +1009,8 @@
         "supabase/migrations/20261012050000_business_rebind_attachment.sql",
         "tests/test_business_rebind_postgres.py",
         "web/components/business-app/ReceiptReviewPanel.tsx",
+        "web/__tests__/business-receipt-rebind.test.ts",
+        "web/components/business-app/receipt-rebind.ts",
         "web/components/business-app/business-data.ts",
         "web/components/business-app/fixture-data.ts",
         "web/lib/business-api.ts",

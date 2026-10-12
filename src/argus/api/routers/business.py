@@ -537,7 +537,27 @@ async def prepare_receipt(
         raise _problem(request, error) from None
 
 
-@router.post("/receipts/{receipt_id}/rebind", response_model=ReceiptDetail)
+@router.post(
+    "/receipts/{receipt_id}/rebind",
+    response_model=ReceiptDetail,
+    responses={
+        403: {
+            "description": "`business_owner_required`: only the owner, as a person, may"
+            " move a binding; `business_permission_denied` without prepare permission."
+        },
+        404: {
+            "description": "`business_record_not_found`: no such receipt in this Business."
+        },
+        409: {
+            "description": "`business_action_required`: the hosted bridge is not wired"
+            " for this request."
+        },
+        422: {
+            "description": "`business_preparation_binding_live`: the old grant still works;"
+            " `business_preparation_binding_missing`: nothing is bound yet."
+        },
+    },
+)
 def rebind_receipt(
     request: Request,
     receipt_id: str,

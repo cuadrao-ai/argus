@@ -364,6 +364,8 @@ class BusinessActions:
         A binding whose grant is still live is left alone (``binding_live``),
         so this never silently moves authority that still works."""
 
+        if context.actor.actor_kind != "member":
+            raise ActionError("permission_denied", "business_human_command_required")
         if str(context.actor.actor_id) != context.owner_id:
             raise ActionError("permission_denied", "business_owner_required")
         with transaction(self.authority, context, "prepare") as tx:
