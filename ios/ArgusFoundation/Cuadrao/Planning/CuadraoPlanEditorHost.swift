@@ -20,6 +20,8 @@ struct CuadraoPlanEditorHost {
     var spaces: [CuadraoPlanEditorSpace]
     var editing: Bool
     var kindLocked = false
+    /// The kinds the picker offers. A host that has no debts says so here.
+    var allowedKinds = CanvasPlanKind.allCases
     var currencyLocked = false
     var showsTarget = true
     var showsRecorded = true

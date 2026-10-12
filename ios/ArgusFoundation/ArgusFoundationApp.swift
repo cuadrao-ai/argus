@@ -53,7 +53,7 @@ struct ArgusFoundationApp: App {
                 CuadraoCanvas()
                     .preferredColorScheme(previewAppearance.colorScheme)
             } else {
-                ConnectedCuadraoRoot(appearance: $appearance)
+                GuestModeRouter(appearance: $appearance) { ConnectedCuadraoRoot(appearance: $appearance) }
                     .environmentObject(auth)
                     .modifier(SessionLifecycle(model: auth))
                     .preferredColorScheme(appearance.colorScheme)

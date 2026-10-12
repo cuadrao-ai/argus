@@ -153,7 +153,7 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
         }
     }
     private var kindButtons: some View {
-        ForEach(CanvasPlanKind.allCases) { kind in
+        ForEach(host.allowedKinds) { kind in
             Button { draft.kind = kind } label: {
                 Text(kind == .goal ? (spanish ? "Meta" : "Goal") : kind == .budget ? (spanish ? "Mi mes" : "My month") : (spanish ? "Deuda" : "Debt")).font(.subheadline)
                     .padding(.horizontal, 14).frame(minHeight: 44)

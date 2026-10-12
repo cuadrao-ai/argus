@@ -70,6 +70,10 @@ struct CuadraoAccountEntryForm: View {
     /// Inputs freeze while a save is in flight or a create waits for its exact retry.
     var locked = false
     var busy = false
+    /// A host that keeps the currency or the type fixed once a balance is recorded says so here.
+    var currencySelectable = true
+    var kindLocked = false
+    var lockNote: String? = nil
     let cancel: () -> Void
     let save: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -110,7 +114,10 @@ struct CuadraoAccountEntryForm: View {
                             : (spanish ? "Balance actual" : "Current balance"))
                         CuadraoAmountField(raw: $entry.amount, currency: $entry.currency, error: $error,
                             spanish: spanish, allowNegative: entry.kind?.isDebt != true && entry.kind?.isAsset != true,
-                            identifier: ids.amount, currencyIdentifier: ids.currency)
+                            currencySelectable: currencySelectable, identifier: ids.amount, currencyIdentifier: ids.currency)
+                        if let lockNote {
+                            Text(lockNote).font(.footnote).foregroundStyle(.secondary).accessibilityIdentifier("account-lock-note")
+                        }
                     }
                     if entry.kind?.isAsset == true {
                         VStack(alignment: .leading, spacing: 12) {
@@ -180,9 +187,10 @@ struct CuadraoAccountEntryForm: View {
                         CanvasAccountIcon(kind: kind)
                         Text(kind.title(spanish)).foregroundStyle(.primary)
                         Spacer()
-                        Image(systemName: "chevron.down").font(.caption).foregroundStyle(.secondary)
+                        if !kindLocked { Image(systemName: "chevron.down").font(.caption).foregroundStyle(.secondary) }
                     }.padding(18).background(WelcomePalette.sage.opacity(0.65), in: RoundedRectangle(cornerRadius: 16))
-                }.buttonStyle(.plain).accessibilityLabel(spanish ? "Cambiar tipo, \(kind.title(spanish))" : "Change type, \(kind.title(spanish))")
+                }.buttonStyle(.plain).disabled(kindLocked).accessibilityLabel(kindLocked ? (spanish ? "Tipo fijo, \(kind.title(spanish))" : "Fixed type, \(kind.title(spanish))")
+                        : (spanish ? "Cambiar tipo, \(kind.title(spanish))" : "Change type, \(kind.title(spanish))"))
                     .accessibilityIdentifier(ids.typeChange)
             } else {
                 typeGrid(CanvasAccountKind.allCases.filter { !$0.isAsset })

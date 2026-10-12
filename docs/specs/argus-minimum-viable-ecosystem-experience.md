@@ -604,8 +604,10 @@ does not grant permission to use it. Creating a financial account, recording
 activity, importing documents, managing plans or participating in a household
 must lead to sign-up or sign-in before the operation. The same boundary applies
 on iPhone, Android and web, and to actions requested through chat. No durable
-guest financial records are authorized. Existing guest-chat behavior and limits
-are preserved; this decision does not expand guest compute or research access.
+guest financial records are authorized on the server. Existing guest-chat behavior
+and limits are preserved; this decision does not expand guest compute or research
+access. The iPhone's on-device guest book ([October 9 entry](argus-decision-log.md#october-9-2026-iphone-on-device-guest-book-probar-sin-cuenta))
+keeps its data on the device only and amends this boundary for that case alone.
 
 Registration is the gate, not payment. The exact registration/return-to-action
 journey and server enforcement need implementation contracts. This publication

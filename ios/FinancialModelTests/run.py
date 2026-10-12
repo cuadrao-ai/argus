@@ -56,6 +56,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(root / "ios/ArgusFoundation/Connected/SavedReceiptsModel.swift", source / "SavedReceiptsModel.swift")
     shutil.copy(root / "ios/ArgusFoundation/Connected/SavedReceiptCopy.swift", source / "SavedReceiptCopy.swift")
     shutil.copy(canvas / "CuadraoNavigationSlot.swift", source / "CuadraoNavigationSlot.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Guest/GuestAccessPolicy.swift", source / "GuestAccessPolicy.swift")
     shutil.copy(root / "ios/ArgusFoundation/Plan/ConnectedPlanScenario.swift", source / "ConnectedPlanScenario.swift")
     shutil.copy(root / "ios/Packages/ArgusSession/Tests/ArgusSessionTests/TestSupport.swift", tests / "TestSupport.swift")
     shutil.copy(Path(__file__).with_name("FinancialModelTests.swift"), tests / "FinancialModelTests.swift")
@@ -68,15 +69,17 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(Path(__file__).with_name("PlanScenarioTests.swift"), tests / "PlanScenarioTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedAccountOrderTests.swift"), tests / "ConnectedAccountOrderTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedReleaseSurfaceTests.swift"), tests / "ConnectedReleaseSurfaceTests.swift")
+    shutil.copy(Path(__file__).with_name("GuestAccessPolicyTests.swift"), tests / "GuestAccessPolicyTests.swift")
     shutil.copy(Path(__file__).with_name("SavedReceiptsModelTests.swift"), tests / "SavedReceiptsModelTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedPlanMappingTests.swift"), tests / "ConnectedPlanMappingTests.swift")
     (package / "Package.swift").write_text('''// swift-tools-version: 6.0
 import PackageDescription
 let package = Package(name: "FinancialModels", platforms: [.macOS(.v14)], dependencies: [
     .package(path: "''' + str(root / "ios/Packages/ArgusSession") + '''"),
+    .package(path: "''' + str(root / "ios/Packages/CuadraoBook") + '''"),
     .package(url: "https://github.com/supabase/supabase-swift.git", exact: "2.55.2")
 ], targets: [
-    .target(name: "FinancialModels", dependencies: [.product(name: "ArgusSession", package: "ArgusSession")]),
+    .target(name: "FinancialModels", dependencies: [.product(name: "ArgusSession", package: "ArgusSession"), .product(name: "CuadraoBook", package: "CuadraoBook")]),
     .testTarget(name: "FinancialModelTests", dependencies: ["FinancialModels", .product(name: "ArgusSession", package: "ArgusSession"), .product(name: "Auth", package: "supabase-swift")])
 ])
 ''')

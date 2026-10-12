@@ -79,6 +79,7 @@ struct ConnectedCuadraoAuthFlow: View {
                                 .contentShape(Rectangle())
                         }.buttonStyle(.plain)
                         .accessibilityIdentifier("cuadrao.welcome.signin")
+                        GuestWelcomeAction(spanish: spanish)
                     }.padding(.bottom, 28)
                 }
                 .padding(.horizontal, 28)

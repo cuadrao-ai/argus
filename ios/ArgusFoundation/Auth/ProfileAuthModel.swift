@@ -6,6 +6,8 @@ final class ProfileAuthModel: ObservableObject {
     enum State { case accountDeletionUncertain, accountDeletionPending, disabled, configurationInvalid, signedOut, authenticated, pendingSignOut, unsupportedAnonymous, credentialValidationRequired, reauthenticationRequired }
     @Published private(set) var state: State = .disabled
     @Published private(set) var busy = false
+    /// True once the first launch restore has finished, so a host can wait for it before choosing what to show.
+    @Published private(set) var hasRestored = false
     @Published private(set) var profile: SessionProfile?
     @Published private(set) var confirmationRequired = false
     @Published private(set) var errorKey: String?
@@ -96,6 +98,7 @@ final class ProfileAuthModel: ObservableObject {
         guard !started else { return }
         started = true
         await restore()
+        hasRestored = true
         await deletion?.load()
     }
 

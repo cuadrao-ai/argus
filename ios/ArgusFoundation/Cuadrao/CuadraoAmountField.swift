@@ -11,6 +11,7 @@ struct CuadraoAmountField: View {
     var identifier = "cuadrao-amount"
     var currencyIdentifier = "account-edit-currency"
     @State private var choosingCurrency = false
+    @Environment(\.cuadraoCurrencyRules) private var rules
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -38,7 +39,7 @@ struct CuadraoAmountField: View {
         }
         .onChange(of: currency) { _, _ in
             let fraction = raw.split(separator: ".", omittingEmptySubsequences: false).dropFirst().first?.count ?? 0
-            error = fraction > CanvasMoney.digits(currency)
+            error = fraction > rules.digits(currency)
                 ? (spanish ? "Revisa los decimales para \(currency)." : "Check decimal places for \(currency).") : ""
         }
     }
@@ -49,9 +50,10 @@ private struct CanvasCurrencyPicker: View {
     let spanish: Bool
     @State private var query = ""
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.cuadraoCurrencyRules) private var rules
     private var codes: [String] {
         let priority = ["DOP", "USD", "EUR"]
-        let all = priority + Locale.commonISOCurrencyCodes.filter { !priority.contains($0) }.sorted()
+        let all = rules.pickerCodes?() ?? priority + Locale.commonISOCurrencyCodes.filter { !priority.contains($0) }.sorted()
         return all.filter { query.isEmpty || $0.localizedCaseInsensitiveContains(query) || name($0).localizedCaseInsensitiveContains(query) }
     }
     private func name(_ code: String) -> String {

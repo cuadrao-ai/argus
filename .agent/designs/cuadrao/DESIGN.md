@@ -914,7 +914,9 @@ history rules. Account deletion must not silently redefine them.
 
 ### Welcome screen
 
-One main brand composition and the two native actions; nothing else.
+One main brand composition and the two native actions; nothing else. The one
+exception is the quiet third action below, which exists only while the on-device
+guest book's door is open ([October 9 decision](../../../docs/specs/argus-decision-log.md#october-9-2026-iphone-on-device-guest-book-probar-sin-cuenta)).
 
 - The lockup is the only brand element: no repeated header lockup, no tagline.
   Marketing's lockup SVG, at most 268 pt wide, narrowing on small screens instead of
@@ -927,6 +929,52 @@ One main brand composition and the two native actions; nothing else.
   follows Dynamic Type. The screen scrolls at large text sizes; nothing is clipped.
 - Accessibility: the lockup is one element labelled `cuadrao`. Identifiers:
   `cuadrao.welcome.lockup`, `cuadrao.welcome.signup`, `cuadrao.welcome.signin`.
+- **Probar sin cuenta / Try without an account** is a third action under Sign in,
+  shown only while `CuadraoFirstRelease.guestBook` is on (Release is off). It is
+  plain text in the pine accent, with no fill or outline so it never competes with
+  the two buttons, at least 44 pt high, 12 pt below Sign in. Identifier
+  `cuadrao.welcome.guest`.
+
+### On-device guest book
+
+**Probar sin cuenta / Try without an account** opens a book that lives only on the
+iPhone: accounts, movements, budgets, goals, search and plan what-ifs typed by hand.
+It is a mode above authentication, not a sign-in state, and it shares the approved
+Home, Plan, Search and Profile views rather than a second set.
+
+- No network call, account, invitation code, assistant, voice, receipts, files,
+  household, Updates bell or avatar photo. Dictation is the system keyboard's.
+- Empty Home offers one first-account invitation, as signed-in Home does. Profile
+  offers Create account and Sign in, appearance, preferred currency, Terms and
+  Privacy, and **Eliminar los datos de este iPhone / Delete this iPhone's data**,
+  which asks once and removes the book.
+- Signing up or in leaves the book untouched and says so: *Tu libro de este iPhone
+  sigue aquí; no se subió.* / *Your book on this iPhone is still here; it was not
+  uploaded.* Nothing is claimed into the account.
+- A book written by a newer version of the app opens read-only with an update
+  message; the app never rewrites what it cannot read.
+- An amount keeps the currency's exact digits and is never rounded; the currency
+  choice lists only currencies the server accepts. Each account fixes its digits
+  when it is created, so a yen has none and a dinar has three.
+- Accounts use the shared account form and rows. A blank balance is unknown, never
+  zero; a stated balance starts tracking at that moment. The currency and type are
+  kept once a balance is stated. Archive keeps the account and its place, with Undo
+  and a Restore list; the order set by dragging is part of the book.
+- Movements are expense, income and same-currency transfer, recorded in the shared
+  transaction sheet in one Save. The date cannot be in the future or before the
+  account's tracking began, an archived account takes no new ones, and a delete
+  offers Undo. An account's balance is its stated balance plus the movements since,
+  so a movement on an unknown balance leaves it unknown. Home shows the net balance
+  of one currency with the shared chart over daily balances the book derived, and
+  the expanded view pages by month. Spending never claims a month the book has no
+  coverage for: it shows No data, and a month that coverage begins inside says
+  from which day it counts.
+- Plan holds two kinds in the shared plan page and editor: a goal, whose progress is
+  the contributions the person records by hand, and a budget, a monthly limit over
+  some or all of one currency's accounts and categories, spent being this month's
+  expenses in that scope. The picker offers no debt plan. The currency is fixed when
+  a plan is made and chosen only among the currencies of the book's accounts. A plan
+  moves no money, and it says so.
 
 ### Authentication and invitation purpose
 
