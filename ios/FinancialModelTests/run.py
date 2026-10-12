@@ -55,6 +55,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(root / "ios/ArgusFoundation/Connected/ConnectedAddMovement.swift", source / "ConnectedAddMovement.swift")
     shutil.copy(root / "ios/ArgusFoundation/Connected/SavedReceiptsModel.swift", source / "SavedReceiptsModel.swift")
     shutil.copy(root / "ios/ArgusFoundation/Connected/SavedReceiptCopy.swift", source / "SavedReceiptCopy.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Connected/ReceiptJourneyModel.swift", source / "ReceiptJourneyModel.swift")
     shutil.copy(canvas / "CuadraoNavigationSlot.swift", source / "CuadraoNavigationSlot.swift")
     shutil.copy(root / "ios/ArgusFoundation/Guest/GuestAccessPolicy.swift", source / "GuestAccessPolicy.swift")
     shutil.copy(root / "ios/ArgusFoundation/Plan/ConnectedPlanScenario.swift", source / "ConnectedPlanScenario.swift")
@@ -71,6 +72,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(Path(__file__).with_name("ConnectedReleaseSurfaceTests.swift"), tests / "ConnectedReleaseSurfaceTests.swift")
     shutil.copy(Path(__file__).with_name("GuestAccessPolicyTests.swift"), tests / "GuestAccessPolicyTests.swift")
     shutil.copy(Path(__file__).with_name("SavedReceiptsModelTests.swift"), tests / "SavedReceiptsModelTests.swift")
+    shutil.copy(Path(__file__).with_name("ReceiptJourneyModelTests.swift"), tests / "ReceiptJourneyModelTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedPlanMappingTests.swift"), tests / "ConnectedPlanMappingTests.swift")
     (package / "Package.swift").write_text('''// swift-tools-version: 6.0
 import PackageDescription

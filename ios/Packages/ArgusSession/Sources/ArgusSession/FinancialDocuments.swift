@@ -50,10 +50,24 @@ public struct SavedDocumentPage: Decodable, Sendable, Equatable {
 /// What saving a file answered (`POST /financial-documents`).
 public struct SavedDocumentCapture: Decodable, Sendable, Equatable {
     public let connectionID: String
+    /// Preparation state (`saved|queued|preparing|review_ready|needs_attention`), never an approval.
     public let status: String
     /// True when the same file was already saved, so nothing new was stored.
     public let replayed: Bool
-    enum CodingKeys: String, CodingKey { case status, replayed; case connectionID = "connection_id" }
+    public let candidateCount: Int
+    enum CodingKeys: String, CodingKey { case status, replayed; case connectionID = "connection_id"; case candidateCount = "candidate_count" }
+
+    public init(connectionID: String, status: String, replayed: Bool, candidateCount: Int = 0) {
+        self.connectionID = connectionID; self.status = status; self.replayed = replayed; self.candidateCount = candidateCount
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let value = try decoder.container(keyedBy: CodingKeys.self)
+        connectionID = try value.decode(String.self, forKey: .connectionID)
+        status = try value.decode(String.self, forKey: .status)
+        replayed = try value.decode(Bool.self, forKey: .replayed)
+        candidateCount = try value.decodeIfPresent(Int.self, forKey: .candidateCount) ?? 0
+    }
 }
 
 /// The media types the server accepts for a saved document, and their size cap.
@@ -70,14 +84,16 @@ extension SessionController {
         catch { throw SessionFailure.invalidResponse }
     }
 
-    /// Saves a file privately. No extraction consent is sent, so no model reads it.
-    public func saveDocument(_ bytes: Data, mediaType: String, filename: String, expectedIdentity: SessionSnapshot) async throws -> SavedDocumentCapture {
+    /// Saves a file privately. Only an explicit `consent` lets the server ask a model to read it.
+    public func saveDocument(_ bytes: Data, mediaType: String, filename: String, consent: Bool = false,
+                             expectedIdentity: SessionSnapshot) async throws -> SavedDocumentCapture {
         guard SavedDocumentRules.mediaTypes.contains(mediaType) else { throw SessionFailure.rejected(status: 415, code: "document_media_type_unsupported") }
         guard bytes.count <= SavedDocumentRules.maxBytes else { throw SessionFailure.rejected(status: 413, code: "document_too_large") }
         let encodedName = filename.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-_.!~*'()"))) ?? "document"
+        var headers = ["X-Document-Filename": encodedName]
+        if consent { headers["X-Extraction-Consent"] = "true" }
         let data = try await financialRequest(route: "financial-documents", method: "POST", body: bytes,
-                                              contentType: mediaType, headers: ["X-Document-Filename": encodedName],
-                                              expectedIdentity: expectedIdentity)
+                                              contentType: mediaType, headers: headers, expectedIdentity: expectedIdentity)
         do { return try JSONDecoder().decode(SavedDocumentCapture.self, from: data) }
         catch { throw SessionFailure.invalidResponse }
     }
