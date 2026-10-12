@@ -15,13 +15,14 @@ import base64
 import binascii
 import hashlib
 import hmac
-import os
 import secrets
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-KEY_ENV = "ARGUS_INGESTION_SECRET_KEY"
+from argus.settings_names import setting_value
+
+KEY_ENV = "CUADRAO_INGESTION_SECRET_KEY"
 _VERSION = b"\x01"
 _NONCE_BYTES = 12
 _KEY_ID_LABEL = b"argus-ingestion-key-id:v1"
@@ -44,7 +45,7 @@ class SecretBox:
 
     @classmethod
     def from_env(cls) -> SecretBox:
-        raw = os.getenv(KEY_ENV, "").strip()
+        raw = (setting_value("INGESTION_SECRET_KEY") or "").strip()
         if not raw:
             raise SecretBoxUnavailable(f"{KEY_ENV} is not configured")
         try:
