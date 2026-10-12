@@ -1,7 +1,7 @@
 """Webhook signatures, keyed digests and one-time link codes.
 
 Phone numbers, provider message ids and link codes are only ever stored as
-HMAC-SHA256 digests under ``ARGUS_WHATSAPP_SENDER_KEY``. A plain hash of a
+HMAC-SHA256 digests under ``CUADRAO_WHATSAPP_SENDER_KEY``. A plain hash of a
 phone number is reversible by enumeration; a keyed one is not without the key.
 Logs carry ``ref``, a short prefix of a digest, and never the value itself.
 """
