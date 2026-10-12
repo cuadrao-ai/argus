@@ -9,7 +9,6 @@ final class CuadraoConnectivity: ObservableObject {
     private let monitor: NWPathMonitor?
     private let debounce: Duration
     private var pendingLoss: Task<Void, Never>?
-    private var settled = false
 
     /// `monitoring: false` is for the gallery, which drives `report` by hand and never touches the real network.
     init(monitoring: Bool = true, debounce: Duration = .seconds(1)) {
@@ -38,7 +37,6 @@ final class CuadraoConnectivity: ObservableObject {
                 apply(false)
             }
         }
-        settled = true
     }
 
     private func apply(_ satisfied: Bool) {
