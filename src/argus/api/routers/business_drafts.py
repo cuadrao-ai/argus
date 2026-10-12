@@ -13,6 +13,7 @@ from argus.domain.business.contracts.actions import (
     ApproveIncome,
     Refused,
     ReviewDraft,
+    SettleRemainder,
 )
 from argus.domain.business.contracts.dossier import BusinessDossier
 
@@ -32,6 +33,8 @@ def _run(request, response, context, draft_id, command=None, key=None):
         if command is not None:
             if isinstance(command, ReviewDraft):
                 method = context.service.review
+            elif isinstance(command, SettleRemainder):
+                method = context.service.settle_remainder
             elif isinstance(command, ApproveIncome):
                 method = context.service.approve_income
             else:
@@ -77,6 +80,23 @@ def approve_draft(
     context: Annotated[DraftContext, Depends(require_drafts)],
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
+    return _run(
+        request, response, context, draft_id, body, _key(request, idempotency_key)
+    )
+
+
+@router.post("/{draft_id}/remainder/settle", response_model=BusinessDossier)
+def settle_remainder(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    body: SettleRemainder,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    """A person with approval permission settles the read purchases a recorded
+    draft does not cover. The dossier then reports 0 unrecorded purchases."""
+
     return _run(
         request, response, context, draft_id, body, _key(request, idempotency_key)
     )

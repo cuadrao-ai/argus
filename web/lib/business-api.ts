@@ -143,6 +143,14 @@ export async function approveBusinessDraft(draftId: string, version: number, ide
   });
 }
 
+export async function settleBusinessRemainder(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/remainder/settle`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version }),
+  });
+}
+
 export type BusinessAccount = {
   id: string;
   nickname: string | null;
@@ -468,4 +476,9 @@ export async function revokeBusinessAccessGrant(id: string): Promise<void> {
 
 export async function revokeBusinessAccessInvite(id: string): Promise<void> {
   await apiFetch(`/business/access/invites/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/** Owner action: bind a receipt whose preparation grant is no longer live to the owner's current grant. */
+export async function rebindBusinessReceipt(id: string): Promise<ReceiptDetail> {
+  return apiFetch(`/business/receipts/${encodeURIComponent(id)}/rebind`, { method: "POST" });
 }
