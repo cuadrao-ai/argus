@@ -222,11 +222,12 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
         context, first.draft_id, SettleRemainder(version=after.version), "settle"
     )
     assert settled.outcome == "applied", settled
+    # The same key again replays the stored outcome; nothing is written twice.
     assert (
         service.settle_remainder(
             context, first.draft_id, SettleRemainder(version=after.version), "settle"
-        ).outcome
-        == "replayed"
+        )
+        == settled
     )
     done = service.dossier(context, first.draft_id)
     assert (done.unrecorded_purchases, done.review_state) == (0, "accepted")
