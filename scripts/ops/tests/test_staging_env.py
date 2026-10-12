@@ -86,13 +86,16 @@ def test_plan_api_adds_deletes_and_holds(manifest):
     plan = se.compute_plan(manifest["services"]["api"], live, {"CUADRAO_WHATSAPP_APP_SECRET": "x"}, generator=lambda: "gen")
     actions = dict(plan.actions)
     assert actions["CUADRAO_FINANCIAL_ACCOUNTS_ENABLED"] == "add"
-    assert plan.final["CUADRAO_FINANCIAL_ACCOUNTS_ENABLED"] == live["ARGUS_FINANCIAL_ACCOUNTS_ENABLED"]
+    assert plan.final["CUADRAO_FINANCIAL_ACCOUNTS_ENABLED"] == "true"
+    assert plan.final["ARGUS_HOUSEHOLDS_ENABLED"] == "true"
+    assert dict(plan.actions)["ARGUS_INVITE_FOUNDER_USER_ID"] == "skip"
+    assert len(plan.final["CUADRAO_INGESTION_SECRET_KEY"]) == 44
     assert actions["ARGUS_FINANCIAL_ACCOUNTS_ENABLED"] == "delete"
     assert actions["ARGUS_VISION_MODEL"] == "delete"
     assert actions["CUADRAO-DEV-KEY-PILOT"] == "hold"
     assert "CUADRAO-DEV-KEY-PILOT" in plan.final
     assert actions["CUADRAO_WHATSAPP_VERIFY_TOKEN"] == "add"
-    assert plan.generated.keys() == {"CUADRAO_WHATSAPP_VERIFY_TOKEN", "CUADRAO_WHATSAPP_SENDER_KEY"}
+    assert {"CUADRAO_WHATSAPP_VERIFY_TOKEN", "CUADRAO_WHATSAPP_SENDER_KEY", "ARGUS_INVITE_CODE_SECRET"} <= plan.generated.keys()
     assert set(plan.missing) == {"CUADRAO_WHATSAPP_ACCESS_TOKEN", "CUADRAO_RESEND_WEBHOOK_SECRET", "RESEND_BUSINESS_API_KEY"}
 
 

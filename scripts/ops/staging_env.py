@@ -9,6 +9,7 @@ differs from the manifest's.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -176,7 +177,13 @@ def compute_plan(
         elif name in live:
             desired = live[name]
         elif kind == "generated":
-            desired = plan.generated[name] = generator()
+            n = entry.get("b64_bytes")
+            desired = plan.generated[name] = (
+                base64.urlsafe_b64encode(secrets_module.token_bytes(n)).decode() if n else generator()
+            )
+        if desired is None and entry.get("optional"):
+            plan.actions.append((name, "skip"))
+            continue
         if desired is None:
             plan.missing.append(name)
             plan.actions.append((name, "missing"))
