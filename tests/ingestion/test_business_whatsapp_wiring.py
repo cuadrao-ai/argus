@@ -249,6 +249,53 @@ async def test_worker_lifecycle_has_one_owned_task_and_awaits_shutdown(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_with_the_agent_off_text_never_reaches_it_even_with_the_pilot_on(
+    monkeypatch,
+):
+    import httpx
+    from argus.api.whatsapp import build_whatsapp
+    from argus.domain.ingestion.reconcile.service import ReconciliationService
+    from argus.domain.ingestion.secrets import SecretBox
+    from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
+
+    from tests.ingestion.whatsapp_support import ENV
+
+    for key, value in ENV.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("ARGUS_WHATSAPP_AGENT_ENABLED", "false")
+    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "true")
+    touched = []
+
+    class Pool:
+        def connection(self):
+            touched.append(1)
+            raise RuntimeError("the pool must not be used")
+
+    documents = SimpleNamespace(
+        hub=SimpleNamespace(
+            sink=ReconciliationService(object(), object(), lambda: None),
+            box=SecretBox(bytes(range(32))),
+            clock=lambda: None,
+        )
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: None))
+    runtime = build_whatsapp(
+        load_whatsapp_settings(),
+        documents=documents,
+        spaces=object(),
+        store=object(),
+        client=client,
+        pool=Pool(),
+    )
+    message = TextMessage("wamid.Y", ALICE_PHONE, datetime.now(timezone.utc), "hola")
+    assert runtime.intake.capture_text(message) is False
+    assert touched == []
+    assert runtime.worker.enabled() is False
+    await client.aclose()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("pilot", ["false", "true"])
 async def test_text_reaches_the_agent_only_while_the_worker_is_enabled(
     monkeypatch, pilot

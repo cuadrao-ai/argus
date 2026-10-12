@@ -88,7 +88,7 @@ export function WhatsAppLinkView({
           </button>
         </section>
       ) : null}
-      {status?.linked && consent ? (
+      {status?.linked && consent && consent.reason !== "whatsapp_agent_off" ? (
         <section
           className="flex items-start justify-between gap-3 rounded-xl border border-black/[0.06] px-3.5 py-3 dark:border-white/[0.08]"
           data-testid="whatsapp-ai-consent"
