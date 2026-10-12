@@ -661,6 +661,27 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-business-search-preview-20261012": {
+      "description": "Business omnisearch record preview on hover, focus, click and touch; UI only, no backend ownership.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-search.test.tsx",
+        "web/components/business-app/BusinessSearchDossier.tsx",
+        "web/components/business-app/useBusinessSearch.ts",
+        "web/components/chat/ChatWorkspace.tsx",
+        "web/components/sidebar/ChatCommandPalette.tsx",
+        "web/components/sidebar/command-palette/WorkspaceSearchResults.tsx",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }
