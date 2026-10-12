@@ -167,6 +167,8 @@ async def calibrate(args: argparse.Namespace, ledger: Ledger) -> dict[str, Any]:
 async def variety(args: argparse.Namespace, ledger: Ledger) -> dict[str, Any]:
     results = []
     for case in load_variety_cases():
+        if args.only and case["id"] not in args.only:
+            continue
         entry: dict[str, Any] = {
             "case_id": case["id"],
             "messages": [s["message"] for s in case["steps"]],
@@ -188,6 +190,7 @@ async def variety(args: argparse.Namespace, ledger: Ledger) -> dict[str, Any]:
             raise
         except Exception as error:  # noqa: BLE001
             entry["failures"] = [f"capture_error:{type(error).__name__}"]
+            entry["error"] = str(error)[:1500]
         entry["status"] = "passed" if not entry["failures"] else "failed"
         results.append(entry)
         print(f"variety {case['id']}: {entry['status']} {entry['failures']}")
@@ -225,6 +228,7 @@ def main() -> None:
     parser.add_argument("--runtime-model", default="anthropic/claude-haiku-5.5")
     parser.add_argument("--judge-model", default="anthropic/claude-haiku-5.5")
     parser.add_argument("--calibration", type=Path)
+    parser.add_argument("--only", nargs="*", default=[])
     parser.add_argument("--cap-usd", type=float, default=3.0)
     args = parser.parse_args()
     args.root = Path(__file__).resolve().parents[2]
