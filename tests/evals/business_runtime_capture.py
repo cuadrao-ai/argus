@@ -926,7 +926,8 @@ async def capture_case(
                             received_at=captured.received_at,
                             channel=step["channel"],
                             begin_reply=lambda key=turn_key: _begin_reply(pool, key),
-                            language="en" if case["id"].startswith("en_") else "es-419",
+                            language=case.get("language")
+                            or ("en" if case["id"].startswith("en_") else "es-419"),
                             require_access=require_access,
                         )
                         interpreter = interpreter_factory(case["id"], index, bindings)
@@ -943,10 +944,10 @@ async def capture_case(
                             turn_key,
                             result.tool_records,
                             bindings,
-                            draft_aliases.get(case["id"]),
+                            case.get("draft_alias") or draft_aliases.get(case["id"]),
                         )
-                        if case["id"] in draft_aliases:
-                            alias = draft_aliases[case["id"]]
+                        alias = case.get("draft_alias") or draft_aliases.get(case["id"])
+                        if alias is not None:
                             if alias in bindings:
                                 drafts[alias] = bindings[alias]
                         graph_run_ids.append(str(result.graph_run_id))

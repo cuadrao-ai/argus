@@ -179,7 +179,7 @@ class JudgeVerdict(BaseModel):
     no_invented_facts: bool
     plain_factual_question: bool
     no_claimed_approval: bool
-    evidence: str = Field(min_length=1, max_length=400)
+    evidence: str = Field(min_length=1, max_length=1000)
 
     @model_validator(mode="after")
     def consistent_pass(self) -> JudgeVerdict:
