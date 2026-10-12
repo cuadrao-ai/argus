@@ -85,7 +85,13 @@ class IntakeDestination(Protocol):
     """Where a linked sender's receipt lands: the owner's Business space."""
 
     async def capture(
-        self, *, owner_id: str, content: bytes, filename: str, media_type: str
+        self,
+        *,
+        owner_id: str,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        source_text: str | None,
     ) -> Captured: ...
 
     async def discard(self, *, owner_id: str, connection_id: str) -> None: ...
@@ -290,6 +296,7 @@ class WhatsAppIntake:
                 content=fetched.content,
                 filename=message.filename,
                 media_type=fetched.mime_type,
+                source_text=message.caption,
             )
         except (MediaRejected, CaptureRejected) as error:
             return Settlement("rejected", owner, error_code=error.code)

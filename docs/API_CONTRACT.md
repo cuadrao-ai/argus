@@ -8782,8 +8782,9 @@ owner's consent on the web. Spec and activation:
 Owners send or forward receipts from their own WhatsApp number to the one
 receiving number, and only those owner-initiated messages are processed. A
 forwarded message (`context.forwarded` or `context.frequently_forwarded`) or
-one with a caption is captured exactly like a direct send. Captions are never
-read. The adapter makes two kinds of request to Meta. It GETs the delivered
+one with a caption is captured exactly like a direct send. A caption is kept
+verbatim (at most 1024 characters) as the document's `source_text`, returned on
+the receipt summary. It is never read as an instruction and never chooses an owner. The adapter makes two kinds of request to Meta. It GETs the delivered
 media id from Graph, then the download URL Graph returns. Outbound replies are
 a third kind, and they are off by default. It never reads message history,
 contacts or profiles.
