@@ -33,7 +33,10 @@ Blocker = Literal[
     "receipt_purchase_ambiguous",
     "no_purchase_found",
     "several_purchases_found",
+    "possible_duplicate",
 ]
+# The import event warnings that mean "this may be a purchase already saved".
+DUPLICATE_WARNINGS = ("possible_duplicate", "ambiguous_match")
 # The import event states ``receipt_review`` reads; list events with these.
 RECEIPT_EVENT_STATES: tuple[EventState, ...] = get_args(EventState)
 _EVENT_STATUS: dict[str, ReceiptStatus] = {
@@ -87,6 +90,8 @@ class ReceiptReview:
     read_purchases: tuple[ReadPurchase, ...] = ()
     # The purchase under review is the one the owner entered by hand.
     owner_entry: bool = False
+    # The receipt this one may repeat; set with the ``possible_duplicate`` blocker.
+    duplicate_of: str | None = None
 
 
 def _is_receipt(batch: ExtractionBatch | None) -> bool:
@@ -185,6 +190,9 @@ def receipt_review(
     status = _EVENT_STATUS.get(
         event["state"], "review_ready" if after_read else draft.status
     )
+    # A purchase the import layer marked as a possible repeat of another one
+    # is shown with what was read, and blocked until a person settles it.
+    repeated = event["state"] == "open" and event.get("attention") in DUPLICATE_WARNINGS
     return ReceiptReview(
         receipt_id=draft.connection_id,
         status=status,
@@ -198,14 +206,30 @@ def receipt_review(
             account_id=facts["account_id"],
         ),
         missing=tuple(missing_fields(event)),
-        blocker=None,
+        blocker="possible_duplicate" if repeated else None,
         evidence=evidence,
         event_id=event["id"],
         event_version=event["version"],
         expense_id=event["activity_id"],
         read_purchases=read,
         owner_entry=bool(entered),
+        duplicate_of=_receipt_of(events, tuple(event.get("possible_duplicates") or ()))
+        if repeated
+        else None,
     )
+
+
+def _receipt_of(
+    events: Iterable[dict[str, Any]], event_ids: tuple[str, ...]
+) -> str | None:
+    """The receipt (connection) behind the first listed event, when it has one."""
+
+    for other in events:
+        if other["id"] in event_ids:
+            for observation in other["observations"]:
+                if observation.get("connection_id"):
+                    return observation["connection_id"]
+    return None
 
 
 def receipt_ids(

@@ -8814,8 +8814,11 @@ answers the not-linked reply.
   over 512 KiB is 413 `whatsapp_webhook_too_large`; a signed body that is not
   a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. 200
   `{received: true}` means every image, document and text message in it has a
-  committed delivery record with a live claim; other message types and statuses
-  are ignored. The media download, saving and reply run after the answer, in
+  committed delivery record with a live claim. A voice note, audio, sticker or
+  video from a linked sender is settled `rejected` (`whatsapp_message_unsupported`)
+  and gets one short reply saying it is not supported yet; from an unlinked
+  sender it gets the not-linked reply. Other message types and statuses are
+  ignored. The media download, saving and reply run after the answer, in
   order, and settle the record. A work failure behind the answer settles the
   record `failed` and the sender gets the "send it again" reply. Shutdown waits
   up to 20 seconds for this work; a process killed sooner leaves the record
@@ -9211,6 +9214,16 @@ accept path recorded.
   saved receipt) is never `preparable` or `enterable`; prepare, review and
   confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
   receipt.
+- Duplicates never record money twice. Uploading the same bytes again, from
+  any entry point, answers with the receipt already saved and `replayed:
+  true`; nothing new is stored. A second document whose read merchant, date,
+  amount and currency equal another draft or expense of the Business is set
+  aside with `status: needs_attention`, `attention: "duplicate"` and
+  `duplicate_of` (the receipt it may repeat); what was read stays visible,
+  `enterable` and `preparable` are false, and review or confirm answer 409
+  `possible_duplicate`. The mark is the import event's own
+  `possible_duplicate` attention; the hosted bridge sets it when it prepares
+  the attachment, the local app's import pass sets it the same way.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake
