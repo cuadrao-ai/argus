@@ -38,6 +38,23 @@
   line-height: 1.06;
   margin-block: 24px;
 }
+.hero .useCase {
+  position: relative;
+  height: 1.35em;
+  margin: -6px 0 26px;
+  overflow: hidden;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(26px, 2.8vw, 38px);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  color: #2f5a49;
+  white-space: nowrap;
+}
+.useCase > span { display: block; }
+.useCaseOut { position: absolute; inset: 0 auto auto 0; animation: useCaseOut 480ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.useCaseIn { animation: useCaseIn 480ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+@keyframes useCaseOut { to { opacity: 0; transform: translateY(-60%); } }
+@keyframes useCaseIn { from { opacity: 0; transform: translateY(60%); } }
 .eyebrow {
   font-size: 11px;
   text-transform: uppercase;
