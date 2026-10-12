@@ -13,6 +13,7 @@ import pytest
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.authority import TrustedActor
+from fastapi import Request
 from psycopg.types.json import Jsonb
 
 from tests import test_business_attachment_preparation_postgres as shared
@@ -221,7 +222,7 @@ def test_the_route_answers_owner_200_accountant_403_and_bad_id_404(
     from argus.domain.ingestion.documents.service import DocumentsService
     from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
     from argus.domain.ingestion.hub import IngestionHub
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     from tests.document_sources_support import source_objects
