@@ -59,8 +59,11 @@ extension FinancialLoopUITests {
         XCTAssertTrue(app.buttons["accounts.add"].exists, "the empty Home invites a first account")
         app.buttons["nav.add"].tap()
         XCTAssertTrue(app.buttons["add.tray.account"].waitForExistence(timeout: 5))
-        for row in ["transaction", "plan", "scanCamera", "choosePhoto", "chooseFile", "group", "invite"] {
+        for row in ["transaction", "plan", "group", "invite"] {
             XCTAssertFalse(app.buttons["add.tray." + row].exists, row + " is not in the book yet")
+        }
+        for row in ["scanCamera", "choosePhoto", "chooseFile"] {
+            XCTAssertTrue(app.buttons["add.tray." + row].exists, row + " keeps a receipt on this iPhone")
         }
         capture("guest-add-tray")
         app.buttons["add.tray.account"].tap()
