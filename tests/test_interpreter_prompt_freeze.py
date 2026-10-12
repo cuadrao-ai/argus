@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.evals.business_invariants import validate_business_invariant_scope
 from tests.interpreter_prompt_surface import (
     DOCUMENT_EXTRACTOR_OWNER,
     FINGERPRINT_PATH,
@@ -24,7 +25,6 @@ from tests.interpreter_prompt_surface import (
     model_facing_surface,
     require_document_extraction_measurement,
     surface_drift,
-    validate_business_measurement,
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -36,8 +36,9 @@ text has a separate measurement for its two explicit owners. To land a change:
   1. Run the live measurement for the affected scope on the branch.
   2. Commit its scorecard under docs/reports/evidence/.
   3. Compare it against the scorecard named in {FINGERPRINT_PATH} and confirm no
-     case regressed within that scope. The initial Business measurement must
-     execute all seven cases and twenty steps, with no unavailable results.
+     case regressed within that scope. The Business measurement is the invariant
+     measurement: the frozen seven cases judged by invariants and the varied
+     corpus judged by saved state, with no failed or unavailable case.
   4. Update that scope's fingerprint and last_measured to the new scorecard;
      preserve other scopes' evidence and totals.
 
@@ -119,7 +120,7 @@ def test_business_fingerprint_names_a_complete_scoped_measurement(
         path.is_file()
     ), "Business measurement scorecard must travel with the fingerprint"
     scorecard = json.loads(path.read_text(encoding="utf-8"))
-    validate_business_measurement(scope, scorecard)
+    validate_business_invariant_scope(scope, scorecard)
     calibration_path = REPOSITORY_ROOT / scorecard["calibration"]["report"]
     assert calibration_path.is_file(), "Business judge calibration report is missing"
     calibration = json.loads(calibration_path.read_text(encoding="utf-8"))

@@ -13,6 +13,7 @@ from tests.evals.business_invariants import (
     _variety_digest,
     check_invariants,
     validate_business_invariant_measurement,
+    validate_business_invariant_scope,
 )
 from tests.evals.business_variety import load_variety_cases
 
@@ -145,3 +146,57 @@ def test_an_incomplete_or_altered_scorecard_is_refused(mutate) -> None:  # noqa:
     mutate(scorecard)
     with pytest.raises(AssertionError):
         validate_business_invariant_measurement(scorecard)
+
+
+def scoped() -> tuple[dict, dict]:
+    scorecard = passing_scorecard()
+    scorecard.update(
+        candidate_sha="a" * 40,
+        frozen_fixture_sha256=fixture_digest(),
+        calibration={
+            "status": "passed",
+            "judge_model": scorecard["judge_model"],
+            "rubric_version": "v",
+            "fixture_sha256": "c" * 64,
+        },
+    )
+    scope = {
+        "surface": deepcopy(scorecard["surface"]),
+        "last_measured": {
+            "measurement_kind": MEASUREMENT_KIND,
+            "commit": "a" * 40,
+            "runtime_model": scorecard["runtime_model"],
+            "judge_model": scorecard["judge_model"],
+            "frozen_fixture_sha256": scorecard["frozen_fixture_sha256"],
+            "variety_fixture_sha256": scorecard["variety_fixture_sha256"],
+            "rubric_version": "v",
+            "calibration_fixture_sha256": "c" * 64,
+            **scorecard["totals"],
+        },
+    }
+    return scope, scorecard
+
+
+def test_the_fingerprint_scope_must_record_exactly_the_scorecard() -> None:
+    scope, scorecard = scoped()
+    validate_business_invariant_scope(scope, scorecard)
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda scope, card: scope["last_measured"].update(commit="b" * 40),
+        lambda scope, card: scope["last_measured"].update(judge_model="other"),
+        lambda scope, card: scope["last_measured"].update(passed=1),
+        lambda scope, card: scope["surface"].popitem(),
+        lambda scope, card: scope.update(last_measured=None),
+        lambda scope, card: scope["last_measured"].update(
+            calibration_fixture_sha256="d" * 64
+        ),
+    ],
+)
+def test_a_scope_that_drifts_from_its_scorecard_is_refused(mutate) -> None:  # noqa: ANN001
+    scope, scorecard = scoped()
+    mutate(scope, scorecard)
+    with pytest.raises((AssertionError, KeyError)):
+        validate_business_invariant_scope(scope, scorecard)

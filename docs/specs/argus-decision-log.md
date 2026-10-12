@@ -37,6 +37,29 @@ supersession rules. These decisions do not assert implementation completion.
 | 2026-10-07 | Approve the connected Business workflow and offline E0 plan with task-by-task independent review. Counsel may publish and land the docs-only PR; Lucas coordinates Business implementation. Detailed record: [Business connected flow and E0](#october-7-2026-business-connected-flow-and-offline-e0-plan). | Lucas |
 | 2026-10-10 | Approve the Business agent direction. One agent in the existing runtime talks only to the owner in WhatsApp and completes each record through Business tools. The accountant works in the web view. Reuse the runtime and services; no second loop, extractor, ledger or vendor. Contract first, then parallel streams; the "Pagué 850" journey is the first proof; evals gate merges. Cuadrao branches from `codex/private-alpha-next`. Detailed record: [Business agent direction](#october-10-2026-business-agent-direction). | Lucas |
 | 2026-10-10 | Clarify the first Business outcome as a working hosted internet system and an invite-only web beta. Authorize the bounded build, clean integration merges and staging only. Preserve varied natural-language flows and the existing runtime. Detailed record: [Hosted Business beta and build grant](#october-10-2026-hosted-business-beta-and-build-grant). | Lucas, relayed by the root coordinator |
+| 2026-10-12 | The Business live acceptance gate is the invariant measurement: the varied owner-wording corpus judged by saved state, and the frozen seven cases judged by invariants (no money recorded before human approval, no model approval, one money record per human approval, honest reply, foreign scope untouched, replays change nothing, at most one open owner question). The frozen exact-step runs stay as recorded history and are not required to pass. Reason: the frozen cases pinned exact steps from a scripted flow and do not match how real owners write. Detailed record: [October 12 Business invariant gate](#october-12-2026-business-invariant-gate). | Lucas |
+
+
+## October 12, 2026 Business invariant gate
+
+Lucas decided in writing on October 12, 2026 that the Business scope's live
+acceptance gate is the invariant measurement, not the frozen exact-step run.
+
+- The varied corpus is judged by saved state: the facts the owner stated, no
+  invented fact, at most one open owner question.
+- The frozen seven cases run against a real model and are judged by invariants
+  only: no money recorded before human approval, no model approval, one money
+  record per human approval, an honest reply, the foreign scope untouched, and
+  replays that change nothing.
+- The earlier exact-step runs (3 of 7 and 2 of 7) and the frozen file stay as
+  recorded history. They are not edited, relabeled or required to pass.
+- If an invariant fails live, the case is reported and the prompt is not tuned
+  around it.
+
+Reason: the frozen cases pinned exact steps from a scripted flow. A free model
+that states a true fact one turn earlier fails them even when the reply and the
+saved state are honest, so they do not match how real owners write. The
+invariants keep every safeguard that protects the owner's money and records.
 
 ## October 7, 2026 Business connected flow and offline E0 plan
 

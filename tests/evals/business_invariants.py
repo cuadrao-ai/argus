@@ -353,3 +353,29 @@ def validate_business_invariant_measurement(scorecard: dict[str, Any]) -> None:
             and r["outcome"] == "succeeded"
             for r in receipts
         )
+
+
+def validate_business_invariant_scope(
+    scope: dict[str, Any], scorecard: dict[str, Any]
+) -> None:
+    """The fingerprint's Business scope must record exactly this scorecard."""
+
+    measured = scope.get("last_measured")
+    assert isinstance(measured, dict), "Business live measurement is still missing"
+    validate_business_invariant_measurement(scorecard)
+    assert measured["measurement_kind"] == MEASUREMENT_KIND
+    assert set(scope["surface"]) == set(BUSINESS_OWNERS)
+    assert scorecard["surface"] == scope["surface"]
+    assert scorecard["candidate_sha"] == measured["commit"]
+    for name in ("runtime_model", "judge_model"):
+        assert scorecard[name] == measured[name]
+    assert scorecard["frozen_fixture_sha256"] == measured["frozen_fixture_sha256"]
+    assert scorecard["variety_fixture_sha256"] == measured["variety_fixture_sha256"]
+    assert scorecard["totals"] == {
+        name: measured[name] for name in ("passed", "failed", "unavailable")
+    }
+    assert scorecard["calibration"]["rubric_version"] == measured["rubric_version"]
+    assert (
+        scorecard["calibration"]["fixture_sha256"]
+        == measured["calibration_fixture_sha256"]
+    )
