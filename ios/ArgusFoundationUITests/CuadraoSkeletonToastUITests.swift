@@ -55,6 +55,15 @@ final class CuadraoSkeletonToastUITests: XCTestCase {
         shot(app, "toast-large-text-es")
     }
 
+    func testRetryTemplateRunsItsAction() {
+        continueAfterFailure = false
+        let app = gallery()
+        let retry = app.buttons["gallery-retry-action"]
+        reveal(app, retry)
+        retry.tap()
+        XCTAssertEqual(app.staticTexts["gallery-retry-count"].label, "1")
+    }
+
     private func shot(_ app: XCUIApplication, _ name: String) {
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = name; image.lifetime = .keepAlways; add(image)
     }
