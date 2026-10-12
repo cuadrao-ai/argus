@@ -297,16 +297,21 @@ def evidence(review: ReceiptReview) -> dict[str, Any] | None:
 
 
 def updates(
-    receipts: Iterable[Receipt], confirmed_at: Mapping[str, datetime]
+    receipts: Iterable[Receipt],
+    confirmed_at: Mapping[str, datetime],
+    views: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Newest first. ``confirmed_at`` maps an expense id to when it was recorded."""
+    """Newest first. ``confirmed_at`` maps an expense id to when it was recorded.
+    ``views`` are the receipts' overlaid summaries by id: when a receipt has
+    one, its status, expense, cause and label come from there."""
 
     items = []
     for receipt in receipts:
-        kind = _UPDATE_KINDS.get(receipt.status)
+        view = (views or {}).get(receipt.id) or receipt.summary()
+        kind = _UPDATE_KINDS.get(view["status"])
         if kind is None:
             continue
-        expense_id = receipt.review.expense_id
+        expense_id = view["expense_id"]
         items.append(
             {
                 "id": f"{kind}:{receipt.id}",
@@ -316,10 +321,9 @@ def updates(
                 ),
                 "receipt_id": receipt.id,
                 "expense_id": expense_id,
-                "error_code": receipt.error_code,
-                "attention": receipt.attention,
-                "label": review_fields(receipt.review)["merchant"]
-                or receipt.draft.filename,
+                "error_code": view["error_code"],
+                "attention": view["attention"],
+                "label": view["merchant"] or receipt.draft.filename,
             }
         )
     return sorted(items, key=lambda item: item["occurred_at"], reverse=True)

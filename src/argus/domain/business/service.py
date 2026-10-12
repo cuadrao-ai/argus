@@ -447,8 +447,12 @@ class BusinessService:
             "last_confirmed_at": max(recorded.values(), default=None),
         }
 
-    def updates(self, scope: BusinessScope) -> list[dict[str, Any]]:
-        return updates(self.receipts(scope), ledger.recorded_at(self._activities(scope)))
+    def updates(
+        self, scope: BusinessScope, views: Mapping[str, dict[str, Any]] | None = None
+    ) -> list[dict[str, Any]]:
+        return updates(
+            self.receipts(scope), ledger.recorded_at(self._activities(scope)), views
+        )
 
     def inbox(self, scope: BusinessScope) -> list[Receipt]:
         return [r for r in self.receipts(scope) if r.status not in CLOSED]

@@ -35,11 +35,13 @@ from argus.api.business import (
 )
 from argus.api.business_drafts import (
     action_problem,
-    bridged,
     overview_with_drafts,
     receipt_detail,
     receipt_summaries,
+    receipt_summary,
     require_legacy_receipt_write,
+    search_with_drafts,
+    updates_with_drafts,
 )
 from argus.api.business_schemas import (
     BusinessAccess,
@@ -452,7 +454,7 @@ async def upload_receipt(
             )
     except Exception as error:
         raise _problem(request, error) from None
-    return bridged(context, [receipt.summary()])[0]
+    return receipt_summary(context, receipt)
 
 
 @router.get("/receipts", response_model=ReceiptPage)
@@ -527,7 +529,7 @@ async def prepare_receipt(
         [receipt] = _email_flagged(
             context, [context.service.receipt(context.scope, receipt_id)]
         )
-        return bridged(context, [receipt.summary()])[0]
+        return receipt_summary(context, receipt)
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -612,7 +614,7 @@ def search(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        found = context.service.search(context.scope, q, limit)
+        found = search_with_drafts(context, q, limit)
     except Exception as error:
         raise _problem(request, error) from None
     flags = email_receipt_flags(context.scope.owner.space_id)
@@ -642,6 +644,6 @@ def list_updates(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        return {"items": context.service.updates(context.scope)}
+        return {"items": updates_with_drafts(context)}
     except Exception as error:
         raise _problem(request, error) from None

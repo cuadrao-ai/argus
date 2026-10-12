@@ -16,6 +16,8 @@ from argus.api.business_drafts import (
     receipt_detail,
     receipt_summaries,
     scoped_legacy,
+    search_with_drafts,
+    updates_with_drafts,
 )
 from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
 from argus.domain.business.contracts.facts import BusinessFactPatch
@@ -101,10 +103,22 @@ def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  #
     assert detail["draft_id"] == str(result.draft_id)
     assert detail["version"] == service.dossier(context, result.draft_id).version
     assert detail["record_context"]["capabilities"]
-    # Linked and open: counted once as awaiting review, in the inbox.
+    # Linked and open: counted once as awaiting review, in the inbox, in search and in updates.
     counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
     assert (counts["awaiting_review"], counts["needs_attention"]) == (1, 0)
     assert [item["id"] for item in receipt_summaries(web, "inbox")] == [cid]
+    [hit] = search_with_drafts(web, "Brisa", 5)["receipts"]
+    assert (hit["id"], hit["status"], hit["merchant"]) == (
+        cid,
+        "review_ready",
+        "Hotel Brisa del Este SRL",
+    )
+    [update] = [u for u in updates_with_drafts(web) if u["receipt_id"] == cid]
+    assert (update["kind"], update["attention"], update["label"]) == (
+        "receipt_ready",
+        None,
+        "Hotel Brisa del Este SRL",
+    )
     # Approved: a saved expense in both views, counted as such.
     from tests.test_business_multi_purchase_postgres import _account
 
@@ -143,6 +157,15 @@ def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  #
     counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
     assert (counts["awaiting_review"], counts["needs_attention"]) == (0, 0)
     assert receipt_summaries(web, "inbox") == []
+    [update] = [u for u in updates_with_drafts(web) if u["receipt_id"] == cid]
+    assert (update["kind"], update["expense_id"]) == (
+        "expense_confirmed",
+        str(approved.activity_id),
+    )
+    # The expense is the search hit now; the receipt is not listed twice.
+    found = search_with_drafts(web, "Brisa", 5)
+    assert [e["id"] for e in found["expenses"]] == [str(approved.activity_id)]
+    assert found["receipts"] == []
 
 
 def test_a_saved_read_whose_handoff_failed_waits_as_interrupted_on_postgres(actions):  # noqa: ANN001
@@ -187,3 +210,85 @@ def test_the_overlay_leaves_a_receipt_without_a_draft_alone(actions):  # noqa: A
     web = _web(service, context)
     summary = {"id": str(UUID(int=7)), "status": "saved", "attention": None}
     assert bridged(web, [summary]) == [summary]
+
+
+def test_a_repeat_receipt_shows_as_a_duplicate_of_its_original_in_every_view(actions):  # noqa: ANN001
+    first = single._saved(actions, "expense")
+    service, context, _, cid1, _, _ = first
+    bridge.bind(first)
+    assert bridge.finish(first).outcome == "applied"
+    second = single._saved(actions, "expense")
+    _, _, _, cid2, _, _ = second
+    bridge.bind(second)
+    assert bridge.finish(second).outcome == "applied"
+    web = _web(service, context)
+    row, detail = _views(web, cid2)
+    for view in (row, detail):
+        assert (view["status"], view["attention"], view["error_code"]) == (
+            "needs_attention",
+            "duplicate",
+            "possible_duplicate",
+        )
+        assert view["duplicate_of"] == cid1
+        assert Decimal(view["amount"]) == Decimal("33254.91")
+    original, _ = _views(web, cid1)
+    assert (original["status"], original["attention"]) == ("review_ready", None)
+    counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
+    assert (counts["awaiting_review"], counts["needs_attention"]) == (1, 1)
+    [update] = [u for u in updates_with_drafts(web) if u["receipt_id"] == cid2]
+    assert (update["kind"], update["attention"]) == (
+        "receipt_needs_attention",
+        "duplicate",
+    )
+
+
+def test_a_receipt_with_several_purchases_waits_with_the_read_kept_in_every_view(actions):  # noqa: ANN001
+    from tests.test_business_multi_purchase_postgres import saved_two_purchases
+
+    saved = saved_two_purchases(actions)
+    service, context, _, cid, _, _ = saved
+    bridge.bind(saved)
+    assert bridge.finish(saved).outcome == "applied"
+    web = _web(service, context)
+    row, detail = _views(web, cid)
+    for view in (row, detail):
+        assert (view["status"], view["attention"], view["error_code"]) == (
+            "needs_attention",
+            "several_purchases",
+            "several_purchases_found",
+        )
+        assert view["amount"] is None
+        assert view["merchant"] == "Colmado La Esquina"
+    assert detail["draft_id"] is not None
+
+
+def test_a_receipt_whose_grant_went_away_asks_the_owner_to_rebind(actions):  # noqa: ANN001
+    saved = single._saved(actions, "expense")
+    service, context, _, cid, _, _ = saved
+    bridge.bind(saved)
+    # What the documents service writes when the bound grant no longer resolves.
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.financial_document_extractions set draft = draft ||"
+            " %s::jsonb where connection_id=%s",
+            (
+                Jsonb(
+                    {
+                        "status": "needs_attention",
+                        "error_code": "business_record_not_found",
+                    }
+                ),
+                cid,
+            ),
+        )
+    web = _web(service, context)
+    row, detail = _views(web, cid)
+    for view in (row, detail):
+        assert (view["status"], view["attention"], view["error_code"]) == (
+            "needs_attention",
+            "interrupted",
+            "business_record_not_found",
+        )
+        assert view["preparable"] is True
+    # The web shows the rebind control from this code and the approve permission.
+    assert "approve" in detail["record_context"]["capabilities"]

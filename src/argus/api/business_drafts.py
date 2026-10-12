@@ -200,10 +200,16 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
         return {}
     rows = tx.rows(
         "select distinct s.connection_id, e.id, e.state, e.version, e.attention,"
-        " e.activity_id, e.possible_duplicates::text[] as possible_duplicates, e.resolution"
+        " e.activity_id, e.resolution, o.connection_id as duplicate_receipt_id"
         " from public.business_sources s"
         " join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id"
         " join public.financial_import_events e on e.id=l.draft_id and e.owner_space_id=l.space_id"
+        " left join lateral ("
+        "   select s2.connection_id from public.business_draft_sources l2"
+        "   join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
+        "   where l2.space_id=e.owner_space_id and l2.draft_id=(e.possible_duplicates)[1]"
+        "   and s2.connection_id is not null limit 1"
+        " ) o on true"
         " where s.space_id=%s and s.connection_id = any(%s) and e.user_id=%s"
         " and e.resolution ? 'business' order by e.id",
         (
@@ -218,17 +224,7 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
     return found
 
 
-def _receipt_of_draft(tx, draft_id: str) -> str | None:  # noqa: ANN001
-    rows = tx.rows(
-        "select s.connection_id from public.business_draft_sources l"
-        " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
-        " where l.draft_id=%s and l.space_id=%s and s.connection_id is not null limit 1",
-        (UUID(draft_id), tx.context.actor.space_id),
-    )
-    return str(rows[0]["connection_id"]) if rows else None
-
-
-def draft_overlay(summary: dict, drafts: list[dict], tx) -> dict:  # noqa: ANN001
+def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     """A receipt linked to a bridge draft takes its status, facts and message
     from that draft, never from legacy import events. Keys absent from the
     wire shape handed in (a summary has no draft id) stay absent."""
@@ -283,12 +279,12 @@ def draft_overlay(summary: dict, drafts: list[dict], tx) -> dict:  # noqa: ANN00
         read_attention(SimpleNamespace(state=row["state"], resolution=row["resolution"]))
     )
     if row["state"] == "open" and row["attention"] in DUPLICATE_WARNINGS:
-        original = next(iter(row["possible_duplicates"] or ()), None)
+        original = row.get("duplicate_receipt_id")
         out.update(
             status="needs_attention",
             attention="duplicate",
             error_code="possible_duplicate",
-            duplicate_of=_receipt_of_draft(tx, original) if original else None,
+            duplicate_of=str(original) if original else None,
         )
     return out
 
@@ -303,8 +299,7 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
     with transaction(store.authority, store.context) as tx:
         drafts = linked_drafts(tx, [summary["id"] for summary in summaries])
         return [
-            draft_overlay(summary, drafts.get(summary["id"], []), tx)
-            for summary in summaries
+            draft_overlay(summary, drafts.get(summary["id"], [])) for summary in summaries
         ]
 
 
@@ -332,6 +327,33 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     data["awaiting_review"] = sum(item["status"] in AWAITING_REVIEW for item in items)
     data["needs_attention"] = sum(item["status"] == "needs_attention" for item in items)
     return data
+
+
+def receipt_summary(context: BusinessContext, receipt) -> dict:  # noqa: ANN001
+    """One receipt's summary, overlaid: what upload and prepare answer with."""
+
+    return bridged(context, [receipt.summary()])[0]
+
+
+def search_with_drafts(context: BusinessContext, q: str, limit: int) -> dict:
+    """The search result with its receipts overlaid; expenses and accounts as found."""
+
+    found = context.service.search(context.scope, q, limit)
+    found["receipts"] = bridged(context, found["receipts"])
+    return found
+
+
+def updates_with_drafts(context: BusinessContext) -> list[dict]:
+    """The updates feed built from the overlaid receipt views, so a linked draft's
+    state (ready, needs attention, saved) is the one the feed reports."""
+
+    from argus.api.routers.business import _email_flagged
+
+    receipts = _email_flagged(context, context.service.receipts(context.scope))
+    views = {
+        item["id"]: item for item in bridged(context, [r.summary() for r in receipts])
+    }
+    return context.service.updates(context.scope, views)
 
 
 def receipt_detail(context: BusinessContext, receipt) -> dict:
