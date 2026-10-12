@@ -8511,8 +8511,8 @@ grant. The same connection ID reopens the draft from Chat or Plan. These are
 backend contracts under implementation in the default-off lane, not hosted or
 native availability claims.
 
-`POST /api/v1/financial-documents` accepts bounded PDF, JPEG or PNG bytes and an
-optional `X-Document-Filename`, percent-encoded UTF-8 (`encodeURIComponent`);
+`POST /api/v1/financial-documents` accepts bounded PDF, JPEG, PNG, TXT, CSV, XLSX
+or EML bytes and an optional `X-Document-Filename`, percent-encoded UTF-8 (`encodeURIComponent`);
 raw UTF-8 is also accepted and undecodable bytes become replacement characters.
 Optional `X-Document-Proposal` is a bounded
 (8192-character) JSON `DraftProposal`, saved atomically with the source so a known
