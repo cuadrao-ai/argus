@@ -67,7 +67,7 @@ describe("WhatsApp link view", () => {
   test("a missing Business space blocks the code and says why", () => {
     const html = render({ problem: "space_missing" });
     expect(html).toContain("Start your business space first");
-    expect(html).toMatch(/<button[^>]*disabled[^>]*>Get a link code/);
+    expect(html).toMatch(/<button[^>]*\sdisabled=""[^>]*>Get a link code/);
   });
 
   test("Spanish copy renders", () => {
@@ -79,5 +79,69 @@ describe("WhatsApp link view", () => {
     expect(whatsAppLinkProblem({ status: 404, code: "whatsapp_unavailable" })).toBe("unavailable");
     expect(whatsAppLinkProblem({ status: 429, code: "whatsapp_link_code_rate_limited" })).toBe("rate_limited");
     expect(whatsAppLinkProblem(new Error("network"))).toBe("failed");
+  });
+});
+
+const linked = { linked: true, last4: "4821", linked_at: "2026-10-12T10:00:00Z", reply_language: "es-419" as const };
+const consent = {
+  linked: true,
+  available: true,
+  reason: null,
+  last4: "4821",
+  scope_version: 1,
+  purpose: "business_whatsapp_draft_assistance",
+  disclosure: "Cuadrao sends your message text to an AI provider to prepare drafts.",
+  route: {
+    gateway: "openrouter",
+    interpretation: [{ model: "anthropic/claude-haiku-5.5" }],
+    reply: [{ model: "anthropic/claude-haiku-5.5" }],
+  },
+  disclosure_token: "a".repeat(64),
+  enabled: false,
+  consented_at: null,
+  revoked_at: null,
+};
+
+describe("WhatsApp AI permission", () => {
+  test("an owner reads the disclosure and models before agreeing, and cannot enable without the box", () => {
+    const html = render({ status: linked, consent });
+    expect(html).toContain("Cuadrao sends your message text to an AI provider");
+    expect(html).toContain("anthropic/claude-haiku-5.5");
+    expect(html).toContain("Turn on AI reading");
+    expect(html).toMatch(/<button[^>]*\sdisabled=""[^>]*>Turn on AI reading/);
+    expect(html).toContain("You always approve money records yourself");
+  });
+
+  test("with the box checked the button is live", () => {
+    expect(render({ status: linked, consent, agreed: true })).not.toMatch(/<button[^>]*\sdisabled=""[^>]*>Turn on AI reading/);
+  });
+
+  test("an enabled permission can be turned off and shows no disclosure form", () => {
+    const html = render({ status: linked, consent: { ...consent, enabled: true } });
+    expect(html).toContain("AI reading is on for this number.");
+    expect(html).toContain("Turn off AI reading");
+    expect(html).not.toContain("Turn on AI reading");
+  });
+
+  test("an unavailable permission says why in plain words and offers no switch", () => {
+    const html = render({ status: linked, consent: { ...consent, available: false, reason: "business_unavailable", disclosure_token: null } });
+    expect(html).toContain("Create your business space first.");
+    expect(html).not.toContain("Turn on AI reading");
+  });
+
+  test("an unlinked owner sees no AI section", () => {
+    expect(render({ consent })).not.toContain("AI reading of your messages");
+  });
+
+  test("Spanish first copy renders", () => {
+    expect(render({ status: linked, consent }, "es-419")).toContain("Activar lectura con IA");
+  });
+
+  test("only a signed 64 character disclosure token can enable", async () => {
+    const { canEnableAI } = await import("../lib/whatsapp-link-api");
+    expect(canEnableAI(consent)).toBe(true);
+    expect(canEnableAI({ ...consent, disclosure_token: "short" })).toBe(false);
+    expect(canEnableAI({ ...consent, enabled: true })).toBe(false);
+    expect(canEnableAI({ ...consent, route: null })).toBe(false);
   });
 });

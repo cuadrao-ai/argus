@@ -59,3 +59,64 @@ export function whatsAppLinkProblem(error: unknown): WhatsAppLinkProblem {
   if (status === 429) return "rate_limited";
   return "failed";
 }
+
+export type WhatsAppAIConsent = {
+  linked: boolean;
+  available: boolean;
+  reason: string | null;
+  last4: string | null;
+  scope_version: number;
+  purpose: string;
+  /** The disclosure the owner reads before agreeing, verbatim from the server. */
+  disclosure: string;
+  route: {
+    gateway: string;
+    interpretation: { model: string }[];
+    reply: { model: string }[];
+  } | null;
+  /** Binds the enable request to the exact disclosure shown. */
+  disclosure_token: string | null;
+  enabled: boolean;
+  consented_at: string | null;
+  revoked_at: string | null;
+};
+
+export function getWhatsAppAIConsent(): Promise<WhatsAppAIConsent> {
+  return request("/whatsapp/ai-consent");
+}
+
+export function enableWhatsAppAI(
+  disclosureToken: string,
+  idempotencyKey: string,
+): Promise<WhatsAppAIConsent> {
+  return request("/whatsapp/ai-consent", {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ action: "enable", disclosure_token: disclosureToken }),
+  });
+}
+
+export function revokeWhatsAppAI(): Promise<void> {
+  return request("/whatsapp/ai-consent", { method: "DELETE" });
+}
+
+/** The model names the owner is agreeing to, without repeats. */
+export function consentModels(consent: WhatsAppAIConsent): string[] {
+  const routes = [...(consent.route?.interpretation ?? []), ...(consent.route?.reply ?? [])];
+  return [...new Set(routes.map((route) => route.model))];
+}
+
+/** The owner may agree only to a disclosure the server marks available and unsigned. */
+export function canEnableAI(consent: WhatsAppAIConsent): consent is WhatsAppAIConsent & {
+  disclosure_token: string;
+} {
+  return (
+    consent.linked &&
+    consent.available &&
+    !consent.enabled &&
+    consent.route !== null &&
+    consent.disclosure.trim().length > 0 &&
+    typeof consent.disclosure_token === "string" &&
+    /^[a-f0-9]{64}$/.test(consent.disclosure_token)
+  );
+}
