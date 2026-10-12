@@ -1,5 +1,6 @@
 import io
 from email.message import EmailMessage
+from pathlib import Path
 
 import pytest
 from argus.domain.ingestion.documents.config import DocumentExtractionSettings
@@ -168,3 +169,28 @@ def test_html_body_is_used_only_without_plain_text_and_large_html_is_read_not_re
         "<p>Compra DOP 150</p>" + "<!-- " + "x" * (70 * 1024) + " -->", subtype="html"
     )
     assert parse_email(only_html.as_bytes()).text == "Compra DOP 150"
+
+
+def test_a_hotel_ecf_email_reads_its_rendered_body_and_its_xml_attachment():
+    fixture = Path(__file__).parents[1] / "document_extraction_fixtures" / "hotel-ecf.eml"
+    content = fixture.read_bytes()
+    validate_source(content, "message/rfc822")
+    parsed = parse_email(content)
+    assert "Total RD$" in parsed.text and "33254.91" in parsed.text
+    assert [(p.filename, p.media_type) for p in parsed.attachments] == [
+        ("factura-E320000001234.xml", "application/xml")
+    ]
+    assert not parsed.skipped
+    prepared = prepare_document(content, "message/rfc822")
+    assert (prepared.pages, prepared.images, prepared.document_currency) == (2, (), "DOP")
+    assert prepared.text.startswith("Page 1 (email message text):")
+    assert "Attachment 'factura-E320000001234.xml', starting at page 2:" in prepared.text
+    assert "Total paid in DOP (MontoTotal): 33254.91" in prepared.text
+    assert "e-NCF (eNCF): E320000001234" in prepared.text
+
+
+def test_an_xml_attachment_that_is_not_an_ecf_names_no_currency():
+    content = message((b"<r><total>150</total></r>", "text", "xml", "datos.xml"))
+    prepared = prepare_document(content, "message/rfc822")
+    assert prepared.pages == 2 and prepared.document_currency is None
+    assert "r/total: 150" in prepared.text

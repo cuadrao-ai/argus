@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ECF xmlns="https://dgii.gov.do/ecf/v1">
+  <Encabezado>
+    <Version>1.0</Version>
+    <IdDoc>
+      <TipoeCF>32</TipoeCF>
+      <eNCF>E320000001234</eNCF>
+      <FechaVencimientoSecuencia>31-12-2027</FechaVencimientoSecuencia>
+      <IndicadorMontoGravado>0</IndicadorMontoGravado>
+      <TipoIngresos>01</TipoIngresos>
+      <TipoPago>1</TipoPago>
+      <TablaFormasPago>
+        <FormaDePago><FormaPago>3</FormaPago><MontoPago>33254.91</MontoPago></FormaDePago>
+      </TablaFormasPago>
+    </IdDoc>
+    <Emisor>
+      <RNCEmisor>131111222</RNCEmisor>
+      <RazonSocialEmisor>Hotel Brisa del Este SRL</RazonSocialEmisor>
+      <NombreComercial>Hotel Brisa del Este</NombreComercial>
+      <Sucursal>Punta Ficticia</Sucursal>
+      <DireccionEmisor>Av. Imaginaria 1, Punta Ficticia</DireccionEmisor>
+      <FechaEmision>09-10-2026</FechaEmision>
+    </Emisor>
+    <Comprador>
+      <RazonSocialComprador>Consumidor Final</RazonSocialComprador>
+    </Comprador>
+    <InformacionesAdicionales>
+      <NumeroHabitacion>412</NumeroHabitacion>
+      <NombreHuesped>Huésped de Prueba</NombreHuesped>
+    </InformacionesAdicionales>
+    <Totales>
+      <MontoGravadoTotal>25980.40</MontoGravadoTotal>
+      <MontoGravadoI1>25980.40</MontoGravadoI1>
+      <ITBIS1>18</ITBIS1>
+      <TotalITBIS>4676.47</TotalITBIS>
+      <TotalITBIS1>4676.47</TotalITBIS1>
+      <MontoPropinaLegal>2598.04</MontoPropinaLegal>
+      <MontoTotal>33254.91</MontoTotal>
+    </Totales>
+    <OtraMoneda>
+      <TipoMoneda>USD</TipoMoneda>
+      <TipoCambio>58.62</TipoCambio>
+      <MontoGravadoTotalOtraMoneda>443.20</MontoGravadoTotalOtraMoneda>
+      <TotalITBISOtraMoneda>79.78</TotalITBISOtraMoneda>
+      <MontoTotalOtraMoneda>567.30</MontoTotalOtraMoneda>
+    </OtraMoneda>
+  </Encabezado>
+  <DetallesItems>
+    <Item><NumeroLinea>1</NumeroLinea><IndicadorFacturacion>1</IndicadorFacturacion><NombreItem>Room Charge</NombreItem><CantidadItem>2</CantidadItem><PrecioUnitarioItem>12310.20</PrecioUnitarioItem><MontoItem>24620.40</MontoItem></Item>
+    <Item><NumeroLinea>2</NumeroLinea><IndicadorFacturacion>1</IndicadorFacturacion><NombreItem>Minibar</NombreItem><CantidadItem>1</CantidadItem><PrecioUnitarioItem>1360.00</PrecioUnitarioItem><MontoItem>1360.00</MontoItem></Item>
+  </DetallesItems>
+</ECF>

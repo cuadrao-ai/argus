@@ -52,7 +52,7 @@ async def test_the_webhook_answers_before_the_media_is_fetched() -> None:
     await work.drain(timeout=5)
     assert world.record("wamid.BG-ONE").status == "captured"
     assert len(world.captures(world.alice)) == 1
-    assert "Recibimos tu recibo" in world.transport.bodies()[-1]
+    assert "Recibido. Revísalo aquí:" in world.transport.bodies()[-1]
 
 
 @pytest.mark.asyncio
@@ -71,7 +71,7 @@ async def test_a_failure_behind_the_acknowledgement_is_settled_and_told() -> Non
         None,
     )
     assert (
-        world.transport.bodies()[-1] == "No pudimos guardar el recibo. Envíalo de nuevo."
+        world.transport.bodies()[-1] == "No pudimos guardarlo. Envíalo de nuevo."
     )
 
 

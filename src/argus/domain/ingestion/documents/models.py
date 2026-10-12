@@ -103,6 +103,8 @@ class ReceiptDetails(_Frozen):
 
 # A receipt whose rows do not reduce to one purchase at its total.
 RECEIPT_PURCHASE_AMBIGUOUS: Final = "receipt_purchase_ambiguous"
+# The read's receipt currency differs from the one the source names for itself.
+RECEIPT_CURRENCY_CONFLICT: Final = "receipt_currency_conflict"
 
 
 class ProjectionIssue(_Frozen):
