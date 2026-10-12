@@ -9163,6 +9163,14 @@ accept path recorded.
   saved receipt) is never `preparable` or `enterable`; prepare, review and
   confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
   receipt.
+- A read that shows several purchases, or one it cannot settle, still becomes
+  one open draft on the hosted bridge: the facts every read purchase shares are
+  known, the amount stays unknown for a person to set, and each read purchase
+  is kept on the draft as `read_purchases` (index, amount, currency, date,
+  merchant), returned on the dossier. The receipt shows `needs_attention` with
+  attention `several_purchases` until a person completes and approves it. An
+  unreadable read is still refused to the document layer, which keeps the
+  receipt enterable by hand.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake

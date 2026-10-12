@@ -165,9 +165,24 @@ class BusinessFacts(Contract):
         return self
 
 
+class ReadPurchase(Contract):
+    """One purchase a document read showed, kept as evidence on the draft when
+    the read found more than one, or none it could settle."""
+
+    index: int = Field(ge=1)
+    amount: str | None = None
+    currency: str | None = None
+    occurred_on: date | None = None
+    merchant: str | None = None
+    kind_hint: str | None = None
+
+
 class BusinessResolution(Contract):
     schema_version: Literal[1] = 1
     facts: BusinessFacts
+    #: Empty for a single clean read. Several entries mean the read showed
+    #: several purchases; the facts above hold only what they all share.
+    read_purchases: tuple[ReadPurchase, ...] = ()
 
 
 class KnownInput(Contract, Generic[T]):

@@ -21,6 +21,7 @@ from argus.domain.business.contracts.dossier import (
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessFacts,
+    BusinessResolution,
     Known,
 )
 from argus.domain.business.transactions import ActionTransaction
@@ -198,4 +199,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         blockers=tuple(blocked),
         approval_available=not blocked and "approve" in tx.authorization.capabilities,
         approval_result=approval,
+        read_purchases=BusinessResolution.model_validate(
+            event.resolution["business"]
+        ).read_purchases,
     )

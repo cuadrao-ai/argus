@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 from psycopg.types.json import Jsonb
@@ -24,6 +25,7 @@ from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
     BusinessResolution,
+    ReadPurchase,
 )
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
@@ -71,10 +73,17 @@ def save_revision(
     source_ids: tuple[UUID, ...],
     actor: ActorProvenance,
     turn_key: str | None,
+    read_purchases: tuple[ReadPurchase, ...] | None = None,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
-    resolution["business"] = BusinessResolution(facts=after).model_dump(mode="json")
+    if read_purchases is None:
+        # A later revision keeps the evidence the read left on the draft.
+        previous = (resolution.get("business") or {}).get("read_purchases") or ()
+        read_purchases = tuple(ReadPurchase.model_validate(item) for item in previous)
+    resolution["business"] = BusinessResolution(
+        facts=after, read_purchases=read_purchases
+    ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
     sources.attach(tx, event.id, source_ids)
@@ -269,17 +278,37 @@ def prepare_attachment(
     purchases = [
         candidate for candidate in batch.candidates if candidate.evidence == "transaction"
     ]
-    if (
-        batch.complete is not True
-        or batch.readable is not True
-        or len(purchases) != 1
-        or batch.receipt is None
-        or any(issue.code == "receipt_purchase_ambiguous" for issue in batch.issues)
-    ):
+    if batch.complete is not True or batch.readable is not True or batch.receipt is None:
         raise ActionError("invalid_input", "receipt_requires_review")
-    candidate = purchases[0]
-    if candidate.source.connection_id != draft.connection_id:
+    if any(
+        candidate.source.connection_id != draft.connection_id for candidate in purchases
+    ):
         raise ActionError("invalid_input", "business_preparation_source_changed")
+    # One clean purchase becomes the draft's facts. Several purchases, or an
+    # ambiguous read, still become one draft: it keeps only what every read
+    # purchase shares, leaves the amount for a person, and carries each read
+    # purchase as evidence, so there is always something to review.
+    ambiguous = len(purchases) != 1 or any(
+        issue.code == "receipt_purchase_ambiguous" for issue in batch.issues
+    )
+    read_purchases = (
+        tuple(
+            ReadPurchase(
+                index=index,
+                amount=candidate.amount,
+                currency=candidate.currency,
+                occurred_on=candidate.occurred_on,
+                merchant=candidate.merchant,
+                kind_hint=candidate.kind_hint
+                if candidate.kind_hint in {"expense", "income", "transfer", "refund"}
+                else None,
+            )
+            for index, candidate in enumerate(purchases, 1)
+        )
+        if ambiguous
+        else ()
+    )
+    candidate = _consensus(purchases) if ambiguous else purchases[0]
     source_id = sources.record_source(
         tx,
         f"attachment:{draft.connection_id}",
@@ -340,7 +369,29 @@ def prepare_attachment(
                 merged["fiscal"][name] = _retain_or_fill(merged["fiscal"][name], incoming)
         facts = merged
     after = BusinessFacts.model_validate(facts)
-    return save_revision(tx, event, before, after, (source_id,), actor, None)
+    return save_revision(
+        tx, event, before, after, (source_id,), actor, None, read_purchases
+    )
+
+
+def _consensus(purchases: list) -> SimpleNamespace:  # noqa: ANN001
+    """What every read purchase agrees on; the amount is never shared."""
+
+    def shared(name: str):  # noqa: ANN202
+        values = {getattr(candidate, name) for candidate in purchases}
+        return values.pop() if len(values) == 1 and None not in values else None
+
+    uncertain: set[str] = set()
+    for candidate in purchases:
+        uncertain |= set(candidate.uncertain)
+    return SimpleNamespace(
+        amount=None,
+        currency=shared("currency"),
+        occurred_on=shared("occurred_on"),
+        merchant=shared("merchant"),
+        kind_hint=shared("kind_hint") or "unknown",
+        uncertain=frozenset(uncertain),
+    )
 
 
 def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> dict:

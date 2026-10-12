@@ -11748,6 +11748,11 @@ components:
                 outcome_unknown: '#/components/schemas/UnsettledApproval'
                 recorded: '#/components/schemas/RecordedApproval'
           - type: 'null'
+        read_purchases:
+          items:
+            $ref: '#/components/schemas/ReadPurchase'
+          type: array
+          default: []
       additionalProperties: false
       type: object
       required:
@@ -20337,6 +20342,39 @@ components:
       - id
       - user_id
       - extra
+    ReadPurchase:
+      properties:
+        index:
+          type: integer
+          minimum: 1.0
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+        occurred_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        merchant:
+          anyOf:
+          - type: string
+          - type: 'null'
+        kind_hint:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - index
+      description: 'One purchase a document read showed, kept as evidence on the draft when
+
+        the read found more than one, or none it could settle.'
     ReceiptCardFacts:
       properties:
         execution_costs:

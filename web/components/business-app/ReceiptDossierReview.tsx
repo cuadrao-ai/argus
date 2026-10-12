@@ -217,6 +217,20 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
           {attachments.map((attachment) => <ReceiptSourcePreview key={attachment.id} detail={{ id: attachment.connection_id, filename: attachment.filename, media_type: attachment.media_type, received_at: attachment.received_at, channel: attachment.channel }} />)}
           <ReceiptMessages sources={dossier.sources} />
           {!attachments.length ? <div className={`${cardClass} text-[14px] text-black/65 dark:text-white/65`}>{dossier.facts.receipt_state.state === "known" && dossier.facts.receipt_state.value === "no_receipt" ? t("business.dossier.no_receipt", "No receipt was supplied.") : t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</div> : null}
+          {dossier.read_purchases?.length ? (
+            <div className={cardClass} data-testid="dossier-read-purchases">
+              <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.read_purchases_title", "Purchases read on this receipt")}</h3>
+              <p className="mb-3 mt-1 text-[13px] text-black/55 dark:text-white/55">{t("business.dossier.read_purchases_note", "The read showed more than one purchase. Complete this record with one of them; the rest stay here as evidence.")}</p>
+              <ul className="divide-y divide-black/[0.05] dark:divide-white/[0.05]">
+                {dossier.read_purchases.map((purchase) => (
+                  <li key={purchase.index} className="flex items-baseline justify-between gap-3 py-2 text-[14px]">
+                    <span className="min-w-0 truncate text-black/80 dark:text-white/80">{purchase.merchant ?? t("business.dossier.read_purchase", "Purchase {{index}}", { index: purchase.index })}{purchase.occurred_on ? ` · ${purchase.occurred_on}` : ""}</span>
+                    <span className="shrink-0 tabular-nums text-black dark:text-white">{purchase.amount ? `${purchase.amount}${purchase.currency ? ` ${purchase.currency}` : ""}` : t("business.dossier.unknown_amount", "Amount unknown")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <ReceiptHistory history={dossier.history} accounts={accounts} />
         </div>
         <div className="space-y-4">

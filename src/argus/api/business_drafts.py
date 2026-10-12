@@ -156,11 +156,23 @@ def receipt_detail(context: BusinessContext, receipt) -> dict:
             draft_id, ambiguous = draft_for_receipt(tx, UUID(receipt.id), legacy_id)
             detail["draft_id"] = draft_id
             if draft_id is not None and legacy_id is None:
-                detail.update(
-                    version=tx.imports.event(str(draft_id)).version,
-                    preparable=False,
-                    enterable=False,
-                )
+                event = tx.imports.event(str(draft_id))
+                detail.update(version=event.version, preparable=False, enterable=False)
+                read = (event.resolution.get("business") or {}).get(
+                    "read_purchases"
+                ) or ()
+                if (
+                    event.state == "open"
+                    and len(read) != 1
+                    and (read or detail["amount"] is None)
+                ):
+                    # Several purchases, or none the read could settle: the one
+                    # draft waits for a person, with the read kept as evidence.
+                    detail.update(
+                        status="needs_attention",
+                        attention="several_purchases",
+                        error_code="several_purchases_found",
+                    )
             detail["record_context"] = record_context(tx).model_dump(mode="json")
             if ambiguous:
                 detail.update(
