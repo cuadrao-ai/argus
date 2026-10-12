@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 
 import pytest
@@ -371,16 +372,20 @@ def test_openai_document_wire_schema_is_closed_required_and_preserves_nullabilit
     assert payload["max_completion_tokens"] > 0
 
 
-@pytest.mark.parametrize(
-    "model,task",
-    [("test/vision", "document_extraction"), ("openai/gpt-6-luna", "interpretation")],
-)
-def test_other_model_and_task_wire_contracts_are_unchanged(model, task):
-    payload = document_payload(model, task)
+def test_other_model_and_task_wire_contracts_are_unchanged():
+    payload = document_payload("test/vision", "document_extraction")
     assert (
         payload["response_format"]["json_schema"]["schema"]
         == ExtractionResult.model_json_schema()
     )
+    assert "max_tokens" in payload and "max_completion_tokens" not in payload
+
+
+def test_openai_sparse_interpretation_schema_is_delivered_exactly_in_the_prompt():
+    payload = document_payload("openai/gpt-6-luna", "interpretation")
+    assert "response_format" not in payload
+    schema_message = "".join(block["text"] for block in payload["messages"][0]["content"])
+    assert json.dumps(ExtractionResult.model_json_schema()) in schema_message
     assert "max_tokens" in payload and "max_completion_tokens" not in payload
 
 

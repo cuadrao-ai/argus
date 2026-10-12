@@ -12,6 +12,9 @@ from tests.evals.business_runtime_capture import capture_case, scripted_interpre
 from tests.test_business_spaces_migration_postgres import event, space
 
 DSN = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "").strip()
+pytestmark = pytest.mark.skipif(
+    not DSN, reason="ARGUS_DISPOSABLE_DATABASE_URL is not configured"
+)
 actions = action_pg.actions
 users = action_pg.users
 
