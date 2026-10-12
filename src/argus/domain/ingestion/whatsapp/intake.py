@@ -19,8 +19,8 @@ from loguru import logger
 
 from argus.domain.ingestion.whatsapp.identity import (
     WhatsAppKeys,
-    last4,
     code_candidates,
+    last4,
     mint_code,
     ref,
 )
