@@ -1090,6 +1090,22 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-refresh-after-actions-20261012": {
+      "description": "Founder rule: after approve, review, upload or rebind the affected lists, counts and cards refresh on their own; proven by an e2e that approves from the inbox and sees the home card and inbox count change without a reload.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/e2e/business-record-review.spec.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }

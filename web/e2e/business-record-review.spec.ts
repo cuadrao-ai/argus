@@ -292,3 +292,26 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
     await capture(page, `${scenario}-spanish`);
   });
 }
+
+test("after approving from the inbox, the home card and the inbox count change without a reload", async ({ page }) => {
+  await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
+  await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: true });
+  await page.goto("/dev/business-preview");
+  const nav = page.getByTestId("business-sidebar-nav");
+  const panel = page.getByTestId("workspace-panel-region");
+  const inboxCard = panel.getByRole("button", { name: /In your inbox/ });
+  await expect(inboxCard).toBeVisible();
+  const before = Number((await inboxCard.innerText()).match(/\d+/)?.[0]);
+  const expensesCard = panel.getByRole("button", { name: /Saved expenses/ });
+  const dopBefore = Number((await expensesCard.innerText()).match(/RD\$[^\n]*\n?(\d+) expenses?/)?.[1] ?? 0);
+  await nav.getByRole("button", { name: /^Inbox/ }).click();
+  await panel.getByRole("button", { name: /Ferretería La Esquina/ }).first().click();
+  await page.getByLabel(/Paid from/).selectOption({ label: "Operating account · DOP" });
+  await page.getByRole("button", { name: "Save review details" }).click();
+  await page.getByRole("button", { name: "Approve expense", exact: true }).click();
+  await expect(panel).toContainText("One expense was recorded after approval");
+  // No reload, no navigation beyond the panel switch: the home already knows.
+  await nav.getByRole("button", { name: /^Overview/ }).click();
+  await expect(panel.getByRole("button", { name: /In your inbox/ })).toContainText(String(before - 1));
+  await expect(panel.getByRole("button", { name: /Saved expenses/ })).toContainText(new RegExp(`${dopBefore + 1} expenses?`));
+});
