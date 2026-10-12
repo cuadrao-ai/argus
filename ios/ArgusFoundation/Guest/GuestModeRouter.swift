@@ -54,10 +54,7 @@ private struct GuestModeHost<Content: View>: View {
                 content.environment(\.cuadraoGuestEntry, { controller.enter() })
             case .launching:
                 // The brief wait while the saved book opens: blocks in the shape of Home, never an empty page.
-                ZStack(alignment: .top) {
-                    WelcomePalette.brandPaper.ignoresSafeArea()
-                    CuadraoSkeleton(layout: .home, identifier: "guest.loading").padding(.horizontal, 20).padding(.top, 72)
-                }
+                GuestLaunchSkeleton()
             case .guest:
                 if let model = controller.model {
                     GuestRoot(model: model, appearance: $appearance, webURL: auth.configuration?.webURL,
@@ -69,6 +66,18 @@ private struct GuestModeHost<Content: View>: View {
         // Signing in always wins: the book stays on the device and the signed-in app opens.
         .onChange(of: auth.state) { _, state in
             if state == .authenticated, controller.active { controller.leave() }
+        }
+    }
+}
+
+/// Home's blocks while the saved book opens. The top space follows the text size, as Home's greeting does.
+private struct GuestLaunchSkeleton: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var top = 72
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            WelcomePalette.brandPaper.ignoresSafeArea()
+            CuadraoSkeleton(layout: .home, identifier: "guest.loading").padding(.horizontal, 20).padding(.top, top)
         }
     }
 }
