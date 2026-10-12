@@ -16,6 +16,8 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
     private var duplicate = false
     /// A file named "Ilegible…" cannot be read; "SinConexion…" never reaches the server.
     private var unreadable = false
+    /// A file named "SinFecha…" reads without a date.
+    private var undated = false
 
     /// Shares the sample file list, so a receipt saved here appears in Saved receipts.
     init(files: SampleSavedReceiptsTransport) { self.files = files }
@@ -26,13 +28,14 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
         reads = 0
         duplicate = filename.hasPrefix("Duplicado")
         unreadable = filename.hasPrefix("Ilegible")
+        undated = filename.hasPrefix("SinFecha")
         return SavedDocumentCapture(connectionID: saved.connectionID, status: consent ? "queued" : "saved", replayed: saved.replayed)
     }
 
     func document(_ connectionID: String, identity: SessionSnapshot) async throws -> FinancialDocumentDetail {
         reads += 1
         current = connectionID
-        return try Self.decode(Self.document(connectionID, status: reads < 3 ? "preparing" : unreadable ? "needs_attention" : "review_ready"))
+        return try Self.decode(Self.document(connectionID, status: reads < 3 ? "preparing" : unreadable ? "needs_attention" : "review_ready", dated: !undated))
     }
 
     func prepare(_ connectionID: String, identity: SessionSnapshot) async throws -> SavedDocumentCapture {
@@ -85,11 +88,11 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
         try JSONDecoder().decode(T.self, from: JSONSerialization.data(withJSONObject: value))
     }
 
-    private static func document(_ connectionID: String, status: String) -> [String: Any] {
+    private static func document(_ connectionID: String, status: String, dated: Bool = true) -> [String: Any] {
         ["connection_id": connectionID, "filename": "Escaneo.png", "media_type": "image/png", "source_available": true,
          "status": status, "consent": true, "version": 1, "error_code": NSNull(), "created_at": "2026-10-11T12:00:00Z",
          "preparation": status == "review_ready" ? ["complete": true, "readable": true, "receipt": [
-            "merchant": "La Sirena", "occurred_on": "2026-10-10", "currency": "DOP", "subtotal": "250.50", "tax": NSNull(),
+            "merchant": "La Sirena", "occurred_on": dated ? "2026-10-10" as Any : NSNull(), "currency": "DOP", "subtotal": "250.50", "tax": NSNull(),
             "service": NSNull(), "tip": NSNull(), "total": "250.50", "suggested_category": "groceries",
             "items": [["id": "1", "description": "Arroz", "quantity": "1", "unit_price": "150.00", "total": "150.00"],
                       ["id": "2", "description": "Leche", "quantity": "1", "unit_price": "100.50", "total": "100.50"]]]] as Any : NSNull()]
@@ -99,11 +102,11 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
         ["id": "sample-event", "state": activity == nil ? "open" : "accepted", "version": version, "attention": NSNull(),
          "activity_id": activity as Any? ?? NSNull(), "possible_duplicates": [], "recorded_duplicates": [],
          "existing_activity_matches": duplicate ? [Self.activityID] : [],
-         "facts": ["amount": "250.50", "currency": "DOP", "direction": "outflow", "occurred_on": "2026-10-10",
+         "facts": ["amount": "250.50", "currency": "DOP", "direction": "outflow", "occurred_on": undated ? NSNull() as Any : "2026-10-10",
                    "account_id": account as Any? ?? NSNull(), "kind": "expense"],
          "unresolved": account == nil ? ["account_id"] : [],
          "observations": [["source": "statement", "connection_id": connectionID, "merchant": "La Sirena", "description": NSNull(),
-                           "amount": "250.50", "currency": "DOP", "occurred_on": "2026-10-10"]]]
+                           "amount": "250.50", "currency": "DOP", "occurred_on": undated ? NSNull() as Any : "2026-10-10"]]]
     }
 
     private static var account: [String: Any] {
@@ -198,11 +201,16 @@ struct ReceiptJourneyHarness: View {
             }.accessibilityIdentifier("harness.two")
             Button("Unreadable") { model.begin([(SampleSavedReceiptsTransport.png("Ilegible"), "Ilegible.png", false)]) }
                 .accessibilityIdentifier("harness.unreadable")
+            Button("No date") { model.begin([(SampleSavedReceiptsTransport.png("Sin fecha"), "SinFecha.png", false)]) }
+                .accessibilityIdentifier("harness.undated")
             Button("Offline") { model.begin([(SampleSavedReceiptsTransport.png("Sin conexión"), "SinConexion.png", false)]) }
                 .accessibilityIdentifier("harness.offline")
             Text(result).accessibilityIdentifier("harness.result")
         }
-        .onAppear { model.bind(Self.session) }
+        .onAppear {
+            model.bind(Self.session)
+            model.writeByHand = { result = "by hand " + $0.connectionID }
+        }
         .onChange(of: model.phase) { _, phase in
             switch phase {
             case .recorded(let activity): result = "recorded " + (activity.amount ?? "")

@@ -344,6 +344,61 @@ final class ReceiptJourneyModelTests: XCTestCase {
         XCTAssertTrue(keys.isEmpty, "linking records nothing new")
     }
 
+    func testAnUnreadableReceiptIsHandedOverToBeWrittenByHand() async throws {
+        let server = ScriptedReceiptServer(statuses: ["preparing", "needs_attention"])
+        let model = model(server)
+        model.begin([file])
+        await model.answerConsent(true)
+        XCTAssertEqual(model.phase, .failed(.couldNotRead))
+        XCTAssertFalse(model.canWriteByHand, "only offered where the movement sheet can take it")
+        var handed: [ReceiptHandoff] = []
+        model.writeByHand = { handed.append($0) }
+        XCTAssertTrue(model.canWriteByHand)
+        model.handWrite()
+        let handoff = try XCTUnwrap(handed.first)
+        XCTAssertEqual(handoff.connectionID, "doc-1")
+        XCTAssertEqual(handoff.merchant, "La Sirena", "what the reading found comes along")
+        XCTAssertEqual(handoff.amount, "250.50")
+        XCTAssertEqual(handoff.currency, "DOP")
+        XCTAssertEqual(handoff.occurredOn.map(ReceiptReviewDraft.dayText), "2026-10-10")
+        XCTAssertEqual(model.phase, .idle, "the journey closes; nothing is recorded")
+        let keys = await server.acceptKeys
+        XCTAssertTrue(keys.isEmpty)
+    }
+
+    func testAMissingDateIsNeitherShownAsTodayNorSaved() async throws {
+        let model = model(ScriptedReceiptServer())
+        model.begin([file])
+        await model.answerConsent(true)
+        var draft = try XCTUnwrap(review(model))
+        draft.accountID = UUID()
+        draft.occurredOn = nil
+        model.update(draft)
+        XCTAssertFalse(try XCTUnwrap(review(model)).isComplete, "no expense without a date the person chose")
+        XCTAssertNil(draft.changes(timeZone: .current).occurredOn, "nothing invents a date")
+        await model.confirm()
+        XCTAssertNotNil(review(model), "confirming waits for the date")
+    }
+
+    func testWritingByHandIsNotOfferedOnAReadableReceipt() async throws {
+        let model = model(ScriptedReceiptServer())
+        model.writeByHand = { _ in XCTFail("not handed over") }
+        model.begin([file])
+        await model.answerConsent(true)
+        XCTAssertNotNil(review(model))
+        XCTAssertFalse(model.canWriteByHand)
+        model.handWrite()
+        XCTAssertNotNil(review(model), "the review stays")
+    }
+
+    func testAReopenedReceiptShowsItsFileBesideTheReview() async throws {
+        let model = model(ScriptedReceiptServer(statuses: ["review_ready"]))
+        await model.open("doc-1")
+        for _ in 0..<100 where model.preview == nil { await Task.yield() }
+        XCTAssertEqual(model.preview?.image, Data("%PDF".utf8))
+        XCTAssertNotNil(review(model))
+    }
+
     func testAFailedReadingWaitsForThePersonToAskAgain() async throws {
         let server = ScriptedReceiptServer(statuses: ["preparing", "needs_attention"])
         let model = model(server)

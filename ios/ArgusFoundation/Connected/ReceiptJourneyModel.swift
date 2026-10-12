@@ -2,118 +2,6 @@ import Foundation
 import SwiftUI
 import ArgusSession
 
-/// The server calls the receipt journey needs. The real one talks to the API; tests stub it.
-protocol ReceiptJourneyTransport: Sendable {
-    func upload(_ bytes: Data, mediaType: String, filename: String, consent: Bool, identity: SessionSnapshot) async throws -> SavedDocumentCapture
-    func document(_ connectionID: String, identity: SessionSnapshot) async throws -> FinancialDocumentDetail
-    func prepare(_ connectionID: String, identity: SessionSnapshot) async throws -> SavedDocumentCapture
-    func openImports(identity: SessionSnapshot) async throws -> [FinancialImportEvent]
-    func acceptedImports(identity: SessionSnapshot) async throws -> [FinancialImportEvent]
-    func resolve(_ event: FinancialImportEvent, changes: FinancialImportChanges, identity: SessionSnapshot) async throws -> FinancialImportEvent
-    func preview(_ eventID: String, identity: SessionSnapshot) async throws -> FinancialImportPreview
-    func accept(_ event: FinancialImportEvent, request: FinancialActivityCommand, key: UUID, identity: SessionSnapshot) async throws -> FinancialImportAcceptance
-    func link(_ event: FinancialImportEvent, activityID: UUID, identity: SessionSnapshot) async throws -> FinancialImportEvent
-    func options(identity: SessionSnapshot) async throws -> FinancialActivityOptions
-    func source(_ connectionID: String, identity: SessionSnapshot) async throws -> Data
-}
-
-struct SessionReceiptJourneyTransport: ReceiptJourneyTransport {
-    let controller: SessionController
-    func upload(_ bytes: Data, mediaType: String, filename: String, consent: Bool, identity: SessionSnapshot) async throws -> SavedDocumentCapture {
-        try await controller.saveDocument(bytes, mediaType: mediaType, filename: filename, consent: consent, expectedIdentity: identity)
-    }
-    func document(_ connectionID: String, identity: SessionSnapshot) async throws -> FinancialDocumentDetail {
-        try await controller.financialDocument(connectionID, expectedIdentity: identity)
-    }
-    func prepare(_ connectionID: String, identity: SessionSnapshot) async throws -> SavedDocumentCapture {
-        try await controller.prepareDocument(connectionID, expectedIdentity: identity)
-    }
-    func openImports(identity: SessionSnapshot) async throws -> [FinancialImportEvent] {
-        try await controller.financialImports(state: "open", expectedIdentity: identity)
-    }
-    func acceptedImports(identity: SessionSnapshot) async throws -> [FinancialImportEvent] {
-        try await controller.financialImports(state: "accepted", expectedIdentity: identity)
-    }
-    func resolve(_ event: FinancialImportEvent, changes: FinancialImportChanges, identity: SessionSnapshot) async throws -> FinancialImportEvent {
-        try await controller.resolveFinancialImport(event, changes: changes, expectedIdentity: identity)
-    }
-    func preview(_ eventID: String, identity: SessionSnapshot) async throws -> FinancialImportPreview {
-        try await controller.previewFinancialImport(eventID, expectedIdentity: identity)
-    }
-    func accept(_ event: FinancialImportEvent, request: FinancialActivityCommand, key: UUID, identity: SessionSnapshot) async throws -> FinancialImportAcceptance {
-        try await controller.acceptFinancialImport(event, request: request, key: key, expectedIdentity: identity)
-    }
-    func link(_ event: FinancialImportEvent, activityID: UUID, identity: SessionSnapshot) async throws -> FinancialImportEvent {
-        try await controller.linkFinancialImport(event, activityID: activityID, expectedIdentity: identity)
-    }
-    func options(identity: SessionSnapshot) async throws -> FinancialActivityOptions {
-        try await controller.financialActivityOptions(expectedIdentity: identity)
-    }
-    func source(_ connectionID: String, identity: SessionSnapshot) async throws -> Data {
-        try await controller.savedDocumentSource(connectionID, expectedIdentity: identity)
-    }
-}
-
-/// What the person reviews before a receipt becomes an expense. The server's reading fills it; every field stays editable.
-struct ReceiptReviewDraft: Equatable {
-    let connectionID: String
-    var event: FinancialImportEvent
-    let receipt: DocumentReceipt?
-    var merchant: String
-    var amount: String
-    var currency: String
-    var occurredOn: Date?
-    var categoryID: String?
-    var accountID: UUID?
-
-    init(connectionID: String, event: FinancialImportEvent, receipt: DocumentReceipt?) {
-        self.connectionID = connectionID; self.event = event; self.receipt = receipt
-        let observation = event.observations.first { $0.connectionID == connectionID }
-        merchant = receipt?.merchant ?? observation?.merchant ?? observation?.description ?? ""
-        amount = event.facts.amount ?? receipt?.total ?? ""
-        currency = event.facts.currency ?? receipt?.currency ?? ""
-        occurredOn = (event.facts.occurredOn ?? receipt?.occurredOn).flatMap(Self.day)
-        categoryID = receipt?.suggestedCategory
-        accountID = event.facts.accountID.flatMap(UUID.init(uuidString:))
-    }
-
-    /// An already recorded movement this receipt may belong to.
-    var existingMatch: UUID? { event.existingActivityMatches.first.flatMap(UUID.init(uuidString:)) }
-
-    var isComplete: Bool {
-        accountID != nil && occurredOn != nil && !currency.isEmpty
-            && (Decimal(string: amount).map { $0 > 0 } ?? false)
-    }
-
-    /// Only what differs from the server's facts, plus the person's answers the server still needs.
-    func changes(timeZone: TimeZone) -> FinancialImportChanges {
-        var changes = FinancialImportChanges()
-        let facts = event.facts
-        if facts.kind != FinancialActivityKind.expense.rawValue { changes.kind = .expense }
-        if let accountID, facts.accountID.flatMap(UUID.init(uuidString:)) != accountID { changes.accountID = accountID }
-        if amount != facts.amount { changes.amount = amount }
-        if currency != facts.currency { changes.currency = currency }
-        if let occurredOn {
-            let text = Self.dayText(occurredOn)
-            if text != facts.occurredOn { changes.occurredOn = text; changes.timeZone = timeZone.identifier }
-        }
-        if let categoryID { changes.categoryID = categoryID }
-        let note = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !note.isEmpty { changes.note = String(note.prefix(200)) }
-        return changes
-    }
-
-    static func day(_ text: String) -> Date? { dayFormatter.date(from: text) }
-    static func dayText(_ date: Date) -> String { dayFormatter.string(from: date) }
-    private static let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
-}
-
 enum ReceiptJourneyFailure: Equatable {
     /// The file did not reach the server; the held file can be sent again.
     case couldNotSend(SavedReceiptFailure)
@@ -159,6 +47,9 @@ final class ReceiptJourneyModel: ObservableObject {
     /// The first captured file, shown while the person chooses and while it is read.
     @Published private(set) var preview: ReceiptPreview?
     var sessionChanged: ((SessionSnapshot) -> Void)?
+    /// Set by the shell that can open the movement sheet. When set, a receipt that could not be read offers to be
+    /// written by hand, and the sheet hands over what is known about it.
+    var writeByHand: ((ReceiptHandoff) -> Void)?
 
     private let transport: any ReceiptJourneyTransport
     private let currentSession: @Sendable () async -> SessionSnapshot
@@ -173,6 +64,8 @@ final class ReceiptJourneyModel: ObservableObject {
     private var consented = false
     private var connectionID: String?
     private var acceptKey: (eventID: String, key: UUID)?
+    /// The last reading of the receipt, even an incomplete one, so writing by hand starts from it.
+    private var lastReading: DocumentReceipt?
 
     init(transport: any ReceiptJourneyTransport, currentSession: @escaping @Sendable () async -> SessionSnapshot,
          pause: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
@@ -204,6 +97,25 @@ final class ReceiptJourneyModel: ObservableObject {
 
     func reset() {
         ticket = UUID(); phase = .idle; held = []; sent = []; waiting = []; connectionID = nil; acceptKey = nil; options = nil; preview = nil
+        lastReading = nil
+    }
+
+    /// True when the receipt was not read into a review and the shell can take it to the movement sheet.
+    var canWriteByHand: Bool {
+        guard writeByHand != nil, connectionID != nil else { return false }
+        switch phase {
+        case .failed(.couldNotRead), .failed(.nothingToRecord): return true
+        default: return false
+        }
+    }
+
+    /// Closes the journey and hands the receipt to the movement sheet with whatever the reading found. The receipt
+    /// stays saved; nothing is recorded here.
+    func handWrite() {
+        guard canWriteByHand, let connectionID, let writeByHand else { return }
+        let handoff = ReceiptHandoff(connectionID: connectionID, receipt: lastReading)
+        reset()
+        writeByHand(handoff)
     }
 
     /// Captured files wait for the person's answer about reading. One answer covers every file of the capture.
@@ -252,7 +164,15 @@ final class ReceiptJourneyModel: ObservableObject {
     func open(_ connectionID: String) async {
         reset()
         self.connectionID = connectionID
-        await follow(connectionID, mine: ticket)
+        let mine = ticket
+        if let identity {
+            Task { [transport] in
+                let data = try? await transport.source(connectionID, identity: identity)
+                guard mine == ticket, preview == nil, let data else { return }
+                preview = ReceiptPreview(image: data)
+            }
+        }
+        await follow(connectionID, mine: mine)
     }
 
     /// Moves to the next receipt of the same capture.
@@ -376,6 +296,7 @@ final class ReceiptJourneyModel: ObservableObject {
                 document = try await transport.document(connectionID, identity: identity)
             }
             guard mine == ticket else { return }
+            lastReading = document.preparation?.receipt
             switch document.status {
             case "needs_attention": phase = .failed(.couldNotRead); return
             case "saved": phase = .savedOnly(alreadySaved: true); return
@@ -431,17 +352,5 @@ extension EnvironmentValues {
     var receiptJourney: ReceiptJourneyModel? {
         get { self[ReceiptJourneyKey.self] }
         set { self[ReceiptJourneyKey.self] = newValue }
-    }
-}
-
-/// What the sheet shows of a capture: the first image, or a document symbol for a PDF, and how many files came.
-struct ReceiptPreview: Equatable {
-    let image: Data?
-    let count: Int
-
-    init?(_ files: [(data: Data, name: String, pdf: Bool)]) {
-        guard let first = files.first else { return nil }
-        image = first.pdf ? nil : first.data
-        count = files.count
     }
 }

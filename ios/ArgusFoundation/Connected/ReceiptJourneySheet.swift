@@ -7,7 +7,9 @@ struct ReceiptJourneySheet: View {
     @ObservedObject var model: ReceiptJourneyModel
     let spanish: Bool
     let finished: () -> Void
-    @State private var correcting = false
+    @State private var newPurchase = false
+    @State private var choosingDay = false
+    @State private var pickedDay = Date.now
     @State private var amountError = ""
     @State private var detent = PresentationDetent.medium
 
@@ -27,7 +29,7 @@ struct ReceiptJourneySheet: View {
         }
         .tint(WelcomePalette.pine)
         .presentationDetents([.medium, .large], selection: $detent)
-        .onChange(of: isLong, initial: true) { _, long in detent = long ? .large : .medium }
+        .onChange(of: isLong, initial: true) { _, long in detent = long ? .large : .medium; if !long { newPurchase = false } }
         .interactiveDismissDisabled(isBusy)
         .accessibilityIdentifier("receipt.journey")
     }
@@ -120,10 +122,23 @@ struct ReceiptJourneySheet: View {
                 RegistrationButton(title: copy.retry) { Task { await model.answerConsent(true) } }
                     .accessibilityIdentifier("receipt.journey.retry")
             }
-        case .failed(.couldNotRead):
-            buttons {
-                RegistrationButton(title: copy.readAgain) { Task { await model.readAgain() } }
-                    .accessibilityIdentifier("receipt.journey.readAgain")
+        case .failed(.couldNotRead), .failed(.nothingToRecord):
+            if model.canWriteByHand || model.phase == .failed(.couldNotRead) {
+                buttons {
+                    if model.canWriteByHand {
+                        RegistrationButton(title: copy.writeByHand) { model.handWrite() }
+                            .accessibilityIdentifier("receipt.journey.byHand")
+                    }
+                    if model.phase == .failed(.couldNotRead) {
+                        if model.canWriteByHand {
+                            Button(copy.readAgain) { Task { await model.readAgain() } }
+                                .frame(maxWidth: .infinity, minHeight: 44).accessibilityIdentifier("receipt.journey.readAgain")
+                        } else {
+                            RegistrationButton(title: copy.readAgain) { Task { await model.readAgain() } }
+                                .accessibilityIdentifier("receipt.journey.readAgain")
+                        }
+                    }
+                }
             }
         case .failed(.couldNotRecord):
             buttons {
@@ -150,63 +165,123 @@ struct ReceiptJourneySheet: View {
 
     // MARK: Review
 
+    /// The receipt beside its fields, each edited where it is shown. A possible duplicate is asked first, on top.
     @ViewBuilder private func review(_ draft: ReceiptReviewDraft) -> some View {
-        Text(copy.reviewTitle).font(CuadraoTypography.screen).accessibilityAddTraits(.isHeader)
-        summary(draft)
-        DisclosureGroup(isExpanded: $correcting) { corrections(draft) } label: {
-            Text(copy.correct).accessibilityIdentifier("receipt.review.correct")
-        }
-        accountChoice(draft)
-        if let receipt = draft.receipt, !receipt.items.isEmpty { items(receipt) }
-        if draft.existingMatch != nil {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(copy.alreadyRecordedDetail).font(CuadraoTypography.caption).foregroundStyle(.secondary)
-                Button(copy.alreadyRecorded) { Task { await model.linkExisting() } }
-                    .frame(minHeight: 44).accessibilityIdentifier("receipt.review.link")
+        if draft.existingMatch != nil, !newPurchase { duplicateBanner(draft) }
+        HStack(alignment: .top, spacing: 16) {
+            ReceiptThumbnail(preview: model.preview, size: CGSize(width: 88, height: 116))
+            VStack(alignment: .leading, spacing: 12) {
+                TextField(copy.merchant, text: binding(draft, \.merchant), axis: .vertical)
+                    .font(CuadraoTypography.section).lineLimit(1...3)
+                    .accessibilityLabel(copy.merchant).accessibilityIdentifier("receipt.review.merchant")
+                if let day = draft.occurredOn {
+                    DatePicker(copy.date, selection: Binding(get: { day }, set: { value in
+                        var next = draft; next.occurredOn = value; model.update(next)
+                    }), in: ...Date.now, displayedComponents: .date)
+                        .labelsHidden().environment(\.locale, Locale(identifier: spanish ? "es_DO" : "en_US"))
+                        .accessibilityLabel(copy.date).accessibilityIdentifier("receipt.review.date")
+                } else {
+                    missingDay(draft)
+                }
             }
         }
-    }
-
-    /// Merchant, date, category and total stay readable before any editing.
-    private func summary(_ draft: ReceiptReviewDraft) -> some View {
+        CuadraoAmountField(raw: binding(draft, \.amount), currency: .constant(draft.currency), error: $amountError,
+                           spanish: spanish, currencySelectable: false, identifier: "receipt.review.total")
         VStack(spacing: 0) {
-            row(copy.merchant, draft.merchant.isEmpty ? copy.unknown : draft.merchant, id: "receipt.review.merchant")
-            row(copy.date, draft.occurredOn.map(dayText) ?? copy.unknown, id: "receipt.review.date")
-            row(copy.category, draft.categoryID.map(categoryTitle) ?? copy.noCategory, id: "receipt.review.category")
-            row(copy.total, money(draft.amount, draft.currency), id: "receipt.review.total")
-        }
-    }
-
-    @ViewBuilder private func corrections(_ draft: ReceiptReviewDraft) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            TextField(copy.merchant, text: binding(draft, \.merchant))
-                .modifier(RegistrationField()).accessibilityIdentifier("receipt.review.merchant.edit")
-            DatePicker(copy.date, selection: Binding(get: { draft.occurredOn ?? .now }, set: { value in
-                var next = draft; next.occurredOn = value; model.update(next)
-            }), in: ...Date.now, displayedComponents: .date)
-                .accessibilityIdentifier("receipt.review.date.edit")
-            CuadraoAmountField(raw: binding(draft, \.amount), currency: .constant(draft.currency), error: $amountError,
-                               spanish: spanish, currencySelectable: false, identifier: "receipt.review.amount")
             if let categories = model.options?.categories {
-                HStack {
-                    Text(copy.category)
-                    Spacer()
+                choiceRow(copy.category) {
                     CuadraoChoiceMenu(title: copy.category, selection: binding(draft, \.categoryID),
                                       values: [nil] + categories.map(Optional.some),
                                       valueTitle: { $0.map(categoryTitle) ?? copy.noCategory })
-                        .accessibilityIdentifier("receipt.review.category.edit")
+                        .accessibilityIdentifier("receipt.review.category")
                 }
+                Divider().foregroundStyle(WelcomePalette.separator)
             }
-        }.padding(.top, 12)
+            accountChoice(draft)
+        }
+        if let receipt = draft.receipt, !receipt.items.isEmpty { items(receipt) }
+    }
+
+    /// The reading found no date: say so, and let the person pick one. No date is saved until they do.
+    private func missingDay(_ draft: ReceiptReviewDraft) -> some View {
+        Button { pickedDay = .now; choosingDay = true } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(copy.date + ": " + copy.unknown).foregroundStyle(.secondary)
+                Text(copy.chooseDate)
+            }
+            .font(CuadraoTypography.body).frame(minHeight: 44, alignment: .leading)
+        }
+        .accessibilityIdentifier("receipt.review.date.missing")
+        .popover(isPresented: $choosingDay) {
+            VStack(spacing: 12) {
+                DatePicker(copy.date, selection: $pickedDay, in: ...Date.now, displayedComponents: .date)
+                    .datePickerStyle(.graphical).environment(\.locale, Locale(identifier: spanish ? "es_DO" : "en_US"))
+                Button(copy.useDate) {
+                    var next = draft; next.occurredOn = pickedDay; model.update(next); choosingDay = false
+                }
+                .buttonStyle(.borderedProminent).tint(WelcomePalette.pine).frame(minHeight: 44)
+                .accessibilityIdentifier("receipt.review.date.use")
+            }
+            .padding(16).presentationCompactAdaptation(.popover)
+        }
+    }
+
+    /// Asked before anything else: this purchase may already be recorded. Adding the receipt to it comes first.
+    private func duplicateBanner(_ draft: ReceiptReviewDraft) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(copy.duplicateTitle).font(CuadraoTypography.body.weight(.semibold))
+            Text(copy.duplicateDetail(money(draft.amount, draft.currency)))
+                .font(CuadraoTypography.supporting).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            // Side by side when both fit on one line each; otherwise stacked, adding to the movement first.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { addToMovement.fixedSize(); otherExpense.fixedSize() }
+                VStack(alignment: .leading, spacing: 4) { addToMovement.frame(maxWidth: .infinity); otherExpense }
+            }
+        }
+        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+        .background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .contain).accessibilityIdentifier("receipt.review.duplicate")
+    }
+
+    private var addToMovement: some View {
+        Button { Task { await model.linkExisting() } } label: {
+            Text(copy.alreadyRecorded).frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.borderedProminent).tint(WelcomePalette.pine).buttonBorderShape(.capsule)
+        .accessibilityIdentifier("receipt.review.link")
+    }
+
+    private var otherExpense: some View {
+        Button(copy.newPurchase) { newPurchase = true }
+            .frame(minHeight: 44).accessibilityIdentifier("receipt.review.newPurchase")
+    }
+
+    private func choiceRow<Choice: View>(_ title: String, @ViewBuilder choice: () -> Choice) -> some View {
+        HStack {
+            Text(title).foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            choice()
+        }
+        .font(CuadraoTypography.body).frame(minHeight: 44)
+    }
+
+    /// Merchant, date, category and total while the expense is being saved.
+    private func summary(_ draft: ReceiptReviewDraft) -> some View {
+        VStack(spacing: 0) {
+            row(copy.merchant, draft.merchant.isEmpty ? copy.unknown : draft.merchant, id: "receipt.summary.merchant")
+            row(copy.date, draft.occurredOn.map(dayText) ?? copy.unknown, id: "receipt.summary.date")
+            row(copy.category, draft.categoryID.map(categoryTitle) ?? copy.noCategory, id: "receipt.summary.category")
+            row(copy.total, money(draft.amount, draft.currency), id: "receipt.summary.total")
+        }
     }
 
     @ViewBuilder private func accountChoice(_ draft: ReceiptReviewDraft) -> some View {
         let accounts = model.accounts(for: draft)
-        VStack(alignment: .leading, spacing: 8) {
-            Text(copy.account).font(CuadraoTypography.supporting).foregroundStyle(.secondary)
-            if accounts.isEmpty {
-                Text(copy.noAccount).font(CuadraoTypography.body).accessibilityIdentifier("receipt.review.noAccount")
-            } else {
+        if accounts.isEmpty {
+            Text(copy.noAccount).font(CuadraoTypography.supporting).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).accessibilityIdentifier("receipt.review.noAccount")
+        } else {
+            choiceRow(copy.account) {
                 CuadraoChoiceMenu(title: copy.account, selection: binding(draft, \.accountID),
                                   values: [nil] + accounts.map { Optional.some($0.id) },
                                   valueTitle: { id in
@@ -339,6 +414,7 @@ private struct ReceiptJourneyPresentation: ViewModifier {
 /// The captured receipt as a small card: the photo itself, or the document symbol for a PDF, with a count for several.
 struct ReceiptThumbnail: View {
     let preview: ReceiptPreview?
+    var size = CGSize(width: 56, height: 72)
 
     var body: some View {
         ZStack {
@@ -349,7 +425,7 @@ struct ReceiptThumbnail: View {
                 Image(systemName: "doc.text").font(.title2).foregroundStyle(.secondary)
             }
         }
-        .frame(width: 56, height: 72)
+        .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(WelcomePalette.separator, lineWidth: 0.5))
         .overlay(alignment: .topTrailing) {
