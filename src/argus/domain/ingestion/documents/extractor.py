@@ -82,13 +82,22 @@ def fiscal_facts_from_receipt(receipt: ReceiptDetails, *, source_id: UUID) -> Fi
     facts = {}
     for name in FiscalFacts.model_fields:
         value = getattr(receipt, name)
-        facts[name] = {
+        fact = {
             "state": "unknown" if value is None else "known",
             "value": value,
             "origin": "extracted",
             "verified": False,
             "source_ids": (source_id,),
         }
+        try:
+            FiscalFacts.model_validate({name: fact})
+        except ValidationError as error:
+            # A printed value the contract cannot hold stays raw in the saved
+            # batch; the fact is unknown. Any other defect still raises.
+            if any(detail["loc"][-1] != "value" for detail in error.errors()):
+                raise
+            fact = {**fact, "state": "unknown", "value": None}
+        facts[name] = fact
     return FiscalFacts.model_validate(facts)
 
 
