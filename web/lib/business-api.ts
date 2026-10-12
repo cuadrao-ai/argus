@@ -50,6 +50,8 @@ export type ReceiptSummary = ReceiptReviewFields & {
   id: string;
   channel: ReceiptChannel;
   filename: string | null;
+  /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
+  source_text?: string | null;
   media_type: string;
   size_bytes: number;
   received_at: string;

@@ -87,6 +87,7 @@ def test_payload_projects_handled_types_and_ignores_the_rest() -> None:
             media_id="700000000000001",
             mime_type="image/png",
             filename="whatsapp-image",
+            caption="Recibo",
         ),
     )
     text = parse_delivery(

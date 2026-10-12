@@ -274,6 +274,7 @@ class DocumentsService:
         media_type: str,
         consent: bool = False,
         proposal: DraftProposal | None = None,
+        source_text: str | None = None,
         scope: OwnerScope,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
@@ -302,6 +303,7 @@ class DocumentsService:
             sha256=digest,
             size_bytes=len(content),
             consent=consent,
+            source_text=source_text,
             status="queued" if consent else "saved",
             created_at=self.hub.clock(),
             updated_at=self.hub.clock(),

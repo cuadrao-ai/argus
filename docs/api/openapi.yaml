@@ -20233,6 +20233,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        source_text:
+          anyOf:
+          - type: string
+          - type: 'null'
         media_type:
           type: string
         size_bytes:
@@ -20766,6 +20770,10 @@ components:
           - web
           - whatsapp
         filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        source_text:
           anyOf:
           - type: string
           - type: 'null'
