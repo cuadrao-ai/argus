@@ -261,3 +261,27 @@ async def test_a_switch_turned_off_while_the_source_is_read_stops_before_the_pro
     assert extractor.calls == 0
     assert _status(world, connection_id) == "saved"
     assert len(world.transport.sent) == 2
+
+
+@pytest.mark.parametrize(
+    "merchant",
+    ["evil.com/login *x*", "visit evil.com", "a_b", "`x`", "x@y", "~~", ""],
+)
+@pytest.mark.asyncio
+async def test_an_unsafe_merchant_never_reaches_the_message(merchant: str) -> None:
+    world, extractor = _world(switch={"on": True})
+    extractor.merchant = merchant
+    connection_id = await _send(world, "wamid.READ-UNSAFE")
+    assert world.transport.bodies()[-1] == (
+        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: "
+        f"{cases.ORIGIN}/biz?receipt={connection_id}"
+    )
+
+
+def test_plain_merchants_keep_their_letters() -> None:
+    from argus.api.whatsapp import plain_merchant
+
+    assert plain_merchant("Ferretería Ochoa") == "Ferretería Ochoa"
+    assert plain_merchant("Pan & Café O'Neil-2 S.R.L.") == "Pan & Café O'Neil-2 S.R.L."
+    assert plain_merchant("  Ferretería   Ochoa ") == "Ferretería Ochoa"
+    assert plain_merchant("x" * 50) is None

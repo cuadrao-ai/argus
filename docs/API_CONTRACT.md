@@ -8859,7 +8859,7 @@ The one WhatsApp AI switch (`/api/v1/whatsapp/ai-consent`) is the owner's
 permission to read the receipts they send by WhatsApp: scope version 2, purpose
 `business_whatsapp_receipt_reading`, route `document_extraction`. `GET` takes an
 optional `language`; a Spanish language returns the Spanish disclosure text for
-display, while the stored and hashed disclosure is the English text. One active
+display. The stored and hashed disclosure is the text shown. One active
 permission exists per linked number: turning receipt reading on replaces an
 agent permission (scope 1) and the reverse, never a second row. The read also
 returns `active_scope_version`, the scope of any active permission, so a screen
@@ -8873,7 +8873,10 @@ read after the acknowledgement. The permission is checked again just before the
 provider call, whoever asks for the read, against the owner who received the
 receipt; the only window left is the commit and the request start. One
 follow-up message tells the sender what was read, only inside the 24 hour
-window. With document jobs on, the job reads the receipt later and no follow-up
+window. It names the merchant, amount and currency only when the read found one
+clear purchase with nothing marked uncertain and a merchant of letters, digits,
+spaces and & ' - . only (no domain-like text); otherwise it says only that the
+receipt is read. With document jobs on, the job reads the receipt later and no follow-up
 is sent; the acknowledgement link stands.
 
 #### Linked-number Business AI permission

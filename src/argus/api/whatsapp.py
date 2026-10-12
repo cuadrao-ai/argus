@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
@@ -173,8 +174,12 @@ class DocumentsDestination:
         if batch is None or len(batch.candidates) != 1:
             return None
         candidate = batch.candidates[0]
-        merchant = " ".join((candidate.merchant or "").split())[:40]
-        if not (merchant and candidate.amount and candidate.currency):
+        merchant = plain_merchant(candidate.merchant)
+        if (
+            candidate.uncertain
+            or not merchant
+            or not (candidate.amount and candidate.currency)
+        ):
             return None
         return {
             "merchant": merchant,
@@ -192,6 +197,23 @@ class DocumentsDestination:
             connection_id=connection_id,
             scope=scope.owner,
         )
+
+
+_MERCHANT_CHARS = re.compile(r"[\w &'.\-]+", re.UNICODE)
+_DOMAIN_LIKE = re.compile(r"[^\W_]\.[^\W_]{2,}")
+
+
+def plain_merchant(text: str | None) -> str | None:
+    """A merchant read from a receipt, safe to put in a message from our number:
+    letters, digits, spaces and & ' - . only. Anything removed, a domain-like
+    dot, or nothing left means no merchant is shown."""
+
+    cleaned = " ".join((text or "").split())[:40]
+    if "_" in cleaned or not _MERCHANT_CHARS.fullmatch(cleaned or "!"):
+        return None
+    if _DOMAIN_LIKE.search(cleaned) or cleaned != " ".join((text or "").split()):
+        return None
+    return cleaned
 
 
 def _whatsapp_read_gate(store, reading):  # noqa: ANN001, ANN202
