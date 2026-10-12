@@ -28,7 +28,8 @@ struct MovementChipFlow: Layout {
         var origins: [CGPoint] = []
         var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, maxX: CGFloat = 0
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            // A chip never grows past the row: a long account or category name truncates inside its own chip.
+            let size = subview.sizeThatFits(ProposedViewSize(width: width.isFinite ? width : nil, height: nil))
             if x > 0, x + size.width > width { x = 0; y += rowHeight + spacing; rowHeight = 0 }
             origins.append(CGPoint(x: x, y: y))
             x += size.width + spacing; rowHeight = max(rowHeight, size.height); maxX = max(maxX, x - spacing)
