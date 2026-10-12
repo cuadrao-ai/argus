@@ -318,6 +318,17 @@ def document_problem(request: Request, error: Exception) -> HTTPException:
             detail="No such document.",
             headers=NO_STORE,
         )
+    if isinstance(error, DocumentServiceError) and error.code == (
+        "whatsapp_receipt_reading_off"
+    ):
+        return problem(
+            request,
+            status_code=409,
+            code=error.code,
+            title="Permission needed",
+            detail="Turn on Read my receipts with AI in your WhatsApp settings.",
+            headers=NO_STORE,
+        )
     if isinstance(error, (DocumentServiceError, DocumentExtractionError)):
         unavailable = error.retryable or error.code in {
             "missing_vision_model",

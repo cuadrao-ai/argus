@@ -11,7 +11,10 @@ from argus.domain.business.spaces import InMemorySpaceStore
 from argus.domain.ingestion.connections import InMemoryConnectionRepository
 from argus.domain.ingestion.contract import ImportCandidate, SourceRef
 from argus.domain.ingestion.documents.models import ExtractionBatch
-from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.documents.service import (
+    DocumentServiceError,
+    DocumentsService,
+)
 from argus.domain.ingestion.documents.store import InMemoryDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.sink import SubmitResult
@@ -219,3 +222,42 @@ async def test_a_read_without_a_merchant_says_only_that_it_is_ready() -> None:
         "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: "
         f"{cases.ORIGIN}/biz?receipt={connection_id}"
     )
+
+
+@pytest.mark.asyncio
+async def test_prepare_from_the_web_with_the_switch_off_is_refused_not_queued() -> None:
+    world, extractor = _world(switch={"on": False})
+    connection_id = await _send(world, "wamid.READ-WEB")
+    scope = world.business(world.alice)
+    with pytest.raises(DocumentServiceError) as refused:
+        world.documents.queue(
+            user_id=world.alice, connection_id=connection_id, consent=True, scope=scope
+        )
+    assert refused.value.code == "whatsapp_receipt_reading_off"
+    assert _status(world, connection_id) == "saved"
+    assert extractor.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_anyone_asking_for_the_read_meets_the_owners_switch() -> None:
+    switch = {"on": False}
+    world, _ = _world(switch=switch)
+    connection_id = await _send(world, "wamid.READ-ACTOR")
+    accountant = str(uuid4())
+    assert world.documents.read_gate(accountant, connection_id) is False
+    switch["on"] = True
+    assert world.documents.read_gate(accountant, connection_id) is True
+    assert world.documents.read_gate(accountant, "not-from-whatsapp") is True
+
+
+@pytest.mark.asyncio
+async def test_a_switch_turned_off_while_the_source_is_read_stops_before_the_provider() -> (
+    None
+):
+    world, extractor = _world(switch={"on": True})
+    answers = iter([True, False])
+    world.documents.read_gate = lambda *_: next(answers, False)
+    connection_id = await _send(world, "wamid.READ-LATE")
+    assert extractor.calls == 0
+    assert _status(world, connection_id) == "saved"
+    assert len(world.transport.sent) == 2

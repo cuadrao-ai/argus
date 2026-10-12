@@ -65,6 +65,8 @@ export type WhatsAppAIConsent = {
   linked: boolean;
   available: boolean;
   reason: string | null;
+  /** The scope of any active permission on this number: 1 is the agent, 2 reads receipts. */
+  active_scope_version?: number | null;
   last4: string | null;
   scope_version: number;
   purpose: string;
@@ -89,11 +91,12 @@ export function getWhatsAppAIConsent(language?: string): Promise<WhatsAppAIConse
 export function enableWhatsAppAI(
   disclosureToken: string,
   idempotencyKey: string,
+  language?: string,
 ): Promise<WhatsAppAIConsent> {
   return request("/whatsapp/ai-consent", {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify({ action: "enable", disclosure_token: disclosureToken }),
+    body: JSON.stringify({ action: "enable", disclosure_token: disclosureToken, ...(language ? { language } : {}) }),
   });
 }
 
@@ -123,9 +126,9 @@ export function canEnableAI(consent: WhatsAppAIConsent): consent is WhatsAppAICo
 }
 
 export type WhatsAppAIClient = {
-  enable: (disclosureToken: string, idempotencyKey: string) => Promise<WhatsAppAIConsent>;
+  enable: (disclosureToken: string, idempotencyKey: string, language?: string) => Promise<WhatsAppAIConsent>;
   revoke: () => Promise<void>;
-  read: () => Promise<WhatsAppAIConsent>;
+  read: (language?: string) => Promise<WhatsAppAIConsent>;
   newKey: () => string;
 };
 
@@ -144,12 +147,13 @@ const liveClient: WhatsAppAIClient = {
 export async function toggleWhatsAppAI(
   consent: WhatsAppAIConsent,
   client: WhatsAppAIClient = liveClient,
+  language?: string,
 ): Promise<WhatsAppAIConsent> {
   if (consent.enabled) {
     await client.revoke();
     const off = { ...consent, enabled: false };
-    return client.read().catch(() => off);
+    return client.read(language).catch(() => off);
   }
   if (!canEnableAI(consent)) throw new Error("WhatsApp AI permission cannot be turned on");
-  return client.enable(consent.disclosure_token, client.newKey());
+  return client.enable(consent.disclosure_token, client.newKey(), language);
 }

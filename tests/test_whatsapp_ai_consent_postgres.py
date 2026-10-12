@@ -362,3 +362,81 @@ def test_receipt_permission_replaces_the_agent_permission_on_one_row(world, cons
     assert receipts.status(world.owner, language="es-419")["disclosure"].startswith(
         "Cuadrao lee con IA"
     )
+
+
+@pytest.mark.parametrize("language", ["es-419", "en"])
+def test_the_text_shown_is_the_text_stored_and_either_change_asks_again(
+    world, consent, language, monkeypatch
+):
+    from argus.domain.ingestion.whatsapp.ai_consent import RECEIPT_SCOPE
+
+    agent, _ = consent
+    receipts = AIConsentStore(world.pool, agent.route, RECEIPT_SCOPE)
+    shown = receipts.status(world.owner, language=language)
+    assert shown["disclosure"] == RECEIPT_SCOPE.text(language)
+    receipts.enable(
+        world.owner,
+        EnableAIConsent(
+            action="enable", disclosure_token=shown["disclosure_token"], language=language
+        ),
+        str(uuid4()),
+    )
+    with world.pool.connection() as db:
+        [(stored,)] = db.execute(
+            "select disclosure from business_whatsapp_ai_consents"
+            " where owner_id=%s and revoked_at is null",
+            (world.owner,),
+        ).fetchall()
+    assert stored == RECEIPT_SCOPE.text(language)
+    assert receipts.status(world.owner)["enabled"]
+    # Changing the words the owner saw asks again; the other language's words
+    # were never shown to this owner.
+    field = "disclosure_es" if language == "es-419" else "disclosure"
+    other = "disclosure" if language == "es-419" else "disclosure_es"
+    monkeypatch.setattr(
+        receipts,
+        "scope",
+        replace(RECEIPT_SCOPE, **{field: getattr(RECEIPT_SCOPE, field) + " "}),
+    )
+    assert not receipts.status(world.owner)["enabled"]
+    monkeypatch.setattr(
+        receipts,
+        "scope",
+        replace(RECEIPT_SCOPE, **{other: getattr(RECEIPT_SCOPE, other) + " "}),
+    )
+    assert receipts.status(world.owner)["enabled"]
+    monkeypatch.setattr(receipts, "scope", RECEIPT_SCOPE)
+    receipts.revoke(world.owner)
+
+
+def test_a_token_from_one_language_is_stale_for_the_other(world, consent):
+    from argus.domain.ingestion.whatsapp.ai_consent import RECEIPT_SCOPE
+
+    agent, _ = consent
+    receipts = AIConsentStore(world.pool, agent.route, RECEIPT_SCOPE)
+    token = receipts.status(world.owner, language="en")["disclosure_token"]
+    with pytest.raises(ConsentError, match="disclosure_stale"):
+        receipts.enable(
+            world.owner,
+            EnableAIConsent(action="enable", disclosure_token=token, language="es-419"),
+            str(uuid4()),
+        )
+
+
+def test_the_view_reports_another_active_scope_and_turning_on_replaces_it(world, consent):
+    from argus.domain.ingestion.whatsapp.ai_consent import RECEIPT_SCOPE
+
+    agent, _ = consent
+    enable(world, agent)
+    receipts = AIConsentStore(world.pool, agent.route, RECEIPT_SCOPE)
+    view = receipts.status(world.owner)
+    assert (view["enabled"], view["active_scope_version"]) == (False, 1)
+    receipts.enable(
+        world.owner,
+        EnableAIConsent(action="enable", disclosure_token=view["disclosure_token"]),
+        str(uuid4()),
+    )
+    view = receipts.status(world.owner)
+    assert (view["enabled"], view["active_scope_version"]) == (True, 2)
+    assert agent.status(world.owner)["active_scope_version"] == 2
+    receipts.revoke(world.owner)

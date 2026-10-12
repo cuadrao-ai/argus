@@ -28,8 +28,8 @@ DISCLOSURE = (
 
 @dataclass(frozen=True)
 class ConsentScope:
-    """What a permission covers. The English text is the one stored and hashed;
-    ``disclosure_es`` is only what a Spanish reader sees."""
+    """What a permission covers. The text the owner was shown, in their language,
+    is the one stored and hashed; a change to either text asks for consent again."""
 
     version: int
     purpose: str
@@ -39,6 +39,9 @@ class ConsentScope:
     def text(self, language: str | None) -> str:
         spanish = bool(language) and language.lower().startswith("es")
         return self.disclosure_es if spanish and self.disclosure_es else self.disclosure
+
+    def texts(self) -> tuple[str, ...]:
+        return tuple(t for t in (self.disclosure, self.disclosure_es) if t)
 
 
 AGENT_SCOPE = ConsentScope(SCOPE_VERSION, PURPOSE, DISCLOSURE)
@@ -61,6 +64,7 @@ RECEIPT_SCOPE = ConsentScope(
 class EnableAIConsent(Contract):
     action: Literal["enable"]
     disclosure_token: str = Field(pattern=r"^[0-9a-f]{64}$")
+    language: str | None = Field(default=None, max_length=16)
 
 
 class ConsentError(PermissionError):
@@ -128,7 +132,7 @@ class AIConsentStore:
             {
                 "link": str(link[0]),
                 "scope": self.scope.version,
-                "disclosure": self.scope.disclosure,
+                "disclosure": self.scope.text(language),
                 "route": route,
                 "previous": str(latest["id"]) if latest else None,
                 "revoked": str(latest["revoked_at"]) if latest else None,
@@ -141,6 +145,9 @@ class AIConsentStore:
             "last4": link[4],
             "scope_version": self.scope.version,
             "purpose": self.scope.purpose,
+            "active_scope_version": latest["scope_version"]
+            if latest and latest["revoked_at"] is None
+            else None,
             "disclosure": self.scope.text(language),
             "route": route,
             "disclosure_token": token,
@@ -156,7 +163,7 @@ class AIConsentStore:
     def _matches_disclosure(self, row, route) -> bool:
         return (
             row["scope_version"] == self.scope.version
-            and row["disclosure"] == self.scope.disclosure
+            and row["disclosure"] in self.scope.texts()
             and row["route_hash"] == digest(route)
         )
 
@@ -180,6 +187,7 @@ class AIConsentStore:
                     "last4": None,
                     "scope_version": self.scope.version,
                     "purpose": self.scope.purpose,
+                    "active_scope_version": None,
                     "disclosure": self.scope.text(language),
                     "route": None,
                     "disclosure_token": None,
@@ -259,7 +267,7 @@ class AIConsentStore:
                     raise ConsentError("whatsapp_ai_consent_authority_changed")
                 return self._view(link, prior, route)
             latest = self._latest(connection, link[0])
-            view = self._view(link, latest, route)
+            view = self._view(link, latest, route, request.language)
             if request.disclosure_token != view["disclosure_token"]:
                 raise ConsentError("whatsapp_consent_disclosure_stale", 409)
             if latest and latest["revoked_at"] is None:
@@ -286,7 +294,7 @@ class AIConsentStore:
                     auth.provenance.issuer_id,
                     self.scope.version,
                     self.scope.purpose,
-                    self.scope.disclosure,
+                    self.scope.text(request.language),
                     Jsonb(route),
                     digest(route),
                     key,

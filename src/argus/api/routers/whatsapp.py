@@ -86,6 +86,7 @@ class AIConsentResponse(BaseModel):
     last4: str | None
     scope_version: int
     purpose: str
+    active_scope_version: int | None = None
     disclosure: str
     route: dict | None
     disclosure_token: str | None

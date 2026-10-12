@@ -8861,11 +8861,20 @@ permission to read the receipts they send by WhatsApp: scope version 2, purpose
 optional `language`; a Spanish language returns the Spanish disclosure text for
 display, while the stored and hashed disclosure is the English text. One active
 permission exists per linked number: turning receipt reading on replaces an
-agent permission (scope 1) and the reverse, never a second row. With the
-permission off, a received receipt is saved unread. With it on, the receipt is
-read after the acknowledgement, and the permission is checked again at the
-moment of the read, so revoking stops a read that has not started. One
-follow-up message tells the sender the result, only inside the 24 hour window.
+agent permission (scope 1) and the reverse, never a second row. The read also
+returns `active_scope_version`, the scope of any active permission, so a screen
+can say another permission is on. `POST` takes an optional `language`; the text
+shown in that language is the one stored and hashed, and the token binds it.
+Changing the words an owner was shown asks for consent again. With the
+permission off, a received receipt is saved unread, and
+`POST /api/v1/business/receipts/{id}/prepare` on a WhatsApp receipt returns 409
+`whatsapp_receipt_reading_off` instead of queueing it. With it on, the receipt is
+read after the acknowledgement. The permission is checked again just before the
+provider call, whoever asks for the read, against the owner who received the
+receipt; the only window left is the commit and the request start. One
+follow-up message tells the sender what was read, only inside the 24 hour
+window. With document jobs on, the job reads the receipt later and no follow-up
+is sent; the acknowledgement link stands.
 
 #### Linked-number Business AI permission
 

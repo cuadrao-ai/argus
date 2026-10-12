@@ -199,10 +199,10 @@ def _whatsapp_read_gate(store, reading):  # noqa: ANN001, ANN202
     is on at the moment of the read; other uploads carry their own consent."""
 
     def allowed(user_id: str, connection_id: str) -> bool:
-        if connection_id not in store.captured_connections(destination_owner_id=user_id):
-            return True
+        # The owner's switch decides, whoever asks for the read.
         try:
-            return reading(user_id)
+            owner = store.capture_owner(connection_id=connection_id)
+            return True if owner is None else reading(owner)
         except Exception:
             return False
 

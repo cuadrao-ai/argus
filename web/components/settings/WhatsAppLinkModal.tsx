@@ -112,6 +112,9 @@ export function WhatsAppLinkView({
                   ? t("settings.whatsapp.ai_off", "Off. Receipts you send wait in your Inbox for you to fill in.")
                   : t(`settings.whatsapp.ai_reason_${consent.reason ?? "unavailable"}`, t("settings.whatsapp.ai_reason_unavailable", "It cannot be turned on right now."))}
             </p>
+            {!consent.enabled && consent.active_scope_version && consent.active_scope_version !== consent.scope_version ? (
+              <p className="text-[11.5px] text-black/45 dark:text-white/45">{t("settings.whatsapp.ai_replaces", "Another AI permission is on for this number. Turning this on replaces it.")}</p>
+            ) : null}
             <p className="text-[11.5px] text-black/45 dark:text-white/45">{t("settings.whatsapp.ai_approval", "You always approve money records yourself in Cuadrao.")}</p>
           </div>
           <Switch
@@ -204,7 +207,7 @@ export default function WhatsAppLinkModal({
     if (!consent) return;
     setBusy(true);
     try {
-      setConsent(await toggleWhatsAppAI(consent));
+      setConsent(await toggleWhatsAppAI(consent, undefined, i18n.language));
       setProblem(null);
     } catch (error) {
       const next = whatsAppLinkProblem(error);
