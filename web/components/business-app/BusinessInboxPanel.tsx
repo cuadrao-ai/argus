@@ -30,7 +30,7 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
   return [...byDraft.values()].sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
 }
 
-export function NotesAwaitingReview({ notes, error, onOpen }: { notes: OpenNote[]; error: boolean; onOpen: (draftId: string) => void }) {
+export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }: { notes: OpenNote[]; error: boolean; truncated?: boolean; onOpen: (draftId: string) => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   if (!error && notes.length === 0) return null;
@@ -39,7 +39,7 @@ export function NotesAwaitingReview({ notes, error, onOpen }: { notes: OpenNote[
       <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business.inbox.notes_title", "Notes awaiting review")}</h3>
       <p className="mb-3 mt-0.5 text-[13px] text-black/55 dark:text-white/55">{t("business.inbox.notes_subtitle", "Saved in your own words. Open one to add facts or a receipt.")}</p>
       {error ? (
-        <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">{t("business.inbox.notes_error", "We couldn't load your notes. Receipts are shown below.")}</p>
+        <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">{t("business.inbox.notes_error", "We couldn't load your notes. Try again.")}</p>
       ) : (
         <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-inbox-notes">
           {notes.map((note) => (
@@ -64,6 +64,7 @@ export function NotesAwaitingReview({ notes, error, onOpen }: { notes: OpenNote[
           ))}
         </ul>
       )}
+      {truncated && !error ? <p className="mt-2 text-[13px] text-black/55 dark:text-white/55">{t("business.inbox.notes_latest", "Showing the latest 50 saved notes. Older open notes are reachable through search.")}</p> : null}
     </section>
   );
 }
@@ -144,7 +145,7 @@ export default function BusinessInboxPanel() {
         </div>
       ) : (
         <>
-          <NotesAwaitingReview notes={notes} error={records.notesError} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
+          <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
           {items.length ? (
             <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
               {items.map((receipt) => (
