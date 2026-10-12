@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
 
+from loguru import logger
+
 from argus.domain.ingestion.connections import (
     LIVE,
     ConnectionNotFound,
@@ -124,9 +126,13 @@ class DocumentsService:
         *,
         jobs_recover_interruptions: bool = False,
         business_actions: BusinessActions | None = None,
+        business_preparation_required: bool = False,
     ) -> None:
         self.hub, self.store, self.extractor = hub, store, extractor
         self.business_actions = business_actions
+        # An app with a Postgres pool never falls back to legacy Business
+        # delivery; without a pool there is no canonical wiring to require.
+        self.business_preparation_required = business_preparation_required
         # With preparation jobs on, the job reconciler decides what an expired
         # attempt becomes; a read never settles it.
         self.jobs_recover_interruptions = jobs_recover_interruptions
@@ -450,10 +456,8 @@ class DocumentsService:
                 raise DocumentServiceError("document_attempt_superseded")
         replayed = batch is not None
         try:
-            business = space_id(scope) is not None
+            business = self._canonical_business(connection_id, scope)
             if business:
-                if self.business_actions is None:
-                    raise DocumentServiceError("business_preparation_unavailable")
                 self.business_actions.check_attachment_preparation(
                     user_id=user_id,
                     connection_id=connection_id,
@@ -580,6 +584,25 @@ class DocumentsService:
             raise
         finally:
             repo.release(connection_id=connection_id, holder=holder)
+
+    def _canonical_business(self, connection_id: str, scope: OwnerScope) -> bool:
+        """A Business receipt takes the canonical bridge when it is wired.
+
+        Without a pool, the legacy import path keeps the receipt and the
+        fallback is logged; with a pool, a missing bridge fails closed."""
+
+        if space_id(scope) is None:
+            return False
+        if self.business_actions is not None:
+            return True
+        if self.business_preparation_required:
+            raise DocumentServiceError("business_preparation_unavailable")
+        logger.warning(
+            "business_legacy_delivery",
+            connection_id=connection_id,
+            space_id=space_id(scope),
+        )
+        return False
 
     def _deliver(
         self,

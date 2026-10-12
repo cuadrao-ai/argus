@@ -131,6 +131,7 @@ def _service_over(
         extractor,
         jobs_recover_interruptions=load_document_job_settings().enabled,
         business_actions=actions,
+        business_preparation_required=pool is not None,
     )
 
 
@@ -283,7 +284,9 @@ async def dispatch_preparation(
     from argus.domain.business.transactions import GrantImportStore
     from argus.domain.owner_scope import space_id
 
-    if space_id(scope) is not None:
+    if space_id(scope) is not None and (
+        service.business_actions is not None or service.business_preparation_required
+    ):
         imports = getattr(service.hub.sink, "store", None)
         if service.business_actions is None or not isinstance(imports, GrantImportStore):
             raise DocumentServiceError("business_preparation_unavailable")

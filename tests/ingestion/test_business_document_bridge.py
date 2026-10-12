@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.ingestion.connections import InMemoryConnectionRepository
+from argus.domain.ingestion.contract import ImportCandidate, SourceRef
 from argus.domain.ingestion.documents.models import ExtractionBatch
 from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
@@ -125,9 +126,12 @@ async def test_failed_canonical_save_keeps_batch_for_retry(document_bridge):
 
 
 @pytest.mark.asyncio
-async def test_unwired_business_preparation_fails_before_provider(document_bridge):
+async def test_unwired_business_preparation_with_pool_fails_before_provider(
+    document_bridge,
+):
     service, _, extractor, _ = document_bridge
     service.business_actions = None
+    service.business_preparation_required = True
     scope = BusinessSpace(str(uuid4()))
     owner = str(uuid4())
     receipt = await service.upload(
@@ -143,3 +147,55 @@ async def test_unwired_business_preparation_fails_before_provider(document_bridg
             user_id=owner, connection_id=receipt.connection_id, scope=scope
         )
     extractor.extract.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_unwired_business_preparation_without_pool_delivers_legacy_and_logs(
+    document_bridge,
+):
+    from loguru import logger
+
+    service, bridge, extractor, sink = document_bridge
+    service.business_actions = None
+    scope = BusinessSpace(str(uuid4()))
+    owner = str(uuid4())
+    receipt = await service.upload(
+        user_id=owner,
+        content=b"%PDF-fixture",
+        filename="receipt.pdf",
+        media_type="application/pdf",
+        consent=True,
+        scope=scope,
+    )
+    draft = service.store.draft(user_id=owner, connection_id=receipt.connection_id)
+    candidate = ImportCandidate(
+        source=SourceRef(
+            source="statement",
+            connection_id=receipt.connection_id,
+            external_id=draft.sha256,
+            observed_at=draft.created_at,
+        ),
+        evidence="transaction",
+        direction="outflow",
+        amount="250.50",
+        currency="DOP",
+    )
+    extractor.extract.return_value = ExtractionBatch(candidates=(candidate,))
+    sink.submit.return_value = Mock(ignored=False)
+    records: list[dict] = []
+    handle = logger.add(lambda message: records.append(message.record), level="WARNING")
+    try:
+        await service.resume(
+            user_id=owner, connection_id=receipt.connection_id, scope=scope
+        )
+    finally:
+        logger.remove(handle)
+    extractor.extract.assert_awaited_once()
+    bridge.prepare_attachment.assert_not_called()
+    sink.submit.assert_called_once()
+    assert sink.submit.call_args.kwargs["candidates"] == (candidate,)
+    assert any(
+        record["message"] == "business_legacy_delivery"
+        and record["extra"]["connection_id"] == receipt.connection_id
+        for record in records
+    )
