@@ -792,7 +792,7 @@
         "src/argus/domain/ingestion/email_intake/service.py",
         "src/argus/domain/ingestion/email_intake/signatures.py",
         "src/argus/domain/ingestion/email_intake/store.py",
-        "supabase/migrations/20261012010000_business_email_intake.sql",
+        "supabase/migrations/20261012030000_business_email_intake.sql",
         "supabase/migrations/20261012020000_document_source_media_types.sql",
         "tests/business/test_business_api.py",
         "tests/business/test_business_email_api.py",
