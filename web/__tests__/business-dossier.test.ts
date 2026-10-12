@@ -6,7 +6,7 @@ import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
 import { finishPeriodExportRequest, saveBlobDownload, startPeriodExportRequest, ReceiptApprovalGuidance, ReceiptPeriodExport, ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
-import type { BusinessDossier } from "@/lib/business-dossier";
+import { factsRevision, type BusinessDossier } from "@/lib/business-dossier";
 import { businessExportPeriodValid, fetchBusinessExport, approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
 import { withBusinessSpace } from "@/components/business-app/business-data";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
@@ -280,4 +280,14 @@ test("read purchases say what the record covers of the receipt total until the r
   const done = render({ ...recorded, unrecorded_purchases: 0 });
   assert.match(done, /ya está atendido/);
   assert.doesNotMatch(done, /dossier-settle-remainder/);
+});
+
+test("the header revision is the latest facts revision the history lists, not the event counter", async () => {
+  const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
+  const ready = await fixture.dossier(dossierFixtureIds.ready);
+  assert.equal(factsRevision(ready), Math.max(...ready.history.map((r) => r.version)));
+  // An approval and a settlement moved the event to version 4 while the facts stayed at revision 2.
+  const settled = { ...ready, version: 4, history: ready.history.filter((r) => r.version <= 2) };
+  assert.equal(factsRevision(settled), 2);
+  assert.equal(factsRevision({ version: 3, history: [] }), 3);
 });

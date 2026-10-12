@@ -536,6 +536,22 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-dossier-revision-number-20261012": {
+      "description": "The dossier header shows the latest facts revision, the same number the revision history lists, not the event's internal version that also counts approvals and settlements.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-dossier.test.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/lib/business-dossier.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-duplicate-receipts-20261012": {
       "description": "Duplicate receipts never record money twice: same bytes come back as the saved receipt (replayed), same read facts set the second draft aside as a possible duplicate with an approval blocker, attention and a link to the original. No regex or phrase logic.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -595,6 +611,39 @@
         "tests/test_business_ecf_invoice_postgres.py",
         "web/__tests__/receipt-upload-queue.test.ts",
         "web/components/business-app/receipt-file.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-expense-period-20261012": {
+      "description": "Expenses and the home take a period of this month, last month, last 30 days, all, or a typed range; a saved expense the period leaves out is named with its date and a way to show it, never left to look vanished.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/domain/business/ledger.py",
+        "src/argus/domain/business/service.py",
+        "tests/business/test_business_overview_period.py",
+        "web/__tests__/business-period.test.ts",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
+        "web/components/business-app/BusinessOverviewPanel.tsx",
+        "web/components/business-app/BusinessPeriodControl.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/OutsidePeriodNote.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/business-data.ts",
+        "web/components/business-app/business-format.ts",
+        "web/components/business-app/fixture-data.ts",
+        "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
       ],
       "deny": [
         ".env",
@@ -931,6 +980,22 @@
         "tests/business/test_business_duplicates_direct.py",
         "tests/test_business_multi_purchase.py",
         "tests/test_business_multi_purchase_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-refresh-after-actions-20261012": {
+      "description": "Founder rule: after approve, review, upload or rebind the affected lists, counts and cards refresh on their own; proven by an e2e that approves from the inbox and sees the home card and inbox count change without a reload.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/e2e/business-record-review.spec.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx"
       ],
       "deny": [
         ".env",

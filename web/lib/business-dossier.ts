@@ -66,6 +66,11 @@ export type BusinessRecordContext = {
 /** One purchase a document read showed, kept as evidence when the read could not settle on one. */
 export type BusinessReadPurchase = { index: number; amount: string | null; currency: string | null; occurred_on: string | null; merchant: string | null; kind_hint: string | null };
 
+/** The revision number a person sees: the latest revision of the facts, the same number the history lists. The event's own version also counts approvals and settlements. */
+export function factsRevision(dossier: Pick<BusinessDossier, "version" | "history">): number {
+  return dossier.history.length ? Math.max(...dossier.history.map((revision) => revision.version)) : dossier.version;
+}
+
 export type BusinessDossier = BusinessRecordContext & {
   read_purchases?: BusinessReadPurchase[];
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */

@@ -628,13 +628,28 @@ def confirm_receipt(
         raise _problem(request, error) from None
 
 
+def _period(request: Request, start: date, end: date | None) -> None:
+    """A range runs forward; an omitted end means the server's today."""
+
+    if end is not None and start > end:
+        raise problem(
+            request,
+            status_code=422,
+            code="period_reversed",
+            title="Invalid period",
+            detail="The period must start on or before its end.",
+            headers=NO_STORE,
+        )
+
+
 @router.get("/expenses", response_model=ExpensePage)
 def list_expenses(
     request: Request,
     start: date = Query(alias="from"),  # noqa: B008
-    end: date = Query(alias="to"),  # noqa: B008
+    end: date | None = Query(default=None, alias="to"),  # noqa: B008
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
+    _period(request, start, end)
     try:
         return {"items": context.service.expenses(context.scope, start, end)}
     except Exception as error:
@@ -679,9 +694,10 @@ def search(
 def get_overview(
     request: Request,
     start: date = Query(alias="from"),  # noqa: B008
-    end: date = Query(alias="to"),  # noqa: B008
+    end: date | None = Query(default=None, alias="to"),  # noqa: B008
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
+    _period(request, start, end)
     try:
         return context.service.overview(context.scope, start, end)
     except Exception as error:

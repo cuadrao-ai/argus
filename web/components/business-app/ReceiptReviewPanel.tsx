@@ -129,8 +129,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       show(await source.receipt(detail.id));
       setUnprepared(false);
       reload();
-    } catch {
-      setProblem(t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again."));
+    } catch (error) {
+      setProblem(
+        (error as { code?: string }).code === "whatsapp_receipt_reading_off"
+          ? t("business.review.reading_off", "Turn on Read my receipts with AI in your WhatsApp settings, then try again.")
+          : t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again."),
+      );
     } finally {
       setBusy(null);
     }

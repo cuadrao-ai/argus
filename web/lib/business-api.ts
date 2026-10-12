@@ -199,10 +199,15 @@ export type BusinessExpense = {
 export type BusinessOverview = {
   from: string;
   to: string;
+  /** The server's day in the Business time zone: the one clock for "today". */
+  today: string;
   totals: { currency: CurrencyCode; amount: DecimalString; count: number }[];
   needs_attention: number;
   last_received_at: string | null;
   last_confirmed_at: string | null;
+  /** Saved expenses the chosen period leaves out, so none looks vanished. */
+  outside_period_count: number;
+  outside_period_latest_on: string | null;
 };
 
 export type BusinessUpdate = {
@@ -289,9 +294,9 @@ export async function getBusinessWorkspace(): Promise<BusinessWorkspaceInfo> {
 
 export async function getBusinessOverview(
   from: string,
-  to: string,
+  to: string | null,
 ): Promise<BusinessOverview> {
-  const query = new URLSearchParams({ from, to });
+  const query = new URLSearchParams(to === null ? { from } : { from, to });
   return apiFetch(`/business/overview?${query}`);
 }
 
@@ -320,9 +325,9 @@ export async function searchBusiness(q: string, limit = 5): Promise<BusinessSear
 
 export async function listBusinessExpenses(
   from: string,
-  to: string,
+  to: string | null,
 ): Promise<BusinessExpense[]> {
-  const query = new URLSearchParams({ from, to });
+  const query = new URLSearchParams(to === null ? { from } : { from, to });
   const page = await apiFetch<{ items: BusinessExpense[] }>(
     `/business/expenses?${query}`,
   );

@@ -210,11 +210,16 @@ class BusinessOverview(_Wire):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     from_: date = Field(alias="from")
     to: date
+    # The server's day in the recording time zone: the one clock for "today".
+    today: date
     totals: list[CurrencyTotal]
     awaiting_review: int
     needs_attention: int
     last_received_at: datetime | None
     last_confirmed_at: datetime | None
+    # Saved expenses the chosen period leaves out, so none looks vanished.
+    outside_period_count: int = 0
+    outside_period_latest_on: date | None = None
 
 
 class BusinessUpdate(_Wire):

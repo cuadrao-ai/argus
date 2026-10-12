@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Download, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
+import { factsRevision, type BusinessDossier, type BusinessFactPatch } from "@/lib/business-dossier";
 import { businessExportPeriodValid, fetchBusinessExport, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
@@ -125,7 +125,7 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
 
 export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftId: string; onUnprepared?: () => void }) {
   const { t, i18n } = useTranslation();
-  const { source, openPanel, reload, period } = useBusiness();
+  const { source, openPanel, reload, period, records } = useBusiness();
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [operation, setOperation] = useState<Operation>({ kind: "idle" });
@@ -258,7 +258,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
       <header className="mb-5">
         <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{dossier.space_name}</p>
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="receipt-review-title" className="min-w-0 break-words font-display text-[25px] font-medium tracking-tight text-black dark:text-white">{title}</h2><span className="rounded-full bg-black/5 px-3 py-1.5 text-[12px] text-black/70 dark:bg-white/10 dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span></div>
-        <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1"><p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{amount === null ? t("business.dossier.amount_unknown", "Amount unknown") : currency === null ? `${amount} · ${t("business.dossier.currency_unknown", "Currency unknown")}` : formatMoney(amount, currency, i18n.resolvedLanguage ?? "en")}</p><span className="text-[12px] text-black/50 dark:text-white/50">{t("business.dossier.revision", "Revision {{version}}", { version: dossier.version })}</span></div>
+        <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1"><p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{amount === null ? t("business.dossier.amount_unknown", "Amount unknown") : currency === null ? `${amount} · ${t("business.dossier.currency_unknown", "Currency unknown")}` : formatMoney(amount, currency, i18n.resolvedLanguage ?? "en")}</p><span className="text-[12px] text-black/50 dark:text-white/50">{t("business.dossier.revision", "Revision {{version}}", { version: factsRevision(dossier) })}</span></div>
       </header>
       <div className="grid items-start gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-4">
@@ -276,7 +276,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
           {editing && operation.kind === "uncertain" && operation.action === "save" ? <div className={cardClass}><h3 className="mb-5 text-[14px] font-medium text-black dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
           {canPrepare && mutable && !editing && !dirty ? <button type="button" className={secondaryButtonClass} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
-          <ReceiptPeriodExport key={dossier.draft_id} dossier={dossier} start={period.from} end={period.to} available={source.mode === "live"} />
+          <ReceiptPeriodExport key={dossier.draft_id} dossier={dossier} start={period.from} end={period.to ?? records.overview?.to ?? period.from} available={source.mode === "live"} />
           <ReceiptApprovalGuidance dossier={dossier} />
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
           <div className={cardClass}>
