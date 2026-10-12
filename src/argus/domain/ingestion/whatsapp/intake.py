@@ -97,9 +97,12 @@ class IntakeDestination(Protocol):
 
     async def discard(self, *, owner_id: str, connection_id: str) -> None: ...
 
-    async def read(self, *, owner_id: str, connection_id: str) -> str | None:
+    async def read(
+        self, *, owner_id: str, connection_id: str
+    ) -> tuple[str, dict[str, str] | None] | None:
         """Read the saved receipt when the owner allows it: the draft's status
-        once settled, else ``None``."""
+        once settled and the one merchant, amount and currency it found if any,
+        else ``None``."""
         ...
 
 
@@ -297,18 +300,18 @@ class WhatsAppIntake:
         if settlement.status != "captured" or settlement.duplicate:
             return
         try:
-            status = await self.destination.read(
+            result = await self.destination.read(
                 owner_id=settlement.destination_owner_id or "",
                 connection_id=settlement.connection_id or "",
             )
-            if status not in ("review_ready", "needs_attention"):
+            if result is None or result[0] not in ("review_ready", "needs_attention"):
                 return
-            await self._reply(
-                message,
-                settlement,
-                log,
-                key="read_ready" if status == "review_ready" else "read_attention",
-            )
+            status, found = result
+            if status == "needs_attention":
+                key = "read_attention"
+            else:
+                key = "read_summary" if found else "read_ready"
+            await self._reply(message, settlement, log, key=key, read=found)
         except Exception as error:
             log.warning(
                 "WhatsApp receipt read follow-up skipped",
@@ -421,6 +424,7 @@ class WhatsAppIntake:
         settlement: Settlement,
         log,  # noqa: ANN001
         key: str | None = None,
+        read: dict[str, str] | None = None,
     ) -> None:
         if self.transport is None or not self.send_enabled():
             return
@@ -441,6 +445,7 @@ class WhatsAppIntake:
             language=settlement.reply_language,
             link=url,
             limit_mb=self.max_bytes // (1024 * 1024),
+            read=read,
         )
         try:
             await self.transport.send(

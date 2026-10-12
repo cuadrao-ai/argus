@@ -25,6 +25,7 @@ class Extractor:
     def __init__(self) -> None:
         self.calls = 0
         self.fail = False
+        self.merchant: str | None = "Ferretería Ochoa"
 
     async def extract(self, **kwargs: Any) -> ExtractionBatch:
         self.calls += 1
@@ -41,6 +42,7 @@ class Extractor:
                     ),
                     evidence="transaction",
                     amount="850.00",
+                    merchant=self.merchant,
                     currency="DOP",
                     direction="outflow",
                 ),
@@ -97,7 +99,7 @@ async def test_with_the_switch_on_the_receipt_is_read_and_followed_up_once() -> 
     assert world.transport.bodies()[-2:] == [
         "Recibimos tu recibo y lo guardamos en tu bandeja. "
         f"Revísalo y confírmalo en Cuadrao: {link}",
-        f"Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: {link}",
+        f"Leí: Ferretería Ochoa, 850 DOP. Revísalo antes de guardar: {link}",
     ]
 
 
@@ -162,7 +164,7 @@ async def test_a_read_that_stops_leaves_the_receipt_saved_and_the_owner_unharmed
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
 
-    async def stopped(**_: Any) -> str | None:
+    async def stopped(**_: Any) -> None:
         raise RuntimeError("process stopped")
 
     world.intake.destination.read = stopped
@@ -182,7 +184,7 @@ async def test_a_redelivered_message_sends_one_follow_up() -> None:
     await world.deliver(body)
     await world.deliver(body)
     assert extractor.calls == 1
-    assert len([b for b in world.transport.bodies() if b.startswith("Ya leímos")]) == 1
+    assert len([b for b in world.transport.bodies() if b.startswith("Leí:")]) == 1
 
 
 @pytest.mark.asyncio
@@ -199,12 +201,21 @@ async def test_with_outbound_off_the_receipt_is_read_and_nothing_is_sent() -> No
 
 
 @pytest.mark.asyncio
-async def test_the_follow_up_carries_fixed_words_and_the_link_only() -> None:
+async def test_the_follow_up_names_merchant_amount_and_currency_as_read() -> None:
     world, _ = _world(switch={"on": True})
-    connection_id = await _send(world, "wamid.READ-FIXED")
-    follow_up = world.transport.bodies()[-1]
-    assert follow_up == (
+    connection_id = await _send(world, "wamid.READ-FIELDS")
+    assert world.transport.bodies()[-1] == (
+        "Leí: Ferretería Ochoa, 850 DOP. Revísalo antes de guardar: "
+        f"{cases.ORIGIN}/biz?receipt={connection_id}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_read_without_a_merchant_says_only_that_it_is_ready() -> None:
+    world, extractor = _world(switch={"on": True})
+    extractor.merchant = None
+    connection_id = await _send(world, "wamid.READ-NO-MERCHANT")
+    assert world.transport.bodies()[-1] == (
         "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: "
         f"{cases.ORIGIN}/biz?receipt={connection_id}"
     )
-    assert "850" not in follow_up and "DOP" not in follow_up

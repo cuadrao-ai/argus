@@ -137,7 +137,9 @@ class DocumentsDestination:
         except Exception:
             return False
 
-    async def read(self, *, owner_id: str, connection_id: str) -> str | None:
+    async def read(
+        self, *, owner_id: str, connection_id: str
+    ) -> tuple[str, dict[str, str] | None] | None:
         """Read a queued receipt through the owner's own preparation path, after
         the acknowledgement. The draft's status when it settles, else ``None``."""
 
@@ -161,7 +163,24 @@ class DocumentsDestination:
         settled = self.documents.get(
             user_id=owner_id, connection_id=connection_id, scope=scope.owner
         )
-        return settled.status
+        return settled.status, self._found(owner_id, connection_id)
+
+    def _found(self, owner_id: str, connection_id: str) -> dict[str, str] | None:
+        """The merchant, amount and currency of a receipt that read as exactly
+        one purchase; anything less certain is left for the owner to review."""
+
+        batch = self.documents.store.get(user_id=owner_id, connection_id=connection_id)
+        if batch is None or len(batch.candidates) != 1:
+            return None
+        candidate = batch.candidates[0]
+        merchant = " ".join((candidate.merchant or "").split())[:40]
+        if not (merchant and candidate.amount and candidate.currency):
+            return None
+        return {
+            "merchant": merchant,
+            "amount": candidate.amount,
+            "currency": candidate.currency,
+        }
 
     async def discard(self, *, owner_id: str, connection_id: str) -> None:
         scope = resolve_business_scope(self.spaces, owner_id)
