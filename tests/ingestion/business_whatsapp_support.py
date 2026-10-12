@@ -98,7 +98,11 @@ class ScriptedExecutor:
         if turn.plan is None:
             self.interpretations.append(captured.envelope.text)
             if self.invalid_output:
-                raise BusinessModelOutputInvalid()
+                raise (
+                    self.invalid_output
+                    if isinstance(self.invalid_output, Exception)
+                    else BusinessModelOutputInvalid()
+                )
             if self.fail_before_plan:
                 raise RuntimeError("synthetic interrupted interpretation")
             with self.actions.pool.connection() as connection:
@@ -118,7 +122,11 @@ class ScriptedExecutor:
             return saved
         self.compositions += 1
         if self.fail_composition:
-            raise RuntimeError("synthetic interrupted composition")
+            raise (
+                self.fail_composition
+                if isinstance(self.fail_composition, Exception)
+                else RuntimeError("synthetic interrupted composition")
+            )
         return self.reply
 
 

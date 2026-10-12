@@ -198,6 +198,11 @@ class BusinessWhatsAppWorker:
                             history=history,
                         )
                     except BusinessModelOutputInvalid:
+                        persisted = await asyncio.to_thread(
+                            self.turns.load_turn, captured.turn_key
+                        )
+                        if persisted is not None and persisted.plan is not None:
+                            raise
                         await self._model_output_invalid(captured, lease)
                         await self._send(captured, None, None, lease)
                         return
@@ -243,14 +248,14 @@ class BusinessWhatsAppWorker:
             turn_ref=captured.turn_key[:12],
         )
         await asyncio.to_thread(
-            self.turns.mark_model_unknown, turn_key=captured.turn_key, lease=lease
-        )
-        await asyncio.to_thread(
             self.outbox.save_reply,
             captured,
             compose_reply("whatsapp_agent_unavailable", language=captured.language),
             lease=lease,
             fixed=True,
+        )
+        await asyncio.to_thread(
+            self.turns.mark_model_unknown, turn_key=captured.turn_key, lease=lease
         )
 
     def _consent_missing(self, captured: CapturedText, lease: SenderLease) -> bool:

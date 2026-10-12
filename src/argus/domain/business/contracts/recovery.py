@@ -115,5 +115,5 @@ class BusinessModelOutputInvalid(RuntimeError):
     """The model answered, but not with a valid interpretation. No plan exists
     and nothing was written, so the owner can safely be asked to send it again."""
 
-    def __init__(self) -> None:
-        super().__init__("business_model_output_invalid")
+    def __init__(self, code: str = "business_model_output_invalid") -> None:
+        super().__init__(code)

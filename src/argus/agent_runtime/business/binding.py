@@ -22,10 +22,12 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.dossier import AccountChoice, ReviewQuestion
 from argus.domain.business.contracts.facts import BusinessFacts
+from argus.domain.business.contracts.recovery import BusinessModelOutputInvalid
 
 
-class BusinessBindingError(ValueError):
-    pass
+class BusinessBindingError(BusinessModelOutputInvalid, ValueError):
+    """The model chose a target or shape the server cannot bind. Nothing was
+    written, so it is a retryable model failure, not an unknown outcome."""
 
 
 @dataclass(frozen=True)
