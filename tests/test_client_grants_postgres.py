@@ -151,6 +151,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_sources",
         "public.business_turns",
         "public.business_turns_arrival_sequence_seq",
+        "public.business_whatsapp_ai_consents",
         "public.checkpoint_blobs",
         "public.checkpoint_migrations",
         "public.checkpoint_writes",
@@ -217,7 +218,9 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.usage_counters",
         "public.visitor_usage_counters",
         "public.whatsapp_inbound_messages",
+        "public.whatsapp_inbound_messages_arrival_sequence_seq",
         "public.whatsapp_link_codes",
+        "public.whatsapp_outbox",
         "public.whatsapp_sender_links",
     }
 )

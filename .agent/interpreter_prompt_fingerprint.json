@@ -158,6 +158,14 @@
         "model": "google/gemini-3.8-flash",
         "scorecard": "docs/reports/evidence/cuadrao-receipt-extraction-20261011/live-measurement.json"
       }
+    },
+    "business": {
+      "owners": [
+        "src/argus/agent_runtime/business/interpretation.py",
+        "src/argus/domain/business/tools/declarations.py"
+      ],
+      "surface": {},
+      "last_measured": null
     }
   }
 }

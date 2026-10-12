@@ -89,6 +89,9 @@ async def lifespan(app: FastAPI):
     from argus.api.email_intake import start_email_intake, stop_email_intake
 
     start_email_intake(app)
+    from argus.api.whatsapp_worker import start_worker, stop_worker
+
+    start_worker(app)
     from argus.api.households import start_households, stop_households
 
     start_households(app)
@@ -109,6 +112,7 @@ async def lifespan(app: FastAPI):
         stop_households(app)
         stop_apple_sign_in(app)
         await stop_email_intake(app)
+        await stop_worker(app)
         stop_ingestion(app)
         stop_financial_accounts(app)
         if checkpointer_cm is not None:

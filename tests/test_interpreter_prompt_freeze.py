@@ -24,19 +24,20 @@ from tests.interpreter_prompt_surface import (
     model_facing_surface,
     require_document_extraction_measurement,
     surface_drift,
+    validate_business_measurement,
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 _HOW_TO_UPDATE = f"""
-This is the shared instruction text and response schema every interpreted turn
-passes through, so a change here can move behavior far from the lane that made
-it. To land one:
+Legacy Consumer and shared text retain their existing measurement. Business
+text has a separate measurement for its two explicit owners. To land a change:
 
   1. Run the live measurement for the affected scope on the branch.
   2. Commit its scorecard under docs/reports/evidence/.
   3. Compare it against the scorecard named in {FINGERPRINT_PATH} and confirm no
-     case regressed within that scope.
+     case regressed within that scope. The initial Business measurement must
+     execute all seven cases and twenty steps, with no unavailable results.
   4. Update that scope's fingerprint and last_measured to the new scorecard;
      preserve other scopes' evidence and totals.
 
@@ -80,7 +81,7 @@ def test_model_facing_text_matches_its_measured_fingerprint(
     pytest.fail(
         "Text the interpretation model reads changed since it was last measured.\n"
         + "\n".join(report)
-        + f"\n\nLast measured at {measured['commit']}: "
+        + f"\n\nLegacy measurement at {measured['commit']}: "
         + f"{measured['passed']} passed, {measured['failed']} failed.\n"
         + _HOW_TO_UPDATE
     )
@@ -104,6 +105,29 @@ def test_fingerprint_names_a_scorecard_that_exists(
     totals = json.loads(scorecard.read_text(encoding="utf-8"))["totals"]
     assert totals["passed"] == measured["passed"]
     assert totals["failed"] == measured["failed"]
+
+
+def test_business_fingerprint_names_a_complete_scoped_measurement(
+    fingerprint: dict[str, object],
+) -> None:
+    fingerprint_surface(fingerprint)
+    scope = fingerprint["scoped_measurements"]["business"]
+    measured = scope.get("last_measured")
+    assert isinstance(measured, dict), "Business live measurement is still missing"
+    path = REPOSITORY_ROOT / measured["scorecard"]
+    assert (
+        path.is_file()
+    ), "Business measurement scorecard must travel with the fingerprint"
+    scorecard = json.loads(path.read_text(encoding="utf-8"))
+    validate_business_measurement(scope, scorecard)
+    calibration_path = REPOSITORY_ROOT / scorecard["calibration"]["report"]
+    assert calibration_path.is_file(), "Business judge calibration report is missing"
+    calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
+    assert calibration["schema_version"] == "business_e1_judge_calibration_v1"
+    assert calibration["status"] == "passed"
+    assert calibration["judge_model"] == measured["judge_model"]
+    assert calibration["rubric_version"] == measured["rubric_version"]
+    assert calibration["fixture_sha256"] == measured["calibration_fixture_sha256"]
 
 
 def test_the_interpreter_system_prompt_is_covered(
