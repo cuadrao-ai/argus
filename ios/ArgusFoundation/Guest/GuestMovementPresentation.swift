@@ -92,3 +92,43 @@ enum GuestMovementPresentation {
                 sign(movement, perspective: account) + amount(movement, in: book, locale: locale) + " " + currency, symbol(movement.kind))
     }
 }
+
+/// What a closed sheet changed in the book, read from the book before and after. Pure.
+struct GuestSaveNotice: Equatable {
+    enum Subject: Equatable { case movement, account, plan, contribution }
+    let subject: Subject
+    let id: UUID
+    let created: Bool
+
+    static func between(_ before: DeviceBook, _ after: DeviceBook, subject: Subject, planID: UUID? = nil) -> GuestSaveNotice? {
+        switch subject {
+        case .movement: change(before.movements, after.movements, subject)
+        case .account: change(before.accounts, after.accounts, subject)
+        case .plan: change(before.plans, after.plans, subject)
+        case .contribution:
+            planID.flatMap { id in
+                guard let new = change(before.plan(id)?.contributions ?? [], after.plan(id)?.contributions ?? [], subject) else { return nil }
+                return GuestSaveNotice(subject: .contribution, id: new.id, created: new.created)
+            }
+        }
+    }
+
+    private static func change<T: Identifiable & Equatable>(_ before: [T], _ after: [T], _ subject: Subject) -> GuestSaveNotice? where T.ID == UUID {
+        let known = Dictionary(uniqueKeysWithValues: before.map { ($0.id, $0) })
+        if let new = after.first(where: { known[$0.id] == nil }) { return GuestSaveNotice(subject: subject, id: new.id, created: true) }
+        if let edited = after.first(where: { item in known[item.id].map { $0 != item } ?? false }) {
+            return GuestSaveNotice(subject: subject, id: edited.id, created: false)
+        }
+        return nil
+    }
+
+    func text(spanish: Bool) -> String {
+        switch (subject, created) {
+        case (.movement, true): spanish ? "Movimiento guardado" : "Transaction saved"
+        case (.account, true): spanish ? "Cuenta añadida" : "Account added"
+        case (.plan, true): spanish ? "Plan creado" : "Plan created"
+        case (.contribution, _): spanish ? "Aporte guardado" : "Contribution saved"
+        default: spanish ? "Cambios guardados" : "Changes saved"
+        }
+    }
+}

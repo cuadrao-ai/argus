@@ -24,7 +24,7 @@ struct GuestMovementRow: View {
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("guest.movement.row." + movement.id.uuidString)
-        }
+        }.cuadraoRowHighlight(movement.id)
     }
 }
 

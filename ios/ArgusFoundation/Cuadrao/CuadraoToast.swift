@@ -25,6 +25,15 @@ struct CuadraoToast: View {
 
     static func autoDismissSeconds(voiceOver: Bool) -> Double { voiceOver ? 10 : 5 }
 
+    /// Journeys that enumerate every button cannot cope with one that leaves mid-query, so they ask the notice to stay.
+    private static var staysForUITests: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--toasts-stay")
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         HStack {
             Text(text)
@@ -40,6 +49,7 @@ struct CuadraoToast: View {
             .padding(.horizontal, 20).padding(.bottom, 90)
             .onAppear { UIAccessibility.post(notification: .announcement, argument: text) }
             .task(id: token ?? AnyHashable(text)) {
+                guard !Self.staysForUITests else { return }
                 let seconds = Self.autoDismissSeconds(voiceOver: UIAccessibility.isVoiceOverRunning)
                 try? await Task.sleep(for: .seconds(seconds))
                 if !Task.isCancelled { close() }

@@ -43,6 +43,7 @@ struct GuestAccountsSection: View {
                     open: { open($0.id) }, edit: { edit($0.id) }, archive: { archive($0.id) },
                     reorder: { ids in _ = try? model.apply { try $0.reorderingActive(ids) } }) { account in
                     GuestAccountRow(account: account, book: model.book, spanish: spanish)
+                        .cuadraoRowHighlight(account.id)
                         .overlay(alignment: .bottom) { Rectangle().fill(WelcomePalette.separator).frame(height: 1).padding(.leading, 54) }
                 }
             }

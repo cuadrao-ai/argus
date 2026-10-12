@@ -94,6 +94,8 @@ struct GuestShell: View {
     @State private var homePath: [GuestRoute] = []
     @State private var planPath: [UUID] = []
     @State private var sheet: GuestSheet?
+    @StateObject private var result = CuadraoSaveResult()
+    @State private var bookBeforeSheet: DeviceBook?
     @State private var capturing: ReceiptSourceChoice?
     @State private var captured: [(data: Data, name: String, pdf: Bool)]?
     @State private var receiptFailed = false
@@ -113,6 +115,10 @@ struct GuestShell: View {
             }
         }
         .environment(\.cuadraoCurrencyRules, GuestCurrencyRules.rules)
+        .environmentObject(result)
+        .cuadraoSaveResult(result, spanish: spanish)
+        .onChange(of: sheet) { previous, current in sheetChanged(from: previous, to: current) }
+        .onChange(of: model.saveFailed) { _, failed in if failed { result.failed() } }
         .sheet(item: $sheet) { sheetContent($0) }
         .fullScreenCover(item: $capturing, onDismiss: {
             if let files = captured { captured = nil; keep(files) }
@@ -128,6 +134,37 @@ struct GuestShell: View {
         .tint(WelcomePalette.pine)
         .foregroundStyle(WelcomePalette.ink)
         .background(WelcomePalette.background.ignoresSafeArea())
+    }
+
+    /// A sheet that closed with the book changed is a save: say so, mark the row and offer to open it.
+    private func sheetChanged(from previous: GuestSheet?, to current: GuestSheet?) {
+        if previous == nil, current != nil { bookBeforeSheet = model.book }
+        guard current == nil, let previous, let start = bookBeforeSheet else { return }
+        bookBeforeSheet = nil
+        let notice: GuestSaveNotice?
+        switch previous {
+        case .movement: notice = .between(start, model.book, subject: .movement)
+        case .account: notice = .between(start, model.book, subject: .account)
+        case .plan: notice = .between(start, model.book, subject: .plan)
+        case .contribution(let id): notice = .between(start, model.book, subject: .contribution, planID: id)
+        default: notice = nil
+        }
+        guard let notice else { return }
+        if notice.created, notice.subject != .contribution {
+            result.saved(notice.text(spanish: spanish), highlight: notice.id, actionTitle: spanish ? "Ver" : "View",
+                         actionIdentifier: "toast.view") { view(notice); result.dismiss() }
+        } else {
+            result.saved(notice.text(spanish: spanish), highlight: notice.id)
+        }
+    }
+
+    private func view(_ notice: GuestSaveNotice) {
+        switch notice.subject {
+        case .movement: tab = .home; homePath = [.movement(notice.id)]
+        case .account: tab = .home; homePath = [.account(notice.id)]
+        case .plan: tab = .plan; planPath = [notice.id]
+        case .contribution: break
+        }
     }
 
     private var showsNavigation: Bool {

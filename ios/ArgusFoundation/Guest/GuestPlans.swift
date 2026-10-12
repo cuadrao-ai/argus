@@ -8,7 +8,7 @@ struct GuestPlanTab: View {
     let active: Bool
     @Binding var path: [UUID]
     @Binding var sheet: GuestSheet?
-    @State private var archivedID: UUID?
+    @EnvironmentObject private var result: CuadraoSaveResult
     @Environment(\.locale) private var locale
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
@@ -30,13 +30,6 @@ struct GuestPlanTab: View {
             .navigationDestination(for: UUID.self) { id in
                 GuestPlanDetail(model: model, id: id, spanish: spanish, edit: { sheet = .plan(.edit(id)) },
                                 contribute: { sheet = .contribution(id) }, archive: { archive(id) })
-            }
-        }
-        .overlay(alignment: .bottom) {
-            if let archivedID, path.isEmpty, model.book.plan(archivedID)?.archived == true {
-                CuadraoToast(text: spanish ? "Plan archivado" : "Plan archived", actionTitle: spanish ? "Deshacer" : "Undo",
-                             actionIdentifier: "guest.undo", action: { restore(archivedID) }, spanish: spanish,
-                             token: archivedID, close: { self.archivedID = nil })
             }
         }
     }
@@ -64,12 +57,12 @@ struct GuestPlanTab: View {
     private func archive(_ id: UUID) {
         guard (try? model.apply { try $0.settingPlanArchived(id, true) }) != nil else { return }
         path = []
-        archivedID = id
+        result.removed(spanish ? "Plan archivado" : "Plan archived", undoTitle: spanish ? "Deshacer" : "Undo",
+                       undoIdentifier: "guest.undo") { restore(id) }
     }
 
     private func restore(_ id: UUID) {
         _ = try? model.apply { try $0.settingPlanArchived(id, false) }
-        archivedID = nil
     }
 }
 
@@ -81,6 +74,7 @@ struct GuestPlanCard: View {
 
     var body: some View {
         CuadraoPlanCard(display: GuestPlanPresentation.card(plan, in: book, spanish: spanish, locale: locale))
+            .cuadraoRowHighlight(plan.id)
     }
 }
 
@@ -92,7 +86,7 @@ struct GuestPlanDetail: View {
     let edit: () -> Void
     let contribute: () -> Void
     let archive: () -> Void
-    @State private var deletedID: UUID?
+    @EnvironmentObject private var result: CuadraoSaveResult
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -118,14 +112,6 @@ struct GuestPlanDetail: View {
                         Button(action: archive) { Label(spanish ? "Archivar" : "Archive", systemImage: "archivebox") }
                             .accessibilityIdentifier("guest.plan.archive")
                     }
-                }
-            }
-            .overlay(alignment: .bottom) {
-                if let deletedID, plan.contributions.first(where: { $0.id == deletedID })?.deleted == true {
-                    CuadraoToast(text: spanish ? "Aporte eliminado" : "Contribution deleted", actionTitle: spanish ? "Deshacer" : "Undo",
-                                 actionIdentifier: "guest.undo",
-                                 action: { _ = try? model.apply { try $0.settingContributionDeleted(deletedID, in: id, false) }; self.deletedID = nil },
-                                 spanish: spanish, token: deletedID, close: { self.deletedID = nil })
                 }
             }
         } else {
@@ -176,7 +162,12 @@ struct GuestPlanDetail: View {
                         ForEach(live) { item in
                             ConnectedSwipeRow(leading: [], trailing: [ConnectedSwipeAction(id: "guest.contribution.swipe.delete",
                                 title: spanish ? "Eliminar" : "Delete", symbol: "trash", tint: .red) {
-                                    if (try? model.apply { try $0.settingContributionDeleted(item.id, in: plan.id, true) }) != nil { deletedID = item.id }
+                                    if (try? model.apply { try $0.settingContributionDeleted(item.id, in: plan.id, true) }) != nil {
+                                        result.removed(spanish ? "Aporte eliminado" : "Contribution deleted", undoTitle: spanish ? "Deshacer" : "Undo",
+                                                       undoIdentifier: "guest.undo") {
+                                            _ = try? model.apply { try $0.settingContributionDeleted(item.id, in: plan.id, false) }
+                                        }
+                                    }
                                 }]) {
                                 CuadraoFeedRow(title: item.note ?? (spanish ? "Aporte" : "Contribution"), detail: date(item),
                                                amount: "+" + money(item.amountMinor, plan), icon: "arrow.down.left")

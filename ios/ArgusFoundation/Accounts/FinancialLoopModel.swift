@@ -19,6 +19,9 @@ final class FinancialLoopModel: ObservableObject {
     @Published var assetEditor: FinancialAssetEditor?
     @Published var editor: FinancialEditor?
     @Published var activityEditor: FinancialActivityEditor?
+    /// The newest save the server accepted, for the Home notice. A new value is a new save.
+    struct SaveNotice: Equatable { let token = UUID(); let activityID: UUID?; let corrected: Bool }
+    @Published private(set) var saveNotice: SaveNotice?
     @Published private(set) var pendingConfirmation: PendingFinancialConfirmation?
     @Published private(set) var recovering = false
     @Published private(set) var recoveryErrorKey: String?
@@ -379,7 +382,9 @@ final class FinancialLoopModel: ObservableObject {
         guard generation == ticket, identity != nil else { return }
         pendingConfirmation = nil
         accounts.accept(receipt.accounts)
+        let corrected = activityEditor?.correcting != nil
         activityEditor = nil
+        saveNotice = SaveNotice(activityID: receipt.activity.activityId, corrected: corrected)
         await refresh()
         for account in receipt.accounts where accountReads[account.id] != nil { await open(account) }
     }
@@ -410,6 +415,7 @@ final class FinancialLoopModel: ObservableObject {
         guard generation == ticket, identity != nil else { return }
         accounts.accept(account)
         editor = nil
+        saveNotice = SaveNotice(activityID: nil, corrected: false)
         await refresh()
         await open(account)
     }
