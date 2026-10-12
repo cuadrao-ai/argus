@@ -110,7 +110,7 @@ async def test_without_ai_consent_the_owner_hears_that_plainly_and_no_model_runs
     assert world.executor.interpretations == []
     assert [m["text"]["body"] for m in world.transport.messages] == [
         "Todavía no has dado permiso para que Cuadrao lea tus mensajes con IA. "
-        "Puedes activarlo en Ajustes, en WhatsApp."
+        "Puedes activarlo en tu perfil, en App y luego WhatsApp."
     ]
 
 
@@ -584,3 +584,44 @@ async def test_interruption_marking_questions_waiting_recovers_without_recomposi
     assert world.states(message) == [("waiting_for_window",)]
     assert world.actions.waiting == [world.keys.message(message.id).hex()]
     assert world.executor.compositions == 1 and not world.transport.messages
+
+
+@pytest.mark.asyncio
+async def test_a_crash_between_saving_the_resend_reply_and_marking_unknown_replays_once(
+    world,
+):
+    from argus.domain.ingestion.whatsapp.replies import compose_reply
+
+    message = world.message()
+    world.captures.capture(message)
+    lease = _lease(world, message)
+    captured = world.captures.read(world.keys.message(message.id), lease=lease)
+    world.outbox.save_reply(
+        captured,
+        compose_reply("whatsapp_agent_unavailable", language=captured.language),
+        lease=lease,
+        fixed=True,
+    )
+    world.turns.release(lease)
+    # The process died here: the reply is saved, the turn was never marked unknown.
+    assert await world.worker(synthetic_consent=True).run_once()
+    assert not await world.worker(synthetic_consent=True).run_once()
+    assert world.executor.interpretations == []
+    assert [m["text"]["body"] for m in world.transport.messages] == [
+        "No pude entender tu mensaje esta vez. Envíalo de nuevo, por favor."
+    ]
+    assert world.states(message) == [("sent",)]
+
+
+def _lease(world, message):
+    from datetime import timedelta
+    from uuid import uuid4
+
+    lease = world.turns.acquire(
+        space_id=world.space,
+        sender_hash=world.keys.sender(message.sender).hex(),
+        holder=uuid4(),
+        duration=timedelta(seconds=60),
+    )
+    assert lease is not None
+    return lease
