@@ -1062,6 +1062,32 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-upload-review-crash-20261012": {
+      "description": "Staging crash after an upload with AI consent: the review panel read capabilities and accounts at the top of the receipt detail while the API nests them under record_context; the panel now reads the nested context (read-only when absent), the data source is chosen once per visit so a record is not refetched on every address-bar write, and a panel error boundary keeps a crash inside the workspace with a retry.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-dossier.test.ts",
+        "web/__tests__/receipt-review-access.test.ts",
+        "web/components/business-app/BusinessPanel.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/PanelErrorBoundary.tsx",
+        "web/components/business-app/ReceiptReviewPanel.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/components/business-app/fixture-data.ts",
+        "web/components/business-app/receipt-review-access.ts",
+        "web/e2e/business-upload-review-live.spec.ts",
+        "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }

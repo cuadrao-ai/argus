@@ -140,7 +140,10 @@ export function BusinessWorkspaceProvider({
 }) {
   const { t, i18n } = useTranslation();
   const searchParams = useSearchParams();
-  const directRecord = searchParams.has("draft") || searchParams.has("receipt");
+  // Decided once per visit: a landing on a record URL (the sign-in return path)
+  // skips the space bootstrap. Opening a record later keeps the same source, so
+  // a record's effects do not refetch on every address-bar write.
+  const [directRecord] = useState(() => searchParams.has("draft") || searchParams.has("receipt"));
   const workspaceSource = useMemo(
     () => withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
     [apiSource, i18n],

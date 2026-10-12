@@ -5,6 +5,7 @@ import { AlertCircle, ArrowLeft, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ReceiptDossierReview from "./ReceiptDossierReview";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
+import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
@@ -70,7 +71,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     };
   }, [receiptId, source]);
 
-  const accounts = detail?.accounts ?? [];
+  const { accounts, canPrepare } = detail ? receiptReviewAccess(detail) : { accounts: [], canPrepare: false };
   const currencies = [...new Set(accounts.map((account) => account.currency))];
   const missing = useMemo(
     () => (detail && draft ? detail.missing_fields.filter((key) => !draft[key]?.trim()) : []),
@@ -89,7 +90,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   if (!detail || !draft) return <LoadingRows rows={4} />;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} />;
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
-  const locked = confirmed || uncertainVersion !== null || !detail.capabilities.includes("prepare") || (detail.version === 0 && !detail.enterable);
+  const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
 
   const changedFields = (): Partial<ReceiptReviewFields> =>
     Object.fromEntries(
@@ -232,7 +233,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                   {t("business.review.see_original", "See the receipt already saved")}
                 </button>
               ) : null}
-              {detail.preparable && detail.capabilities.includes("prepare") ? (
+              {detail.preparable && canPrepare ? (
                 <>
                   <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">
                     {t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}
@@ -244,7 +245,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 </>
               ) : null}
             </div>
-          ) : detail.preparable && detail.capabilities.includes("prepare") ? (
+          ) : detail.preparable && canPrepare ? (
             <div className={cardClass}>
               <p className="text-[14px] text-black/75 dark:text-white/75">
                 {t("business.review.consent", "Cuadrao can read this receipt with AI and fill in the details for you to check. The receipt is sent to our AI provider only if you choose this. You can also fill in the details yourself.")}
@@ -364,7 +365,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 {t("business.review.view_expenses", "View expenses")}
               </button>
             </div>
-          ) : detail.capabilities.includes("prepare") ? (
+          ) : canPrepare ? (
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
