@@ -762,8 +762,12 @@ def _case_from_raw(*, category: str, raw_case: dict[str, Any]) -> EvalCase:
             exit_rule=expected.get("exit_rule"),
             rule_spec=expected.get("rule_spec"),
             date_range=_date_range_expectation(expected.get("date_range")),
-            requested_date_range=_date_range_expectation(expected.get("requested_date_range")),
-            effective_date_range=_date_range_expectation(expected.get("effective_date_range")),
+            requested_date_range=_date_range_expectation(
+                expected.get("requested_date_range")
+            ),
+            effective_date_range=_date_range_expectation(
+                expected.get("effective_date_range")
+            ),
             adjustment_reason=expected.get("adjustment_reason"),
             benchmark_symbol=expected.get("benchmark_symbol"),
             capital_amount=expected.get("capital_amount"),

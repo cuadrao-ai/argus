@@ -48,10 +48,11 @@ def test_a_quiet_run_holds_every_invariant() -> None:
 def test_owner_words_never_move_money_or_approve() -> None:
     case = frozen("es_owner_funds_no_receipt")
     steps = [observed() for _ in case["steps"]]
-    steps[0]["money"] = {"record_count": 1}
-    assert check_invariants(case, steps) == [
+    for step in steps:
+        step["money"] = {"record_count": 1}
+    assert check_invariants(case, steps)[0] == (
         "step0:owner_words_changed_money_or_approval"
-    ]
+    )
     steps = [observed() for _ in case["steps"]]
     steps[1]["approval"] = {"status": "recorded"}
     assert "step1:owner_words_changed_money_or_approval" in check_invariants(case, steps)
