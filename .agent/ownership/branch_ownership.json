@@ -661,6 +661,65 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-business-file-types-20261012": {
+      "description": "Document preparation for TXT, CSV, XLSX and EML sources with bounded inert decoding; shared Consumer/Business media types. No model prompt, schema or hosted settings ownership.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/domain/ingestion/documents/config.py",
+        "src/argus/domain/ingestion/documents/email_source.py",
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "src/argus/domain/ingestion/documents/preparation.py",
+        "src/argus/domain/ingestion/documents/tabular.py",
+        "tests/business/test_business_api.py",
+        "tests/ingestion/test_document_flat_files.py",
+        "tests/ingestion/test_document_preparation.py",
+        "tests/ingestion/test_documents_api.py",
+        "tests/ingestion/test_email_source.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-business-email-intake-20261012": {
+      "description": "Business email receiving: signed Resend webhook, exact recipient routes bound to a live grant, durable delivery queue with bounded retry, per-part capture into the owner's Business. Code and synthetic tests only; no hosted credentials.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/app_setup.py",
+        "src/argus/api/email_intake.py",
+        "src/argus/api/routers/email_intake.py",
+        "src/argus/api/routers/financial_accounts.py",
+        "src/argus/domain/ingestion/email_intake/__init__.py",
+        "src/argus/domain/ingestion/email_intake/config.py",
+        "src/argus/domain/ingestion/email_intake/envelope.py",
+        "src/argus/domain/ingestion/email_intake/models.py",
+        "src/argus/domain/ingestion/email_intake/provider.py",
+        "src/argus/domain/ingestion/email_intake/service.py",
+        "src/argus/domain/ingestion/email_intake/signatures.py",
+        "src/argus/domain/ingestion/email_intake/store.py",
+        "supabase/migrations/20261012010000_business_email_intake.sql",
+        "tests/business/test_business_email_api.py",
+        "tests/ingestion/test_email_intake_service.py",
+        "tests/test_business_email_intake_postgres.py",
+        "tests/test_email_intake_provider.py",
+        "tests/test_email_intake_settings.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }
