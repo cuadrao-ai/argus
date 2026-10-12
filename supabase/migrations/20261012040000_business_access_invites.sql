@@ -27,22 +27,17 @@ alter table public.business_access_invites enable row level security;
 revoke all on public.business_access_invites from public, anon, authenticated;
 grant select, insert, update, delete on public.business_access_invites to service_role;
 
--- Access changes are ledger rows without a turn. The receipts table allowed
--- only review and approval there; the six access actions join that list.
-do $$
-declare
-    existing text;
-begin
-    select conname into existing from pg_constraint
-    where conrelid = 'public.business_action_receipts'::regclass
-      and contype = 'c'
-      and pg_get_constraintdef(oid) like '%review_draft%';
-    if existing is not null then
-        execute format('alter table public.business_action_receipts drop constraint %I', existing);
-    end if;
-    alter table public.business_action_receipts add constraint business_action_receipts_turnless_action_check
-        check (turn_key is not null or (command->>'action' in (
-            'review_draft', 'approve_expense',
-            'owner_grant', 'grant_access', 'invite_access', 'accept_invite', 'revoke_grant', 'revoke_invite'
-        )) is true);
-end $$;
+-- Access changes are ledger rows without a turn, written by a member, so the
+-- turn-less action list grows by the six access actions.
+alter table public.business_action_receipts
+    drop constraint business_action_receipts_unplanned_command,
+    add constraint business_action_receipts_unplanned_command check (
+        turn_key is not null or
+        (command->>'action' in ('review_draft', 'approve_expense', 'capture_note',
+            'approve_income', 'prepare_attachment',
+            'owner_grant', 'grant_access', 'invite_access', 'accept_invite', 'revoke_grant', 'revoke_invite')) is true
+    ),
+    add constraint business_action_receipts_access_human check (
+        command->>'action' not in ('owner_grant', 'grant_access', 'invite_access', 'accept_invite', 'revoke_grant', 'revoke_invite')
+        or (actor->>'actor_kind' = 'member' and turn_key is null and action_index is null) is true
+    );
