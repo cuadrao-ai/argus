@@ -202,7 +202,8 @@ def test_apply_single_put_per_service_and_never_prints_values(
     api_env = client.puts[0][1]
     assert api_env["CUADRAO_RESEND_WEBHOOK_SECRET"] == "whsec-GGGG7777"
     assert "ARGUS_VISION_MODEL" not in api_env
-    everything = "\n".join(lines) + capsys.readouterr().out + capsys.readouterr().err
+    captured = capsys.readouterr()
+    everything = "\n".join(lines) + captured.out + captured.err
     values = list(full_secrets().values()) + SECRET_VALUES + ["rnd_APIKEYVALUE"]
     values += [v for env in client.live.values() for v in env.values()]
     assert not [v for v in values if v in everything]
@@ -527,3 +528,20 @@ def test_good_api_base_url_passes(manifest):
     live["NEXT_PUBLIC_ARGUS_API_URL"] = "https://cuadrao-api-staging.onrender.com/api/v1"
     plan = se.compute_plan(manifest["services"]["web"], live, {})
     assert plan.problems == []
+
+
+def test_live_generated_value_beats_a_different_file_value(manifest):
+    service = manifest["services"]["api"]
+    live = live_for(manifest, "api", AUDIT_API)
+    live["CUADRAO_INGESTION_SECRET_KEY"] = "live-ingestion-key"
+    live["CUADRAO_WHATSAPP_VERIFY_TOKEN"] = "live-verify"
+    file_values = {
+        "CUADRAO_INGESTION_SECRET_KEY": "file-ingestion-key",
+        "CUADRAO_WHATSAPP_VERIFY_TOKEN": "file-verify",
+    }
+    plan = se.compute_plan(service, live, file_values)
+    assert plan.final["CUADRAO_INGESTION_SECRET_KEY"] == "live-ingestion-key"
+    assert plan.final["CUADRAO_WHATSAPP_VERIFY_TOKEN"] == "live-verify"
+    actions = dict(plan.actions)
+    assert actions["CUADRAO_INGESTION_SECRET_KEY"] == "ok"
+    assert "CUADRAO_INGESTION_SECRET_KEY" not in plan.generated

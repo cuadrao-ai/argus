@@ -225,6 +225,8 @@ def compute_plan(
             desired = live.get(name) if name in live else live.get(entry["copy_from"])
         elif entry.get("keep_current"):
             desired = live.get(name)
+        elif kind == "generated" and name in live:
+            desired = live[name]
         elif name in file_secrets:
             desired = file_secrets[name]
         elif name in live:
@@ -361,17 +363,17 @@ def run(
     file_secrets = read_secrets(args.secrets_file)
 
     if args.command == "show-verify-token":
-        token = file_secrets.get(VERIFY_TOKEN_NAME)
-        if token is None:
+        token = None
+        if os.environ.get("RENDER_API_KEY"):
             api = manifest["services"]["api"]
-            if os.environ.get("RENDER_API_KEY"):
-                token = read_live(_client(client_factory), api).get(VERIFY_TOKEN_NAME)
-            if token is None:
-                token = secrets_module.token_urlsafe(48)
-                append_secret(args.secrets_file, VERIFY_TOKEN_NAME, token)
-                out(
-                    f"created {VERIFY_TOKEN_NAME} in the secrets file; run apply to send it to Render"
-                )
+            token = read_live(_client(client_factory), api).get(VERIFY_TOKEN_NAME)
+        token = token or file_secrets.get(VERIFY_TOKEN_NAME)
+        if token is None:
+            token = secrets_module.token_urlsafe(48)
+            append_secret(args.secrets_file, VERIFY_TOKEN_NAME, token)
+            out(
+                f"created {VERIFY_TOKEN_NAME} in the secrets file; run apply to send it to Render"
+            )
         to_clipboard(token)
         out("verify token copied to the clipboard; paste it into Meta")
         return 0
