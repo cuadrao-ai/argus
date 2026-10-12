@@ -53,8 +53,8 @@
   "legal": {
     "eyebrow": "Early access legal",
     "effective_date": "Effective date: August 7, 2026",
-    "footer_label": "Argus early access",
-    "back_to_argus": "Back to Argus",
+    "footer_label": "Cuadrao early access",
+    "back_to_argus": "Back to Cuadrao",
     "terms": {
       "title": "Terms of Use",
       "intro": "Argus is an early access product for educational investing research. These terms describe how Argus works today. Argus is still being built, so these terms will change as the product does.",
@@ -1006,13 +1006,34 @@
     }
   },
   "settings": {
+    "whatsapp": {
+      "title": "WhatsApp",
+      "number": "Linked number",
+      "loading": "Reading your link…",
+      "linked": "Number ending in {{last4}}",
+      "unlinked": "No number is linked.",
+      "create": "Get a link code",
+      "new_code": "Get a new code",
+      "send_steps": "Send this message from your own WhatsApp to the Cuadrao number. The code works once and expires soon.",
+      "open": "Open WhatsApp",
+      "no_link": "Open WhatsApp and send the message above to the Cuadrao number.",
+      "check": "I sent it, check",
+      "unlink": "Unlink number",
+      "confirm_unlink": "Unlink your number? New messages will no longer be accepted from it. Receipts already received stay in your Inbox.",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "problem_unavailable": "WhatsApp is not available yet.",
+      "problem_space_missing": "Start your business space first, then link your number.",
+      "problem_rate_limited": "Too many codes. Wait a few minutes and try again.",
+      "problem_failed": "WhatsApp could not be reached. Try again."
+    },
     "title": "Settings",
     "profile": {
       "display_name": "Display name",
       "default_user": "User",
       "edit_display_name": "Edit display name",
       "delete_account": "Delete account",
-      "delete_account_note": "Permanently delete your Argus account and your data.",
+      "delete_account_note": "Permanently delete your Cuadrao account and your data.",
       "display_name_save_error": "Could not save that name yet.",
       "display_name_too_long": "Keep this to {{count}} characters or fewer.",
       "preferred_name": "What should Argus call you?",
@@ -1053,8 +1074,8 @@
         "error": "We couldn't delete your account just now. Try again.",
         "unavailable": "Deleting in the app isn't available here yet. Support can delete your account for you.",
         "email_fallback": "Email support",
-        "email_subject": "Argus account deletion request",
-        "email_body": "Please help me request deletion for my Argus account{{account_hint}}.",
+        "email_subject": "Cuadrao account deletion request",
+        "email_body": "Please help me request deletion for my Cuadrao account{{account_hint}}.",
         "close": "Close account deletion"
       }
     },
@@ -1440,8 +1461,8 @@
       "verifying": "Verifying you’re not a bot…"
     },
     "access_request": {
-      "title": "Request access to Argus",
-      "description": "Argus is in early access. Share your email to request access. If approved, we’ll email you when you can create an account.",
+      "title": "Request access to Cuadrao",
+      "description": "Cuadrao is in early access. Share your email to request access. If approved, we’ll email you when you can create an account.",
       "email_label": "Email address",
       "submit": "Request access",
       "submitting": "Requesting access...",
@@ -1454,7 +1475,7 @@
       "error": "We couldn’t send your request. Please try again."
     },
     "login": {
-      "brand": "argus",
+      "brand": "cuadrao",
       "subtitle": "Sign in to continue",
       "email_placeholder": "Email address",
       "password_placeholder": "Password",
@@ -1465,12 +1486,12 @@
       }
     },
     "signup": {
-      "subtitle": "Create your Argus account",
+      "subtitle": "Create your Cuadrao account",
       "name_placeholder": "Name",
       "submit": "Sign up",
       "loading": "Creating account...",
       "new_account_cuadrao": "New to Cuadrao?",
-      "new_account": "New to Argus?",
+      "new_account": "New to Cuadrao?",
       "password_requirement": "At least 8 characters.",
       "confirmation_title": "Check your email",
       "confirmation_description": "Use the confirmation link we sent to finish creating your account. Then return here to sign in."
@@ -1505,20 +1526,20 @@
       "password_rejected": "We couldn’t update the password. Check the requirements or request a new recovery link.",
       "password_updated": "Your password is updated.",
       "reset_complete": "Your password is updated. Sign in again on every browser.",
-      "revocation_warning": "Argus could not confirm that every session was signed out. Retry before signing in again.",
+      "revocation_warning": "Cuadrao could not confirm that every session was signed out. Retry before signing in again.",
       "retry_revocation": "Retry sign out all sessions",
       "retrying_revocation": "Retrying...",
-      "revocation_retry_error": "Argus still couldn’t confirm that every session was signed out. Try again.",
+      "revocation_retry_error": "Cuadrao still couldn’t confirm that every session was signed out. Try again.",
       "cleanup_warning": "Sessions were revoked, but this browser could not confirm local cookie cleanup. A fresh sign-in is still required."
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",
-      "captcha_unavailable": "This browser didn’t pass the security check. Open Argus in a regular browser, or reload the page.",
+      "captcha_unavailable": "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
       "unauthorized": "We couldn’t verify those account details. Check them and try again.",
       "auth_signup_failed": "We couldn’t create the account. Please try again.",
       "too_many_requests": "Too many attempts. Wait a moment and try again.",
       "guest_access_unavailable": "Guest access isn’t available right now.",
-      "internal_error": "Argus couldn’t complete this account request. Please try again.",
+      "internal_error": "Cuadrao couldn’t complete this account request. Please try again.",
       "account_already_registered": "This session already belongs to a permanent account.",
       "guest_bootstrap_failed": "We couldn’t start a temporary conversation. Please try again.",
       "account_exists_use_login": "You already have an account. Sign in instead and your conversation comes with you.",
@@ -1541,9 +1562,9 @@
   "account_security": {
     "title": "Account security",
     "description": "Change your password or choose exactly which sessions to sign out.",
-    "back": "Back to Argus",
+    "back": "Back to Cuadrao",
     "loading": "Checking your session...",
-    "session_check_unavailable": "Argus couldn’t verify your session right now. Try again.",
+    "session_check_unavailable": "Cuadrao couldn’t verify your session right now. Try again.",
     "retry": "Retry",
     "cookie_sync_warning": "Sessions were revoked, but local cookie cleanup could not be confirmed.",
     "password": {
@@ -1555,7 +1576,7 @@
       "submit": "Change password",
       "changing": "Changing...",
       "changed": "Password changed. Sign in again on every browser.",
-      "revocation_warning": "Password changed, but Argus could not confirm every session was signed out. Retry Sign out all sessions.",
+      "revocation_warning": "Password changed, but Cuadrao could not confirm every session was signed out. Retry Sign out all sessions.",
       "error": "We couldn’t change the password. Check your current password and try again."
     },
     "sessions": {
@@ -1566,7 +1587,7 @@
       "sign_out_all": "Sign out all sessions",
       "others_complete": "Other sessions are signed out. This browser remains signed in.",
       "signed_out": "The selected sessions are signed out.",
-      "revocation_warning": "Argus could not confirm the selected sessions were signed out. Try the session action again.",
+      "revocation_warning": "Cuadrao could not confirm the selected sessions were signed out. Try the session action again.",
       "error": "We couldn’t complete that session change. Try again.",
       "confirm_others_title": "Sign out other sessions?",
       "confirm_others_description": "Other browsers will lose access. This browser stays signed in.",
@@ -1584,9 +1605,9 @@
   },
   "guest": {
     "entry": {
-      "loading": "Opening Argus",
+      "loading": "Opening Cuadrao",
       "sending": "Sending...",
-      "error": "Argus couldn't open a temporary chat. Try again.",
+      "error": "Cuadrao couldn't open a temporary chat. Try again.",
       "reload": "Reload"
     },
     "expired": {
@@ -1595,10 +1616,10 @@
       "start_new": "Start a new temporary chat",
       "sign_in": "Sign in",
       "create_account": "Create account",
-      "restart_error": "Argus could not start a new temporary chat. Try again."
+      "restart_error": "Cuadrao could not start a new temporary chat. Try again."
     },
     "conversion": {
-      "eyebrow": "Keep going with Argus",
+      "eyebrow": "Keep going with Cuadrao",
       "sign_in_title": "Sign in",
       "create_title": "Create your account",
       "simulation_limit": "Sign in to run another simulation.",
@@ -2601,5 +2622,32 @@
     "out_of_range": "This amount is too large to record.",
     "ambiguous_currency": "$ could mean RD$ or US$. Enter the amount without a symbol, or with RD$ or US$.",
     "same_amount": "Same amount, no conversion."
+  },
+  "business_access": {
+    "nav": "Access",
+    "title": "Access",
+    "subtitle": "Who can see and prepare your business records. Only you approve.",
+    "owner": "Owner",
+    "member": "Reads and prepares",
+    "since": "Since {{date}}",
+    "pending_title": "Pending invites",
+    "pending_until": "Expires {{date}}",
+    "pending_note": "Gets access the first time they sign in with this confirmed email.",
+    "give_title": "Give access to your accountant",
+    "give_body": "Enter their email. They can see and prepare receipts. They can never approve.",
+    "email_label": "Email address",
+    "give": "Give access",
+    "giving": "Giving access...",
+    "remove": "Remove access",
+    "remove_confirm": "Remove access for {{who}}? They stop seeing and preparing at once.",
+    "remove_invite": "Cancel invite",
+    "remove_invite_confirm": "Cancel the invite for {{who}}?",
+    "confirm": "Yes, remove",
+    "cancel": "Cancel",
+    "error": "We couldn't load access. Try again.",
+    "invalid_email": "Enter an email address.",
+    "give_error": "We couldn't give access. Try again.",
+    "remove_error": "We couldn't remove access. Try again.",
+    "owner_locked": "Your own access cannot be removed."
   }
 }

@@ -124,7 +124,7 @@ export function GuestConversionModalSurface({
           <X className="h-5 w-5" />
         </button>
         <p className="mb-2 pr-12 font-display text-[12px] font-semibold uppercase tracking-[0.14em] text-black/45 dark:text-white/45">
-          {t("guest.conversion.eyebrow", "Keep going with Argus")}
+          {t("guest.conversion.eyebrow", "Keep going with Cuadrao")}
         </p>
         {reason === "simulation_limit" && resetAt ? (
           <p className="mb-5 pr-12 text-[14px] leading-relaxed text-black/60 dark:text-white/60">
