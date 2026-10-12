@@ -4015,6 +4015,34 @@ def test_gemini_document_native_wire_keeps_privacy_and_local_validation(
 
 
 @pytest.mark.parametrize(
+    "model",
+    [
+        "google/gemini-3.8-flash",
+        "google/gemini-3.8-flash-preview",
+        "google/gemini-2.5-flash",
+        "google/gemini-3.8-flash:nitro",
+    ],
+)
+def test_every_google_document_route_gets_the_projected_payload(model):
+    from argus.domain.ingestion.documents.models import ExtractionResult
+
+    profile = openrouter_profile_for_task("document_extraction")
+    payload = openrouter._json_schema_payload(
+        model=model,
+        messages=[{"role": "user", "content": "Synthetic unknown document"}],
+        schema_model=ExtractionResult,
+        schema_name="ExtractionResult",
+        profile=profile,
+    )
+    assert "temperature" not in payload
+    assert payload["max_tokens"] == profile.max_tokens
+    assert "max_completion_tokens" not in payload
+    assert payload["response_format"]["json_schema"][
+        "schema"
+    ] == openrouter._document_wire_schema(ExtractionResult.model_json_schema())
+
+
+@pytest.mark.parametrize(
     "model,task",
     [
         ("x-ai/grok-4.3", "document_extraction"),

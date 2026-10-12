@@ -117,12 +117,16 @@ def test_itbis_projection_uses_existing_c0_amount_semantics(
 
 
 @pytest.mark.parametrize("raw", ["18%", "1,800.00", "18 or 20", "-18", ""])
-def test_incompatible_itbis_remains_raw_without_inventing_a_canonical_amount(
+def test_incompatible_itbis_becomes_unknown_and_stays_raw_in_the_receipt(
     raw: str,
 ) -> None:
-    receipt = ReceiptDetails(itbis=raw)
-    with pytest.raises(ValidationError):
-        extractor.fiscal_facts_from_receipt(receipt, source_id=uuid4())
+    receipt = ReceiptDetails(rnc="SYNTHETIC-RNC-A", itbis=raw)
+    source_id = uuid4()
+    projected = extractor.fiscal_facts_from_receipt(receipt, source_id=source_id)
+    assert projected.itbis.state == "unknown" and projected.itbis.value is None
+    assert projected.itbis.origin == "extracted"
+    assert projected.itbis.source_ids == (source_id,)
+    assert projected.rnc.state == "known" and projected.rnc.value == "SYNTHETIC-RNC-A"
     assert receipt.itbis == raw
 
 

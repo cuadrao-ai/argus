@@ -885,7 +885,7 @@ def _json_schema_payload(
     schema_name: str,
     profile: OpenRouterProfile,
 ) -> dict[str, object]:
-    projected_document = profile.task == "document_extraction" and (model.startswith("openai/") or model == "google/gemini-3.8-flash")
+    projected_document = profile.task == "document_extraction" and model.startswith(("openai/", "google/"))
     sampling_parameters = (
         {} if projected_document or openrouter_model_tier_for_task(profile.task) == "readout"
         else {"temperature": profile.temperature}
