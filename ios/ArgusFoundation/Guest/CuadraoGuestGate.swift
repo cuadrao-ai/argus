@@ -4,7 +4,7 @@ extension CuadraoFirstRelease {
     /// The "Probar sin cuenta" door. Closed in Release; a development build opens it with `--cuadrao-guest-book`.
     /// Opening it for users is a separate founder approval.
     #if DEBUG
-    static let guestBook = ProcessInfo.processInfo.arguments.contains("--cuadrao-guest-book")
+    static let guestBook = founderPhone || ProcessInfo.processInfo.arguments.contains("--cuadrao-guest-book")
     #else
     static let guestBook = false
     #endif
