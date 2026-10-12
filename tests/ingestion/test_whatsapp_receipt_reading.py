@@ -152,3 +152,59 @@ async def test_no_follow_up_outside_the_service_window() -> None:
     await world.deliver(cases.image("700000000000201", "wamid.READ-OLD"), sent)
     assert extractor.calls == 1
     assert len(world.transport.sent) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_stops_leaves_the_receipt_saved_and_the_owner_unharmed() -> (
+    None
+):
+    world, extractor = _world(switch={"on": True})
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+
+    async def stopped(**_: Any) -> str | None:
+        raise RuntimeError("process stopped")
+
+    world.intake.destination.read = stopped
+    await world.deliver(cases.image("700000000000201", "wamid.READ-STOP"))
+    [connection_id] = world.captures(world.alice)
+    assert _status(world, connection_id) == "queued"
+    assert world.record("wamid.READ-STOP").status == "captured"
+    assert len(world.transport.sent) == 2  # the link and the acknowledgement only
+
+
+@pytest.mark.asyncio
+async def test_a_redelivered_message_sends_one_follow_up() -> None:
+    world, extractor = _world(switch={"on": True})
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+    body = cases.image("700000000000201", "wamid.READ-TWICE")
+    await world.deliver(body)
+    await world.deliver(body)
+    assert extractor.calls == 1
+    assert len([b for b in world.transport.bodies() if b.startswith("Ya leímos")]) == 1
+
+
+@pytest.mark.asyncio
+async def test_with_outbound_off_the_receipt_is_read_and_nothing_is_sent() -> None:
+    world, extractor = _world(switch={"on": True})
+    await world.link(world.alice, ALICE_PHONE)
+    sent_before = len(world.transport.sent)
+    world.intake.send_enabled = lambda: False
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(cases.image("700000000000201", "wamid.READ-QUIET"))
+    [connection_id] = world.captures(world.alice)
+    assert _status(world, connection_id) == "review_ready"
+    assert len(world.transport.sent) == sent_before
+
+
+@pytest.mark.asyncio
+async def test_the_follow_up_carries_fixed_words_and_the_link_only() -> None:
+    world, _ = _world(switch={"on": True})
+    connection_id = await _send(world, "wamid.READ-FIXED")
+    follow_up = world.transport.bodies()[-1]
+    assert follow_up == (
+        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: "
+        f"{cases.ORIGIN}/biz?receipt={connection_id}"
+    )
+    assert "850" not in follow_up and "DOP" not in follow_up
