@@ -33,8 +33,9 @@ enum GuestAccessPolicy {
 
         var isLocal: Bool {
             switch self {
-            case .accounts, .movements, .plans, .search, .calculations, .appearance, .primaryCurrency, .deleteData: true
-            case .assistant, .voiceCapture, .receipts, .files, .households, .invitations, .updates,
+            // Receipts stay on this iPhone: captured, saved and attached by hand, never sent or read by a model.
+            case .accounts, .movements, .plans, .search, .calculations, .appearance, .primaryCurrency, .deleteData, .receipts: true
+            case .assistant, .voiceCapture, .files, .households, .invitations, .updates,
                  .avatarPhoto, .sharing, .debts, .recurringBills, .forecast, .balanceChecks, .refunds: false
             }
         }
@@ -46,14 +47,15 @@ enum GuestAccessPolicy {
     static var hasAssistant: Bool { allows(.assistant) }
 
     /// Rows of the + tray that exist yet. Slices add to this set as the screens behind them land.
-    enum Built: Hashable { case accounts, movements, plans }
-    static let built: Set<Built> = [.accounts, .movements, .plans]
+    enum Built: Hashable { case accounts, movements, plans, receipts }
+    static let built: Set<Built> = [.accounts, .movements, .plans, .receipts]
 
     static func addActions(activeAccounts: Int, built: Set<Built> = GuestAccessPolicy.built) -> [CuadraoAddAction] {
         var actions: [CuadraoAddAction] = []
         if built.contains(.accounts) { actions.append(.account) }
         if built.contains(.movements), activeAccounts > 0 { actions.append(.transaction) }
         if built.contains(.plans), activeAccounts > 0 { actions.append(.plan) }
+        if built.contains(.receipts), allows(.receipts) { actions += [.scanCamera, .choosePhoto, .chooseFile] }
         return actions
     }
 }

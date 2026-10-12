@@ -653,6 +653,16 @@ development build opens it with `--cuadrao-guest-book`. Opening it for users,
 the physical-device checks and a privacy answer review are separate founder
 approvals. This entry authorizes no hosted service, deployment or release.
 
+## October 11, 2026: guest receipts stay on the iPhone
+
+The founder decided, relayed by the coordinator on October 11, that guest and
+signed-in Free are one tier and that the receipt journey is the same for Free and
+Full. For the on-device book this amends the October 9 entry's "no receipts,
+files" only for receipts: a guest captures, saves and attaches a receipt by hand
+on the iPhone. Nothing about a guest goes to the server and no model reads a
+guest receipt. Book data, including receipts, still does not move into an account
+at sign-in. This authorizes no hosted service, deployment or release.
+
 ## October 10, 2026: Business agent direction
 
 The founder approved these points after two audits of the Business core flows:

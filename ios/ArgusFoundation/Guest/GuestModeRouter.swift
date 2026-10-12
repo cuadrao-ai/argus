@@ -58,6 +58,7 @@ private struct GuestModeHost<Content: View>: View {
                 if let model = controller.model {
                     GuestRoot(model: model, appearance: $appearance, webURL: auth.configuration?.webURL,
                               leave: { controller.leave() }, deleteData: { await controller.deleteDataAndLeave() })
+                        .environment(\.guestReceipts, controller.receipts)
                 }
             }
         }

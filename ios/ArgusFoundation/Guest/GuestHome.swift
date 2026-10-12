@@ -15,6 +15,10 @@ enum GuestSheet: Identifiable, Equatable {
     case archived
     case plan(GuestPlanSheet.Mode)
     case contribution(UUID)
+    /// A receipt just kept on this iPhone, offered to a movement.
+    case receiptSaved(UUID)
+    /// Choosing a saved receipt for this movement.
+    case attachReceipt(UUID)
 
     var id: String {
         switch self {
@@ -22,6 +26,8 @@ enum GuestSheet: Identifiable, Equatable {
         case .movement(let mode): "movement." + mode.id
         case .archive(let id): "archive." + id.uuidString
         case .archived: "archived"
+        case .receiptSaved(let id): "receiptSaved." + id.uuidString
+        case .attachReceipt(let id): "attachReceipt." + id.uuidString
         case .plan(let mode): "plan." + mode.id
         case .contribution(let id): "contribution." + id.uuidString
         }
@@ -87,7 +93,8 @@ struct GuestHome: View {
                         restore: { restore(id) })
                 case .movement(let id):
                     GuestMovementDetail(model: model, id: id, spanish: spanish,
-                        edit: { sheet = .movement(.edit(id)) }, delete: { delete(id); path = Array(path.dropLast()) })
+                        edit: { sheet = .movement(.edit(id)) }, delete: { delete(id); path = Array(path.dropLast()) },
+                        attachReceipt: { sheet = .attachReceipt(id) })
                 }
             }
         }

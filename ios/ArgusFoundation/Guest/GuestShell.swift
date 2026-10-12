@@ -68,9 +68,10 @@ struct GuestRoot: View {
 enum GuestDeleteCopy {
     static func title(_ es: Bool) -> String { es ? "¿Eliminar los datos de este iPhone?" : "Delete this iPhone's data?" }
     static func confirm(_ es: Bool) -> String { es ? "Eliminar" : "Delete" }
+    /// Pending approval: receipts were added to the list when the book gained them.
     static func message(_ es: Bool) -> String {
-        es ? "Se borrarán tus cuentas, movimientos, presupuestos y metas de este iPhone. No se puede deshacer."
-            : "Your accounts, activity, budgets and goals on this iPhone will be removed. This can't be undone."
+        es ? "Se borrarán tus cuentas, movimientos, presupuestos, metas y recibos de este iPhone. No se puede deshacer."
+            : "Your accounts, activity, budgets, goals and receipts on this iPhone will be removed. This can't be undone."
     }
     static func failed(_ es: Bool) -> String { es ? "No se pudieron eliminar los datos. Inténtalo de nuevo." : "The data could not be deleted. Try again." }
 }
@@ -93,6 +94,10 @@ struct GuestShell: View {
     @State private var homePath: [GuestRoute] = []
     @State private var planPath: [UUID] = []
     @State private var sheet: GuestSheet?
+    @State private var capturing: ReceiptSourceChoice?
+    @State private var captured: [(data: Data, name: String, pdf: Bool)]?
+    @State private var receiptFailed = false
+    @Environment(\.guestReceipts) private var receipts
     @State private var chat = CuadraoChatPreview(spanish: Locale.current.language.languageCode?.identifier == "es", includeExamples: false)
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
@@ -109,6 +114,17 @@ struct GuestShell: View {
         }
         .environment(\.cuadraoCurrencyRules, GuestCurrencyRules.rules)
         .sheet(item: $sheet) { sheetContent($0) }
+        .fullScreenCover(item: $capturing, onDismiss: {
+            if let files = captured { captured = nil; keep(files) }
+        }) { source in
+            ReceiptNativePicker(source: source, spanish: spanish) { result in
+                capturing = nil
+                if case .success(let files) = result { captured = SavedReceiptFiles.prepared(files, source: source, spanish: spanish) }
+            }.ignoresSafeArea()
+        }
+        .alert(GuestReceiptCopy(spanish: spanish).couldNotSave, isPresented: $receiptFailed) {
+            Button(spanish ? "Entendido" : "Got it", role: .cancel) {}
+        }
         .tint(WelcomePalette.pine)
         .foregroundStyle(WelcomePalette.ink)
         .background(WelcomePalette.background.ignoresSafeArea())
@@ -130,10 +146,29 @@ struct GuestShell: View {
                 case .account: sheet = .account(.create)
                 case .transaction: sheet = .movement(.create(account: nil))
                 case .plan: sheet = .plan(.create)
+                case .scanCamera: capture(.scan)
+                case .choosePhoto: capture(.photos)
+                case .chooseFile: capture(.file)
                 default: break
                 }
             }
         }
+    }
+
+    private func capture(_ source: ReceiptSourceChoice) {
+        #if DEBUG
+        if CuadraoFirstRelease.savedReceiptsSample {
+            keep(SampleSavedReceiptsTransport.files(for: source))
+            return
+        }
+        #endif
+        capturing = source == .scan && !SavedReceiptFiles.scannerAvailable ? .photos : source
+    }
+
+    /// Keeps the files on this iPhone and offers the first to a movement.
+    private func keep(_ files: [(data: Data, name: String, pdf: Bool)]) {
+        guard let receipts, let saved = try? receipts.save(files), let first = saved.first else { receiptFailed = true; return }
+        sheet = .receiptSaved(first.id)
     }
 
     @ViewBuilder private func sheetContent(_ sheet: GuestSheet) -> some View {
@@ -151,6 +186,15 @@ struct GuestShell: View {
             GuestPlanSheet(model: model, mode: mode, spanish: spanish).preferredColorScheme(appearance.colorScheme)
         case .contribution(let id):
             GuestContributionSheet(model: model, planID: id, spanish: spanish).preferredColorScheme(appearance.colorScheme)
+        case .receiptSaved(let id):
+            if let receipts {
+                GuestReceiptSavedSheet(store: receipts, model: model, receiptID: id, spanish: spanish).preferredColorScheme(appearance.colorScheme)
+            }
+        case .attachReceipt(let movementID):
+            if let receipts {
+                GuestAttachReceiptSheet(store: receipts, model: model, movementID: movementID, spanish: spanish)
+                    .preferredColorScheme(appearance.colorScheme)
+            }
         }
     }
 

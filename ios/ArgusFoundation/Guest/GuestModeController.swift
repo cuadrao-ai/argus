@@ -12,6 +12,8 @@ final class GuestModeController: ObservableObject {
     @Published private(set) var model: GuestBookModel? {
         didSet { follow(model) }
     }
+    /// The book's receipts, kept beside it on this iPhone.
+    @Published private(set) var receipts: GuestReceiptStore?
     private let directory: URL
     private var phaseObservation: AnyCancellable?
 
@@ -25,7 +27,7 @@ final class GuestModeController: ObservableObject {
         #endif
         self.directory = directory
         active = UserDefaults.standard.bool(forKey: Self.activeKey)
-        if active { model = GuestBookModel(store: BookStore(directory: directory)) }
+        if active { open() }
         follow(model)
     }
 
@@ -44,7 +46,7 @@ final class GuestModeController: ObservableObject {
 
     /// Opens the book, creating it on the first save. Nothing is sent anywhere.
     func enter() {
-        if model == nil { model = GuestBookModel(store: BookStore(directory: directory)) }
+        if model == nil { open() }
         set(active: true)
     }
 
@@ -52,12 +54,18 @@ final class GuestModeController: ObservableObject {
     func leave() {
         set(active: false)
         model = nil
+        receipts = nil
+    }
+
+    private func open() {
+        model = GuestBookModel(store: BookStore(directory: directory))
+        receipts = GuestReceiptStore(bookDirectory: directory)
     }
 
     /// Deletes the book from this iPhone, then leaves it. False when the files could not be removed.
     func deleteDataAndLeave() async -> Bool {
         let removed = await model?.deleteEverything() ?? true
-        if removed { leave() }
+        if removed { receipts?.forget(); leave() }
         return removed
     }
 

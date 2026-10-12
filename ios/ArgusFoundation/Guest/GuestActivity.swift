@@ -71,7 +71,9 @@ struct GuestMovementDetail: View {
     let spanish: Bool
     let edit: () -> Void
     let delete: () -> Void
+    var attachReceipt: () -> Void = {}
     @Environment(\.locale) private var locale
+    @Environment(\.guestReceipts) private var receipts
 
     var body: some View {
         if let movement = model.book.movement(id), !movement.deleted {
@@ -100,6 +102,9 @@ struct GuestMovementDetail: View {
                         if let category = movement.category {
                             line(spanish ? "Categoría" : "Category", GuestMovementPresentation.categoryTitle(category, spanish: spanish))
                         }
+                    }
+                    if let receipts {
+                        GuestMovementReceiptActions(store: receipts, movementID: id, spanish: spanish, attach: attachReceipt)
                     }
                     VStack(spacing: 0) {
                         CanvasActionRow(title: spanish ? "Editar movimiento" : "Edit transaction", symbol: "pencil", action: edit)

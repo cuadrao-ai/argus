@@ -942,8 +942,13 @@ iPhone: accounts, movements, budgets, goals, search and plan what-ifs typed by h
 It is a mode above authentication, not a sign-in state, and it shares the approved
 Home, Plan, Search and Profile views rather than a second set.
 
-- No network call, account, invitation code, assistant, voice, receipts, files,
-  household, Updates bell or avatar photo. Dictation is the system keyboard's.
+- No network call, account, invitation code, assistant, voice, files, household,
+  Updates bell or avatar photo. Dictation is the system keyboard's.
+- Receipts stay on this iPhone ([October 11 amendment](../../../docs/specs/argus-decision-log.md#october-11-2026-guest-receipts-stay-on-the-iphone)).
+  The + tray's camera, photo and file rows keep the file in the book's folder and
+  say *Recibo guardado en este iPhone*. The person may attach it to a recent
+  movement then, or later from the movement, which can view or remove it. No model
+  reads it and nothing is sent. Deleting this iPhone's data deletes the receipts.
 - Empty Home offers one first-account invitation, as signed-in Home does. Profile
   offers Create account and Sign in, appearance, preferred currency, Terms and
   Privacy, and **Eliminar los datos de este iPhone / Delete this iPhone's data**,
