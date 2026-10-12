@@ -4,7 +4,7 @@ import json
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
@@ -14,6 +14,7 @@ from argus.domain.business.contracts.facts import (
     FactInput,
     Funding,
 )
+from argus.domain.business.contracts.recovery import BusinessModelOutputInvalid
 from argus.domain.capability_registry import get_tool_catalog
 from argus.llm.openrouter import invoke_openrouter_json_schema
 
@@ -129,16 +130,19 @@ async def interpret_business_turn(
     model = model_name or BUSINESS_MODEL_CANDIDATES[0]
     if model not in BUSINESS_MODEL_CANDIDATES:
         raise ValueError("Business runtime model is not an authorized candidate")
-    result = await invoke_openrouter_json_schema(
-        task="interpretation",
-        messages=business_interpretation_prompt(payload),
-        schema_model=BusinessInterpretation,
-        schema_name="BusinessInterpretation",
-        model_name=model,
-    )
-    if result is None:
-        raise RuntimeError("business_interpreter_unavailable")
-    return BusinessInterpretation.model_validate(result)
+    try:
+        result = await invoke_openrouter_json_schema(
+            task="interpretation",
+            messages=business_interpretation_prompt(payload),
+            schema_model=BusinessInterpretation,
+            schema_name="BusinessInterpretation",
+            model_name=model,
+        )
+        if result is None:
+            raise RuntimeError("business_interpreter_unavailable")
+        return BusinessInterpretation.model_validate(result)
+    except ValidationError:
+        raise BusinessModelOutputInvalid() from None
 
 
 class BusinessReply(Contract):

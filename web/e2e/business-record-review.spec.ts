@@ -292,3 +292,17 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
     await capture(page, `${scenario}-spanish`);
   });
 }
+
+test("landing on a record, the person can still open the overview, inbox and expenses", async ({ page }) => {
+  await openRecord(page, dossierFixtureIds.ready);
+  const nav = page.getByTestId("business-sidebar-nav");
+  const panel = page.getByTestId("workspace-panel-region");
+  await nav.getByRole("button", { name: /^Inbox/ }).click();
+  await expect(panel.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: /Ferretería La Esquina/ }).first()).toBeVisible();
+  await nav.getByRole("button", { name: /^Expenses/ }).click();
+  await expect(panel.getByRole("heading", { name: "Expenses", exact: true })).toBeVisible();
+  await nav.getByRole("button", { name: /^Overview|^Home/ }).click();
+  await expect(panel.getByRole("heading", { level: 2 }).first()).toBeVisible();
+  await expect(panel).not.toContainText("couldn't load");
+});

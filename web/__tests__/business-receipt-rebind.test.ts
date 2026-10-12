@@ -5,8 +5,36 @@ import { join } from "node:path";
 import { rebindAndPrepare } from "@/components/business-app/receipt-rebind";
 import type { ReceiptDetail, ReceiptSummary } from "@/lib/business-api";
 
-const detail = (status: ReceiptDetail["status"], error_code: string | null): ReceiptDetail =>
-  ({ id: "r1", status, error_code, draft_id: null, version: 1, capabilities: ["read", "prepare", "approve"], accounts: [], missing_fields: [] }) as unknown as ReceiptDetail;
+const detail = (status: ReceiptDetail["status"], error_code: string | null): ReceiptDetail => ({
+  id: "r1",
+  channel: "web",
+  filename: "recibo.png",
+  source_text: null,
+  media_type: "image/png",
+  size_bytes: 70,
+  received_at: "2026-10-12T20:26:00Z",
+  status,
+  error_code,
+  attention: null,
+  duplicate_of: null,
+  replayed: false,
+  preparable: false,
+  enterable: true,
+  expense_id: null,
+  merchant: null,
+  occurred_on: null,
+  amount: null,
+  currency: null,
+  category_id: null,
+  account_id: null,
+  email_delivery_ids: [],
+  email_original: false,
+  record_context: { space_id: "50000000-0000-4000-8000-000000000001", space_name: "Taller", accounts: [], capabilities: ["read", "prepare", "approve"] },
+  draft_id: null,
+  version: 1,
+  evidence: null,
+  missing_fields: [],
+});
 
 test("the bind action moves the binding, prepares again and shows each step's detail", async () => {
   const calls: string[] = [];

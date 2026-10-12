@@ -147,6 +147,7 @@ def test_every_outcome_code_has_a_reply_without_long_dashes() -> None:
         "whatsapp_sender_not_linked",
         "whatsapp_receipt_missing",
         "whatsapp_message_unsupported",
+        "whatsapp_ai_consent_missing",
         "whatsapp_media_unsupported",
         "whatsapp_media_too_large",
         "whatsapp_media_invalid",

@@ -1118,3 +1118,23 @@ async def test_final_validator_captured_alias_cannot_change_intercepted_http_aft
     assert events == ["validator", "access"]
     assert dispatched == [{"model": "approved", "provider": {"order": ["disclosed"]}}]
     assert dispatched[0] is not captured[0]
+
+
+@pytest.mark.asyncio
+async def test_an_invalid_model_answer_is_typed_not_a_generic_failure(monkeypatch) -> None:
+    from argus.agent_runtime.business import interpretation
+    from argus.domain.business.contracts.recovery import BusinessModelOutputInvalid
+
+    async def invalid(**_: object) -> dict:
+        return {"records": "not a list"}
+
+    monkeypatch.setattr(interpretation, "invoke_openrouter_json_schema", invalid)
+    with pytest.raises(BusinessModelOutputInvalid):
+        await interpretation.interpret_business_turn({})
+
+    async def unavailable(**_: object) -> None:
+        return None
+
+    monkeypatch.setattr(interpretation, "invoke_openrouter_json_schema", unavailable)
+    with pytest.raises(RuntimeError, match="business_interpreter_unavailable"):
+        await interpretation.interpret_business_turn({})
