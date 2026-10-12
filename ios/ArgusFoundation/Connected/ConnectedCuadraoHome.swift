@@ -67,12 +67,12 @@ struct ConnectedCuadraoHome: View {
                     Text(LocalizedStringKey(recoveryError)).foregroundStyle(.secondary)
                 }
                 if let error = accounts.errorKey {
-                    Text(LocalizedStringKey(error)).foregroundStyle(.secondary)
-                    Button("accounts.retry") { Task { await accounts.load() } }.frame(minHeight: 44)
+                    CuadraoRetryState(message: LocalizedStringKey(error), spanish: spanish, identifier: "accounts.error",
+                                      retryIdentifier: "accounts.retry") { Task { await accounts.load() } }
                 }
                 if let error = plan.homeErrorKey {
-                    Text(LocalizedStringKey(error)).foregroundStyle(.secondary)
-                    Button("accounts.retry") { Task { await loop.refresh() } }.frame(minHeight: 44)
+                    CuadraoRetryState(message: LocalizedStringKey(error), spanish: spanish, identifier: "home.error",
+                                      retryIdentifier: "home.retry") { Task { await loop.refresh() } }
                 }
             } section: { homeSection($0) }
             .accessibilityIdentifier("screen.home")

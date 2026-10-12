@@ -3,7 +3,7 @@ import XCTest
 /// A save shows its result: the sheet closes, a short notice names what happened, and "Ver" opens the new row.
 extension FinancialLoopUITests {
     func testGuestSaveShowsANoticeAndViewOpensTheNewMovement() throws {
-        launchSignedOut(arguments: ["--cuadrao-guest-book"])
+        launchSignedOut(arguments: ["--cuadrao-guest-book", "--toasts-on"])
         enterGuestBook()
         app.buttons["nav.add"].tap()
         XCTAssertTrue(app.buttons["add.tray.account"].waitForExistence(timeout: 5))
@@ -33,5 +33,31 @@ extension FinancialLoopUITests {
         app.buttons["toast.view"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10), "View opens the new movement")
         XCTAssertTrue(notice.waitForNonExistence(timeout: 5), "the notice leaves once used")
+    }
+}
+
+/// A receipt kept before any movement exists still leads somewhere: the sheet offers to add the movement.
+extension FinancialLoopUITests {
+    func testGuestReceiptWithNoMovementsOffersToAddOne() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-saved-receipts-sample"])
+        enterGuestBook()
+        app.buttons["nav.add"].tap()
+        app.buttons["add.tray.account"].tap()
+        XCTAssertTrue(app.buttons["guest.account.type.cash"].waitForExistence(timeout: 10))
+        app.buttons["guest.account.type.cash"].tap()
+        app.textFields["guest.account.name"].tap()
+        app.textFields["guest.account.name"].typeText("Efectivo")
+        dismissGuestKeyboard()
+        app.buttons["guest.account.save"].tap()
+        XCTAssertTrue(app.buttons["guest.account.save"].waitForNonExistence(timeout: 10))
+        app.buttons["nav.add"].tap()
+        XCTAssertTrue(app.buttons["add.tray.choosePhoto"].waitForExistence(timeout: 5))
+        app.buttons["add.tray.choosePhoto"].tap()
+        XCTAssertTrue(app.staticTexts["Receipt saved on this iPhone"].waitForExistence(timeout: 10))
+        let addMovement = app.buttons["guest.receipt.addMovement"]
+        XCTAssertTrue(addMovement.waitForExistence(timeout: 5), "no movement to attach to, so the sheet offers one")
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "guest-receipt-saved-no-movements-en"; image.lifetime = .keepAlways; add(image)
+        addMovement.tap()
+        XCTAssertTrue(app.buttons["guest.movement.save"].waitForExistence(timeout: 10), "the movement sheet opens")
     }
 }

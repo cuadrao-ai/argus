@@ -24,10 +24,9 @@ struct AccountActivityView: View {
             Text(spanish ? "Movimientos" : "Activity").font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
             if page.loading && page.activity.isEmpty { CuadraoSkeleton(layout: .rows(3), identifier: "accounts.activity.loading") }
             if let error = page.errorKey {
-                Text(LocalizedStringKey(error)).foregroundStyle(.secondary)
-                    .accessibilityIdentifier("accounts.activity.error")
-                Button("accounts.retry") { Task { await loop.open(account) } }.frame(minHeight: 44)
-                    .disabled(page.loading).accessibilityIdentifier("accounts.activity.retry")
+                CuadraoRetryState(message: LocalizedStringKey(error), spanish: spanish, identifier: "accounts.activity.error",
+                                  retryIdentifier: "accounts.activity.retry") { Task { await loop.open(account) } }
+                    .disabled(page.loading)
             }
             if page.activity.isEmpty, loop.accountReads[account.id] != nil, !page.loading, page.errorKey == nil {
                 VStack(alignment: .leading, spacing: 8) {

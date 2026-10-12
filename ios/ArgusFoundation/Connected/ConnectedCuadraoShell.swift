@@ -6,6 +6,7 @@ struct ConnectedCuadraoShell: View {
     @EnvironmentObject private var auth: ProfileAuthModel
     @Environment(\.locale) private var locale
     @State private var tab: CuadraoTab = .home
+    @StateObject private var connectivity = CuadraoConnectivity()
     @State private var destination: AppDestination = .home
     @State private var sheet: FoundationSheet?
     @State private var navigationScroll = CuadraoNavigationScroll()
@@ -126,6 +127,7 @@ struct ConnectedCuadraoShell: View {
             chat: chat,
             spanish: spanish
         )
+        .cuadraoOfflineBanner(connectivity, spanish: spanish)
         .tint(WelcomePalette.pine)
         .foregroundStyle(WelcomePalette.ink)
         .background(WelcomePalette.background.ignoresSafeArea())

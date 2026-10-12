@@ -16,6 +16,8 @@ struct CuadraoDesignGallery: View {
     @State private var distribution = false
     @State private var period: CanvasHistoryRange = .month
     @State private var toast: CuadraoToastMessage?
+    @StateObject private var connectivity = CuadraoConnectivity()
+    @State private var retries = 0
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -27,6 +29,11 @@ struct CuadraoDesignGallery: View {
                         Text(spanish ? "Se siente Cuadrao." : "Feels like Cuadrao.").font(CuadraoTypography.screen)
                         Text(spanish ? "El mismo lenguaje, en cada espacio." : "One language across every space.")
                             .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
+                    }
+                    sample(spanish ? "Sin conexión" : "Offline") {
+                        Text(spanish ? "Lo último guardado se queda a la vista." : "What was last saved stays in view.")
+                            .font(CuadraoTypography.body).frame(maxWidth: .infinity, minHeight: 90, alignment: .bottomLeading)
+                            .cuadraoOfflineBanner(connectivity, spanish: spanish)
                     }
                     sample(spanish ? "Tipografía" : "Typography") {
                         Text(spanish ? "Tu panorama." : "Your overview.").font(CuadraoTypography.feature)
@@ -103,6 +110,11 @@ struct CuadraoDesignGallery: View {
                             Button(spanish ? "Alerta" : "Warning") { CuadraoHaptics.warning() }.frame(minHeight: 44)
                             Button(spanish ? "Selección" : "Selection") { CuadraoHaptics.selection() }.frame(minHeight: 44)
                         }
+                    }
+                    sample(spanish ? "No se pudo cargar" : "Could not load") {
+                        CuadraoRetryState(message: "loop.error.connection", spanish: spanish, identifier: "gallery-retry-state",
+                                          retryIdentifier: "gallery-retry-action") { retries += 1; CuadraoHaptics.selection() }
+                        Text("\(retries)").font(CuadraoTypography.caption).foregroundStyle(.secondary).accessibilityIdentifier("gallery-retry-count")
                     }
                     sample(spanish ? "Carga en curso" : "Loading in progress") {
                         CuadraoChartState(title: spanish ? "Reuniendo tu historia" : "Gathering your history",

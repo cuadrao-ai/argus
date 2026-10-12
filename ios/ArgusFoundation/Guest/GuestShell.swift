@@ -204,7 +204,10 @@ struct GuestShell: View {
 
     /// Keeps the files on this iPhone and offers the first to a movement.
     private func keep(_ files: [(data: Data, name: String, pdf: Bool)]) {
-        guard let receipts, let saved = try? receipts.save(files), let first = saved.first else { receiptFailed = true; return }
+        guard let receipts, let saved = try? receipts.save(files), let first = saved.first else {
+            CuadraoHaptics.warning(); receiptFailed = true; return
+        }
+        CuadraoHaptics.success()
         sheet = .receiptSaved(first.id)
     }
 
@@ -225,7 +228,8 @@ struct GuestShell: View {
             GuestContributionSheet(model: model, planID: id, spanish: spanish).preferredColorScheme(appearance.colorScheme)
         case .receiptSaved(let id):
             if let receipts {
-                GuestReceiptSavedSheet(store: receipts, model: model, receiptID: id, spanish: spanish).preferredColorScheme(appearance.colorScheme)
+                GuestReceiptSavedSheet(store: receipts, model: model, receiptID: id, spanish: spanish,
+                                       addMovement: { self.sheet = .movement(.create(account: nil)) }).preferredColorScheme(appearance.colorScheme)
             }
         case .attachReceipt(let movementID):
             if let receipts {

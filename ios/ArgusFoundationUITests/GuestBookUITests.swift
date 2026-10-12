@@ -20,7 +20,7 @@ extension FinancialLoopUITests {
         app.terminate()
         let locale = language == "es-419" ? ["-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO"]
                                           : ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
-        app.launchArguments = locale + ["-appearancePreference", "light", "--toasts-stay"] + arguments + (reset ? ["--cuadrao-guest-reset"] : [])
+        app.launchArguments = locale + ["-appearancePreference", "light", "--toasts-stay", "--toasts-off"] + arguments + (reset ? ["--cuadrao-guest-reset"] : [])
         app.launch()
         if !app.buttons["cuadrao.welcome.signin"].waitForExistence(timeout: 8), app.buttons["header.profile"].exists {
             app.buttons["header.profile"].tap()

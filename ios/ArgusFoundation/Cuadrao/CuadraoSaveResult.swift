@@ -12,7 +12,7 @@ final class CuadraoSaveResult: ObservableObject {
     func saved(_ text: String, highlight id: UUID? = nil, actionTitle: String? = nil, actionIdentifier: String = "toast.action",
                action: (() -> Void)? = nil) {
         CuadraoHaptics.success()
-        show(text, actionTitle: actionTitle, actionIdentifier: actionIdentifier, action: action)
+        if !Self.suppressedForUITests { show(text, actionTitle: actionTitle, actionIdentifier: actionIdentifier, action: action) }
         highlight(id)
     }
 
@@ -25,6 +25,16 @@ final class CuadraoSaveResult: ObservableObject {
     func failed() { CuadraoHaptics.warning() }
 
     func dismiss() { toast = nil }
+
+    /// Long journeys tap rows under the bottom notice, so they run without save notices; the notice tests ask for them.
+    private static var suppressedForUITests: Bool {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("--toasts-off") && !arguments.contains("--toasts-on")
+        #else
+        false
+        #endif
+    }
 
     private func show(_ text: String, actionTitle: String?, actionIdentifier: String, action: (() -> Void)?) {
         toast = CuadraoToastMessage(text: text, actionTitle: actionTitle, actionIdentifier: actionIdentifier, action: action)

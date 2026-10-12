@@ -55,6 +55,23 @@ final class CuadraoSkeletonToastUITests: XCTestCase {
         shot(app, "toast-large-text-es")
     }
 
+    func testOfflineBannerShowsThenClearsAndRetryTemplateRuns() {
+        continueAfterFailure = false
+        let app = XCUIApplication.cuadraoPreview()
+        app.launchArguments = CuadraoPreviewLaunch.arguments + ["--design-gallery", "--simulate-offline", "-cuadrao.design.appearance", "light"]
+        app.launch()
+        app.switches["gallery-reduce-motion"].tap()
+        let banner = app.descendants(matching: .any)["cuadrao.offline.banner"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 5), "the strip shows while offline")
+        shot(app, "offline-banner-light-es")
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 20), "the strip clears when the network returns")
+        let retry = app.buttons["gallery-retry-action"]
+        reveal(app, retry)
+        shot(app, "retry-state-light-es")
+        retry.tap()
+        XCTAssertEqual(app.staticTexts["gallery-retry-count"].label, "1")
+    }
+
     private func shot(_ app: XCUIApplication, _ name: String) {
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = name; image.lifetime = .keepAlways; add(image)
     }

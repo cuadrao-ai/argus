@@ -12,6 +12,10 @@ struct GuestReceiptCopy {
     }
     var attachTo: String { spanish ? "Adjuntar a un movimiento" : "Attach to a movement" }
     var noMovements: String { spanish ? "Aún no tienes movimientos." : "You have no movements yet." }
+    var addMovement: String { spanish ? "Añadir movimiento" : "Add movement" }
+    var keptInReceipts: String {
+        spanish ? "El recibo queda guardado en este iPhone. Lo encuentras en Recibos." : "The receipt stays on this iPhone. You find it in Receipts."
+    }
     var attachTitle: String { spanish ? "Adjuntar recibo" : "Attach receipt" }
     var noReceipts: String {
         spanish ? "No tienes recibos sin adjuntar. Toca + para guardar uno." : "You have no unattached receipts. Tap + to save one."
@@ -50,6 +54,8 @@ struct GuestReceiptSavedSheet: View {
     @ObservedObject var model: GuestBookModel
     let receiptID: UUID
     let spanish: Bool
+    /// Opens a new movement when the book has none to attach to, so the sheet never ends on a bare sentence.
+    var addMovement: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
 
@@ -65,6 +71,10 @@ struct GuestReceiptSavedSheet: View {
                     GuestMovementChoices(model: model, spanish: spanish) { movementID in
                         try? store.attach(receiptID, to: movementID)
                         dismiss()
+                    }
+                    if model.book.liveMovements().isEmpty, let addMovement {
+                        Text(copy.keptInReceipts).font(CuadraoTypography.supporting).foregroundStyle(.secondary)
+                        RegistrationButton(title: copy.addMovement) { addMovement() }.accessibilityIdentifier("guest.receipt.addMovement")
                     }
                 }.padding(24)
             }

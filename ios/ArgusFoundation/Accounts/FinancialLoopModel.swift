@@ -428,6 +428,7 @@ final class FinancialLoopModel: ObservableObject {
             bind(snapshot); sessionChanged?(snapshot)
         } else if let accountID, accountReads[accountID]?.request == request {
             accountReads[accountID]?.errorKey = FinancialEditor.message(error)
+            CuadraoHaptics.warning()
         }
     }
 }
