@@ -293,6 +293,18 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
   });
 }
 
+test("landing on a record, the person can still open the overview, inbox and expenses", async ({ page }) => {
+  await openRecord(page, dossierFixtureIds.ready);
+  const nav = page.getByTestId("business-sidebar-nav");
+  const panel = page.getByTestId("workspace-panel-region");
+  await nav.getByRole("button", { name: /^Inbox/ }).click();
+  await expect(panel.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: /Ferretería La Esquina/ }).first()).toBeVisible();
+  await nav.getByRole("button", { name: /^Expenses/ }).click();
+  await expect(panel.getByRole("heading", { name: "Expenses", exact: true })).toBeVisible();
+  await nav.getByRole("button", { name: /^Overview|^Home/ }).click();
+  await expect(panel.getByRole("heading", { level: 2 }).first()).toBeVisible();
+  await expect(panel).not.toContainText("couldn't load");
 test("after approving from the inbox, the home card and the inbox count change without a reload", async ({ page }) => {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
   await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: true });
