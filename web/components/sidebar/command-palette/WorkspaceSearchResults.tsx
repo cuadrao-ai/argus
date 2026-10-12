@@ -7,6 +7,7 @@ import { panelFailureIconClass } from "@/lib/failure-treatment";
 import { searchQueryIsIndexable } from "@/lib/search-text";
 
 const DEBOUNCE_MS = 200;
+export const HOVER_PREVIEW_MS = 200;
 const HIT = "data-workspace-hit";
 
 export type WorkspaceSearchState =
@@ -104,6 +105,13 @@ export function WorkspaceSearchResults({
   selectedKey?: string;
 }) {
   const { copy } = search;
+  // Hover waits a beat so a pointer crossing the list does not fetch every record.
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelHover = () => {
+    if (hoverTimer.current !== null) clearTimeout(hoverTimer.current);
+    hoverTimer.current = null;
+  };
+  useEffect(() => cancelHover, []);
   if (state.status === "idle") return null;
   if (state.status === "loading") {
     return (
@@ -149,10 +157,17 @@ export function WorkspaceSearchResults({
                 {...{ [HIT]: "" }}
                 data-row-action
                 aria-pressed={onSelect && hit.preview ? selectedKey === `${group.id}:${hit.id}` : undefined}
-                onMouseEnter={hit.preview ? () => onPreview?.(group.id, hit) : undefined}
+                onMouseEnter={hit.preview && onPreview ? () => {
+                  cancelHover();
+                  hoverTimer.current = setTimeout(() => onPreview(group.id, hit), HOVER_PREVIEW_MS);
+                } : undefined}
+                onMouseLeave={hit.preview ? cancelHover : undefined}
                 onFocus={hit.preview ? () => onPreview?.(group.id, hit) : undefined}
-                onClick={() => {
-                  if (onSelect && hit.preview) {
+                onClick={(event) => {
+                  cancelHover();
+                  // One pointer click or tap keeps the record in the pane; Enter,
+                  // Space and a double click open it, as every row did before.
+                  if (onSelect && hit.preview && event.detail === 1) {
                     onSelect(group.id, hit);
                     return;
                   }

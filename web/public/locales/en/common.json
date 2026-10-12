@@ -2470,6 +2470,7 @@
       "placeholder": "Search expenses, receipts and chats",
       "placeholder_records": "Search expenses and receipts",
       "open_record": "Open record",
+      "record_unavailable": "This record isn't available.",
       "no_results_hint": "Try a merchant or a file name.",
       "region": "Business records",
       "loading": "Searching your business",

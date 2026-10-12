@@ -6,7 +6,7 @@ import { I18nextProvider } from "react-i18next";
 import { Banknote, FileText, ImageIcon } from "lucide-react";
 
 import type { WorkspaceSearch, WorkspaceSearchGroup } from "../components/chat/ChatWorkspace";
-import { WorkspaceSearchResults } from "../components/sidebar/command-palette/WorkspaceSearchResults";
+import { HOVER_PREVIEW_MS, WorkspaceSearchResults } from "../components/sidebar/command-palette/WorkspaceSearchResults";
 import type { BusinessDataSource } from "../components/business-app/business-data";
 import { periodContaining } from "../components/business-app/business-format";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
@@ -202,7 +202,7 @@ describe("original note search", () => {
   });
 });
 
-type Element = { type: unknown; props: { children?: unknown; onMouseEnter?: () => void; onFocus?: () => void; onClick?: () => void; "aria-pressed"?: boolean } };
+type Element = { type: unknown; props: { children?: unknown; onMouseEnter?: () => void; onMouseLeave?: () => void; onFocus?: () => void; onClick?: (event: { detail: number }) => void; "aria-pressed"?: boolean } };
 function buttonsOf(node: unknown, found: Element[] = []): Element[] {
   if (Array.isArray(node)) { node.forEach((child) => buttonsOf(child, found)); return found; }
   if (!node || typeof node !== "object") return found;
@@ -216,28 +216,52 @@ describe("record preview in the results", () => {
   const hit = { id: "exp-1", icon: Banknote, title: "Ferretería", detail: "", amount: null, open: () => undefined };
   const groups: WorkspaceSearchGroup[] = [{ id: "expenses", label: "Expenses", hits: [{ ...hit, preview: <p>record</p> }, { ...hit, id: "exp-2" }] }];
 
-  test("hover and focus preview a hit; click and Enter keep it selected instead of leaving", () => {
+  function rowsWith(handlers: { onPreview?: (group: string, item: { id: string }) => void; onSelect?: (group: string, item: { id: string }) => void; onOpened?: () => void }) {
+    let tree: unknown = null;
+    function Probe() {
+      tree = WorkspaceSearchResults({ search, state: { status: "ready", groups }, retry: noop, onOpened: handlers.onOpened ?? noop, onPreview: handlers.onPreview, onSelect: handlers.onSelect, selectedKey: "expenses:exp-1" });
+      return null;
+    }
+    renderToStaticMarkup(<Probe />);
+    return buttonsOf(tree);
+  }
+
+  test("focus previews at once; a single click selects; Enter and a double click open the record", () => {
     const previews: string[] = [];
     const selections: string[] = [];
     let opened = 0;
-    const tree = WorkspaceSearchResults({ search, state: { status: "ready", groups }, retry: noop, onOpened: () => { opened += 1; }, onPreview: (group, item) => previews.push(`${group}:${item.id}`), onSelect: (group, item) => selections.push(`${group}:${item.id}`), selectedKey: "expenses:exp-1" });
-    const [withPreview, withoutPreview] = buttonsOf(tree);
-    withPreview.props.onMouseEnter?.();
+    const [withPreview, withoutPreview] = rowsWith({ onOpened: () => { opened += 1; }, onPreview: (group, item) => previews.push(`${group}:${item.id}`), onSelect: (group, item) => selections.push(`${group}:${item.id}`) });
     withPreview.props.onFocus?.();
-    withPreview.props.onClick?.();
-    assert.deepEqual(previews, ["expenses:exp-1", "expenses:exp-1"]);
+    assert.deepEqual(previews, ["expenses:exp-1"]);
+    withPreview.props.onClick?.({ detail: 1 });
     assert.deepEqual(selections, ["expenses:exp-1"]);
-    assert.equal(withPreview.props["aria-pressed"], true);
     assert.equal(opened, 0);
+    assert.equal(withPreview.props["aria-pressed"], true);
+    withPreview.props.onClick?.({ detail: 0 });
+    withPreview.props.onClick?.({ detail: 2 });
+    assert.equal(opened, 2);
     assert.equal(withoutPreview.props.onMouseEnter, undefined);
-    withoutPreview.props.onClick?.();
-    assert.equal(opened, 1);
+    withoutPreview.props.onClick?.({ detail: 1 });
+    assert.equal(opened, 3);
+  });
+
+  test("hover previews after a short delay and a leave before it cancels", async () => {
+    const previews: string[] = [];
+    const [row] = rowsWith({ onPreview: (group, item) => previews.push(`${group}:${item.id}`) });
+    row.props.onMouseEnter?.();
+    row.props.onMouseLeave?.();
+    await new Promise((resolve) => setTimeout(resolve, HOVER_PREVIEW_MS + 50));
+    assert.deepEqual(previews, []);
+    row.props.onMouseEnter?.();
+    assert.deepEqual(previews, []);
+    await new Promise((resolve) => setTimeout(resolve, HOVER_PREVIEW_MS + 50));
+    assert.deepEqual(previews, ["expenses:exp-1"]);
   });
 
   test("without a preview handler a click opens the record as before", () => {
     let opened = 0;
-    const tree = WorkspaceSearchResults({ search, state: { status: "ready", groups }, retry: noop, onOpened: () => { opened += 1; } });
-    buttonsOf(tree)[0].props.onClick?.();
+    const [row] = rowsWith({ onOpened: () => { opened += 1; } });
+    row.props.onClick?.({ detail: 1 });
     assert.equal(opened, 1);
   });
 

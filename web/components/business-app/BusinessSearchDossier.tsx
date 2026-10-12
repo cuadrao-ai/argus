@@ -30,7 +30,7 @@ export default function BusinessSearchDossier({ record, source, accounts }: { re
     <h2 className="font-display text-2xl font-medium">{summary.merchant ?? (record.kind === "receipt" ? record.receipt.filename : null) ?? t(record.kind === "receipt" ? "business.receipt.untitled" : "business.expenses.no_merchant", record.kind === "receipt" ? "Receipt" : "Expense")}</h2>
     {record.kind === "receipt" ? <StatusPill status={record.receipt.status} /> : null}
     {summary.amount ? <p className="text-3xl font-medium tabular-nums">{formatMoney(summary.amount, summary.currency, locale)}</p> : null}
-    <Field label={t("business.review.date", "Date")}>{summary.occurred_on ? formatDay(summary.occurred_on, locale) : "—"}</Field>
+    <Field label={t("business.review.date", "Date")}>{summary.occurred_on ? formatDay(summary.occurred_on, locale) : t("business.dossier.unknown", "Unknown")}</Field>
     <Field label={t("business.review.category", "Category")}><CategoryName id={summary.category_id} /></Field>
     {receiptId ? <ReceiptPreview receiptId={receiptId} source={source} /> : <p className="text-sm text-black/55 dark:text-white/55">{t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</p>}
   </section>;
@@ -83,7 +83,7 @@ function NotePreview({ note, source, accounts }: { note: BusinessCapture; source
       <blockquote className="whitespace-pre-wrap break-words border-l-2 border-black/10 pl-3 text-[15px] leading-relaxed text-black/80 dark:border-white/15 dark:text-white/80">{note.text}</blockquote>
     </div>
     <p className="text-sm text-black/55 dark:text-white/55">{t("business.dossier.revision", "Revision {{version}}", { version: note.version })} · {t(`business.dossier.state.${note.review_state}`, note.review_state)}</p>
-    {failed ? <p role="alert" className="text-sm">{t("business.dossier.missing_draft", "This record isn't available.")}</p> : dossier ? <>
+    {failed ? <p role="alert" className="text-sm">{t("business.search.record_unavailable", "This record isn't available.")}</p> : dossier ? <>
       <ReceiptRecordFacts dossier={dossier} accounts={[...accounts]} />
       <ReceiptMessages sources={dossier.sources} />
     </> : <LoadingRows rows={4} />}
