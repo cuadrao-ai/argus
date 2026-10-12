@@ -16,8 +16,9 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     for name in ("AccountsModel.swift", "FinancialLoopModel.swift", "FinancialObservationRead.swift", "FinancialActivityEditor.swift", "AccountEntry.swift"):
         shutil.copy(root / "ios/ArgusFoundation/Accounts" / name, source / name)
     asset = (root / "ios/ArgusFoundation/Accounts/FinancialAssetEditor.swift").read_text()
-    (source / "FinancialAssetEditor.swift").write_text(asset[:asset.index("struct AssetShareControl: View {")])
-    percent = asset[asset.index("    static func percent("):asset.index("    var body:", asset.index("struct AssetShareControl:"))]
+    (source / "FinancialAssetEditor.swift").write_text(asset)
+    form = (root / "ios/ArgusFoundation/Accounts/FinancialAssetForm.swift").read_text()
+    percent = form[form.index("    static func percent("):form.index("    var body:", form.index("struct AssetShareControl:"))]
     (source / "AssetShareControl.swift").write_text("import Foundation\nenum AssetShareControl {\n" + percent + "}\n")
     for name in ("FinancialPlanModel.swift", "FinancialBudgetModel.swift", "FinancialGoalModel.swift", "FinancialDebtModel.swift"):
         shutil.copy(root / "ios/ArgusFoundation/Plan" / name, source / name)
