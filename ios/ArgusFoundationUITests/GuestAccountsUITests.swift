@@ -246,4 +246,27 @@ extension FinancialLoopUITests {
         XCTAssertTrue(guestRow("Third").waitForExistence(timeout: 20))
         XCTAssertEqual(order(), ["First", "Third", "Second"], "the order is saved in the book")
     }
+    /// The sheet's Add button rides above the keyboard. While Name is being typed, the balance under it must stay visible
+    /// and clear of the button, so a tap on the field never saves the account by mistake.
+    func testGuestBalanceStaysClearOfAddWhileTypingAName() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book"])
+        enterGuestBook()
+        tapVisible(app.buttons["accounts.add"])
+        XCTAssertTrue(app.buttons["guest.account.type.checking"].waitForExistence(timeout: 10))
+        app.buttons["guest.account.type.checking"].tap()
+        let name = app.textFields["guest.account.name"]
+        name.tap()
+        name.typeText("Main")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let amount = app.textFields["guest.account.amount"]
+        let save = app.buttons["guest.account.save"]
+        let clear = NSPredicate { _, _ in amount.frame.maxY <= save.frame.minY }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: clear, object: nil)], timeout: 5), .completed,
+                       "balance \(amount.frame) sits above Add \(save.frame)")
+        capture("guest-account-balance-clear-of-add")
+        amount.tap()
+        amount.typeText("25")
+        XCTAssertTrue(save.exists, "tapping the balance keeps the sheet open")
+        XCTAssertEqual(amount.value as? String, "25")
+    }
 }

@@ -81,6 +81,7 @@ struct CuadraoAccountEntryForm: View {
     @State private var assetsExpanded = false
     @State private var error = ""
     @FocusState private var nameFocused: Bool
+    private static let amountAnchor = "account-entry-amount"
 
     private var hint: String? {
         if entry.kind?.isAsset == true && entry.sharingCustom && !(1...100).contains(Int(entry.customShare) ?? 0) {
@@ -95,6 +96,7 @@ struct CuadraoAccountEntryForm: View {
     private var message: String? { hint ?? status }
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
                     Text(spaceTitle).font(.subheadline).foregroundStyle(.secondary)
@@ -118,7 +120,7 @@ struct CuadraoAccountEntryForm: View {
                         if let lockNote {
                             Text(lockNote).font(.footnote).foregroundStyle(.secondary).accessibilityIdentifier("account-lock-note")
                         }
-                    }
+                    }.id(Self.amountAnchor)
                     if entry.kind?.isAsset == true {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
@@ -142,6 +144,12 @@ struct CuadraoAccountEntryForm: View {
                 }.padding(24).disabled(locked)
             }
             .scrollDismissesKeyboard(.interactively)
+            // The sheet's button rides above the keyboard, so the balance under Name would sit behind it.
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+                guard nameFocused else { return }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo(Self.amountAnchor, anchor: .bottom) }
+            }
+            }
             .background(WelcomePalette.background)
             .navigationTitle(editing ? (spanish ? "Editar cuenta" : "Edit account") : (spanish ? "Añadir cuenta" : "Add account"))
             .navigationBarTitleDisplayMode(.inline)
