@@ -87,7 +87,21 @@ class MediaMessage:
     caption: str | None = None
 
 
-InboundMessage = TextMessage | MediaMessage
+@dataclass(frozen=True)
+class UnsupportedMessage:
+    """A message kind intake does not read yet: the sender is told so."""
+
+    id: str
+    sender: str
+    sent_at: datetime
+    kind: str
+
+
+InboundMessage = TextMessage | MediaMessage | UnsupportedMessage
+
+# Meta's message type names for kinds the owner may send but intake cannot read
+# yet. Reactions, system and unknown types stay ignored: they need no answer.
+UNSUPPORTED_KINDS = frozenset({"audio", "sticker", "video"})
 
 
 @dataclass(frozen=True)
@@ -109,6 +123,8 @@ def _project(message: _Message) -> InboundMessage | None:
     sent_at = datetime.fromtimestamp(int(message.timestamp), timezone.utc)
     if message.type == "text" and message.text is not None:
         return TextMessage(message.id, message.sender, sent_at, message.text.body)
+    if message.type in UNSUPPORTED_KINDS:
+        return UnsupportedMessage(message.id, message.sender, sent_at, message.type)
     media = {"image": message.image, "document": message.document}.get(message.type)
     if media is None:
         return None

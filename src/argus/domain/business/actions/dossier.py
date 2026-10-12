@@ -25,6 +25,7 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.transactions import ActionTransaction
+from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
 from argus.domain.ingestion.reconcile.model import EventNotFound
 from argus.domain.recording.money_schemas import ELIGIBILITY
 
@@ -155,6 +156,9 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         blocked.append(Blocker(code="business_questions_unresolved"))
     if event.state != "open":
         blocked.append(Blocker(code="business_draft_not_open"))
+    if event.attention in DUPLICATE_WARNINGS:
+        # Settled only by a person: the draft stays reviewable, never approvable.
+        blocked.append(Blocker(code="possible_duplicate"))
     pointer = event.resolution.get("approval_receipt")
     approval_filter = "" if pointer is None else " and actor_id=%s and idempotency_key=%s"
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])

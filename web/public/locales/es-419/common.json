@@ -2369,6 +2369,7 @@
     "attention": {
       "ai_unavailable": "La preparación con IA no está disponible ahora. Tu recibo está guardado. Reintenta más tarde o escribe los detalles tú mismo.",
       "check_details": "Cuadrao no pudo leer todo este recibo. Compara los detalles con el original antes de confirmar.",
+      "duplicate": "Parece un recibo que ya guardaste: mismo comercio, fecha y total. No se guardará como un segundo gasto.",
       "interrupted": "La preparación se detuvo antes de terminar. Tu recibo está guardado. Reintenta o escribe los detalles tú mismo.",
       "no_purchase_found": "Cuadrao leyó este recibo pero no encontró una compra para guardar. Escribe los detalles tú mismo.",
       "other": "Algo salió mal con este recibo. Sigue guardado. Escribe los detalles tú mismo.",
@@ -2452,6 +2453,7 @@
       }
     },
     "intake": {
+      "replayed": "Ya estaba guardado. Este es ese recibo.",
       "camera": "Tomar foto",
       "choose": "Elegir archivo",
       "consent": "Prepararlo con IA después de guardarlo. El recibo se envía a nuestro proveedor de IA para completar los detalles y que tú los revises. Déjalo desactivado para completarlos tú mismo.",
@@ -2523,6 +2525,7 @@
       "save": "Guardar gasto"
     },
     "review": {
+      "see_original": "Ver el recibo ya guardado",
       "account": "Pagado desde",
       "amount": "Total",
       "category": "Categoría",

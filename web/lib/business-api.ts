@@ -33,6 +33,7 @@ export const RECEIPT_ATTENTIONS = [
   "several_purchases",
   "source_unavailable",
   "check_details",
+  "duplicate",
   "other",
 ] as const;
 export type ReceiptAttention = (typeof RECEIPT_ATTENTIONS)[number];
@@ -58,6 +59,10 @@ export type ReceiptSummary = ReceiptReviewFields & {
   status: ReceiptStatus;
   error_code: string | null;
   attention: ReceiptAttention | null;
+  /** With attention `duplicate`: the receipt this one may repeat. */
+  duplicate_of?: string | null;
+  /** The upload found the same bytes already saved; this is that receipt. */
+  replayed?: boolean;
   /** The owner may ask for a consented AI read now. */
   preparable: boolean;
   /** The owner may fill in the one purchase by hand from version 0. */

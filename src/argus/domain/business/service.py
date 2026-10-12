@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -187,7 +188,10 @@ class BusinessService:
             consent=consent,
             scope=scope.owner,
         )
-        return self.receipt(scope, outcome.connection_id)
+        # The same bytes saved before come back as that receipt, said so.
+        return replace(
+            self.receipt(scope, outcome.connection_id), replayed=outcome.replayed
+        )
 
     def queue(self, scope: BusinessScope, receipt_id: str) -> None:
         """The owner chose AI preparation for a saved receipt."""
@@ -287,7 +291,11 @@ class BusinessService:
     ) -> Receipt:
         """Corrections become the import's resolution; the evidence is untouched."""
 
-        event_id = _event_id(self.receipt(scope, receipt_id))
+        current = self.receipt(scope, receipt_id)
+        if current.review.blocker == "possible_duplicate":
+            # A possible repeat is settled by a person, never edited into a second expense.
+            raise BusinessError("possible_duplicate")
+        event_id = _event_id(current)
         try:
             self.imports.resolve(
                 user_id=scope.person_id,
@@ -312,6 +320,8 @@ class BusinessService:
         self._set_aside(scope, current)
         if current.status == "confirmed":
             return current
+        if current.review.blocker == "possible_duplicate":
+            raise BusinessError("possible_duplicate")
         if current.version == version and current.missing_fields:
             raise BusinessError("missing_fields")
         try:
