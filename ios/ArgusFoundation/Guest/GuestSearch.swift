@@ -55,8 +55,6 @@ struct GuestSearchTab: View {
                 text: [GuestMovementPresentation.title(movement, spanish: spanish), movement.note ?? "",
                        movement.category.map { GuestMovementPresentation.categoryTitle($0, spanish: spanish) } ?? "",
                        GuestMovementPresentation.kindTitle(movement.kind, spanish: spanish),
-                       GuestMovementPresentation.accountTitle(movement.accountID, in: book, spanish: spanish),
-                       movement.counterpartID.map { GuestMovementPresentation.accountTitle($0, in: book, spanish: spanish) } ?? "",
                        account.currency] + amountWords(movement.amountMinor, digits: account.digits),
                 currency: account.currency))
         }
@@ -90,7 +88,7 @@ struct GuestSearchTab: View {
                 Picker(spanish ? "Moneda" : "Currency", selection: $currency) {
                     Text(spanish ? "Todas" : "All").tag("")
                     ForEach(book.currencies, id: \.self) { Text($0).tag($0) }
-                }
+                }.accessibilityIdentifier("search.currency")
                 Section {
                     Button(spanish ? "Restablecer filtros" : "Reset filters") { currency = "" }
                 } footer: {
