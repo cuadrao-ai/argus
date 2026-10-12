@@ -8795,6 +8795,14 @@ appears in Personal documents or imports. Link codes and link status answer
 sender link ended before it settled is recorded `rejected` with
 `sender_link_revoked`, keeps no connection, and gets the not-linked reply.
 
+Linking is decided by the sender's link state, not by a word. A sender with an
+active link is never treated as linking: its text, whatever it says, is not
+looked up as a code, and the link changes only through `DELETE /api/v1/whatsapp/link`.
+A sender with no active link can only link: each token in its text shaped like
+a code (eight characters from the code alphabet) is looked up by digest, up to
+four. A failed lookup answers the expired-code reply; text with no such token
+answers the not-linked reply.
+
 - GET `/api/v1/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…`
   answers 200 `text/plain` with the challenge when the verify token matches,
   else 403 `whatsapp_webhook_verification_failed`.
