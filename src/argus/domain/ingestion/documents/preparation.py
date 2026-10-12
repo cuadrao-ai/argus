@@ -23,7 +23,11 @@ from argus.domain.ingestion.documents.config import (
     load_document_extraction_settings,
 )
 from argus.domain.ingestion.documents.models import DocumentExtractionError
-from argus.domain.ingestion.documents.tabular import FLAT_MEDIA_TYPES, flat_text
+from argus.domain.ingestion.documents.tabular import (
+    FLAT_MEDIA_TYPES,
+    document_currency,
+    flat_text,
+)
 
 MAX_PIXELS = 20_000_000
 MAX_TEXT_BYTES = 200_000
@@ -42,6 +46,8 @@ class PreparedDocument:
     pages: int
     images: tuple[bytes, ...]
     text: str | None = None
+    #: The currency the source names for itself (a DGII e-CF: DOP), else None.
+    document_currency: str | None = None
 
 
 def _image(content: bytes, media_type: str) -> bytes:
@@ -132,9 +138,10 @@ def prepare_document(
         return _email(content, settings)
     if media_type in FLAT_MEDIA_TYPES:
         pages, text = flat_text(content, media_type)
+        currency = document_currency(content, media_type)
         if pages > settings.max_pages:
             raise DocumentExtractionError("document_page_limit")
-        return PreparedDocument(pages, (), text)
+        return PreparedDocument(pages, (), text, currency)
     if media_type in ("image/png", "image/jpeg"):
         return PreparedDocument(1, (_image(content, media_type),))
     if media_type != "application/pdf":
@@ -204,6 +211,7 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
             "unsupported_email_attachment" if parsed.skipped else "empty_document"
         )
     pages, images, texts = 1, [], []
+    currency = None
     if parsed.text.strip():
         texts.append("Page 1 (email message text):\n" + parsed.text)
     for part in parsed.attachments:
@@ -221,6 +229,7 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
             pages += nested.pages
         elif part.media_type in FLAT_MEDIA_TYPES:
             count, text = flat_text(part.content, part.media_type)
+            currency = currency or document_currency(part.content, part.media_type)
             texts.append(
                 f"Attachment {part.filename!r}, starting at page {pages + 1}:\n{text}"
             )
@@ -238,7 +247,7 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
     text = "\n\n".join(texts)
     if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
         raise DocumentExtractionError("document_text_limit")
-    return PreparedDocument(pages, tuple(images), text or None)
+    return PreparedDocument(pages, tuple(images), text or None, currency)
 
 
 def validate_source(content: bytes, media_type: str) -> None:

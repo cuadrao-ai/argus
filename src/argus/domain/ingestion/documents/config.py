@@ -28,6 +28,8 @@ SOURCE_MEDIA_TYPES = {
     "text/plain": "txt",
     "text/csv": "csv",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/xml": "xml",
+    "text/xml": "xml",
     "message/rfc822": "eml",
 }
 _MAX_PAGES = 8

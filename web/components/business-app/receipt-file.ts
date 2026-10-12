@@ -9,6 +9,8 @@ const FILE_TYPES: Record<string, { label: string; extensions: string[] }> = {
   "text/csv": { label: "CSV", extensions: ["csv"] },
   "message/rfc822": { label: "EML", extensions: ["eml"] },
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": { label: "XLSX", extensions: ["xlsx"] },
+  "application/xml": { label: "XML", extensions: ["xml"] },
+  "text/xml": { label: "XML", extensions: ["xml"] },
 };
 
 export function receiptFormatLabels(limits: ReceiptLimits): string[] {

@@ -234,7 +234,7 @@ async def read_document_upload(request: Request) -> tuple[str, bytes]:
             status_code=415,
             code="document_media_type_unsupported",
             title="Unsupported document",
-            detail="Upload a PDF, JPEG, PNG, TXT, CSV, XLSX or EML file.",
+            detail="Upload a PDF, JPEG, PNG, TXT, CSV, XLSX, XML or EML file.",
             headers=NO_STORE,
         )
     limit = load_document_extraction_settings().max_bytes
