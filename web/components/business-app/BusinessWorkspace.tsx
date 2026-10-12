@@ -5,9 +5,11 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
@@ -33,7 +35,8 @@ import BusinessCreateMenu from "./BusinessCreateMenu";
 import BusinessPanel from "./BusinessPanel";
 import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
-import ReceiptIntakeDialog, { type IntakeTarget } from "./ReceiptIntakeDialog";
+import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
+import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
 import RecordExpenseDialog from "./RecordExpenseDialog";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { useBusinessSearch } from "./useBusinessSearch";
@@ -165,6 +168,29 @@ export function BusinessWorkspaceProvider({
     setAttachedReceipt(null);
   }, [conversationId]);
 
+  // One queue outlives the dialog: closing it never drops a running upload.
+  const [uploadQueue] = useState(() => new ReceiptUploadQueue(source.uploadReceipt, reload));
+  useLayoutEffect(() => {
+    uploadQueue.setOnSaved((receipt, origin) => {
+      reload();
+      const disposition = composerUploadDisposition(origin, { conversationId, intakeTarget });
+      if (disposition !== "inbox") setAttachedReceipt(receipt);
+      if (disposition === "attach_and_close") setIntakeTarget(null);
+    });
+  }, [uploadQueue, reload, conversationId, intakeTarget]);
+  const uploads = useSyncExternalStore(uploadQueue.subscribe, uploadQueue.snapshot, uploadQueue.snapshot);
+  useEffect(() => {
+    if (!uploadQueue.unfinished) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [uploadQueue, uploads]);
+  const openIntake = useCallback((target: IntakeTarget) => {
+    // A new composer upload starts clean unless one is still in flight.
+    if (target === "composer" && !uploadQueue.snapshot().some((item) => item.target === target && item.status !== "saved" && item.status !== "rejected")) uploadQueue.clear(target);
+    setIntakeTarget(target);
+  }, [uploadQueue]);
+
   useEffect(() => {
     let cancelled = false;
     if (directRecord) return;
@@ -202,7 +228,7 @@ export function BusinessWorkspaceProvider({
   const actions = useBusinessActions({
     records,
     bridge,
-    openIntake: setIntakeTarget,
+    openIntake,
     openRecordExpense: () => setRecordExpenseOpen(true),
     openCapture: () => setCaptureOpen(true),
     openPanel,
@@ -249,8 +275,12 @@ export function BusinessWorkspaceProvider({
       panelHasComposer: panel.kind === "overview",
       sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
       sidebarFooter: (shell) => <BusinessCreateMenu shell={shell} />,
-      headerActions: (shell) =>
-        shell.isBelowTablet ? <BusinessCreateMenu shell={shell} compact /> : null,
+      headerActions: (shell) => <>
+        {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-sm text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
+          {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
+        </button> : null}
+        {shell.isBelowTablet ? <BusinessCreateMenu shell={shell} compact /> : null}
+      </>,
       panel: () => <BusinessPanel />,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,
@@ -274,7 +304,7 @@ export function BusinessWorkspaceProvider({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch]);
+  }, [actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t]);
 
   return (
     <BusinessContext.Provider value={value}>
@@ -282,12 +312,14 @@ export function BusinessWorkspaceProvider({
         {children}
         <ReceiptIntakeDialog
           target={intakeTarget}
-          onClose={() => setIntakeTarget(null)}
-          onCaptured={(captured, target) => {
+          queue={uploadQueue}
+          onClose={() => {
+            if (intakeTarget) uploadQueue.clearSettled(intakeTarget);
             setIntakeTarget(null);
-            reload();
-            if (target === "composer") setAttachedReceipt(captured);
-            else openPanel({ kind: "receipt", receiptId: captured.id });
+          }}
+          onReview={(saved) => {
+            setIntakeTarget(null);
+            openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id } : { kind: "inbox" });
           }}
         />
         <RecordExpenseDialog
