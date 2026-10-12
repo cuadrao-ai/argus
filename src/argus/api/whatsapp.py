@@ -11,7 +11,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import Coroutine
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 from fastapi import Depends, HTTPException, Request
@@ -122,10 +124,28 @@ class DocumentsDestination:
         )
 
 
+class BackgroundWork:
+    """Runs the work behind an acknowledged delivery and lets shutdown wait for it."""
+
+    def __init__(self) -> None:
+        self._tasks: set[asyncio.Task[None]] = set()
+
+    def start(self, work: Coroutine[Any, Any, None]) -> None:
+        task = asyncio.get_running_loop().create_task(work)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    async def drain(self, timeout: float) -> None:
+        pending = set(self._tasks)
+        if pending:
+            await asyncio.wait(pending, timeout=timeout)
+
+
 @dataclass(frozen=True)
 class WhatsAppRuntime:
     intake: WhatsAppIntake
     settings: WhatsAppSettings
+    work: BackgroundWork | None = None
 
 
 _runtime: WhatsAppRuntime | None = None
@@ -148,6 +168,7 @@ def build_whatsapp(
     store,  # noqa: ANN001
     client: httpx.AsyncClient,
     app_origin: str | None = None,
+    work: BackgroundWork | None = None,
 ) -> WhatsAppRuntime:
     access_token = settings.access_token.get_secret_value()
     max_bytes = load_document_extraction_settings().max_bytes
@@ -173,8 +194,9 @@ def build_whatsapp(
         transport=transport,
         app_origin=app_origin,
         max_bytes=max_bytes,
+        background=work.start if work is not None else None,
     )
-    return WhatsAppRuntime(intake, settings)
+    return WhatsAppRuntime(intake, settings, work)
 
 
 def start_whatsapp(app: object) -> None:
@@ -205,6 +227,7 @@ def start_whatsapp(app: object) -> None:
                 store=store,
                 client=httpx.AsyncClient(),
                 app_origin=(os.getenv("ARGUS_APP_ORIGIN") or "").strip() or None,
+                work=BackgroundWork(),
             )
         )
     except Exception as exc:
@@ -213,6 +236,14 @@ def start_whatsapp(app: object) -> None:
             failure_mode=type(exc).__name__,
         )
         configure_whatsapp(None)
+
+
+async def drain_whatsapp(timeout: float = 20.0) -> None:
+    """Shutdown: give acknowledged deliveries time to settle before the pool closes."""
+
+    runtime = whatsapp_runtime()
+    if runtime is not None and runtime.work is not None:
+        await runtime.work.drain(timeout)
 
 
 def unavailable_problem(request: Request) -> HTTPException:
