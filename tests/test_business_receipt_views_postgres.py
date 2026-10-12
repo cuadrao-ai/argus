@@ -334,12 +334,15 @@ def test_a_dismissed_draft_closes_its_receipt_in_every_view(actions):  # noqa: A
     saved, result = _linked(actions)
     service, context, _, cid, _, _ = saved
     web = _web(service, context)
-    service.imports.dismiss(
-        user_id=context.owner_id,
-        event_id=str(result.draft_id),
-        version=service.dossier(context, result.draft_id).version,
-        scope=context.scope,
-    )
+    # No Business action dismisses a draft yet (the legacy dismiss refuses a
+    # bridge draft with business_action_required); this is the state one will
+    # write, and the views must already close the receipt on it.
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.financial_import_events set state='dismissed',"
+            " version=version+1 where id=%s",
+            (result.draft_id,),
+        )
     row, detail = _views(web, cid)
     for view in (row, detail):
         assert (view["status"], view["attention"], view["error_code"]) == (
