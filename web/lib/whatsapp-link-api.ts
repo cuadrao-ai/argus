@@ -50,13 +50,14 @@ export function unlinkWhatsApp(): Promise<void> {
   return request("/whatsapp/link", { method: "DELETE" });
 }
 
-export type WhatsAppLinkProblem = "unavailable" | "space_missing" | "rate_limited" | "failed";
+export type WhatsAppLinkProblem = "unavailable" | "space_missing" | "rate_limited" | "stale" | "failed";
 
 export function whatsAppLinkProblem(error: unknown): WhatsAppLinkProblem {
   const { status, code } = (error ?? {}) as Partial<WhatsAppLinkError>;
   if (code === "business_space_missing") return "space_missing";
   if (status === 404) return "unavailable";
   if (status === 429) return "rate_limited";
+  if (status === 409) return "stale";
   return "failed";
 }
 
@@ -115,8 +116,40 @@ export function canEnableAI(consent: WhatsAppAIConsent): consent is WhatsAppAICo
     consent.available &&
     !consent.enabled &&
     consent.route !== null &&
-    consent.disclosure.trim().length > 0 &&
+    (consent.disclosure?.trim().length ?? 0) > 0 &&
     typeof consent.disclosure_token === "string" &&
     /^[a-f0-9]{64}$/.test(consent.disclosure_token)
   );
+}
+
+export type WhatsAppAIClient = {
+  enable: (disclosureToken: string, idempotencyKey: string) => Promise<WhatsAppAIConsent>;
+  revoke: () => Promise<void>;
+  read: () => Promise<WhatsAppAIConsent>;
+  newKey: () => string;
+};
+
+const liveClient: WhatsAppAIClient = {
+  enable: enableWhatsAppAI,
+  revoke: revokeWhatsAppAI,
+  read: getWhatsAppAIConsent,
+  newKey: () => crypto.randomUUID(),
+};
+
+/**
+ * One tap on the switch. Returns the state the screen should show. A failed
+ * call throws and the caller keeps the old state. After a revoke succeeds the
+ * answer is off even if the follow-up read fails.
+ */
+export async function toggleWhatsAppAI(
+  consent: WhatsAppAIConsent,
+  client: WhatsAppAIClient = liveClient,
+): Promise<WhatsAppAIConsent> {
+  if (consent.enabled) {
+    await client.revoke();
+    const off = { ...consent, enabled: false };
+    return client.read().catch(() => off);
+  }
+  if (!canEnableAI(consent)) throw new Error("WhatsApp AI permission cannot be turned on");
+  return client.enable(consent.disclosure_token, client.newKey());
 }

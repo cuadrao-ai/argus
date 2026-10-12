@@ -1026,6 +1026,7 @@
       "problem_space_missing": "Start your business space first, then link your number.",
       "problem_rate_limited": "Too many codes. Wait a few minutes and try again.",
       "problem_failed": "WhatsApp could not be reached. Try again.",
+      "problem_stale": "The text changed since you last read it. Read it again and try once more.",
       "ai_title": "Let AI read my WhatsApp messages",
       "ai_on": "On. You can turn it off at any time.",
       "ai_off": "Off. Cuadrao cannot answer your messages yet.",

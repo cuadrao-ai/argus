@@ -145,3 +145,70 @@ describe("WhatsApp AI permission", () => {
     expect(canEnableAI({ ...consent, route: null })).toBe(false);
   });
 });
+
+
+describe("WhatsApp AI permission, one tap", () => {
+  const client = (overrides: Record<string, unknown> = {}) => {
+    const calls: string[] = [];
+    return {
+      calls,
+      client: {
+        enable: async (token: string, key: string) => {
+          calls.push(`enable:${token}:${key}`);
+          return { ...consent, enabled: true };
+        },
+        revoke: async () => {
+          calls.push("revoke");
+        },
+        read: async () => {
+          calls.push("read");
+          return { ...consent, enabled: false };
+        },
+        newKey: () => `key-${calls.length}`,
+        ...overrides,
+      },
+    };
+  };
+
+  test("on sends the server's disclosure token and a fresh key, and returns the server's answer", async () => {
+    const { toggleWhatsAppAI } = await import("../lib/whatsapp-link-api");
+    const { calls, client: api } = client();
+    const next = await toggleWhatsAppAI(consent, api);
+    expect(calls).toEqual([`enable:${"a".repeat(64)}:key-0`]);
+    expect(next.enabled).toBe(true);
+  });
+
+  test("off revokes once and reads the new state", async () => {
+    const { toggleWhatsAppAI } = await import("../lib/whatsapp-link-api");
+    const { calls, client: api } = client();
+    const next = await toggleWhatsAppAI({ ...consent, enabled: true }, api);
+    expect(calls).toEqual(["revoke", "read"]);
+    expect(next.enabled).toBe(false);
+  });
+
+  test("a revoke that worked shows off even when the follow-up read fails", async () => {
+    const { toggleWhatsAppAI } = await import("../lib/whatsapp-link-api");
+    const { client: api } = client({ read: async () => { throw new Error("offline"); } });
+    const next = await toggleWhatsAppAI({ ...consent, enabled: true }, api);
+    expect(next.enabled).toBe(false);
+  });
+
+  test("a failed enable or revoke throws, so the screen keeps the old state", async () => {
+    const { toggleWhatsAppAI } = await import("../lib/whatsapp-link-api");
+    const fail = async () => { throw Object.assign(new Error("x"), { status: 500, code: "x" }); };
+    await expect(toggleWhatsAppAI(consent, client({ enable: fail }).client)).rejects.toThrow();
+    await expect(toggleWhatsAppAI({ ...consent, enabled: true }, client({ revoke: fail }).client)).rejects.toThrow();
+  });
+
+  test("a stale disclosure (409) is its own problem, not 'could not be reached'", async () => {
+    expect(whatsAppLinkProblem({ status: 409, code: "whatsapp_ai_consent_disclosure_changed" })).toBe("stale");
+    const html = render({ status: linked, consent, problem: "stale" });
+    expect(html).toContain("The text changed since you last read it.");
+  });
+
+  test("a missing disclosure cannot be turned on and does not crash", async () => {
+    const { canEnableAI } = await import("../lib/whatsapp-link-api");
+    expect(canEnableAI({ ...consent, disclosure: null as unknown as string })).toBe(false);
+    expect(() => render({ status: linked, consent: { ...consent, disclosure: null as unknown as string } })).not.toThrow();
+  });
+});

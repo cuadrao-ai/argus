@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import Switch from "@/components/ui/Switch";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
   canEnableAI,
   consentModels,
   createWhatsAppLinkCode,
-  enableWhatsAppAI,
   getWhatsAppAIConsent,
   getWhatsAppLink,
-  revokeWhatsAppAI,
+  toggleWhatsAppAI,
   unlinkWhatsApp,
   whatsAppLinkProblem,
   type WhatsAppAIConsent,
@@ -114,19 +114,12 @@ export function WhatsAppLinkView({
             </p>
             <p className="text-[11.5px] text-black/45 dark:text-white/45">{t("settings.whatsapp.ai_approval", "You always approve money records yourself in Cuadrao.")}</p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={consent.enabled}
-            aria-label={t("settings.whatsapp.ai_title", "Let AI read my WhatsApp messages")}
+          <Switch
+            checked={consent.enabled}
+            label={t("settings.whatsapp.ai_title", "Let AI read my WhatsApp messages")}
             disabled={busy || (!consent.enabled && !canEnableAI(consent))}
-            onClick={onToggleAI}
-            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-              consent.enabled ? "bg-[#5d7f72]" : "bg-black/[0.15] dark:bg-white/[0.2]"
-            }`}
-          >
-            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-[left] ${consent.enabled ? "left-[22px]" : "left-0.5"}`} />
-          </button>
+            onChange={onToggleAI}
+          />
         </section>
       ) : null}
       <div className="flex flex-wrap gap-2">
@@ -207,14 +200,16 @@ export default function WhatsAppLinkModal({
     }
   }
 
-  async function changeAI(action: () => Promise<WhatsAppAIConsent | void>) {
+  async function toggleAI() {
+    if (!consent) return;
     setBusy(true);
     try {
-      const next = await action();
-      setConsent(next ?? (await getWhatsAppAIConsent()));
+      setConsent(await toggleWhatsAppAI(consent));
       setProblem(null);
     } catch (error) {
-      setProblem(whatsAppLinkProblem(error));
+      const next = whatsAppLinkProblem(error);
+      setProblem(next);
+      if (next === "stale") setConsent(await getWhatsAppAIConsent().catch(() => consent));
     } finally {
       setBusy(false);
     }
@@ -244,11 +239,7 @@ export default function WhatsAppLinkModal({
     >
       <WhatsAppLinkView
         {...{ status, code, loading, busy, problem, confirmingUnlink, consent }}
-        onToggleAI={() => {
-          if (!consent) return;
-          if (consent.enabled) void changeAI(() => revokeWhatsAppAI());
-          else if (canEnableAI(consent)) void changeAI(() => enableWhatsAppAI(consent.disclosure_token, crypto.randomUUID()));
-        }}
+        onToggleAI={() => void toggleAI()}
         onCreateCode={() => void createCode()}
         onAskUnlink={setConfirmingUnlink}
         onUnlink={() => void unlink()}

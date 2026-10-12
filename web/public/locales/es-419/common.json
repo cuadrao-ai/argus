@@ -1026,6 +1026,7 @@
       "problem_space_missing": "Primero crea tu espacio de negocio y luego vincula tu número.",
       "problem_rate_limited": "Demasiados códigos. Espera unos minutos e inténtalo de nuevo.",
       "problem_failed": "No pudimos conectar con WhatsApp. Inténtalo de nuevo.",
+      "problem_stale": "La permisión cambió desde la última vez. Lee el texto de nuevo y vuelve a intentarlo.",
       "ai_title": "Permitir que la IA lea mis mensajes de WhatsApp",
       "ai_on": "Activado. Puedes desactivarlo cuando quieras.",
       "ai_off": "Desactivado. Cuadrao todavía no puede responder tus mensajes.",
