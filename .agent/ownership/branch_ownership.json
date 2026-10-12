@@ -1090,6 +1090,22 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-dossier-revision-number-20261012": {
+      "description": "The dossier header shows the latest facts revision, the same number the revision history lists, not the event's internal version that also counts approvals and settlements.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-dossier.test.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/lib/business-dossier.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }
