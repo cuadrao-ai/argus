@@ -4,6 +4,7 @@ import pytest
 from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
 
 NAMES = (
+    "AGENT_ENABLED",
     "NUMBER_ID",
     "INTAKE_ENABLED",
     "OUTBOUND_ENABLED",
@@ -96,3 +97,13 @@ def test_the_number_id_name_wins_and_each_older_name_still_works(
     assert load_whatsapp_settings().phone_number_id == "phone-id"
     monkeypatch.setenv("CUADRAO_WHATSAPP_NUMBER_ID", "number-id")
     assert load_whatsapp_settings().phone_number_id == "number-id"
+
+
+def test_the_agent_is_off_by_default_and_reads_both_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert load_whatsapp_settings().agent_enabled is False
+    monkeypatch.setenv("ARGUS_WHATSAPP_AGENT_ENABLED", "true")
+    assert load_whatsapp_settings().agent_enabled is True
+    monkeypatch.setenv("CUADRAO_WHATSAPP_AGENT_ENABLED", "false")
+    assert load_whatsapp_settings().agent_enabled is False

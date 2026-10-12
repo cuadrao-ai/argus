@@ -127,6 +127,12 @@ describe("WhatsApp AI permission", () => {
     expect(html).toMatch(/role="switch"[^>]*\sdisabled=""/);
   });
 
+  test("with the agent off the row is hidden, not shown as broken", () => {
+    const html = render({ status: linked, consent: { ...consent, available: false, reason: "whatsapp_agent_off", disclosure_token: null } });
+    expect(html).not.toContain("Let AI read my WhatsApp messages");
+    expect(html).toContain("Unlink number");
+  });
+
   test("an unlinked owner sees no AI row", () => {
     expect(render({ consent })).not.toContain("Let AI read my WhatsApp messages");
   });

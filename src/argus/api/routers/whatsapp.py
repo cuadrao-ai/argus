@@ -35,6 +35,7 @@ from argus.domain.ingestion.whatsapp.ai_consent import (
     ConsentError,
     EnableAIConsent,
 )
+from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
 from argus.domain.ingestion.whatsapp.identity import link_message, signature_matches
 from argus.domain.ingestion.whatsapp.payload import PayloadInvalid, parse_delivery
 from argus.domain.ingestion.whatsapp.store import ReplyLanguage
@@ -116,6 +117,14 @@ async def _consent_call(request: Request, callback, *args):
 
 
 def _consent_store(request: Request, context: WhatsAppOwnerContext) -> AIConsentStore:
+    if not load_whatsapp_settings().agent_enabled:
+        raise problem(
+            request,
+            status_code=404,
+            code="whatsapp_agent_off",
+            title="Not Found",
+            detail="The WhatsApp agent is not available.",
+        )
     store = context.runtime.consent
     if store is None:
         raise problem(
@@ -157,12 +166,16 @@ async def get_whatsapp_ai_consent(
         require_whatsapp_surface(request)
     except HTTPException:
         reason = "whatsapp_unavailable"
-    return await _consent_call(
-        request,
-        store.status,
-        UUID(user.id),
-        reason,
-    )
+    status = await _consent_call(request, store.status, UUID(user.id), reason)
+    if not load_whatsapp_settings().agent_enabled:
+        # WhatsApp is receipt intake only: the permission cannot be turned on.
+        status = {
+            **status,
+            "available": False,
+            "reason": "whatsapp_agent_off",
+            "disclosure_token": None,
+        }
+    return status
 
 
 @link_router.post("/ai-consent", response_model=AIConsentResponse)
