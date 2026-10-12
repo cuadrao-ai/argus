@@ -109,6 +109,9 @@ async def lifespan(app: FastAPI):
         stop_households(app)
         stop_apple_sign_in(app)
         await stop_email_intake(app)
+        from argus.api.whatsapp import drain_whatsapp
+
+        await drain_whatsapp()
         stop_ingestion(app)
         stop_financial_accounts(app)
         if checkpointer_cm is not None:
