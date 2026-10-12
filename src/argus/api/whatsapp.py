@@ -87,7 +87,13 @@ class DocumentsDestination:
         self.documents, self.spaces = documents, spaces
 
     async def capture(
-        self, *, owner_id: str, content: bytes, filename: str, media_type: str
+        self,
+        *,
+        owner_id: str,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        source_text: str | None,
     ) -> Captured:
         # A link needs a space, so an owner without one has no link to send through.
         scope = resolve_business_scope(self.spaces, owner_id)
@@ -100,6 +106,7 @@ class DocumentsDestination:
                 filename=filename,
                 media_type=media_type,
                 consent=False,
+                source_text=source_text,
                 scope=scope.owner,
             )
         except DocumentExtractionError as error:

@@ -1006,6 +1006,27 @@
     }
   },
   "settings": {
+    "whatsapp": {
+      "title": "WhatsApp",
+      "number": "Número vinculado",
+      "loading": "Leyendo tu vínculo…",
+      "linked": "Número que termina en {{last4}}",
+      "unlinked": "No hay ningún número vinculado.",
+      "create": "Obtener un código",
+      "new_code": "Obtener otro código",
+      "send_steps": "Envía este mensaje desde tu propio WhatsApp al número de Cuadrao. El código sirve una vez y vence pronto.",
+      "open": "Abrir WhatsApp",
+      "no_link": "Abre WhatsApp y envía el mensaje de arriba al número de Cuadrao.",
+      "check": "Ya lo envié, revisar",
+      "unlink": "Desvincular número",
+      "confirm_unlink": "¿Desvincular tu número? Ya no se aceptarán mensajes nuevos de ese número. Los recibos que ya llegaron siguen en tu Bandeja.",
+      "confirm": "Confirmar",
+      "cancel": "Cancelar",
+      "problem_unavailable": "WhatsApp todavía no está disponible.",
+      "problem_space_missing": "Primero crea tu espacio de negocio y luego vincula tu número.",
+      "problem_rate_limited": "Demasiados códigos. Espera unos minutos e inténtalo de nuevo.",
+      "problem_failed": "No pudimos conectar con WhatsApp. Inténtalo de nuevo."
+    },
     "title": "Ajustes",
     "profile": {
       "display_name": "Nombre para mostrar",
@@ -2601,5 +2622,32 @@
     "out_of_range": "Este monto es demasiado grande para registrarlo.",
     "ambiguous_currency": "$ puede ser RD$ o US$. Escribe el monto sin símbolo o con RD$ o US$.",
     "same_amount": "Mismo monto, sin conversión."
+  },
+  "business_access": {
+    "nav": "Acceso",
+    "title": "Acceso",
+    "subtitle": "Quién puede ver y preparar los registros de tu negocio. Solo tú apruebas.",
+    "owner": "Dueño",
+    "member": "Ve y prepara",
+    "since": "Desde {{date}}",
+    "pending_title": "Invitaciones pendientes",
+    "pending_until": "Vence {{date}}",
+    "pending_note": "Recibe acceso la primera vez que inicie sesión con este correo confirmado.",
+    "give_title": "Dar acceso a tu contador",
+    "give_body": "Escribe su correo. Podrá ver y preparar recibos. Nunca podrá aprobar.",
+    "email_label": "Correo electrónico",
+    "give": "Dar acceso",
+    "giving": "Dando acceso...",
+    "remove": "Quitar acceso",
+    "remove_confirm": "¿Quitar el acceso de {{who}}? Deja de ver y preparar al instante.",
+    "remove_invite": "Cancelar invitación",
+    "remove_invite_confirm": "¿Cancelar la invitación a {{who}}?",
+    "confirm": "Sí, quitar",
+    "cancel": "Cancelar",
+    "error": "No pudimos cargar el acceso. Inténtalo de nuevo.",
+    "invalid_email": "Escribe un correo electrónico.",
+    "give_error": "No pudimos dar el acceso. Inténtalo de nuevo.",
+    "remove_error": "No pudimos quitar el acceso. Inténtalo de nuevo.",
+    "owner_locked": "Tu propio acceso no se puede quitar."
   }
 }

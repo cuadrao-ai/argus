@@ -31,6 +31,7 @@ class _Media(_Loose):
     id: str = Field(min_length=1, max_length=64)
     mime_type: str = Field(default="", max_length=128)
     filename: str | None = Field(default=None, max_length=512)
+    caption: str | None = Field(default=None, max_length=1024)
 
 
 class _Message(_Loose):
@@ -83,6 +84,7 @@ class MediaMessage:
     media_id: str
     mime_type: str
     filename: str
+    caption: str | None = None
 
 
 @dataclass(frozen=True)
@@ -133,6 +135,7 @@ def _project(message: _Message) -> InboundMessage | None:
         media_id=media.id,
         mime_type=media.mime_type.split(";", 1)[0].strip().lower(),
         filename=(media.filename or _DEFAULT_NAMES[message.type])[:80],
+        caption=(media.caption or "").strip() or None,
     )
 
 

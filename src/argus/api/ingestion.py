@@ -168,9 +168,13 @@ def stop_ingestion(app) -> None:  # noqa: ANN001
     from argus.api.whatsapp import configure_whatsapp
 
     configure_whatsapp(None)
-    from argus.api.business_spaces import configure_business_spaces
+    from argus.api.business_spaces import (
+        configure_business_access,
+        configure_business_spaces,
+    )
 
     configure_business_spaces(None)
+    configure_business_access(None)
     from argus.api.documents import configure_documents
 
     configure_documents(None)

@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import date
 from typing import Annotated, Any, Literal
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -38,6 +39,7 @@ from argus.api.business_drafts import (
     require_legacy_receipt_write,
 )
 from argus.api.business_schemas import (
+    BusinessAccess,
     BusinessAccount,
     BusinessExpense,
     BusinessOverview,
@@ -48,6 +50,7 @@ from argus.api.business_schemas import (
     CreateBusinessAccount,
     ExpenseInput,
     ExpensePage,
+    GiveBusinessAccess,
     ReceiptDetail,
     ReceiptPage,
     ReceiptReviewBody,
@@ -56,7 +59,7 @@ from argus.api.business_schemas import (
     StartBusinessSpace,
     UpdatePage,
 )
-from argus.api.business_spaces import space_missing_problem
+from argus.api.business_spaces import business_access, space_missing_problem
 from argus.api.dependencies import problem
 from argus.api.documents import (
     NO_STORE,
@@ -67,6 +70,7 @@ from argus.api.documents import (
 )
 from argus.api.email_intake import email_receipt_flags
 from argus.api.financial_accounts import domain_problem
+from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.authority import ActionError
 from argus.domain.business.service import BusinessError
 from argus.domain.business.spaces import Space, default_space_name
@@ -200,17 +204,158 @@ def get_space(
 
 @router.post("/space", response_model=BusinessSpaceInfo, status_code=201)
 def start_space(
+    request: Request,
     response: Response,
     body: StartBusinessSpace,
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
-    """Idempotent: an existing space is returned unchanged, with 200."""
+    """Idempotent: an existing space is returned unchanged, with 200.
+
+    A new space is born with the owner's grant. An old space without one gets
+    it here, once."""
 
     space, created = person.spaces.create(
         person.person_id, body.name or default_space_name(body.language)
     )
+    _access_store(request).ensure_owner_grant(space.id, person.person_id)
     response.status_code = 201 if created else 200
     return _space(space)
+
+
+def _access_store(request: Request) -> AccessStore:
+    store = business_access()
+    if store is None:
+        raise problem(
+            request,
+            status_code=503,
+            code="business_access_unavailable",
+            title="Service Unavailable",
+            detail="Business access is not available.",
+            headers=NO_STORE,
+        )
+    return store
+
+
+def _access(found: AccessList) -> dict[str, Any]:
+    return {
+        "grants": [
+            {
+                "id": grant.id,
+                "email": grant.email,
+                "display_name": grant.display_name,
+                "capabilities": list(grant.capabilities),
+                "created_at": grant.created_at,
+                "owner": grant.owner,
+            }
+            for grant in found.grants
+        ],
+        "invites": [
+            {
+                "id": invite.id,
+                "email": invite.email,
+                "created_at": invite.created_at,
+                "expires_at": invite.expires_at,
+            }
+            for invite in found.invites
+        ],
+    }
+
+
+@router.get("/access", response_model=BusinessAccess)
+def list_access(
+    request: Request,
+    response: Response,
+    context: Annotated[BusinessContext, Depends(require_business_workspace)],
+) -> dict[str, Any]:
+    """Who can act in the owner's Business: live grants and pending invites."""
+
+    response.headers.update(NO_STORE)
+    store = _access_store(request)
+    store.ensure_owner_grant(context.scope.owner.space_id, context.scope.person_id)
+    return _access(store.list(context.scope.owner.space_id, context.scope.person_id))
+
+
+@router.post("/access", response_model=BusinessAccess, status_code=201)
+def give_access(
+    request: Request,
+    response: Response,
+    body: GiveBusinessAccess,
+    context: Annotated[BusinessContext, Depends(require_business_workspace)],
+) -> dict[str, Any]:
+    """A read+prepare grant for a confirmed account, else a pending invite.
+
+    The reply is the access list either way, so nothing about an unknown
+    email is revealed beyond what the list shows. A replay answers 200."""
+
+    response.headers.update(NO_STORE)
+    store = _access_store(request)
+    space_id, owner_id = context.scope.owner.space_id, context.scope.person_id
+    store.ensure_owner_grant(space_id, owner_id)
+    try:
+        created, found = store.give(space_id, owner_id, body.email)
+    except InvalidEmail:
+        raise problem(
+            request,
+            status_code=422,
+            code="invalid_email",
+            title="Unprocessable Entity",
+            detail="Enter one email address.",
+            headers=NO_STORE,
+        ) from None
+    response.status_code = 201 if created else 200
+    return _access(found)
+
+
+@router.delete("/access/grants/{grant_id}", status_code=204)
+def revoke_access_grant(
+    grant_id: UUID,
+    request: Request,
+    context: Annotated[BusinessContext, Depends(require_business_workspace)],
+) -> Response:
+    store = _access_store(request)
+    result = store.revoke_grant(
+        context.scope.owner.space_id, context.scope.person_id, str(grant_id)
+    )
+    if result == "own_grant":
+        raise problem(
+            request,
+            status_code=409,
+            code="owner_grant_required",
+            title="Conflict",
+            detail="The owner's own access cannot be removed.",
+            headers=NO_STORE,
+        )
+    if result == "missing":
+        raise problem(
+            request,
+            status_code=404,
+            code="business_access_not_found",
+            title="Not Found",
+            detail="This access is not available.",
+            headers=NO_STORE,
+        )
+    return Response(status_code=204, headers=NO_STORE)
+
+
+@router.delete("/access/invites/{invite_id}", status_code=204)
+def revoke_access_invite(
+    invite_id: UUID,
+    request: Request,
+    context: Annotated[BusinessContext, Depends(require_business_workspace)],
+) -> Response:
+    store = _access_store(request)
+    if not store.revoke_invite(
+        context.scope.owner.space_id, context.scope.person_id, str(invite_id)
+    ):
+        raise problem(
+            request,
+            status_code=404,
+            code="business_access_not_found",
+            title="Not Found",
+            detail="This invite is not available.",
+            headers=NO_STORE,
+        )
+    return Response(status_code=204, headers=NO_STORE)
 
 
 @router.patch("/space", response_model=BusinessSpaceInfo)
@@ -229,6 +374,11 @@ def rename_space(
 def get_workspace(
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
+    # The workspace is only ever the owner's own space; an old space without
+    # the owner's grant gets it here, once, with one ledger row.
+    store = business_access()
+    if store is not None:
+        store.ensure_owner_grant(context.scope.owner.space_id, context.scope.person_id)
     return context.service.workspace(context.scope)
 
 
