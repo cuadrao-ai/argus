@@ -88,4 +88,27 @@ extension FinancialLoopUITests {
         app.buttons["guest.receipt.later"].tap()
         XCTAssertTrue(app.staticTexts["Recibo guardado en este iPhone"].waitForNonExistence(timeout: 10))
     }
+
+    func testGuestSearchFindsAReceiptAndOpensItsMovement() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-saved-receipts-sample"])
+        enterGuestBook()
+        guestReceiptAccount()
+        guestReceiptExpense("250", note: "Colmado")
+        app.buttons["nav.add"].tap()
+        app.buttons["add.tray.choosePhoto"].tap()
+        let choice = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.receipt.movement.' AND label CONTAINS 'Colmado'")).firstMatch
+        XCTAssertTrue(choice.waitForExistence(timeout: 10))
+        choice.tap()
+        app.buttons["tab.search"].tap()
+        let field = app.textFields["search.query"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("Foto")
+        let hit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.search.receipt.'")).firstMatch
+        XCTAssertTrue(hit.waitForExistence(timeout: 10), "the receipt is found by its name")
+        capture("guest-search-receipt")
+        hit.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10), "an attached receipt opens its movement")
+        XCTAssertTrue(app.buttons["guest.movement.receipt.view"].exists)
+    }
 }

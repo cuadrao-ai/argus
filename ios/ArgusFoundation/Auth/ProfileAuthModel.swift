@@ -77,6 +77,9 @@ final class ProfileAuthModel: ObservableObject {
             receiptJourney = ReceiptJourneyModel(controller: loadedController)
             #endif
             savedReceipts?.sessionChanged = { [weak self] snapshot in self?.accept(snapshot) }
+            savedReceipts?.reading = { id, identity in
+                try? await loadedController.financialDocument(id, expectedIdentity: identity).preparation?.receipt
+            }
             receiptJourney?.sessionChanged = { [weak self] snapshot in self?.accept(snapshot) }
             accounts?.financialChanged = { [weak self] in self?.financialSearch?.invalidate() }
             accounts?.sessionChanged = { [weak self] snapshot in self?.accept(snapshot) }

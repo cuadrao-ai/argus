@@ -54,4 +54,17 @@ final class GuestReceiptStoreTests: XCTestCase {
         XCTAssertNil(store.data(saved[0]))
         XCTAssertTrue(GuestReceiptStore(bookDirectory: book).receipts.isEmpty)
     }
+
+    func testSearchFindsAReceiptByNameDateOrItsMovement() throws {
+        let store = GuestReceiptStore(bookDirectory: book)
+        let day = ISO8601DateFormatter().date(from: "2026-10-10T15:00:00Z")!
+        let saved = try store.save([(Data([1]), "Ticket Sirena.jpg", false), (Data([2]), "IMG_0002.jpg", false)], now: day)
+        let movement = UUID()
+        try store.attach(saved[1].id, to: movement)
+        let describe: (GuestReceipt) -> String = { $0.movementID == movement ? "Farmacia Carol DOP 1,250.00" : "" }
+        XCTAssertEqual(store.matching("SIRENA", describe: describe).map(\.id), [saved[0].id])
+        XCTAssertEqual(store.matching("carol 1250", describe: describe).map(\.id), [saved[1].id], "the movement's words and amount")
+        XCTAssertEqual(Set(store.matching("2026-10-10", describe: describe).map(\.id)), Set(saved.map(\.id)))
+        XCTAssertTrue(store.matching(" ", describe: describe).isEmpty)
+    }
 }

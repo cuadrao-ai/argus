@@ -1,4 +1,5 @@
 import SwiftUI
+import ArgusSession
 import CuadraoBook
 
 /// Where a search result leads. The shell turns it into the right tab and screen.
@@ -20,8 +21,13 @@ struct GuestSearchTab: View {
     @State private var currency = ""
     @FocusState private var focused: Bool
     @Environment(\.locale) private var locale
+    @Environment(\.guestReceipts) private var receipts
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var receiptHits: [GuestReceipt] {
+        guard let receipts, kind == .all else { return [] }
+        return GuestReceiptSearchRows.hits(receipts, book: book, query: query, spanish: spanish, locale: locale)
+    }
     private var kinds: [CanvasSearchKind] { CanvasSearchKind.connected(hasAssistant: false) }
     private var book: DeviceBook { model.book }
 
@@ -76,7 +82,7 @@ struct GuestSearchTab: View {
             CuadraoSearchContent(query: $query, kind: $kind, kinds: kinds, spanish: spanish, filterCount: filterCount,
                                  filterSummary: currency, clearFilters: { currency = "" }, focused: $focused,
                                  accessibility: .connected) {
-                if hits.isEmpty {
+                if hits.isEmpty && receiptHits.isEmpty {
                     CuadraoSearchEmptyState(query: $query, kind: $kind, spanish: spanish, filterCount: filterCount,
                         clearFilters: { currency = "" }, title: emptyTitle, detail: emptyDetail, accessibility: .connected)
                         .padding(.top, 36)
@@ -84,6 +90,7 @@ struct GuestSearchTab: View {
                 accountRows
                 activityRows
                 planRows
+                if let receipts, kind == .all { GuestReceiptSearchRows(store: receipts, model: model, query: query, spanish: spanish, open: { focused = false; open($0) }) }
             } filters: {
                 Picker(spanish ? "Moneda" : "Currency", selection: $currency) {
                     Text(spanish ? "Todas" : "All").tag("")
@@ -164,6 +171,58 @@ struct GuestSearchTab: View {
                     Divider()
                 }
             }
+        }
+    }
+}
+
+/// Receipts kept on this iPhone that match the query: by name, saved date, or the movement they are attached to.
+struct GuestReceiptSearchRows: View {
+    @ObservedObject var store: GuestReceiptStore
+    @ObservedObject var model: GuestBookModel
+    let query: String
+    let spanish: Bool
+    let open: (GuestSearchTarget) -> Void
+    @Environment(\.locale) private var locale
+    @State private var viewing: ViewedReceipt?
+
+    var body: some View {
+        let hits = Self.hits(store, book: model.book, query: query, spanish: spanish, locale: locale)
+        if !hits.isEmpty {
+            CuadraoSearchHeading(title: spanish ? "Recibos" : "Receipts", count: hits.count)
+            ForEach(hits) { receipt in
+                Button { select(receipt) } label: {
+                    CuadraoSearchResultRow(title: receipt.name, detail: detail(receipt), spanish: spanish, symbol: receipt.pdf ? "doc.text" : "photo")
+                }.buttonStyle(.plain).accessibilityIdentifier("guest.search.receipt." + receipt.id.uuidString)
+                Divider().foregroundStyle(WelcomePalette.separator)
+            }
+            .sheet(item: $viewing) { SavedReceiptViewer(receipt: $0, copy: SavedReceiptCopy(spanish: spanish)) }
+        }
+    }
+
+    static func hits(_ store: GuestReceiptStore, book: DeviceBook, query: String, spanish: Bool, locale: Locale) -> [GuestReceipt] {
+        store.matching(query) { receipt in
+            guard let id = receipt.movementID, let movement = book.movement(id), !movement.deleted else { return "" }
+            let row = GuestMovementPresentation.row(movement, in: book, spanish: spanish, locale: locale)
+            return [row.title, row.detail, row.amount, GuestMovementPresentation.amount(movement, in: book, locale: locale)]
+                .joined(separator: " ")
+        }
+    }
+
+    private func detail(_ receipt: GuestReceipt) -> String {
+        let day = receipt.createdAt.formatted(.dateTime.day().month(.abbreviated).year().locale(locale))
+        guard let id = receipt.movementID, let movement = model.book.movement(id), !movement.deleted else { return day }
+        return day + " · " + GuestMovementPresentation.title(movement, spanish: spanish)
+    }
+
+    /// An attached receipt opens its movement; an unattached one opens the file.
+    private func select(_ receipt: GuestReceipt) {
+        if let id = receipt.movementID, let movement = model.book.movement(id), !movement.deleted {
+            open(.movement(id))
+        } else if let data = store.data(receipt) {
+            let stamp = ISO8601DateFormatter().string(from: receipt.createdAt)
+            viewing = ViewedReceipt(document: SavedDocument(connectionID: receipt.id.uuidString, filename: receipt.name,
+                mediaType: receipt.mediaType, sizeBytes: data.count, sourceAvailable: true, status: "saved",
+                createdAt: stamp, updatedAt: stamp), data: data)
         }
     }
 }

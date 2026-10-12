@@ -9,7 +9,8 @@ struct FinancialSearchDestination: View {
     var detailChanged: (Bool) -> Void = { _ in }
     var body: some View {
         if auth.state == .authenticated, let model = auth.financialSearch, let accounts = auth.accounts, let loop = auth.financialLoop {
-            FinancialSearchView(model: model, accounts: accounts, loop: loop, active: active, nativePlanNavigation: nativePlanNavigation, detailChanged: detailChanged)
+            FinancialSearchView(model: model, accounts: accounts, loop: loop, active: active, nativePlanNavigation: nativePlanNavigation,
+                                detailChanged: detailChanged, receipts: CuadraoFirstRelease.savedReceipts ? auth.savedReceipts : nil)
         } else {
             VStack(alignment: .leading, spacing: 24) {
                 Text("search.title").font(CuadraoTypography.screen)
@@ -34,12 +35,16 @@ struct FinancialSearchView: View {
     @Environment(\.locale) private var locale
     @StateObject private var scroll = FinancialScrollOffset()
     @State private var unavailableKind: CanvasSearchKind?
+    /// The Files filter: only saved receipts.
+    @State private var filesOnly = false
+    private let receipts: SavedReceiptsModel?
     @State private var showsProgress = false
     @FocusState private var focused: Bool
 
     init(model: FinancialSearchModel, accounts: AccountsModel, loop: FinancialLoopModel,
-         active: Bool, nativePlanNavigation: Bool = false, detailChanged: @escaping (Bool) -> Void = { _ in }) {
-        self.model = model; self.accounts = accounts; self.loop = loop
+         active: Bool, nativePlanNavigation: Bool = false, detailChanged: @escaping (Bool) -> Void = { _ in },
+         receipts: SavedReceiptsModel? = nil) {
+        self.model = model; self.accounts = accounts; self.loop = loop; self.receipts = receipts
         goals = loop.goals; budgets = loop.budgets; debts = loop.debts
         self.active = active; self.nativePlanNavigation = nativePlanNavigation; self.detailChanged = detailChanged
     }
@@ -60,7 +65,7 @@ struct FinancialSearchView: View {
     }
     private var query: Binding<String> { Binding(get: { model.origin.query }, set: { model.update(query: $0) }) }
     private var kind: Binding<CanvasSearchKind> {
-        Binding(get: { unavailableKind ?? Self.perspective(model.origin.scope) }, set: select)
+        Binding(get: { filesOnly ? .files : unavailableKind ?? Self.perspective(model.origin.scope) }, set: select)
     }
     private static func perspective(_ scope: FinancialSearchScope) -> CanvasSearchKind {
         switch scope { case .all: .all; case .accounts: .accounts; case .activity: .activity; case .plans: .plans }
@@ -72,6 +77,12 @@ struct FinancialSearchView: View {
         case .expectation, .budget, .goal, .debt: .plans
         }
     }
+    /// Files joins the filters once saved receipts are on.
+    private var kinds: [CanvasSearchKind] {
+        let base = CanvasSearchKind.connected(hasAssistant: CuadraoFirstRelease.hasAssistant)
+        guard receipts != nil, !base.contains(.files) else { return base }
+        return base + [.files]
+    }
     private var busy: Bool { unavailableKind == nil && (model.loading || model.opening) }
     private var filterCount: Int {
         unavailableKind == nil && model.origin.currency != nil ? 1 : 0
@@ -81,7 +92,7 @@ struct FinancialSearchView: View {
     var body: some View {
         NavigationStack {
             CuadraoSearchContent(query: query, kind: kind,
-                kinds: CanvasSearchKind.connected(hasAssistant: CuadraoFirstRelease.hasAssistant), spanish: spanish,
+                kinds: kinds, spanish: spanish,
                 filterCount: filterCount, filterSummary: filterSummary, clearFilters: clearFilters,
                 focused: $focused, accessibility: .connected, loading: showsProgress,
                 refresh: { if unavailableKind == nil { await model.refresh() } }, eagerRows: true) {
@@ -137,7 +148,9 @@ struct FinancialSearchView: View {
     }
 
     @ViewBuilder private var results: some View {
-        if let unavailableKind {
+        if filesOnly, let receipts {
+            ReceiptSearchSection(model: receipts, query: model.origin.query, spanish: spanish, emptyState: true)
+        } else if let unavailableKind {
             CuadraoSearchEmptyState(query: query, kind: kind, spanish: spanish,
                 filterCount: 0, clearFilters: clearFilters,
                 title: unavailableKind.title(spanish), detail: unavailableDetail(unavailableKind), accessibility: .connected)
@@ -150,7 +163,7 @@ struct FinancialSearchView: View {
             if let error = model.errorKey {
                 Text(LocalizedStringKey(error)).padding(.vertical, 12).accessibilityIdentifier("search.error")
                 Button("accounts.retry") { Task { await model.refresh() } }.frame(minHeight: 44).accessibilityIdentifier("search.retry")
-            } else if model.items.isEmpty && !model.loading {
+            } else if model.items.isEmpty && !model.loading && (receipts?.matching(model.origin.query).isEmpty ?? true) {
                 CuadraoSearchEmptyState(query: query, kind: kind, spanish: spanish,
                     filterCount: filterCount, clearFilters: clearFilters,
                     detail: kind.wrappedValue == .all && model.origin.query.isEmpty && filterCount == 0
@@ -175,6 +188,9 @@ struct FinancialSearchView: View {
             if model.cursor != nil {
                 Button("loop.more") { Task { await model.more() } }.frame(minHeight: 48)
                     .disabled(model.loading).accessibilityIdentifier("search.more")
+            }
+            if let receipts, kind.wrappedValue == .all {
+                ReceiptSearchSection(model: receipts, query: model.origin.query, spanish: spanish, emptyState: false)
             }
         }
     }
@@ -220,6 +236,8 @@ struct FinancialSearchView: View {
     }
 
     private func select(_ selected: CanvasSearchKind) {
+        filesOnly = selected == .files && receipts != nil
+        if filesOnly { unavailableKind = nil; model.invalidate(); return }
         switch selected {
         case .all: unavailableKind = nil; model.update(scope: .all)
         case .accounts: unavailableKind = nil; model.update(scope: .accounts)
@@ -339,4 +357,51 @@ struct FinancialDomainPresenter: View {
             }
     }
     private func refreshSearch() { Task { await search?.refresh() } }
+}
+
+/// Saved receipts that match the query, opened in the receipt viewer.
+struct ReceiptSearchSection: View {
+    @ObservedObject var model: SavedReceiptsModel
+    let query: String
+    let spanish: Bool
+    let emptyState: Bool
+    @State private var viewing: ViewedReceipt?
+
+    var body: some View {
+        let hits = model.matching(query)
+        Group {
+            if !hits.isEmpty {
+                CuadraoSearchHeading(title: spanish ? "Recibos" : "Receipts", count: hits.count)
+                ForEach(hits) { document in
+                    Button { open(document) } label: { row(document) }
+                        .buttonStyle(.plain).accessibilityIdentifier("search.receipt." + document.id)
+                    Divider().foregroundStyle(WelcomePalette.separator)
+                }
+            } else if emptyState {
+                Text(query.trimmingCharacters(in: .whitespaces).isEmpty
+                     ? (spanish ? "Busca tus recibos por comercio, fecha, monto o nombre." : "Search your receipts by merchant, date, amount or name.")
+                     : (spanish ? "No encontramos recibos." : "No receipts found."))
+                    .foregroundStyle(.secondary).padding(.top, 36).accessibilityIdentifier("search.receipts.empty")
+            }
+        }
+        .task(id: query) {
+            if model.items.isEmpty { await model.load() }
+            await model.loadReadings()
+        }
+        .sheet(item: $viewing) { SavedReceiptViewer(receipt: $0, copy: SavedReceiptCopy(spanish: spanish)) }
+    }
+
+    private func row(_ document: SavedDocument) -> some View {
+        let reading = model.readings[document.id]
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(reading?.merchant ?? document.filename).font(CuadraoTypography.body).lineLimit(2)
+            Text([reading?.occurredOn, reading.flatMap { r in r.total.map { (r.currency ?? "") + " " + $0 } }, reading == nil ? nil : document.filename]
+                    .compactMap { $0 }.joined(separator: " · "))
+                .font(CuadraoTypography.caption).foregroundStyle(.secondary)
+        }.frame(maxWidth: .infinity, minHeight: 56, alignment: .leading).contentShape(Rectangle())
+    }
+
+    private func open(_ document: SavedDocument) {
+        Task { if let data = await model.source(of: document) { viewing = ViewedReceipt(document: document, data: data) } }
+    }
 }

@@ -74,6 +74,19 @@ final class GuestReceiptStore: ObservableObject {
         receipts.filter { $0.movementID.map { !liveMovements.contains($0) } ?? true }
     }
 
+    /// Receipts whose name, saved date or attached movement (as `describe` writes it) contain every word of the query,
+    /// ignoring case and accents.
+    func matching(_ query: String, describe: (GuestReceipt) -> String) -> [GuestReceipt] {
+        let fold = { (text: String) in text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil) }
+        let needles = fold(query).split(whereSeparator: \.isWhitespace).map { String($0).replacingOccurrences(of: ",", with: "") }
+        guard !needles.isEmpty else { return [] }
+        return receipts.filter { receipt in
+            let day = ISO8601DateFormatter.string(from: receipt.createdAt, timeZone: .current, formatOptions: [.withFullDate])
+            let haystack = fold([receipt.name, day, describe(receipt)].joined(separator: " ")).replacingOccurrences(of: ",", with: "")
+            return needles.allSatisfy { haystack.contains($0) }
+        }
+    }
+
     func data(_ receipt: GuestReceipt) -> Data? { try? Data(contentsOf: url(receipt)) }
 
     /// After the book's directory was deleted, forget what was listed.
