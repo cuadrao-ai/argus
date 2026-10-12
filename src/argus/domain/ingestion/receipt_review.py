@@ -192,55 +192,30 @@ def receipt_review(
     )
     # A purchase the import layer marked as a possible repeat of another one
     # is shown with what was read, and blocked until a person settles it.
-    duplicate_of = None
-    if event["state"] == "open" and event.get("attention") in DUPLICATE_WARNINGS:
-        duplicate_of = _receipt_of(events, tuple(event.get("possible_duplicates") or ()))
-    return (
-        ReceiptReview(
-            receipt_id=draft.connection_id,
-            status=status,
-            error_code=None if after_read else draft.error_code,
-            fields=ReceiptFields(
-                note=recorded_note(event),
-                occurred_on=facts["occurred_on"],
-                amount=facts["amount"],
-                currency=facts["currency"],
-                category_id=event["resolution"].get("category_id"),
-                account_id=facts["account_id"],
-            ),
-            missing=tuple(missing_fields(event)),
-            blocker="possible_duplicate",
-            evidence=evidence,
-            event_id=event["id"],
-            event_version=event["version"],
-            expense_id=event["activity_id"],
-            read_purchases=read,
-            owner_entry=bool(entered),
-            duplicate_of=duplicate_of,
-        )
-        if duplicate_of is not None
-        or (event["state"] == "open" and event.get("attention") in DUPLICATE_WARNINGS)
-        else ReceiptReview(
-            receipt_id=draft.connection_id,
-            status=status,
-            error_code=None if after_read else draft.error_code,
-            fields=ReceiptFields(
-                note=recorded_note(event),
-                occurred_on=facts["occurred_on"],
-                amount=facts["amount"],
-                currency=facts["currency"],
-                category_id=event["resolution"].get("category_id"),
-                account_id=facts["account_id"],
-            ),
-            missing=tuple(missing_fields(event)),
-            blocker=None,
-            evidence=evidence,
-            event_id=event["id"],
-            event_version=event["version"],
-            expense_id=event["activity_id"],
-            read_purchases=read,
-            owner_entry=bool(entered),
-        )
+    repeated = event["state"] == "open" and event.get("attention") in DUPLICATE_WARNINGS
+    return ReceiptReview(
+        receipt_id=draft.connection_id,
+        status=status,
+        error_code=None if after_read else draft.error_code,
+        fields=ReceiptFields(
+            note=recorded_note(event),
+            occurred_on=facts["occurred_on"],
+            amount=facts["amount"],
+            currency=facts["currency"],
+            category_id=event["resolution"].get("category_id"),
+            account_id=facts["account_id"],
+        ),
+        missing=tuple(missing_fields(event)),
+        blocker="possible_duplicate" if repeated else None,
+        evidence=evidence,
+        event_id=event["id"],
+        event_version=event["version"],
+        expense_id=event["activity_id"],
+        read_purchases=read,
+        owner_entry=bool(entered),
+        duplicate_of=_receipt_of(events, tuple(event.get("possible_duplicates") or ()))
+        if repeated
+        else None,
     )
 
 

@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from argus.api.ingestion import ingestion_hub
-
 from tests.business.receipt_stub import ReceiptStub
 from tests.business.test_business_api import Owner, alice, prepared  # noqa: F401
 
@@ -42,7 +40,6 @@ def test_a_second_receipt_with_the_same_read_facts_is_a_duplicate_not_a_second_e
     assert second.status_code == 200, second.text
     second_id = second.json()["id"]
     assert second_id != original
-    _flag_if_legacy(alice, original, second_id)
     repeat = alice.detail(second_id)
     assert (repeat["status"], repeat["attention"], repeat["duplicate_of"]) == (
         "needs_attention",
@@ -67,32 +64,3 @@ def test_a_second_receipt_with_the_same_read_facts_is_a_duplicate_not_a_second_e
     assert listed[second_id]["attention"] == "duplicate"
     assert listed[original]["attention"] is None
     assert stub.calls.count(second_id) == 1
-
-
-def _flag_if_legacy(alice: Owner, original: str, second_id: str) -> None:  # noqa: F811
-    """The local app has no C0 bridge, so the import layer's own duplicate
-    pass is what marks the repeat; the hosted bridge marks it in
-    ``flag_duplicates``. Both land on the same event attention."""
-
-    scope = alice.scope()
-    sink = ingestion_hub().sink
-    events = sink.list(user_id=scope.person_id, states=("open",), scope=scope.owner)
-    by_receipt = {}
-    for event in events:
-        for observation in event["observations"]:
-            by_receipt.setdefault(observation["connection_id"], event)
-    assert original in by_receipt and second_id in by_receipt
-    if by_receipt[second_id]["attention"] in ("possible_duplicate", "ambiguous_match"):
-        return
-    from dataclasses import replace
-
-    from argus.domain.ingestion.reconcile import duplicates
-
-    with sink.store.transaction(scope.person_id, scope=scope.owner) as tx:
-        event = tx.event(by_receipt[second_id]["id"])
-        tx.put_event(
-            replace(
-                duplicates.flag(event, [by_receipt[original]["id"]]),
-                attention_detail={"basis": "read_facts"},
-            )
-        )

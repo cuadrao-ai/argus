@@ -24,11 +24,9 @@ from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
     BusinessResolution,
-    Known,
 )
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
-from argus.domain.ingestion.reconcile import duplicates
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
 
@@ -342,53 +340,7 @@ def prepare_attachment(
                 merged["fiscal"][name] = _retain_or_fill(merged["fiscal"][name], incoming)
         facts = merged
     after = BusinessFacts.model_validate(facts)
-    applied = save_revision(tx, event, before, after, (source_id,), actor, None)
-    flag_duplicates(tx, applied.draft_id)
-    return applied
-
-
-DUPLICATE_KEY = ("counterparty", "occurred_on", "amount", "currency")
-
-
-def _duplicate_key(facts: BusinessFacts) -> tuple | None:
-    """The read facts a repeat must share; None while any of them is unknown."""
-
-    values = []
-    for name in DUPLICATE_KEY:
-        fact = getattr(facts, name)
-        if not isinstance(fact, Known) or fact.value is None:
-            return None
-        value = fact.value
-        values.append(value.strip().casefold() if isinstance(value, str) else value)
-    return tuple(values)
-
-
-def flag_duplicates(tx: ActionTransaction, draft_id: UUID | str) -> tuple[str, ...]:
-    """Mark ``draft_id`` as a possible repeat of the space's other drafts and
-    expenses whose read merchant, date, amount and currency are all the same.
-
-    The mark is the event's own ``possible_duplicate`` attention, so it is
-    durable, visible in every receipt view, and blocks approval until a
-    person settles it. Nothing is inferred from free text."""
-
-    event = tx.imports.event(str(draft_id))
-    key = _duplicate_key(facts_of(event))
-    if key is None:
-        return ()
-    found = []
-    for other in tx.imports.events(("open", "accepting", "accepted")):
-        if other.id == event.id or other.resolution.get("business") is None:
-            continue
-        if _duplicate_key(facts_of(other)) == key:
-            found.append(other.id)
-    if not found:
-        return ()
-    flagged = replace(
-        duplicates.flag(event, found),
-        attention_detail={"basis": "read_facts", "fields": list(DUPLICATE_KEY)},
-    )
-    tx.imports.put_event(flagged)
-    return tuple(flagged.possible_duplicates)
+    return save_revision(tx, event, before, after, (source_id,), actor, None)
 
 
 def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> dict:
