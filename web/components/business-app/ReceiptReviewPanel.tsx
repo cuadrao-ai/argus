@@ -134,6 +134,22 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     }
   };
 
+  const rebind = async () => {
+    setBusy("rebind");
+    setProblem(null);
+    try {
+      show(await source.rebindReceipt(detail.id));
+      await source.prepareReceipt(detail.id);
+      show(await source.receipt(detail.id));
+      setUnprepared(false);
+      reload();
+    } catch {
+      setProblem(t("business.review.rebind_failed", "We couldn't bind this receipt to your access. Check your permission and try again."));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const save = async () => {
     if (inFlight.current || busy || uncertainVersion !== null) return;
     inFlight.current = true;

@@ -102,11 +102,14 @@ def test_a_revoked_then_reissued_grant_is_rebound_by_the_owner_and_preparation_f
     assert view.history[-1].actor.grant_id == owner.grant_id
 
 
-def test_only_the_owner_may_rebind(prepared, users) -> None:  # noqa: ANN001
+def test_only_the_owner_may_rebind_and_only_a_bound_receipt(prepared, users) -> None:  # noqa: ANN001
     service, context, grant, cid, _, _ = prepared
+    owner = _owner(service, context)
+    # Nothing is bound yet: there is nothing to move.
+    with pytest.raises(ActionError, match="business_preparation_binding_missing"):
+        service.rebind_attachment_preparation(owner, UUID(cid))
+    with pytest.raises(ActionError, match="business_record_not_found"):
+        service.rebind_attachment_preparation(owner, UUID(int=0))
     shared.bind(prepared)
     with pytest.raises(ActionError, match="business_owner_required"):
         service.rebind_attachment_preparation(context, UUID(cid))
-    owner = _owner(service, context)
-    with pytest.raises(ActionError, match="business_preparation_binding_missing"):
-        service.rebind_attachment_preparation(owner, UUID(int=0))
