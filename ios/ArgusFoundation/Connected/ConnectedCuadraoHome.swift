@@ -195,6 +195,7 @@ struct ConnectedCuadraoHome: View {
                 }.padding(24)
             }
             .accessibilityIdentifier("screen.accounts")
+            .refreshable { await accounts.refresh(account.id); await loop.open(account) }
             .background(WelcomePalette.background)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)

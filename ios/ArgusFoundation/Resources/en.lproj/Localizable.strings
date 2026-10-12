@@ -127,7 +127,7 @@
 "accounts.signedBalance" = "Signed balance: a negative amount means money owed.";
 "accounts.scope" = "These are your recorded accounts. Activity, household sharing and totals are not available yet.";
 "accounts.retry" = "Try again";
-"home.loadFailed" = "We couldn't load your Home.";
+"home.stillLoading" = "Still loading…";
 "skeleton.loading" = "Loading";
 "accounts.loading" = "Loading accounts";
 "accounts.saving" = "Saving";
