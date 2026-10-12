@@ -232,7 +232,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="text-sm text-black/60 dark:text-white/60">{statusText[item.status]}</p>
+                <p className="text-sm text-black/60 dark:text-white/60">{item.status === "saved" && item.receipt.replayed ? t("business.intake.replayed", "Already saved before. This is that receipt.") : statusText[item.status]}</p>
                 {item.status === "rejected" ? <p role="alert" className="mt-1 text-sm text-[#a8434c] dark:text-[#ec9aa0]">{rejectionText[item.reason]}</p> : null}
                 {item.status === "failed" ? (
                   <div className="mt-2 space-y-2">

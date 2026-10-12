@@ -50,18 +50,21 @@ Proof: step 5 shows "Verified" only if our GET handler answered the challenge.
 
 ## Environment (API process only, never the web app)
 
+Every name below also reads its older `ARGUS_WHATSAPP_*` name (and `ARGUS_APP_ORIGIN`).
+When both are set, the `CUADRAO_` name wins.
+
 | Variable | Value |
 | --- | --- |
-| `ARGUS_WHATSAPP_INTAKE_ENABLED` | `true` |
-| `ARGUS_WHATSAPP_VERIFY_TOKEN` | step 4 |
-| `ARGUS_WHATSAPP_APP_SECRET` | step 3 |
-| `ARGUS_WHATSAPP_ACCESS_TOKEN` | step 2 token |
-| `ARGUS_WHATSAPP_PHONE_NUMBER_ID` | step 2 Phone number ID |
-| `ARGUS_WHATSAPP_DISPLAY_PHONE_NUMBER` | the test number, for the `wa.me` link |
-| `ARGUS_WHATSAPP_SENDER_KEY` | a new random secret; rotating it unlinks every sender |
-| `ARGUS_WHATSAPP_GRAPH_API_VERSION` | optional, default `v23.0` |
-| `ARGUS_WHATSAPP_OUTBOUND_ENABLED` | `false` for the first run, then `true` for the reply check |
-| `ARGUS_APP_ORIGIN` | the web origin used in the review link |
+| `CUADRAO_WHATSAPP_INTAKE_ENABLED` | `true` |
+| `CUADRAO_WHATSAPP_VERIFY_TOKEN` | step 4 |
+| `CUADRAO_WHATSAPP_APP_SECRET` | step 3 |
+| `CUADRAO_WHATSAPP_ACCESS_TOKEN` | step 2 token |
+| `CUADRAO_WHATSAPP_NUMBER_ID` | step 2 Phone number ID |
+| `CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER` | the test number, for the `wa.me` link |
+| `CUADRAO_WHATSAPP_SENDER_KEY` | a new random secret; rotating it unlinks every sender |
+| `CUADRAO_WHATSAPP_GRAPH_API_VERSION` | optional, default `v23.0` |
+| `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` | `false` for the first run, then `true` for the reply check |
+| `CUADRAO_APP_ORIGIN` | the web origin used in the review link |
 
 The surface also needs `ARGUS_FINANCIAL_ACCOUNTS_ENABLED`,
 `ARGUS_INGESTION_ENABLED` and `ARGUS_DOCUMENT_EXTRACTION_ENABLED`. Apply

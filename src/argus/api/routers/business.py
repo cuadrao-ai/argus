@@ -111,6 +111,7 @@ _CONFLICTS = frozenset(
         "draft_not_prepared",
         "import_already_accepted",
         "import_accept_in_progress",
+        "possible_duplicate",
     }
 )
 

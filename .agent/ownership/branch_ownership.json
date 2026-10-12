@@ -996,6 +996,39 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-duplicate-receipts-20261012": {
+      "description": "Duplicate receipts never record money twice: same bytes come back as the saved receipt (replayed), same read facts set the second draft aside as a possible duplicate with an approval blocker, attention and a link to the original. No regex or phrase logic.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/domain/business/actions/dossier.py",
+        "src/argus/domain/business/actions/mutations.py",
+        "src/argus/domain/business/actions/service.py",
+        "src/argus/domain/business/duplicates.py",
+        "src/argus/domain/business/receipts.py",
+        "src/argus/domain/business/service.py",
+        "src/argus/domain/ingestion/documents/service.py",
+        "src/argus/domain/ingestion/receipt_review.py",
+        "tests/business/test_business_duplicates.py",
+        "tests/test_business_duplicates_postgres.py",
+        "web/components/business-app/ReceiptIntakeDialog.tsx",
+        "web/components/business-app/ReceiptReviewPanel.tsx",
+        "web/components/business-app/business-ui.tsx",
+        "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-grant-rebind-20261012": {
       "description": "Known limit B: a receipt bound to a revoked and re-issued grant is bound again by one owner action with a ledger row, then prepared under the current grant. Tiny: one service method, one route, one migration line, one web button.",
       "base_ref": "origin/codex/private-alpha-next",

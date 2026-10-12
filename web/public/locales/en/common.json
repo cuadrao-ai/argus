@@ -2370,6 +2370,7 @@
       "several_purchases": "Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.",
       "source_unavailable": "The original file is no longer available. Enter the details yourself.",
       "check_details": "Cuadrao couldn't read every part of this receipt. Check the details against the original before you confirm.",
+      "duplicate": "This looks like a receipt you already saved: same merchant, date and total. It won't be saved as a second expense.",
       "other": "Something went wrong with this receipt. It is still saved. Enter the details yourself."
     },
     "actions": {
@@ -2457,6 +2458,7 @@
       }
     },
     "review": {
+      "see_original": "See the receipt already saved",
       "rebind_note": "The access that prepared this receipt is no longer valid. Bind it to your current access, then prepare it again.",
       "rebind": "Bind to my current access",
       "rebind_failed": "We couldn't rebind this receipt. Try again.",
@@ -2513,6 +2515,7 @@
       "failed": "We couldn't save this expense. Try again. It won't be saved twice."
     },
     "intake": {
+      "replayed": "Already saved before. This is that receipt.",
       "unsupported": "This file type isn't supported. Use {{formats}}.",
       "too_large": "This file is larger than {{size}} MB. Use a smaller photo or PDF.",
       "heic": "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first.",

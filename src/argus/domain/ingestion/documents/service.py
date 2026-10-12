@@ -534,6 +534,8 @@ class DocumentsService:
                 )
             elif batch.candidates:
                 self._deliver(user_id, connection_id, batch.candidates, scope)
+                if space_id(scope) is not None:
+                    self._flag_business_duplicates(user_id, connection_id, scope)
             if draft.source_available:
                 draft = self._update(
                     user_id,
@@ -628,6 +630,25 @@ class DocumentsService:
             ) from None
         if result.ignored:
             raise DocumentServiceError("document_disconnected")
+
+    def _flag_business_duplicates(
+        self, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> None:
+        """A Business receipt delivered without the bridge still gets the
+        duplicate mark on its event, from the same read-facts rule."""
+
+        from argus.domain.business.duplicates import (
+            events_of_connection,
+            flag_receipt_duplicates,
+        )
+        from argus.domain.ingestion.reconcile.service import ReconciliationService
+
+        if not isinstance(self.hub.sink, ReconciliationService):
+            # Only the real import store holds the events to compare.
+            return
+        with self.hub.sink.store.transaction(user_id, scope=scope) as tx:
+            for event in events_of_connection(tx, connection_id):
+                flag_receipt_duplicates(tx, event.id)
 
     @staticmethod
     def _validate(batch: ExtractionBatch, connection_id: str) -> None:

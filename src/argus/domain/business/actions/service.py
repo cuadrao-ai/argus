@@ -42,6 +42,7 @@ from argus.domain.business.contracts.dossier import (
     WebActionSource,
 )
 from argus.domain.business.contracts.recovery import SenderLease
+from argus.domain.business.duplicates import flag_receipt_duplicates
 from argus.domain.business.transactions import (
     ActionTransaction,
     GrantImportStore,
@@ -555,6 +556,9 @@ class BusinessActions:
             result = mutations.prepare_attachment(
                 tx, binding.target, batch, draft, binding.actor
             )
+            # The read is saved; a repeat of another receipt is marked on this
+            # draft's event before the command settles.
+            flag_receipt_duplicates(tx.imports, str(result.draft_id))
             live = authorize(tx.connection, context.actor, binding.actor.grant_id)
             live.require("prepare")
             final_tx = ActionTransaction(tx.connection, live, tx.imports)

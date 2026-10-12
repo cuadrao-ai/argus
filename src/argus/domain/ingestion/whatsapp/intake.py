@@ -35,6 +35,7 @@ from argus.domain.ingestion.whatsapp.payload import (
     InboundMessage,
     MediaMessage,
     TextMessage,
+    UnsupportedMessage,
 )
 from argus.domain.ingestion.whatsapp.replies import (
     ReplyFailed,
@@ -311,6 +312,13 @@ class WhatsAppIntake:
                 "rejected",
                 owner,
                 error_code="whatsapp_receipt_missing",
+                reply_language=language,
+            )
+        if isinstance(message, UnsupportedMessage):
+            return Settlement(
+                "rejected",
+                owner,
+                error_code="whatsapp_message_unsupported",
                 reply_language=language,
             )
         settlement = await self._capture(message, owner)

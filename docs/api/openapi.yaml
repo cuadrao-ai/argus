@@ -12039,6 +12039,7 @@ components:
             - several_purchases
             - source_unavailable
             - check_details
+            - duplicate
             - other
           - type: 'null'
         label:
@@ -20512,8 +20513,16 @@ components:
             - several_purchases
             - source_unavailable
             - check_details
+            - duplicate
             - other
           - type: 'null'
+        duplicate_of:
+          anyOf:
+          - type: string
+          - type: 'null'
+        replayed:
+          type: boolean
+          default: false
         preparable:
           type: boolean
         enterable:
@@ -21052,8 +21061,16 @@ components:
             - several_purchases
             - source_unavailable
             - check_details
+            - duplicate
             - other
           - type: 'null'
+        duplicate_of:
+          anyOf:
+          - type: string
+          - type: 'null'
+        replayed:
+          type: boolean
+          default: false
         preparable:
           type: boolean
         enterable:

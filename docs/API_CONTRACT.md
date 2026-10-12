@@ -8772,7 +8772,8 @@ uncertain fields, and more than 18 digits leaves the amount unresolved.
 
 ### WhatsApp receipt intake (default-off)
 
-Off unless `ARGUS_WHATSAPP_INTAKE_ENABLED` is true, its credentials are set and
+Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` (or the older `ARGUS_WHATSAPP_INTAKE_ENABLED`; the
+Cuadrao name wins when both are set; every WhatsApp setting follows this rule) is true, its credentials are set and
 the document surface above is on. While off, every route below except
 `DELETE /api/v1/whatsapp/link` answers 404 `whatsapp_unavailable`. A WhatsApp receipt becomes a document draft with
 `consent: false` and `status: saved`; AI preparation still waits for the
@@ -8813,8 +8814,11 @@ answers the not-linked reply.
   over 512 KiB is 413 `whatsapp_webhook_too_large`; a signed body that is not
   a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. 200
   `{received: true}` means every image, document and text message in it has a
-  committed delivery record with a live claim; other message types and statuses
-  are ignored. The media download, saving and reply run after the answer, in
+  committed delivery record with a live claim. A voice note, audio, sticker or
+  video from a linked sender is settled `rejected` (`whatsapp_message_unsupported`)
+  and gets one short reply saying it is not supported yet; from an unlinked
+  sender it gets the not-linked reply. Other message types and statuses are
+  ignored. The media download, saving and reply run after the answer, in
   order, and settle the record. A work failure behind the answer settles the
   record `failed` and the sender gets the "send it again" reply. Shutdown waits
   up to 20 seconds for this work; a process killed sooner leaves the record
@@ -8831,7 +8835,7 @@ answers the not-linked reply.
   that language for every WhatsApp reply. The code is single use, lives
   10 minutes and replaces any unused code for the same destination.
   `message_text` is `CUADRAO <code>`; `wa_me_url` is null until
-  `ARGUS_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
+  `CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
   429 `whatsapp_link_code_rate_limited`.
 - GET `/api/v1/whatsapp/link` returns `{linked, last4, linked_at, reply_language}`.
 - DELETE `/api/v1/whatsapp/link` revokes the signed-in person's active link and
@@ -8842,7 +8846,7 @@ answers the not-linked reply.
   only when Postgres cannot be reached; in memory mode without intake nothing
   holds a link and it answers 204. Unauthenticated calls answer 401.
 
-Replies are sent only when `ARGUS_WHATSAPP_OUTBOUND_ENABLED` is true, always as
+Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
 a free-form answer to the person's own message, in one language: the sender
 link's `reply_language`, or Spanish for a sender with no active link. A new message
 whose bytes the owner's inbox already holds gets the duplicate reply. A message whose WhatsApp
@@ -9164,6 +9168,16 @@ accept path recorded.
   saved receipt) is never `preparable` or `enterable`; prepare, review and
   confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
   receipt.
+- Duplicates never record money twice. Uploading the same bytes again, from
+  any entry point, answers with the receipt already saved and `replayed:
+  true`; nothing new is stored. A second document whose read merchant, date,
+  amount and currency equal another draft or expense of the Business is set
+  aside with `status: needs_attention`, `attention: "duplicate"` and
+  `duplicate_of` (the receipt it may repeat); what was read stays visible,
+  `enterable` and `preparable` are false, and review or confirm answer 409
+  `possible_duplicate`. The mark is the import event's own
+  `possible_duplicate` attention; the hosted bridge sets it when it prepares
+  the attachment, the local app's import pass sets it the same way.
 - POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt
   whose preparation grant was revoked to the owner's current grant, writes one
   `business_action_receipts` row (`rebind_attachment`, previous binding and

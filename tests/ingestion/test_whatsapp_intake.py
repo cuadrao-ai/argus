@@ -15,6 +15,7 @@ from argus.domain.ingestion.whatsapp.payload import (
     MediaMessage,
     PayloadInvalid,
     TextMessage,
+    UnsupportedMessage,
     parse_delivery,
 )
 from argus.domain.ingestion.whatsapp.replies import (
@@ -97,9 +98,17 @@ def test_payload_projects_handled_types_and_ignores_the_rest() -> None:
         TextMessage("wamid.SYNTHETIC0003", "15550101234", recorded, "CUADRAO ABCD2345"),
     )
     audio = parse_delivery(
-        encode(fixture("audio_message.json")), phone_number_id=PHONE_NUMBER_ID
+        (FIXTURES / "audio_message.json").read_bytes(), phone_number_id=PHONE_NUMBER_ID
     )
-    assert (audio.messages, audio.ignored_messages) == ((), 1)
+    assert audio.ignored_messages == 0
+    assert audio.messages == (
+        UnsupportedMessage("wamid.SYNTHETIC0005", "15550101234", recorded, "audio"),
+    )
+    reaction = parse_delivery(
+        encode(fixture("audio_message.json", type="reaction")),
+        phone_number_id=PHONE_NUMBER_ID,
+    )
+    assert (reaction.messages, reaction.ignored_messages) == ((), 1)
     status = parse_delivery(
         encode(fixture("status_delivered.json")), phone_number_id=PHONE_NUMBER_ID
     )
@@ -137,6 +146,7 @@ def test_every_outcome_code_has_a_reply_without_long_dashes() -> None:
         "whatsapp_link_code_invalid",
         "whatsapp_sender_not_linked",
         "whatsapp_receipt_missing",
+        "whatsapp_message_unsupported",
         "whatsapp_media_unsupported",
         "whatsapp_media_too_large",
         "whatsapp_media_invalid",
