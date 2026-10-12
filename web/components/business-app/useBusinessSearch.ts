@@ -80,7 +80,7 @@ export function useBusinessSearch({
           {
             id: "receipts",
             label: t("business.search.receipts", "Receipts"),
-            hits: found.receipts.map((receipt) => ({
+            hits: found.receipts.filter((receipt) => !receipt.email_original).map((receipt) => ({
               id: receipt.id,
               icon: receipt.media_type === "application/pdf" ? FileText : ImageIcon,
               title: receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt"),

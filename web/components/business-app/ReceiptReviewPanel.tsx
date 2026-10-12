@@ -219,6 +219,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
         <ReceiptSourcePreview detail={detail} />
 
         <div className="space-y-4">
+          {detail.email_original ? <div role="note" data-testid="receipt-email-original" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p>{t("business.review.email_original", "This is the email itself. Its attachment is the receipt to review.")}</p></div> : null}
           {incompleteBridge ? <div className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p>{uncertainVersion === null ? <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}</div> : null}
           {detail.status === "needs_attention" ? (
             <div role="alert" data-testid="receipt-attention" className={`${cardClass} text-[14px] text-black/75 dark:text-white/75`}>

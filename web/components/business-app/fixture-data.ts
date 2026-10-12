@@ -170,6 +170,8 @@ function seedReceipts(): ReceiptDetail[] {
     }),
     receipt({
       id: "rcpt-saved",
+      email_delivery_ids: ["email-ferreteria"],
+      email_original: true,
       status: "saved",
       filename: "almuerzo-cliente.png",
       media_type: "image/png",
@@ -526,5 +528,67 @@ export function createFixtureBusinessDataSource(
       ACCOUNTS.push(created);
       return created;
     },
+    emailIntake: async () => {
+      await delay();
+      return { enabled: true, receiving_address: "recibos-7f3a9c21@recibos.cuadrao.example" };
+    },
+    createEmailAddress: async () => {
+      await delay();
+      return { enabled: true, receiving_address: "recibos-7f3a9c21@recibos.cuadrao.example" };
+    },
+    emailDeliveries: async () => {
+      await delay();
+      return SAMPLE_EMAILS.map((item) => {
+        const { text_body, ...delivery } = item;
+        void text_body;
+        return delivery;
+      });
+    },
+    emailDelivery: async (id) => {
+      await delay();
+      const found = SAMPLE_EMAILS.find((item) => item.id === id);
+      if (!found) throw Object.assign(new Error("not_found"), { status: 404 });
+      return found;
+    },
+    retryEmailDelivery: async (id) => {
+      await delay();
+      return { id };
+    },
   };
 }
+
+/** One email whose attachment is the ferretería receipt, and one that could not be read. */
+const SAMPLE_EMAILS = [
+  {
+    id: "email-ferreteria",
+    state: "captured" as const,
+    received_at: new Date(Date.now() - 50 * 60_000).toISOString(),
+    updated_at: new Date(Date.now() - 49 * 60_000).toISOString(),
+    original_document_id: "rcpt-saved",
+    retryable: false,
+    subject: "Factura 0041 Ferretería La Esquina",
+    sender: "ventas@ferreterialaesquina.example",
+    sent_at: null,
+    error_code: null,
+    text_body: "Buenas tardes, adjunto la factura de hoy. Gracias por su compra.",
+    parts: [
+      { id: "1.2", filename: "IMG_2214.jpg", media_type: "image/jpeg", state: "captured" as const, document_id: "rcpt-ferreteria", error_code: null },
+    ],
+  },
+  {
+    id: "email-boletin",
+    state: "rejected" as const,
+    received_at: new Date(Date.now() - 26 * 3_600_000).toISOString(),
+    updated_at: new Date(Date.now() - 26 * 3_600_000).toISOString(),
+    original_document_id: null,
+    retryable: false,
+    subject: "Boletín semanal",
+    sender: "noticias@proveedor.example",
+    sent_at: null,
+    error_code: "email_parts_rejected",
+    text_body: null,
+    parts: [
+      { id: "1.2", filename: "boletin.zip", media_type: "application/zip", state: "rejected" as const, document_id: null, error_code: "unsupported_media_type" },
+    ],
+  },
+];

@@ -105,3 +105,15 @@ async def stop_email_intake(app) -> None:  # noqa: ANN001
         await client.aclose()
         app.state.email_intake_client = None
     configure_email_intake(None)
+
+
+def email_receipt_flags(space_id: str) -> dict[str, tuple[tuple[str, ...], bool]]:
+    """Per document: the deliveries it arrived in, and whether it is a grouped
+    email original. Empty when email receiving is off."""
+
+    if _runtime is None:
+        return {}
+    return {
+        document: (tuple(sorted(relation["delivery_ids"])), relation["grouped"])
+        for document, relation in _runtime.store.membership(space_id).items()
+    }

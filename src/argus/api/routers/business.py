@@ -7,6 +7,7 @@ Default-off. Each person's Business records live in their own space (see
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 from typing import Annotated, Any, Literal
 
@@ -64,6 +65,7 @@ from argus.api.documents import (
     document_problem,
     read_document_upload,
 )
+from argus.api.email_intake import email_receipt_flags
 from argus.api.financial_accounts import domain_problem
 from argus.domain.business.authority import ActionError
 from argus.domain.business.service import BusinessError
@@ -104,6 +106,40 @@ _CONFLICTS = frozenset(
         "import_accept_in_progress",
     }
 )
+
+
+def _email_flagged(context: BusinessContext, receipts: list) -> list:  # noqa: ANN001
+    """Receipts that arrived by email carry their deliveries; a grouped original
+    is context for its attachment and loses prepare and enter."""
+
+    flags = email_receipt_flags(context.scope.owner.space_id)
+    if not flags:
+        return receipts
+    return [
+        replace(
+            receipt,
+            email_delivery_ids=flags[receipt.id][0],
+            email_original=flags[receipt.id][1],
+        )
+        if receipt.id in flags
+        else receipt
+        for receipt in receipts
+    ]
+
+
+def _refuse_email_original(
+    request: Request, context: BusinessContext, receipt_id: str
+) -> None:
+    flags = email_receipt_flags(context.scope.owner.space_id)
+    if receipt_id in flags and flags[receipt_id][1]:
+        raise problem(
+            request,
+            status_code=409,
+            code="email_original_not_a_receipt",
+            title="Conflict",
+            detail="This is the email itself. Its attachment is the receipt to review.",
+            headers=NO_STORE,
+        )
 
 
 def _problem(request: Request, error: Exception) -> HTTPException:
@@ -280,7 +316,7 @@ def list_receipts(
         )
     except Exception as error:
         raise _problem(request, error) from None
-    return {"items": [receipt.summary() for receipt in receipts]}
+    return {"items": [receipt.summary() for receipt in _email_flagged(context, receipts)]}
 
 
 @router.get("/receipts/{receipt_id}", response_model=ReceiptDetail)
@@ -290,7 +326,10 @@ def get_receipt(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        return receipt_detail(context, context.service.receipt(context.scope, receipt_id))
+        [receipt] = _email_flagged(
+            context, [context.service.receipt(context.scope, receipt_id)]
+        )
+        return receipt_detail(context, receipt)
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -327,6 +366,7 @@ async def prepare_receipt(
     try:
         if consent != "true":
             raise DocumentServiceError("document_extraction_consent_required")
+        _refuse_email_original(request, context, receipt_id)
         require_legacy_receipt_write(context, receipt_id)
         context.service.queue(context.scope, receipt_id)
         await dispatch_preparation(
@@ -336,7 +376,10 @@ async def prepare_receipt(
             background_tasks,
             scope=context.scope.owner,
         )
-        return context.service.receipt(context.scope, receipt_id).summary()
+        [receipt] = _email_flagged(
+            context, [context.service.receipt(context.scope, receipt_id)]
+        )
+        return receipt.summary()
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -352,6 +395,7 @@ async def review_receipt(
 
     service, scope = context.service, context.scope
     try:
+        _refuse_email_original(request, context, receipt_id)
         require_legacy_receipt_write(context, receipt_id)
         version = await service.start_entry(
             scope, receipt_id, body.version, body.fields.get("account_id")
@@ -374,6 +418,7 @@ def confirm_receipt(
 ) -> dict[str, Any]:
     key = _required_idempotency_key(request, idempotency_key)
     try:
+        _refuse_email_original(request, context, receipt_id)
         if getattr(request.app.state, "financial_accounts_pool", None) is not None:
             raise BusinessError("draft_not_prepared")
         return receipt_detail(
@@ -419,9 +464,15 @@ def search(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        return context.service.search(context.scope, q, limit)
+        found = context.service.search(context.scope, q, limit)
     except Exception as error:
         raise _problem(request, error) from None
+    flags = email_receipt_flags(context.scope.owner.space_id)
+    for item in found["receipts"]:
+        if item["id"] in flags:
+            item["email_delivery_ids"] = list(flags[item["id"]][0])
+            item["email_original"] = flags[item["id"]][1]
+    return found
 
 
 @router.get("/overview", response_model=BusinessOverview)

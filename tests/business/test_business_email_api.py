@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import time
+from pathlib import Path
 from unittest.mock import Mock
 from uuid import uuid4
 
@@ -17,6 +18,9 @@ from fastapi.testclient import TestClient
 
 from tests.business.test_business_api import Owner, alice  # noqa: F401
 
+UNREADABLE = (
+    Path(__file__).parents[1] / "document_extraction_fixtures/unreadable.png"
+).read_bytes()
 SECRET_KEY = b"synthetic-webhook-secret"
 SECRET = "whsec_" + base64.b64encode(SECRET_KEY).decode()
 WEBHOOK = "/api/v1/webhooks/resend"
@@ -131,3 +135,81 @@ def test_endpoints_say_unavailable_without_a_runtime(alice: Owner) -> None:  # n
     runtime_module.configure_email_intake(None)
     assert alice.get("/email").status_code == 503
     assert alice.get("/email/deliveries").status_code == 503
+
+
+def test_a_grouped_email_original_is_context_not_a_second_receipt(
+    alice: Owner,  # noqa: F811
+    runtime,  # noqa: ANN001
+) -> None:
+    """The .eml of an email whose attachment is saved can be seen and downloaded,
+    never prepared, entered by hand or confirmed."""
+
+    original = alice.upload(consent=False, name="forwarded.eml")
+    attachment = alice.upload(content=UNREADABLE, consent=False, name="recibo.png")
+    assert (original.status_code, attachment.status_code) == (200, 200), attachment.text
+    original_id, attachment_id = original.json()["id"], attachment.json()["id"]
+    space_id = alice.scope().owner.space_id
+    store = runtime.store
+    route = store.create_route(
+        recipient="recibos-00000001@recibos.example.test",
+        space_id=space_id,
+        principal_id=alice.scope().person_id,
+        granted_by=alice.scope().person_id,
+        grant_id=str(uuid4()),
+    )
+    delivery = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=space_id,
+        principal_id=route.principal_id,
+    )
+    claimed = store.claim()
+    store.update(claimed, original_document_id=original_id, subject="Factura 0041")
+    from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
+
+    store.put_part(
+        claimed,
+        EmailDeliveryPart(
+            "1.2", "recibo.png", "image/png", "captured", attachment_id, None
+        ),
+    )
+    store.finish(claimed, "captured")
+
+    listed = {
+        item["id"]: item for item in alice.get("/receipts", view="all").json()["items"]
+    }
+    assert listed[original_id]["email_original"] is True
+    assert listed[original_id]["email_delivery_ids"] == [delivery.id]
+    assert (listed[original_id]["preparable"], listed[original_id]["enterable"]) == (
+        False,
+        False,
+    )
+    assert listed[attachment_id]["email_original"] is False
+    assert listed[attachment_id]["email_delivery_ids"] == [delivery.id]
+    assert listed[attachment_id]["preparable"] is True
+    detail = alice.detail(original_id)
+    assert detail["email_original"] is True
+
+    refused = [
+        alice.post(
+            f"/receipts/{original_id}/prepare", **{"X-Extraction-Consent": "true"}
+        ),
+        alice.review(original_id, 0, merchant="Nadie"),
+        alice.confirm(original_id, 0, str(uuid4())),
+    ]
+    assert [(r.status_code, r.json()["code"]) for r in refused] == [
+        (409, "email_original_not_a_receipt")
+    ] * 3
+    assert alice.get(f"/receipts/{original_id}/source").status_code == 200
+    searched = {
+        item["id"]: item
+        for item in alice.get("/search", q="forwarded").json()["receipts"]
+    }
+    assert searched[original_id]["email_original"] is True
+    # The attachment is the receipt: it still prepares.
+    prepared = alice.post(
+        f"/receipts/{attachment_id}/prepare", **{"X-Extraction-Consent": "true"}
+    )
+    assert prepared.status_code == 200, prepared.text

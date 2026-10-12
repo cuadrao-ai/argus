@@ -3,6 +3,7 @@
 import { ChevronRight, FileText, ImageIcon, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
+import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, StatusPill, useAttentionLabel } from "./business-ui";
@@ -110,7 +111,9 @@ export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpe
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
   const { records, openPanel, actions } = useBusiness();
-  const items = records.inbox;
+  // The server marks an email's own ".eml" document once an attachment is a receipt;
+  // it lives inside its email row, never in this list.
+  const items = records.inbox?.filter((receipt) => !receipt.email_original) ?? null;
   const notes = records.notes === null ? null : openNotesByDraft(records.notes);
 
   const upload = actions.create.find((action) => action.id === "upload_receipt");
@@ -128,6 +131,7 @@ export default function BusinessInboxPanel() {
           ) : null
         }
       />
+      <BusinessEmailDeliveries />
       {records.error ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.inbox.error", "We couldn't load your inbox. Try again.")}
