@@ -112,7 +112,7 @@ async def calibrate(args: argparse.Namespace, ledger: Ledger) -> dict[str, Any]:
     settings: list[dict[str, Any]] = []
 
     def capture(task: str, payload: dict[str, object]) -> dict[str, object]:
-        settings.append(_settings(task, payload))
+        settings.append(_settings(task, payload, "BusinessE1JudgeVerdict"))
         return payload
 
     with openrouter_request_guard(capture):

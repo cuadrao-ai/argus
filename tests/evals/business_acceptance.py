@@ -134,7 +134,9 @@ def _calibration(root: Path, path: Path | None, judge_model: str) -> dict[str, A
     }
 
 
-def _settings(task: str, payload: dict[str, object]) -> dict[str, Any]:
+def _settings(
+    task: str, payload: dict[str, object], schema_name: str | None = None
+) -> dict[str, Any]:
     response_format = payload.get("response_format")
     schema = (
         response_format.get("json_schema", {})
@@ -144,7 +146,10 @@ def _settings(task: str, payload: dict[str, object]) -> dict[str, Any]:
     return {
         "task": task,
         "model": payload.get("model"),
-        "schema_name": schema.get("name") if isinstance(schema, dict) else None,
+        # A prompt-schema route (Anthropic) sends no response_format, so the
+        # caller that issued the request names its schema.
+        "schema_name": (schema.get("name") if isinstance(schema, dict) else None)
+        or schema_name,
         "parameters": {
             key: payload[key]
             for key in (
