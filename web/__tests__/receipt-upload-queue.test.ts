@@ -120,3 +120,38 @@ test("untyped files take their type from the extension only when the server acce
   expect(receiptFileWithType(file("notes.txt", ""), server).type).toBe("");
   expect(receiptFileWithType(file("typed.csv", "text/plain"), server).type.startsWith("text/plain")).toBe(true);
 });
+
+test("a file picked twice is listed once, and adding during a save is refused and reported", async () => {
+  let finish!: (receipt: ReceiptSummary) => void;
+  const queue = new ReceiptUploadQueue(() => new Promise((resolve) => { finish = resolve; }), () => undefined);
+  const twice = file("recibo.txt");
+  expect(queue.add([twice, twice, file("otro.txt")], limits, "inbox")).toBe(true);
+  expect(queue.add([new File(["receipt"], "recibo.txt", { type: "text/plain", lastModified: twice.lastModified })], limits, "inbox")).toBe(true);
+  expect(queue.snapshot().map((item) => item.file.name)).toEqual(["recibo.txt", "otro.txt"]);
+  const running = queue.save("inbox", false);
+  expect(queue.add([file("tarde.txt")], limits, "inbox")).toBe(false);
+  expect(queue.snapshot()).toHaveLength(2);
+  finish(savedReceipt("one"));
+  await Promise.resolve();
+  finish(savedReceipt("two"));
+  await running;
+  expect(queue.add([file("tarde.txt")], limits, "inbox")).toBe(true);
+  expect(queue.snapshot()).toHaveLength(3);
+});
+
+test("closing forgets saved and rejected rows and keeps unfinished ones", async () => {
+  let fail = true;
+  const queue = new ReceiptUploadQueue(async (candidate) => {
+    if (candidate.name === "falla.txt" && fail) throw new Error("offline");
+    return savedReceipt(candidate.name);
+  }, () => undefined);
+  queue.add([file("ok.txt"), file("falla.txt"), file("bad.exe", "application/octet-stream")], limits, "inbox");
+  await queue.save("inbox", false);
+  expect(queue.snapshot().map((item) => item.status)).toEqual(["saved", "failed", "rejected"]);
+  queue.add([file("pendiente.txt")], limits, "inbox");
+  queue.clearSettled("inbox");
+  expect(queue.snapshot().map((item) => [item.file.name, item.status])).toEqual([["falla.txt", "failed"], ["pendiente.txt", "queued"]]);
+  fail = false;
+  await queue.save("inbox", false);
+  expect(queue.unfinished).toBe(false);
+});

@@ -63,11 +63,21 @@ export class ReceiptUploadQueue {
     this.publish(this.items.map((item) => item.key === next.key ? next : item));
   }
 
-  add(files: readonly File[], limits: ReceiptLimits, target: IntakeTarget, conversationId: string | null = null) {
-    if (this.running) return;
+  /** False when a save is running and the files were not taken. A file already
+   *  in this target's list (same name, size and last change) is not added twice. */
+  add(files: readonly File[], limits: ReceiptLimits, target: IntakeTarget, conversationId: string | null = null): boolean {
+    if (this.running) return false;
     const selected = target === "composer" ? files.slice(0, 1) : files;
-    if (!selected.length) return;
-    const incoming: ReceiptUpload[] = selected.map((candidate) => {
+    if (!selected.length) return true;
+    const identity = (file: File) => `${file.name}\u0000${file.size}\u0000${file.lastModified}`;
+    const known = new Set(this.items.filter((item) => item.target === target).map((item) => identity(item.file)));
+    const fresh = selected.filter((candidate) => {
+      if (known.has(identity(candidate))) return false;
+      known.add(identity(candidate));
+      return true;
+    });
+    if (!fresh.length) return true;
+    const incoming: ReceiptUpload[] = fresh.map((candidate) => {
       const file = receiptFileWithType(candidate, limits);
       const origin: UploadOrigin = target === "composer" ? { target, conversationId } : { target };
       const base = { file, key: randomId(), ...origin };
@@ -75,6 +85,12 @@ export class ReceiptUploadQueue {
       return reason ? { ...base, status: "rejected", reason } : { ...base, status: "queued" };
     });
     this.publish([...(target === "composer" ? this.items.filter((item) => item.target !== target) : this.items), ...incoming]);
+    return true;
+  }
+
+  /** Closing the dialog forgets what is finished; queued, running and failed files stay. */
+  clearSettled(target: IntakeTarget) {
+    if (!this.running) this.publish(this.items.filter((item) => item.target !== target || isUnfinishedUpload(item)));
   }
 
   remove(key: string) {

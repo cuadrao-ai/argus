@@ -2425,6 +2425,7 @@
       "heic": "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first.",
       "title": "Upload receipt",
       "queue_title": "Upload receipts",
+      "busy": "Wait for the current upload to finish before adding files.",
       "review_saved": "Review saved receipts",
       "save_pending": "Save remaining files",
       "drop_multiple": "Drop your receipts here.",

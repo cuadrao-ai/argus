@@ -313,7 +313,10 @@ export function BusinessWorkspaceProvider({
         <ReceiptIntakeDialog
           target={intakeTarget}
           queue={uploadQueue}
-          onClose={() => setIntakeTarget(null)}
+          onClose={() => {
+            if (intakeTarget) uploadQueue.clearSettled(intakeTarget);
+            setIntakeTarget(null);
+          }}
           onReview={(saved) => {
             setIntakeTarget(null);
             openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id } : { kind: "inbox" });

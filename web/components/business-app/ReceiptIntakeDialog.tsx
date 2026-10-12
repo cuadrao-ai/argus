@@ -57,9 +57,10 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
   const many = target === "inbox";
 
+  const [busy, setBusy] = useState(false);
   const choose = (files: readonly File[]) => {
     setClipboardEmpty(false);
-    queue.add(files, limits, target, bridge?.conversationId ?? null);
+    setBusy(!queue.add(files, limits, target, bridge?.conversationId ?? null));
   };
   const chooseRef = useRef(choose);
   useEffect(() => {
@@ -202,6 +203,11 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           />
         </div>
 
+        {busy ? (
+          <p role="status" className="text-[14px] text-black/60 dark:text-white/60">
+            {t("business.intake.busy", "Wait for the current upload to finish before adding files.")}
+          </p>
+        ) : null}
         {clipboardEmpty ? (
           <p role="status" className="text-[14px] text-black/60 dark:text-white/60">
             {t("business.intake.clipboard_empty", "There's no receipt image or PDF to paste. Copy one first, or choose a file.")}
