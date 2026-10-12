@@ -1090,6 +1090,27 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-receipt-notes-20261012": {
+      "description": "Review notes on #996 and #997: a repeat mark never overwrites a bank-match warning; the observation reader skips rows the projection skips; the settle route declares its refusals; direct tests for the duplicate skip rule, the legacy duplicate pass, the zero-purchase label and the settle refusals.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/routers/business_drafts.py",
+        "src/argus/domain/business/actions/mutations.py",
+        "src/argus/domain/business/duplicates.py",
+        "tests/business/test_business_duplicates_direct.py",
+        "tests/test_business_multi_purchase.py",
+        "tests/test_business_multi_purchase_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }

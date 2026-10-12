@@ -9237,7 +9237,8 @@ accept path recorded.
   (error code `purchases_unrecorded`) while `unrecorded_purchases` is above 0.
   `POST /api/v1/business/drafts/{draft_id}/remainder/settle` with `{version}`
   and an `Idempotency-Key` lets a person with `approve` permission settle the
-  rest (ledger action `settle_remainder`); the dossier then reports 0. 409
+  rest (ledger action `settle_remainder`); the dossier then reports 0. 403
+  `business_permission_denied` without approve permission; 409
   `stale_version`; 422 `business_draft_not_recorded` before approval and
   `business_remainder_none` when nothing is left. An
   unreadable read is still refused to the document layer, which keeps the

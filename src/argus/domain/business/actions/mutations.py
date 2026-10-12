@@ -388,9 +388,18 @@ def _observed_purchases(batch: ExtractionBatch) -> list[SimpleNamespace]:
     candidate for a receipt it could not settle on one purchase, so the rows
     themselves are the evidence, read the way the projection reads a row."""
 
+    from argus.domain.ingestion.documents.extractor import _plain_amount
+
     rows = []
+    seen: set[tuple[int, int]] = set()
     for row in batch.observations:
-        if row.evidence != "transaction":
+        identity = (row.page, row.row)
+        # The projection's own skips: a repeated identity or an amount that is
+        # not plain decimal text is never a purchase.
+        if row.evidence != "transaction" or identity in seen:
+            continue
+        seen.add(identity)
+        if row.amount is not None and not _plain_amount(row.amount):
             continue
         uncertain = set(row.uncertain)
         for name in ("amount", "currency", "occurred_on"):

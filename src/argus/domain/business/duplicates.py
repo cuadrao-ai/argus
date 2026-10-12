@@ -94,8 +94,13 @@ def flag_receipt_duplicates(tx: ImportTx, event_id: str) -> tuple[str, ...]:
             found.append(other.id)
     if not found:
         return ()
+    flagged = duplicates.flag(event, found)
+    if event.attention == "ambiguous_match":
+        # The import layer's bank-match warning outranks a repeat mark; both
+        # are settled by a person, and the repeat is still recorded below.
+        flagged = replace(flagged, attention="ambiguous_match")
     flagged = replace(
-        duplicates.flag(event, found),
+        flagged,
         attention_detail={"basis": "read_facts", "fields": list(DUPLICATE_FIELDS)},
     )
     tx.put_event(flagged)

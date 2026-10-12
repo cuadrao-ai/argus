@@ -7,10 +7,11 @@ draft."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from hashlib import sha256
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from argus.domain.business.contracts.actions import (
@@ -18,6 +19,7 @@ from argus.domain.business.contracts.actions import (
     ReviewDraft,
     SettleRemainder,
 )
+from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
@@ -246,3 +248,63 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
         context, first.draft_id, SettleRemainder(version=done.version), "settle-2"
     )
     assert twice.outcome == "invalid_input" and twice.code == "business_remainder_none"
+
+
+def test_settle_remainder_refusals(two_purchases, users):  # noqa: ANN001
+    service, context, _, _, _, _ = two_purchases
+    bridge.bind(two_purchases)
+    first = bridge.finish(two_purchases)
+    assert first.outcome == "applied", first
+    version = service.dossier(context, first.draft_id).version
+    # Before approval there is nothing recorded to settle around.
+    early = service.settle_remainder(
+        context, first.draft_id, SettleRemainder(version=version), "early"
+    )
+    assert (early.outcome, early.code) == ("invalid_input", "business_draft_not_recorded")
+    # A stale version is refused before anything else about the draft.
+    stale = service.settle_remainder(
+        context, first.draft_id, SettleRemainder(version=version + 5), "stale"
+    )
+    assert (stale.outcome, stale.code) == ("stale_version", "stale_version")
+    # Only a person settles; the same grant through an extractor identity is refused.
+    robot = replace(
+        context, actor=context.actor.model_copy(update={"actor_kind": "extractor"})
+    )
+    machine = service.settle_remainder(
+        robot, first.draft_id, SettleRemainder(version=version), "robot"
+    )
+    assert (machine.outcome, machine.code) == (
+        "permission_denied",
+        "business_human_command_required",
+    )
+    # A grant without approve permission is refused.
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
+            " values (%s,%s,%s,ARRAY['read','prepare'])",
+            (context.actor.space_id, users["owner"], users["owner"]),
+        )
+    reader = service.resolve_actor(
+        TrustedActor(
+            actor_id=UUID(users["owner"]),
+            actor_kind="member",
+            space_id=context.actor.space_id,
+        )
+    )
+    denied = service.settle_remainder(
+        reader, first.draft_id, SettleRemainder(version=version), "reader"
+    )
+    assert (denied.outcome, denied.code) == (
+        "permission_denied",
+        "business_permission_denied",
+    )
+    with service.authority.pool.connection() as db:
+        assert (
+            db.execute(
+                "select count(*) from public.business_action_receipts"
+                " where space_id=%s and command->>'action'='settle_remainder'"
+                " and outcome->>'outcome'='applied'",
+                (context.actor.space_id,),
+            ).fetchone()[0]
+            == 0
+        )
