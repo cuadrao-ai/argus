@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { ArrowUpRight, AtSign, Instagram, Music2, Youtube } from "lucide-react";
+import { ArrowUpRight, Instagram, Music2, Youtube } from "lucide-react";
+import { SOCIAL_PLATFORMS, socialPreviewEnabled, visibleSocials } from "@/lib/social";
 import { businessPath } from "@/lib/site-routes";
 import { businessContent, type BusinessLocale } from "./content";
 import { businessContactEmail, siteCopy } from "./site-copy";
@@ -37,17 +38,32 @@ function LegalNav({ locale, c }: { locale: BusinessLocale; c: FooterCopy }) {
   );
 }
 
+const SOCIAL_ICONS = { tiktok: Music2, instagram: Instagram, youtube: Youtube } as const;
+
 function FooterBar({ c }: { c: FooterCopy }) {
+  const socials = visibleSocials(
+    SOCIAL_PLATFORMS,
+    socialPreviewEnabled(process.env.CUADRAO_SOCIAL_PREVIEW),
+  );
   return (
     <div className={styles.footerBar}>
       <p>{c.copyright}</p>
-      <div className={styles.footerSocial} role="group" aria-label={c.socialLabel}>
-        <span role="img" aria-label="TikTok"><Music2 size={18} aria-hidden="true" /></span>
-        <span role="img" aria-label="Instagram"><Instagram size={18} aria-hidden="true" /></span>
-        <span role="img" aria-label="YouTube"><Youtube size={18} aria-hidden="true" /></span>
-        <span role="img" aria-label="X"><b aria-hidden="true">X</b></span>
-        <span role="img" aria-label="Threads"><AtSign size={18} aria-hidden="true" /></span>
-      </div>
+      {socials.length > 0 && (
+        <div className={styles.footerSocial} role="group" aria-label={c.socialLabel}>
+          {socials.map(({ id, label, href }) => {
+            const Icon = SOCIAL_ICONS[id];
+            return href ? (
+              <a key={id} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}>
+                <Icon size={18} aria-hidden="true" />
+              </a>
+            ) : (
+              <span key={id} role="img" aria-label={label}>
+                <Icon size={18} aria-hidden="true" />
+              </span>
+            );
+          })}
+        </div>
+      )}
       <a href="#top" className={styles.backTop}>
         {c.top}
         <ArrowUpRight size={16} aria-hidden="true" />

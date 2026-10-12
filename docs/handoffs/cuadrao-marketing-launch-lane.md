@@ -1,6 +1,6 @@
 # Cuadrao marketing website lane: handoff
 
-Current continuation: [Claude handoff and freeze, October 11, 2026](#claude-handoff-and-freeze-october-11-2026). This checkpoint supersedes historical next-step and approval instructions below. The design is locked and the lane is frozen.
+Current continuation: [Polish round, October 11, 2026](#polish-round-october-11-2026), which supersedes the freeze below for the items it lists. [Claude handoff and freeze](#claude-handoff-and-freeze-october-11-2026) still governs everything it covers that the polish round does not change. This checkpoint supersedes historical next-step and approval instructions below.
 
 Lane parent: [#880](https://github.com/lagarcess/argus/issues/880) (children #887 to #892). Written 2026-10-09 when the lane was paused so the founder can reserve Claude usage for the Consumer lane. Everything a successor needs is in the Git repository and the linked GitHub records. No private notes, session scratchpad or conversation is required.
 
@@ -447,3 +447,34 @@ The founder owns design approval. This Marketing Lane chat is the outgoing imple
 No listener is active on comparison4511, preview4512 or demo4513. No lane subagent is running. Processes found in the restored checkout are Codex/ChatGPT node runtimes and MCP tooling, including one unclassified app-owned node process; their non-use is not established, so all remain untouched. No confirmed unused Marketing test process needed stopping.
 
 Permanent deletion candidates: none proposed. No files, worktrees, refs, settings, fixtures, credentials or unique evidence were deleted. No new full-repository copy, service start, product edit, archive action or optional repair was performed during this freeze.
+
+
+## Polish round, October 11, 2026
+
+The founder resumed Marketing polish, working with Claude, and said work ends at integration: nothing goes to `main`. Every release hold above is unchanged. Nothing here authorizes publication, hosted changes, real email or public forms.
+
+### What changed (all under `marketing/`)
+
+- **Header:** the primary button starts as the sage tint `#e8ede3` and fills with the brand dark green on first scroll (300 ms, instant for reduced motion).
+- **Footers:** vertical column dividers, sage or brand-green column headings, a Legal column (Privacidad, plus Términos and Quién es responsable as non-clickable placeholders), the contact email, and a bottom bar with the copyright line. Business is dark; Personal, Contact and Privacy share a light version. Both share one legal column and one bottom bar.
+- **Social icons:** TikTok, Instagram and YouTube, behind `CUADRAO_SOCIAL_PREVIEW=1`. Without the flag the row is absent. An icon shows by itself once its link is set in `marketing/lib/social.ts`. X and Threads are not listed until the founder decides.
+- **Business hero:** one rotating use-case line under "Cada cuenta. En su sitio." (Spanish and English drafts, paused in a hidden tab, still for reduced motion). The development-stage note and the two section labels "EL PRIMER PILOTO" and "DETRÁS DE CUADRAO" are removed everywhere, as is the "en desarrollo" sentence. The sample-data line stays.
+- **Copy:** the limits answer is simpler and kinder; the bio reads "tecnología y datos" and "technology and data".
+- **Business inquiry form:** optional role, preferred channel with a validated WhatsApp number, "how did you hear about Cuadrao", a pilot checkbox, a message helper and example, and a quiet counter for the last 100 characters. The new answers become a short Spanish block at the top of the existing `description`; the server contract is unchanged (see the forms contract). The left column no longer moves when WhatsApp is chosen.
+- **Phone and privacy:** the line under the form and the privacy notice now say a WhatsApp number may be shared. The next-step line says "Te escribimos pronto…", not a deadline.
+- **Personal hand:** the black filler under the ring and pinky fingers now sits inside the bezel line, so no black shows on the screen at 390, 1024 and 1440 px.
+- **Mobile:** no horizontal overflow on any page; the header logo, footer logo and pilot checkbox now have 44 px targets.
+
+### Verification at this head
+
+Lint, typecheck, 191 unit tests, a production build with the social flag unset (as CI builds it), and the full browser suite (199 passed, 1 skipped as before, including the accessibility checks on all eight pages). The modularity budget guard reports no violation. Not tested: a physical phone, a real provider, or the hosted site.
+
+### Founder approvals still needed before any publication
+
+- **New Spanish copy, string by string:** the five rotating phrases and their English drafts, the form labels and helper text, the next-step line, the footer legal and social labels, and the simplified limits answer.
+- **Privacy:** the added WhatsApp-number sentence in the notice and under the form.
+- **Operator and LLC wording:** the footer copyright reads "Cuadrao LLC" and "Términos" and "Quién es responsable" are placeholders. They stay unpublished until the founder confirms the company is formed and operates the site.
+- **Business positioning:** the rotating phrases come from the founder's October 8 call with José. Whether the hero's promise changes is the founder's call.
+
+The scope above is source only. Reconciling this into the release candidate (#927) is not part of this round.
+
