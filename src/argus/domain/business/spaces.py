@@ -15,6 +15,8 @@ from typing import Protocol
 
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.access import ensure_owner_grant
+
 # Founder-approved October 8: the name a space starts with until renamed.
 DEFAULT_SPACE_NAMES = {"es": "Mi negocio", "en": "My business"}
 MAX_NAME_LENGTH = 80
@@ -59,7 +61,7 @@ class PostgresSpaceStore:
         return Space(*row) if row else None
 
     def create(self, person_id: str, name: str) -> tuple[Space, bool]:
-        with self._pool.connection() as connection:
+        with self._pool.connection() as connection, connection.transaction():
             created = connection.execute(
                 "insert into public.spaces (kind, name, created_by)"
                 " values ('business', %s, %s)"
@@ -67,6 +69,9 @@ class PostgresSpaceStore:
                 " do nothing returning id::text, name",
                 (name, person_id),
             ).fetchone()
+            if created is not None:
+                # The owner's grant is born with the space, in the same transaction.
+                ensure_owner_grant(connection, created[0], person_id)
         if created is not None:
             return Space(*created), True
         existing = self.open_space(person_id)

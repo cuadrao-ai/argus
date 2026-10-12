@@ -428,3 +428,37 @@ export async function getBusinessEmailDelivery(id: string): Promise<BusinessEmai
 export async function retryBusinessEmailDelivery(id: string): Promise<{ id: string }> {
   return apiFetch(`/business/email/deliveries/${encodeURIComponent(id)}/retry`, { method: "POST" });
 }
+
+/** Who may act in the owner's Business. The grant is the only authority. */
+export type BusinessAccessCapability = "read" | "prepare" | "approve";
+export type BusinessAccessGrant = {
+  id: string;
+  email: string | null;
+  display_name: string;
+  capabilities: BusinessAccessCapability[];
+  created_at: string;
+  owner: boolean;
+};
+export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string };
+export type BusinessAccess = { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] };
+
+export async function getBusinessAccess(): Promise<BusinessAccess> {
+  return apiFetch("/business/access");
+}
+
+/** A read and prepare grant for a confirmed account, else a pending invite; the server answers with the whole list either way. */
+export async function giveBusinessAccess(email: string): Promise<BusinessAccess> {
+  return apiFetch("/business/access", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function revokeBusinessAccessGrant(id: string): Promise<void> {
+  await apiFetch(`/business/access/grants/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function revokeBusinessAccessInvite(id: string): Promise<void> {
+  await apiFetch(`/business/access/invites/${encodeURIComponent(id)}`, { method: "DELETE" });
+}

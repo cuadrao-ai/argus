@@ -727,9 +727,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-notes-inbox-20261012": {
@@ -745,9 +745,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-email-intake-20261012": {
@@ -795,9 +795,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-business-email-inbox-20261012": {
@@ -830,8 +830,8 @@
         "src/argus/domain/ingestion/email_intake/service.py",
         "src/argus/domain/ingestion/email_intake/signatures.py",
         "src/argus/domain/ingestion/email_intake/store.py",
-        "supabase/migrations/20261012030000_business_email_intake.sql",
         "supabase/migrations/20261012020000_document_source_media_types.sql",
+        "supabase/migrations/20261012030000_business_email_intake.sql",
         "tests/business/test_business_api.py",
         "tests/business/test_business_email_api.py",
         "tests/ingestion/test_document_flat_files.py",
@@ -858,9 +858,9 @@
       ],
       "deny": [
         ".env",
-        "web/.env.local",
         ".env.*",
-        "web/.env.*"
+        "web/.env.*",
+        "web/.env.local"
       ]
     },
     "codex/cuadrao-web-branding-20261012": {
@@ -916,6 +916,46 @@
         "web/public/manifest.json",
         "web/public/screenshots/argus-desktop.png",
         "web/public/screenshots/argus-mobile.png"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-business-owner-grants-20261012": {
+      "description": "Business access: the owner's own grant born with the space and healed once, named accountant grants (read and prepare), pending invites for confirmed emails, revocation, ledger rows, the owner's Access screen. One additive migration. No firm or role features.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "docs/reports/evidence/cuadrao-business-access/**",
+        "docs/specs/lanes/account-deletion-fk-census.md",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/business_spaces.py",
+        "src/argus/api/ingestion.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/api/routers/profile.py",
+        "src/argus/domain/business/access.py",
+        "src/argus/domain/business/spaces.py",
+        "supabase/migrations/20261012040000_business_access_invites.sql",
+        "tests/business/test_business_access_api.py",
+        "tests/test_business_access_postgres.py",
+        "tests/test_client_grants_postgres.py",
+        "web/__tests__/business-access-panel.test.tsx",
+        "web/components/business-app/BusinessAccessPanel.tsx",
+        "web/components/business-app/BusinessPanel.tsx",
+        "web/components/business-app/BusinessSidebarNav.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/business-data.ts",
+        "web/components/business-app/fixture-data.ts",
+        "web/e2e/business-access.spec.ts",
+        "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
       ],
       "deny": [
         ".env",
