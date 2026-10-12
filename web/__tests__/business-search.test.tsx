@@ -110,7 +110,7 @@ async function businessSearch(found: BusinessSearchResult, notes: BusinessCaptur
     </I18nextProvider>,
   );
   const groups = await (built as unknown as WorkspaceSearch).find("ferreteria");
-  return { groups, opened, periods };
+  return { groups, opened, periods, search: built as unknown as WorkspaceSearch };
 }
 
 const expense = {
@@ -199,5 +199,58 @@ describe("original note search", () => {
     assert.ok(html.includes("Notes are unavailable"));
     assert.ok(html.includes(expense.merchant));
     assert.ok(!html.includes("private server details"));
+  });
+});
+
+type Element = { type: unknown; props: { children?: unknown; onMouseEnter?: () => void; onFocus?: () => void; onClick?: () => void; "aria-pressed"?: boolean } };
+function buttonsOf(node: unknown, found: Element[] = []): Element[] {
+  if (Array.isArray(node)) { node.forEach((child) => buttonsOf(child, found)); return found; }
+  if (!node || typeof node !== "object") return found;
+  const element = node as Element;
+  if (element.type === "button") found.push(element);
+  buttonsOf(element.props?.children, found);
+  return found;
+}
+
+describe("record preview in the results", () => {
+  const hit = { id: "exp-1", icon: Banknote, title: "Ferretería", detail: "", amount: null, open: () => undefined };
+  const groups: WorkspaceSearchGroup[] = [{ id: "expenses", label: "Expenses", hits: [{ ...hit, preview: <p>record</p> }, { ...hit, id: "exp-2" }] }];
+
+  test("hover and focus preview a hit; click and Enter keep it selected instead of leaving", () => {
+    const previews: string[] = [];
+    const selections: string[] = [];
+    let opened = 0;
+    const tree = WorkspaceSearchResults({ search, state: { status: "ready", groups }, retry: noop, onOpened: () => { opened += 1; }, onPreview: (group, item) => previews.push(`${group}:${item.id}`), onSelect: (group, item) => selections.push(`${group}:${item.id}`), selectedKey: "expenses:exp-1" });
+    const [withPreview, withoutPreview] = buttonsOf(tree);
+    withPreview.props.onMouseEnter?.();
+    withPreview.props.onFocus?.();
+    withPreview.props.onClick?.();
+    assert.deepEqual(previews, ["expenses:exp-1", "expenses:exp-1"]);
+    assert.deepEqual(selections, ["expenses:exp-1"]);
+    assert.equal(withPreview.props["aria-pressed"], true);
+    assert.equal(opened, 0);
+    assert.equal(withoutPreview.props.onMouseEnter, undefined);
+    withoutPreview.props.onClick?.();
+    assert.equal(opened, 1);
+  });
+
+  test("without a preview handler a click opens the record as before", () => {
+    let opened = 0;
+    const tree = WorkspaceSearchResults({ search, state: { status: "ready", groups }, retry: noop, onOpened: () => { opened += 1; } });
+    buttonsOf(tree)[0].props.onClick?.();
+    assert.equal(opened, 1);
+  });
+
+  test("every Business hit carries a preview that shows what the hit already knows", async () => {
+    const note: BusinessCapture = { draft_id: "draft-1", version: 2, source_id: "source-1", text: "pintura sin recibo", received_at: "2026-10-10T14:00:00Z", review_state: "open" };
+    const receipt = { id: "rcpt-9", channel: "web" as const, filename: "factura-9.pdf", media_type: "application/pdf", size_bytes: 1, received_at: "2026-10-07T14:00:00Z", status: "review_ready" as const, error_code: null, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null, attention: null, preparable: false, enterable: false };
+    const { groups: found, search: built } = await businessSearch({ expenses: [expense], receipts: [receipt], accounts: [] }, [note]);
+    assert.equal(built.previewAvailable, true);
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "en", resources: {} });
+    const html = (group: string) => renderToStaticMarkup(<I18nextProvider i18n={i18n}>{found.find((item) => item.id === group)!.hits[0].preview}</I18nextProvider>);
+    assert.ok(html("expenses").includes("Ferretería La Esquina") && html("expenses").includes("RD$"));
+    assert.ok(html("receipts").includes("factura-9.pdf"));
+    assert.ok(html("captures").includes("pintura sin recibo") && html("captures").includes("Revision 2"));
   });
 });

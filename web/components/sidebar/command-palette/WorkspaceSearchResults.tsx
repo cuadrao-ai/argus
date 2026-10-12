@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, MessageSquareWarning } from "lucide-react";
-import type { WorkspaceSearch, WorkspaceSearchGroup } from "@/components/chat/ChatWorkspace";
+import type { WorkspaceSearch, WorkspaceSearchGroup, WorkspaceSearchHit } from "@/components/chat/ChatWorkspace";
 import { panelFailureIconClass } from "@/lib/failure-treatment";
 import { searchQueryIsIndexable } from "@/lib/search-text";
 
@@ -89,11 +89,19 @@ export function WorkspaceSearchResults({
   state,
   retry,
   onOpened,
+  onPreview,
+  onSelect,
+  selectedKey,
 }: {
   search: WorkspaceSearch;
   state: WorkspaceSearchState;
   retry: () => void;
   onOpened: () => void;
+  /** Hover and keyboard focus show the hit's record without opening it. */
+  onPreview?: (groupId: string, hit: WorkspaceSearchHit) => void;
+  /** Click and Enter keep the hit's record in the pane or sheet. */
+  onSelect?: (groupId: string, hit: WorkspaceSearchHit) => void;
+  selectedKey?: string;
 }) {
   const { copy } = search;
   if (state.status === "idle") return null;
@@ -140,7 +148,14 @@ export function WorkspaceSearchResults({
                 type="button"
                 {...{ [HIT]: "" }}
                 data-row-action
+                aria-pressed={onSelect && hit.preview ? selectedKey === `${group.id}:${hit.id}` : undefined}
+                onMouseEnter={hit.preview ? () => onPreview?.(group.id, hit) : undefined}
+                onFocus={hit.preview ? () => onPreview?.(group.id, hit) : undefined}
                 onClick={() => {
+                  if (onSelect && hit.preview) {
+                    onSelect(group.id, hit);
+                    return;
+                  }
                   onOpened();
                   hit.open();
                 }}

@@ -2469,6 +2469,7 @@
     "search": {
       "placeholder": "Search expenses, receipts and chats",
       "placeholder_records": "Search expenses and receipts",
+      "open_record": "Open record",
       "no_results_hint": "Try a merchant or a file name.",
       "region": "Business records",
       "loading": "Searching your business",

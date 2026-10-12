@@ -2469,6 +2469,7 @@
     "search": {
       "placeholder": "Buscar gastos, recibos y chats",
       "placeholder_records": "Buscar gastos y recibos",
+      "open_record": "Abrir registro",
       "no_results_hint": "Prueba con el nombre de un comercio o de un archivo.",
       "region": "Registros del negocio",
       "loading": "Buscando en tu negocio",
