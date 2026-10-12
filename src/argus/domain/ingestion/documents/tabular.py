@@ -20,7 +20,9 @@ from xml.etree import ElementTree as ET
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-FLAT_MEDIA_TYPES = frozenset({"text/plain", "text/csv", XLSX})
+XML_MEDIA_TYPES = frozenset({"application/xml", "text/xml"})
+FLAT_MEDIA_TYPES = frozenset({"text/plain", "text/csv", XLSX, *XML_MEDIA_TYPES})
+MAX_XML_LEAVES = 2000
 MAX_TEXT_BYTES = 200_000
 MAX_ROWS = 300
 MAX_COLUMNS = 64
@@ -67,9 +69,11 @@ def _row(values: list[str]) -> str:
 
 
 def flat_text(content: bytes, media_type: str) -> tuple[int, str]:
-    """Pages and page-labelled text for a TXT, CSV or XLSX source."""
+    """Pages and page-labelled text for a TXT, CSV, XLSX or XML source."""
     if media_type == "text/plain":
         return 1, _text(content)
+    if media_type in XML_MEDIA_TYPES:
+        return 1, _bounded(xml_text(content))
     if media_type == "text/csv":
         try:
             rows = []
@@ -96,6 +100,90 @@ def flat_text(content: bytes, media_type: str) -> tuple[int, str]:
         OverflowError,
     ):
         _fail()
+
+
+def _local(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def _leaves(root: ET.Element) -> list[tuple[str, str]]:
+    """Every element with text, as (path, text) in document order; namespaces
+    dropped from the path, attributes ignored. Bounded like a sheet."""
+
+    leaves = []
+    stack = [(root, _local(root.tag))]
+    while stack:
+        node, path = stack.pop()
+        children = list(node)
+        text = (node.text or "").strip()
+        if text:
+            if len(text) > MAX_CELL_CHARS:
+                _fail("document_cell_limit")
+            leaves.append((path, text))
+            if len(leaves) > MAX_XML_LEAVES:
+                _fail("document_row_limit")
+        stack.extend(
+            (child, f"{path}/{_local(child.tag)}") for child in reversed(children)
+        )
+    return leaves
+
+
+def _ecf_summary(root: ET.Element, leaves: list[tuple[str, str]]) -> list[str]:
+    """A DGII e-CF is issued in DOP: its MontoTotal is the amount paid in pesos
+    and any OtraMoneda block is informational. Said first, from its own tags."""
+
+    if _local(root.tag) != "ECF":
+        return []
+    values = {}
+    for path, text in leaves:
+        values.setdefault(path.rsplit("/", 1)[-1], text)
+    if "MontoTotal" not in values:
+        return []
+    lines = [
+        "DGII e-CF electronic invoice. Invoice currency: DOP.",
+        f"Total paid in DOP (MontoTotal): {values['MontoTotal']}",
+    ]
+    if "MontoTotalOtraMoneda" in values:
+        lines.append(
+            f"Total in another currency, informational only"
+            f" ({values.get('TipoMoneda', 'unknown')}, MontoTotalOtraMoneda):"
+            f" {values['MontoTotalOtraMoneda']}"
+        )
+    for tag, label in (
+        ("eNCF", "e-NCF"),
+        ("RNCEmisor", "Issuer RNC"),
+        ("RazonSocialEmisor", "Issuer name"),
+        ("FechaEmision", "Issue date (DD-MM-YYYY)"),
+        ("TotalITBIS", "ITBIS"),
+        ("MontoPropinaLegal", "Propina legal"),
+    ):
+        if tag in values:
+            lines.append(f"{label} ({tag}): {values[tag]}")
+    return lines
+
+
+def xml_text(content: bytes) -> str:
+    """One page of `path: value` lines for an XML source, read inertly."""
+
+    root = _xml(content)
+    leaves = _leaves(root)
+    header = ["Page 1 (XML elements, path: value):", *_ecf_summary(root, leaves)]
+    return "\n".join([*header, *(f"{path}: {text}" for path, text in leaves)])
+
+
+def document_currency(content: bytes, media_type: str) -> str | None:
+    """The currency a source names for itself: DOP for a DGII e-CF with a
+    MontoTotal; None when the document does not say."""
+
+    if media_type not in XML_MEDIA_TYPES:
+        return None
+    try:
+        root = _xml(content)
+    except DocumentExtractionError:
+        return None
+    if _local(root.tag) != "ECF":
+        return None
+    return "DOP" if any(_local(n.tag) == "MontoTotal" for n in root.iter()) else None
 
 
 def _bounded(text: str) -> str:

@@ -8511,7 +8511,7 @@ grant. The same connection ID reopens the draft from Chat or Plan. These are
 backend contracts under implementation in the default-off lane, not hosted or
 native availability claims.
 
-`POST /api/v1/financial-documents` accepts bounded PDF, JPEG, PNG, TXT, CSV, XLSX
+`POST /api/v1/financial-documents` accepts bounded PDF, JPEG, PNG, TXT, CSV, XLSX, XML
 or EML bytes and an optional `X-Document-Filename`, percent-encoded UTF-8 (`encodeURIComponent`);
 raw UTF-8 is also accepted and undecodable bytes become replacement characters.
 Optional `X-Document-Proposal` is a bounded
@@ -9178,6 +9178,18 @@ accept path recorded.
   `possible_duplicate`. The mark is the import event's own
   `possible_duplicate` attention; the hosted bridge sets it when it prepares
   the attachment, the local app's import pass sets it the same way.
+- XML is an accepted receipt source (`application/xml`, `text/xml`), alone or
+  as an email attachment, read inertly like a spreadsheet: no entities, no
+  DOCTYPE, no external fetch; every element becomes one `path: value` line of
+  evidence. A DGII e-CF (root `ECF` with `MontoTotal`) is summarised first:
+  invoice currency DOP, the DOP total paid, any other-currency total marked
+  informational, the e-NCF, issuer RNC, issue date, ITBIS and propina legal.
+  The read's e-NCF, RNC and ITBIS land on the draft's fiscal facts as before.
+  When the source names its own currency and the read chose another, the
+  projection records `receipt_currency_conflict` (field `currency`) beside
+  `receipt_purchase_ambiguous`, keeps the rows as evidence and holds the read
+  for a person; a source that names no currency never fires it. The batch
+  metadata records `document_currency`.
 - A read that shows several purchases, or one it cannot settle, still becomes
   one open draft on the hosted bridge: the facts every read purchase shares are
   known, the amount stays unknown for a person to set, and each read purchase

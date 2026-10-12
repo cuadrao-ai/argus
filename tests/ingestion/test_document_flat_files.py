@@ -1,12 +1,15 @@
 import io
 import zipfile
+from pathlib import Path
 
 import pytest
 from argus.domain.ingestion.documents.config import SOURCE_MEDIA_TYPES
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 from argus.domain.ingestion.documents.preparation import prepare_document, validate_source
+from argus.domain.ingestion.documents.tabular import document_currency, xml_text
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+ECF = Path(__file__).parents[1] / "document_extraction_fixtures" / "hotel-ecf.xml"
 
 
 def workbook(
@@ -47,6 +50,8 @@ def test_every_accepted_source_type_has_a_download_suffix():
         "text/plain": "txt",
         "text/csv": "csv",
         XLSX: "xlsx",
+        "application/xml": "xml",
+        "text/xml": "xml",
         "message/rfc822": "eml",
     }
 
@@ -57,6 +62,12 @@ def test_every_accepted_source_type_has_a_download_suffix():
         (b"Compra en efectivo DOP 150", "text/plain", "DOP 150"),
         (b"date,amount,currency\n2026-10-09,150,DOP\n", "text/csv", "150"),
         (workbook(), XLSX, "Receipt"),
+        (ECF.read_bytes(), "text/xml", "E320000001234"),
+        (
+            b"<recibo><total>150</total><moneda>DOP</moneda></recibo>",
+            "application/xml",
+            "recibo/total: 150",
+        ),
     ],
 )
 def test_flat_files_feed_shared_preparation_without_execution(content, media, expected):
@@ -94,6 +105,19 @@ def test_csv_rows_stay_separate_evidence_rows():
         ),
         (workbook(extra={"../escape.xml": b"<x/>"}), XLSX, "invalid_document"),
         (b"not a spreadsheet", XLSX, "invalid_document"),
+        (
+            b'<!DOCTYPE r [<!ENTITY e SYSTEM "file:///etc/passwd">]><r>&e;</r>',
+            "text/xml",
+            "unsupported_spreadsheet_content",
+        ),
+        (
+            b'<?xml version="1.0"?><r><a>' + b"x" * 5000 + b"</a></r>",
+            "text/xml",
+            "document_cell_limit",
+        ),
+        (b"<r>" + b"<a>1</a>" * 2001 + b"</r>", "text/xml", "document_row_limit"),
+        ("<r>\u00e9</r>".encode("utf-16"), "application/xml", "invalid_document"),
+        (b"<r><unclosed></r>", "text/xml", "invalid_document"),
     ],
 )
 def test_unsafe_or_excessive_inputs_fail_before_capture(content, media, code):
@@ -191,3 +215,38 @@ def test_time_only_excel_style_does_not_invent_a_calendar_date():
     assert "0.5 [number format 20:" in prepared.text
     assert "1899-" not in prepared.text
     assert "1900-" not in prepared.text
+
+
+def test_an_ecf_says_its_dop_total_first_and_its_other_currency_as_informational():
+    text = xml_text(ECF.read_bytes())
+    lines = text.splitlines()
+    assert lines[0] == "Page 1 (XML elements, path: value):"
+    assert lines[1] == "DGII e-CF electronic invoice. Invoice currency: DOP."
+    assert lines[2] == "Total paid in DOP (MontoTotal): 33254.91"
+    assert lines[3] == (
+        "Total in another currency, informational only (USD, MontoTotalOtraMoneda): 567.30"
+    )
+    assert "e-NCF (eNCF): E320000001234" in lines
+    assert "Issuer RNC (RNCEmisor): 131111222" in lines
+    assert "ITBIS (TotalITBIS): 4676.47" in lines
+    assert "Propina legal (MontoPropinaLegal): 2598.04" in lines
+    # Every element stays as evidence, in document order, with its path.
+    assert "ECF/Encabezado/Totales/MontoTotal: 33254.91" in lines
+    assert "ECF/DetallesItems/Item/NombreItem: Room Charge" in lines
+    assert lines.index("ECF/DetallesItems/Item/NombreItem: Room Charge") < lines.index(
+        "ECF/DetallesItems/Item/NombreItem: Minibar"
+    )
+    assert document_currency(ECF.read_bytes(), "text/xml") == "DOP"
+
+
+def test_a_plain_xml_names_no_currency_and_keeps_only_its_elements():
+    content = b"<recibo><comercio>Colmado</comercio><total>150</total></recibo>"
+    assert document_currency(content, "application/xml") is None
+    assert document_currency(content, "text/plain") is None
+    assert xml_text(content).splitlines() == [
+        "Page 1 (XML elements, path: value):",
+        "recibo/comercio: Colmado",
+        "recibo/total: 150",
+    ]
+    # An e-CF root without a MontoTotal names nothing either.
+    assert document_currency(b"<ECF><Encabezado/></ECF>", "text/xml") is None

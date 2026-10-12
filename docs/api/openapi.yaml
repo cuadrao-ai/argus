@@ -1418,6 +1418,14 @@ paths:
             schema:
               type: string
               format: binary
+          application/xml:
+            schema:
+              type: string
+              format: binary
+          text/xml:
+            schema:
+              type: string
+              format: binary
           message/rfc822:
             schema:
               type: string
@@ -4715,6 +4723,14 @@ paths:
               type: string
               format: binary
           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema:
+              type: string
+              format: binary
+          application/xml:
+            schema:
+              type: string
+              format: binary
+          text/xml:
             schema:
               type: string
               format: binary
