@@ -26,7 +26,9 @@ struct ConnectedCuadraoProfile: View {
                 if route == .invitations, let invitations = auth.invitations {
                     InvitationsHub(model: invitations).toolbar(.visible, for: .navigationBar)
                 } else if route == .files, CuadraoFirstRelease.savedReceipts, let receipts = auth.savedReceipts {
-                    SavedReceiptsScreen(model: receipts, spanish: spanish).toolbar(.visible, for: .navigationBar)
+                    SavedReceiptsScreen(model: receipts, spanish: spanish, review: { document in
+                        Task { await auth.receiptJourney?.open(document.connectionID) }
+                    }).toolbar(.visible, for: .navigationBar)
                 } else {
                     CuadraoProfilePage(route: route, settings: $settingsExamples, spanish: spanish,
                         includeExamples: true, connection: .connected(appearance: $appearance, profile: auth))

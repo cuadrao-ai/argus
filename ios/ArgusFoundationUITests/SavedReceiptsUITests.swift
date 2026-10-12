@@ -21,15 +21,20 @@ extension FinancialLoopUITests {
         XCTAssertLessThan(app.buttons["add.tray.chooseFile"].frame.maxY, add.frame.minY, "the taller card still stops above the bar")
         capture("saved-receipts-add-menu-with-file-rows")
 
-        // Saving a photo answers "Receipt saved"; saving the same one again says it was already saved.
+        // A photo first asks whether it may be read. Save only answers "Receipt saved"; the same photo again says it was
+        // already saved.
         app.buttons["add.tray.choosePhoto"].tap()
-        XCTAssertTrue(app.alerts["Receipt saved"].waitForExistence(timeout: 10), "saved")
+        XCTAssertTrue(app.buttons["receipt.journey.saveOnly"].waitForExistence(timeout: 10), "consent comes first")
+        app.buttons["receipt.journey.saveOnly"].tap()
+        XCTAssertTrue(app.staticTexts["Receipt saved"].waitForExistence(timeout: 10), "saved")
         capture("saved-receipts-saved")
-        app.alerts.buttons["Done"].firstMatch.tap()
+        app.buttons["receipt.journey.done"].tap()
         add.tap()
         app.buttons["add.tray.choosePhoto"].tap()
-        XCTAssertTrue(app.alerts["You already had this receipt saved."].waitForExistence(timeout: 10), "already saved")
-        app.alerts.buttons["Done"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["receipt.journey.saveOnly"].waitForExistence(timeout: 10))
+        app.buttons["receipt.journey.saveOnly"].tap()
+        XCTAssertTrue(app.staticTexts["You already had this receipt saved."].waitForExistence(timeout: 10), "already saved")
+        app.buttons["receipt.journey.done"].tap()
 
         // The Profile row opens the list, which holds the two samples and the new photo.
         let privacy = app.buttons["Data and privacy"]

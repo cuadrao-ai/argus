@@ -14,6 +14,9 @@ struct FinancialActivityDetailView: View {
     @State private var revisions: [FinancialActivityDetail] = []
     @State private var errorKey: String?
     @Environment(\.locale) private var locale
+    @Environment(\.receiptJourney) private var receipts
+    @State private var receipt: FinancialDocumentDetail?
+    @State private var viewingReceipt: ViewedReceipt?
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
 
@@ -34,6 +37,7 @@ struct FinancialActivityDetailView: View {
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
                     if let reason = detail.reason { LabeledContent("accounts.reason", value: reason) }
+                    if let receipt { receiptRow(receipt) }
                     if detail.originalAmountAvailable {
                         actions(detail)
                     } else {
@@ -51,6 +55,7 @@ struct FinancialActivityDetailView: View {
             }
         }.foregroundStyle(WelcomePalette.ink)
             .task(id: activityID) { await load() }
+            .sheet(item: $viewingReceipt) { SavedReceiptViewer(receipt: $0, copy: SavedReceiptCopy(spanish: spanish)) }
             .onChange(of: loop.activityEditor == nil) { _, closed in if closed { Task { await load() } } }
     }
 
@@ -98,6 +103,18 @@ struct FinancialActivityDetailView: View {
         }
     }
 
+    /// The receipt this movement was recorded from or attached to.
+    private func receiptRow(_ document: FinancialDocumentDetail) -> some View {
+        CanvasActionRow(title: ReceiptJourneyCopy(spanish: spanish).viewReceipt, symbol: "doc.text.magnifyingglass") {
+            Task {
+                guard let data = await receipts?.source(document) else { return }
+                viewingReceipt = ViewedReceipt(document: SavedDocument(connectionID: document.connectionID, filename: document.filename,
+                    mediaType: document.mediaType, sizeBytes: data.count, sourceAvailable: true, status: document.status,
+                    createdAt: document.createdAt, updatedAt: document.createdAt), data: data)
+            }
+        }.accessibilityIdentifier("activity.receipt")
+    }
+
     private var history: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("loop.revisions").font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
@@ -125,6 +142,7 @@ struct FinancialActivityDetailView: View {
             let current = try await loop.detail(id: activityID)
             detail = current
             revisions = try await loop.detailHistory(current)
+            receipt = await receipts?.receipt(for: activityID)
         } catch {
             if case SessionFailure.rejected(let status, _) = error, status == 404 || status == 403 {
                 detail = nil; errorKey = "search.destination.unavailable"

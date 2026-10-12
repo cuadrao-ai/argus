@@ -6,6 +6,8 @@ import PDFKit
 struct SavedReceiptsScreen: View {
     @ObservedObject var model: SavedReceiptsModel
     let spanish: Bool
+    /// Continues a receipt the server is reading or has read. Without it, every row opens the file.
+    var review: ((SavedDocument) -> Void)? = nil
     @State private var viewing: ViewedReceipt?
     @State private var deleting: SavedDocument?
     @State private var openFailed = false
@@ -59,7 +61,7 @@ struct SavedReceiptsScreen: View {
     private var list: some View {
         List {
             ForEach(model.items) { document in
-                Button { open(document) } label: { row(document) }
+                Button { select(document) } label: { row(document) }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("saved.receipts.row." + document.id)
                     .accessibilityAction(named: Text(copy.delete)) { deleting = document }
@@ -100,6 +102,10 @@ struct SavedReceiptsScreen: View {
         return size + " · " + date
     }
 
+    private func select(_ document: SavedDocument) {
+        if let review, document.status != "saved" { review(document) } else { open(document) }
+    }
+
     private func open(_ document: SavedDocument) {
         Task {
             if let data = await model.source(of: document) { viewing = ViewedReceipt(document: document, data: data) }
@@ -114,7 +120,7 @@ struct ViewedReceipt: Identifiable {
     var id: String { document.id }
 }
 
-private struct SavedReceiptViewer: View {
+struct SavedReceiptViewer: View {
     let receipt: ViewedReceipt
     let copy: SavedReceiptCopy
     @Environment(\.dismiss) private var dismiss

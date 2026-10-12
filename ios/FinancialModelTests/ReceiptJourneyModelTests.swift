@@ -61,6 +61,23 @@ private func eventJSON(account: String?) -> [String: Any] {
             "created_at": "2026-10-11T12:00:00Z", "updated_at": "2026-10-11T12:00:00Z"]
 }
 
+private func fixtureAccount(_ id: String, type: String, currency: String = "DOP", archived: Bool = false) -> [String: Any] {
+    ["id": id, "type": type, "nature": "asset", "currency": currency, "currency_fraction_digits": 2, "nickname": type,
+     "archived": archived, "ownership_share_bps": 10000, "version": 3, "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-01T00:00:00Z", "opening": NSNull(), "asset": NSNull(),
+     "balance": ["state": "unknown", "amount_minor": NSNull(), "amount": NSNull(), "as_of": NSNull(), "basis": NSNull(),
+                 "activity_since_tracking_minor": 0]]
+}
+
+private func fixtureOptions() -> FinancialActivityOptions {
+    decode(["accounts": [fixtureAccount(accountID, type: "checking"),
+                         fixtureAccount("11111111-1111-4111-8111-111111111111", type: "checking", currency: "USD"),
+                         fixtureAccount("22222222-2222-4222-8222-222222222222", type: "property"),
+                         fixtureAccount("33333333-3333-4333-8333-333333333333", type: "cash", archived: true)],
+            "eligibility": ["expense": ["checking", "cash", "card"]], "destination_eligibility": [:],
+            "categories": ["groceries", "food", "transport"], "sources": []])
+}
+
 private func fixtureActivity() -> FinancialActivityDetail {
     decode(["activity_id": activityID, "revision": 1, "kind": "expense", "amount_minor": 25050, "amount": "250.50", "currency": "DOP",
             "currency_fraction_digits": 2, "occurred_at": "2026-10-10T12:00:00-04:00", "time_zone": "America/Santo_Domingo",
@@ -72,6 +89,7 @@ private func fixtureActivity() -> FinancialActivityDetail {
 actor ScriptedReceiptServer: ReceiptJourneyTransport {
     var statuses: [String]
     var withReceipt: Bool
+    var receiptCategory: String
     var open: [FinancialImportEvent]
     var accepted: [FinancialImportEvent] = []
     var previewReady = true
@@ -84,9 +102,9 @@ actor ScriptedReceiptServer: ReceiptJourneyTransport {
     private(set) var prepares = 0
     private(set) var links: [UUID] = []
 
-    init(statuses: [String] = ["queued", "preparing", "review_ready"], withReceipt: Bool = true,
+    init(statuses: [String] = ["queued", "preparing", "review_ready"], withReceipt: Bool = true, receiptCategory: String = "groceries",
          open: [FinancialImportEvent] = [fixtureEvent()]) {
-        self.statuses = statuses; self.withReceipt = withReceipt; self.open = open
+        self.statuses = statuses; self.withReceipt = withReceipt; self.receiptCategory = receiptCategory; self.open = open
     }
     func set(statuses: [String]) { self.statuses = statuses }
     func set(previewReady: Bool) { self.previewReady = previewReady }
@@ -101,7 +119,9 @@ actor ScriptedReceiptServer: ReceiptJourneyTransport {
     }
     func document(_ connectionID: String, identity: SessionSnapshot) async throws -> FinancialDocumentDetail {
         let status = statuses.count > 1 ? statuses.removeFirst() : statuses[0]
-        return fixtureDocument(status, receipt: withReceipt ? laSirena : nil)
+        var receipt = laSirena
+        receipt["suggested_category"] = receiptCategory
+        return fixtureDocument(status, receipt: withReceipt ? receipt : nil)
     }
     func prepare(_ connectionID: String, identity: SessionSnapshot) async throws -> SavedDocumentCapture {
         prepares += 1
@@ -127,6 +147,8 @@ actor ScriptedReceiptServer: ReceiptJourneyTransport {
         links.append(activityID)
         return event
     }
+    func options(identity: SessionSnapshot) async throws -> FinancialActivityOptions { fixtureOptions() }
+    func source(_ connectionID: String, identity: SessionSnapshot) async throws -> Data { Data("%PDF".utf8) }
 }
 
 extension FinancialImportAcceptance {
@@ -166,7 +188,7 @@ final class ReceiptJourneyModelTests: XCTestCase {
         let model = model(server)
         model.begin(file)
         await model.answerConsent(false)
-        XCTAssertEqual(model.phase, .savedOnly)
+        XCTAssertEqual(model.phase, .savedOnly(alreadySaved: false))
         let sent = await server.uploads
         XCTAssertEqual(sent.map(\.consent), [false])
     }
@@ -187,6 +209,15 @@ final class ReceiptJourneyModelTests: XCTestCase {
         XCTAssertNil(draft.accountID, "the server could not tell which account paid")
         XCTAssertFalse(draft.isComplete, "an account is needed before confirming")
         XCTAssertEqual(draft.receipt?.items.map(\.description), ["Arroz"])
+        XCTAssertEqual(model.accounts(for: draft).map(\.id), [UUID(uuidString: accountID)!],
+                       "only open expense accounts in the receipt's currency")
+    }
+
+    func testACategoryTheServerDoesNotKnowIsNotPrefilled() async throws {
+        let server = ScriptedReceiptServer(receiptCategory: "Supermercado y hogar")
+        let model = model(server)
+        await model.open("doc-1")
+        XCTAssertNil(try XCTUnwrap(review(model)).categoryID)
     }
 
     func testConfirmingSendsOnlyTheAnswersThenRecordsThePreviewedRequestWithItsToken() async throws {
@@ -320,6 +351,19 @@ final class ReceiptJourneyModelTests: XCTestCase {
         await server.set(uploadFailure: nil)
         await model.answerConsent(true)
         XCTAssertNotNil(review(model))
+    }
+
+    func testARecordedMovementFindsTheReceiptItCameFrom() async throws {
+        let server = ScriptedReceiptServer(open: [])
+        await server.set(accepted: [fixtureEvent(state: "accepted", account: accountID, activity: activityID)], open: [])
+        let model = model(server)
+        let found = await model.receipt(for: UUID(uuidString: activityID)!)
+        let document = try XCTUnwrap(found)
+        XCTAssertEqual(document.connectionID, "doc-1")
+        let other = await model.receipt(for: UUID())
+        XCTAssertNil(other, "a movement typed by hand has no receipt")
+        let data = await model.source(document)
+        XCTAssertEqual(data, Data("%PDF".utf8))
     }
 
     func testChangesCarryOnlyWhatDiffers() {

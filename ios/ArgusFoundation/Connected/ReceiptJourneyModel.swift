@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import ArgusSession
 
 /// The server calls the receipt journey needs. The real one talks to the API; tests stub it.
@@ -12,6 +13,8 @@ protocol ReceiptJourneyTransport: Sendable {
     func preview(_ eventID: String, identity: SessionSnapshot) async throws -> FinancialImportPreview
     func accept(_ event: FinancialImportEvent, request: FinancialActivityCommand, key: UUID, identity: SessionSnapshot) async throws -> FinancialImportAcceptance
     func link(_ event: FinancialImportEvent, activityID: UUID, identity: SessionSnapshot) async throws -> FinancialImportEvent
+    func options(identity: SessionSnapshot) async throws -> FinancialActivityOptions
+    func source(_ connectionID: String, identity: SessionSnapshot) async throws -> Data
 }
 
 struct SessionReceiptJourneyTransport: ReceiptJourneyTransport {
@@ -42,6 +45,12 @@ struct SessionReceiptJourneyTransport: ReceiptJourneyTransport {
     }
     func link(_ event: FinancialImportEvent, activityID: UUID, identity: SessionSnapshot) async throws -> FinancialImportEvent {
         try await controller.linkFinancialImport(event, activityID: activityID, expectedIdentity: identity)
+    }
+    func options(identity: SessionSnapshot) async throws -> FinancialActivityOptions {
+        try await controller.financialActivityOptions(expectedIdentity: identity)
+    }
+    func source(_ connectionID: String, identity: SessionSnapshot) async throws -> Data {
+        try await controller.savedDocumentSource(connectionID, expectedIdentity: identity)
     }
 }
 
@@ -130,8 +139,8 @@ enum ReceiptJourneyPhase: Equatable {
     case recorded(FinancialActivityDetail)
     /// The receipt joined a movement that was already recorded.
     case linked(String)
-    /// Saved without reading, as the person chose.
-    case savedOnly
+    /// Saved without reading, as the person chose. The same file may already have been saved.
+    case savedOnly(alreadySaved: Bool)
     case failed(ReceiptJourneyFailure)
 }
 
@@ -140,6 +149,8 @@ enum ReceiptJourneyPhase: Equatable {
 @MainActor
 final class ReceiptJourneyModel: ObservableObject {
     @Published private(set) var phase = ReceiptJourneyPhase.idle
+    /// The same accounts and categories the movement editor offers.
+    @Published private(set) var options: FinancialActivityOptions?
     var sessionChanged: ((SessionSnapshot) -> Void)?
 
     private let transport: any ReceiptJourneyTransport
@@ -172,7 +183,7 @@ final class ReceiptJourneyModel: ObservableObject {
     }
 
     func reset() {
-        ticket = UUID(); phase = .idle; held = nil; connectionID = nil; acceptKey = nil
+        ticket = UUID(); phase = .idle; held = nil; connectionID = nil; acceptKey = nil; options = nil
     }
 
     /// A captured file waits for the person's answer about reading.
@@ -193,7 +204,7 @@ final class ReceiptJourneyModel: ObservableObject {
             guard mine == ticket else { return }
             held = nil
             connectionID = capture.connectionID
-            guard allowed else { phase = .savedOnly; return }
+            guard allowed else { phase = .savedOnly(alreadySaved: capture.replayed); return }
             await follow(capture.connectionID, mine: mine)
         } catch {
             guard mine == ticket, !(await identityChanged(mine)) else { return }
@@ -220,6 +231,30 @@ final class ReceiptJourneyModel: ObservableObject {
             guard mine == ticket, !(await identityChanged(mine)) else { return }
             phase = .failed(.couldNotRead)
         }
+    }
+
+    /// The saved receipt behind a recorded movement, found through the import that recorded or took it.
+    func receipt(for activityID: UUID) async -> FinancialDocumentDetail? {
+        guard let identity else { return nil }
+        do {
+            let recorded = try await transport.acceptedImports(identity: identity)
+            guard let event = recorded.first(where: { $0.activityID.flatMap(UUID.init(uuidString:)) == activityID }),
+                  let connectionID = event.observations.first(where: { $0.source == "statement" })?.connectionID else { return nil }
+            return try await transport.document(connectionID, identity: identity)
+        } catch { return nil }
+    }
+
+    /// The receipt file's bytes, or nil when they cannot be read.
+    func source(_ document: FinancialDocumentDetail) async -> Data? {
+        guard let identity, document.sourceAvailable else { return nil }
+        return try? await transport.source(document.connectionID, identity: identity)
+    }
+
+    /// Open accounts that can pay this expense, in the receipt's currency.
+    func accounts(for draft: ReceiptReviewDraft) -> [FinancialAccount] {
+        guard let options else { return [] }
+        let types = Set(options.eligibility[FinancialActivityKind.expense.rawValue] ?? [])
+        return options.accounts.filter { !$0.archived && $0.currency == draft.currency && types.contains($0.type) }
     }
 
     func update(_ draft: ReceiptReviewDraft) {
@@ -298,13 +333,19 @@ final class ReceiptJourneyModel: ObservableObject {
             guard mine == ticket else { return }
             switch document.status {
             case "needs_attention": phase = .failed(.couldNotRead); return
-            case "saved": phase = .savedOnly; return
+            case "saved": phase = .savedOnly(alreadySaved: true); return
             default: break
             }
             let open = try await transport.openImports(identity: identity)
             guard mine == ticket else { return }
             if let event = open.first(where: { $0.connectionIDs.contains(connectionID) }) {
-                phase = .review(ReceiptReviewDraft(connectionID: connectionID, event: event, receipt: document.preparation?.receipt))
+                let options = try await transport.options(identity: identity)
+                guard mine == ticket else { return }
+                self.options = options
+                var draft = ReceiptReviewDraft(connectionID: connectionID, event: event, receipt: document.preparation?.receipt)
+                // The reading's category is free text; only a category the server knows is kept.
+                if let category = draft.categoryID, !options.categories.contains(category) { draft.categoryID = nil }
+                phase = .review(draft)
                 return
             }
             let recorded = try await transport.acceptedImports(identity: identity)
@@ -333,5 +374,17 @@ final class ReceiptJourneyModel: ObservableObject {
         bind(snapshot)
         sessionChanged?(snapshot)
         return true
+    }
+}
+
+private struct ReceiptJourneyKey: EnvironmentKey {
+    static let defaultValue: ReceiptJourneyModel? = nil
+}
+
+extension EnvironmentValues {
+    /// Set by the signed-in shell, so a recorded movement can show the receipt it came from.
+    var receiptJourney: ReceiptJourneyModel? {
+        get { self[ReceiptJourneyKey.self] }
+        set { self[ReceiptJourneyKey.self] = newValue }
     }
 }
