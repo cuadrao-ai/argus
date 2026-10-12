@@ -32,10 +32,7 @@ export type WhatsAppLinkViewProps = {
   problem: WhatsAppLinkProblem | null;
   confirmingUnlink: boolean;
   consent?: WhatsAppAIConsent | null;
-  agreed?: boolean;
-  onAgree?: (agreed: boolean) => void;
-  onEnableAI?: () => void;
-  onRevokeAI?: () => void;
+  onToggleAI?: () => void;
   onCreateCode: () => void;
   onAskUnlink: (ask: boolean) => void;
   onUnlink: () => void;
@@ -50,10 +47,7 @@ export function WhatsAppLinkView({
   problem,
   confirmingUnlink,
   consent = null,
-  agreed = false,
-  onAgree = () => {},
-  onEnableAI = () => {},
-  onRevokeAI = () => {},
+  onToggleAI = () => {},
   onCreateCode,
   onAskUnlink,
   onUnlink,
@@ -95,37 +89,44 @@ export function WhatsAppLinkView({
         </section>
       ) : null}
       {status?.linked && consent ? (
-        <section className="space-y-3 rounded-2xl border border-black/10 p-4 dark:border-white/10" data-testid="whatsapp-ai-consent">
-          <h3 className="font-medium">{t("settings.whatsapp.ai_title", "AI reading of your messages")}</h3>
-          <p>
-            {consent.enabled
-              ? t("settings.whatsapp.ai_on", "AI reading is on for this number.")
-              : t("settings.whatsapp.ai_off", "AI reading is off. Cuadrao cannot answer your messages yet.")}
-          </p>
-          {!consent.available && !consent.enabled ? (
-            <p role="status">{t(`settings.whatsapp.ai_reason_${consent.reason ?? "unavailable"}`, t("settings.whatsapp.ai_reason_unavailable", "AI reading cannot be turned on right now."))}</p>
-          ) : null}
-          {canEnableAI(consent) ? (
-            <>
-              <p className="whitespace-pre-wrap rounded-xl bg-black/5 p-3 dark:bg-white/5">{consent.disclosure}</p>
-              <p className="text-black/60 dark:text-white/60">
+        <section
+          className="flex items-start justify-between gap-3 rounded-xl border border-black/[0.06] px-3.5 py-3 dark:border-white/[0.08]"
+          data-testid="whatsapp-ai-consent"
+        >
+          <div className="min-w-0 space-y-1">
+            <p className="text-[13px] font-medium text-black dark:text-white">
+              {t("settings.whatsapp.ai_title", "Let AI read my WhatsApp messages")}
+            </p>
+            {consent.disclosure ? (
+              <p className="whitespace-pre-wrap text-[11.5px] text-black/60 dark:text-white/60">{consent.disclosure}</p>
+            ) : null}
+            {consent.route ? (
+              <p className="text-[11.5px] text-black/45 dark:text-white/45">
                 {t("settings.whatsapp.ai_models", "Provider: OpenRouter. Models: {{models}}.", { models: consentModels(consent).join(", ") })}
               </p>
-              <label className="flex min-h-11 cursor-pointer items-start gap-3 py-2">
-                <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={agreed} disabled={busy} onChange={(event) => onAgree(event.target.checked)} />
-                <span>{t("settings.whatsapp.ai_agree", "I read this and I allow AI to read my WhatsApp messages for my business.")}</span>
-              </label>
-              <button type="button" className={primary} onClick={onEnableAI} disabled={!agreed || busy}>
-                {t("settings.whatsapp.ai_enable", "Turn on AI reading")}
-              </button>
-            </>
-          ) : null}
-          {consent.enabled ? (
-            <button type="button" className={button} onClick={onRevokeAI} disabled={busy}>
-              {t("settings.whatsapp.ai_revoke", "Turn off AI reading")}
-            </button>
-          ) : null}
-          <p className="text-black/60 dark:text-white/60">{t("settings.whatsapp.ai_approval", "You always approve money records yourself in Cuadrao.")}</p>
+            ) : null}
+            <p className="text-[11.5px] text-black/45 dark:text-white/45" role="status">
+              {consent.enabled
+                ? t("settings.whatsapp.ai_on", "On. You can turn it off at any time.")
+                : consent.available
+                  ? t("settings.whatsapp.ai_off", "Off. Cuadrao cannot answer your messages yet.")
+                  : t(`settings.whatsapp.ai_reason_${consent.reason ?? "unavailable"}`, t("settings.whatsapp.ai_reason_unavailable", "It cannot be turned on right now."))}
+            </p>
+            <p className="text-[11.5px] text-black/45 dark:text-white/45">{t("settings.whatsapp.ai_approval", "You always approve money records yourself in Cuadrao.")}</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={consent.enabled}
+            aria-label={t("settings.whatsapp.ai_title", "Let AI read my WhatsApp messages")}
+            disabled={busy || (!consent.enabled && !canEnableAI(consent))}
+            onClick={onToggleAI}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              consent.enabled ? "bg-[#5d7f72]" : "bg-black/[0.15] dark:bg-white/[0.2]"
+            }`}
+          >
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-[left] ${consent.enabled ? "left-[22px]" : "left-0.5"}`} />
+          </button>
         </section>
       ) : null}
       <div className="flex flex-wrap gap-2">
@@ -170,7 +171,6 @@ export default function WhatsAppLinkModal({
   const [problem, setProblem] = useState<WhatsAppLinkProblem | null>(null);
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);
   const [consent, setConsent] = useState<WhatsAppAIConsent | null>(null);
-  const [agreed, setAgreed] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -184,7 +184,6 @@ export default function WhatsAppLinkModal({
       } else {
         setConsent(null);
       }
-      setAgreed(false);
     } catch (error) {
       setProblem(whatsAppLinkProblem(error));
     } finally {
@@ -213,7 +212,6 @@ export default function WhatsAppLinkModal({
     try {
       const next = await action();
       setConsent(next ?? (await getWhatsAppAIConsent()));
-      setAgreed(false);
       setProblem(null);
     } catch (error) {
       setProblem(whatsAppLinkProblem(error));
@@ -245,10 +243,12 @@ export default function WhatsAppLinkModal({
       width="md"
     >
       <WhatsAppLinkView
-        {...{ status, code, loading, busy, problem, confirmingUnlink, consent, agreed }}
-        onAgree={setAgreed}
-        onEnableAI={() => consent && canEnableAI(consent) && void changeAI(() => enableWhatsAppAI(consent.disclosure_token, crypto.randomUUID()))}
-        onRevokeAI={() => void changeAI(() => revokeWhatsAppAI())}
+        {...{ status, code, loading, busy, problem, confirmingUnlink, consent }}
+        onToggleAI={() => {
+          if (!consent) return;
+          if (consent.enabled) void changeAI(() => revokeWhatsAppAI());
+          else if (canEnableAI(consent)) void changeAI(() => enableWhatsAppAI(consent.disclosure_token, crypto.randomUUID()));
+        }}
         onCreateCode={() => void createCode()}
         onAskUnlink={setConfirmingUnlink}
         onUnlink={() => void unlink()}

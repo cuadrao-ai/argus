@@ -103,38 +103,38 @@ const consent = {
 };
 
 describe("WhatsApp AI permission", () => {
-  test("an owner reads the disclosure and models before agreeing, and cannot enable without the box", () => {
+  test("one row shows the server disclosure and models beside a switch that is off", () => {
     const html = render({ status: linked, consent });
+    expect(html).toContain("Let AI read my WhatsApp messages");
     expect(html).toContain("Cuadrao sends your message text to an AI provider");
     expect(html).toContain("anthropic/claude-haiku-5.5");
-    expect(html).toContain("Turn on AI reading");
-    expect(html).toMatch(/<button[^>]*\sdisabled=""[^>]*>Turn on AI reading/);
+    expect(html).toMatch(/role="switch"[^>]*aria-checked="false"/);
+    expect(html).not.toMatch(/role="switch"[^>]*\sdisabled=""/);
     expect(html).toContain("You always approve money records yourself");
+    expect(html).not.toContain('type="checkbox"');
   });
 
-  test("with the box checked the button is live", () => {
-    expect(render({ status: linked, consent, agreed: true })).not.toMatch(/<button[^>]*\sdisabled=""[^>]*>Turn on AI reading/);
-  });
-
-  test("an enabled permission can be turned off and shows no disclosure form", () => {
+  test("an enabled permission shows the switch on, one tap from off", () => {
     const html = render({ status: linked, consent: { ...consent, enabled: true } });
-    expect(html).toContain("AI reading is on for this number.");
-    expect(html).toContain("Turn off AI reading");
-    expect(html).not.toContain("Turn on AI reading");
+    expect(html).toMatch(/role="switch"[^>]*aria-checked="true"/);
+    expect(html).toContain("On. You can turn it off at any time.");
+    expect(html).not.toMatch(/role="switch"[^>]*\sdisabled=""/);
   });
 
-  test("an unavailable permission says why in plain words and offers no switch", () => {
+  test("an unavailable permission says why and the switch cannot be turned on", () => {
     const html = render({ status: linked, consent: { ...consent, available: false, reason: "business_unavailable", disclosure_token: null } });
     expect(html).toContain("Create your business space first.");
-    expect(html).not.toContain("Turn on AI reading");
+    expect(html).toMatch(/role="switch"[^>]*\sdisabled=""/);
   });
 
-  test("an unlinked owner sees no AI section", () => {
-    expect(render({ consent })).not.toContain("AI reading of your messages");
+  test("an unlinked owner sees no AI row", () => {
+    expect(render({ consent })).not.toContain("Let AI read my WhatsApp messages");
   });
 
   test("Spanish first copy renders", () => {
-    expect(render({ status: linked, consent }, "es-419")).toContain("Activar lectura con IA");
+    const html = render({ status: linked, consent }, "es-419");
+    expect(html).toContain("Permitir que la IA lea mis mensajes de WhatsApp");
+    expect(html).toContain("Desactivado. Cuadrao todavía no puede responder tus mensajes.");
   });
 
   test("only a signed 64 character disclosure token can enable", async () => {
