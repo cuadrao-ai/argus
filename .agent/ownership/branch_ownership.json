@@ -654,6 +654,26 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-business-upload-queue-20261012": {
+      "description": "Business receipt upload queue: several files per upload with per-file rejection, failure and retry; UI only, no backend ownership.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/receipt-upload-queue.test.ts",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ReceiptIntakeDialog.tsx",
+        "web/components/business-app/receipt-file.ts",
+        "web/components/business-app/receipt-upload-queue.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }

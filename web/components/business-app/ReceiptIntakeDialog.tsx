@@ -1,62 +1,39 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Camera, ClipboardPaste, FileUp, ReceiptText } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Camera, ClipboardPaste, FileUp, ReceiptText, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
-import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
 import { LoadingRows, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { receiptFileAccept, receiptFormatLabels } from "./receipt-file";
+import { ReceiptUploadQueue, isUnfinishedUpload, type IntakeTarget, type UploadRejection } from "./receipt-upload-queue";
 import { readClipboardFile, useInputCapabilities } from "./useInputCapabilities";
 
-/** Where a captured receipt goes next: its review, or the composer. */
-export type IntakeTarget = "inbox" | "composer";
+export type { IntakeTarget } from "./receipt-upload-queue";
 
-type Rejection = "unsupported" | "too_large" | "heic";
-
-function rejectionFor(file: File, limits: ReceiptLimits): Rejection | null {
-  const type = file.type.toLowerCase();
-  if (type === "image/heic" || type === "image/heif" || /\.hei[cf]$/i.test(file.name)) return "heic";
-  if (!limits.media_types.includes(type)) return "unsupported";
-  if (file.size > limits.max_bytes) return "too_large";
-  return null;
-}
-
-export default function ReceiptIntakeDialog({
-  target,
-  onClose,
-  onCaptured,
-}: {
-  target: IntakeTarget | null;
-  onClose: () => void;
-  onCaptured: (receipt: ReceiptSummary, target: IntakeTarget) => void;
-}) {
-  if (!target) return null;
-  return <IntakeSurface target={target} onClose={onClose} onCaptured={onCaptured} />;
-}
-
-function IntakeSurface({
-  target,
-  onClose,
-  onCaptured,
-}: {
+type IntakeProps = {
   target: IntakeTarget;
+  queue: ReceiptUploadQueue;
   onClose: () => void;
-  onCaptured: (receipt: ReceiptSummary, target: IntakeTarget) => void;
-}) {
+  /** Every saved receipt of this target; one opens its review, several open the Inbox. */
+  onReview: (receipts: ReceiptSummary[]) => void;
+};
+
+export default function ReceiptIntakeDialog({ target, ...props }: Omit<IntakeProps, "target"> & { target: IntakeTarget | null }) {
+  if (!target) return null;
+  return <IntakeSurface target={target} {...props} />;
+}
+
+function IntakeSurface(props: IntakeProps) {
   const { t } = useTranslation();
   const { records } = useBusiness();
   const limits = records.workspace?.receipt_limits;
   return limits ? (
-    <IntakeForm limits={limits} target={target} onClose={onClose} onCaptured={onCaptured} />
+    <IntakeForm limits={limits} {...props} />
   ) : (
-    <AdaptivePanel
-      title={t("business.intake.title", "Upload receipt")}
-      closeLabel={t("common.close", "Close")}
-      onClose={onClose}
-      width="md"
-    >
+    <AdaptivePanel title={t("business.intake.title", "Upload receipt")} closeLabel={t("common.close", "Close")} onClose={props.onClose} width="md">
       <div className="px-4 pb-4">
         <LoadingRows rows={2} />
       </div>
@@ -64,55 +41,36 @@ function IntakeSurface({
   );
 }
 
-function IntakeForm({
-  limits,
-  target,
-  onClose,
-  onCaptured,
-}: {
-  limits: ReceiptLimits;
-  target: IntakeTarget;
-  onClose: () => void;
-  onCaptured: (receipt: ReceiptSummary, target: IntakeTarget) => void;
-}) {
+function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & { limits: ReceiptLimits }) {
   const { t, i18n } = useTranslation();
-  const { source } = useBusiness();
   const capabilities = useInputCapabilities();
+  const { bridge } = useBusiness();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  // Each chosen file gets one upload key, so a retry never saves it twice.
-  const [chosen, setChosen] = useState<{ file: File; key: string } | null>(null);
-  const file = chosen?.file ?? null;
-  const [rejection, setRejection] = useState<Rejection | null>(null);
+  const entries = useSyncExternalStore(queue.subscribe, queue.snapshot, queue.snapshot).filter((item) => item.target === target);
   const [consent, setConsent] = useState(false);
-  const [state, setState] = useState<"idle" | "uploading" | "failed">("idle");
   const [dragging, setDragging] = useState(false);
   const [clipboardEmpty, setClipboardEmpty] = useState(false);
-  const uploading = state === "uploading";
-  // Closing waits for the upload, so its result always lands somewhere.
-  const close = () => {
-    if (!uploading) onClose();
-  };
+  const uploading = queue.uploading;
+  const pending = entries.some((item) => item.status === "queued" || item.status === "failed");
+  const unfinished = entries.some(isUnfinishedUpload);
+  const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
+  const many = target === "inbox";
 
-  const choose = (candidate: File | null | undefined) => {
-    if (!candidate || uploading) return;
+  const choose = (files: readonly File[]) => {
     setClipboardEmpty(false);
-    const reason = rejectionFor(candidate, limits);
-    setRejection(reason);
-    setChosen(reason ? null : { file: candidate, key: randomId() });
-    setState("idle");
+    queue.add(files, limits, target, bridge?.conversationId ?? null);
   };
   const chooseRef = useRef(choose);
   useEffect(() => {
     chooseRef.current = choose;
   });
-
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
-      const pasted = Array.from(event.clipboardData?.files ?? [])[0];
-      if (pasted) {
+      const files = Array.from(event.clipboardData?.files ?? []);
+      if (files.length) {
         event.preventDefault();
-        chooseRef.current(pasted);
+        chooseRef.current(files);
       }
     };
     window.addEventListener("paste", onPaste);
@@ -122,65 +80,61 @@ function IntakeForm({
   const pasteFromClipboard = async () => {
     try {
       const pasted = await readClipboardFile(limits.media_types);
-      if (pasted) choose(pasted);
+      if (pasted) choose([pasted]);
       else setClipboardEmpty(true);
     } catch {
       setClipboardEmpty(true);
     }
   };
 
-  const save = async () => {
-    if (!chosen) return;
-    setState("uploading");
-    try {
-      const captured = await source.uploadReceipt(chosen.file, consent, chosen.key);
-      onCaptured(captured, target);
-    } catch {
-      setState("failed");
-    }
-  };
-
   const sizeLabel = (bytes: number) =>
     new Intl.NumberFormat(i18n.resolvedLanguage ?? "en", { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024);
-
-  const rejectionText: Record<Rejection, string> = {
-    unsupported: t("business.intake.unsupported", "This file type isn't supported. Use a PDF, JPG or PNG."),
+  const formats = receiptFormatLabels(limits).join(", ");
+  const rejectionText: Record<UploadRejection, string> = {
+    unsupported: t("business.intake.unsupported", "This file type isn't supported. Use {{formats}}.", { formats }),
     too_large: t("business.intake.too_large", "This file is larger than {{size}} MB. Use a smaller photo or PDF.", { size: sizeLabel(limits.max_bytes) }),
     heic: t("business.intake.heic", "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first."),
+  };
+  const statusText: Record<string, string> = {
+    queued: t("business.intake.queue_status.queued", "Ready to upload"),
+    uploading: t("business.intake.queue_status.uploading", "Saving…"),
+    saved: t("business.intake.queue_status.saved", "Saved to Inbox"),
+    failed: t("business.intake.queue_status.failed", "Not saved. Try again."),
+    rejected: t("business.intake.queue_status.rejected", "Cannot upload"),
   };
 
   return (
     <AdaptivePanel
-      title={t("business.intake.title", "Upload receipt")}
+      title={many ? t("business.intake.queue_title", "Upload receipts") : t("business.intake.title", "Upload receipt")}
       closeLabel={t("common.close", "Close")}
-      onClose={close}
+      onClose={onClose}
       width="md"
       footer={
-        <div className="flex justify-end gap-2 px-4 pb-4">
-          <button type="button" className={secondaryButtonClass} disabled={uploading} onClick={close}>
-            {t("common.cancel", "Cancel")}
+        <div className="flex flex-wrap justify-end gap-2 px-4 pb-4">
+          <button type="button" className={secondaryButtonClass} onClick={onClose}>
+            {t("common.close", "Close")}
           </button>
-          <button
-            type="button"
-            className={primaryButtonClass}
-            disabled={!file || uploading}
-            onClick={() => void save()}
-          >
-            {uploading
-              ? t("business.intake.saving", "Saving…")
-              : t("business.intake.save", "Save to Inbox")}
-          </button>
+          {saved.length > 0 && !unfinished && !uploading ? (
+            <button type="button" className={primaryButtonClass} onClick={() => { queue.clear(target); onReview(saved); }}>
+              {t("business.intake.review_saved", "Review saved receipts")}
+            </button>
+          ) : null}
+          {pending || uploading ? (
+            <button type="button" className={primaryButtonClass} disabled={uploading} onClick={() => void queue.save(target, consent)}>
+              {uploading ? t("business.intake.saving", "Saving…") : many ? t("business.intake.save_pending", "Save remaining files") : t("business.intake.save", "Save to Inbox")}
+            </button>
+          ) : null}
         </div>
       }
     >
       <div className="space-y-4 px-4 pb-2">
         <p className="text-[14px] text-black/60 dark:text-white/60">
-          {t("business.intake.formats", "PDF, JPG or PNG, up to {{size}} MB. The original stays private to you.", { size: sizeLabel(limits.max_bytes) })}
+          {t("business.intake.formats", "{{formats}}, up to {{size}} MB. The original stays private to you.", { formats, size: sizeLabel(limits.max_bytes) })}
         </p>
 
         <div
           onDragOver={(event) => {
-            if (!capabilities.dragAndDrop) return;
+            if (!capabilities.dragAndDrop || uploading) return;
             event.preventDefault();
             setDragging(true);
           }}
@@ -189,36 +143,30 @@ function IntakeForm({
             if (!capabilities.dragAndDrop) return;
             event.preventDefault();
             setDragging(false);
-            choose(event.dataTransfer.files[0]);
+            choose(Array.from(event.dataTransfer.files));
           }}
           className={`rounded-[16px] border border-dashed p-5 text-center transition-colors ${
             dragging ? "border-black/40 bg-black/[0.03] dark:border-white/40" : "border-black/15 dark:border-white/15"
           }`}
         >
-          {file ? (
-            <div className="flex items-center justify-center gap-2 text-[14px] font-medium text-black dark:text-white">
-              <ReceiptText className="h-5 w-5 shrink-0" />
-              <span className="truncate">{file.name}</span>
-              <span className="shrink-0 font-normal text-black/50 dark:text-white/50">{`${sizeLabel(file.size)} MB`}</span>
-            </div>
-          ) : capabilities.dragAndDrop ? (
+          {capabilities.dragAndDrop ? (
             <p className="text-[14px] text-black/55 dark:text-white/55">
-              {t("business.intake.drop", "Drop a receipt here.")}
+              {many ? t("business.intake.drop_multiple", "Drop your receipts here.") : t("business.intake.drop", "Drop a receipt here.")}
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <button type="button" className={secondaryButtonClass} onClick={() => fileInputRef.current?.click()}>
+            <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => fileInputRef.current?.click()}>
               <FileUp className="h-4 w-4" />
-              {file ? t("business.intake.replace", "Choose another") : t("business.intake.choose", "Choose file")}
+              {many ? t("business.intake.choose_multiple", "Choose files") : t("business.intake.choose", "Choose file")}
             </button>
             {capabilities.clipboardRead ? (
-              <button type="button" className={secondaryButtonClass} onClick={() => void pasteFromClipboard()}>
+              <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => void pasteFromClipboard()}>
                 <ClipboardPaste className="h-4 w-4" />
                 {t("business.intake.paste", "Paste")}
               </button>
             ) : null}
             {capabilities.cameraCapture ? (
-              <button type="button" className={secondaryButtonClass} onClick={() => cameraInputRef.current?.click()}>
+              <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => cameraInputRef.current?.click()}>
                 <Camera className="h-4 w-4" />
                 {t("business.intake.camera", "Take photo")}
               </button>
@@ -227,25 +175,28 @@ function IntakeForm({
           <input
             ref={fileInputRef}
             type="file"
-            accept={limits.media_types.join(",")}
+            multiple={many}
+            disabled={uploading}
+            accept={receiptFileAccept(limits)}
             className="sr-only"
             tabIndex={-1}
             aria-hidden="true"
             onChange={(event) => {
-              choose(event.target.files?.[0]);
+              choose(Array.from(event.target.files ?? []));
               event.target.value = "";
             }}
           />
           <input
             ref={cameraInputRef}
             type="file"
+            disabled={uploading}
             accept={limits.media_types.filter((type) => type.startsWith("image/")).join(",")}
             capture="environment"
             className="sr-only"
             tabIndex={-1}
             aria-hidden="true"
             onChange={(event) => {
-              choose(event.target.files?.[0]);
+              choose(Array.from(event.target.files ?? []));
               event.target.value = "";
             }}
           />
@@ -256,19 +207,50 @@ function IntakeForm({
             {t("business.intake.clipboard_empty", "There's no receipt image or PDF to paste. Copy one first, or choose a file.")}
           </p>
         ) : null}
-        {rejection ? (
-          <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{rejectionText[rejection]}</p>
+
+        {entries.length > 0 ? (
+          <ul className="space-y-2" aria-live="polite" aria-label={t("business.intake.queue_title", "Upload receipts")} data-testid="receipt-upload-queue">
+            {entries.map((item) => (
+              <li key={item.key} className="rounded-xl border border-black/10 p-3 dark:border-white/15">
+                <div className="flex items-center gap-2">
+                  <ReceiptText className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 break-words text-sm font-medium">{item.file.name}</span>
+                  <span className="shrink-0 text-xs text-black/50 dark:text-white/50">{`${sizeLabel(item.file.size)} MB`}</span>
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    onClick={() => queue.remove(item.key)}
+                    aria-label={t("business.intake.remove_file", "Remove {{name}} from this upload list", { name: item.file.name })}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="text-sm text-black/60 dark:text-white/60">{statusText[item.status]}</p>
+                {item.status === "rejected" ? <p role="alert" className="mt-1 text-sm text-[#a8434c] dark:text-[#ec9aa0]">{rejectionText[item.reason]}</p> : null}
+                {item.status === "failed" ? (
+                  <div className="mt-2 space-y-2">
+                    <p role="alert" className="text-sm text-[#a8434c] dark:text-[#ec9aa0]">
+                      {t("business.intake.failed", "We couldn't save this receipt. Check your connection and try again. It won't be saved twice.")}
+                    </p>
+                    <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => void queue.save(target, consent, item.key)}>
+                      {t("common.retry", "Retry")}
+                    </button>
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         ) : null}
-        {state === "failed" ? (
-          <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">
-            {t("business.intake.failed", "We couldn't save this receipt. Check your connection and try again. It won't be saved twice.")}
-          </p>
+        {entries.some((item) => item.status === "failed") ? (
+          <p className="text-xs text-black/60 dark:text-white/60">{t("business.intake.retry_consent", "Retries keep the AI choice from the first attempt.")}</p>
         ) : null}
 
         <label className="flex items-start gap-3 rounded-[14px] bg-black/[0.03] p-3 text-[14px] text-black/75 dark:bg-white/[0.04] dark:text-white/75">
           <input
             type="checkbox"
             checked={consent}
+            disabled={uploading}
             onChange={(event) => setConsent(event.target.checked)}
             className="mt-0.5 h-5 w-5 shrink-0 accent-black dark:accent-white"
           />
@@ -276,6 +258,11 @@ function IntakeForm({
             {t("business.intake.consent", "Prepare it with AI after saving. The receipt is sent to our AI provider to fill in the details for your review. Leave this off to fill them in yourself.")}
           </span>
         </label>
+        {unfinished ? (
+          <p className="text-xs text-black/60 dark:text-white/60">
+            {t("business.intake.keep_open", "You can close this panel and come back to your uploads. Keep this page open until every file is saved.")}
+          </p>
+        ) : null}
       </div>
     </AdaptivePanel>
   );

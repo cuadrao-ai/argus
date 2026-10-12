@@ -1,0 +1,122 @@
+import { expect, test } from "bun:test";
+import type { ReceiptSummary } from "../lib/business-api";
+import { receiptFileAccept, receiptFileWithType, receiptFormatLabels } from "../components/business-app/receipt-file";
+import { ReceiptUploadQueue, composerUploadDisposition } from "../components/business-app/receipt-upload-queue";
+
+const limits = { max_bytes: 20, media_types: ["text/plain", "application/pdf"] };
+const file = (name: string, type = "text/plain", contents = "receipt") => new File([contents], name, { type });
+const savedReceipt = (id: string): ReceiptSummary => ({
+  id, channel: "web", filename: null, media_type: "text/plain", size_bytes: 7,
+  received_at: "2026-10-09T12:00:00Z", status: "saved", error_code: null,
+  attention: null, preparable: true, enterable: true, expense_id: null,
+  merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null,
+});
+
+test("mixed selection rejects invalid files independently and uploads valid files serially", async () => {
+  const called: string[] = [];
+  const reported: string[] = [];
+  let active = 0;
+  const queue = new ReceiptUploadQueue(async (candidate) => {
+    expect(active++).toBe(0);
+    called.push(candidate.name);
+    await Promise.resolve();
+    active--;
+    return savedReceipt(candidate.name);
+  }, (receipt) => reported.push(receipt.id));
+  queue.add([file("one.txt"), file("bad.exe", "application/octet-stream"), file("large.txt", "text/plain", "x".repeat(21)), file("photo.heic", "image/heic"), file("two.pdf", "")], limits, "inbox");
+  expect(queue.snapshot().map((item) => item.status)).toEqual(["queued", "rejected", "rejected", "rejected", "queued"]);
+  await queue.save("inbox", false);
+  expect(called).toEqual(["one.txt", "two.pdf"]);
+  expect(reported).toEqual(called);
+  expect(queue.snapshot().map((item) => item.status)).toEqual(["saved", "rejected", "rejected", "rejected", "saved"]);
+  expect(queue.unfinished).toBe(false);
+});
+
+test("partial failure keeps the original file, key, and consent on retry without resending saved files", async () => {
+  const calls: Array<{ name: string; key: string; consent: boolean }> = [];
+  const received: ReceiptSummary[] = [];
+  let fail = true;
+  const queue = new ReceiptUploadQueue(async (candidate, consent, key) => {
+    calls.push({ name: candidate.name, consent, key });
+    if (candidate.name === "retry.txt" && fail) throw new Error("connection lost");
+    return savedReceipt(key);
+  }, (receipt) => received.push(receipt));
+  queue.add([file("saved.txt"), file("retry.txt"), file("later.txt")], limits, "inbox");
+  const original = queue.snapshot()[1];
+  await queue.save("inbox", false);
+  expect(queue.snapshot().map((item) => item.status)).toEqual(["saved", "failed", "saved"]);
+  expect(queue.unfinished).toBe(true);
+  expect(received).toHaveLength(2);
+  fail = false;
+  await queue.save("inbox", true);
+  expect(calls).toHaveLength(4);
+  expect(calls[3]).toEqual(calls[1]);
+  expect(queue.snapshot()[1].file).toBe(original.file);
+  expect(queue.snapshot()[1].key).toBe(original.key);
+  expect(received).toHaveLength(3);
+  expect(queue.unfinished).toBe(false);
+});
+
+test("closing the subscriber cannot drop a running queue or permit duplicate saves", async () => {
+  let finish!: (receipt: ReceiptSummary) => void;
+  let calls = 0;
+  const queue = new ReceiptUploadQueue(() => { calls++; return new Promise((resolve) => { finish = resolve; }); }, () => undefined);
+  const stopListening = queue.subscribe(() => undefined);
+  queue.add([file("one.txt")], limits, "inbox");
+  const running = queue.save("inbox", false);
+  expect(queue.snapshot()[0].status).toBe("uploading");
+  stopListening();
+  await queue.save("inbox", true);
+  queue.clear("inbox");
+  queue.remove(queue.snapshot()[0].key);
+  expect(queue.snapshot()).toHaveLength(1);
+  finish(savedReceipt("server-id"));
+  await running;
+  expect(calls).toBe(1);
+  expect(queue.uploading).toBe(false);
+  expect(queue.snapshot()[0].status).toBe("saved");
+});
+
+test("composer accepts one file without replacing the inbox queue, and cancelling selection changes nothing", async () => {
+  const reported: string[] = [];
+  const queue = new ReceiptUploadQueue(async (candidate) => savedReceipt(candidate.name), (_receipt, origin) => reported.push(origin.target));
+  queue.add([file("inbox.txt")], limits, "inbox");
+  queue.add([file("composer.txt"), file("ignored.txt")], limits, "composer");
+  queue.add([], limits, "composer");
+  expect(queue.snapshot().map((item) => item.file.name)).toEqual(["inbox.txt", "composer.txt"]);
+  await queue.save("composer", false);
+  expect(reported).toEqual(["composer"]);
+  expect(queue.snapshot()[0].status).toBe("queued");
+  queue.clear("composer");
+  expect(queue.snapshot()).toHaveLength(1);
+});
+
+test("a composer completion cannot attach to a different conversation after its dialog closes", async () => {
+  let finish!: (receipt: ReceiptSummary) => void;
+  let currentConversation = "origin-chat";
+  const attachments: string[] = [];
+  const queue = new ReceiptUploadQueue(() => new Promise((resolve) => { finish = resolve; }), (receipt, origin) => {
+    if (composerUploadDisposition(origin, { conversationId: currentConversation, intakeTarget: null }) !== "inbox") attachments.push(receipt.id);
+  });
+  queue.add([file("receipt.txt")], limits, "composer", currentConversation);
+  const running = queue.save("composer", false);
+  currentConversation = "another-chat";
+  finish(savedReceipt("saved-in-inbox"));
+  await running;
+  expect(attachments).toEqual([]);
+  const saved = queue.snapshot()[0];
+  expect(saved.status).toBe("saved");
+  expect(composerUploadDisposition(saved, { conversationId: "origin-chat", intakeTarget: "composer" })).toBe("attach_and_close");
+  expect(composerUploadDisposition(saved, { conversationId: "origin-chat", intakeTarget: "inbox" })).toBe("attach");
+  expect(composerUploadDisposition(saved, { conversationId: null, intakeTarget: "inbox" })).toBe("inbox");
+});
+
+test("untyped files take their type from the extension only when the server accepts it", () => {
+  const server = { max_bytes: 20, media_types: ["application/pdf", "text/csv", "message/rfc822"] };
+  expect(receiptFormatLabels(server)).toEqual(["PDF", "CSV", "EML"]);
+  expect(receiptFileAccept(server)).toBe("application/pdf,.pdf,text/csv,.csv,message/rfc822,.eml");
+  expect(receiptFileWithType(file("gastos.csv", ""), server).type).toBe("text/csv");
+  expect(receiptFileWithType(file("mail.eml", ""), server).type).toBe("message/rfc822");
+  expect(receiptFileWithType(file("notes.txt", ""), server).type).toBe("");
+  expect(receiptFileWithType(file("typed.csv", "text/plain"), server).type.startsWith("text/plain")).toBe(true);
+});
