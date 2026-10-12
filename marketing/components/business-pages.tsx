@@ -57,9 +57,6 @@ export function BusinessLanding({ locale }: { locale: BusinessLocale }) {
         >
           <div className={styles.approachHeading}>
             <div>
-              <p className={styles.sectionIndex}>
-                {locale === "es" ? "EL PRIMER PILOTO" : "THE FIRST PILOT"}
-              </p>
               <h2 id="approach-title">{c.approachTitle}</h2>
             </div>
             <p>{c.approachBody}</p>
@@ -80,7 +77,6 @@ export function BusinessLanding({ locale }: { locale: BusinessLocale }) {
           aria-labelledby="founder-title"
         >
           <div>
-            <p className={styles.sectionIndex}>{c.founderLabel}</p>
             <h2 id="founder-title">{c.founderTitle}</h2>
           </div>
           <div className={styles.founderStory}>
