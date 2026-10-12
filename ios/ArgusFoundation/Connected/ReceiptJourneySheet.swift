@@ -53,6 +53,8 @@ struct ReceiptJourneySheet: View {
         switch model.phase {
         case .consent:
             CuadraoCancelToolbar(title: copy.cancel, identifier: "receipt.journey.cancel") { close() }
+        case .failed(.couldNotSend(.offline)) where model.canSaveForLater:
+            CuadraoCancelToolbar(title: copy.cancel, identifier: "receipt.journey.cancel") { close() }
         case .preparing, .stillPreparing, .review, .failed(.couldNotRead), .failed(.couldNotRecord), .failed(.couldNotSend):
             CuadraoCancelToolbar(title: copy.later, identifier: "receipt.journey.later") { close() }
         case .recorded, .linked, .savedOnly, .failed:
@@ -94,6 +96,13 @@ struct ReceiptJourneySheet: View {
         case .savedOnly(let alreadySaved):
             let saved = SavedReceiptCopy(spanish: spanish)
             outcome(alreadySaved ? saved.alreadySaved : saved.savedTitle, detail: saved.savedDetail, identifier: "receipt.journey.saved")
+        case .failed(.couldNotSend(.offline)) where model.canSaveForLater:
+            header(copy.offlineTitle, identifier: "receipt.journey.failed")
+            detail(copy.offlineLater)
+            CuadraoRetryState(message: LocalizedStringKey(copy.offlineRetry),
+                              identifier: "receipt.journey.offline", retryIdentifier: "receipt.journey.retry") {
+                Task { await model.answerConsent(true) }
+            }
         case .failed(let failure):
             let text = message(failure)
             header(text.title, identifier: "receipt.journey.failed")
@@ -117,6 +126,11 @@ struct ReceiptJourneySheet: View {
             }
         case .recording:
             buttons { RegistrationButton(title: copy.confirm, busy: true) {} }
+        case .failed(.couldNotSend(.offline)) where model.canSaveForLater:
+            buttons {
+                RegistrationButton(title: copy.saveForLater) { model.saveForLater() }
+                    .accessibilityIdentifier("receipt.journey.saveForLater")
+            }
         case .failed(.couldNotSend):
             buttons {
                 RegistrationButton(title: copy.retry) { Task { await model.answerConsent(true) } }

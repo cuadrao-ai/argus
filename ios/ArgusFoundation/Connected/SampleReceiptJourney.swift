@@ -18,12 +18,15 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
     private var unreadable = false
     /// A file named "SinFecha…" reads without a date.
     private var undated = false
+    /// The harness's network: "SinConexion…" files fail to send until it comes back.
+    private(set) var offline = true
+    func comeBackOnline() { offline = false }
 
     /// Shares the sample file list, so a receipt saved here appears in Saved receipts.
     init(files: SampleSavedReceiptsTransport) { self.files = files }
 
     func upload(_ bytes: Data, mediaType: String, filename: String, consent: Bool, identity: SessionSnapshot) async throws -> SavedDocumentCapture {
-        if filename.hasPrefix("SinConexion") { throw URLError(.notConnectedToInternet) }
+        if filename.hasPrefix("SinConexion"), offline { throw URLError(.notConnectedToInternet) }
         let saved = try await files.save(bytes, mediaType: mediaType, filename: filename, identity: identity)
         reads = 0
         duplicate = filename.hasPrefix("Duplicado")
@@ -170,9 +173,16 @@ enum SyntheticReceipt {
 /// so its screens can be checked without signing in.
 struct ReceiptJourneyHarness: View {
     @StateObject private var model = ReceiptJourneyModel(
-        transport: SampleReceiptJourneyTransport(files: SampleSavedReceiptsTransport()),
+        transport: ReceiptJourneyHarness.transport,
         currentSession: { ReceiptJourneyHarness.session }, pause: { _ in try? await Task.sleep(for: ReceiptJourneyHarness.readingStep) },
-        defaults: ReceiptJourneyHarness.defaults)
+        defaults: ReceiptJourneyHarness.defaults, pendingStore: { _ in ReceiptJourneyHarness.pending })
+    nonisolated private static let transport = SampleReceiptJourneyTransport(files: SampleSavedReceiptsTransport())
+    /// Receipts kept for later live in a temporary folder that each launch starts empty.
+    nonisolated private static let pending: ReceiptPendingStore = {
+        let store = ReceiptPendingStore(directory: FileManager.default.temporaryDirectory.appendingPathComponent("harness-pending"))
+        try? FileManager.default.removeItem(at: store.directory)
+        return store
+    }()
     @State private var result = ""
     @Environment(\.locale) private var locale
     nonisolated private static let session = SessionSnapshot(
@@ -205,6 +215,13 @@ struct ReceiptJourneyHarness: View {
                 .accessibilityIdentifier("harness.undated")
             Button("Offline") { model.begin([(SampleSavedReceiptsTransport.png("Sin conexión"), "SinConexion.png", false)]) }
                 .accessibilityIdentifier("harness.offline")
+            Button("Back online") {
+                Task {
+                    await Self.transport.comeBackOnline()
+                    await model.networkReturned()
+                    result = "kept \(Self.pending.entries.count)"
+                }
+            }.accessibilityIdentifier("harness.online")
             Text(result).accessibilityIdentifier("harness.result")
         }
         .onAppear {
@@ -216,6 +233,7 @@ struct ReceiptJourneyHarness: View {
             case .recorded(let activity): result = "recorded " + (activity.amount ?? "")
             case .linked(let id): result = "linked " + id
             case .savedOnly: result = "saved only"
+            case .idle where !Self.pending.entries.isEmpty: result = "kept \(Self.pending.entries.count)"
             default: break
             }
         }

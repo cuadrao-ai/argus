@@ -189,6 +189,11 @@ final class ReceiptJourneyHarnessUITests: XCTestCase {
         XCTAssertTrue(failed.label.contains("Sin conexión"))
         XCTAssertTrue(app.buttons["receipt.journey.retry"].exists)
         capture("receipt-offline-es")
+        app.buttons["receipt.journey.saveForLater"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["receipt.journey"].waitForNonExistence(timeout: 10), "kept, and the sheet closes")
+        XCTAssertTrue(app.staticTexts["kept 1"].waitForExistence(timeout: 5))
+        app.buttons["harness.online"].tap()
+        XCTAssertTrue(app.staticTexts["kept 0"].waitForExistence(timeout: 10), "sent when the network returns")
     }
 
     func testReviewAtTheLargestTextSize() {
@@ -227,7 +232,7 @@ final class ReceiptJourneyHarnessUITests: XCTestCase {
             app.buttons["receipt.journey.read"].tap()
             XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.failed"].waitForExistence(timeout: 10))
             capture("receipt-offline-" + tag)
-            app.buttons["receipt.journey.later"].tap()
+            app.buttons["receipt.journey.cancel"].tap()
             app.buttons["harness.unreadable"].tap()
             app.buttons["receipt.journey.read"].tap()
             XCTAssertTrue(app.descendants(matching: .any)["receipt.journey.failed"].waitForExistence(timeout: 15))

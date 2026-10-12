@@ -66,12 +66,16 @@ final class ReceiptJourneyModel: ObservableObject {
     private var acceptKey: (eventID: String, key: UUID)?
     /// The last reading of the receipt, even an incomplete one, so writing by hand starts from it.
     private var lastReading: DocumentReceipt?
+    private let pendingStore: (String) -> ReceiptPendingStore?
+    private var sendingPending = false
 
     init(transport: any ReceiptJourneyTransport, currentSession: @escaping @Sendable () async -> SessionSnapshot,
          pause: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
-         pollLimit: Int = 40, timeZone: TimeZone = .current, defaults: UserDefaults = .standard) {
+         pollLimit: Int = 40, timeZone: TimeZone = .current, defaults: UserDefaults = .standard,
+         pendingStore: @escaping (String) -> ReceiptPendingStore? = { ReceiptPendingStore(account: $0) }) {
         self.transport = transport; self.currentSession = currentSession
         self.pause = pause; self.pollLimit = pollLimit; self.timeZone = timeZone; self.defaults = defaults
+        self.pendingStore = pendingStore
     }
 
     convenience init(controller: SessionController) {
@@ -84,6 +88,41 @@ final class ReceiptJourneyModel: ObservableObject {
         identity = next
         readingAllowed = permissionKey.map { defaults.bool(forKey: $0) } ?? false
         reset()
+        Task { await networkReturned() }
+    }
+
+    /// The account's receipts kept for later, if any.
+    private var pending: ReceiptPendingStore? { identity?.profile.flatMap { pendingStore($0.id) } }
+
+    /// True while the files could not be sent for lack of a connection and can be kept on this iPhone.
+    var canSaveForLater: Bool { phase == .failed(.couldNotSend(.offline)) && !held.isEmpty && pending != nil }
+
+    /// Keeps the unsent files on this iPhone with the person's answer and closes the journey. They are sent when the
+    /// network returns, through the same send, and read only if the person said yes.
+    func saveForLater() {
+        guard canSaveForLater, let pending else { return }
+        do {
+            try pending.keep(held, consent: consented)
+            reset()
+        } catch {
+            phase = .failed(.couldNotSend(.couldNotSave))
+        }
+    }
+
+    /// Sends what was kept for later, oldest first, while the journey is not in use. Stops at the first failure and
+    /// tries again on the next return of the network.
+    func networkReturned() async {
+        guard !sendingPending, phase == .idle, let identity, let pending else { return }
+        sendingPending = true
+        defer { sendingPending = false }
+        for entry in pending.entries {
+            guard let data = pending.data(entry) else { pending.remove(entry); continue }
+            do {
+                _ = try await transport.upload(data, mediaType: SavedReceiptsModel.mediaType((data, entry.name, entry.pdf)),
+                                               filename: entry.name, consent: entry.consent, identity: identity)
+                pending.remove(entry)
+            } catch { return }
+        }
     }
 
     private var permissionKey: String? { identity?.profile.map { "cuadrao.receiptReading." + $0.id } }

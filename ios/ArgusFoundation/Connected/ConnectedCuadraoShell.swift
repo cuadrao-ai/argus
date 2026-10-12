@@ -132,6 +132,7 @@ struct ConnectedCuadraoShell: View {
             spanish: spanish
         )
         .cuadraoOfflineBanner(connectivity, spanish: spanish)
+        .onChange(of: connectivity.online) { _, online in if online { Task { await auth.receiptJourney?.networkReturned() } } }
         .environmentObject(saveResult)
         .cuadraoSaveResult(saveResult, spanish: spanish)
         .tint(WelcomePalette.pine)

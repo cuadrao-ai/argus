@@ -59,6 +59,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(root / "ios/ArgusFoundation/Connected/ReceiptJourneyModel.swift", source / "ReceiptJourneyModel.swift")
     shutil.copy(root / "ios/ArgusFoundation/Connected/ReceiptJourneyTransport.swift", source / "ReceiptJourneyTransport.swift")
     shutil.copy(root / "ios/ArgusFoundation/Connected/ReceiptReviewDraft.swift", source / "ReceiptReviewDraft.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Connected/ReceiptPendingStore.swift", source / "ReceiptPendingStore.swift")
     shutil.copy(root / "ios/ArgusFoundation/Connected/ReceiptSearch.swift", source / "ReceiptSearch.swift")
     shutil.copy(canvas / "CuadraoNavigationSlot.swift", source / "CuadraoNavigationSlot.swift")
     shutil.copy(root / "ios/ArgusFoundation/Guest/GuestAccessPolicy.swift", source / "GuestAccessPolicy.swift")
