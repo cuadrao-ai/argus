@@ -768,6 +768,41 @@ async def media_urls_off_the_meta_allowlist_are_never_fetched(world: World) -> N
     assert world.captures(world.alice) == []
 
 
+async def voice_audio_and_stickers_get_one_unsupported_reply(world: World) -> None:
+    await world.link(world.alice, ALICE_PHONE, "en")
+    for number, kind in enumerate(("audio", "sticker", "video")):
+        body = fixture("audio_message.json", id=f"wamid.CASE-KIND-{number}", type=kind)
+        await world.deliver(body)
+        record = world.record(f"wamid.CASE-KIND-{number}")
+        assert (record.status, record.error_code, record.connection_id) == (
+            "rejected",
+            "whatsapp_message_unsupported",
+            None,
+        )
+    await world.deliver(
+        fixture("audio_message.json", id="wamid.CASE-KIND-0", type="audio")
+    )
+    unsupported = "We can't take voice notes, audio, stickers or videos yet."
+    sent = [body for body in world.transport.bodies() if unsupported in body]
+    assert len(sent) == 3
+    assert world.captures(world.alice) == []
+
+    await world.deliver(
+        fixture(
+            "audio_message.json",
+            id="wamid.CASE-KIND-STRANGER",
+            sender=STRANGER_PHONE,
+            type="audio",
+        )
+    )
+    assert world.record("wamid.CASE-KIND-STRANGER").error_code == (
+        "whatsapp_sender_not_linked"
+    )
+    assert "isn't connected to Cuadrao" in world.transport.bodies()[-1] or (
+        "no está conectado a Cuadrao" in world.transport.bodies()[-1]
+    )
+
+
 CASES = (
     linked_image_is_saved_unqueued_and_replay_converges,
     document_message_is_captured,
@@ -785,6 +820,7 @@ CASES = (
     no_reply_outside_the_service_window,
     same_bytes_in_a_new_message_get_the_duplicate_reply,
     forwarded_and_captioned_messages_capture_like_a_direct_send,
+    voice_audio_and_stickers_get_one_unsupported_reply,
     a_link_revoked_before_settling_keeps_no_capture,
     a_link_revoked_before_settling_answers_in_the_links_language,
     a_failed_code_answers_in_the_senders_linked_language,

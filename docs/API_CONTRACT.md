@@ -8804,7 +8804,10 @@ sender link ended before it settled is recorded `rejected` with
   over 512 KiB is 413 `whatsapp_webhook_too_large`; a signed body that is not
   a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. 200
   `{received: true}` means every image, document and text message in it has a
-  settled delivery record; other message types and statuses are ignored. A
+  settled delivery record. A voice note, audio, sticker or video from a linked
+  sender is settled `rejected` (`whatsapp_message_unsupported`) and gets one
+  short reply saying it is not supported yet; from an unlinked sender it gets
+  the not-linked reply. Other message types and statuses are ignored. A
   failure or timeout after the record commits, or a redelivery while another
   worker still holds an unsettled message, answers 503
   `whatsapp_webhook_retry`, and Meta's redelivery resumes that record. A
