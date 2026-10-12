@@ -27,7 +27,7 @@ export type BusinessDataSource = Readonly<{
   mode: "live" | "fixture";
   ensureSpace: (language: ArgusLanguage) => Promise<BusinessSpace>;
   workspace: () => Promise<BusinessWorkspaceInfo>;
-  overview: (from: string, to: string) => Promise<BusinessOverview>;
+  overview: (from: string, to: string | null) => Promise<BusinessOverview>;
   receipts: (view: "inbox" | "all") => Promise<ReceiptSummary[]>;
   receipt: (id: string) => Promise<ReceiptDetail>;
   dossier: (id: string) => Promise<BusinessDossier>;
@@ -36,7 +36,7 @@ export type BusinessDataSource = Readonly<{
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   receiptSource: (id: string) => Promise<Blob>;
   updates: () => Promise<BusinessUpdate[]>;
-  expenses: (from: string, to: string) => Promise<BusinessExpense[]>;
+  expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
   search: (query: string) => Promise<BusinessSearchResult>;
   captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
   captures: (query?: string, limit?: number) => Promise<BusinessCapture[]>;

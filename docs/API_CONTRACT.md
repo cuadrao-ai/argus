@@ -9255,6 +9255,10 @@ accept path recorded.
   `outside_period_latest_on` (the latest such date, or null), so a saved
   expense never looks vanished behind a period filter; the web offers this
   month, last month, last 30 days, all (from 2000-01-01) and a typed range.
+  The server is the one clock: the overview returns `today` (the Business day
+  in America/Santo_Domingo), and `/overview` and `/expenses` accept an omitted
+  `to`, which means that day; the web sends no `to` for this month, last 30
+  days and all. A `from` after `to` answers 422 `period_reversed`.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake

@@ -65,7 +65,8 @@ export function formatRelativeTime(iso: string | null, locale: string): string {
 }
 
 export type PeriodKey = "this_month" | "last_month" | "last_30_days" | "all" | "custom";
-export type Period = { key: PeriodKey; from: string; to: string };
+/** `to` null means "through today by the server's clock": the API fills it. */
+export type Period = { key: PeriodKey; from: string; to: string | null };
 export const PERIOD_PRESETS: PeriodKey[] = ["this_month", "last_month", "last_30_days", "all"];
 /** "All" starts before any receipt this product can hold. */
 export const ALL_FROM = "2000-01-01";
@@ -75,8 +76,12 @@ function isoDay(date: Date): string {
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
+export function todayIso(now = new Date()): string {
+  return isoDay(now);
+}
+
 export function periodRange(key: PeriodKey, now = new Date()): Period {
-  if (key === "all") return { key, from: ALL_FROM, to: isoDay(now) };
+  if (key === "all") return { key, from: ALL_FROM, to: null };
   if (key === "custom") return { key, from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: isoDay(now) };
   if (key === "last_month") {
     const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -86,9 +91,9 @@ export function periodRange(key: PeriodKey, now = new Date()): Period {
   if (key === "last_30_days") {
     const start = new Date(now);
     start.setDate(start.getDate() - 29);
-    return { key, from: isoDay(start), to: isoDay(now) };
+    return { key, from: isoDay(start), to: null };
   }
-  return { key, from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: isoDay(now) };
+  return { key, from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: null };
 }
 
 export const RECEIPT_CATEGORY_IDS = [
@@ -115,7 +120,7 @@ export function periodContaining(day: string, now = new Date()): PeriodKey | nul
   return (
     keys.find((key) => {
       const { from, to } = periodRange(key, now);
-      return from <= day && day <= to;
+      return from <= day && day <= (to ?? isoDay(now));
     }) ?? null
   );
 }

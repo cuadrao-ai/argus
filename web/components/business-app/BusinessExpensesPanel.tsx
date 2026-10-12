@@ -42,7 +42,7 @@ export default function BusinessExpensesPanel() {
         title={t("business.expenses.title", "Expenses")}
         subtitle={t("business.expenses.subtitle", "Saved expenses from {{from}} to {{to}}.", {
           from: formatDay(period.from, locale),
-          to: formatDay(period.to, locale),
+          to: formatDay(period.to ?? records.overview?.to ?? period.from, locale),
         })}
         action={
           record ? (

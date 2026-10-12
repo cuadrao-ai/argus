@@ -31,6 +31,14 @@ def expense_activities(
     return [item for item in activities if item["kind"] == "expense"]
 
 
+def today() -> date:
+    """The Business day: the recording time zone, not the browser's clock."""
+
+    from argus.domain.recording.records import DEFAULT_TIME_ZONE
+
+    return datetime.now(ZoneInfo(DEFAULT_TIME_ZONE)).date()
+
+
 def expenses(
     activities: Iterable[Mapping[str, Any]],
     receipt_of: Mapping[str, str],

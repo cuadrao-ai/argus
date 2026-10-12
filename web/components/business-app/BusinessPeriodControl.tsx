@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { customPeriod, PERIOD_PRESETS, type Period, type PeriodKey } from "./business-format";
+import { customPeriod, PERIOD_PRESETS, todayIso, type Period, type PeriodKey } from "./business-format";
 
 export function usePeriodLabel() {
   const { t } = useTranslation();
@@ -22,7 +22,7 @@ export default function BusinessPeriodControl({ period, setPeriod }: { period: P
   const label = usePeriodLabel();
   const [typing, setTyping] = useState(period.key === "custom");
   const [from, setFrom] = useState(period.from);
-  const [to, setTo] = useState(period.to);
+  const [to, setTo] = useState(period.to ?? todayIso());
   const chip = (key: PeriodKey, checked: boolean, onClick: () => void) => (
     <button key={key} type="button" role="radio" aria-checked={checked} onClick={onClick} className={`min-h-9 rounded-full px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 ${checked ? "bg-white text-black dark:bg-[#2a2d31] dark:text-white" : "text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white"}`}>
       {label(key)}

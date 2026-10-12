@@ -210,6 +210,8 @@ class BusinessOverview(_Wire):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     from_: date = Field(alias="from")
     to: date
+    # The server's day in the recording time zone: the one clock for "today".
+    today: date
     totals: list[CurrencyTotal]
     awaiting_review: int
     needs_attention: int

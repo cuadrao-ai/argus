@@ -41,3 +41,23 @@ def test_the_overview_counts_saved_expenses_outside_the_period(alice: Owner) -> 
         0,
         None,
     )
+
+
+def test_the_server_is_the_one_clock_and_a_reversed_range_is_refused(
+    alice: Owner,  # noqa: F811
+) -> None:
+    from argus.domain.business import ledger
+
+    today = ledger.today().isoformat()
+    open_ended = alice.get("/overview", **{"from": "2026-10-01"}).json()
+    assert (open_ended["to"], open_ended["today"]) == (today, today)
+    assert alice.get("/expenses", **{"from": "2026-10-01"}).status_code == 200
+    reversed_range = alice.get("/overview", **{"from": "2026-10-31", "to": "2026-10-01"})
+    assert (reversed_range.status_code, reversed_range.json()["code"]) == (
+        422,
+        "period_reversed",
+    )
+    assert (
+        alice.get("/expenses", **{"from": "2026-10-31", "to": "2026-10-01"}).status_code
+        == 422
+    )

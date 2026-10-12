@@ -1150,10 +1150,12 @@ paths:
           format: date
       - name: to
         in: query
-        required: true
+        required: false
         schema:
-          type: string
-          format: date
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       responses:
         '200':
           description: Successful Response
@@ -1282,10 +1284,12 @@ paths:
           format: date
       - name: to
         in: query
-        required: true
+        required: false
         schema:
-          type: string
-          format: date
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       responses:
         '200':
           description: Successful Response
@@ -12134,6 +12138,9 @@ components:
         to:
           type: string
           format: date
+        today:
+          type: string
+          format: date
         totals:
           items:
             $ref: '#/components/schemas/CurrencyTotal'
@@ -12165,6 +12172,7 @@ components:
       required:
       - from
       - to
+      - today
       - totals
       - awaiting_review
       - needs_attention
