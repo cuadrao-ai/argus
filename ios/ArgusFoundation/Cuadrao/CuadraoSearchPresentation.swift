@@ -160,7 +160,9 @@ struct CuadraoSearchEmptyState: View {
 
     /// One action, the most useful first: undo the filters that hide results, then clear the words, then widen the kind.
     private var action: (title: String, run: () -> Void, identifier: String)? {
-        if filterCount > 0 { return (spanish ? "Restablecer filtros" : "Reset filters", clearFilters, accessibility.prefix + ".reset") }
+        if filterCount > 0 {
+            return (spanish ? "Restablecer filtros" : "Reset filters", { clearFilters(); kind = .all }, accessibility.prefix + ".reset")
+        }
         if !query.isEmpty { return (spanish ? "Borrar búsqueda" : "Clear search", { query = "" }, accessibility.clearEmptyQuery) }
         if kind != .all { return (spanish ? "Buscar en todo" : "Search everything", { kind = .all }, accessibility.prefix + ".everything") }
         return nil

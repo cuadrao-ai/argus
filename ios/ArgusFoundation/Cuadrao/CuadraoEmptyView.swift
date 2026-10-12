@@ -15,7 +15,7 @@ struct CuadraoEmptyView: View {
             PlanLandscape(look: look).frame(width: 112, height: 96).accessibilityHidden(true)
             VStack(spacing: 6) {
                 Text(title).font(CuadraoTypography.section).multilineTextAlignment(.center)
-                    .accessibilityIdentifier(identifier ?? "")
+                    .modifier(OptionalIdentifier(identifier: identifier))
                 if let detail {
                     Text(detail).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 }
@@ -25,8 +25,16 @@ struct CuadraoEmptyView: View {
                     Text(actionTitle).font(.subheadline.weight(.semibold)).foregroundStyle(WelcomePalette.pine)
                         .padding(.horizontal, 20).frame(minHeight: 44)
                         .overlay { Capsule().stroke(WelcomePalette.border) }.contentShape(Capsule())
-                }.buttonStyle(.plain).accessibilityIdentifier(actionIdentifier ?? "")
+                }.buttonStyle(.plain).modifier(OptionalIdentifier(identifier: actionIdentifier))
             }
         }.frame(maxWidth: .infinity).padding(.vertical, 24)
+    }
+}
+
+/// Writes an accessibility identifier only when one is given; an empty one would hide the element from queries.
+private struct OptionalIdentifier: ViewModifier {
+    let identifier: String?
+    @ViewBuilder func body(content: Content) -> some View {
+        if let identifier { content.accessibilityIdentifier(identifier) } else { content }
     }
 }
