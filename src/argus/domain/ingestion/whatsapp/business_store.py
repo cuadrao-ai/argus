@@ -70,17 +70,6 @@ class BusinessTurnStore:
         with self.pool.connection() as connection:
             return self._turn(connection, turn_key)
 
-    def turns_in_last_day(self, *, actor_id: UUID, excluding: str) -> int:
-        """Agent turns this owner started in the last 24 hours, not counting one turn."""
-
-        with self.pool.connection() as connection:
-            return connection.execute(
-                "select count(*) from public.business_turns where actor_id=%s"
-                " and turn_key<>%s and model_state<>'not_started'"
-                " and created_at > now() - interval '24 hours'",
-                (actor_id, excluding),
-            ).fetchone()[0]
-
     def start_turn(
         self, *, turn_key: str, actor_id: UUID, lease: SenderLease
     ) -> DurableTurn:

@@ -75,26 +75,6 @@ async def test_interrupted_provider_outcome_is_never_retried(world, failure):
 
 
 @pytest.mark.asyncio
-async def test_an_owner_over_the_daily_allowance_gets_a_typed_reply_and_no_model_call(
-    world,
-):
-    first, second, third = world.message(), world.message(), world.message()
-    for message in (first, second, third):
-        world.captures.capture(message)
-    for _ in range(3):
-        worker = world.worker(synthetic_consent=True)
-        worker.daily_turns = lambda: 2
-        assert await worker.run_once()
-    assert len(world.executor.interpretations) == 2
-    bodies = [m["text"]["body"] for m in world.transport.messages]
-    assert bodies[-1] == (
-        "Llegaste al límite de mensajes de hoy. Escríbenos de nuevo mañana."
-    )
-    assert world.states(third) == [("sent",)]
-    assert world.turns.load_turn(world.keys.message(third.id).hex()) is None
-
-
-@pytest.mark.asyncio
 async def test_transport_unknown_never_resends_or_sends_later_chunks(world):
     world.transport.fail = True
     world.executor.reply = "x" * 5000

@@ -297,33 +297,3 @@ async def test_text_reaches_the_agent_only_while_the_worker_is_enabled(
             runtime.intake.capture_text(message)
         assert captured == ["touched"]
     await client.aclose()
-
-
-@pytest.mark.parametrize(
-    "env,expected",
-    [
-        ({}, 200),
-        ({"ARGUS_BUSINESS_AGENT_DAILY_TURNS": "50"}, 50),
-        ({"CUADRAO_BUSINESS_AGENT_DAILY_TURNS": "30"}, 30),
-        (
-            {
-                "CUADRAO_BUSINESS_AGENT_DAILY_TURNS": "30",
-                "ARGUS_BUSINESS_AGENT_DAILY_TURNS": "50",
-            },
-            30,
-        ),
-        ({"CUADRAO_BUSINESS_AGENT_DAILY_TURNS": "many"}, 200),
-        ({"CUADRAO_BUSINESS_AGENT_DAILY_TURNS": "0"}, 200),
-    ],
-)
-def test_the_daily_allowance_setting_names_and_default(monkeypatch, env, expected):
-    from argus.api.whatsapp_worker import agent_daily_turns
-
-    for name in (
-        "CUADRAO_BUSINESS_AGENT_DAILY_TURNS",
-        "ARGUS_BUSINESS_AGENT_DAILY_TURNS",
-    ):
-        monkeypatch.delenv(name, raising=False)
-    for name, value in env.items():
-        monkeypatch.setenv(name, value)
-    assert agent_daily_turns() == expected

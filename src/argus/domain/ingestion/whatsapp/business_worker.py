@@ -69,7 +69,6 @@ class BusinessWhatsAppWorker:
         consent=None,
         enabled: Callable[[], bool] = lambda: True,
         send_enabled: Callable[[], bool] = lambda: True,
-        daily_turns: Callable[[], int] = lambda: 200,
     ) -> None:
         self.captures, self.turns, self.outbox, self.delivery = (
             captures,
@@ -81,7 +80,6 @@ class BusinessWhatsAppWorker:
         self.has_consent, self.enabled = has_consent, enabled
         self.consent = consent
         self.send_enabled = send_enabled
-        self.daily_turns = daily_turns
         self.holder = uuid4()
 
     async def run_once(self) -> bool:
@@ -150,10 +148,6 @@ class BusinessWhatsAppWorker:
                         lease=lease,
                         fixed=True,
                     )
-                elif await self._over_allowance(captured):
-                    await self._refuse(captured, lease, "whatsapp_daily_limit")
-                    await self._send(captured, None, None, lease)
-                    return
                 else:
                     context = await asyncio.to_thread(self._authorization, captured, turn)
                     turn = await asyncio.to_thread(
@@ -220,35 +214,6 @@ class BusinessWhatsAppWorker:
                 pass
             if not denied:
                 raise
-
-    async def _over_allowance(self, captured: CapturedText) -> bool:
-        """Each owner turn costs paid model calls, so each owner has a rolling
-        24 hour allowance. A new turn over it is refused before any call."""
-
-        used = await asyncio.to_thread(
-            self.turns.turns_in_last_day,
-            actor_id=captured.owner_id,
-            excluding=captured.turn_key,
-        )
-        return used >= self.daily_turns()
-
-    async def _refuse(
-        self, captured: CapturedText, lease: SenderLease, reply_key: str
-    ) -> None:
-        """One fixed, typed reply and a recorded event; no model is called."""
-
-        logger.warning(
-            "Business agent turn refused",
-            event=reply_key,
-            turn_ref=captured.turn_key[:12],
-        )
-        await asyncio.to_thread(
-            self.outbox.save_reply,
-            captured,
-            compose_reply(reply_key, language=captured.language),
-            lease=lease,
-            fixed=True,
-        )
 
     def _may_interpret(self, captured: CapturedText, lease: SenderLease) -> bool:
         available = bool(
