@@ -86,6 +86,24 @@ def test_registered_consent_read_works_with_flags_off_and_no_enable_token(
     assert consent_reads == [(UUID(identities[ALICE]["id"]), "whatsapp_unavailable")]
 
 
+def test_with_the_agent_off_the_permission_reads_unavailable_and_cannot_be_enabled(
+    wa_client, consent_reads, monkeypatch
+):
+    monkeypatch.setenv("ARGUS_WHATSAPP_AGENT_ENABLED", "false")
+    response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
+    assert response.status_code == 200
+    body = response.json()
+    assert body["reason"] == "whatsapp_agent_off"
+    assert not body["available"] and body["disclosure_token"] is None
+    enable = wa_client.post(
+        "/api/v1/whatsapp/ai-consent",
+        headers={**bearer(ALICE), "Idempotency-Key": "fixture-consent"},
+        json={"action": "enable", "disclosure_token": "a" * 64},
+    )
+    assert enable.status_code == 404
+    assert enable.json()["code"] == "whatsapp_agent_off"
+
+
 def test_guest_and_anonymous_cannot_read_owner_consent(wa_client, consent_reads):
     assert wa_client.get("/api/v1/whatsapp/ai-consent").status_code == 401
     assert (
