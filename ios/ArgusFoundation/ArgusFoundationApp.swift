@@ -38,6 +38,8 @@ struct ArgusFoundationApp: App {
             ReleaseUIReview()
         } else if ProcessInfo.processInfo.arguments.contains("--invitations-harness") {
             InvitationsHarness()
+        } else if ProcessInfo.processInfo.arguments.contains("--captcha-harness") {
+            CaptchaHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--receipt-journey-harness") {
             ReceiptJourneyHarness()
         } else {
