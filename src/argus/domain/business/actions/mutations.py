@@ -283,15 +283,16 @@ def prepare_attachment(
     from argus.domain.business.contracts.dossier import AttachmentSource
     from argus.domain.ingestion.documents.extractor import fiscal_facts_from_receipt
 
-    purchases = [
+    candidates = [
         candidate for candidate in batch.candidates if candidate.evidence == "transaction"
     ]
     if batch.complete is not True or batch.readable is not True or batch.receipt is None:
         raise ActionError("invalid_input", "receipt_requires_review")
     if any(
-        candidate.source.connection_id != draft.connection_id for candidate in purchases
+        candidate.source.connection_id != draft.connection_id for candidate in candidates
     ):
         raise ActionError("invalid_input", "business_preparation_source_changed")
+    purchases = candidates or _observed_purchases(batch)
     # One clean purchase becomes the draft's facts. Several purchases, or an
     # ambiguous read, still become one draft: it keeps only what every read
     # purchase shares, leaves the amount for a person, and carries each read
@@ -380,6 +381,34 @@ def prepare_attachment(
 
 
 KINDS = frozenset({"expense", "income", "transfer", "refund"})
+
+
+def _observed_purchases(batch: ExtractionBatch) -> list[SimpleNamespace]:
+    """The transaction rows a read showed. The projection delivers no
+    candidate for a receipt it could not settle on one purchase, so the rows
+    themselves are the evidence, read the way the projection reads a row."""
+
+    rows = []
+    for row in batch.observations:
+        if row.evidence != "transaction":
+            continue
+        uncertain = set(row.uncertain)
+        for name in ("amount", "currency", "occurred_on"):
+            if getattr(row, name) is None:
+                uncertain.add(name)
+        if row.direction == "unknown":
+            uncertain.add("direction")
+        rows.append(
+            SimpleNamespace(
+                amount=row.amount,
+                currency=row.currency,
+                occurred_on=row.occurred_on,
+                merchant=row.merchant,
+                kind_hint=row.kind_hint,
+                uncertain=frozenset(uncertain),
+            )
+        )
+    return rows
 
 
 def _kind(hint: str | None) -> str | None:

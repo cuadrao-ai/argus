@@ -4,6 +4,7 @@ every read purchase kept on the draft as evidence. Never a refusal."""
 
 from __future__ import annotations
 
+from decimal import Decimal
 from unittest.mock import Mock
 from uuid import uuid4
 
@@ -11,35 +12,45 @@ import pytest
 from argus.domain.business.actions import mutations, sources
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.facts import BusinessResolution
-from argus.domain.ingestion.contract import ImportCandidate, SourceRef
+from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     ExtractionBatch,
-    ProjectionIssue,
-    ReceiptDetails,
+    ExtractionResult,
 )
 
 from tests.test_business_attachment_preparation import checked  # noqa: F401
 
 
-def _candidate(
-    draft: DocumentDraft, amount: str, merchant: str, occurred_on: str, **extra
-) -> ImportCandidate:  # noqa: ANN003
-    return ImportCandidate(
-        source=SourceRef(
-            source="statement",
-            connection_id=draft.connection_id,
-            external_id=draft.sha256,
-            observed_at=draft.created_at,
-        ),
-        evidence="transaction",
-        direction="outflow",
-        amount=amount,
-        currency="DOP",
-        occurred_on=occurred_on,
-        kind_hint="expense",
-        merchant=merchant,
+def _row(amount: str, merchant: str, occurred_on: str, **extra) -> dict:  # noqa: ANN003
+    return {
+        "page": 1,
+        "row": 0,
+        "evidence": "transaction",
+        "amount": amount,
+        "currency": "DOP",
+        "occurred_on": occurred_on,
+        "direction": "outflow",
+        "kind_hint": "expense",
+        "merchant": merchant,
         **extra,
+    }
+
+
+def _batch(draft: DocumentDraft, rows: list[dict], total: str) -> ExtractionBatch:
+    """What the real projection delivers for this read; nothing hand-built."""
+
+    result = ExtractionResult.model_validate(
+        dict(
+            complete=True,
+            readable=True,
+            pages_read=[1],
+            observations=[{**row, "row": index} for index, row in enumerate(rows, 1)],
+            receipt=dict(total=total, currency="DOP"),
+        )
+    )
+    return batch_from_result(
+        result, draft.sha256, draft.connection_id, draft.created_at, 1
     )
 
 
@@ -62,15 +73,15 @@ def _prepared(checked, monkeypatch, batch):  # noqa: ANN001, F811
 def test_two_purchases_become_one_open_draft_with_both_kept(checked, monkeypatch) -> None:  # noqa: ANN001, F811
     _, _, _, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
-    batch = ExtractionBatch(
-        complete=True,
-        readable=True,
-        candidates=(
-            _candidate(draft, "245.00", "Colmado La Esquina", "2026-10-11"),
-            _candidate(draft, "95.00", "Colmado La Esquina", "2026-10-11"),
-        ),
-        receipt=ReceiptDetails(total="340.00", currency="DOP"),
+    batch = _batch(
+        draft,
+        [
+            _row("245.00", "Colmado La Esquina", "2026-10-11"),
+            _row("95.00", "Colmado La Esquina", "2026-10-11"),
+        ],
+        "340.00",
     )
+    assert batch.candidates == ()  # the projection keeps only the rows
     result, resolution, _ = _prepared(checked, monkeypatch, batch)
     assert result.outcome == "applied"
     facts = resolution.facts
@@ -84,9 +95,11 @@ def test_two_purchases_become_one_open_draft_with_both_kept(checked, monkeypatch
         "2026-10-11",
         "DOP",
     )
-    assert [(p.index, p.amount, p.merchant) for p in resolution.read_purchases] == [
-        (1, "245", "Colmado La Esquina"),
-        (2, "95", "Colmado La Esquina"),
+    assert [
+        (p.index, Decimal(p.amount), p.merchant) for p in resolution.read_purchases
+    ] == [
+        (1, Decimal("245"), "Colmado La Esquina"),
+        (2, Decimal("95"), "Colmado La Esquina"),
     ]
     assert resolution.read_total == "340.00"
     assert resolution.unrecorded_purchases() == 2
@@ -95,14 +108,13 @@ def test_two_purchases_become_one_open_draft_with_both_kept(checked, monkeypatch
 def test_three_purchases_are_all_kept_and_all_unrecorded(checked, monkeypatch) -> None:  # noqa: ANN001, F811
     _, _, _, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
-    batch = ExtractionBatch(
-        complete=True,
-        readable=True,
-        candidates=tuple(
-            _candidate(draft, amount, "Colmado", "2026-10-11")
+    batch = _batch(
+        draft,
+        [
+            _row(amount, "Colmado", "2026-10-11")
             for amount in ("100.00", "200.00", "40.00")
-        ),
-        receipt=ReceiptDetails(total="340.00", currency="DOP"),
+        ],
+        "340.00",
     )
     _, resolution, _ = _prepared(checked, monkeypatch, batch)
     assert [p.index for p in resolution.read_purchases] == [1, 2, 3]
@@ -116,13 +128,9 @@ def test_a_read_with_no_purchase_keeps_the_total_and_names_nothing_read(
     from argus.api.business_drafts import read_attention
     from argus.domain.ingestion.reconcile.model import ImportEvent
 
-    batch = ExtractionBatch(
-        complete=True,
-        readable=True,
-        candidates=(),
-        receipt=ReceiptDetails(total="340.00", currency="DOP"),
-    )
-    _, resolution, _ = _prepared(checked, monkeypatch, batch)
+    _, _, _, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    _, resolution, _ = _prepared(checked, monkeypatch, _batch(draft, [], "340.00"))
     assert (resolution.read_purchases, resolution.read_total) == ((), "340.00")
     assert resolution.facts.amount.state == "unknown"
     event = Mock(
@@ -138,21 +146,15 @@ def test_only_a_known_kind_reaches_the_consensus(checked, monkeypatch) -> None: 
     draft = DocumentDraft.model_validate(row["draft"])
 
     def batch(*hints: str) -> ExtractionBatch:
-        return ExtractionBatch(
-            complete=True,
-            readable=True,
-            candidates=tuple(
-                _candidate(draft, "10.00", "Colmado", "2026-10-11").model_copy(
-                    update={"kind_hint": hint}
-                )
-                for hint in hints
-            ),
-            receipt=ReceiptDetails(total="20.00", currency="DOP"),
+        return _batch(
+            draft,
+            [_row("10.00", "Colmado", "2026-10-11", kind_hint=hint) for hint in hints],
+            "20.00",
         )
 
     _, agreed, _ = _prepared(checked, monkeypatch, batch("expense", "expense"))
     assert agreed.facts.kind.value == "expense"
-    _, mixed, _ = _prepared(checked, monkeypatch, batch("expense", "purchase"))
+    _, mixed, _ = _prepared(checked, monkeypatch, batch("expense", "fee"))
     assert mixed.facts.kind.state == "unknown"
     assert [p.kind_hint for p in mixed.read_purchases] == ["expense", None]
 
@@ -189,14 +191,10 @@ def test_a_later_revision_keeps_the_read_total_and_purchases(
 ) -> None:
     _, tx, binding, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
-    batch = ExtractionBatch(
-        complete=True,
-        readable=True,
-        candidates=(
-            _candidate(draft, "245.00", "Colmado", "2026-10-11"),
-            _candidate(draft, "95.00", "Colmado", "2026-10-11"),
-        ),
-        receipt=ReceiptDetails(total="340.00", currency="DOP"),
+    batch = _batch(
+        draft,
+        [_row("245.00", "Colmado", "2026-10-11"), _row("95.00", "Colmado", "2026-10-11")],
+        "340.00",
     )
     _, resolution, _ = _prepared(checked, monkeypatch, batch)
     saved = tx.imports.put_event.call_args.args[0]
@@ -212,20 +210,13 @@ def test_a_later_revision_keeps_the_read_total_and_purchases(
 def test_purchases_that_disagree_leave_those_facts_open(checked, monkeypatch) -> None:  # noqa: ANN001, F811
     _, _, _, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
-    batch = ExtractionBatch(
-        complete=True,
-        readable=True,
-        candidates=(
-            _candidate(draft, "245.00", "Colmado", "2026-10-11"),
-            _candidate(
-                draft,
-                "95.00",
-                "Farmacia",
-                "2026-10-12",
-                uncertain=frozenset({"merchant"}),
-            ),
-        ),
-        receipt=ReceiptDetails(total="340.00", currency="DOP"),
+    batch = _batch(
+        draft,
+        [
+            _row("245.00", "Colmado", "2026-10-11"),
+            _row("95.00", "Farmacia", "2026-10-12", uncertain=["merchant"]),
+        ],
+        "340.00",
     )
     _, resolution, _ = _prepared(checked, monkeypatch, batch)
     facts = resolution.facts
@@ -242,28 +233,20 @@ def test_an_ambiguous_single_read_keeps_its_purchase_as_evidence(
 ) -> None:
     _, _, _, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
-    batch = ExtractionBatch(
-        complete=True,
-        readable=True,
-        candidates=(_candidate(draft, "3000.00", "Ferretería", "2026-10-10"),),
-        receipt=ReceiptDetails(total="3000.00", currency="DOP"),
-        issues=(ProjectionIssue(code="receipt_purchase_ambiguous", row=1),),
-    )
+    # The receipt total disagrees with the one purchase: the projection marks it.
+    batch = _batch(draft, [_row("3000.00", "Ferretería", "2026-10-10")], "3200.00")
+    assert batch.candidates == ()
     _, resolution, _ = _prepared(checked, monkeypatch, batch)
     assert resolution.facts.amount.state == "unknown"
     assert resolution.facts.counterparty.value == "Ferretería"
-    assert [p.amount for p in resolution.read_purchases] == ["3000"]
+    assert [Decimal(p.amount) for p in resolution.read_purchases] == [Decimal("3000")]
 
 
 def test_a_single_clean_purchase_is_unchanged(checked, monkeypatch) -> None:  # noqa: ANN001, F811
     _, _, _, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
-    batch = ExtractionBatch(
-        complete=True,
-        readable=True,
-        candidates=(_candidate(draft, "250.50", "Owner named shop", "2026-10-09"),),
-        receipt=ReceiptDetails(total="250.50", currency="DOP"),
-    )
+    batch = _batch(draft, [_row("250.50", "Owner named shop", "2026-10-09")], "250.50")
+    assert len(batch.candidates) == 1
     _, resolution, _ = _prepared(checked, monkeypatch, batch)
     assert resolution.facts.amount.value in ("250.50", "250.5")
     assert resolution.read_purchases == ()

@@ -8,6 +8,7 @@ draft."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from hashlib import sha256
 from uuid import uuid4
 
@@ -148,7 +149,10 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
     assert view.approval_available is False
     assert view.facts.amount.state == "unknown"
     assert view.facts.counterparty.value == "Colmado La Esquina"
-    assert [(p.index, p.amount) for p in view.read_purchases] == [(1, "245"), (2, "95")]
+    assert [(p.index, Decimal(p.amount)) for p in view.read_purchases] == [
+        (1, Decimal("245")),
+        (2, Decimal("95")),
+    ]
     assert (view.read_total, view.unrecorded_purchases) == ("340.00", 2)
     # Preparing the same receipt again replays the first draft; no second draft.
     again = bridge.finish(two_purchases)
