@@ -260,7 +260,7 @@ def test_upload_answers_are_never_cached(client, extraction):
     refused = client.post(
         DOCUMENTS,
         content=b"plain",
-        headers={**bearer(ALICE), "Content-Type": "text/plain"},
+        headers={**bearer(ALICE), "Content-Type": "application/zip"},
     )
     assert refused.status_code == 415
     assert refused.headers["cache-control"] == "no-store"

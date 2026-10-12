@@ -654,6 +654,31 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-business-file-types-20261012": {
+      "description": "Document preparation for TXT, CSV, XLSX and EML sources with bounded inert decoding; shared Consumer/Business media types. No model prompt, schema or hosted settings ownership.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/domain/ingestion/documents/config.py",
+        "src/argus/domain/ingestion/documents/email_source.py",
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "src/argus/domain/ingestion/documents/preparation.py",
+        "src/argus/domain/ingestion/documents/tabular.py",
+        "tests/business/test_business_api.py",
+        "tests/ingestion/test_document_flat_files.py",
+        "tests/ingestion/test_document_preparation.py",
+        "tests/ingestion/test_documents_api.py",
+        "tests/ingestion/test_email_source.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }

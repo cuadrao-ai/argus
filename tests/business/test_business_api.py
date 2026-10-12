@@ -8,11 +8,12 @@ from uuid import uuid4
 
 import pytest
 from argus.api.business_spaces import business_spaces
+from argus.api.documents import documents_service
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from fastapi.testclient import TestClient
 
 from tests.business.conftest import ALICE, BOB
-from tests.business.receipt_stub import ReceiptStub
+from tests.business.receipt_stub import PURCHASE, ReceiptStub
 
 BASE = "/api/v1/business"
 RECEIPT = (
@@ -69,11 +70,15 @@ class Owner:
         return created.json()["id"]
 
     def upload(
-        self, content: bytes = RECEIPT, consent: bool = True, name: str = "recibo.png"
+        self,
+        content: bytes = RECEIPT,
+        consent: bool = True,
+        name: str = "recibo.png",
+        media_type: str = "image/png",
     ):
         headers = {
             **self.auth,
-            "Content-Type": "image/png",
+            "Content-Type": media_type,
             "Idempotency-Key": str(uuid4()),
             "X-Document-Filename": quote(name),
         }
@@ -299,7 +304,15 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
         "chat_available": False,
         "receipt_limits": {
             "max_bytes": 10485760,
-            "media_types": ["application/pdf", "image/jpeg", "image/png"],
+            "media_types": [
+                "application/pdf",
+                "image/jpeg",
+                "image/png",
+                "text/plain",
+                "text/csv",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "message/rfc822",
+            ],
         },
     }
 
@@ -637,3 +650,36 @@ def test_source_returns_the_uploaded_bytes_only_to_the_owner(
     assert [e["id"] for e in alice.get("/expenses", **window).json()["items"]] == [
         expense_id
     ]
+
+
+def test_a_multi_row_csv_waits_for_attention_with_every_row_kept(
+    alice: Owner, stub: ReceiptStub
+) -> None:
+    """A spreadsheet is not one receipt: it is set aside, and its rows stay as evidence."""
+    stub.rows = [
+        PURCHASE,
+        {**PURCHASE, "row": 2, "amount": "100.00", "merchant": "COLMADO DON JOSE"},
+    ]
+    rows = b"date,amount,merchant\n2026-10-06,3450.00,Ferreteria\n2026-10-06,100.00,Colmado\n"
+    uploaded = alice.upload(content=rows, name="gastos.csv", media_type="text/csv")
+    assert uploaded.status_code == 200, uploaded.text
+    receipt_id = uploaded.json()["id"]
+    detail = alice.detail(receipt_id)
+    assert (detail["status"], detail["attention"], detail["media_type"]) == (
+        "needs_attention",
+        "several_purchases",
+        "text/csv",
+    )
+    assert detail["filename"] == "gastos.csv"
+    scope = alice.scope()
+    batch = documents_service().store.get(
+        user_id=scope.person_id, connection_id=receipt_id
+    )
+    # Nothing becomes a candidate purchase; every read row stays in the saved batch.
+    assert batch.candidates == ()
+    assert [row.amount for row in batch.observations] == ["3450.00", "100.00"]
+    assert "receipt_purchase_ambiguous" in {issue.code for issue in batch.issues}
+    assert alice.get(f"/receipts/{receipt_id}/source").content == rows
+    assert alice.get(
+        "/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}
+    ).json() == {"items": []}
