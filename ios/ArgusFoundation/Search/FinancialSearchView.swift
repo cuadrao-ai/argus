@@ -369,6 +369,12 @@ struct ReceiptSearchSection: View {
 
     var body: some View {
         let hits = model.matching(query)
+        // Always present, so the receipts load even while nothing matches yet.
+        Color.clear.frame(height: 0).accessibilityHidden(true)
+            .task(id: query) {
+                if model.items.isEmpty { await model.load() }
+                await model.loadReadings()
+            }
         Group {
             if !hits.isEmpty {
                 CuadraoSearchHeading(title: spanish ? "Recibos" : "Receipts", count: hits.count)
@@ -383,10 +389,6 @@ struct ReceiptSearchSection: View {
                      : (spanish ? "No encontramos recibos." : "No receipts found."))
                     .foregroundStyle(.secondary).padding(.top, 36).accessibilityIdentifier("search.receipts.empty")
             }
-        }
-        .task(id: query) {
-            if model.items.isEmpty { await model.load() }
-            await model.loadReadings()
         }
         .sheet(item: $viewing) { SavedReceiptViewer(receipt: $0, copy: SavedReceiptCopy(spanish: spanish)) }
     }

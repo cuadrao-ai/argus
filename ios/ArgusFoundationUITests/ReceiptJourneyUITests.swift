@@ -113,4 +113,37 @@ extension FinancialLoopUITests {
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 20), "the receipt opens from the movement")
         app.buttons["Done"].tap()
     }
+
+    /// One receipt file against a real API (`TEST_RUNNER_RECEIPT_FILE`, staged where the app can read it). It stops at
+    /// the review and records nothing. Failure messages name only the kind of outcome, never what the receipt says.
+    func testStagingReceiptFileReadsIntoAReview() throws {
+        let path = try XCTUnwrap(ProcessInfo.processInfo.environment["RECEIPT_FILE"], "set RECEIPT_FILE")
+        let quiet = ProcessInfo.processInfo.environment["RECEIPT_PRIVATE"] == "1"
+        try signIn()
+        app.terminate()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "--cuadrao-release-gates", "--cuadrao-saved-receipts",
+                               "--cuadrao-receipt-file", path]
+        app.launch()
+        let add = app.buttons["nav.add"]
+        XCTAssertTrue(add.waitForExistence(timeout: 30))
+        add.tap()
+        app.buttons["add.tray.chooseFile"].tap()
+        XCTAssertTrue(app.buttons["receipt.journey.read"].waitForExistence(timeout: 15), "consent")
+        app.buttons["receipt.journey.read"].tap()
+        let merchant = app.descendants(matching: .any)["receipt.review.merchant"]
+        let failed = app.descendants(matching: .any)["receipt.journey.failed"]
+        let still = app.descendants(matching: .any)["receipt.journey.still"]
+        let settled = NSPredicate { _, _ in merchant.exists || failed.exists || still.exists }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 180), .completed, "outcome: no answer")
+        if !quiet { capture("file-receipt-outcome") }
+        XCTAssertFalse(failed.exists, "outcome: failed")
+        XCTAssertFalse(still.exists, "outcome: still reading")
+        let total = app.descendants(matching: .any)["receipt.review.total"].label
+        let date = app.descendants(matching: .any)["receipt.review.date"].label
+        XCTAssertFalse(merchant.label.contains("Unknown"), "outcome: no merchant")
+        XCTAssertFalse(date.contains("Unknown"), "outcome: no date")
+        XCTAssertFalse(total.contains("Unknown"), "outcome: no total")
+        print("RECEIPT_TOTAL_FOR_SYNTHETIC_CHECK " + (quiet ? "withheld" : total))
+        app.buttons["receipt.journey.later"].tap()
+    }
 }

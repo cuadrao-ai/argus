@@ -128,9 +128,21 @@ actor SampleReceiptJourneyTransport: ReceiptJourneyTransport {
 /// `--cuadrao-synthetic-receipt`: the + tray's receipt rows hand the real journey this drawn receipt instead of opening
 /// the camera, photos or files, so a staging check can read a known synthetic receipt. Nothing else changes.
 enum SyntheticReceipt {
-    static var active: Bool { ProcessInfo.processInfo.arguments.contains("--cuadrao-synthetic-receipt") }
+    static var active: Bool { ProcessInfo.processInfo.arguments.contains("--cuadrao-synthetic-receipt") || chosenFile != nil }
+
+    /// `--cuadrao-receipt-file <path>`: a staging check hands the journey this file instead of the drawn receipt.
+    static var chosenFile: URL? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let flag = arguments.firstIndex(of: "--cuadrao-receipt-file"), arguments.indices.contains(flag + 1) else { return nil }
+        return URL(fileURLWithPath: arguments[flag + 1])
+    }
 
     static func file() -> (data: Data, name: String, pdf: Bool) {
+        if let url = chosenFile {
+            // An unreadable file sends nothing usable, so the check fails instead of reading the drawn receipt.
+            let data = (try? Data(contentsOf: url)) ?? Data()
+            return (data, url.lastPathComponent, url.pathExtension.lowercased() == "pdf")
+        }
         let lines = ["SUPERMERCADO LA SIRENA", "Av. 27 de Febrero, Santo Domingo", "Fecha: 10/10/2026", "",
                      "Arroz 1 lb            150.00", "Leche 1 L             100.50", "",
                      "SUBTOTAL              250.50", "TOTAL RD$             250.50", "", "Gracias por su compra"]
