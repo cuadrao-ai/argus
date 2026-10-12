@@ -26,6 +26,7 @@ from argus.domain.ingestion.documents.config import (
     load_document_extraction_settings,
 )
 from argus.domain.ingestion.documents.models import (
+    RECEIPT_CURRENCY_CONFLICT,
     RECEIPT_PURCHASE_AMBIGUOUS,
     DocumentExtractionError,
     ExtractionBatch,
@@ -101,6 +102,13 @@ def fiscal_facts_from_receipt(receipt: ReceiptDetails, *, source_id: UUID) -> Fi
     return FiscalFacts.model_validate(facts)
 
 
+def _currency(value: str) -> str | None:
+    try:
+        return AccountHint(currency=value).currency
+    except ValidationError:
+        return None
+
+
 def _plain_amount(value: str | None) -> bool:
     return (
         value is not None
@@ -114,6 +122,8 @@ def batch_from_result(
     connection_id: str,
     observed_at: datetime,
     pages: int,
+    *,
+    document_currency: str | None = None,
 ) -> ExtractionBatch:
     issues = []
     if not result.readable:
@@ -150,8 +160,22 @@ def batch_from_result(
             and receipt.occurred_on != purchase.occurred_on
         ):
             receipt_ambiguous = True
+    conflict = (
+        document_currency is not None
+        and result.receipt is not None
+        and result.receipt.currency is not None
+        and _currency(result.receipt.currency) != document_currency
+    )
+    if conflict:
+        # The source names its own currency (a DGII e-CF is paid in DOP) and the
+        # read chose another: a person settles it, the rows stay as evidence.
+        receipt_ambiguous = True
     if receipt_ambiguous:
         issues.append(ProjectionIssue(code=RECEIPT_PURCHASE_AMBIGUOUS))
+    if conflict:
+        issues.append(
+            ProjectionIssue(code=RECEIPT_CURRENCY_CONFLICT, fields=("currency",))
+        )
     seen = set()
     candidates = []
     for row in result.observations:
@@ -321,6 +345,7 @@ class DocumentExtractor:
         metadata: dict[str, object] = {
             "pages": prepared.pages,
             "media_type": media_type,
+            "document_currency": prepared.document_currency,
             "sha256": hashlib.sha256(content).hexdigest(),
             "model": model,
             "route_receipts": [receipt.as_dict() for receipt in receipts],
@@ -333,7 +358,12 @@ class DocumentExtractor:
             raise failure from None
         assert result is not None
         batch = batch_from_result(
-            result, str(metadata["sha256"]), connection_id, observed_at, prepared.pages
+            result,
+            str(metadata["sha256"]),
+            connection_id,
+            observed_at,
+            prepared.pages,
+            document_currency=prepared.document_currency,
         )
         attachment = Attachment(
             external_id=str(metadata["sha256"]),

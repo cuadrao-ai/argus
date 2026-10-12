@@ -110,6 +110,10 @@ class ReceiptSummary(_Wire):
     error_code: str | None
     # Why a needs_attention receipt needs the owner; null otherwise.
     attention: Attention | None
+    # With attention ``duplicate``: the receipt this one may repeat.
+    duplicate_of: str | None = None
+    # The upload found the same bytes already saved; this is that receipt.
+    replayed: bool = False
     # The owner may ask for a consented AI read now.
     preparable: bool
     # The owner may fill in the one purchase by hand from version 0.

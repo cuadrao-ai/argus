@@ -54,10 +54,7 @@ function receipt(
     currency: null,
     category_id: null,
     account_id: null,
-    space_id: "fixture-space",
-    space_name: "Mi negocio",
-    accounts: ACCOUNTS,
-    capabilities: ["read", "prepare", "approve"],
+    record_context: { space_id: "fixture-space", space_name: "Mi negocio", accounts: ACCOUNTS, capabilities: ["read", "prepare", "approve"] },
     draft_id: null,
     version: 1,
     evidence: null,
@@ -436,6 +433,10 @@ export function createFixtureBusinessDataSource(
       receipts = [created, ...receipts];
       uploads.set(key, created);
       return created;
+    },
+    rebindReceipt: async (id) => {
+      await delay();
+      return find(id);
     },
     prepareReceipt: async (id) => {
       await delay();

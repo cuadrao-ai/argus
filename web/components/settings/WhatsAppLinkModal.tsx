@@ -3,12 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import Switch from "@/components/ui/Switch";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
+  canEnableAI,
+  consentModels,
   createWhatsAppLinkCode,
+  getWhatsAppAIConsent,
   getWhatsAppLink,
+  toggleWhatsAppAI,
   unlinkWhatsApp,
   whatsAppLinkProblem,
+  type WhatsAppAIConsent,
   type WhatsAppLinkCode,
   type WhatsAppLinkProblem,
   type WhatsAppLinkStatus,
@@ -25,6 +31,8 @@ export type WhatsAppLinkViewProps = {
   busy: boolean;
   problem: WhatsAppLinkProblem | null;
   confirmingUnlink: boolean;
+  consent?: WhatsAppAIConsent | null;
+  onToggleAI?: () => void;
   onCreateCode: () => void;
   onAskUnlink: (ask: boolean) => void;
   onUnlink: () => void;
@@ -38,6 +46,8 @@ export function WhatsAppLinkView({
   busy,
   problem,
   confirmingUnlink,
+  consent = null,
+  onToggleAI = () => {},
   onCreateCode,
   onAskUnlink,
   onUnlink,
@@ -76,6 +86,40 @@ export function WhatsAppLinkView({
           <button type="button" className={button} onClick={onRefresh} disabled={loading || busy}>
             {t("settings.whatsapp.check", "I sent it, check")}
           </button>
+        </section>
+      ) : null}
+      {status?.linked && consent && consent.reason !== "whatsapp_agent_off" ? (
+        <section
+          className="flex items-start justify-between gap-3 rounded-xl border border-black/[0.06] px-3.5 py-3 dark:border-white/[0.08]"
+          data-testid="whatsapp-ai-consent"
+        >
+          <div className="min-w-0 space-y-1">
+            <p className="text-[13px] font-medium text-black dark:text-white">
+              {t("settings.whatsapp.ai_title", "Let AI read my WhatsApp messages")}
+            </p>
+            {consent.disclosure ? (
+              <p className="whitespace-pre-wrap text-[11.5px] text-black/60 dark:text-white/60">{consent.disclosure}</p>
+            ) : null}
+            {consent.route ? (
+              <p className="text-[11.5px] text-black/45 dark:text-white/45">
+                {t("settings.whatsapp.ai_models", "Provider: OpenRouter. Models: {{models}}.", { models: consentModels(consent).join(", ") })}
+              </p>
+            ) : null}
+            <p className="text-[11.5px] text-black/45 dark:text-white/45" role="status">
+              {consent.enabled
+                ? t("settings.whatsapp.ai_on", "On. You can turn it off at any time.")
+                : consent.available
+                  ? t("settings.whatsapp.ai_off", "Off. Cuadrao cannot answer your messages yet.")
+                  : t(`settings.whatsapp.ai_reason_${consent.reason ?? "unavailable"}`, t("settings.whatsapp.ai_reason_unavailable", "It cannot be turned on right now."))}
+            </p>
+            <p className="text-[11.5px] text-black/45 dark:text-white/45">{t("settings.whatsapp.ai_approval", "You always approve money records yourself in Cuadrao.")}</p>
+          </div>
+          <Switch
+            checked={consent.enabled}
+            label={t("settings.whatsapp.ai_title", "Let AI read my WhatsApp messages")}
+            disabled={busy || (!consent.enabled && !canEnableAI(consent))}
+            onChange={onToggleAI}
+          />
         </section>
       ) : null}
       <div className="flex flex-wrap gap-2">
@@ -119,6 +163,7 @@ export default function WhatsAppLinkModal({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<WhatsAppLinkProblem | null>(null);
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);
+  const [consent, setConsent] = useState<WhatsAppAIConsent | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -126,7 +171,12 @@ export default function WhatsAppLinkModal({
       const next = await getWhatsAppLink();
       setStatus(next);
       setProblem(null);
-      if (next.linked) setCode(null);
+      if (next.linked) {
+        setCode(null);
+        setConsent(await getWhatsAppAIConsent().catch(() => null));
+      } else {
+        setConsent(null);
+      }
     } catch (error) {
       setProblem(whatsAppLinkProblem(error));
     } finally {
@@ -145,6 +195,21 @@ export default function WhatsAppLinkModal({
       setProblem(null);
     } catch (error) {
       setProblem(whatsAppLinkProblem(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleAI() {
+    if (!consent) return;
+    setBusy(true);
+    try {
+      setConsent(await toggleWhatsAppAI(consent));
+      setProblem(null);
+    } catch (error) {
+      const next = whatsAppLinkProblem(error);
+      setProblem(next);
+      if (next === "stale") setConsent(await getWhatsAppAIConsent().catch(() => consent));
     } finally {
       setBusy(false);
     }
@@ -173,7 +238,8 @@ export default function WhatsAppLinkModal({
       width="md"
     >
       <WhatsAppLinkView
-        {...{ status, code, loading, busy, problem, confirmingUnlink }}
+        {...{ status, code, loading, busy, problem, confirmingUnlink, consent }}
+        onToggleAI={() => void toggleAI()}
         onCreateCode={() => void createCode()}
         onAskUnlink={setConfirmingUnlink}
         onUnlink={() => void unlink()}

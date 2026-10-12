@@ -35,11 +35,13 @@ from argus.domain.ingestion.whatsapp.payload import (
     InboundMessage,
     MediaMessage,
     TextMessage,
+    UnsupportedMessage,
 )
 from argus.domain.ingestion.whatsapp.replies import (
     ReplyFailed,
     ReplyTransport,
     compose_reply,
+    inbox_url,
     reply_key,
     reply_payload,
     review_url,
@@ -130,6 +132,8 @@ class WhatsAppIntake:
         transport: ReplyTransport | None = None,
         app_origin: str | None = None,
         max_bytes: int,
+        capture_text: Callable[[TextMessage], bool] | None = None,
+        send_enabled: Callable[[], bool] = lambda: True,
         background: Callable[[Coroutine[Any, Any, None]], None] | None = None,
     ) -> None:
         self.store, self.keys, self.media = store, keys, media
@@ -140,6 +144,8 @@ class WhatsAppIntake:
         # work finishes inside ``handle``.
         self.background = background
         self.processing_seconds: float = PROCESSING_SECONDS
+        self.capture_text = capture_text
+        self.send_enabled = send_enabled
 
     def issue_code(
         self, *, destination_owner_id: str, reply_language: ReplyLanguage
@@ -216,6 +222,9 @@ class WhatsAppIntake:
         otherwise ``True`` when it is already settled and ``False`` while
         another claim still holds it unsettled."""
 
+        if isinstance(message, TextMessage) and self.capture_text is not None:
+            if await asyncio.to_thread(self.capture_text, message):
+                return True
         sender = self.keys.sender(message.sender)
         key = self.keys.message(message.id)
         now = self.clock()
@@ -313,6 +322,13 @@ class WhatsAppIntake:
                 error_code="whatsapp_receipt_missing",
                 reply_language=language,
             )
+        if isinstance(message, UnsupportedMessage):
+            return Settlement(
+                "rejected",
+                owner,
+                error_code="whatsapp_message_unsupported",
+                reply_language=language,
+            )
         settlement = await self._capture(message, owner)
         return replace(settlement, reply_language=language)
 
@@ -368,7 +384,7 @@ class WhatsAppIntake:
         )
 
     async def _reply(self, message: InboundMessage, settlement: Settlement, log) -> None:  # noqa: ANN001
-        if self.transport is None:
+        if self.transport is None or not self.send_enabled():
             return
         if self.clock() - message.sent_at > SERVICE_WINDOW:
             log.info("WhatsApp acknowledgement skipped: outside the service window")
@@ -379,6 +395,8 @@ class WhatsAppIntake:
                 log.warning("WhatsApp acknowledgement skipped: no app origin")
                 return
             url = review_url(self.app_origin, settlement.connection_id or "")
+        elif settlement.error_code == "whatsapp_receipt_missing" and self.app_origin:
+            url = inbox_url(self.app_origin)
         body = compose_reply(
             reply_key(
                 settlement.status, settlement.error_code, duplicate=settlement.duplicate

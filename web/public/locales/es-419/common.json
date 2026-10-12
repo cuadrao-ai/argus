@@ -1025,7 +1025,19 @@
       "problem_unavailable": "WhatsApp todavía no está disponible.",
       "problem_space_missing": "Primero crea tu espacio de negocio y luego vincula tu número.",
       "problem_rate_limited": "Demasiados códigos. Espera unos minutos e inténtalo de nuevo.",
-      "problem_failed": "No pudimos conectar con WhatsApp. Inténtalo de nuevo."
+      "problem_failed": "No pudimos conectar con WhatsApp. Inténtalo de nuevo.",
+      "problem_stale": "La permisión cambió desde la última vez. Lee el texto de nuevo y vuelve a intentarlo.",
+      "ai_title": "Permitir que la IA lea mis mensajes de WhatsApp",
+      "ai_on": "Activado. Puedes desactivarlo cuando quieras.",
+      "ai_off": "Desactivado. Cuadrao todavía no puede responder tus mensajes.",
+      "ai_models": "Proveedor: OpenRouter. Modelos: {{models}}.",
+      "ai_approval": "Tú siempre apruebas los registros de dinero en Cuadrao.",
+      "ai_reason_unavailable": "Ahora no se puede activar la lectura con IA.",
+      "ai_reason_whatsapp_link_required": "Primero vincula tu número.",
+      "ai_reason_business_permission_denied": "Tu cuenta no tiene permiso para activarla en este negocio.",
+      "ai_reason_business_unavailable": "Primero crea tu espacio de negocio.",
+      "ai_reason_whatsapp_unavailable": "WhatsApp todavía no está disponible.",
+      "ai_reason_whatsapp_ai_route_unavailable": "El servicio de IA no está disponible ahora. Inténtalo más tarde."
     },
     "title": "Ajustes",
     "profile": {
@@ -2203,7 +2215,20 @@
       "error": "No se pudo descargar la exportación. Revisa tu acceso e inténtalo de nuevo.",
       "preview": "Las descargas están disponibles en la vista conectada del negocio."
     },
+    "panel": {
+      "crashed": "Esta parte no se pudo mostrar. Tus recibos están guardados.",
+      "retry": "Intentar de nuevo"
+    },
     "dossier": {
+      "read_purchases_title": "Compras leídas en este recibo",
+      "read_purchases_note": "La lectura mostró más de una compra. Completa este registro con una de ellas; las demás quedan aquí como evidencia.",
+      "read_purchase": "Compra {{index}}",
+      "unknown_amount": "Monto desconocido",
+      "read_remainder": "Registrado {{recorded}} de un total de {{total}}. {{count}} compras de este recibo siguen sin registrar.",
+      "read_unrecorded": "{{count}} compras de este recibo siguen sin registrar.",
+      "read_settled": "El resto de este recibo ya está atendido.",
+      "settle_remainder": "El resto ya está atendido",
+      "settle_failed": "No se pudo marcar el resto como atendido. Revisa el registro actual antes de intentarlo de nuevo.",
       "title": "Revisar registro",
       "unknown": "Desconocido",
       "owner_unknown": "El dueño no sabe",
@@ -2360,6 +2385,7 @@
     "attention": {
       "ai_unavailable": "La preparación con IA no está disponible ahora. Tu recibo está guardado. Reintenta más tarde o escribe los detalles tú mismo.",
       "check_details": "Cuadrao no pudo leer todo este recibo. Compara los detalles con el original antes de confirmar.",
+      "duplicate": "Parece un recibo que ya guardaste: mismo comercio, fecha y total. No se guardará como un segundo gasto.",
       "interrupted": "La preparación se detuvo antes de terminar. Tu recibo está guardado. Reintenta o escribe los detalles tú mismo.",
       "no_purchase_found": "Cuadrao leyó este recibo pero no encontró una compra para guardar. Escribe los detalles tú mismo.",
       "other": "Algo salió mal con este recibo. Sigue guardado. Escribe los detalles tú mismo.",
@@ -2443,6 +2469,7 @@
       }
     },
     "intake": {
+      "replayed": "Ya estaba guardado. Este es ese recibo.",
       "camera": "Tomar foto",
       "choose": "Elegir archivo",
       "consent": "Prepararlo con IA después de guardarlo. El recibo se envía a nuestro proveedor de IA para completar los detalles y que tú los revises. Déjalo desactivado para completarlos tú mismo.",
@@ -2514,6 +2541,10 @@
       "save": "Guardar gasto"
     },
     "review": {
+      "see_original": "Ver el recibo ya guardado",
+      "rebind_note": "El acceso que preparó este recibo ya no es válido. Vincúlalo a tu acceso actual y vuelve a prepararlo.",
+      "rebind": "Vincular a mi acceso actual",
+      "rebind_failed": "No pudimos vincular este recibo. Inténtalo de nuevo.",
       "account": "Pagado desde",
       "amount": "Total",
       "category": "Categoría",

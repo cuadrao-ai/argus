@@ -18,6 +18,7 @@ from argus.domain.business.authority import (
 )
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
+    Applied,
     ApproveExpense,
     ApproveIncome,
     AttachmentPreparationBinding,
@@ -27,8 +28,11 @@ from argus.domain.business.contracts.actions import (
     FindRelated,
     PrepareAttachmentCommand,
     ReadContext,
+    RebindAttachmentCommand,
     ReviewCommand,
     ReviewDraft,
+    SettleRemainder,
+    SettleRemainderCommand,
     TurnPlan,
     canonical_input_hash,
 )
@@ -40,6 +44,7 @@ from argus.domain.business.contracts.dossier import (
     WebActionSource,
 )
 from argus.domain.business.contracts.recovery import SenderLease
+from argus.domain.business.duplicates import flag_receipt_duplicates
 from argus.domain.business.transactions import (
     ActionTransaction,
     GrantImportStore,
@@ -285,6 +290,73 @@ class BusinessActions:
         except ActionError as error:
             return error.result
 
+    def settle_remainder(
+        self,
+        context: ActionContext,
+        draft_id: UUID,
+        request: SettleRemainder,
+        key: str,
+    ) -> ActionOutcome:
+        """A person with approval permission settles the read purchases a
+        recorded draft does not cover: the receipt stops asking for them. One
+        ledger row; the facts and the recorded money do not change."""
+
+        from dataclasses import replace
+
+        from argus.domain.business.contracts.facts import BusinessResolution
+        from argus.domain.ingestion.reconcile.model import EventNotFound
+
+        command = SettleRemainderCommand(draft_id=draft_id, request=request)
+        try:
+            with transaction(self.authority, context, "approve") as tx:
+                saved = plans.receipt(tx, key, command)
+                if saved is not None:
+                    return plans.replay(saved)
+                plans.start_receipt(tx, key, command)
+                try:
+                    with tx.connection.transaction():
+                        tx.authorization.require("approve")
+                        if context.actor.actor_kind != "member":
+                            raise ActionError(
+                                "permission_denied", "business_human_command_required"
+                            )
+                        try:
+                            event = tx.imports.event(str(draft_id))
+                        except EventNotFound:
+                            raise ActionError(
+                                "not_found", "business_record_not_found"
+                            ) from None
+                        if event.version != request.version:
+                            raise ActionError("stale_version", "stale_version")
+                        if event.state != "accepted":
+                            raise ActionError(
+                                "invalid_input", "business_draft_not_recorded"
+                            )
+                        resolution = BusinessResolution.model_validate(
+                            event.resolution["business"]
+                        )
+                        if not resolution.unrecorded_purchases():
+                            raise ActionError("invalid_input", "business_remainder_none")
+                        settled = dict(event.resolution)
+                        settled["business"] = resolution.model_copy(
+                            update={"remainder_settled": True}
+                        ).model_dump(mode="json")
+                        event = replace(
+                            event,
+                            resolution=settled,
+                            version=event.version + 1,
+                            updated_at=datetime.now(timezone.utc),
+                        )
+                        tx.imports.put_event(event)
+                        result = Applied(
+                            outcome="applied", draft_id=event.id, version=event.version
+                        )
+                except ActionError as error:
+                    result = error.result
+                return plans.finish_receipt(tx, key, result)
+        except ActionError as error:
+            return error.result
+
     def approve(
         self,
         context: ActionContext,
@@ -352,6 +424,64 @@ class BusinessActions:
                 (Jsonb(binding.model_dump(mode="json")), connection_id),
             )
             return binding
+
+    def rebind_attachment_preparation(
+        self, context: ActionContext, connection_id: UUID
+    ) -> AttachmentPreparationBinding:
+        """Owner action: a receipt bound to a grant that is no longer live is
+        bound again to the owner's current grant, with one ledger row.
+
+        A binding whose grant is still live is left alone (``binding_live``),
+        so this never silently moves authority that still works."""
+
+        if context.actor.actor_kind != "member":
+            raise ActionError("permission_denied", "business_human_command_required")
+        if str(context.actor.actor_id) != context.owner_id:
+            raise ActionError("permission_denied", "business_owner_required")
+        with transaction(self.authority, context, "prepare") as tx:
+            row = self._attachment_row(tx, connection_id)
+            if row["preparation_binding"] is None:
+                raise ActionError("invalid_input", "business_preparation_binding_missing")
+            binding = AttachmentPreparationBinding.model_validate(
+                row["preparation_binding"]
+            )
+            try:
+                authorize(
+                    tx.connection,
+                    TrustedActor(
+                        actor_id=binding.actor.actor_id,
+                        actor_kind="extractor",
+                        space_id=binding.space_id,
+                    ),
+                    binding.actor.grant_id,
+                )
+            except ActionError:
+                pass
+            else:
+                raise ActionError("invalid_input", "business_preparation_binding_live")
+            rebound = binding.model_copy(
+                update={
+                    "binding_id": uuid4(),
+                    "actor": tx.authorization.provenance.model_copy(
+                        update={"actor_kind": "extractor"}
+                    ),
+                    "captured_at": datetime.now(timezone.utc),
+                }
+            )
+            command = RebindAttachmentCommand(
+                previous_binding_id=binding.binding_id,
+                previous_grant_id=binding.actor.grant_id,
+                binding=rebound,
+            )
+            key = f"rebind:{rebound.binding_id}"
+            plans.start_receipt(tx, key, command)
+            tx.rows(
+                "update public.financial_document_extractions set preparation_binding=%s"
+                " where connection_id=%s",
+                (Jsonb(rebound.model_dump(mode="json")), connection_id),
+            )
+            plans.finish_receipt(tx, key, Applied(outcome="applied"))
+            return rebound
 
     @staticmethod
     def _attachment_row(tx: ActionTransaction, connection_id: UUID) -> dict:
@@ -495,6 +625,9 @@ class BusinessActions:
             result = mutations.prepare_attachment(
                 tx, binding.target, batch, draft, binding.actor
             )
+            # The read is saved; a repeat of another receipt is marked on this
+            # draft's event before the command settles.
+            flag_receipt_duplicates(tx.imports, str(result.draft_id))
             live = authorize(tx.connection, context.actor, binding.actor.grant_id)
             live.require("prepare")
             final_tx = ActionTransaction(tx.connection, live, tx.imports)

@@ -33,6 +33,7 @@ export const RECEIPT_ATTENTIONS = [
   "several_purchases",
   "source_unavailable",
   "check_details",
+  "duplicate",
   "other",
 ] as const;
 export type ReceiptAttention = (typeof RECEIPT_ATTENTIONS)[number];
@@ -58,6 +59,10 @@ export type ReceiptSummary = ReceiptReviewFields & {
   status: ReceiptStatus;
   error_code: string | null;
   attention: ReceiptAttention | null;
+  /** With attention `duplicate`: the receipt this one may repeat. */
+  duplicate_of?: string | null;
+  /** The upload found the same bytes already saved; this is that receipt. */
+  replayed?: boolean;
   /** The owner may ask for a consented AI read now. */
   preparable: boolean;
   /** The owner may fill in the one purchase by hand from version 0. */
@@ -74,7 +79,9 @@ export type ReceiptEvidenceLine = {
   amount: DecimalString | null;
 };
 
-export type ReceiptDetail = ReceiptSummary & BusinessRecordContext & {
+export type ReceiptDetail = ReceiptSummary & {
+  /** The Business this receipt belongs to and what the caller may do there; null when the API cannot say. */
+  record_context: BusinessRecordContext | null;
   draft_id: string | null;
   version: number;
   evidence: {
@@ -135,6 +142,14 @@ export async function approveBusinessDraft(draftId: string, version: number, ide
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, action: "record_expense" }),
+  });
+}
+
+export async function settleBusinessRemainder(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/remainder/settle`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version }),
   });
 }
 
@@ -463,4 +478,9 @@ export async function revokeBusinessAccessGrant(id: string): Promise<void> {
 
 export async function revokeBusinessAccessInvite(id: string): Promise<void> {
   await apiFetch(`/business/access/invites/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/** Owner action: bind a receipt whose preparation grant is no longer live to the owner's current grant. */
+export async function rebindBusinessReceipt(id: string): Promise<ReceiptDetail> {
+  return apiFetch(`/business/receipts/${encodeURIComponent(id)}/rebind`, { method: "POST" });
 }

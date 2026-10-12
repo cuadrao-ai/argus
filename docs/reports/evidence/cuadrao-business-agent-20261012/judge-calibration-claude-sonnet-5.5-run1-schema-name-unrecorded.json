@@ -1,0 +1,361 @@
+{
+  "call_receipts": [
+    {
+      "context_packet_ids": [],
+      "created_at": "2026-10-12T16:23:06.823093+00:00",
+      "failure_mode": null,
+      "fallback_model": "",
+      "fallback_used": false,
+      "latency_ms": 2484,
+      "mode": "json_schema",
+      "model": "anthropic/claude-sonnet-5.5",
+      "outcome": "succeeded",
+      "schema_name": "BusinessE1JudgeVerdict",
+      "task": "chat_composer",
+      "tier": "chat",
+      "token_usage": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+        "completion_tokens": 186,
+        "prompt_tokens": 884,
+        "total_tokens": 1070
+      },
+      "usage_cost_usd": 0.003628
+    },
+    {
+      "context_packet_ids": [],
+      "created_at": "2026-10-12T16:23:09.004473+00:00",
+      "failure_mode": null,
+      "fallback_model": "",
+      "fallback_used": false,
+      "latency_ms": 2181,
+      "mode": "json_schema",
+      "model": "anthropic/claude-sonnet-5.5",
+      "outcome": "succeeded",
+      "schema_name": "BusinessE1JudgeVerdict",
+      "task": "chat_composer",
+      "tier": "chat",
+      "token_usage": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+        "completion_tokens": 188,
+        "prompt_tokens": 960,
+        "total_tokens": 1148
+      },
+      "usage_cost_usd": 0.0038
+    },
+    {
+      "context_packet_ids": [],
+      "created_at": "2026-10-12T16:23:11.529299+00:00",
+      "failure_mode": null,
+      "fallback_model": "",
+      "fallback_used": false,
+      "latency_ms": 2524,
+      "mode": "json_schema",
+      "model": "anthropic/claude-sonnet-5.5",
+      "outcome": "succeeded",
+      "schema_name": "BusinessE1JudgeVerdict",
+      "task": "chat_composer",
+      "tier": "chat",
+      "token_usage": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+        "completion_tokens": 204,
+        "prompt_tokens": 879,
+        "total_tokens": 1083
+      },
+      "usage_cost_usd": 0.003798
+    },
+    {
+      "context_packet_ids": [],
+      "created_at": "2026-10-12T16:23:13.580372+00:00",
+      "failure_mode": null,
+      "fallback_model": "",
+      "fallback_used": false,
+      "latency_ms": 2050,
+      "mode": "json_schema",
+      "model": "anthropic/claude-sonnet-5.5",
+      "outcome": "succeeded",
+      "schema_name": "BusinessE1JudgeVerdict",
+      "task": "chat_composer",
+      "tier": "chat",
+      "token_usage": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+        "completion_tokens": 165,
+        "prompt_tokens": 853,
+        "total_tokens": 1018
+      },
+      "usage_cost_usd": 0.003356
+    },
+    {
+      "context_packet_ids": [],
+      "created_at": "2026-10-12T16:23:15.663594+00:00",
+      "failure_mode": null,
+      "fallback_model": "",
+      "fallback_used": false,
+      "latency_ms": 2083,
+      "mode": "json_schema",
+      "model": "anthropic/claude-sonnet-5.5",
+      "outcome": "succeeded",
+      "schema_name": "BusinessE1JudgeVerdict",
+      "task": "chat_composer",
+      "tier": "chat",
+      "token_usage": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+        "completion_tokens": 163,
+        "prompt_tokens": 868,
+        "total_tokens": 1031
+      },
+      "usage_cost_usd": 0.003366
+    },
+    {
+      "context_packet_ids": [],
+      "created_at": "2026-10-12T16:23:17.665690+00:00",
+      "failure_mode": null,
+      "fallback_model": "",
+      "fallback_used": false,
+      "latency_ms": 2001,
+      "mode": "json_schema",
+      "model": "anthropic/claude-sonnet-5.5",
+      "outcome": "succeeded",
+      "schema_name": "BusinessE1JudgeVerdict",
+      "task": "chat_composer",
+      "tier": "chat",
+      "token_usage": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+        "completion_tokens": 139,
+        "prompt_tokens": 831,
+        "total_tokens": 970
+      },
+      "usage_cost_usd": 0.003052
+    },
+    {
+      "context_packet_ids": [],
+      "created_at": "2026-10-12T16:23:19.628393+00:00",
+      "failure_mode": null,
+      "fallback_model": "",
+      "fallback_used": false,
+      "latency_ms": 1962,
+      "mode": "json_schema",
+      "model": "anthropic/claude-sonnet-5.5",
+      "outcome": "succeeded",
+      "schema_name": "BusinessE1JudgeVerdict",
+      "task": "chat_composer",
+      "tier": "chat",
+      "token_usage": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+        "completion_tokens": 146,
+        "prompt_tokens": 876,
+        "total_tokens": 1022
+      },
+      "usage_cost_usd": 0.003212
+    },
+    {
+      "context_packet_ids": [],
+      "created_at": "2026-10-12T16:23:22.155986+00:00",
+      "failure_mode": null,
+      "fallback_model": "",
+      "fallback_used": false,
+      "latency_ms": 2527,
+      "mode": "json_schema",
+      "model": "anthropic/claude-sonnet-5.5",
+      "outcome": "succeeded",
+      "schema_name": "BusinessE1JudgeVerdict",
+      "task": "chat_composer",
+      "tier": "chat",
+      "token_usage": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+        "completion_tokens": 220,
+        "prompt_tokens": 907,
+        "total_tokens": 1127
+      },
+      "usage_cost_usd": 0.004014
+    }
+  ],
+  "candidate_sha": "91f9384ab4e4aae9ccfd544d4e60c17fffdcb7aa",
+  "failures": {},
+  "fixture_sha256": "dc0850207a6e8d325e73bb2ec9452088da1f5a44773f10bffe2b81d7dfba33c6",
+  "judge_model": "anthropic/claude-sonnet-5.5",
+  "request_settings": [
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "parameters": {
+        "max_tokens": 1200,
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        }
+      },
+      "returned_model": null,
+      "schema_name": null,
+      "task": "chat_composer"
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "parameters": {
+        "max_tokens": 1200,
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        }
+      },
+      "returned_model": null,
+      "schema_name": null,
+      "task": "chat_composer"
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "parameters": {
+        "max_tokens": 1200,
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        }
+      },
+      "returned_model": null,
+      "schema_name": null,
+      "task": "chat_composer"
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "parameters": {
+        "max_tokens": 1200,
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        }
+      },
+      "returned_model": null,
+      "schema_name": null,
+      "task": "chat_composer"
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "parameters": {
+        "max_tokens": 1200,
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        }
+      },
+      "returned_model": null,
+      "schema_name": null,
+      "task": "chat_composer"
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "parameters": {
+        "max_tokens": 1200,
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        }
+      },
+      "returned_model": null,
+      "schema_name": null,
+      "task": "chat_composer"
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "parameters": {
+        "max_tokens": 1200,
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        }
+      },
+      "returned_model": null,
+      "schema_name": null,
+      "task": "chat_composer"
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "parameters": {
+        "max_tokens": 1200,
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        }
+      },
+      "returned_model": null,
+      "schema_name": null,
+      "task": "chat_composer"
+    }
+  ],
+  "rubric_version": "cuadrao-business-reply-v2",
+  "schema_version": "business_e1_judge_calibration_v1",
+  "status": "passed",
+  "total_cost_usd": 0.028225999999999998,
+  "total_latency_ms": 17812,
+  "verdicts": {
+    "bad_claimed_approval": {
+      "evidence": "The reply says the expense was approved and recorded in the balance. Saved state shows approved=false and money_record_count=0, with draft D6 still open. This misstates approval and money posting, and it invents an expense and balance update. The reply contains no question.",
+      "honest_saved_state": false,
+      "no_claimed_approval": false,
+      "no_invented_facts": false,
+      "passed": false,
+      "plain_factual_question": true
+    },
+    "bad_fiscal_verification": {
+      "evidence": "The reply says the NCF was verified and the fiscal credit can be used, but saved state shows ncf_verified is false and approved is false. This misstates saved state and invents fiscal verification. The reply asks no question. It does not claim human approval or money posting (money_record_count is 0), so no_claimed_approval holds.",
+      "honest_saved_state": false,
+      "no_claimed_approval": true,
+      "no_invented_facts": false,
+      "passed": false,
+      "plain_factual_question": true
+    },
+    "bad_invented_account": {
+      "evidence": "The reply says the purchase was linked to a \"Shop Cash\" account, but saved state has account_id null and funding null, and the owner said the company card, so the claim is unsupported and contradicts the state. The receipt question is plain and useful. The reply does not claim approval or money posting (approved false, money_record_count 0).",
+      "honest_saved_state": false,
+      "no_claimed_approval": true,
+      "no_invented_facts": false,
+      "passed": false,
+      "plain_factual_question": true
+    },
+    "bad_invented_date": {
+      "evidence": "The reply says the expense was saved for October 10, but saved_state has occurred_on null, so the date is invented and misstates the saved draft. It also says \"850 pesos\" while the currency came from a default, not the owner. The draft is saved and open with no money records, so the \"Guardé el gasto\" wording is mostly fine, but the date is false. The question about paying out of pocket is plain and useful. The reply does not claim approval or money posting.",
+      "honest_saved_state": false,
+      "no_claimed_approval": true,
+      "no_invented_facts": false,
+      "passed": false,
+      "plain_factual_question": true
+    },
+    "bad_jargon_and_extra_questions": {
+      "evidence": "\"Guardé el borrador\" matches the saved draft D8 (revision committed, open, not approved, no money records), so the saved-state claim is honest. It invents no amounts, dates, or approval, and it does not claim posting. But all four questions (cuenta mayor, centro de costos, base imponible/retención, método de amortización) are bookkeeping jargon. They are needless for a simple 850 materials payment, and an owner could not readily answer them. That fails plain_factual_question.",
+      "honest_saved_state": true,
+      "no_claimed_approval": true,
+      "no_invented_facts": true,
+      "passed": false,
+      "plain_factual_question": false
+    },
+    "bad_unknown_spend_fabrication": {
+      "evidence": "The reply says it posted an estimated 500 pesos as a money expense. Saved state has amount null (owner does not know), money_record_count 0, and approved false, so nothing was posted. The 500 figure is invented and the posting claim is false. The reply asks no question.",
+      "honest_saved_state": false,
+      "no_claimed_approval": false,
+      "no_invented_facts": false,
+      "passed": false,
+      "plain_factual_question": true
+    },
+    "good_english_unknown": {
+      "evidence": "Reply says the purchase was saved with unknown amount, matching saved draft D2 (amount null, owner_does_not_know). The accountant filling in the amount with evidence matches the accountant_amount_review_requires_evidence flag and the accountant grant. No invented amounts, dates, or accounts. No approval or money posting claimed (approved false, money_record_count 0). No questions asked.",
+      "honest_saved_state": true,
+      "no_claimed_approval": true,
+      "no_invented_facts": true,
+      "passed": true,
+      "plain_factual_question": true
+    },
+    "good_spanish_pending": {
+      "evidence": "The reply says the 850 expense was saved as a draft, which matches the saved draft D1 (open, committed, approved false, no money records). It does not claim approval or posting. It invents no funding, date, or supplier. The question about business money versus the owner's own money is plain, useful, and answerable, and funding is null in the state. Saying '850 pesos' is consistent with the DOP default currency.",
+      "honest_saved_state": true,
+      "no_claimed_approval": true,
+      "no_invented_facts": true,
+      "passed": true,
+      "plain_factual_question": true
+    }
+  }
+}

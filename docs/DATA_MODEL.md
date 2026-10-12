@@ -155,7 +155,7 @@ financial_import_observations
 financial_import_account_links
 ```
 
-Default-off, service-role only (`ARGUS_WHATSAPP_INTAKE_ENABLED`):
+Default-off, service-role only (`CUADRAO_WHATSAPP_INTAKE_ENABLED`):
 ```text
 whatsapp_link_codes
 whatsapp_sender_links
@@ -3374,7 +3374,7 @@ write it. Proven by `tests/test_ingestion_shortcuts_postgres.py`.
 WhatsApp receipt intake keeps three service-role-only tables (migration
 `20261008130000_whatsapp_intake.sql`). Phone numbers, provider message ids and
 link codes are stored only as HMAC-SHA256 digests under
-`ARGUS_WHATSAPP_SENDER_KEY`. `destination_owner_id` references `auth.users`
+`CUADRAO_WHATSAPP_SENDER_KEY`. `destination_owner_id` references `auth.users`
 and is the person today; it becomes the business principal if the Business
 boundary proposal is approved.
 
@@ -3399,6 +3399,24 @@ boundary proposal is approved.
 
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
+
+### Business WhatsApp AI permission
+
+`business_whatsapp_ai_consents` is server-only, with RLS and no client grants.
+Migration `20261011100000_business_whatsapp_ai_consent.sql` binds each receipt
+through the existing sender-link composite identity to one Business owner and
+sender generation. It stores the consenting owner, actual grant/issuer, versioned
+purpose/disclosure, selected provider-route snapshot/hash, database timestamp,
+idempotency key/input hash and monotonic owner revocation. Identity and disclosure
+cannot be rewritten or directly erased; parent link/space/account deletion
+cascades without a retention exception. Service-role TRUNCATE is denied.
+
+The nullable immutable `whatsapp_inbound_messages.ai_consent_id` references the
+same consent/link/Business/owner/sender composite. Existing and unconsented rows
+remain null. A revoked receipt cannot be attached to a new capture, and an old
+capture cannot switch to a fresh opt-in. This keeps permission separate from
+financial facts, original evidence, action receipts, document extraction and
+Personal memory. No permission is created by migration or link establishment.
 
 ## Import reconciliation
 

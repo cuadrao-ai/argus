@@ -21,9 +21,11 @@ from argus.domain.business.contracts.dossier import (
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessFacts,
+    BusinessResolution,
     Known,
 )
 from argus.domain.business.transactions import ActionTransaction
+from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
 from argus.domain.ingestion.reconcile.model import EventNotFound
 from argus.domain.recording.money_schemas import ELIGIBILITY
 
@@ -154,6 +156,9 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         blocked.append(Blocker(code="business_questions_unresolved"))
     if event.state != "open":
         blocked.append(Blocker(code="business_draft_not_open"))
+    if event.attention in DUPLICATE_WARNINGS:
+        # Settled only by a person: the draft stays reviewable, never approvable.
+        blocked.append(Blocker(code="possible_duplicate"))
     pointer = event.resolution.get("approval_receipt")
     approval_filter = "" if pointer is None else " and actor_id=%s and idempotency_key=%s"
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
@@ -186,6 +191,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
                 reviewed_version=version,
                 code=outcome.get("code", "approval_failed"),
             )
+    resolution = BusinessResolution.model_validate(event.resolution["business"])
     return BusinessDossier(
         **context.model_dump(),
         draft_id=draft_id,
@@ -198,4 +204,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         blockers=tuple(blocked),
         approval_available=not blocked and "approve" in tx.authorization.capabilities,
         approval_result=approval,
+        read_purchases=resolution.read_purchases,
+        read_total=resolution.read_total,
+        unrecorded_purchases=resolution.unrecorded_purchases(),
     )

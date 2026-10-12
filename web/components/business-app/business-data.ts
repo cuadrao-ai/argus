@@ -33,6 +33,7 @@ export type BusinessDataSource = Readonly<{
   dossier: (id: string) => Promise<BusinessDossier>;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
   approveDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
+  settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   receiptSource: (id: string) => Promise<Blob>;
   updates: () => Promise<BusinessUpdate[]>;
   expenses: (from: string, to: string) => Promise<BusinessExpense[]>;
@@ -41,6 +42,7 @@ export type BusinessDataSource = Readonly<{
   captures: (query?: string, limit?: number) => Promise<BusinessCapture[]>;
   uploadReceipt: (file: File, consentToPrepare: boolean, key: string) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
+  rebindReceipt: (id: string) => Promise<ReceiptDetail>;
   saveReview: (
     id: string,
     version: number,
@@ -73,6 +75,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   dossier: api.getBusinessDossier,
   reviewDraft: api.reviewBusinessDraft,
   approveDraft: api.approveBusinessDraft,
+  settleRemainder: api.settleBusinessRemainder,
   receiptSource: api.fetchBusinessReceiptSource,
   updates: api.listBusinessUpdates,
   expenses: api.listBusinessExpenses,
@@ -81,6 +84,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   captures: api.listBusinessCaptures,
   uploadReceipt: api.uploadBusinessReceipt,
   prepareReceipt: api.prepareBusinessReceipt,
+  rebindReceipt: api.rebindBusinessReceipt,
   saveReview: api.saveBusinessReceiptReview,
   confirmReceipt: api.confirmBusinessReceipt,
   recordExpense: api.recordBusinessExpense,
@@ -124,6 +128,7 @@ export function withBusinessSpace(
     dossier: source.dossier,
     reviewDraft: source.reviewDraft,
     approveDraft: source.approveDraft,
+    settleRemainder: source.settleRemainder,
     receiptSource: source.receiptSource,
     updates: after(source.updates),
     expenses: after(source.expenses),
@@ -132,6 +137,7 @@ export function withBusinessSpace(
     captures: source.captures,
     uploadReceipt: after(source.uploadReceipt),
     prepareReceipt: source.prepareReceipt,
+    rebindReceipt: source.rebindReceipt,
     saveReview: source.saveReview,
     confirmReceipt: source.confirmReceipt,
     recordExpense: after(source.recordExpense),

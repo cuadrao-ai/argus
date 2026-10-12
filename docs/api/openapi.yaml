@@ -891,6 +891,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/remainder/settle:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'A person with approval permission settles the read purchases a recorded
+
+        draft does not cover. The dossier then reports 0 unrecorded purchases.'
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettleRemainder'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDossier'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/review:
     patch:
       tags:
@@ -1369,6 +1418,14 @@ paths:
             schema:
               type: string
               format: binary
+          application/xml:
+            schema:
+              type: string
+              format: binary
+          text/xml:
+            schema:
+              type: string
+              format: binary
           message/rfc822:
             schema:
               type: string
@@ -1481,6 +1538,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/receipts/{receipt_id}/rebind:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'Owner action: bind a receipt whose preparation grant is no longer live
+
+        to the owner''s current grant, with a ledger row. 409 while the old grant
+
+        still works.'
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptDetail'
+        '403':
+          description: '`business_owner_required`: only the owner, as a person, may move a
+            binding; `business_permission_denied` without prepare permission.'
+        '404':
+          description: '`business_record_not_found`: no such receipt in this Business.'
+        '409':
+          description: '`business_action_required`: the hosted bridge is not wired for this
+            request.'
+        '422':
+          description: '`business_preparation_binding_live`: the old grant still works; `business_preparation_binding_missing`:
+            nothing is bound yet.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -4666,6 +4765,14 @@ paths:
               type: string
               format: binary
           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema:
+              type: string
+              format: binary
+          application/xml:
+            schema:
+              type: string
+              format: binary
+          text/xml:
             schema:
               type: string
               format: binary
@@ -9679,6 +9786,80 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/whatsapp/ai-consent:
+    get:
+      tags:
+      - financial-accounts
+      - whatsapp
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIConsentResponse'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - whatsapp
+      parameters:
+      - name: idempotency-key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 80
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnableAIConsent'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIConsentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - financial-accounts
+      - whatsapp
+      responses:
+        '204':
+          description: Successful Response
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/whatsapp/link:
     get:
       tags:
@@ -9752,6 +9933,62 @@ paths:
                 $ref: '#/components/schemas/Error'
 components:
   schemas:
+    AIConsentResponse:
+      properties:
+        linked:
+          type: boolean
+        available:
+          type: boolean
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+        last4:
+          anyOf:
+          - type: string
+          - type: 'null'
+        scope_version:
+          type: integer
+        purpose:
+          type: string
+        disclosure:
+          type: string
+        route:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+        disclosure_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+        enabled:
+          type: boolean
+        consented_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        revoked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - linked
+      - available
+      - reason
+      - last4
+      - scope_version
+      - purpose
+      - disclosure
+      - route
+      - disclosure_token
+      - enabled
+      - consented_at
+      - revoked_at
     AcceptBatchBody:
       properties:
         items:
@@ -11748,6 +11985,19 @@ components:
                 outcome_unknown: '#/components/schemas/UnsettledApproval'
                 recorded: '#/components/schemas/RecordedApproval'
           - type: 'null'
+        read_purchases:
+          items:
+            $ref: '#/components/schemas/ReadPurchase'
+          type: array
+          default: []
+        read_total:
+          anyOf:
+          - type: string
+          - type: 'null'
+        unrecorded_purchases:
+          type: integer
+          minimum: 0.0
+          default: 0
       additionalProperties: false
       type: object
       required:
@@ -11997,6 +12247,7 @@ components:
             - several_purchases
             - source_unavailable
             - check_details
+            - duplicate
             - other
           - type: 'null'
         label:
@@ -14281,6 +14532,19 @@ components:
       - membership_id
       - expected_authorization_version
       - expected_plan_version
+    EnableAIConsent:
+      properties:
+        action:
+          type: string
+          const: enable
+        disclosure_token:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      - disclosure_token
     Error:
       type: object
       description: RFC 9457 Problem Details with code and request_id.
@@ -20337,6 +20601,39 @@ components:
       - id
       - user_id
       - extra
+    ReadPurchase:
+      properties:
+        index:
+          type: integer
+          minimum: 1.0
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+        occurred_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        merchant:
+          anyOf:
+          - type: string
+          - type: 'null'
+        kind_hint:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - index
+      description: 'One purchase a document read showed, kept as evidence on the draft when
+
+        the read found more than one, or none it could settle.'
     ReceiptCardFacts:
       properties:
         execution_costs:
@@ -20470,8 +20767,16 @@ components:
             - several_purchases
             - source_unavailable
             - check_details
+            - duplicate
             - other
           - type: 'null'
+        duplicate_of:
+          anyOf:
+          - type: string
+          - type: 'null'
+        replayed:
+          type: boolean
+          default: false
         preparable:
           type: boolean
         enterable:
@@ -21010,8 +21315,16 @@ components:
             - several_purchases
             - source_unavailable
             - check_details
+            - duplicate
             - other
           - type: 'null'
+        duplicate_of:
+          anyOf:
+          - type: string
+          - type: 'null'
+        replayed:
+          type: boolean
+          default: false
         preparable:
           type: boolean
         enterable:
@@ -22123,6 +22436,16 @@ components:
       required:
       - quota
       - invitations
+    SettleRemainder:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      description: A person settles the read purchases a recorded draft does not cover.
     SharePlan:
       properties:
         membership_id:

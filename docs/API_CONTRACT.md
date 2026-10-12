@@ -8511,7 +8511,7 @@ grant. The same connection ID reopens the draft from Chat or Plan. These are
 backend contracts under implementation in the default-off lane, not hosted or
 native availability claims.
 
-`POST /api/v1/financial-documents` accepts bounded PDF, JPEG, PNG, TXT, CSV, XLSX
+`POST /api/v1/financial-documents` accepts bounded PDF, JPEG, PNG, TXT, CSV, XLSX, XML
 or EML bytes and an optional `X-Document-Filename`, percent-encoded UTF-8 (`encodeURIComponent`);
 raw UTF-8 is also accepted and undecodable bytes become replacement characters.
 Optional `X-Document-Proposal` is a bounded
@@ -8772,7 +8772,8 @@ uncertain fields, and more than 18 digits leaves the amount unresolved.
 
 ### WhatsApp receipt intake (default-off)
 
-Off unless `ARGUS_WHATSAPP_INTAKE_ENABLED` is true, its credentials are set and
+Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` (or the older `ARGUS_WHATSAPP_INTAKE_ENABLED`; the
+Cuadrao name wins when both are set; every WhatsApp setting follows this rule) is true, its credentials are set and
 the document surface above is on. While off, every route below except
 `DELETE /api/v1/whatsapp/link` answers 404 `whatsapp_unavailable`. A WhatsApp receipt becomes a document draft with
 `consent: false` and `status: saved`; AI preparation still waits for the
@@ -8813,8 +8814,11 @@ answers the not-linked reply.
   over 512 KiB is 413 `whatsapp_webhook_too_large`; a signed body that is not
   a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. 200
   `{received: true}` means every image, document and text message in it has a
-  committed delivery record with a live claim; other message types and statuses
-  are ignored. The media download, saving and reply run after the answer, in
+  committed delivery record with a live claim. A voice note, audio, sticker or
+  video from a linked sender is settled `rejected` (`whatsapp_message_unsupported`)
+  and gets one short reply saying it is not supported yet; from an unlinked
+  sender it gets the not-linked reply. Other message types and statuses are
+  ignored. The media download, saving and reply run after the answer, in
   order, and settle the record. A work failure behind the answer settles the
   record `failed` and the sender gets the "send it again" reply. Shutdown waits
   up to 20 seconds for this work; a process killed sooner leaves the record
@@ -8831,7 +8835,7 @@ answers the not-linked reply.
   that language for every WhatsApp reply. The code is single use, lives
   10 minutes and replaces any unused code for the same destination.
   `message_text` is `CUADRAO <code>`; `wa_me_url` is null until
-  `ARGUS_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
+  `CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
   429 `whatsapp_link_code_rate_limited`.
 - GET `/api/v1/whatsapp/link` returns `{linked, last4, linked_at, reply_language}`.
 - DELETE `/api/v1/whatsapp/link` revokes the signed-in person's active link and
@@ -8842,12 +8846,66 @@ answers the not-linked reply.
   only when Postgres cannot be reached; in memory mode without intake nothing
   holds a link and it answers 204. Unauthenticated calls answer 401.
 
-Replies are sent only when `ARGUS_WHATSAPP_OUTBOUND_ENABLED` is true, always as
+The Business agent over WhatsApp has its own switch,
+`CUADRAO_WHATSAPP_AGENT_ENABLED` (older `ARGUS_WHATSAPP_AGENT_ENABLED`), off by
+default. Off: text from a linked owner never reaches the agent and gets the
+ordinary reply, the worker does nothing, `GET /api/v1/whatsapp/ai-consent`
+answers `available: false` with `reason: whatsapp_agent_off` and no disclosure
+token, and `POST /api/v1/whatsapp/ai-consent` answers 404 `whatsapp_agent_off`.
+`DELETE` stays reachable so an owner can always revoke.
+
+Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
 a free-form answer to the person's own message, in one language: the sender
 link's `reply_language`, or Spanish for a sender with no active link. A new message
 whose bytes the owner's inbox already holds gets the duplicate reply. A message whose WhatsApp
 timestamp is more than 24 hours old is still captured but gets no reply, so
 nothing is sent outside the service window.
+
+#### Linked-number Business AI permission
+
+The owner must explicitly opt in before WhatsApp text and necessary authorized
+Business draft context can be sent to AI providers. Phone linking, document
+consent and a prepare grant do not imply this permission. Recording remains a
+separate exact-version human approval.
+
+`GET /api/v1/whatsapp/ai-consent` is an authenticated registered-account read,
+independent of pilot, intake and provider availability flags. It returns
+`linked`, `available`, `reason`, `last4`, `scope_version`, `purpose`,
+`disclosure`, `route`, `disclosure_token`, `enabled`, `consented_at` and
+`revoked_at`. The server derives the current link, owner, Business and effective
+provider routes. `route` contains the gateway and interpretation/reply route
+lists, each with the actual model and provider-routing payload; a null provider
+means automatic routing, not a promised fixed vendor. The owner is always the
+authenticated caller; accountant grants cannot select another owner's link.
+No link is explicit (`linked=false`, `reason="whatsapp_link_required"`), while
+unreachable storage returns 503. `last4`, `route` and `disclosure_token` may be
+null. A token exists only when `available=true`: the current owner, Business,
+prepare grant, link, route and runtime are eligible. Unavailable reasons are
+`whatsapp_unavailable`, `whatsapp_ai_route_unavailable`, `business_unavailable`
+or `business_permission_denied`. `enabled` reflects valid original consent,
+independently of temporary intake availability. This read creates nothing.
+
+`POST /api/v1/whatsapp/ai-consent` takes an `Idempotency-Key` of 1–80 characters
+and `{action: "enable", disclosure_token}`. Extra identity or route fields are
+rejected. The current registered Business owner needs live read/prepare access
+and an active linked sender. The token binds the displayed scope, route and
+link generation. A stale disclosure, changed idempotent input or already-active
+consent returns 409. Replay preserves the original consent and never clears its
+revocation. A new affirmative action after revocation requires a new key and
+current disclosure. Enable requires the existing WhatsApp surface.
+
+`DELETE /api/v1/whatsapp/ai-consent` revokes the authenticated owner's permissions
+idempotently and returns 204. It remains reachable with intake/pilot/provider
+flags off and does not unlink the phone or erase canonical sources. Unavailable
+permission storage returns 503; it never acts as implicit consent.
+
+New encrypted captures bind the consent in effect at capture. Old/unconsented
+captures never adopt later permission. Every provider attempt, resumed/retried
+call and agent reply send rechecks that original consent, link, route, grant,
+issuer and lease. Revocation blocks subsequent dispatches; it cannot retract an
+HTTP request already sent. Model/composition/send unknown outcomes retain the
+existing no-blind-retry rule. Business checkpoint persistence remains disabled
+pending proof of its authorization and deletion lifecycle.
 
 ### Business pilot (default-off)
 
@@ -9164,6 +9222,54 @@ accept path recorded.
   saved receipt) is never `preparable` or `enterable`; prepare, review and
   confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
   receipt.
+- Duplicates never record money twice. Uploading the same bytes again, from
+  any entry point, answers with the receipt already saved and `replayed:
+  true`; nothing new is stored. A second document whose read merchant, date,
+  amount and currency equal another draft or expense of the Business is set
+  aside with `status: needs_attention`, `attention: "duplicate"` and
+  `duplicate_of` (the receipt it may repeat); what was read stays visible,
+  `enterable` and `preparable` are false, and review or confirm answer 409
+  `possible_duplicate`. The mark is the import event's own
+  `possible_duplicate` attention; the hosted bridge sets it when it prepares
+  the attachment, the local app's import pass sets it the same way.
+- XML is an accepted receipt source (`application/xml`, `text/xml`), alone or
+  as an email attachment, read inertly like a spreadsheet: no entities, no
+  DOCTYPE, no external fetch; every element becomes one `path: value` line of
+  evidence. A DGII e-CF (root `ECF` with `MontoTotal`) is summarised first:
+  invoice currency DOP, the DOP total paid, any other-currency total marked
+  informational, the e-NCF, issuer RNC, issue date, ITBIS and propina legal.
+  The read's e-NCF, RNC and ITBIS land on the draft's fiscal facts as before.
+  When the source names its own currency and the read chose another, the
+  projection records `receipt_currency_conflict` (field `currency`) beside
+  `receipt_purchase_ambiguous`, keeps the rows as evidence and holds the read
+  for a person; a source that names no currency never fires it. The batch
+  metadata records `document_currency`.
+- A read that shows several purchases, or one it cannot settle, still becomes
+  one open draft on the hosted bridge: the facts every read purchase shares are
+  known, the amount stays unknown for a person to set, and each read purchase
+  is kept on the draft as `read_purchases` (index, amount, currency, date,
+  merchant), returned on the dossier with `read_total` (the receipt total the
+  read showed) and `unrecorded_purchases` (the read purchases the draft's
+  amount does not cover). The receipt shows `needs_attention` with attention
+  `several_purchases` until a person completes and approves it; a read with a
+  total and no purchase shows `no_purchase_found`. One approval records exactly
+  one purchase. After approval the receipt keeps attention `several_purchases`
+  (error code `purchases_unrecorded`) while `unrecorded_purchases` is above 0.
+  `POST /api/v1/business/drafts/{draft_id}/remainder/settle` with `{version}`
+  and an `Idempotency-Key` lets a person with `approve` permission settle the
+  rest (ledger action `settle_remainder`); the dossier then reports 0. 409
+  `stale_version`; 422 `business_draft_not_recorded` before approval and
+  `business_remainder_none` when nothing is left. An
+  unreadable read is still refused to the document layer, which keeps the
+  receipt enterable by hand.
+- POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt
+  whose preparation grant was revoked to the owner's current grant, writes one
+  `business_action_receipts` row (`rebind_attachment`, previous binding and
+  grant kept in the command) and returns the receipt; the owner then prepares
+  it again. Refused while the old grant is still live
+  (`business_preparation_binding_live`), without a binding
+  (`business_preparation_binding_missing`), or for anyone but the owner
+  (`business_owner_required`).
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake

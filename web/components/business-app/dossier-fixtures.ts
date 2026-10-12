@@ -134,8 +134,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const source = { id: sourceId, kind: "attachment" as const, channel: receipt.channel, received_at: receipt.received_at, connection_id: receipt.id, filename: receipt.filename, media_type: receipt.media_type };
       const action = { id: reviewSourceId, kind: "web_action" as const, channel: "web" as const, received_at: receipt.received_at, text: JSON.stringify({ version: receipt.version - 1, fields: { merchant: receipt.merchant, amount: receipt.amount, currency: receipt.currency, occurred_on: receipt.occurred_on, account_id: receipt.account_id, category_id: receipt.category_id } }) };
       dossiers.set(id, {
-        draft_id: id, space_id: receipt.space_id, space_name: receipt.space_name, accounts: receipt.accounts,
-        capabilities: receipt.capabilities, version: 1, review_state: "open", facts: current, sources: [source, action], questions: [],
+        draft_id: id, space_id: receipt.record_context?.space_id ?? "fixture-space", space_name: receipt.record_context?.space_name ?? "Mi negocio", accounts: receipt.record_context?.accounts ?? [],
+        capabilities: receipt.record_context?.capabilities ?? [], version: 1, review_state: "open", facts: current, sources: [source, action], questions: [],
         history: [{ draft_id: id, version: 1, actor, before: null, after: current, source_ids: [reviewSourceId], turn_key: null, created_at: receipt.received_at }],
         blockers: [], approval_available: true, approval_result: null,
       });
@@ -168,6 +168,15 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       dossiers.set(id, next);
       reviewReceipts.set(key, { input, result: get(id) });
       if (id === dossierFixtureIds.saveUnknown && version === 2) throw new TypeError("Synthetic saved response interrupted");
+      return get(id);
+    },
+    settleRemainder: async (id: string, version: number) => {
+      const current = get(id);
+      if (!current.capabilities.includes("approve")) fail(403, "permission_denied");
+      if (current.version !== version) fail(409, "stale_version");
+      if (current.review_state !== "accepted") fail(422, "business_draft_not_recorded");
+      if (!current.unrecorded_purchases) fail(422, "business_remainder_none");
+      dossiers.set(id, { ...current, version: current.version + 1, unrecorded_purchases: 0 });
       return get(id);
     },
     approveDraft: async (id: string, version: number) => {

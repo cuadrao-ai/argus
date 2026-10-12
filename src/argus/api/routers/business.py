@@ -70,10 +70,13 @@ from argus.api.documents import (
 )
 from argus.api.email_intake import email_receipt_flags
 from argus.api.financial_accounts import domain_problem
+from argus.api.ingestion import ingestion_hub
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
+from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.service import BusinessError
 from argus.domain.business.spaces import Space, default_space_name
+from argus.domain.business.transactions import GrantImportStore
 from argus.domain.ingestion.connections import ConnectionNotFound
 from argus.domain.ingestion.documents.config import SOURCE_MEDIA_TYPES
 from argus.domain.ingestion.documents.models import DocumentExtractionError
@@ -108,6 +111,7 @@ _CONFLICTS = frozenset(
         "draft_not_prepared",
         "import_already_accepted",
         "import_accept_in_progress",
+        "possible_duplicate",
     }
 )
 
@@ -532,6 +536,52 @@ async def prepare_receipt(
         return receipt.summary()
     except Exception as error:
         raise _problem(request, error) from None
+
+
+@router.post(
+    "/receipts/{receipt_id}/rebind",
+    response_model=ReceiptDetail,
+    responses={
+        403: {
+            "description": "`business_owner_required`: only the owner, as a person, may"
+            " move a binding; `business_permission_denied` without prepare permission."
+        },
+        404: {
+            "description": "`business_record_not_found`: no such receipt in this Business."
+        },
+        409: {
+            "description": "`business_action_required`: the hosted bridge is not wired"
+            " for this request."
+        },
+        422: {
+            "description": "`business_preparation_binding_live`: the old grant still works;"
+            " `business_preparation_binding_missing`: nothing is bound yet."
+        },
+    },
+)
+def rebind_receipt(
+    request: Request,
+    receipt_id: str,
+    context: BusinessContext = Depends(require_business_document_write),  # noqa: B008
+) -> dict[str, Any]:
+    """Owner action: bind a receipt whose preparation grant is no longer live
+    to the owner's current grant, with a ledger row. 409 while the old grant
+    still works."""
+
+    store = context.service.imports.store
+    hub = ingestion_hub()
+    pool = getattr(request.app.state, "financial_accounts_pool", None)
+    if not isinstance(store, GrantImportStore) or hub is None or pool is None:
+        raise _problem(request, BusinessError("business_action_required"))
+    try:
+        BusinessActions(pool, hub.sink).rebind_attachment_preparation(
+            store.context, UUID(receipt_id)
+        )
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
+    except ValueError:
+        raise _problem(request, BusinessError("business_record_not_found")) from None
+    return receipt_detail(context, context.service.receipt(context.scope, receipt_id))
 
 
 @router.patch("/receipts/{receipt_id}/review", response_model=ReceiptDetail)

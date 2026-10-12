@@ -1025,7 +1025,19 @@
       "problem_unavailable": "WhatsApp is not available yet.",
       "problem_space_missing": "Start your business space first, then link your number.",
       "problem_rate_limited": "Too many codes. Wait a few minutes and try again.",
-      "problem_failed": "WhatsApp could not be reached. Try again."
+      "problem_failed": "WhatsApp could not be reached. Try again.",
+      "problem_stale": "The text changed since you last read it. Read it again and try once more.",
+      "ai_title": "Let AI read my WhatsApp messages",
+      "ai_on": "On. You can turn it off at any time.",
+      "ai_off": "Off. Cuadrao cannot answer your messages yet.",
+      "ai_models": "Provider: OpenRouter. Models: {{models}}.",
+      "ai_approval": "You always approve money records yourself in Cuadrao.",
+      "ai_reason_unavailable": "AI reading cannot be turned on right now.",
+      "ai_reason_whatsapp_link_required": "Link your number first.",
+      "ai_reason_business_permission_denied": "Your account cannot turn it on for this business.",
+      "ai_reason_business_unavailable": "Create your business space first.",
+      "ai_reason_whatsapp_unavailable": "WhatsApp is not available yet.",
+      "ai_reason_whatsapp_ai_route_unavailable": "The AI service is not available right now. Try again later."
     },
     "title": "Settings",
     "profile": {
@@ -2203,7 +2215,20 @@
       "error": "The export could not be downloaded. Check your access and try again.",
       "preview": "Downloads are available in the connected Business view."
     },
+    "panel": {
+      "crashed": "This part couldn't be shown. Your receipts are saved.",
+      "retry": "Try again"
+    },
     "dossier": {
+      "read_purchases_title": "Purchases read on this receipt",
+      "read_purchases_note": "The read showed more than one purchase. Complete this record with one of them; the rest stay here as evidence.",
+      "read_purchase": "Purchase {{index}}",
+      "unknown_amount": "Amount unknown",
+      "read_remainder": "Recorded {{recorded}} of a total of {{total}}. {{count}} purchases on this receipt are still unrecorded.",
+      "read_unrecorded": "{{count}} purchases on this receipt are still unrecorded.",
+      "read_settled": "The rest of this receipt is settled.",
+      "settle_remainder": "The rest is already handled",
+      "settle_failed": "The rest could not be marked as handled. Check the current record before trying again.",
       "title": "Review record",
       "unknown": "Unknown",
       "owner_unknown": "Owner doesn't know",
@@ -2370,6 +2395,7 @@
       "several_purchases": "Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.",
       "source_unavailable": "The original file is no longer available. Enter the details yourself.",
       "check_details": "Cuadrao couldn't read every part of this receipt. Check the details against the original before you confirm.",
+      "duplicate": "This looks like a receipt you already saved: same merchant, date and total. It won't be saved as a second expense.",
       "other": "Something went wrong with this receipt. It is still saved. Enter the details yourself."
     },
     "actions": {
@@ -2457,6 +2483,10 @@
       }
     },
     "review": {
+      "see_original": "See the receipt already saved",
+      "rebind_note": "The access that prepared this receipt is no longer valid. Bind it to your current access, then prepare it again.",
+      "rebind": "Bind to my current access",
+      "rebind_failed": "We couldn't rebind this receipt. Try again.",
       "source_error": "We couldn't open the original receipt with your current access.",
       "email_original": "This is the email itself. Its attachment is the receipt to review.",
       "source": "Original receipt",
@@ -2510,6 +2540,7 @@
       "failed": "We couldn't save this expense. Try again. It won't be saved twice."
     },
     "intake": {
+      "replayed": "Already saved before. This is that receipt.",
       "unsupported": "This file type isn't supported. Use {{formats}}.",
       "too_large": "This file is larger than {{size}} MB. Use a smaller photo or PDF.",
       "heic": "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first.",

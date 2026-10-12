@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
-import { finishPeriodExportRequest, saveBlobDownload, startPeriodExportRequest, ReceiptApprovalGuidance, ReceiptPeriodExport } from "@/components/business-app/ReceiptDossierReview";
+import { finishPeriodExportRequest, saveBlobDownload, startPeriodExportRequest, ReceiptApprovalGuidance, ReceiptPeriodExport, ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { businessExportPeriodValid, fetchBusinessExport, approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
 import { withBusinessSpace } from "@/components/business-app/business-data";
@@ -70,7 +70,7 @@ test("grant-scoped receipt and draft calls never create the current person's Bus
   const record = await source.dossier(dossierFixtureIds.ready);
   const receipt = await source.receipt("rcpt-ferreteria");
   await source.receiptSource(receipt.id);
-  const reviewed = await source.saveReview(receipt.id, receipt.version, { account_id: receipt.accounts[0].id });
+  const reviewed = await source.saveReview(receipt.id, receipt.version, { account_id: receipt.record_context!.accounts[0].id });
   assert.ok(reviewed.draft_id);
   await source.dossier(reviewed.draft_id);
   assert.equal(starts, 0);
@@ -258,4 +258,26 @@ test("revoked export releases busy immediately and late settlement cannot unlock
   assert.equal(busy, false);
   assert.equal(request.current, null);
   assert.deepEqual(changes, [true, false, true, false]);
+});
+
+test("read purchases say what the record covers of the receipt total until the rest is settled", async () => {
+  const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
+  const ready = await fixture.dossier(dossierFixtureIds.ready);
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  const render = (dossier: BusinessDossier) => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(ReceiptReadPurchases, { dossier, onSettle: () => undefined })));
+  const read = [{ index: 1, amount: "3450.00", currency: "DOP", occurred_on: "2026-10-09", merchant: "Ferretería La Esquina", kind_hint: "expense" }, { index: 2, amount: "95.00", currency: "DOP", occurred_on: "2026-10-09", merchant: "Ferretería La Esquina", kind_hint: "expense" }];
+  assert.equal(render(ready), "");
+  const open = { ...ready, read_purchases: read, read_total: "3545.00", unrecorded_purchases: 2 };
+  assert.match(render(open), /más de una compra/);
+  assert.doesNotMatch(render(open), /dossier-settle-remainder/);
+  const accepted = await fixture.approveDraft(ready.draft_id, ready.version);
+  const recorded = { ...accepted, read_purchases: read, read_total: "3545.00", unrecorded_purchases: 1 };
+  const html = render(recorded);
+  assert.match(html, /Registrado .*3[.,]450/);
+  assert.match(html, /1 compras de este recibo siguen sin registrar/);
+  assert.match(html, /dossier-settle-remainder/);
+  const done = render({ ...recorded, unrecorded_purchases: 0 });
+  assert.match(done, /ya está atendido/);
+  assert.doesNotMatch(done, /dossier-settle-remainder/);
 });

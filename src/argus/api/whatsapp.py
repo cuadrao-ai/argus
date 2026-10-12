@@ -1,6 +1,6 @@
 """WhatsApp intake wiring, exposure gate and the Business destination.
 
-Default-off behind ``ARGUS_WHATSAPP_INTAKE_ENABLED`` and nested inside the
+Default-off behind ``CUADRAO_WHATSAPP_INTAKE_ENABLED`` and nested inside the
 document surface and the Business pilot: a WhatsApp receipt is a saved document
 draft in the owner's Business space, so intake cannot be on while either is
 off. Every route but unlinking answers 404 when off.
@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from collections.abc import Coroutine
 from dataclasses import dataclass
 from typing import Any
@@ -33,6 +32,8 @@ from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
+from argus.domain.ingestion.whatsapp.ai_consent import AIConsentStore
+from argus.domain.ingestion.whatsapp.business_worker import BusinessWhatsAppWorker
 from argus.domain.ingestion.whatsapp.config import (
     WhatsAppSettings,
     load_whatsapp_settings,
@@ -45,6 +46,7 @@ from argus.domain.ingestion.whatsapp.intake import (
     WhatsAppIntake,
 )
 from argus.domain.ingestion.whatsapp.media import GraphMedia
+from argus.domain.ingestion.whatsapp.payload import TextMessage
 from argus.domain.ingestion.whatsapp.replies import CloudApiTransport
 from argus.domain.ingestion.whatsapp.store import (
     SENDER_LINK_REVOKED,
@@ -152,6 +154,8 @@ class BackgroundWork:
 class WhatsAppRuntime:
     intake: WhatsAppIntake
     settings: WhatsAppSettings
+    worker: BusinessWhatsAppWorker | None = None
+    consent: AIConsentStore | None = None
     work: BackgroundWork | None = None
 
 
@@ -167,6 +171,23 @@ def configure_whatsapp(runtime: WhatsAppRuntime | None) -> None:
     _runtime = runtime
 
 
+def _capture_when_enabled(worker: BusinessWhatsAppWorker):  # noqa: ANN202
+    """Text goes to the Business agent only while the worker can answer it.
+
+    With the Business pilot, intake or the extraction switch off, or without
+    canonical actions, text keeps the ordinary reply instead of being stored
+    for an agent that never runs."""
+
+    def capture(message: TextMessage) -> bool:
+        return bool(
+            worker.enabled()
+            and worker.actions is not None
+            and worker.captures.capture(message)
+        )
+
+    return capture
+
+
 def build_whatsapp(
     settings: WhatsAppSettings,
     *,
@@ -175,21 +196,56 @@ def build_whatsapp(
     store,  # noqa: ANN001
     client: httpx.AsyncClient,
     app_origin: str | None = None,
+    pool=None,
+    runner=None,
+    route_resolver=None,
     work: BackgroundWork | None = None,
 ) -> WhatsAppRuntime:
     access_token = settings.access_token.get_secret_value()
     max_bytes = load_document_extraction_settings().max_bytes
-    transport = None
-    if settings.outbound_enabled:
-        transport = CloudApiTransport(
-            client=client,
-            access_token=access_token,
-            phone_number_id=settings.phone_number_id,
-            graph_api_version=settings.graph_api_version,
+    # Built once; whether it is used is re-read from the setting at each send.
+    transport = CloudApiTransport(
+        client=client,
+        access_token=access_token,
+        phone_number_id=settings.phone_number_id,
+        graph_api_version=settings.graph_api_version,
+    )
+    worker = None
+    consent = None
+    keys = WhatsAppKeys(settings.sender_key.get_secret_value())
+    if pool is not None and documents.hub.box is not None:
+        from argus.api.whatsapp_worker import build_worker
+        from argus.domain.business.actions import BusinessActions
+        from argus.domain.ingestion.reconcile.service import ReconciliationService
+
+        actions = None
+        if isinstance(documents.hub.sink, ReconciliationService):
+            from argus.agent_runtime.business.runner import (
+                BusinessTurnRunner,
+                business_provider_route,
+            )
+
+            actions = BusinessActions(pool, documents.hub.sink)
+            runner = runner or BusinessTurnRunner()
+            consent = AIConsentStore(pool, route_resolver or business_provider_route)
+
+        worker = build_worker(
+            pool,
+            box=documents.hub.box,
+            keys=keys,
+            transport=transport,
+            actions=actions,
+            runner=runner,
+            consent=consent,
+            enabled=lambda: business_pilot_enabled()
+            and load_whatsapp_settings().intake_ready
+            and load_whatsapp_settings().agent_enabled
+            and load_document_extraction_settings().enabled,
+            send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
         )
     intake = WhatsAppIntake(
         store=store,
-        keys=WhatsAppKeys(settings.sender_key.get_secret_value()),
+        keys=keys,
         media=GraphMedia(
             client=client,
             access_token=access_token,
@@ -201,9 +257,11 @@ def build_whatsapp(
         transport=transport,
         app_origin=app_origin,
         max_bytes=max_bytes,
+        capture_text=_capture_when_enabled(worker) if worker is not None else None,
         background=work.start if work is not None else None,
+        send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
     )
-    return WhatsAppRuntime(intake, settings, work)
+    return WhatsAppRuntime(intake, settings, worker, consent, work)
 
 
 def start_whatsapp(app: object) -> None:
@@ -233,7 +291,8 @@ def start_whatsapp(app: object) -> None:
                 spaces=spaces,
                 store=store,
                 client=httpx.AsyncClient(),
-                app_origin=(os.getenv("ARGUS_APP_ORIGIN") or "").strip() or None,
+                app_origin=settings.app_origin,
+                pool=pool if api_state.PERSISTENCE_MODE == "supabase" else None,
                 work=BackgroundWork(),
             )
         )

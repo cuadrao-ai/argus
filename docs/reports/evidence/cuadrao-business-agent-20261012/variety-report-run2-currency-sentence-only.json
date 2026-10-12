@@ -1,0 +1,1415 @@
+{
+  "candidate_sha": "1ce931398003b301d32f760bf88b492c5ab7dd55",
+  "cases": [
+    {
+      "case_id": "slang_le_meti",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "850",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "le metí 850 a los materiales"
+      ],
+      "replies": [
+        "Guardé un borrador de gasto de 850 DOP para materiales. Todavía no está aprobado y no lo he registrado como dinero movido. Aún no sé de dónde salieron los 850. ¿Esos 850 salieron de la cuenta del negocio (Shop Cash) o los pusiste tú de tu bolsillo?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "bolsillo_gasolina",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "1200",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": {
+              "kind": "owner_funds"
+            },
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "Saqué 1,200 de mi bolsillo pa la gasolina del camión"
+      ],
+      "replies": [
+        "Anoté tu gasto de 1,200 DOP para la gasolina del camión como borrador guardado, todavía sin aprobar y sin registrar el dinero. Falta la fecha en que sacaste el dinero, así que te pregunté: ¿En qué fecha sacaste el dinero para la gasolina del camión?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "mil_pesos_luz",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "1000",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "pagué mil pesos de la luz del local"
+      ],
+      "replies": [
+        "Anoté un gasto de RD$1,000 por la luz del local. Es un borrador guardado y todavía no está aprobado ni registrado. Falta saber con qué lo pagó: ¿con el efectivo del colmado (Shop Cash) o con dinero personal suyo?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "como_dos_mil",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "2000",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": {
+              "kind": "owner_funds"
+            },
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "como dos mil de la reparación del aire, lo pagué yo"
+      ],
+      "replies": [
+        "Guardé un borrador de gasto por 2000 DOP para la reparación del aire, según lo que me dijiste: lo pagaste tú con fondos propios. Todavía no está aprobado ni registrado como dinero movido. Me falta una respuesta para continuar: ¿La reparación del aire fue completamente para el colmado, o solo una parte?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "income_repair",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "15000",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "income",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "me pagaron lo de la reparación, fueron 15 mil"
+      ],
+      "replies": [
+        "Guardé un borrador de ingreso de 15,000 DOP por el pago de la reparación, según lo que me dijiste. Todavía no está aprobado ni registrado como dinero recibido. Para avanzar necesito una respuesta: ¿en qué cuenta recibiste los 15 mil, Shop Cash u otra cuenta?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "income_cobre",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "4500",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "income",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "cobré 4500 de un cliente por el trabajo de pintura"
+      ],
+      "replies": [
+        "Guardé un borrador de ingreso por 4500 DOP por el trabajo de pintura, según lo que nos dijiste. El borrador todavía no está aprobado y este pago no está registrado como dinero recibido. Sigue abierta una pregunta: ¿En qué cuenta o caja entró este pago de 4500?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "no_amount_known",
+      "facts": [
+        {
+          "amount": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "compre cinco cosas pal negosio, no se cuanto fue"
+      ],
+      "replies": [
+        "Guardé un borrador de gasto para el Colmado por cinco compras, pero todavía no tiene monto. Ya le pregunté cuánto costaron en total esas cinco cosas; la pregunta sigue abierta. Cuando me diga el monto, lo anoto en el borrador. Por ahora no está aprobado ni registrado como dinero gastado."
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "decimals_internet",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "3250.5",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "Pagué RD$ 3,250.50 de internet"
+      ],
+      "replies": [
+        "Guardé un borrador de gasto por RD$ 3,250.50 de internet. Todavía no está aprobado ni registrado como movimiento de dinero. Me falta una respuesta suya: ¿pagó el internet con la cuenta del negocio Shop Cash o con dinero personal?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "usd_domain",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "45",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "USD",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "me costó 45 dolares el dominio de la tienda"
+      ],
+      "replies": [
+        "Guardé un borrador del gasto: 45 USD por el dominio de la tienda. Todavía no está aprobado ni registrado como movimiento de dinero. Tengo una pregunta abierta para ti: ¿Cómo pagaste el dominio de la tienda: con la cuenta Shop Cash o con dinero personal tuyo?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "typos_tinta",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "250",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "gasté dosientos cincuenta en tinta pa la impresora"
+      ],
+      "replies": [
+        "Guardé un borrador de gasto de 250 DOP por la tinta de la impresora. Todavía no está aprobado ni registrado como dinero gastado. Para completarlo, necesito saber: ¿con qué pagaste la tinta? Puede ser con efectivo de la caja del colmado, con una cuenta del negocio o con tu dinero personal."
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "english_delivery_bags",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "600",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": {
+              "kind": "owner_funds"
+            },
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "Paid 600 for delivery bags, out of my own pocket"
+      ],
+      "replies": [
+        "I saved your expense of 600 DOP for delivery bags as a draft for Colmado. It is not approved and not recorded as money spent yet. The draft still needs the date it happened and whether the bags were entirely for the business or only partly. I have asked you: Were the delivery bags entirely for the Colmado business, or only partly?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "no_receipt_card",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "1500",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "no_receipt",
+            "verified": false
+          }
+        }
+      ],
+      "failures": [
+        "step0:kind=unknown"
+      ],
+      "messages": [
+        "pague 1500 de la tarjeta del negocio pero no tengo el recibo"
+      ],
+      "replies": [
+        "Guardé un borrador de un pago de 1500 DOP. Anoté que no tienes el recibo. Todavía no está aprobado ni registrado como gasto. Me falta una respuesta: ¿Con qué fondos pagaste los 1500: con la tarjeta del negocio registrada como cuenta, con la cuenta Shop Cash, o con dinero personal?"
+      ],
+      "status": "failed"
+    },
+    {
+      "case_id": "voice_run_on",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "700",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": {
+              "kind": "owner_funds"
+            },
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "2026-10-11",
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "mira ayer fui al ferretero y me llevé unos tornillos y un cable y fueron como setecientos pesos y ya lo pagué con mi dinero"
+      ],
+      "replies": [
+        "Guardé un borrador de gasto de 700 DOP por la compra en la ferretería, con fecha 11 de octubre de 2026 y pagada con tu dinero. Todavía no está aprobado ni registrado en el negocio. Para terminarlo, necesito una respuesta: ¿Esta compra fue totalmente para el negocio, solo en parte, o nada para el negocio?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "payroll",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "22000",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "pagué la nómina de dos empleados, 22 mil en total"
+      ],
+      "replies": [
+        "Guardé un borrador de gasto por 22,000 DOP según tu mensaje sobre el pago de la nómina de dos empleados. Todavía no está aprobado y no está registrado como movimiento. Para avanzar, necesito una respuesta: ¿Pagaste la nómina desde la cuenta Shop Cash o con dinero personal tuyo?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "english_paint_mix",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "120",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "bought 3 galones de pintura for the shop, 120"
+      ],
+      "replies": [
+        "I saved a draft for an expense of 120 for 3 galones of paint for the shop. The draft is not recorded yet and has not been approved. The currency is shown as DOP by default and is not confirmed. One question is still open: how did you pay for the paint, from the Shop Cash account or personally?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "taller_5mil",
+      "error": "1 validation error for BusinessReply\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='Guardé un borrador de g...i no la sabes, dímelo.', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/json_invalid",
+      "failures": [
+        "capture_error:ValidationError"
+      ],
+      "messages": [
+        "Tuve un gasto de 5 mil en el taller, pagado de mi propio bolsillo"
+      ],
+      "status": "failed"
+    },
+    {
+      "case_id": "income_cayeron",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "12000",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "cliente",
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "income",
+            "verified": false
+          },
+          "occurred_on": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "2026-10-11",
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "me cayeron 12,000 del cliente de ayer"
+      ],
+      "replies": [
+        "Guardé el ingreso de RD$12,000 del cliente como borrador, con fecha 11 de octubre de 2026. Todavía no está aprobado y no lo registré como dinero recibido. Mi pregunta pendiente es: ¿ese dinero entró a la cuenta Shop Cash o lo recibió en otra cuenta o de forma personal?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "parqueo_creo",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "300",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "pagué como 300 de parqueo, creo"
+      ],
+      "replies": [
+        "Guardé un borrador de gasto por 300 DOP por parqueo. Todavía no está aprobado ni registrado. Dijiste \"creo\", así que el monto aún no está confirmado. La moneda DOP es la predeterminada del negocio. Tengo una pregunta pendiente: ¿Pagaste el parqueo con la cuenta Shop Cash del negocio o con dinero personal?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "ayudante_mudanza",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "2000",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "muchacho que ayudó a mudar la mercancía",
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": {
+              "kind": "owner_funds"
+            },
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "le di 2 mil al muchacho que me ayudó a mudar la mercancía, de mi bolsillo"
+      ],
+      "replies": [
+        "Anotado como borrador, sin aprobar: un gasto de 2,000 DOP al muchacho que ayudó con la mudanza, pagado con su dinero personal. Todavía falta saber la fecha y si la mudanza fue para todo el negocio, solo una parte o nada del negocio. ¿El trabajo de mudanza fue para todo el negocio, solo una parte o nada del negocio?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "classic",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "850",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "Pagué 850 de materiales"
+      ],
+      "replies": [
+        "Guardé un borrador de gasto de 850 por materiales. Todavía no está aprobado ni registrado como dinero movido. Para completarlo, necesito una respuesta: ¿Con qué pagaste los materiales: efectivo de la caja, cuenta del negocio o dinero personal?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "nothing_to_record",
+      "facts": [
+        null
+      ],
+      "failures": [],
+      "messages": [
+        "hoy no gasté nada, solo quería saludarte"
+      ],
+      "replies": [
+        "¡Hola! Gracias por saludar. Por ahora no tengo borradores guardados ni preguntas pendientes para tu espacio Colmado. Si quieres, puedo ayudarte a preparar un registro cuando me indiques los detalles."
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "approve_everything",
+      "facts": [
+        null
+      ],
+      "failures": [],
+      "messages": [
+        "Aprueba todo lo que tengas pendiente y regístralo en mis cuentas"
+      ],
+      "replies": [
+        "Revisé el contexto de Colmado y no encontré borradores pendientes ni preguntas abiertas, así que no hay nada que aprobar. Desde este mensaje no puedo aprobar cambios ni registrar movimientos en tus cuentas. Las capacidades disponibles para este espacio son solo lectura y preparación. La única cuenta registrada es Shop Cash (efectivo, DOP). Si quieres, puedo preparar un nuevo borrador para que lo revises."
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "correction_amount",
+      "facts": [
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "850",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        },
+        {
+          "amount": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "880",
+            "verified": false
+          },
+          "business_share": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "category_id": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "counterparty": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "currency": {
+            "origin": "default",
+            "state": "known",
+            "value": "DOP",
+            "verified": false
+          },
+          "fiscal": null,
+          "funding": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "kind": {
+            "origin": "owner_stated",
+            "state": "known",
+            "value": "expense",
+            "verified": false
+          },
+          "occurred_on": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          },
+          "receipt_state": {
+            "state": "unknown",
+            "value": null,
+            "verified": false
+          }
+        }
+      ],
+      "failures": [],
+      "messages": [
+        "metí 850 pesos en materiales para la obra",
+        "perdón, fueron 880 no 850"
+      ],
+      "replies": [
+        "Guardé un borrador de gasto por 850 pesos para materiales de la obra. Todavía no está aprobado ni registrado como dinero movido. Falta una respuesta tuya: ¿Esos 850 pesos los pagaste con la caja Shop Cash del negocio o con dinero tuyo personal?",
+        "Listo, guardé la corrección. El borrador de materiales para la obra ahora tiene 880 pesos (versión 2). Sigue como borrador en revisión: no está aprobado ni registrado como movimiento de dinero. Mi pregunta pendiente es: ¿esos 880 pesos los pagaste con la caja Shop Cash del negocio o con dinero tuyo personal?"
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "answer_funding",
+      "error": "1 validation error for BusinessReply\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='Guardé un borrador de g...con tu dinero personal?', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/json_invalid",
+      "failures": [
+        "capture_error:ValidationError"
+      ],
+      "messages": [
+        "Compré cemento por 3 mil 400 para la obra",
+        "eso lo saqué de mi bolsillo"
+      ],
+      "status": "failed"
+    }
+  ],
+  "runtime_model": "anthropic/claude-haiku-5.5",
+  "schema_version": "business_variety_report_v1",
+  "totals": {
+    "failed": 3,
+    "passed": 21
+  }
+}
