@@ -558,10 +558,10 @@ describe("shared CAPTCHA acquisition UX", () => {
     expect(chat).not.toContain("guestEntryErrorKind(");
 
     expect(en.auth.errors.captcha_unavailable).toBe(
-      "This browser didn’t pass the security check. Open Argus in a regular browser, or reload the page.",
+      "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
     );
     expect(es.auth.errors.captcha_unavailable).toBe(
-      "Este navegador no pasó la verificación de seguridad. Abre Argus en un navegador normal, o actualiza la página.",
+      "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
     );
     expect(en.guest.entry.reload).toBe("Reload");
     expect(es.guest.entry.reload).toBe("Actualizar");

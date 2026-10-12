@@ -47,7 +47,7 @@ const AUTH_ERROR_MESSAGE_BY_CODE: Readonly<
   captcha_unavailable: {
     key: "auth.errors.captcha_unavailable",
     fallback:
-      "This browser didn’t pass the security check. Open Argus in a regular browser, or reload the page.",
+      "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
   },
   unauthorized: {
     key: "auth.errors.unauthorized",
@@ -68,7 +68,7 @@ const AUTH_ERROR_MESSAGE_BY_CODE: Readonly<
   },
   internal_error: {
     key: "auth.errors.internal_error",
-    fallback: "Argus couldn’t complete this account request. Please try again.",
+    fallback: "Cuadrao couldn’t complete this account request. Please try again.",
   },
   account_already_registered: {
     key: "auth.errors.account_already_registered",
@@ -163,7 +163,7 @@ export function localizedAuthErrorMessage(
 
 export default function AuthForm({
   mode,
-  brand = "argus",
+  brand = "cuadrao",
   allowModeSwitch = true,
   embedded = false,
   onModeChange,
@@ -357,9 +357,7 @@ export default function AuthForm({
             <p className="mt-5 text-center text-[15px] tracking-wide text-gray-500 dark:text-gray-400">
               {isSignup
                 ? t("landing.already_account", "Already have an account?")
-                : brand === "cuadrao"
-                  ? t("auth.signup.new_account_cuadrao", "New to Cuadrao?")
-                  : t("auth.signup.new_account", "New to Argus?")}{" "}
+                : t("auth.signup.new_account_cuadrao", "New to Cuadrao?")}{" "}
               <button
                 type="button"
                 className="font-medium text-black transition-opacity hover:opacity-80 dark:text-white"

@@ -307,12 +307,12 @@ describe("legal page early-access wording", () => {
 });
 
 describe("legal page navigation", () => {
-  test("offers a back-to-Argus affordance at the top as well as the footer", async () => {
+  test("offers a back-to-Cuadrao affordance at the top as well as the footer", async () => {
     for (const kind of ["terms", "privacy"] as const) {
       const markup = await renderLegal("en", kind);
       const header = markup.slice(0, markup.indexOf("<h1"));
 
-      expect(header).toContain('aria-label="Back to Argus"');
+      expect(header).toContain('aria-label="Back to Cuadrao"');
       expect(header).toContain('href="/"');
       expect(markup.split('href="/"').length - 1).toBeGreaterThanOrEqual(2);
     }
