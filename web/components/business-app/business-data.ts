@@ -33,6 +33,7 @@ export type BusinessDataSource = Readonly<{
   dossier: (id: string) => Promise<BusinessDossier>;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
   approveDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
+  settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   receiptSource: (id: string) => Promise<Blob>;
   updates: () => Promise<BusinessUpdate[]>;
   expenses: (from: string, to: string) => Promise<BusinessExpense[]>;
@@ -73,6 +74,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   dossier: api.getBusinessDossier,
   reviewDraft: api.reviewBusinessDraft,
   approveDraft: api.approveBusinessDraft,
+  settleRemainder: api.settleBusinessRemainder,
   receiptSource: api.fetchBusinessReceiptSource,
   updates: api.listBusinessUpdates,
   expenses: api.listBusinessExpenses,
@@ -124,6 +126,7 @@ export function withBusinessSpace(
     dossier: source.dossier,
     reviewDraft: source.reviewDraft,
     approveDraft: source.approveDraft,
+    settleRemainder: source.settleRemainder,
     receiptSource: source.receiptSource,
     updates: after(source.updates),
     expenses: after(source.expenses),

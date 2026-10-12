@@ -63,7 +63,14 @@ export type BusinessRecordContext = {
   capabilities: ("read" | "prepare" | "approve")[];
 };
 
+/** One purchase a document read showed, kept as evidence when the read could not settle on one. */
+export type BusinessReadPurchase = { index: number; amount: string | null; currency: string | null; occurred_on: string | null; merchant: string | null; kind_hint: string | null };
+
 export type BusinessDossier = BusinessRecordContext & {
+  read_purchases?: BusinessReadPurchase[];
+  /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
+  read_total?: string | null;
+  unrecorded_purchases?: number;
   draft_id: string;
   version: number;
   review_state: "open" | "accepting" | "accepted" | "dismissed";

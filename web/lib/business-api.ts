@@ -143,6 +143,14 @@ export async function approveBusinessDraft(draftId: string, version: number, ide
   });
 }
 
+export async function settleBusinessRemainder(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/remainder/settle`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version }),
+  });
+}
+
 export type BusinessAccount = {
   id: string;
   nickname: string | null;

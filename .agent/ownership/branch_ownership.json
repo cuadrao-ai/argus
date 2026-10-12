@@ -1028,6 +1028,40 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/cuadrao-multi-purchase-receipts-20261012": {
+      "description": "Multi-purchase and ambiguous receipt reads become one open draft with shared facts known, the amount left to a person and every read purchase kept on the draft as evidence; never a refusal with nothing to review.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_drafts.py",
+        "src/argus/domain/business/actions/dossier.py",
+        "src/argus/domain/business/actions/mutations.py",
+        "src/argus/domain/business/contracts/dossier.py",
+        "src/argus/api/routers/business_drafts.py",
+        "src/argus/domain/business/actions/service.py",
+        "src/argus/domain/business/contracts/actions.py",
+        "src/argus/domain/business/contracts/facts.py",
+        "supabase/migrations/20261012070000_business_settle_remainder.sql",
+        "tests/test_business_multi_purchase.py",
+        "tests/test_business_multi_purchase_postgres.py",
+        "web/__tests__/business-dossier.test.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/business-data.ts",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/lib/business-api.ts",
+        "web/lib/business-dossier.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }

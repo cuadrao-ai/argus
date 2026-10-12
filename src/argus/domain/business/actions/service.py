@@ -18,6 +18,7 @@ from argus.domain.business.authority import (
 )
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
+    Applied,
     ApproveExpense,
     ApproveIncome,
     AttachmentPreparationBinding,
@@ -29,6 +30,8 @@ from argus.domain.business.contracts.actions import (
     ReadContext,
     ReviewCommand,
     ReviewDraft,
+    SettleRemainder,
+    SettleRemainderCommand,
     TurnPlan,
     canonical_input_hash,
 )
@@ -279,6 +282,73 @@ class BusinessActions:
                             request.facts,
                             (source_id,),
                             tx.authorization.provenance,
+                        )
+                except ActionError as error:
+                    result = error.result
+                return plans.finish_receipt(tx, key, result)
+        except ActionError as error:
+            return error.result
+
+    def settle_remainder(
+        self,
+        context: ActionContext,
+        draft_id: UUID,
+        request: SettleRemainder,
+        key: str,
+    ) -> ActionOutcome:
+        """A person with approval permission settles the read purchases a
+        recorded draft does not cover: the receipt stops asking for them. One
+        ledger row; the facts and the recorded money do not change."""
+
+        from dataclasses import replace
+
+        from argus.domain.business.contracts.facts import BusinessResolution
+        from argus.domain.ingestion.reconcile.model import EventNotFound
+
+        command = SettleRemainderCommand(draft_id=draft_id, request=request)
+        try:
+            with transaction(self.authority, context, "approve") as tx:
+                saved = plans.receipt(tx, key, command)
+                if saved is not None:
+                    return plans.replay(saved)
+                plans.start_receipt(tx, key, command)
+                try:
+                    with tx.connection.transaction():
+                        tx.authorization.require("approve")
+                        if context.actor.actor_kind != "member":
+                            raise ActionError(
+                                "permission_denied", "business_human_command_required"
+                            )
+                        try:
+                            event = tx.imports.event(str(draft_id))
+                        except EventNotFound:
+                            raise ActionError(
+                                "not_found", "business_record_not_found"
+                            ) from None
+                        if event.version != request.version:
+                            raise ActionError("stale_version", "stale_version")
+                        if event.state != "accepted":
+                            raise ActionError(
+                                "invalid_input", "business_draft_not_recorded"
+                            )
+                        resolution = BusinessResolution.model_validate(
+                            event.resolution["business"]
+                        )
+                        if not resolution.unrecorded_purchases():
+                            raise ActionError("invalid_input", "business_remainder_none")
+                        settled = dict(event.resolution)
+                        settled["business"] = resolution.model_copy(
+                            update={"remainder_settled": True}
+                        ).model_dump(mode="json")
+                        event = replace(
+                            event,
+                            resolution=settled,
+                            version=event.version + 1,
+                            updated_at=datetime.now(timezone.utc),
+                        )
+                        tx.imports.put_event(event)
+                        result = Applied(
+                            outcome="applied", draft_id=event.id, version=event.version
                         )
                 except ActionError as error:
                     result = error.result

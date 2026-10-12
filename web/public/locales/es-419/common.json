@@ -2204,6 +2204,15 @@
       "preview": "Las descargas están disponibles en la vista conectada del negocio."
     },
     "dossier": {
+      "read_purchases_title": "Compras leídas en este recibo",
+      "read_purchases_note": "La lectura mostró más de una compra. Completa este registro con una de ellas; las demás quedan aquí como evidencia.",
+      "read_purchase": "Compra {{index}}",
+      "unknown_amount": "Monto desconocido",
+      "read_remainder": "Registrado {{recorded}} de un total de {{total}}. {{count}} compras de este recibo siguen sin registrar.",
+      "read_unrecorded": "{{count}} compras de este recibo siguen sin registrar.",
+      "read_settled": "El resto de este recibo ya está atendido.",
+      "settle_remainder": "El resto ya está atendido",
+      "settle_failed": "No se pudo marcar el resto como atendido. Revisa el registro actual antes de intentarlo de nuevo.",
       "title": "Revisar registro",
       "unknown": "Desconocido",
       "owner_unknown": "El dueño no sabe",
