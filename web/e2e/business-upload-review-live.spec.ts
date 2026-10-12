@@ -17,16 +17,6 @@ async function openBusiness(page: Page) {
   await page.addInitScript(() => {
     window.localStorage.setItem("argus:sidebar_mode", "expanded");
     window.localStorage.setItem("i18nextLng", "en");
-    const original = window.fetch;
-    window.fetch = async (input, init) => {
-      const response = await original(input, init);
-      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      if (url.includes("/business/")) {
-        const body = await response.clone().text().catch(() => "<unreadable>");
-        console.log(`[probe] ${init?.method ?? "GET"} ${url} -> ${response.status} ${body.slice(0, 160)}`);
-      }
-      return response;
-    };
   });
   await page.goto("/biz");
 }
@@ -42,7 +32,6 @@ test.describe("Upload with consent lands on review", () => {
     page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}\n${error.stack ?? ""}`));
     page.on("console", (message) => {
       if (message.type() === "error") errors.push(`console: ${message.text()}`);
-      if (message.text().startsWith("[probe]")) console.log(message.text());
     });
     const detailFetches: string[] = [];
     page.on("request", (request) => {
@@ -61,13 +50,11 @@ test.describe("Upload with consent lands on review", () => {
     await expect(review).toBeVisible({ timeout: 15000 });
     await review.click();
 
-    await page.waitForTimeout(2500);
-    const body = await page.locator("body").innerText();
+    // The outcome is one of two states; wait for either, then judge.
+    await expect(page.getByRole("heading", { name: "Review receipt", exact: true }).or(page.getByText(/couldn't load/))).toBeVisible({ timeout: 15000 });
     test.info().annotations.push({ type: "errors", description: errors.join("\n---\n") || "none" });
     test.info().annotations.push({ type: "detail-fetches", description: String(detailFetches.length) });
-    console.log("ERRORS:\n" + (errors.join("\n---\n") || "none"));
-    console.log("DETAIL FETCHES:", detailFetches.length);
-    expect(body).not.toContain("couldn't load");
+    expect(await page.locator("body").innerText()).not.toContain("couldn't load");
     // Dev mode runs effects twice; a stable data source means no further refetch of the record.
     expect(detailFetches.length).toBeLessThanOrEqual(2);
     await expect(page.getByRole("heading", { name: "Review receipt", exact: true })).toBeVisible();

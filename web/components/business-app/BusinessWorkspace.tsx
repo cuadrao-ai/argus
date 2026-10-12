@@ -140,10 +140,10 @@ export function BusinessWorkspaceProvider({
 }) {
   const { t, i18n } = useTranslation();
   const searchParams = useSearchParams();
-  // Decided once per visit: a landing on a record URL (the sign-in return path)
-  // skips the space bootstrap. Opening a record later keeps the same source, so
-  // a record's effects do not refetch on every address-bar write.
-  const [directRecord] = useState(() => searchParams.has("draft") || searchParams.has("receipt"));
+  // A landing on a record URL (the sign-in return path) skips the space
+  // bootstrap until the person leaves the record; opening a record later never
+  // flips it, so a record's effects do not refetch on every address-bar write.
+  const [directRecord, setDirectRecord] = useState(() => searchParams.has("draft") || searchParams.has("receipt"));
   const workspaceSource = useMemo(
     () => withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
     [apiSource, i18n],
@@ -155,6 +155,9 @@ export function BusinessWorkspaceProvider({
   const [initialView] = useState<ChatShellView>(() =>
     shellViewFromSearch(new URLSearchParams(searchParams.toString())),
   );
+  useEffect(() => {
+    if (directRecord && panel.kind !== "receipt" && panel.kind !== "draft") setDirectRecord(false);
+  }, [directRecord, panel.kind]);
   const [periodKey, setPeriodKey] = useState<Period["key"]>("this_month");
   const period = useMemo(() => periodRange(periodKey), [periodKey]);
   const [records, setRecords] = useState<Records>({
