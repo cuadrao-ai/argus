@@ -29,6 +29,8 @@ FINAL_STATES = ("partial", "captured", "rejected")
 class EmailRelation(TypedDict):
     original: bool
     delivery_ids: set[str]
+    # An original whose email already has a saved attachment: context, not a receipt.
+    grouped: bool
 
 
 class LeaseLost(RuntimeError):
@@ -356,7 +358,8 @@ class PostgresEmailStore:
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             rows = cursor.execute(
-                "select d.id::text, d.original_document_id::text, p.document_id::text "
+                "select d.id::text, d.original_document_id::text, p.document_id::text, "
+                "exists(select 1 from public.business_email_parts c where c.delivery_id=d.id and c.state='captured') as captured "
                 "from public.business_email_deliveries d left join public.business_email_parts p "
                 "on p.delivery_id=d.id where d.space_id=%s",
                 (space_id,),
@@ -371,9 +374,10 @@ def _relations(rows: list[dict]) -> dict[str, EmailRelation]:
             document = row[key]
             if document:
                 entry = found.setdefault(
-                    document, {"original": False, "delivery_ids": set()}
+                    document, {"original": False, "delivery_ids": set(), "grouped": False}
                 )
                 entry["original"] |= original
+                entry["grouped"] |= original and bool(row.get("captured"))
                 entry["delivery_ids"].add(row["id"])
     return found
 
@@ -593,13 +597,15 @@ class InMemoryEmailStore:
         for delivery in self._deliveries.values():
             if delivery.space_id != space_id:
                 continue
-            parts = self.parts(delivery.id) or [None]
-            for part in parts:
+            parts = self.parts(delivery.id)
+            captured = any(part.state == "captured" for part in parts)
+            for part in parts or [None]:
                 rows.append(
                     {
                         "id": delivery.id,
                         "original_document_id": delivery.original_document_id,
                         "document_id": part.document_id if part else None,
+                        "captured": captured,
                     }
                 )
         return _relations(rows)

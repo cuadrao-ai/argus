@@ -20272,6 +20272,13 @@ components:
           type: boolean
         enterable:
           type: boolean
+        email_delivery_ids:
+          items:
+            type: string
+          type: array
+        email_original:
+          type: boolean
+          default: false
         expense_id:
           anyOf:
           - type: string
@@ -20801,6 +20808,13 @@ components:
           type: boolean
         enterable:
           type: boolean
+        email_delivery_ids:
+          items:
+            type: string
+          type: array
+        email_original:
+          type: boolean
+          default: false
         expense_id:
           anyOf:
           - type: string

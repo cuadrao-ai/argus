@@ -84,6 +84,11 @@ class ReceiptSummary(_Wire):
     preparable: bool
     # The owner may fill in the one purchase by hand from version 0.
     enterable: bool
+    # Email deliveries this document arrived in, if any.
+    email_delivery_ids: list[str] = Field(default_factory=list)
+    # The whole message of an email whose attachment is already a receipt. It
+    # cannot be prepared or approved; its attachment is the receipt.
+    email_original: bool = False
     expense_id: str | None
     merchant: str | None
     occurred_on: str | None

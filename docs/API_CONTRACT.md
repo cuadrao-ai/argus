@@ -9118,6 +9118,11 @@ accept path recorded.
     before each fetch, and the provider's recipients must equal the signed
     event's recipients. Retries back off and stop after eight attempts until an
     explicit retry.
+- Each `ReceiptSummary` carries `email_delivery_ids` and `email_original`.
+  A grouped email original (the message itself, once an attachment is a
+  saved receipt) is never `preparable` or `enterable`; prepare, review and
+  confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
+  receipt.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake

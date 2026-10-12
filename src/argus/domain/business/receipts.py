@@ -112,6 +112,11 @@ class Receipt:
     review: ReceiptReview
     channel: Channel
     entered_by_owner: bool = False
+    # Deliveries this document arrived in; set at the API boundary from the email queue.
+    email_delivery_ids: tuple[str, ...] = ()
+    # The whole message of an email whose attachment is already a receipt: it
+    # is context for that receipt, never a second one to prepare or approve.
+    email_original: bool = False
 
     @property
     def id(self) -> str:
@@ -142,7 +147,8 @@ class Receipt:
         review, nothing is reading it, and no read purchase is being recorded."""
 
         return (
-            self.review.blocker is not None
+            not self.email_original
+            and self.review.blocker is not None
             and self.draft.status not in _BUSY
             and all(
                 read.state in ("open", "dismissed") for read in self.review.read_purchases
@@ -155,7 +161,8 @@ class Receipt:
         source is stored, and another read could succeed."""
 
         return (
-            self.review.blocker == "not_prepared"
+            not self.email_original
+            and self.review.blocker == "not_prepared"
             and self.draft.source_available
             and self.draft.status not in _BUSY
             and _UNREAD_ATTENTION.get(self.draft.error_code or "") not in _NO_RETRY
@@ -194,6 +201,8 @@ class Receipt:
         return {
             "id": self.id,
             "channel": self.channel,
+            "email_delivery_ids": list(self.email_delivery_ids),
+            "email_original": self.email_original,
             "filename": self.draft.filename,
             "media_type": self.draft.media_type,
             "size_bytes": self.draft.size_bytes,

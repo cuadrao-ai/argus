@@ -53,7 +53,7 @@ export default function BusinessInboxPanel() {
   const { records, openPanel, actions } = useBusiness();
   // An email's own ".eml" document stays inside its email row once an attachment is saved.
   const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
-  const items = records.inbox?.filter((receipt) => !grouped.has(receipt.id)) ?? null;
+  const items = records.inbox?.filter((receipt) => !receipt.email_original && !grouped.has(receipt.id)) ?? null;
   const onGrouped = (deliveries: readonly BusinessEmailDelivery[]) => setGrouped(receiptsGroupedUnderEmails(deliveries));
 
   const upload = actions.create.find((action) => action.id === "upload_receipt");

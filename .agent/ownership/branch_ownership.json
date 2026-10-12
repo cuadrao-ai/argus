@@ -722,10 +722,19 @@
       ]
     },
     "codex/cuadrao-business-email-inbox-20261012": {
-      "description": "Business Inbox shows received emails with their attachments grouped under one row and the receiving address; UI only on top of the email receiving API.",
+      "description": "Business Inbox shows received emails with their attachments grouped under one row; the receipts list marks email originals and parts, and a grouped original cannot be prepared or approved as a receipt.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/email_intake.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/domain/business/receipts.py",
+        "src/argus/domain/ingestion/email_intake/store.py",
+        "tests/business/test_business_email_api.py",
+        "tests/ingestion/test_email_intake_service.py",
         "web/__tests__/business-email.test.tsx",
         "web/components/business-app/BusinessEmailDeliveries.tsx",
         "web/components/business-app/BusinessInboxPanel.tsx",

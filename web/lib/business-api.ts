@@ -60,6 +60,10 @@ export type ReceiptSummary = ReceiptReviewFields & {
   preparable: boolean;
   /** The owner may fill in the one purchase by hand from version 0. */
   enterable: boolean;
+  /** Email deliveries this document arrived in, if any. */
+  email_delivery_ids?: string[];
+  /** The email itself, whose attachment is already a receipt; never prepared or approved. */
+  email_original?: boolean;
   expense_id: string | null;
 };
 
