@@ -78,7 +78,7 @@ def test_unknown_facts_never_match(actions) -> None:  # noqa: ANN001
     _draft(service, context)
     second, _ = _draft(service, context)
     with transaction(service.authority, context, "prepare") as tx:
-        tx.rows(
+        tx.connection.execute(
             "update public.financial_import_events set resolution ="
             ' jsonb_set(resolution, \'{business,facts,counterparty}\', \'{"state":"unknown","value":null,"origin":"extracted","verified":false,"source_ids":[]}\')'
             " where id=%s",
