@@ -16,6 +16,7 @@ SIGNATURE_PREFIX = "sha256="
 LINK_WORD = "CUADRAO"
 CODE_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
 CODE_LENGTH = 8
+_EDGE_PUNCTUATION = ".,;:!?¡¿()[]\"'*_-"
 
 
 def signature_matches(app_secret: str, header: str | None, body: bytes) -> bool:
@@ -63,22 +64,21 @@ def link_message(code: str) -> str:
     return f"{LINK_WORD} {code}"
 
 
-def link_code_in(text: str) -> str | None:
-    """The code when ``text`` is exactly the link protocol token, else ``None``.
+def code_candidates(text: str, *, limit: int = 4) -> tuple[str, ...]:
+    """Tokens in ``text`` shaped like a link code, upper-cased, in order.
 
-    This is a fixed two-word protocol the web app writes for the person, not an
-    interpretation of what they meant.
+    This is structure, not language: a code is ``CODE_LENGTH`` characters from
+    ``CODE_ALPHABET``. Whether a candidate is a real code is decided only by the
+    digest lookup, and only for a sender with no active link.
     """
 
-    parts = text.split()
-    if len(parts) != 2 or parts[0].upper() != LINK_WORD:
-        return None
-    code = parts[1].upper()
-    if len(code) != CODE_LENGTH or any(ch not in CODE_ALPHABET for ch in code):
-        return None
-    return code
-
-
-def looks_like_link_attempt(text: str) -> bool:
-    parts = text.split()
-    return bool(parts) and parts[0].upper() == LINK_WORD
+    found: list[str] = []
+    for token in text.split():
+        candidate = token.strip(_EDGE_PUNCTUATION).upper()
+        if (
+            len(candidate) == CODE_LENGTH
+            and all(ch in CODE_ALPHABET for ch in candidate)
+            and candidate not in found
+        ):
+            found.append(candidate)
+    return tuple(found[:limit])

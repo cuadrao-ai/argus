@@ -378,6 +378,10 @@ def test_link_code_carries_the_web_language_to_the_link(wa_client: TestClient) -
     assert wa_client.get(LINK, headers=bearer(ALICE)).json()["reply_language"] == "en"
 
     relink = wa_client.post(CODES, headers=bearer(ALICE)).json()["message_text"]
+    post(wa_client, fixture("text_link_code.json", id="wamid.STILL-LINKED", text=relink))
+    assert wa_client.get(LINK, headers=bearer(ALICE)).json()["reply_language"] == "en"
+    assert wa_client.delete(LINK, headers=bearer(ALICE)).status_code == 204
+    relink = wa_client.post(CODES, headers=bearer(ALICE)).json()["message_text"]
     post(wa_client, fixture("text_link_code.json", id="wamid.RELINK", text=relink))
     assert wa_client.get(LINK, headers=bearer(ALICE)).json()["reply_language"] == "es-419"
 
