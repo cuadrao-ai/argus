@@ -34,8 +34,9 @@ struct GuestPlanTab: View {
         }
         .overlay(alignment: .bottom) {
             if let archivedID, path.isEmpty, model.book.plan(archivedID)?.archived == true {
-                GuestUndoToast(message: spanish ? "Plan archivado" : "Plan archived", spanish: spanish,
-                               undo: { restore(archivedID) }, close: { self.archivedID = nil })
+                CuadraoToast(text: spanish ? "Plan archivado" : "Plan archived", actionTitle: spanish ? "Deshacer" : "Undo",
+                             actionIdentifier: "guest.undo", action: { restore(archivedID) }, spanish: spanish,
+                             token: archivedID, close: { self.archivedID = nil })
             }
         }
     }
@@ -121,9 +122,10 @@ struct GuestPlanDetail: View {
             }
             .overlay(alignment: .bottom) {
                 if let deletedID, plan.contributions.first(where: { $0.id == deletedID })?.deleted == true {
-                    GuestUndoToast(message: spanish ? "Aporte eliminado" : "Contribution deleted", spanish: spanish,
-                                   undo: { _ = try? model.apply { try $0.settingContributionDeleted(deletedID, in: id, false) }; self.deletedID = nil },
-                                   close: { self.deletedID = nil })
+                    CuadraoToast(text: spanish ? "Aporte eliminado" : "Contribution deleted", actionTitle: spanish ? "Deshacer" : "Undo",
+                                 actionIdentifier: "guest.undo",
+                                 action: { _ = try? model.apply { try $0.settingContributionDeleted(deletedID, in: id, false) }; self.deletedID = nil },
+                                 spanish: spanish, token: deletedID, close: { self.deletedID = nil })
                 }
             }
         } else {

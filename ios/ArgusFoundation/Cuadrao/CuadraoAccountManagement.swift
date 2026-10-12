@@ -17,24 +17,6 @@ struct CuadraoArchiveAccountReview: View {
     }
 }
 
-struct CuadraoArchivedAccountToast: View {
-    let spanish: Bool
-    let undo: () -> Void
-    let close: () -> Void
-    var body: some View {
-        HStack {
-            Text(spanish ? "Cuenta archivada" : "Account archived")
-            Spacer()
-            Button(spanish ? "Deshacer" : "Undo", action: undo).accessibilityIdentifier("accounts.archived.undo")
-            Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                .accessibilityLabel(spanish ? "Cerrar" : "Close")
-                .accessibilityIdentifier("accounts.archived.close")
-        }.font(.subheadline).padding(.leading, 20).padding(.trailing, 6)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
-            .padding(.horizontal, 20).padding(.bottom, 90)
-    }
-}
-
 struct CuadraoArchivedAccounts: View {
     let data: CuadraoAccountsPreview
     let spanish: Bool

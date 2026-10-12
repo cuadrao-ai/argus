@@ -100,10 +100,13 @@ struct GuestHome: View {
         }
         .overlay(alignment: .bottom) {
             if let archivedID, path.isEmpty, model.book.account(archivedID)?.archived == true {
-                CuadraoArchivedAccountToast(spanish: spanish, undo: { restore(archivedID) }, close: { self.archivedID = nil })
+                CuadraoToast(text: spanish ? "Cuenta archivada" : "Account archived", actionTitle: spanish ? "Deshacer" : "Undo",
+                    actionIdentifier: "accounts.archived.undo", action: { restore(archivedID) }, spanish: spanish,
+                    closeIdentifier: "accounts.archived.close", token: archivedID, close: { self.archivedID = nil })
             } else if let deletedID, model.book.movement(deletedID)?.deleted == true {
-                GuestUndoToast(message: spanish ? "Movimiento eliminado" : "Transaction deleted", spanish: spanish,
-                               undo: { undelete(deletedID) }, close: { self.deletedID = nil })
+                CuadraoToast(text: spanish ? "Movimiento eliminado" : "Transaction deleted", actionTitle: spanish ? "Deshacer" : "Undo",
+                             actionIdentifier: "guest.undo", action: { undelete(deletedID) }, spanish: spanish,
+                             token: deletedID, close: { self.deletedID = nil })
             }
         }
         .onChange(of: sheet) { previous, current in
