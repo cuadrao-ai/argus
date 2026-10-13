@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -33,6 +33,8 @@ class ExpenseRevision:
     interest_minor: int | None = None
     reversal_of_activity_id: str | None = None
     reversal_of_revision: int | None = None
+    entered_on: date | None = None
+    coverage_skips: tuple[tuple[str, str], ...] = ()
 
     @property
     def movement_minor(self) -> int:
@@ -125,7 +127,36 @@ def observations(
     return tuple(result)
 
 
+CoverageSkip = Literal["after_observation_day", "entered_after_observation"]
+
+
+def coverage_skip(
+    expense: ExpenseRevision, observation: Observation
+) -> CoverageSkip | None:
+    """Why no inclusion question applies; None means the person must answer.
+
+    Only a movement dated the day it was entered has a real time on that day."""
+    zone = ZoneInfo(observation.time_zone)
+    occurred = expense.occurred_at.astimezone(zone).date()
+    observed = observation.as_of.astimezone(zone).date()
+    if occurred != observed:
+        return None if occurred < observed else "after_observation_day"
+    own = ZoneInfo(expense.time_zone)
+    entered_on = expense.entered_on or expense.recorded_at.astimezone(own).date()
+    if (
+        expense.occurred_at.astimezone(own).date() == entered_on
+        and expense.occurred_at > observation.as_of
+    ):
+        return "entered_after_observation"
+    return None
+
+
 def eligible(expense: ExpenseRevision, observation: Observation) -> bool:
+    return coverage_skip(expense, observation) is None
+
+
+def on_or_before_day(expense: ExpenseRevision, observation: Observation) -> bool:
+    """The balance-check and opening rule: any activity on or before the observation's day."""
     zone = ZoneInfo(observation.time_zone)
     return (
         expense.occurred_at.astimezone(zone).date()
@@ -133,19 +164,45 @@ def eligible(expense: ExpenseRevision, observation: Observation) -> bool:
     )
 
 
+def _link(
+    expense: ExpenseRecord, observation: Observation, coverage: tuple[Coverage, ...]
+) -> Coverage | None:
+    key = (observation.id, observation.revision, expense.id, expense.current.revision)
+    return next(
+        (
+            link
+            for link in coverage
+            if (
+                link.observation_id,
+                link.observation_revision,
+                link.activity_id,
+                link.activity_revision,
+            )
+            == key
+        ),
+        None,
+    )
+
+
+def answerable(
+    expense: ExpenseRecord, observation: Observation, coverage: tuple[Coverage, ...]
+) -> bool:
+    """Eligible now, or answered under an earlier eligibility rule; answers stand."""
+    return eligible(expense.current, observation) or (
+        _link(expense, observation, coverage) is not None
+    )
+
+
 def included(
     expense: ExpenseRecord, observation: Observation, coverage: tuple[Coverage, ...]
 ) -> bool:
-    if not expense.current.active or not eligible(expense.current, observation):
+    if not expense.current.active:
         return False
-    for link in coverage:
-        if (
-            link.observation_id,
-            link.observation_revision,
-            link.activity_id,
-            link.activity_revision,
-        ) == (observation.id, observation.revision, expense.id, expense.current.revision):
-            return link.included
+    link = _link(expense, observation, coverage)
+    if link is not None:
+        return link.included
+    if not eligible(expense.current, observation):
+        return False
     raise ValueError("financial observation is missing explicit activity coverage")
 
 
@@ -228,7 +285,7 @@ def validate_monotonic(
 ) -> None:
     seen = False
     for observation in anchors:
-        if not expense.current.active or not eligible(expense.current, observation):
+        if not expense.current.active or not answerable(expense, observation, coverage):
             if seen:
                 raise RecordingInputError(
                     "coverage_date_conflict",

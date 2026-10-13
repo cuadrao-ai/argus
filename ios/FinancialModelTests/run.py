@@ -66,6 +66,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(root / "ios/Packages/ArgusSession/Tests/ArgusSessionTests/TestSupport.swift", tests / "TestSupport.swift")
     shutil.copy(Path(__file__).with_name("FinancialModelTests.swift"), tests / "FinancialModelTests.swift")
     shutil.copy(Path(__file__).with_name("FinancialScrollRestorationTests.swift"), tests / "FinancialScrollRestorationTests.swift")
+    shutil.copy(Path(__file__).with_name("EnteredDayCarryTests.swift"), tests / "EnteredDayCarryTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedDetailPresentationTests.swift"), tests / "ConnectedDetailPresentationTests.swift")
     shutil.copy(Path(__file__).with_name("FinancialObservationReadTests.swift"), tests / "FinancialObservationReadTests.swift")
     shutil.copy(Path(__file__).with_name("AccountDeletionModelTests.swift"), tests / "AccountDeletionModelTests.swift")
