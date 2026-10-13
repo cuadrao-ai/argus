@@ -35,6 +35,7 @@ from argus.api.business import (
 )
 from argus.api.business_drafts import (
     action_problem,
+    expenses_with_receipts,
     overview_with_drafts,
     receipt_detail,
     receipt_summaries,
@@ -650,7 +651,7 @@ def list_expenses(
 ) -> dict[str, Any]:
     _period(request, start, end)
     try:
-        return {"items": context.service.expenses(context.scope, start, end)}
+        return {"items": expenses_with_receipts(context, start, end)}
     except Exception as error:
         raise _problem(request, error) from None
 
