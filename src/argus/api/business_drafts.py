@@ -335,14 +335,68 @@ def receipt_summary(context: BusinessContext, receipt) -> dict:  # noqa: ANN001
     return bridged(context, [receipt.summary()])[0]
 
 
+def linked_receipts(tx, activity_ids: list[str]) -> dict[str, str]:  # noqa: ANN001
+    """Activity id to the one receipt whose linked bridge draft recorded it.
+
+    An activity recorded from a draft linked to several receipts, or to
+    none, has no entry: the person opens those through the draft."""
+
+    if not activity_ids:
+        return {}
+    rows = tx.rows(
+        "select e.activity_id, s.connection_id from public.financial_import_events e"
+        " join public.business_draft_sources l on l.draft_id=e.id and l.space_id=e.owner_space_id"
+        " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
+        " where e.owner_space_id=%s and e.user_id=%s and e.activity_id = any(%s)"
+        " and e.resolution ? 'business' and s.connection_id is not null",
+        (
+            tx.context.actor.space_id,
+            tx.context.owner_id,
+            [UUID(activity_id) for activity_id in activity_ids],
+        ),
+    )
+    held: dict[str, set[str]] = {}
+    for row in rows:
+        held.setdefault(str(row["activity_id"]), set()).add(str(row["connection_id"]))
+    return {activity: ids.pop() for activity, ids in held.items() if len(ids) == 1}
+
+
+def _with_receipts(context: BusinessContext, expenses: list[dict]) -> list[dict]:
+    """Saved expenses with the receipt a linked bridge draft recorded them from.
+
+    The legacy lookup reaches a receipt through import observations, which a
+    bridge draft never has, so an expense approved from a draft had no
+    receipt to open."""
+
+    store = context.service.imports.store
+    missing = [item["id"] for item in expenses if item.get("receipt_id") is None]
+    if not isinstance(store, GrantImportStore) or not missing:
+        return expenses
+    with transaction(store.authority, store.context) as tx:
+        found = linked_receipts(tx, missing)
+    return [
+        {**item, "receipt_id": found.get(item["id"], item.get("receipt_id"))}
+        for item in expenses
+    ]
+
+
+def expenses_with_receipts(context: BusinessContext, start, end) -> list[dict]:  # noqa: ANN001
+    """The saved expenses of a period, each with the receipt that opens its record."""
+
+    return _with_receipts(context, context.service.expenses(context.scope, start, end))
+
+
 def search_with_drafts(context: BusinessContext, q: str, limit: int) -> dict:
-    """The search result with its receipts overlaid; expenses and accounts as found."""
+    """The search result with its receipts overlaid and its expenses linked to
+    their receipts; accounts as found."""
 
     receipts = context.service.receipts(context.scope)
     views = {
         item["id"]: item for item in bridged(context, [r.summary() for r in receipts])
     }
-    return context.service.search(context.scope, q, limit, views)
+    found = context.service.search(context.scope, q, limit, views)
+    found["expenses"] = _with_receipts(context, found["expenses"])
+    return found
 
 
 def updates_with_drafts(context: BusinessContext) -> list[dict]:

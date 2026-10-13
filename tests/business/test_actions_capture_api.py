@@ -58,6 +58,7 @@ class CaptureService:
             {
                 "draft_id": self.view.draft_id,
                 "version": self.view.version,
+                "revision": 1,
                 "source_id": uuid4(),
                 "text": "  Original note\n",
                 "received_at": datetime.now(timezone.utc),
@@ -194,6 +195,7 @@ def test_search_preserves_source_identity_and_bounds(capture_api):
     assert item["draft_id"] == str(api.service.view.draft_id)
     assert item["text"] == "  Original note\n"
     assert item["source_id"]
+    assert (item["version"], item["revision"]) == (api.service.view.version, 1)
     assert api.service.calls[-1] == ("list", "100%_", 5)
     assert api.client.get("/business/captures?limit=51").status_code == 422
     assert (

@@ -110,7 +110,9 @@ def _currency(value: str) -> str | None:
         return None
 
 
-def _plain_amount(value: str | None) -> bool:
+def plain_amount(value: str | None) -> bool:
+    """The projection's amount rule: plain decimal text, read by every reader of a row."""
+
     return (
         value is not None
         and re.fullmatch(r"[0-9]{1,18}(?:\.[0-9]{1,8})?", value) is not None
@@ -142,9 +144,9 @@ def batch_from_result(
         and result.receipt.total is not None
     ):
         total, amount = result.receipt.total, receipt_rows[0].amount
-        receipt_ambiguous = not (
-            _plain_amount(total) and _plain_amount(amount)
-        ) or Decimal(total) != Decimal(amount)
+        receipt_ambiguous = not (plain_amount(total) and plain_amount(amount)) or Decimal(
+            total
+        ) != Decimal(amount)
     if result.receipt is not None and len(receipt_rows) == 1:
         receipt, purchase = result.receipt, receipt_rows[0]
         if receipt.currency is not None and purchase.currency is not None:
@@ -190,7 +192,7 @@ def batch_from_result(
             )
             continue
         seen.add(identity)
-        if row.amount is not None and not _plain_amount(row.amount):
+        if row.amount is not None and not plain_amount(row.amount):
             issues.append(
                 ProjectionIssue(
                     page=row.page,

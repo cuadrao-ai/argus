@@ -234,7 +234,10 @@ export type BusinessSearchResult = {
 export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number } };
 export type BusinessCapture = {
   draft_id: string;
+  /** The draft's current version, which also counts approvals and settlements. */
   version: number;
+  /** The revision this note created: the number the draft's history lists, the one a person sees. */
+  revision: number;
   source_id: string;
   text: string;
   received_at: string;
