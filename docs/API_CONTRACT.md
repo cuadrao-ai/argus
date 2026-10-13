@@ -9173,6 +9173,34 @@ person starts their space, every route below except POST `/space` answers 404
   approve) in the same transaction; POST `/business/space` and GET
   `/business/workspace` give an older space that grant once, with one ledger
   row, never a duplicate.
+  - A person who holds a grant on another Business works inside it by naming
+    that grant: `X-Business-Grant: <grant_id>` on any Business call. The
+    server loads that grant row, requires it to be the caller's and live
+    (not revoked, not expired, with `read`), and takes the Business from the
+    row; the client never names a space. No header means the caller's own
+    Business. A grant that is missing, someone else's, revoked or expired
+    answers 403 `business_grant_not_live` on every route, so a revocation
+    stops a session mid-way and the header reveals nothing about any Business.
+    GET `/api/v1/business/spaces` lists every Business the caller may enter
+    through a live grant, their own first: `{spaces: [{space_id, name,
+    grant_id, role: owner|accountant, capabilities, access_seen}]}`; names
+    come from the spaces. `access_seen` is the server's memory of the one-time
+    "you now have access" line, per grant: POST
+    `/api/v1/business/spaces/{grant_id}/seen` (204, idempotent, one
+    `access_seen` ledger row by the person) records it; it is always true
+    for the own Business, and a new grant shows the line again. Through a
+    grant the accountant reads (`workspace`, `overview`, `receipts`,
+    `expenses`, `search`, `updates`, `captures`, `exports`, email deliveries)
+    and prepares (upload without consent, review by hand) that Business
+    only; a record of another Business is 404, as today. Owner-only on
+    purpose, 403 `business_permission_denied` for a grantee: `/space`,
+    `/access*`, POST `/accounts`, POST `/expenses`, email address creation
+    and stop, WhatsApp, Business chat, every approve (`approve`, `settle
+    remainder`, legacy `confirm`), and sending a document to the AI
+    provider (`X-Extraction-Consent` on upload, and `/receipts/{id}/prepare`).
+    Every legacy write under a grant leaves a `business_action_receipts` row
+    (`receipt_upload`, `receipt_review`, `receipt_confirm`) naming the grant
+    and its issuer.
   - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
     capabilities, created_at, owner}], invites: [{id, email, created_at,
     expires_at}]}`: live grants, the owner first, and pending invites.

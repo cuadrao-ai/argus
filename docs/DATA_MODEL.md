@@ -177,6 +177,16 @@ Service-role only, part of the hosted Business beta (no flag):
 business_access_invites
 ```
 
+Migration `20261014100000_business_ledger_human_actions.sql` widens the
+turn-less allow-list on `business_action_receipts` once for every person's own
+row the Business flows write from here on: `access_seen` (a grantee dismissed
+the one-time "you now have access" line), `email_ai_consent_declined` (the
+owner declined the emailed-receipts AI notice; no permission row exists),
+`mark_personal` and `decide_606` (the Personal mark and the 606 answer), and
+the three writes of the legacy receipt surface a grantee can make
+(`receipt_upload`, `receipt_review`, `receipt_confirm`), each only as a member
+with no turn and no action index.
+
 Optional or later:
 ```
 - assets
