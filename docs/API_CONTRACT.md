@@ -9244,8 +9244,38 @@ accept path recorded.
     way, a web upload, before this email arrived). Each Business sees only its
     own deliveries; the same bytes in two Businesses never mark each other.
     POST `/{id}/retry` (prepare capability) re-queues a `partial` delivery.
-  - Every captured part is an ordinary saved document with `consent=false`; AI
-    preparation still waits for the owner's choice. The grant is checked again
+  - Reading with AI is the Business owner's one stored permission, on by
+    default for a new address and recorded against the exact text shown.
+    GET `/api/v1/business/email?language=` also returns `ai_reading` (null
+    where no permission store exists): `{state: on|off|unseen, available,
+    reason, owner, scope_version: 1, purpose:
+    business_email_receipt_reading, disclosure, route, disclosure_token,
+    consented_at, consented_by, revoked_at}`. `disclosure` is the sentence in
+    the caller's language; `route` names the gateway (OpenRouter) and the
+    document-extraction model; `disclosure_token` (owner only) binds an
+    agreement to that text and model, and a changed text or model makes a
+    stored permission stop matching: nothing is read and the owner is asked
+    again. POST `/api/v1/business/email` accepts `{ai_reading:
+    {disclosure_token, language}}` so the address and the owner's agreement
+    land in one request; a stale token is 409 `email_consent_disclosure_stale`.
+    POST `/api/v1/business/email/ai-consent` (`Idempotency-Key`) takes
+    `{action: enable, disclosure_token, language}` or `{action: decline}`;
+    a decline stores no permission, only the owner's answer to the one-time
+    notice, so an address created before this default never reads until the
+    owner answers. DELETE `/api/v1/business/email/ai-consent` turns it off.
+    Only the owner may answer (403 `business_owner_required` for anyone
+    else); 409 `email_address_required` without a live address; 503
+    `email_ai_consent_unavailable` without a database.
+  - While the permission is on, each attachment an email brings for the first
+    time is queued and read through the owner's own grant right after the
+    capture, parts only, never the forwarded `.eml`, never the same bytes a
+    second time. The permission is read fresh at the queue, when the read
+    starts and once more before the provider is called, so one turned off
+    mid-flight stops the read and the receipt stays saved, unread, for a
+    person. That switch gates only reads the worker started; a person's own
+    "Preparar con IA" is never refused by it. With the permission off or
+    unanswered, every captured part is an ordinary saved document with
+    `consent=false`; AI preparation waits for a person. The grant is checked again
     before each fetch, and the provider's recipients must equal the signed
     event's recipients. Retries back off and stop after eight attempts until an
     explicit retry.

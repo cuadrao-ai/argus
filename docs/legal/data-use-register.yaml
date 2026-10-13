@@ -30,6 +30,11 @@ consent_scopes:
     meaning: "Receipts sent by WhatsApp are read by a vision model through OpenRouter."
     owner: "src/argus/domain/ingestion/whatsapp/ai_consent.py (RECEIPT_SCOPE)"
     store: "public.business_whatsapp_ai_consents"
+  business_email_receipt_reading:
+    scope_version: 1
+    meaning: "Attachments that reach the Business's receiving address are read by the same vision model through OpenRouter, on by default for a new address once the owner has seen the one-line notice."
+    owner: "src/argus/domain/ingestion/email_intake/ai_consent.py (EMAIL_RECEIPT_SCOPE)"
+    store: "public.business_email_ai_consents"
   document_extraction_draft:
     meaning: "Per-document permission sent as header X-Extraction-Consent: true before AI preparation of that document."
     owner: "src/argus/api/routers/financial_documents.py and src/argus/api/routers/business.py"
@@ -353,7 +358,7 @@ flows:
     training_use: not_applicable
     consent:
       scope: none_persisted
-      note: "Every captured part is a saved document with consent false. AI reading waits for the owner's choice."
+      note: "Every captured part is a saved document with consent false. Reading it with AI is the separate business_email_receipt_reading flow below."
     consent_text:
       es: ""
       en: ""
@@ -361,6 +366,29 @@ flows:
     policy_anchor: email-intake
     sources:
       - docs/API_CONTRACT.md
+
+  - id: business_email_receipt_reading
+    product: business
+    data_categories: [attachments]
+    purpose: "Read merchant, amount, date and tax numbers from attachments that reach the Business's receiving address. Forwarded emails may carry other people's details; only attachments are sent, never the forwarded message itself."
+    recipient: [OpenRouter, "vision model behind OpenRouter, the same one WhatsApp names"]
+    sent: "Each attachment the email brought for the first time, at most 16 per email, at most 10 MiB each."
+    retention: "The permission record is kept with its text and route. Provider retention: [A CONFIRMAR per model]"
+    training_use: to_confirm
+    consent:
+      scope: business_email_receipt_reading
+      note: "Owner only. On by default for a new address, recorded in the same request as the address against the text on the screen. An address that existed before this default shows a one-time notice with Entendido and Desactivar; nothing is read until the owner answers, and a decline stores no permission."
+    consent_text:
+      es: "Cuadrao leerá con IA los recibos que lleguen a esta dirección. Los correos reenviados pueden incluir datos de otras personas; los adjuntos se envían a OpenRouter y al modelo indicado abajo. Puedes apagarlo en Ajustes."
+      en: "Cuadrao will read receipts that reach this address with AI. Forwarded emails may include other people's details; attachments are sent to OpenRouter and the model named below. You can turn this off in Settings."
+    consent_text_short:
+      es: "Ahora leemos con IA los recibos que llegan por correo. El adjunto se envía a nuestro proveedor de IA y puede incluir datos de otras personas."
+      en: "We now read receipts that arrive by email with AI. The attachment is sent to our AI provider and may include other people's data."
+    consent_text_status: code
+    policy_anchor: ai-receipts
+    sources:
+      - src/argus/domain/ingestion/email_intake/ai_consent.py
+      - supabase/migrations/20261014090000_business_email_receipt_reading_consent.sql
 
   - id: business_accountant_access
     product: business

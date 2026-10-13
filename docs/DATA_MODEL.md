@@ -170,7 +170,21 @@ capture; a durable delivery queue; one row per attachment part.
 business_email_routes
 business_email_deliveries
 business_email_parts
+business_email_ai_consents
 ```
+
+`business_email_ai_consents` (migration
+`20261014090000_business_email_receipt_reading_consent.sql`) is the owner's
+permission to read the receipts that reach the Business address with AI: one
+active row per Business, pinned to the live route and its owner by composite
+key, with the consenting owner, the grant and issuer, the versioned purpose
+and disclosure text, the provider-route snapshot and hash, the database
+timestamp, the idempotency key and input hash, and a one-time owner
+revocation. Insert needs an active route, an open Business owned by a
+non-anonymous owner and a live owner grant with read and prepare; a row is
+never edited except to revoke it once and never deleted while its route
+exists. Service-role only; TRUNCATE denied. A decline of the one-time notice
+stores no permission row.
 
 Service-role only, part of the hosted Business beta (no flag):
 ```text

@@ -993,14 +993,29 @@ paths:
       tags:
       - financial-accounts
       - business-email
+      parameters:
+      - name: language
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 16
+          - type: 'null'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -1017,15 +1032,91 @@ paths:
 
         the caller''s own live grant is the authority checked before each capture.
 
-        A replay or a concurrent create returns the one live address.'
+        A replay or a concurrent create returns the one live address. With the
+
+        notice''s token, the owner''s permission to read with AI is recorded in the
+
+        same request, against the text that was on the screen.'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/CreateAddress'
+              - type: 'null'
       responses:
         '201':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - financial-accounts
+      - business-email
+      responses:
+        '204':
+          description: Successful Response
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/email/ai-consent:
+    post:
+      tags:
+      - financial-accounts
+      - business-email
+      description: 'The owner turns reading on against the text shown, or declines the
+
+        one-time notice. Only the owner may answer; the store refuses anyone else.'
+      parameters:
+      - name: idempotency-key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 80
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailConsentRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -10470,6 +10561,23 @@ components:
       - grant_id
       - issuer_id
       - issuer_display_name
+    AddressReading:
+      properties:
+        disclosure_token:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        language:
+          anyOf:
+          - type: string
+            maxLength: 16
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - disclosure_token
+      description: 'The one-line notice was on the screen that asked for the address: the
+
+        token binds the agreement to that exact text and model.'
     AllocationChange:
       properties:
         goal_id:
@@ -13478,6 +13586,14 @@ components:
       - account_id
       - recipient_membership_id
       - expected_version
+    CreateAddress:
+      properties:
+        ai_reading:
+          anyOf:
+          - $ref: '#/components/schemas/AddressReading'
+          - type: 'null'
+      additionalProperties: false
+      type: object
     CreateBetaInviteRequest:
       properties: {}
       additionalProperties: false
@@ -14736,6 +14852,30 @@ components:
       - membership_id
       - expected_authorization_version
       - expected_plan_version
+    EmailConsentRequest:
+      properties:
+        action:
+          type: string
+          enum:
+          - enable
+          - decline
+        disclosure_token:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: 'null'
+        language:
+          anyOf:
+          - type: string
+            maxLength: 16
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      description: 'Turn the permission on against the exact text shown, or decline the
+
+        one-time notice. A decline stores no permission.'
     EnableAIConsent:
       properties:
         action:
