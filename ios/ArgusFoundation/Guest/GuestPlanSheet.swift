@@ -31,7 +31,7 @@ struct GuestPlanSheet: View {
         switch mode {
         case .create:
             var fresh = CanvasPlan(name: "", spaceID: CanvasSpace.personalID)
-            fresh.currency = model.book.currencies.first ?? CurrencyTable.priority[0]
+            fresh.currency = model.book.currencies.first ?? CurrencyTable.offered[0]
             initial = fresh
             _accountScope = State(initialValue: [])
             _categoryScope = State(initialValue: [])

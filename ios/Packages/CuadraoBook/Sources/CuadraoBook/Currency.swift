@@ -16,8 +16,8 @@ public struct Currency: Hashable, Codable, Sendable {
 public enum CurrencyTable {
     public static let all: [Currency] = generatedCurrencyRows.map { Currency(code: $0.code, digits: $0.digits) }
 
-    /// Offered first by pickers, in this order; the rest follow alphabetically.
-    public static let priority = ["DOP", "USD", "EUR"]
+    /// The only currencies Cuadrao offers for now, in picker order. Every app and book picker reads this list.
+    public static let offered = ["DOP", "USD", "EUR"]
 
     private static let byCode: [String: Currency] = Dictionary(uniqueKeysWithValues: all.map { ($0.code, $0) })
 
@@ -28,9 +28,6 @@ public enum CurrencyTable {
 
     public static func digits(_ code: String) -> Int? { currency(code)?.digits }
 
-    /// Codes in picker order: the priority currencies, then every other one alphabetically.
-    public static var pickerCodes: [String] {
-        let rest = all.map(\.code).filter { !priority.contains($0) }.sorted()
-        return priority.filter { byCode[$0] != nil } + rest
-    }
+    /// Codes a picker offers: exactly the offered currencies the table knows.
+    public static var pickerCodes: [String] { offered.filter { byCode[$0] != nil } }
 }

@@ -72,7 +72,7 @@ struct MoneyTests {
         #expect(CurrencyTable.currency(" dop ")?.digits == 2)
         #expect(CurrencyTable.currency("XXX") == nil)
         #expect(CurrencyTable.currency("") == nil)
-        #expect(CurrencyTable.pickerCodes.prefix(3).elementsEqual(["DOP", "USD", "EUR"]))
-        #expect(Set(CurrencyTable.pickerCodes).count == CurrencyTable.all.count)
+        #expect(CurrencyTable.pickerCodes == ["DOP", "USD", "EUR"])
+        #expect(CurrencyTable.pickerCodes == CurrencyTable.offered)
     }
 }

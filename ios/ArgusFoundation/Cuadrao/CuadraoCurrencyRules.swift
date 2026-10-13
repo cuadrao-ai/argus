@@ -7,7 +7,7 @@ struct CuadraoCurrencyRules {
     var maximum: (String) -> Decimal
     var maximumMessage: (_ currency: String, _ spanish: Bool) -> String
     var format: (Decimal, String) -> String
-    /// Codes the currency picker offers, in order; nil keeps the device's list.
+    /// Codes the currency picker offers, in order.
     var pickerCodes: (() -> [String])?
 
     static let system = CuadraoCurrencyRules(
@@ -15,7 +15,7 @@ struct CuadraoCurrencyRules {
         maximum: { _ in CanvasMoney.maximum },
         maximumMessage: { _, spanish in spanish ? "Máximo: 9,999,999.99" : "Maximum: 9,999,999.99" },
         format: { CanvasMoney.format($0, currency: $1) },
-        pickerCodes: nil)
+        pickerCodes: { PlanCurrency.supported })
 }
 
 private struct CuadraoCurrencyRulesKey: EnvironmentKey {

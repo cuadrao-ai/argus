@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
         shutil.copy(root / "ios/ArgusFoundation/Plan" / name, source / name)
     shutil.copy(root / "ios/ArgusFoundation/Plan/ConnectedPlanMapping.swift", source / "ConnectedPlanMapping.swift")
     plans = (root / "ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanPreview.swift").read_text()
-    (source / "CanvasPlan.swift").write_text("import Foundation\n" + plans[plans.index("enum CanvasPlanKind:"):plans.index("@Observable final class CuadraoPlanPreview {")])
+    (source / "CanvasPlan.swift").write_text("import Foundation\nimport CuadraoBook\n" + plans[plans.index("enum CanvasPlanKind:"):plans.index("@Observable final class CuadraoPlanPreview {")])
     shutil.copy(root / "ios/ArgusFoundation/Search/FinancialSearchModel.swift", source / "FinancialSearchModel.swift")
     shutil.copy(root / "ios/ArgusFoundation/Auth/AccountDeletionModel.swift", source / "AccountDeletionModel.swift")
     shutil.copy(root / "ios/ArgusFoundation/ReleaseUI/Identity/ReleaseIdentityModels.swift", source / "ReleaseIdentityModels.swift")
@@ -82,6 +82,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(Path(__file__).with_name("ReceiptJourneyModelTests.swift"), tests / "ReceiptJourneyModelTests.swift")
     shutil.copy(Path(__file__).with_name("ReceiptSearchTests.swift"), tests / "ReceiptSearchTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedPlanMappingTests.swift"), tests / "ConnectedPlanMappingTests.swift")
+    shutil.copy(Path(__file__).with_name("CurrencyChoiceTests.swift"), tests / "CurrencyChoiceTests.swift")
     shutil.copy(Path(__file__).with_name("MovementAccountChoiceTests.swift"), tests / "MovementAccountChoiceTests.swift")
     (package / "Package.swift").write_text('''// swift-tools-version: 6.0
 import PackageDescription

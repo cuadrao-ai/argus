@@ -81,8 +81,7 @@ private struct CanvasCurrencyPicker: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.cuadraoCurrencyRules) private var rules
     private var codes: [String] {
-        let priority = ["DOP", "USD", "EUR"]
-        let all = rules.pickerCodes?() ?? priority + Locale.commonISOCurrencyCodes.filter { !priority.contains($0) }.sorted()
+        let all = rules.pickerCodes?() ?? PlanCurrency.supported
         return all.filter { query.isEmpty || $0.localizedCaseInsensitiveContains(query) || name($0).localizedCaseInsensitiveContains(query) }
     }
     private func name(_ code: String) -> String {

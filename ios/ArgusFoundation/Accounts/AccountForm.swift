@@ -140,7 +140,7 @@ struct AccountForm: View {
     private var currencyControl: some View {
         Menu {
             Picker("accounts.currency", selection: binding(\.currency)) {
-                ForEach(["DOP", "USD"] + Locale.commonISOCurrencyCodes.filter { !["DOP", "USD"].contains($0) }.sorted(), id: \.self) { code in
+                ForEach(PlanCurrency.supported, id: \.self) { code in
                     Text(verbatim: code).tag(code)
                 }
             }
