@@ -1208,6 +1208,20 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-permission-code-20261013": {
+      "description": "Test only, follow-up to #1038: a WhatsApp read refused by the owner's own grant (prepare removed in the table the authority reads, no fake) records the literal business_permission_denied code on the draft, the extractor is never called.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "tests/test_whatsapp_receipt_read_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-personal-money-chat-20261011": {
       "description": "Personal canonical Money proposal/runtime/catalog seam; helper donors remain separate writers, voice activation is not allocated.",
       "base_ref": "origin/codex/private-alpha-next",

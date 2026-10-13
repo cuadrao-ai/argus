@@ -187,3 +187,26 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
     draft = _draft(destination, owner, connection_id)
     assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
     assert extractor.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(actions):  # noqa: ANN001
+    """No fake: the owner's grant loses prepare in the table the authority
+    reads, so the read cannot start for a permission reason, and the draft
+    records exactly ``business_permission_denied``."""
+
+    destination, documents, extractor, owner = _rig(actions, {"on": True})
+    connection_id = await _capture(destination, owner)
+    _, context, _ = actions
+    with documents.business_actions.authority.pool.connection() as db:
+        db.execute(
+            "update public.business_client_grants set capabilities=ARRAY['read','approve']"
+            " where space_id=%s and grantee_id=%s and revoked_at is null",
+            (context.actor.space_id, context.owner_id),
+        )
+    with pytest.raises(ActionError) as refused:
+        await destination.read(owner_id=owner, connection_id=connection_id)
+    assert refused.value.result.code == "business_permission_denied"
+    draft = _draft(destination, owner, connection_id)
+    assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
+    assert extractor.calls == 0
