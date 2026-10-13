@@ -90,6 +90,9 @@ jobs:
       - name: Install backend dependencies
         run: poetry install --with dev --no-interaction
 
+      - name: Install PDF extraction tools
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
       # Helper folders can include backend tests of the shared TypeScript contract.
       - name: Set up Bun for cross-runtime contract tests
         uses: oven-sh/setup-bun@v2
