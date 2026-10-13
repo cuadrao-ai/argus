@@ -12059,6 +12059,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/EcfVerification'
           - type: 'null'
+        dgii_qr:
+          anyOf:
+          - $ref: '#/components/schemas/DgiiQr'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -14366,6 +14370,57 @@ components:
       - connection
       - device_token
       - intake_url
+    DgiiQr:
+      properties:
+        url:
+          type: string
+          maxLength: 2048
+        host:
+          type: string
+          maxLength: 64
+        rnc_emisor:
+          type: string
+          maxLength: 64
+        encf:
+          type: string
+          maxLength: 64
+        monto_total:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+        codigo_seguridad:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+        fecha_emision:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        fecha_firma:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+        rnc_comprador:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - url
+      - host
+      - rnc_emisor
+      - encf
+      description: 'The DGII consultation link a receipt''s QR carries, as typed facts. Only
+
+        DGII''s own hosts are kept; the link is for a person to open, never fetched
+
+        by Cuadrao.'
     DisconnectResponse:
       properties:
         connection:
@@ -14550,6 +14605,8 @@ components:
           - dgii_accepted
           - security_code
           - subject_rnc
+          - qr_present
+          - qr_matches_read
         state:
           type: string
           enum:
@@ -17273,6 +17330,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -17311,6 +17369,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -17342,6 +17401,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -17374,6 +17434,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -17415,6 +17476,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -17449,6 +17511,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -17480,6 +17543,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -17510,6 +17574,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched

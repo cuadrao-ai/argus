@@ -13,6 +13,7 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
+from argus.domain.business.contracts.checks import DgiiQr
 from argus.domain.business.contracts.facts import FiscalFacts
 from argus.domain.ingestion.contract import (
     AccountHint,
@@ -25,6 +26,7 @@ from argus.domain.ingestion.documents.config import (
     DocumentExtractionSettings,
     load_document_extraction_settings,
 )
+from argus.domain.ingestion.documents.dgii_qr import with_qr
 from argus.domain.ingestion.documents.ecf_checks import EcfDocument, safe_ecf_checks
 from argus.domain.ingestion.documents.models import (
     RECEIPT_CURRENCY_CONFLICT,
@@ -128,6 +130,7 @@ def batch_from_result(
     *,
     document_currency: str | None = None,
     ecf: EcfDocument | None = None,
+    dgii_qr: DgiiQr | None = None,
 ) -> ExtractionBatch:
     issues = []
     if not result.readable:
@@ -258,7 +261,13 @@ def batch_from_result(
         observations=result.observations,
         receipt=result.receipt,
         issues=tuple(issues),
-        ecf_checks=safe_ecf_checks(ecf, result.receipt, observed_at),
+        ecf_checks=with_qr(
+            safe_ecf_checks(ecf, result.receipt, observed_at),
+            dgii_qr,
+            result.receipt,
+            observed_at,
+        ),
+        dgii_qr=dgii_qr,
     )
 
 
@@ -370,6 +379,7 @@ class DocumentExtractor:
             prepared.pages,
             document_currency=prepared.document_currency,
             ecf=prepared.ecf,
+            dgii_qr=prepared.dgii_qr,
         )
         attachment = Attachment(
             external_id=str(metadata["sha256"]),

@@ -95,6 +95,7 @@ class ReceiptStub:
             1,
             document_currency=prepared.document_currency,
             ecf=prepared.ecf,
+            dgii_qr=prepared.dgii_qr,
         )
         attachment = Attachment(
             external_id=digest,

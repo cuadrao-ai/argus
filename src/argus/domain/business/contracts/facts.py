@@ -18,7 +18,7 @@ from pydantic import (
 from pydantic.json_schema import SkipJsonSchema
 from typing_extensions import TypeAliasType
 
-from argus.domain.business.contracts.checks import EcfVerification
+from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
 
 T = TypeVar("T")
 
@@ -33,7 +33,9 @@ Amount = Annotated[
     AfterValidator(_canonical_amount),
 ]
 Currency = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
-FactOrigin = Literal["extracted", "owner_stated", "member_set", "matched", "default"]
+FactOrigin = Literal[
+    "extracted", "qr_decoded", "owner_stated", "member_set", "matched", "default"
+]
 ActivityKind = Literal[
     "expense",
     "income",
@@ -190,6 +192,8 @@ class BusinessResolution(Contract):
     read_total: str | None = None
     #: What the e-CF file proved when the draft came from one; kept on later revisions.
     ecf_checks: EcfVerification | None = None
+    #: The DGII QR the receipt carried, kept with the draft for the person to open.
+    dgii_qr: DgiiQr | None = None
     #: A person settled the read purchases this draft does not record.
     remainder_settled: bool = False
 

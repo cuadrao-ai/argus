@@ -9321,6 +9321,26 @@ accept path recorded.
   later document beside the e-CF keeps its verification. A failed
   check never blocks capture, review or approval. Later revisions keep the
   verification; a PDF render or any other source has `ecf_checks: null`.
+- A receipt whose page images carry a DGII QR (an uploaded image, a rendered
+  PDF page, an image or PDF inside an email) carries `dgii_qr` on the dossier:
+  `url`, `host` (exactly `fc.dgii.gov.do` or `ecf.dgii.gov.do`, `https`, any
+  other link is dropped and the capture goes on), `rnc_emisor`, `encf`,
+  `monto_total`, `codigo_seguridad`, and `fecha_emision`, `fecha_firma`,
+  `rnc_comprador` when the link names them. The QR is decoded by a plain
+  decoder from the page images after preparation, never by the model and
+  never as a gate before it; Cuadrao never fetches the link, the person opens
+  it. Two rows join `ecf_checks.checks`: `qr_present` (verified when a DGII QR
+  was decoded, else `not_checked` `no_qr`) and `qr_matches_read` (issuer RNC,
+  e-NCF and total from the QR against what the read found, field by field and
+  only where both exist; `failed` `qr_differs` names each differing field with
+  both values; `not_checked` `no_read` when nothing is comparable). A receipt
+  with a QR and no XML gets a verification of its own with those rows and
+  `dgii_accepted` `network_not_in_tier_a`. The typed merge step after decode
+  and read fills only what the read left unknown (issuer RNC, e-NCF, total,
+  issue date) with origin `qr_decoded` and the attachment as source; a value
+  the read found stays, equal or not; the amount is filled only for a read
+  with at most one purchase and stays a draft value a person approves. A
+  later document or a person's revision keeps `dgii_qr` and the origins.
 - POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt
   whose preparation grant was revoked to the owner's current grant, writes one
   `business_action_receipts` row (`rebind_attachment`, previous binding and
