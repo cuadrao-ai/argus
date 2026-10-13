@@ -119,7 +119,11 @@ class BusinessDeliveryStore:
         *,
         lease: SenderLease,
         sent: bool,
+        code: str | None = None,
     ) -> None:
+        """``code`` is why an unsent reply is unknown; without one the outcome
+        itself is unknown, because the send had started."""
+
         with self.pool.connection() as connection, connection.transaction():
             BusinessTurnStore.require_lease(connection, lease)
             if (captured.space_id, captured.sender_hash.hex()) != (
@@ -130,12 +134,13 @@ class BusinessDeliveryStore:
             row = connection.execute(
                 "update public.whatsapp_outbox set state=%s,"
                 " sent_at=case when %s then clock_timestamp() else null end,"
-                " error_code=case when %s then null else 'whatsapp_send_outcome_unknown' end"
+                " error_code=case when %s then null else coalesce(%s,'whatsapp_send_outcome_unknown') end"
                 " where provider_message_key=%s and reply_index=%s and state='sending' returning reply_index",
                 (
                     "sent" if sent else "unknown",
                     sent,
                     sent,
+                    code,
                     captured.message_key,
                     reply.index,
                 ),
@@ -152,6 +157,30 @@ class BusinessDeliveryStore:
                 (captured.message_key,),
             ).fetchone():
                 self._phase(connection, captured.turn_key, "reply_sent")
+            BusinessTurnStore.require_lease(connection, lease)
+
+    def give_up(self, key: bytes, *, lease: SenderLease, code: str) -> None:
+        """A message that keeps failing for a reason that is not a refusal stops
+        blocking its sender: the unsent reply is suppressed with a code and an
+        unfinished interpretation is settled unknown."""
+
+        with self.pool.connection() as connection, connection.transaction():
+            BusinessTurnStore.require_lease(connection, lease)
+            sender = bytes.fromhex(lease.sender_hash)
+            connection.execute(
+                "update public.whatsapp_outbox o set state='suppressed',error_code=%s"
+                " from public.whatsapp_inbound_messages i"
+                " where o.provider_message_key=i.provider_message_key and o.provider_message_key=%s"
+                " and i.destination_space_id=%s and i.sender_hash=%s and o.state='pending'",
+                (code, key, lease.space_id, sender),
+            )
+            connection.execute(
+                "update public.whatsapp_inbound_messages set composition_state='unknown',"
+                "updated_at=clock_timestamp() where provider_message_key=%s"
+                " and destination_space_id=%s and sender_hash=%s"
+                " and composition_state in ('not_started','started')",
+                (key, lease.space_id, sender),
+            )
             BusinessTurnStore.require_lease(connection, lease)
 
     def wait_for_window(self, captured: CapturedText, *, lease: SenderLease) -> None:
