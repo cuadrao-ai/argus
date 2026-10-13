@@ -16,6 +16,10 @@ legal_operator: "{{OPERADOR_LEGAL}}"
 reviewed_by_counsel: false
 
 consent_scopes:
+  marketing_signup_consent_version:
+    meaning: "Version of the signup consent text the visitor saw, stored on each signup row."
+    owner: "marketing/lib/forms/config.ts (SIGNUP_CONSENT_VERSION)"
+    store: "public.cuadrao_early_access_signups.consent_version"
   business_whatsapp_draft_assistance:
     scope_version: 1
     meaning: "Business agent over the linked WhatsApp number: message text and authorized draft context go to the model route."
@@ -50,6 +54,7 @@ flows:
     consent_text:
       es: ""
       en: ""
+    consent_text_status: none
     policy_anchor: data-collected
     sources:
       - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
@@ -69,6 +74,7 @@ flows:
     consent_text:
       es: ""
       en: ""
+    consent_text_status: none
     policy_anchor: data-collected
     sources:
       - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
@@ -88,6 +94,7 @@ flows:
     consent_text:
       es: "[A CONFIRMAR #828] Cuadrao envía tus mensajes a un proveedor de IA para responderte."
       en: "[A CONFIRMAR #828] Cuadrao sends your messages to an AI provider to answer you."
+    consent_text_status: proposed
     policy_anchor: ai-providers
     sources:
       - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
@@ -106,6 +113,7 @@ flows:
     consent_text:
       es: "Permito que Cuadrao lea este documento con IA para preparar un borrador."
       en: "I allow Cuadrao to read this document with AI to prepare a draft."
+    consent_text_status: proposed
     policy_anchor: ai-receipts
     sources:
       - src/argus/api/routers/financial_documents.py
@@ -126,6 +134,7 @@ flows:
     consent_text:
       es: "[A CONFIRMAR #828] Para guardar un recuerdo, Cuadrao revisa su texto con un proveedor de IA."
       en: "[A CONFIRMAR #828] To save a memory, Cuadrao checks its text with an AI provider."
+    consent_text_status: proposed
     policy_anchor: ai-memory
     sources:
       - src/argus/llm/memory_sensitivity.py
@@ -145,6 +154,7 @@ flows:
     consent_text:
       es: "Cuadrao puede recordar esto y usar un proveedor externo para encontrarlo después."
       en: "Cuadrao can remember this and use an outside provider to find it later."
+    consent_text_status: proposed
     policy_anchor: ai-memory
     sources:
       - src/argus/llm/memory_embedding.py
@@ -164,6 +174,7 @@ flows:
     consent_text:
       es: "[A CONFIRMAR #828] Cuadrao envía tu pregunta a un servicio de búsqueda financiera."
       en: "[A CONFIRMAR #828] Cuadrao sends your question to a financial search service."
+    consent_text_status: proposed
     policy_anchor: ai-providers
     sources:
       - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
@@ -182,6 +193,7 @@ flows:
     consent_text:
       es: "[A CONFIRMAR #826 y #828]"
       en: "[A CONFIRMAR #826 and #828]"
+    consent_text_status: proposed
     policy_anchor: ai-providers
     sources:
       - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
@@ -199,6 +211,7 @@ flows:
     consent_text:
       es: ""
       en: ""
+    consent_text_status: none
     policy_anchor: subscriptions
     sources:
       - docs/PRODUCT.md
@@ -218,6 +231,7 @@ flows:
     consent_text:
       es: ""
       en: ""
+    consent_text_status: none
     policy_anchor: analytics
     sources:
       - docs/ARCHITECTURE.md
@@ -237,6 +251,7 @@ flows:
     consent_text:
       es: ""
       en: ""
+    consent_text_status: none
     policy_anchor: data-collected
     sources:
       - docs/DATA_MODEL.md
@@ -255,6 +270,7 @@ flows:
     consent_text:
       es: "Permito que Cuadrao lea este recibo con IA. Registrar dinero siempre necesita mi aprobación."
       en: "I allow Cuadrao to read this receipt with AI. Recording money always needs my approval."
+    consent_text_status: proposed
     policy_anchor: ai-receipts
     sources:
       - src/argus/api/routers/business.py
@@ -274,6 +290,7 @@ flows:
     consent_text:
       es: "[A CONFIRMAR] Vincular tu número de WhatsApp para recibir tus recibos."
       en: "[A CONFIRMAR] Link your WhatsApp number to receive your receipts."
+    consent_text_status: proposed
     policy_anchor: whatsapp
     sources:
       - supabase/migrations/20261008130000_whatsapp_intake.sql
@@ -283,7 +300,7 @@ flows:
   - id: business_whatsapp_receipt_reading
     product: business
     data_categories: [receipt_photo_or_pdf]
-    purpose: "Read merchant, amount and date from receipts sent by WhatsApp."
+    purpose: "Read merchant, amount, date and tax numbers (RNC, NCF, e-CF, ITBIS) from receipts sent by WhatsApp. The consent text in the code names only merchant, amount and date, so it needs the same change. [A CONFIRMAR: OPEN_QUESTIONS Q24]"
     recipient: [OpenRouter, "vision model behind OpenRouter"]
     sent: "The photo or PDF."
     retention: "The consent record is kept with its text and route. Provider retention: [A CONFIRMAR per model]"
@@ -293,6 +310,10 @@ flows:
     consent_text:
       es: "Cuadrao lee con IA los recibos que envías por WhatsApp: la foto o el PDF va a OpenRouter y al modelo de abajo, solo para leer comercio, monto y fecha. Puedes desactivarlo cuando quieras. Registrar dinero siempre necesita tu aprobación."
       en: "Cuadrao reads the receipts you send by WhatsApp with AI: the photo or PDF goes to OpenRouter and the model below, only to read the merchant, amount and date. You can turn this off at any time. Recording money always needs your approval."
+    consent_text_short:
+      es: "[Propuesto] Permito que Cuadrao lea con IA los recibos que envío por WhatsApp."
+      en: "[Proposed] I allow Cuadrao to read the receipts I send by WhatsApp with AI."
+    consent_text_status: code
     policy_anchor: ai-receipts
     sources:
       - src/argus/domain/ingestion/whatsapp/ai_consent.py
@@ -312,6 +333,10 @@ flows:
     consent_text:
       es: "[Traducción propuesta, a confirmar] Permite la asistencia con IA para el WhatsApp vinculado de este negocio: se envía el texto de tu mensaje y el contexto autorizado necesario de los borradores a los proveedores indicados, para entender, aclarar y preparar borradores. Puedes revocar este permiso. Registrar un gasto siempre necesita aprobación humana aparte."
       en: "Allow AI assistance for this Business's linked WhatsApp number: send your message text and necessary authorized draft context through the disclosed provider routes to understand, clarify and prepare drafts. You can revoke this permission. Recording an expense still requires separate human approval."
+    consent_text_short:
+      es: "[Propuesto] Permito la asistencia con IA en el WhatsApp vinculado de mi negocio."
+      en: "[Proposed] I allow AI assistance in my business's linked WhatsApp."
+    consent_text_status: code
     policy_anchor: ai-business-agent
     sources:
       - src/argus/domain/ingestion/whatsapp/ai_consent.py
@@ -332,6 +357,7 @@ flows:
     consent_text:
       es: ""
       en: ""
+    consent_text_status: none
     policy_anchor: email-intake
     sources:
       - docs/API_CONTRACT.md
@@ -350,6 +376,7 @@ flows:
     consent_text:
       es: ""
       en: ""
+    consent_text_status: none
     policy_anchor: accountant-access
     sources:
       - docs/specs/lanes/cuadrao-business-agent-execution-spec.md
@@ -368,6 +395,7 @@ flows:
     consent_text:
       es: ""
       en: ""
+    consent_text_status: none
     policy_anchor: accountant-access
     sources:
       - docs/specs/lanes/cuadrao-business-agent-execution-spec.md
@@ -386,6 +414,7 @@ flows:
     consent_text:
       es: "[Tomar el texto vigente del sitio al publicar]"
       en: "[Take the current site text at publication]"
+    consent_text_status: proposed
     policy_anchor: marketing-site
     sources:
       - docs/specs/cuadrao-marketing-forms-contract.md
@@ -403,6 +432,7 @@ flows:
     consent_text:
       es: ""
       en: ""
+    consent_text_status: none
     policy_anchor: marketing-site
     sources:
       - docs/specs/cuadrao-marketing-forms-contract.md
@@ -420,6 +450,7 @@ flows:
     consent_text:
       es: ""
       en: ""
+    consent_text_status: none
     policy_anchor: security
     sources:
       - docs/reports/2026-10-05-cuadrao-privacy-preflight.md

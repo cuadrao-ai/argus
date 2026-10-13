@@ -21,7 +21,7 @@ Legend: **Collected** = we or a partner receive it off the device. **Linked** = 
 | Audio data (live voice) | [A CONFIRMAR: only if voice ships] | Yes | No | App functionality | none yet |
 | Purchases: purchase history | [A CONFIRMAR: only if the Full tier ships; Apple handles payment] | [A CONFIRMAR] | No | App functionality | personal_subscription |
 
-Not collected, per the current code: health, fitness, browsing history, search history, contacts, sensitive info. [A CONFIRMAR at the release candidate]
+Not collected, per the current code: health, fitness, browsing history, contacts, sensitive info. Search queries are different: Personal research and memory searches go to Perplexity, so "search history" is [A CONFIRMAR] and may need a Yes. Confirm everything at the release candidate.
 
 ## Third-party AI disclosure (App Review guideline 5.1.2(i))
 

@@ -17,7 +17,9 @@
 | `retention` | How long, with `[A CONFIRMAR]` where unknown. |
 | `training_use` | `to_confirm` until the provider's policy is confirmed for the exact model and route. `not_applicable` when no model provider is involved. Never write "no" without proof. |
 | `consent.scope` | The existing consent owner. The names are the keys under `consent_scopes`. `none_required` means the data is needed to provide the service. `none_persisted` means no persisted consent exists in the repo yet. |
-| `consent_text` | The short one-line text in `es` and `en`. For the WhatsApp scopes it is copied from `src/argus/domain/ingestion/whatsapp/ai_consent.py`. The code text wins if the two differ. |
+| `consent_text` | The text the person sees, in `es` and `en`. For the two WhatsApp scopes it is the product text copied from `src/argus/domain/ingestion/whatsapp/ai_consent.py`, 3 to 4 sentences long, and the code wins if the two differ. |
+| `consent_text_short` | Only for the two WhatsApp flows: a proposed one-sentence version, not product text. |
+| `consent_text_status` | `code` (copied from product code), `proposed` (written for this draft, not product text) or `none`. |
 | `policy_anchor` | The section id in [privacy-policy.md](privacy-policy.md). Prefix `es-` or `en-`. |
 | `sources` | Repo paths behind the claims. |
 

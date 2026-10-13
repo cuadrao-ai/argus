@@ -62,10 +62,10 @@ No vendemos tu información. No la usamos para publicidad dirigida. [A CONFIRMAR
 <a id="es-ai-providers"></a>
 ### 4. Proveedores de IA y qué se envía
 
-Necesitamos tu permiso para cada función de IA, proveedor, propósito y tipo de dato. Puedes retirar el permiso. Retirarlo detiene las solicitudes futuras. No puede recuperar datos ya enviados.
+En Business pedimos tu permiso para cada función de IA, proveedor, propósito y tipo de dato, y puedes retirarlo. Para el chat, la memoria y la investigación de Personal todavía no existe un permiso guardado. [A CONFIRMAR #828: diseño del permiso antes del lanzamiento]. Cuando exista, retirarlo detendrá las solicitudes futuras. No puede recuperar datos ya enviados.
 
 <a id="es-ai-receipts"></a>
-**Lectura de recibos (Personal y Business).** La foto, el PDF o el documento que eliges se envía a un modelo de visión a través de OpenRouter. Se usa solo para leer comercio, monto, fecha y datos fiscales. El resultado es un borrador. Registrar dinero siempre necesita tu aprobación. Para WhatsApp, el permiso es un interruptor guardado con el texto exacto que viste y el modelo. Si cambia el texto o el modelo, te pedimos permiso otra vez.
+**Lectura de recibos (Personal y Business).** La foto, el PDF o el documento que eliges se envía a un modelo de visión a través de OpenRouter. Se usa solo para leer comercio, monto, fecha y datos fiscales (RNC, NCF, e-CF, ITBIS). El texto actual del permiso de WhatsApp no menciona los datos fiscales y debe actualizarse (ver OPEN_QUESTIONS Q24). El resultado es un borrador. Registrar dinero siempre necesita tu aprobación. Para WhatsApp, el permiso es un interruptor guardado con el texto exacto que viste y el modelo. Si cambia el texto o el modelo, te pedimos permiso otra vez.
 
 <a id="es-ai-business-agent"></a>
 **Agente de Business.** Si lo activas para tu WhatsApp vinculado, el texto de tus mensajes y el contexto de borradores que necesita se envían, a través de OpenRouter, a los modelos autorizados para el agente. El agente prepara borradores. No registra gastos por sí solo.
@@ -122,7 +122,7 @@ Al eliminar tu cuenta borramos tu perfil, tus registros, documentos, conversacio
 <a id="es-rights"></a>
 ### 10. Tus derechos
 
-Puedes pedir acceso, corrección, eliminación, oposición y portabilidad de tus datos. En la app puedes editar o borrar lo que registras, desconectar fuentes, retirar permisos de IA y eliminar tu cuenta. Para otras solicitudes, escribe a {{CONTACTO_PRIVACIDAD}}. [A CONFIRMAR: leyes aplicables y plazo de respuesta, incluida la Ley 172-13 de República Dominicana]
+Puedes pedir acceso, corrección, eliminación, oposición y portabilidad de tus datos. En la app puedes editar o borrar lo que registras, desconectar fuentes, retirar permisos de IA (hoy en Business por WhatsApp) y eliminar tu cuenta. Para otras solicitudes, escribe a {{CONTACTO_PRIVACIDAD}}. [A CONFIRMAR: leyes aplicables y plazo de respuesta, incluida la Ley 172-13 de República Dominicana]
 
 <a id="es-transfers"></a>
 ### 11. Transferencias internacionales
@@ -157,7 +157,7 @@ Cuadrao no es para menores de {{EDAD_MINIMA}}. [A CONFIRMAR: edad mínima según
 <a id="es-changes"></a>
 ### 17. Cambios
 
-Si cambiamos esta política, publicamos la nueva versión con su fecha. Si el cambio afecta qué se envía a un proveedor de IA, te pedimos permiso otra vez.
+Si cambiamos esta política, publicamos la nueva versión con su fecha. Si el cambio afecta qué se envía a un proveedor de IA, te pedimos permiso otra vez donde existe un permiso guardado (hoy, Business por WhatsApp). [A CONFIRMAR #828]
 
 <a id="es-contact"></a>
 ### 18. Contacto
@@ -220,10 +220,10 @@ We do not sell your information. We do not use it for targeted advertising. [A C
 <a id="en-ai-providers"></a>
 ### 4. AI providers and what is sent
 
-We need your permission for each AI feature, provider, purpose and kind of data. You can withdraw permission. Withdrawing stops later requests. It cannot recall data already sent.
+In Business we ask your permission for each AI feature, provider, purpose and kind of data, and you can withdraw it. For Personal chat, memory and research no stored permission exists yet. [A CONFIRMAR #828: permission design before launch]. When it exists, withdrawing it will stop later requests. It cannot recall data already sent.
 
 <a id="en-ai-receipts"></a>
-**Receipt reading (Personal and Business).** The photo, PDF or document you choose is sent to a vision model through OpenRouter. It is used only to read the merchant, amount, date and tax data. The result is a draft. Recording money always needs your approval. For WhatsApp, the permission is a switch stored with the exact text you saw and the model. If the text or the model changes, we ask again.
+**Receipt reading (Personal and Business).** The photo, PDF or document you choose is sent to a vision model through OpenRouter. It is used only to read the merchant, amount, date and tax data (RNC, NCF, e-CF, ITBIS). The current WhatsApp permission text does not mention tax data and must be updated (see OPEN_QUESTIONS Q24). The result is a draft. Recording money always needs your approval. For WhatsApp, the permission is a switch stored with the exact text you saw and the model. If the text or the model changes, we ask again.
 
 <a id="en-ai-business-agent"></a>
 **Business agent.** If you turn it on for your linked WhatsApp, the text of your messages and the draft context it needs are sent through OpenRouter to the models authorized for the agent. The agent prepares drafts. It does not record expenses by itself.
@@ -280,7 +280,7 @@ When you delete your account we delete your profile, records, documents, convers
 <a id="en-rights"></a>
 ### 10. Your rights
 
-You can ask for access, correction, deletion, objection and portability of your data. In the app you can edit or delete what you record, disconnect sources, withdraw AI permissions and delete your account. For other requests write to {{CONTACTO_PRIVACIDAD}}. [A CONFIRMAR: applicable laws and response time, including Dominican Law 172-13]
+You can ask for access, correction, deletion, objection and portability of your data. In the app you can edit or delete what you record, disconnect sources, withdraw AI permissions (today in Business by WhatsApp) and delete your account. For other requests write to {{CONTACTO_PRIVACIDAD}}. [A CONFIRMAR: applicable laws and response time, including Dominican Law 172-13]
 
 <a id="en-transfers"></a>
 ### 11. International transfers
@@ -315,7 +315,7 @@ Cuadrao is not for people under {{EDAD_MINIMA}}. [A CONFIRMAR: minimum age under
 <a id="en-changes"></a>
 ### 17. Changes
 
-If we change this policy, we publish the new version with its date. If the change affects what is sent to an AI provider, we ask for your permission again.
+If we change this policy, we publish the new version with its date. If the change affects what is sent to an AI provider, we ask for your permission again where a stored permission exists (today, Business by WhatsApp). [A CONFIRMAR #828]
 
 <a id="en-contact"></a>
 ### 18. Contact

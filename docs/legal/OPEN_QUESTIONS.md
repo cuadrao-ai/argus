@@ -33,6 +33,7 @@ Every fact the drafts could not confirm. Owner: founder, lawyer, accountant or e
 | Q21 | Where are these documents published (URLs), and how do they replace the Argus web policy, given the held draft's pending item P6? | Founder | App Store worksheet |
 | Q22 | Does counsel review before the beta, and which documents are mandatory first? | Founder | All |
 | Q23 | Firm-level accountant delegation (a later phase): the terms and data roles for a firm. | Founder, lawyer | Business B5 |
+| Q24 | The WhatsApp receipt-reading permission text in `ai_consent.py` (RECEIPT_SCOPE) says the model reads "merchant, amount and date", but the extractor also reads RNC, NCF, e-CF and ITBIS (`src/argus/domain/ingestion/documents/extractor.py`). The permission text needs a code change in a separate PR, under the prompt and consent text rules, and the consent re-asks after it. This PR does not touch product code. The register and policy describe what is really read. | Engineering, founder | Register `business_whatsapp_receipt_reading`; Privacy 4 |
 
 ## Held draft reconciliation
 

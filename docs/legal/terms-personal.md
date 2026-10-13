@@ -36,7 +36,7 @@ Puedes crear un hogar e invitar personas. Una invitación solo te hace miembro: 
 
 ### 6. IA
 
-Algunas funciones envían tu texto o tus documentos a proveedores de IA. Te pedimos permiso antes. La [Política de privacidad](privacy-policy.md#es-ai-providers) dice qué se envía y a quién. Las respuestas de IA pueden tener errores. Revisa antes de decidir. Cuadrao nunca registra dinero sin tu aprobación.
+Algunas funciones envían tu texto o tus documentos a proveedores de IA. [A CONFIRMAR #828: todavía no existe un permiso guardado para el chat y la memoria de Personal, hoy solo existe en Business]. La [Política de privacidad](privacy-policy.md#es-ai-providers) dice qué se envía y a quién. Las respuestas de IA pueden tener errores. Revisa antes de decidir. [A CONFIRMAR: la regla de aprobación humana está documentada para Business, no para Personal].
 
 ### 7. Uso aceptable
 
@@ -45,8 +45,8 @@ No uses Cuadrao para romper la ley, abusar del servicio, entrar a cuentas que no
 ### 8. Suscripción de Cuadrao Full **[CONFIRMAR SUSCRIPCIÓN]**
 
 - Compra: la suscripción se compra dentro de la app con una compra dentro de la app de Apple. El precio, la moneda y el periodo se muestran antes de comprar. [A CONFIRMAR: precio y periodos].
-- Renovación automática: la suscripción se renueva sola, a menos que la canceles al menos 24 horas antes de que termine el periodo actual.
-- Cobro: Apple cobra a tu cuenta de Apple al confirmar la compra. Apple cobra la renovación dentro de las 24 horas previas al fin del periodo.
+- Renovación automática: la suscripción se renueva sola, a menos que la canceles al menos 24 horas antes de que termine el periodo actual. [A CONFIRMAR: texto exacto de Apple, Pautas de App Review 3.1.2]
+- Cobro: Apple cobra a tu cuenta de Apple al confirmar la compra. Apple cobra la renovación dentro de las 24 horas previas al fin del periodo. [A CONFIRMAR: texto exacto de Apple]
 - Cancelar y administrar: lo haces en los ajustes de tu cuenta de Apple. Borrar la app o tu cuenta de Cuadrao no cancela la suscripción.
 - Reembolsos: los maneja Apple.
 - Prueba gratuita: [A CONFIRMAR: si hay prueba gratuita y qué pasa al terminar].
@@ -104,7 +104,7 @@ You can create a household and invite people. An invitation only makes someone a
 
 ### 6. AI
 
-Some features send your text or documents to AI providers. We ask your permission first. The [Privacy Policy](privacy-policy.md#en-ai-providers) says what is sent and to whom. AI answers can contain errors. Check before you decide. Cuadrao never records money without your approval.
+Some features send your text or documents to AI providers. [A CONFIRMAR #828: no stored permission exists yet for Personal chat and memory, today only Business has one]. The [Privacy Policy](privacy-policy.md#en-ai-providers) says what is sent and to whom. AI answers can contain errors. Check before you decide. [A CONFIRMAR: the human-approval rule is documented for Business, not for Personal].
 
 ### 7. Acceptable use
 
@@ -113,8 +113,8 @@ Do not use Cuadrao to break the law, abuse the service, access accounts that are
 ### 8. Cuadrao Full subscription **[CONFIRM SUBSCRIPTION]**
 
 - Purchase: the subscription is bought in the app through an Apple in-app purchase. The price, currency and period are shown before you buy. [A CONFIRMAR: price and periods].
-- Auto-renewal: the subscription renews on its own unless you cancel at least 24 hours before the current period ends.
-- Charge: Apple charges your Apple account when you confirm the purchase. Apple charges renewal within 24 hours before the period ends.
+- Auto-renewal: the subscription renews on its own unless you cancel at least 24 hours before the current period ends. [A CONFIRMAR: Apple's exact text, App Review Guidelines 3.1.2]
+- Charge: Apple charges your Apple account when you confirm the purchase. Apple charges renewal within 24 hours before the period ends. [A CONFIRMAR: Apple's exact text, App Review Guidelines 3.1.2]
 - Cancel and manage: you do this in your Apple account settings. Deleting the app or your Cuadrao account does not cancel the subscription.
 - Refunds: Apple handles them.
 - Free trial: [A CONFIRMAR: whether there is a free trial and what happens when it ends].
