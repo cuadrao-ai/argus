@@ -22,9 +22,11 @@ from argus.domain.ingestion.documents.config import (
     DocumentExtractionSettings,
     load_document_extraction_settings,
 )
+from argus.domain.ingestion.documents.ecf_checks import EcfDocument, read_ecf
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 from argus.domain.ingestion.documents.tabular import (
     FLAT_MEDIA_TYPES,
+    XML_MEDIA_TYPES,
     document_currency,
     flat_text,
 )
@@ -48,6 +50,8 @@ class PreparedDocument:
     text: str | None = None
     #: The currency the source names for itself (a DGII e-CF: DOP), else None.
     document_currency: str | None = None
+    #: The e-CF the source is, read once for the local checks; None otherwise.
+    ecf: EcfDocument | None = None
 
 
 def _image(content: bytes, media_type: str) -> bytes:
@@ -141,7 +145,8 @@ def prepare_document(
         currency = document_currency(content, media_type)
         if pages > settings.max_pages:
             raise DocumentExtractionError("document_page_limit")
-        return PreparedDocument(pages, (), text, currency)
+        ecf = read_ecf(content) if media_type in XML_MEDIA_TYPES else None
+        return PreparedDocument(pages, (), text, currency, ecf)
     if media_type in ("image/png", "image/jpeg"):
         return PreparedDocument(1, (_image(content, media_type),))
     if media_type != "application/pdf":
@@ -211,7 +216,7 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
             "unsupported_email_attachment" if parsed.skipped else "empty_document"
         )
     pages, images, texts = 1, [], []
-    currency = None
+    currency, ecf = None, None
     if parsed.text.strip():
         texts.append("Page 1 (email message text):\n" + parsed.text)
     for part in parsed.attachments:
@@ -230,6 +235,8 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
         elif part.media_type in FLAT_MEDIA_TYPES:
             count, text = flat_text(part.content, part.media_type)
             currency = currency or document_currency(part.content, part.media_type)
+            if ecf is None and part.media_type in XML_MEDIA_TYPES:
+                ecf = read_ecf(part.content)
             texts.append(
                 f"Attachment {part.filename!r}, starting at page {pages + 1}:\n{text}"
             )
@@ -247,7 +254,7 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
     text = "\n\n".join(texts)
     if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
         raise DocumentExtractionError("document_text_limit")
-    return PreparedDocument(pages, tuple(images), text or None, currency)
+    return PreparedDocument(pages, tuple(images), text or None, currency, ecf)
 
 
 def validate_source(content: bytes, media_type: str) -> None:

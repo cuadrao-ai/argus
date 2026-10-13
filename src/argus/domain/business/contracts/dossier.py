@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from .authority import ActorProvenance, Capability
+from .checks import EcfVerification
 from .facts import BusinessFacts, Contract, FactField, ReadPurchase
 
 
@@ -135,3 +136,5 @@ class BusinessDossier(RecordContext):
     read_purchases: tuple[ReadPurchase, ...] = ()
     read_total: str | None = None
     unrecorded_purchases: int = Field(default=0, ge=0)
+    #: The local checks on the e-CF the draft came from; None for any other source.
+    ecf_checks: EcfVerification | None = None

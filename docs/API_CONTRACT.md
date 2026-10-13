@@ -9293,6 +9293,25 @@ accept path recorded.
   `business_remainder_none` when nothing is left. An
   unreadable read is still refused to the document layer, which keeps the
   receipt enterable by hand.
+- A draft prepared from a DGII e-CF XML (alone or attached to an email)
+  carries `ecf_checks` on the dossier: `encf`, `tipo_ecf` (shown neutrally,
+  never a blocker), `checked_at` and `checks`, each `{name, state, code,
+  detail}` with state `verified|failed|not_checked`. The checks are local and
+  read the file only: `signature_integrity` (the content has not changed since
+  it was signed with the key the file carries; it does not name who signed),
+  `totals_arithmetic`, `read_matches_xml` (the model's read against the XML,
+  field by field), `certificate_validity` (two facts, at the declared
+  `FechaHoraFirma` and today, code `revocation_not_checked`),
+  `certificate_issuer` (always `not_checked`, `issuer_not_on_trust_list`: no
+  authority is trusted by name), `dgii_accepted` (always `not_checked`,
+  `network_not_in_tier_a`: nothing proves DGII accepted the invoice),
+  `security_code` (the expected code, the first six characters of the
+  signature value, kept in `detail` for a person; `no_printed_code` since the
+  read carries none) and `subject_rnc`. Caps on certificate, signature and
+  SignedInfo size, one signature and one enveloped reference are read before
+  any canonicalization; anything else is `not_checked`, never trusted. A failed
+  check never blocks capture, review or approval. Later revisions keep the
+  verification; a PDF render or any other source has `ecf_checks: null`.
 - POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt
   whose preparation grant was revoked to the owner's current grant, writes one
   `business_action_receipts` row (`rebind_attachment`, previous binding and

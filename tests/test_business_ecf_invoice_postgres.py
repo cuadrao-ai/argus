@@ -142,6 +142,15 @@ def test_a_hotel_ecf_becomes_one_draft_at_the_dop_total(actions, filename, media
     assert fiscal.ncf.state == "unknown"
     assert [s.kind for s in view.sources] == ["attachment"]
     assert view.sources[0].media_type == media_type
+    # What the file proved travels to the dossier; a PDF render proves nothing.
+    if media_type == "application/pdf":
+        assert view.ecf_checks is None
+    else:
+        states = {c.name: c.state for c in view.ecf_checks.checks}
+        assert (states["totals_arithmetic"], states["signature_integrity"]) == (
+            "verified",
+            "not_checked",
+        )
     with service.authority.pool.connection() as db:
         stored = db.execute(
             "select draft->>'media_type', batch->'metadata'->>'document_currency'"
