@@ -30,6 +30,8 @@ describe("a repeated email attachment in Correos recibidos", () => {
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
     const opened: unknown[] = [];
     const value = {
+      // The email rows read the Inbox's receipts to say when a saved part is still unread.
+      records: { inbox: null, notes: null, notesError: false, notesTruncated: false, workspace: null, overview: null, error: false },
       source: { emailIntake: async () => ({ enabled: true, receiving_address: "recibos-ab12@example.test" }), emailDeliveries: async () => [delivery("d2", "d1"), delivery("d1", null)], emailDelivery: async (id: string) => ({ ...delivery(id, null), text_body: "Adjunto" }) },
       openPanel: (panel: unknown) => opened.push(panel),
       revision: 0,
@@ -70,6 +72,8 @@ describe("the inbox opened from a receipt's first email", () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
     const value = {
+      // The email rows read the Inbox's receipts to say when a saved part is still unread.
+      records: { inbox: null, notes: null, notesError: false, notesTruncated: false, workspace: null, overview: null, error: false },
       source: { emailIntake: async () => ({ enabled: true, receiving_address: "recibos-ab12@example.test" }), emailDeliveries: async () => [delivery("d1", null, true)], emailDelivery: async (id: string) => ({ ...delivery(id, null, true), text_body: "Adjunto" }) },
       openPanel: () => undefined,
       revision: 0,
