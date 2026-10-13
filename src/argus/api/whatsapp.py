@@ -171,13 +171,18 @@ class DocumentsDestination:
             )
         except Exception as error:
             # A read that could not start is not "reading": the receipt waits
-            # saved, with the reason recorded, for the owner to prepare.
-            self.documents.release_queued(
-                user_id=owner_id,
-                connection_id=connection_id,
-                scope=scope.owner,
-                code=getattr(error, "code", type(error).__name__),
-            )
+            # saved, with the reason recorded, for the owner to prepare. If the
+            # release fails too, the original error is the one raised, with the
+            # release failure chained behind it.
+            try:
+                self.documents.release_queued(
+                    user_id=owner_id,
+                    connection_id=connection_id,
+                    scope=scope.owner,
+                    code=getattr(error, "code", type(error).__name__),
+                )
+            except Exception as release_error:  # noqa: BLE001
+                raise error from release_error
             raise
         await tasks()
         settled = self.documents.get(
@@ -251,6 +256,10 @@ def _as_owner(documents: DocumentsService, owner_id: str, scope):  # noqa: ANN00
     context = actions.resolve_actor(
         TrustedActor(actor_id=owner_id, actor_kind="member", space_id=scope.space_id)
     )
+    # Only the owner who received the receipt binds the read: a grant that
+    # resolves for someone else, however capable, is not that owner.
+    if str(context.owner_id) != str(owner_id):
+        raise CaptureFailed("business_permission_denied")
     if "prepare" not in actions.record_context(context).capabilities:
         raise CaptureFailed("business_permission_denied")
     return bind_to_grant(documents, documents.hub, actions, context, "prepare")[0]

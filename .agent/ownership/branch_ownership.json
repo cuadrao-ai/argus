@@ -1151,6 +1151,26 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-review-followups-20261012": {
+      "description": "Review follow-ups: the saved receipt line names only what the person can do now; the WhatsApp read binds only to the owner who received the receipt, checked explicitly; a release that fails after a read that could not start keeps the original error as the one raised.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/api/whatsapp.py",
+        "tests/test_whatsapp_read_followups.py",
+        "web/__tests__/receipt-read-notice.test.tsx",
+        "web/components/business-app/ReceiptReadNotice.tsx",
+        "web/components/business-app/ReceiptReviewPanel.tsx",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-revision-labels-20261012": {
       "description": "Every revision label a person sees names a facts revision the history lists: the dossier's latest revision on the review panel and the note dialog, and each saved note's own revision in the inbox and in search, carried by the captures API as revision beside the draft's current version.",
       "base_ref": "origin/codex/private-alpha-next",
