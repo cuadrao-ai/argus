@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, CircleDashed, ExternalLink } from "lucide-re
 import { useTranslation } from "react-i18next";
 import type { DgiiQr, EcfCheck, EcfVerification } from "@/lib/business-dossier";
 import { formatRelativeTime } from "./business-format";
-import { cardClass } from "./business-ui";
+import { cardClass, secondaryButtonClass } from "./business-ui";
 
 /**
  * What the e-CF file proved by itself, as five rows: the signature, the totals,
@@ -21,6 +21,26 @@ type RowState = "verified" | "failed" | "not_checked";
 export type EcfRow = { key: string; title: string; caption: string; state: RowState; /** Neutral sentences after the caption: facts that carry no state of their own. */ notes?: string[] };
 
 const UNSUPPORTED = new Set(["unsupported_algorithm", "reference_unsupported", "unsupported_transform", "unsupported_key"]);
+const DGII_HOSTS = new Set(["fc.dgii.gov.do", "ecf.dgii.gov.do"]);
+
+/** The link as the page will open it, or null: https, exactly a DGII consultation host, no userinfo, no port. The backend is not trusted for this. */
+export function dgiiLink(url: string | null | undefined): string | null {
+  if (!url) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:" || !DGII_HOSTS.has(parsed.hostname) || parsed.username || parsed.password || parsed.port) return null;
+  return parsed.href;
+}
+
+/** A check detail value "read=X qr=Y" as its two values; anything else reads as the whole text. */
+function readAndQr(value: string | undefined): { read: string; qr: string } {
+  const match = /^read=(.*) qr=(.*)$/.exec(value ?? "");
+  return match ? { read: match[1], qr: match[2] } : { read: value ?? "", qr: "" };
+}
 
 function stateOf(check: EcfCheck | undefined): RowState {
   return check?.state === "verified" || check?.state === "failed" ? check.state : "not_checked";
@@ -124,7 +144,12 @@ export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
       qr.caption = t("business.dossier.ecf_qr_match", "The QR code matches what was read");
     } else if (stateOf(match) === "failed") {
       qr.state = "failed";
-      qr.caption = t("business.dossier.ecf_qr_differs", "Review: the QR code does not match what was read in {{fields}}", { fields: Object.keys(match?.detail ?? {}).map((field) => t(`business.dossier.ecf_field_${field}`, field)).join(", ") });
+      // Both values, so the person sees what differs without opening anything.
+      const pairs = Object.entries(match?.detail ?? {}).map(([field, value]) => {
+        const { read, qr: stated } = readAndQr(value);
+        return t("business.dossier.ecf_qr_pair", "{{field}}: read {{read}}, QR {{qr}}", { field: t(`business.dossier.ecf_field_${field}`, field), read, qr: stated });
+      });
+      qr.caption = t("business.dossier.ecf_qr_differs", "Review: the QR code does not match what was read. {{pairs}}", { pairs: pairs.join("; ") });
     } else {
       qr.caption = t("business.dossier.ecf_qr_no_read", "QR code read; nothing read from the receipt to compare it with");
     }
@@ -151,6 +176,7 @@ export default function ReceiptEcfChecks({ verification, qr = null }: { verifica
     : null;
   const when = formatRelativeTime(verification.checked_at ?? null, locale);
   const checkedAt = when ? t("business.dossier.ecf_checked_ago", "checked {{when}}", { when }) : "";
+  const link = dgiiLink(qr?.url);
   return (
     <section className={cardClass} aria-labelledby="receipt-ecf-checks-title" data-testid="receipt-ecf-checks">
       <h3 id="receipt-ecf-checks-title" className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.ecf_title", "Electronic invoice verification")}</h3>
@@ -171,9 +197,9 @@ export default function ReceiptEcfChecks({ verification, qr = null }: { verifica
           );
         })}
       </ul>
-      {qr?.url ? (
+      {link ? (
         <div className="mt-4">
-          <a href={qr.url} target="_blank" rel="noopener noreferrer" data-testid="receipt-dgii-verify" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-[14px] text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white">
+          <a href={link} target="_blank" rel="noopener noreferrer" data-testid="receipt-dgii-verify" className={secondaryButtonClass}>
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
             {t("business.dossier.ecf_qr_verify", "Check on DGII")}
           </a>

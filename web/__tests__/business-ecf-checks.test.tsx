@@ -79,10 +79,39 @@ describe("the electronic invoice verification card", () => {
     assert.ok(!bare.includes("Verificar en DGII") && !bare.includes('data-row="qr"'));
   });
 
+  test("the page checks the link itself: anything but https on a DGII host with no userinfo or port renders no link", async () => {
+    const { dgiiLink } = await import("@/components/business-app/ReceiptEcfChecks");
+    const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
+    const dossier = await fixture.dossier(dossierFixtureIds.fiscal);
+    const instance = await i18n("es-419");
+    const good = "https://fc.dgii.gov.do/eCF/ConsultaTimbreFC?RncEmisor=1&ENCF=E320000000001";
+    assert.equal(dgiiLink(good), good);
+    for (const evil of [
+      "https://evil.example/eCF/ConsultaTimbreFC?RncEmisor=1&ENCF=E320000000001",
+      "https://fc.dgii.gov.do.evil.example/x",
+      "http://fc.dgii.gov.do/x",
+      "https://user:pass@fc.dgii.gov.do/x",
+      "https://fc.dgii.gov.do:8443/x",
+      "javascript:alert(1)",
+      "data:text/html,hola",
+      "not a url",
+      "",
+    ]) {
+      assert.equal(dgiiLink(evil), null, evil);
+      const html = renderToStaticMarkup(
+        <I18nextProvider i18n={instance}>
+          <ReceiptEcfChecks verification={dossier.ecf_checks} qr={{ ...dossier.dgii_qr!, url: evil }} />
+        </I18nextProvider>,
+      );
+      assert.ok(!html.includes("receipt-dgii-verify") && !html.includes("<a "), evil);
+      assert.ok(!html.includes("javascript:"), evil);
+    }
+  });
+
   test("a QR that differs from the read, or with nothing to compare, reads as its words", async () => {
     const differs = await rows({ ...BASE, checks: [{ name: "qr_present", state: "verified", code: null, detail: {} }, { name: "qr_matches_read", state: "failed", code: "qr_differs", detail: { rnc: "read=1 qr=2", total: "read=1 qr=2" } }] });
     assert.equal(differs[5].state, "failed");
-    assert.equal(differs[5].caption, "Revisar: el código QR no coincide con lo leído en RNC, total");
+    assert.equal(differs[5].caption, "Revisar: el código QR no coincide con lo leído. RNC: leído 1, QR 2; total: leído 1, QR 2");
     const noRead = await rows({ ...BASE, checks: [{ name: "qr_present", state: "verified", code: null, detail: {} }, { name: "qr_matches_read", state: "not_checked", code: "no_read", detail: {} }] });
     assert.equal(noRead[5].caption, "Código QR leído; no hay datos leídos del recibo para comparar");
     const missing = await rows({ ...BASE, checks: [{ name: "qr_present", state: "not_checked", code: "no_qr", detail: {} }] });
