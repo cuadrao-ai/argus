@@ -1227,11 +1227,14 @@
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
+        "web/__tests__/copy-code-button.dom.test.tsx",
         "web/__tests__/copy-text.test.ts",
         "web/__tests__/whatsapp-link-modal.test.tsx",
+        "web/bun.lock",
         "web/components/settings/CopyCodeButton.tsx",
         "web/components/settings/WhatsAppLinkModal.tsx",
         "web/lib/copy-text.ts",
+        "web/package.json",
         "web/public/locales/en/common.json",
         "web/public/locales/es-419/common.json"
       ],
