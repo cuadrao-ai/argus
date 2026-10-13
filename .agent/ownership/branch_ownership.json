@@ -567,6 +567,25 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-default-spanish-20261013": {
+      "description": "On a Cuadrao Business build Spanish (es-419) is the language a visitor sees first and the browser's language never decides; a choice saved on the device does, and the account's saved language rules once signed in. The auth page gets a footer link named by the other language (English / Español) that switches at once and is saved on the account at sign-in. Consumer builds keep English and browser detection.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/ARCHITECTURE.md",
+        "web/__tests__/landing-language.test.ts",
+        "web/__tests__/profile-propagation.test.ts",
+        "web/app/page.tsx",
+        "web/lib/i18n.ts",
+        "web/lib/language-features.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-dgii-qr-20261012": {
       "description": "DGII QR on Dominican e-invoices: decoded deterministically from the page images with zxing-cpp, only fc.dgii.gov.do and ecf.dgii.gov.do links kept as a typed fact on the draft, two check rows (qr_present, qr_matches_read), and a typed merge step after decode and read that fills only what the read left empty with origin qr_decoded; a mismatch fills nothing and is a row to review; Cuadrao never fetches the link.",
       "base_ref": "origin/codex/private-alpha-next",
