@@ -1,0 +1,426 @@
+# Cuadrao data-use register (DRAFT, not published, not wired into any product code).
+# One entry per data flow. Read docs/legal/data-use-register.md before using it.
+#
+# Conventions
+#   "[A CONFIRMAR: ...]"  an unknown fact, also listed in docs/legal/OPEN_QUESTIONS.md.
+#   training_use          always "to_confirm" until the provider's policy is confirmed
+#                         for the exact model and route. Never answer "no" without proof.
+#   consent.scope         the existing consent owner in the repo, or "none_persisted"
+#                         when the repo has no persisted consent for the flow yet.
+#   policy_anchor         add the prefix "es-" or "en-" to get the id in privacy-policy.md.
+#   sources               repo paths that back the factual claims of the entry.
+
+version: 1
+status: draft
+legal_operator: "{{OPERADOR_LEGAL}}"
+reviewed_by_counsel: false
+
+consent_scopes:
+  business_whatsapp_draft_assistance:
+    scope_version: 1
+    meaning: "Business agent over the linked WhatsApp number: message text and authorized draft context go to the model route."
+    owner: "src/argus/domain/ingestion/whatsapp/ai_consent.py (AGENT_SCOPE)"
+    store: "public.business_whatsapp_ai_consents"
+  business_whatsapp_receipt_reading:
+    scope_version: 2
+    meaning: "Receipts sent by WhatsApp are read by a vision model through OpenRouter."
+    owner: "src/argus/domain/ingestion/whatsapp/ai_consent.py (RECEIPT_SCOPE)"
+    store: "public.business_whatsapp_ai_consents"
+  document_extraction_draft:
+    meaning: "Per-document permission sent as header X-Extraction-Consent: true before AI preparation of that document."
+    owner: "src/argus/api/routers/financial_documents.py and src/argus/api/routers/business.py"
+    store: "document draft field consent"
+  memory_consent_v1:
+    meaning: "Remembering and indexing a confirmed memory."
+    owner: "src/argus/memory/contracts.py (argus.memory-consent/v1)"
+    store: "confirmed memory consent receipt"
+
+flows:
+  - id: personal_account_identity
+    product: personal
+    data_categories: [email, name, provider_identity, language, session_tokens]
+    purpose: "Sign in, keep the profile, restore the session."
+    recipient: [Supabase]
+    sent: "Email, provider identity, profile fields, session tokens."
+    retention: "While the account is active. Deleted by in-app account deletion. Backups: [A CONFIRMAR: Supabase plan and backup window]"
+    training_use: not_applicable
+    consent:
+      scope: none_required
+      reason: "Needed to provide the account."
+    consent_text:
+      es: ""
+      en: ""
+    policy_anchor: data-collected
+    sources:
+      - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
+      - docs/API_CONTRACT.md
+
+  - id: personal_financial_records
+    product: personal
+    data_categories: [accounts, balances, transactions, plans, debts, household_sharing]
+    purpose: "Keep and show the person's financial records and what they choose to share with a household."
+    recipient: [Supabase]
+    sent: "Records the person enters or imports."
+    retention: "While the account is active. Account deletion removes them. Decision 17 rules apply to former household members. Backups: [A CONFIRMAR]"
+    training_use: not_applicable
+    consent:
+      scope: none_required
+      reason: "Needed to provide the app. Sharing is a separate per-account choice in the app."
+    consent_text:
+      es: ""
+      en: ""
+    policy_anchor: data-collected
+    sources:
+      - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
+      - docs/specs/argus-decision-log.md
+
+  - id: personal_chat_ai
+    product: personal
+    data_categories: [chat_messages, conversation_context, authorized_artifacts]
+    purpose: "Understand a question and answer it."
+    recipient: [OpenRouter, "model providers behind OpenRouter"]
+    sent: "The message, relevant conversation context and authorized artifacts."
+    retention: "Chat is stored by Cuadrao until the person deletes it or deletes the account. Provider retention: [A CONFIRMAR per model]"
+    training_use: to_confirm
+    consent:
+      scope: none_persisted
+      note: "Preflight: no shared versioned transmission consent exists yet (issue 828). Apple guideline 5.1.2(i) needs explicit permission before release. [A CONFIRMAR: consent design]"
+    consent_text:
+      es: "[A CONFIRMAR #828] Cuadrao envía tus mensajes a un proveedor de IA para responderte."
+      en: "[A CONFIRMAR #828] Cuadrao sends your messages to an AI provider to answer you."
+    policy_anchor: ai-providers
+    sources:
+      - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
+      - src/argus/llm/openrouter.py
+
+  - id: personal_document_extraction
+    product: personal
+    data_categories: [source_document_bytes, filename, media_type, extracted_amounts, merchant, date]
+    purpose: "Read a receipt or statement the person chose and prepare a draft to review."
+    recipient: [OpenRouter, "vision model behind OpenRouter"]
+    sent: "The chosen file and its type."
+    retention: "The source file and draft stay in a private store until deleted by the person or by account deletion. Provider retention: [A CONFIRMAR per model]"
+    training_use: to_confirm
+    consent:
+      scope: document_extraction_draft
+    consent_text:
+      es: "Permito que Cuadrao lea este documento con IA para preparar un borrador."
+      en: "I allow Cuadrao to read this document with AI to prepare a draft."
+    policy_anchor: ai-receipts
+    sources:
+      - src/argus/api/routers/financial_documents.py
+      - src/argus/domain/ingestion/documents/service.py
+      - docs/API_CONTRACT.md
+
+  - id: personal_memory_assessment
+    product: personal_full
+    data_categories: [memory_candidate_label, memory_candidate_value]
+    purpose: "Check whether a candidate memory is sensitive before it is stored."
+    recipient: [OpenRouter]
+    sent: "The candidate text, including text later refused as sensitive."
+    retention: "Not stored by Cuadrao when refused. Provider retention: [A CONFIRMAR]"
+    training_use: to_confirm
+    consent:
+      scope: none_persisted
+      note: "Preflight: the memory consent receipt covers remembering, not this transmission. [A CONFIRMAR #828]"
+    consent_text:
+      es: "[A CONFIRMAR #828] Para guardar un recuerdo, Cuadrao revisa su texto con un proveedor de IA."
+      en: "[A CONFIRMAR #828] To save a memory, Cuadrao checks its text with an AI provider."
+    policy_anchor: ai-memory
+    sources:
+      - src/argus/llm/memory_sensitivity.py
+      - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
+
+  - id: personal_memory_embeddings
+    product: personal_full
+    data_categories: [confirmed_memory_text, search_query]
+    purpose: "Find a remembered fact again."
+    recipient: [Perplexity]
+    sent: "Confirmed memory text and the search query, for embeddings."
+    retention: "Vectors stay in Cuadrao's database until the memory is forgotten or the account is deleted. Perplexity embeddings retention: [A CONFIRMAR]"
+    training_use: to_confirm
+    consent:
+      scope: memory_consent_v1
+      note: "Covers remembering. Whether it also covers transmission is [A CONFIRMAR #828]."
+    consent_text:
+      es: "Cuadrao puede recordar esto y usar un proveedor externo para encontrarlo después."
+      en: "Cuadrao can remember this and use an outside provider to find it later."
+    policy_anchor: ai-memory
+    sources:
+      - src/argus/llm/memory_embedding.py
+      - src/argus/memory/contracts.py
+      - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
+
+  - id: personal_finance_research
+    product: personal_full
+    data_categories: [research_query, research_context]
+    purpose: "Answer a finance question with public market sources."
+    recipient: [Perplexity]
+    sent: "The question and the context supplied for that job. [A CONFIRMAR: exact fields per job, preflight asks for an audit]"
+    retention: "Provider retention: Perplexity states zero retention for Chat Completions. [A CONFIRMAR for the route in use]"
+    training_use: to_confirm
+    consent:
+      scope: none_persisted
+    consent_text:
+      es: "[A CONFIRMAR #828] Cuadrao envía tu pregunta a un servicio de búsqueda financiera."
+      en: "[A CONFIRMAR #828] Cuadrao sends your question to a financial search service."
+    policy_anchor: ai-providers
+    sources:
+      - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
+      - docs/specs/argus-decision-log.md
+
+  - id: personal_full_agent
+    product: personal_full
+    data_categories: [chat_messages, financial_records_in_context]
+    purpose: "The in-app AI agent of the paid Full tier."
+    recipient: [OpenRouter, "[A CONFIRMAR: models and any voice provider]"]
+    sent: "[A CONFIRMAR: first-release jobs are not settled, issue 826]"
+    retention: "[A CONFIRMAR]"
+    training_use: to_confirm
+    consent:
+      scope: none_persisted
+    consent_text:
+      es: "[A CONFIRMAR #826 y #828]"
+      en: "[A CONFIRMAR #826 and #828]"
+    policy_anchor: ai-providers
+    sources:
+      - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
+
+  - id: personal_subscription
+    product: personal_full
+    data_categories: [purchase_status, subscription_receipt]
+    purpose: "Unlock the Full tier."
+    recipient: [Apple]
+    sent: "[A CONFIRMAR: no purchase implementation is assigned in the repo today]"
+    retention: "[A CONFIRMAR]"
+    training_use: not_applicable
+    consent:
+      scope: none_required
+    consent_text:
+      es: ""
+      en: ""
+    policy_anchor: subscriptions
+    sources:
+      - docs/PRODUCT.md
+      - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
+
+  - id: product_analytics
+    product: [personal, business]
+    data_categories: [actor_hash, typed_events, fixed_technical_properties]
+    purpose: "Measure product use. No profiles, no session replay."
+    recipient: [PostHog]
+    sent: "A keyed hash of the actor and typed events. Every reviewed payload sets person profiling off."
+    retention: "[A CONFIRMAR: PostHog plan and retention]. Deletion of events is asynchronous and off by default until the provider is proven."
+    training_use: not_applicable
+    consent:
+      scope: none_persisted
+      note: "[A CONFIRMAR: lawyer to decide whether analytics needs consent in the target countries]"
+    consent_text:
+      es: ""
+      en: ""
+    policy_anchor: analytics
+    sources:
+      - docs/ARCHITECTURE.md
+      - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
+
+  - id: business_records
+    product: business
+    data_categories: [business_profile, accounts, expenses, receipts_originals, revisions, approvals]
+    purpose: "Keep the Business's records, source links and revision history."
+    recipient: [Supabase]
+    sent: "Records the owner or an authorized person enters or approves."
+    retention: "Kept for the owner, who is the controller. The owner's fiscal record duty (founder states 10 years: [A CONFIRMAR with an accountant]) is the owner's. Backups: [A CONFIRMAR]"
+    training_use: not_applicable
+    consent:
+      scope: none_required
+      reason: "Needed to provide the service the owner asked for."
+    consent_text:
+      es: ""
+      en: ""
+    policy_anchor: data-collected
+    sources:
+      - docs/DATA_MODEL.md
+      - docs/specs/lanes/cuadrao-business-agent-execution-spec.md
+
+  - id: business_receipt_web_upload
+    product: business
+    data_categories: [receipt_file, extracted_merchant, amount, date, tax_numbers]
+    purpose: "Read a receipt uploaded on the web and prepare a draft for human approval."
+    recipient: [OpenRouter, "vision model behind OpenRouter"]
+    sent: "The receipt file."
+    retention: "Source and draft stay with the Business records. Provider retention: [A CONFIRMAR per model]"
+    training_use: to_confirm
+    consent:
+      scope: document_extraction_draft
+    consent_text:
+      es: "Permito que Cuadrao lea este recibo con IA. Registrar dinero siempre necesita mi aprobación."
+      en: "I allow Cuadrao to read this receipt with AI. Recording money always needs my approval."
+    policy_anchor: ai-receipts
+    sources:
+      - src/argus/api/routers/business.py
+      - docs/API_CONTRACT.md
+
+  - id: business_whatsapp_capture
+    product: business
+    data_categories: [phone_number_digest, last4, message_text, media_bytes, caption]
+    purpose: "Link the owner's own number and capture receipts they send. Capture alone sends nothing to an AI provider."
+    recipient: [Meta, Supabase]
+    sent: "Meta delivers the message. Cuadrao downloads the media from Meta. Replies go back through Meta."
+    retention: "Phone numbers and provider message ids are kept only as keyed digests, plus the last 4 digits. Media: with the receipt record. Meta's own retention: [A CONFIRMAR]"
+    training_use: not_applicable
+    consent:
+      scope: none_persisted
+      note: "Linking needs proof of possession (one-time code). [A CONFIRMAR: WhatsApp phone-number consent wording, see OPEN_QUESTIONS]"
+    consent_text:
+      es: "[A CONFIRMAR] Vincular tu número de WhatsApp para recibir tus recibos."
+      en: "[A CONFIRMAR] Link your WhatsApp number to receive your receipts."
+    policy_anchor: whatsapp
+    sources:
+      - supabase/migrations/20261008130000_whatsapp_intake.sql
+      - docs/specs/lanes/cuadrao-whatsapp-intake.md
+      - docs/API_CONTRACT.md
+
+  - id: business_whatsapp_receipt_reading
+    product: business
+    data_categories: [receipt_photo_or_pdf]
+    purpose: "Read merchant, amount and date from receipts sent by WhatsApp."
+    recipient: [OpenRouter, "vision model behind OpenRouter"]
+    sent: "The photo or PDF."
+    retention: "The consent record is kept with its text and route. Provider retention: [A CONFIRMAR per model]"
+    training_use: to_confirm
+    consent:
+      scope: business_whatsapp_receipt_reading
+    consent_text:
+      es: "Cuadrao lee con IA los recibos que envías por WhatsApp: la foto o el PDF va a OpenRouter y al modelo de abajo, solo para leer comercio, monto y fecha. Puedes desactivarlo cuando quieras. Registrar dinero siempre necesita tu aprobación."
+      en: "Cuadrao reads the receipts you send by WhatsApp with AI: the photo or PDF goes to OpenRouter and the model below, only to read the merchant, amount and date. You can turn this off at any time. Recording money always needs your approval."
+    policy_anchor: ai-receipts
+    sources:
+      - src/argus/domain/ingestion/whatsapp/ai_consent.py
+      - src/argus/domain/ingestion/whatsapp/receipt_consent.py
+      - supabase/migrations/20261012090000_whatsapp_receipt_reading_consent.sql
+
+  - id: business_whatsapp_agent
+    product: business
+    data_categories: [message_text, authorized_draft_context]
+    purpose: "Understand, clarify and prepare drafts in the owner's WhatsApp conversation."
+    recipient: [OpenRouter, "models listed as Business candidates in the code"]
+    sent: "Message text and necessary authorized draft context."
+    retention: "Conversation and drafts stay with the Business records. Provider retention: [A CONFIRMAR per model]"
+    training_use: to_confirm
+    consent:
+      scope: business_whatsapp_draft_assistance
+    consent_text:
+      es: "[Traducción propuesta, a confirmar] Permite la asistencia con IA para el WhatsApp vinculado de este negocio: se envía el texto de tu mensaje y el contexto autorizado necesario de los borradores a los proveedores indicados, para entender, aclarar y preparar borradores. Puedes revocar este permiso. Registrar un gasto siempre necesita aprobación humana aparte."
+      en: "Allow AI assistance for this Business's linked WhatsApp number: send your message text and necessary authorized draft context through the disclosed provider routes to understand, clarify and prepare drafts. You can revoke this permission. Recording an expense still requires separate human approval."
+    policy_anchor: ai-business-agent
+    sources:
+      - src/argus/domain/ingestion/whatsapp/ai_consent.py
+      - src/argus/agent_runtime/business/interpretation.py
+      - src/argus/agent_runtime/business/runner.py
+
+  - id: business_email_intake
+    product: business
+    data_categories: [sender_address, subject, email_body, attachments]
+    purpose: "Capture receipts sent to the Business's own receiving address. Capture alone sends nothing to an AI provider."
+    recipient: [Resend, Supabase]
+    sent: "Resend receives the email and calls Cuadrao. Cuadrao fetches the message and attachments."
+    retention: "Attachments become saved documents in the Business records. Resend retention: [A CONFIRMAR]"
+    training_use: not_applicable
+    consent:
+      scope: none_persisted
+      note: "Every captured part is a saved document with consent false. AI reading waits for the owner's choice."
+    consent_text:
+      es: ""
+      en: ""
+    policy_anchor: email-intake
+    sources:
+      - docs/API_CONTRACT.md
+
+  - id: business_accountant_access
+    product: business
+    data_categories: [grant, capabilities, expiry, issuer]
+    purpose: "Let a named accountant read and prepare in one Business."
+    recipient: [Supabase]
+    sent: "Nothing leaves Cuadrao. The accountant uses the web view."
+    retention: "Grant history is kept with the Business records."
+    training_use: not_applicable
+    consent:
+      scope: none_persisted
+      note: "The owner issues the grant. First acceptance uses one direct named-accountant grant."
+    consent_text:
+      es: ""
+      en: ""
+    policy_anchor: accountant-access
+    sources:
+      - docs/specs/lanes/cuadrao-business-agent-execution-spec.md
+      - supabase/migrations/20261010223000_business_contract_foundation.sql
+
+  - id: business_export
+    product: business
+    data_categories: [expenses, receipts_originals]
+    purpose: "Give the owner or accountant a CSV and Excel package with the original evidence."
+    recipient: [the person who exports]
+    sent: "A file downloaded by an authorized person."
+    retention: "The exported file is outside Cuadrao's control once downloaded."
+    training_use: not_applicable
+    consent:
+      scope: none_required
+    consent_text:
+      es: ""
+      en: ""
+    policy_anchor: accountant-access
+    sources:
+      - docs/specs/lanes/cuadrao-business-agent-execution-spec.md
+
+  - id: marketing_signup
+    product: marketing
+    data_categories: [email, language, consent_version]
+    purpose: "Send one availability notice."
+    recipient: [Supabase, Resend]
+    sent: "The email address."
+    retention: "Until removal. Removal erases the address and keeps a digest as a suppression record."
+    training_use: not_applicable
+    consent:
+      scope: marketing_signup_consent_version
+      note: "The version is stored on each row. Text lives in marketing/lib/forms/config.ts and the site copy."
+    consent_text:
+      es: "[Tomar el texto vigente del sitio al publicar]"
+      en: "[Take the current site text at publication]"
+    policy_anchor: marketing-site
+    sources:
+      - docs/specs/cuadrao-marketing-forms-contract.md
+
+  - id: marketing_inquiry
+    product: marketing
+    data_categories: [name_or_email, message]
+    purpose: "Answer a visitor's inquiry."
+    recipient: [Resend]
+    sent: "The message the visitor writes."
+    retention: "Kept as an email in Cuadrao's mailbox. No inquiry table exists."
+    training_use: not_applicable
+    consent:
+      scope: none_required
+    consent_text:
+      es: ""
+      en: ""
+    policy_anchor: marketing-site
+    sources:
+      - docs/specs/cuadrao-marketing-forms-contract.md
+
+  - id: hosting_and_logs
+    product: [personal, business, marketing]
+    data_categories: [request_metadata, sanitized_stage_status_cost, error_diagnostics]
+    purpose: "Run, secure and debug the service."
+    recipient: [Render, Supabase]
+    sent: "Technical request data."
+    retention: "[A CONFIRMAR: Render log retention and Supabase backup window]"
+    training_use: not_applicable
+    consent:
+      scope: none_required
+    consent_text:
+      es: ""
+      en: ""
+    policy_anchor: security
+    sources:
+      - docs/reports/2026-10-05-cuadrao-privacy-preflight.md
+      - docs/ARCHITECTURE.md
