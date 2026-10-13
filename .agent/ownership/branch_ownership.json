@@ -17,6 +17,21 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-approval-line-20261013": {
+      "description": "The line under the approve control never tells a person who can approve that someone with approval permission must; when the record is not an expense yet the blockers card already names what is missing. Pure approvalLine helper with a unit test; no backend change, no new copy.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-dossier.test.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-business-actions-20261010": {
       "description": "Actions-owned source delta; M1 and C0 dependencies must land and reconcile before full READY gate.",
       "base_ref": "origin/codex/private-alpha-next",

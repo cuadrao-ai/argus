@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
-import { finishPeriodExportRequest, saveBlobDownload, startPeriodExportRequest, ReceiptApprovalGuidance, ReceiptPeriodExport, ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
+import { approvalLine, finishPeriodExportRequest, saveBlobDownload, startPeriodExportRequest, ReceiptApprovalGuidance, ReceiptPeriodExport, ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
 import { factsRevision, type BusinessDossier } from "@/lib/business-dossier";
 import { businessExportPeriodValid, fetchBusinessExport, approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
 import { withBusinessSpace } from "@/components/business-app/business-data";
@@ -290,4 +290,15 @@ test("the header revision is the latest facts revision the history lists, not th
   const settled = { ...ready, version: 4, history: ready.history.filter((r) => r.version <= 2) };
   assert.equal(factsRevision(settled), 2);
   assert.equal(factsRevision({ version: 3, history: [] }), 3);
+});
+
+test("the line under approve never tells a person who can approve that someone else must", () => {
+  // Owner (prepare + approve) on a note whose kind is still unknown: no permission line; the blockers card names the kind.
+  assert.equal(approvalLine(true, true, false), null);
+  assert.equal(approvalLine(true, true, true), "approval_effect");
+  assert.equal(approvalLine(true, false, true), "approval_effect");
+  // Prepare-only access reads the permission line; read-only access reads its own.
+  assert.equal(approvalLine(false, true, false), "prepare_only");
+  assert.equal(approvalLine(false, true, true), "prepare_only");
+  assert.equal(approvalLine(false, false, true), "read_only");
 });
