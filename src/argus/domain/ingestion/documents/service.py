@@ -333,6 +333,15 @@ class DocumentsService:
             connection_id, replayed, len(batch.candidates) if batch else 0, draft.status
         )
 
+    def release_queued(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope, code: str
+    ) -> None:
+        """A queued read that could not start waits saved, unread, with its reason."""
+
+        draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if draft.status == "queued":
+            self._update(user_id, draft, status="saved", consent=False, error_code=code)
+
     def _reading_allowed(self, user_id: str, connection_id: str) -> bool:
         return self.read_gate is None or self.read_gate(user_id, connection_id)
 
