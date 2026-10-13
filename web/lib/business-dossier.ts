@@ -1,8 +1,8 @@
 import type { BusinessAccount } from "./business-api";
 
 export type BusinessFact<T> =
-  | { state: "known"; value: T; origin: "extracted" | "owner_stated" | "member_set" | "matched" | "default"; verified: boolean; source_ids: string[] }
-  | { state: "unknown"; value: null; origin: "extracted" | "owner_stated" | "member_set" | "matched" | null; verified: false; source_ids: string[] }
+  | { state: "known"; value: T; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | "default"; verified: boolean; source_ids: string[] }
+  | { state: "unknown"; value: null; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | null; verified: false; source_ids: string[] }
   | { state: "owner_does_not_know"; value: null; origin: "owner_stated" | "member_set"; verified: false; source_ids: string[] };
 
 export type BusinessFunding = { kind: "business_account"; account_id: string } | { kind: "owner_funds" };
@@ -71,7 +71,9 @@ export function factsRevision(dossier: Pick<BusinessDossier, "version" | "histor
   return dossier.history.length ? Math.max(...dossier.history.map((revision) => revision.version)) : dossier.version;
 }
 
-export type EcfCheckName = "signature_integrity" | "totals_arithmetic" | "read_matches_xml" | "certificate_validity" | "certificate_issuer" | "subject_rnc" | "dgii_accepted" | "security_code";
+export type EcfCheckName = "signature_integrity" | "totals_arithmetic" | "read_matches_xml" | "certificate_validity" | "certificate_issuer" | "subject_rnc" | "dgii_accepted" | "security_code" | "qr_present" | "qr_matches_read";
+/** The DGII consultation link a receipt's QR carried; a person opens it, Cuadrao never fetches it. */
+export type DgiiQr = { url: string; host: string; rnc_emisor: string; encf: string; monto_total: string | null; codigo_seguridad: string | null; fecha_emision: string | null; fecha_firma: string | null; rnc_comprador: string | null };
 export type EcfCheckState = "verified" | "failed" | "not_checked";
 /** One fact the e-CF file proved, or the reason it was not checked; never a blocker. */
 export type EcfCheck = { name: EcfCheckName; state: EcfCheckState; code: string | null; detail: Record<string, string> };
@@ -80,6 +82,8 @@ export type EcfVerification = { encf: string | null; tipo_ecf: string | null; ch
 export type BusinessDossier = BusinessRecordContext & {
   /** What the e-CF XML proved by itself; null for any other source. */
   ecf_checks?: EcfVerification | null;
+  /** The DGII QR the receipt carried; null when there was none. */
+  dgii_qr?: DgiiQr | null;
   read_purchases?: BusinessReadPurchase[];
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
   read_total?: string | null;

@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, CircleDashed } from "lucide-react";
+import { AlertCircle, CheckCircle2, CircleDashed, ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { EcfCheck, EcfVerification } from "@/lib/business-dossier";
+import type { DgiiQr, EcfCheck, EcfVerification } from "@/lib/business-dossier";
 import { formatRelativeTime } from "./business-format";
-import { cardClass } from "./business-ui";
+import { cardClass, secondaryButtonClass } from "./business-ui";
 
 /**
  * What the e-CF file proved by itself, as five rows: the signature, the totals,
@@ -21,6 +21,26 @@ type RowState = "verified" | "failed" | "not_checked";
 export type EcfRow = { key: string; title: string; caption: string; state: RowState; /** Neutral sentences after the caption: facts that carry no state of their own. */ notes?: string[] };
 
 const UNSUPPORTED = new Set(["unsupported_algorithm", "reference_unsupported", "unsupported_transform", "unsupported_key"]);
+const DGII_HOSTS = new Set(["fc.dgii.gov.do", "ecf.dgii.gov.do"]);
+
+/** The link as the page will open it, or null: https, exactly a DGII consultation host, no userinfo, no port. The backend is not trusted for this. */
+export function dgiiLink(url: string | null | undefined): string | null {
+  if (!url) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:" || !DGII_HOSTS.has(parsed.hostname) || parsed.username || parsed.password || parsed.port) return null;
+  return parsed.href;
+}
+
+/** A check detail value "read=X qr=Y" as its two values; anything else reads as the whole text. */
+function readAndQr(value: string | undefined): { read: string; qr: string } {
+  const match = /^read=(.*) qr=(.*)$/.exec(value ?? "");
+  return match ? { read: match[1], qr: match[2] } : { read: value ?? "", qr: "" };
+}
 
 function stateOf(check: EcfCheck | undefined): RowState {
   return check?.state === "verified" || check?.state === "failed" ? check.state : "not_checked";
@@ -111,7 +131,31 @@ export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
       security?.detail.expected ? t("business.dossier.ecf_security_expected", "Expected security code: {{code}}.", { code: security.detail.expected }) : t("business.dossier.ecf_security_unavailable", "Security code not available."),
     ].join(" "),
   };
-  return [signature, sums, reading, certificate, dgii];
+  const rows = [signature, sums, reading, certificate, dgii];
+  // The QR row exists only for a record whose verification looked for one.
+  const present = by.get("qr_present");
+  const match = by.get("qr_matches_read");
+  if (present || match) {
+    const qr: EcfRow = { key: "qr", title: t("business.dossier.ecf_row_qr", "QR code"), state: "not_checked", caption: "" };
+    if (stateOf(present) !== "verified") {
+      qr.caption = t("business.dossier.ecf_qr_missing", "No readable QR code");
+    } else if (stateOf(match) === "verified") {
+      qr.state = "verified";
+      qr.caption = t("business.dossier.ecf_qr_match", "The QR code matches what was read");
+    } else if (stateOf(match) === "failed") {
+      qr.state = "failed";
+      // Both values, so the person sees what differs without opening anything.
+      const pairs = Object.entries(match?.detail ?? {}).map(([field, value]) => {
+        const { read, qr: stated } = readAndQr(value);
+        return t("business.dossier.ecf_qr_pair", "{{field}}: read {{read}}, QR {{qr}}", { field: t(`business.dossier.ecf_field_${field}`, field), read, qr: stated });
+      });
+      qr.caption = t("business.dossier.ecf_qr_differs", "Review: the QR code does not match what was read. {{pairs}}", { pairs: pairs.join("; ") });
+    } else {
+      qr.caption = t("business.dossier.ecf_qr_no_read", "QR code read; nothing read from the receipt to compare it with");
+    }
+    rows.push(qr);
+  }
+  return rows;
 }
 
 const STATE_STYLE: Record<RowState, { Icon: typeof CheckCircle2; className: string }> = {
@@ -120,7 +164,7 @@ const STATE_STYLE: Record<RowState, { Icon: typeof CheckCircle2; className: stri
   not_checked: { Icon: CircleDashed, className: "text-black/45 dark:text-white/45" },
 };
 
-export default function ReceiptEcfChecks({ verification }: { verification: EcfVerification | null | undefined }) {
+export default function ReceiptEcfChecks({ verification, qr = null }: { verification: EcfVerification | null | undefined; qr?: DgiiQr | null }) {
   const { t, i18n } = useTranslation();
   if (!verification) return null;
   const locale = i18n.resolvedLanguage ?? "en";
@@ -132,6 +176,7 @@ export default function ReceiptEcfChecks({ verification }: { verification: EcfVe
     : null;
   const when = formatRelativeTime(verification.checked_at ?? null, locale);
   const checkedAt = when ? t("business.dossier.ecf_checked_ago", "checked {{when}}", { when }) : "";
+  const link = dgiiLink(qr?.url);
   return (
     <section className={cardClass} aria-labelledby="receipt-ecf-checks-title" data-testid="receipt-ecf-checks">
       <h3 id="receipt-ecf-checks-title" className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.ecf_title", "Electronic invoice verification")}</h3>
@@ -152,6 +197,15 @@ export default function ReceiptEcfChecks({ verification }: { verification: EcfVe
           );
         })}
       </ul>
+      {link ? (
+        <div className="mt-4">
+          <a href={link} target="_blank" rel="noopener noreferrer" data-testid="receipt-dgii-verify" className={secondaryButtonClass}>
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            {t("business.dossier.ecf_qr_verify", "Check on DGII")}
+          </a>
+          <p className="mt-2 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.ecf_qr_verify_note", "Opens DGII's official consultation page in a new tab. Cuadrao sends nothing.")}</p>
+        </div>
+      ) : null}
       <p className="mt-4 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.ecf_note", "What the file proves by itself. Nothing here confirms DGII accepted the invoice; a row marked Review does not block approval.")}</p>
     </section>
   );

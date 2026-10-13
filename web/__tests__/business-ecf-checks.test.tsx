@@ -33,14 +33,14 @@ async function rows(verification: EcfVerification, lng: "es-419" | "en" = "es-41
 const BASE: EcfVerification = { encf: "E320000009999", tipo_ecf: "32", checked_at: new Date(Date.now() - 3 * 60_000).toISOString(), checks: [] };
 
 describe("the electronic invoice verification card", () => {
-  test("five rows in Spanish: signature, totals, read, certificate as two facts, DGII; captions by state; checked N minutes ago; no state pill", async () => {
+  test("six rows in Spanish: signature, totals, read, certificate as two facts, DGII, QR; captions by state; checked N minutes ago; no state pill", async () => {
     const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
     const dossier = await fixture.dossier(dossierFixtureIds.fiscal);
     const verification = { ...dossier.ecf_checks!, checked_at: BASE.checked_at };
     const html = await render(verification, "es-419");
     assert.ok(html.includes("Verificación de la factura electrónica"));
     assert.ok(html.includes("e-CF E310000000777 · tipo 31, crédito fiscal"));
-    assert.equal((html.match(/<li /g) ?? []).length, 5);
+    assert.equal((html.match(/<li /g) ?? []).length, 6);
     assert.ok(html.includes("Contenido sin cambios desde la firma"));
     assert.ok(!html.includes("firma verificada") && !html.includes("al firmar"));
     assert.ok(html.includes("Revisar: la lectura difiere del XML en ITBIS"));
@@ -52,7 +52,72 @@ describe("the electronic invoice verification card", () => {
     assert.ok(!html.includes("Comprobado</span>") && !html.includes("Sin comprobar</span>"));
     assert.ok(html.includes("text-[var(--rui-color-teal)]") && html.includes("text-[var(--rui-color-danger)]"));
     const states = [...html.matchAll(/data-row="([a-z]+)" data-state="([a-z_]+)"/g)].map((m) => [m[1], m[2]]);
-    assert.deepEqual(states, [["signature", "verified"], ["totals", "verified"], ["read", "failed"], ["certificate", "verified"], ["dgii", "not_checked"]]);
+    assert.deepEqual(states, [["signature", "verified"], ["totals", "verified"], ["read", "failed"], ["certificate", "verified"], ["dgii", "not_checked"], ["qr", "verified"]]);
+    assert.ok(html.includes("El código QR coincide con lo leído"));
+    assert.ok(!html.includes("verificada"));
+  });
+
+  test("the QR link opens DGII's own page in a new tab and says Cuadrao sends nothing", async () => {
+    const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
+    const dossier = await fixture.dossier(dossierFixtureIds.fiscal);
+    const instance = await i18n("es-419");
+    const html = renderToStaticMarkup(
+      <I18nextProvider i18n={instance}>
+        <ReceiptEcfChecks verification={dossier.ecf_checks} qr={dossier.dgii_qr} />
+      </I18nextProvider>,
+    );
+    assert.ok(html.includes('href="https://ecf.dgii.gov.do/ecf/consultatimbre?RncEmisor=131999888&amp;ENCF=E310000000777&amp;MontoTotal=3450.00&amp;CodigoSeguridad=AbC123"'));
+    assert.ok(html.includes('target="_blank" rel="noopener noreferrer"'));
+    assert.ok(html.includes("Verificar en DGII"));
+    assert.ok(html.includes("Abre la página oficial de consulta de la DGII en otra pestaña. Cuadrao no envía nada."));
+    // Without a QR there is no link and no QR row.
+    const bare = renderToStaticMarkup(
+      <I18nextProvider i18n={instance}>
+        <ReceiptEcfChecks verification={{ ...dossier.ecf_checks!, checks: dossier.ecf_checks!.checks.filter((c) => !c.name.startsWith("qr_")) }} qr={null} />
+      </I18nextProvider>,
+    );
+    assert.ok(!bare.includes("Verificar en DGII") && !bare.includes('data-row="qr"'));
+  });
+
+  test("the page checks the link itself: anything but https on a DGII host with no userinfo or port renders no link", async () => {
+    const { dgiiLink } = await import("@/components/business-app/ReceiptEcfChecks");
+    const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
+    const dossier = await fixture.dossier(dossierFixtureIds.fiscal);
+    const instance = await i18n("es-419");
+    const good = "https://fc.dgii.gov.do/eCF/ConsultaTimbreFC?RncEmisor=1&ENCF=E320000000001";
+    assert.equal(dgiiLink(good), good);
+    for (const evil of [
+      "https://evil.example/eCF/ConsultaTimbreFC?RncEmisor=1&ENCF=E320000000001",
+      "https://fc.dgii.gov.do.evil.example/x",
+      "http://fc.dgii.gov.do/x",
+      "https://user:pass@fc.dgii.gov.do/x",
+      "https://fc.dgii.gov.do:8443/x",
+      "javascript:alert(1)",
+      "data:text/html,hola",
+      "not a url",
+      "",
+    ]) {
+      assert.equal(dgiiLink(evil), null, evil);
+      const html = renderToStaticMarkup(
+        <I18nextProvider i18n={instance}>
+          <ReceiptEcfChecks verification={dossier.ecf_checks} qr={{ ...dossier.dgii_qr!, url: evil }} />
+        </I18nextProvider>,
+      );
+      assert.ok(!html.includes("receipt-dgii-verify") && !html.includes("<a "), evil);
+      assert.ok(!html.includes("javascript:"), evil);
+    }
+  });
+
+  test("a QR that differs from the read, or with nothing to compare, reads as its words", async () => {
+    const differs = await rows({ ...BASE, checks: [{ name: "qr_present", state: "verified", code: null, detail: {} }, { name: "qr_matches_read", state: "failed", code: "qr_differs", detail: { rnc: "read=1 qr=2", total: "read=1 qr=2" } }] });
+    assert.equal(differs[5].state, "failed");
+    assert.equal(differs[5].caption, "Revisar: el código QR no coincide con lo leído. RNC: leído 1, QR 2; total: leído 1, QR 2");
+    const noRead = await rows({ ...BASE, checks: [{ name: "qr_present", state: "verified", code: null, detail: {} }, { name: "qr_matches_read", state: "not_checked", code: "no_read", detail: {} }] });
+    assert.equal(noRead[5].caption, "Código QR leído; no hay datos leídos del recibo para comparar");
+    const missing = await rows({ ...BASE, checks: [{ name: "qr_present", state: "not_checked", code: "no_qr", detail: {} }] });
+    assert.equal(missing[5].caption, "Sin código QR legible");
+    const instance = await i18n("es-419");
+    assert.equal(instance.t("business.dossier.origin.qr_decoded"), "Del código QR · sin verificar");
   });
 
   test("English follows the same words", async () => {

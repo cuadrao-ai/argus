@@ -2328,6 +2328,14 @@
       "ecf_dgii_not_checked": "Aceptación por la DGII no consultada.",
       "ecf_security_expected": "Código de seguridad esperado: {{code}}.",
       "ecf_security_unavailable": "Código de seguridad no disponible.",
+      "ecf_row_qr": "Código QR",
+      "ecf_qr_match": "El código QR coincide con lo leído",
+      "ecf_qr_differs": "Revisar: el código QR no coincide con lo leído. {{pairs}}",
+      "ecf_qr_pair": "{{field}}: leído {{read}}, QR {{qr}}",
+      "ecf_qr_no_read": "Código QR leído; no hay datos leídos del recibo para comparar",
+      "ecf_qr_missing": "Sin código QR legible",
+      "ecf_qr_verify": "Verificar en DGII",
+      "ecf_qr_verify_note": "Abre la página oficial de consulta de la DGII en otra pestaña. Cuadrao no envía nada.",
       "refresh": "Consultar registro actual",
       "stale": "Este registro cambió. Abre la revisión actual y revísala antes de realizar otra acción.",
       "unavailable": "Este registro no está disponible con tu acceso actual.",
@@ -2365,6 +2373,7 @@
       },
       "origin": {
         "extracted": "Leído de la fuente · sin verificar",
+        "qr_decoded": "Del código QR · sin verificar",
         "owner_stated": "Indicado por el dueño · sin verificar",
         "member_set": "Indicado por el revisor · sin verificar",
         "matched": "Vinculado a la fuente · sin verificar"
