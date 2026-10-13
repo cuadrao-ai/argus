@@ -500,19 +500,20 @@ def get_receipt_source(
     try:
         media_type, content = context.service.source(context.scope, receipt_id)
     except Exception as error:
-        # Names only: the receipt id and the outcome code, so a preview that
-        # never settles on a hosted build can be read from the log.
+        # The fields live in the message text: the hosted log sink keeps the
+        # default format and drops keyword fields. Names and codes only, never
+        # a URL, a token or a filename.
+        failure = _problem(request, error)
+        detail = failure.detail
+        code = detail.get("code") if isinstance(detail, dict) else None
         logger.warning(
-            "receipt_source_failed",
-            receipt_id=receipt_id,
-            code=getattr(error, "code", type(error).__name__),
+            f"receipt_source_failed receipt_id={receipt_id}"
+            f" code={code or type(error).__name__} status={failure.status_code}"
         )
-        raise _problem(request, error) from None
+        raise failure from None
     logger.info(
-        "receipt_source_served",
-        receipt_id=receipt_id,
-        media_type=media_type,
-        size_bytes=len(content),
+        f"receipt_source_served receipt_id={receipt_id} media_type={media_type}"
+        f" size_bytes={len(content)}"
     )
     return Response(
         content,

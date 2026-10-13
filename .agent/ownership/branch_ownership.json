@@ -1498,6 +1498,7 @@
       "allow": [
         ".agent/ownership/branch_ownership.json",
         "src/argus/api/routers/business.py",
+        "tests/business/test_receipt_source_log.py",
         "web/__tests__/receipt-source-timeout.test.ts",
         "web/lib/business-api.ts"
       ],
