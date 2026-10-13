@@ -61,7 +61,8 @@ import {
 } from "@/lib/argus-api";
 import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-deletion-api";
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
-import { omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
+import { businessPilotEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
+import { leaveSession } from "@/lib/logout-flow";
 import {
   useTranscriptTurnAnchor,
   type PendingMessageAnchor,
@@ -1792,32 +1793,22 @@ export default function ChatInterface() {
 
   const handleLogout = async (options: LogoutOptions = {}) => {
     if (options.afterAccountDeletion) return endSessionKeepingSurface(accountBoundary);
-    // Told first, the boundary ignores the SIGNED_OUT event instead of showing "account changed".
-    accountBoundary.beginConversion();
-    try {
-      const result = options.sessionEnded ? null : await logoutFromApi();
-      if (result?.revocation === "failed") {
-        accountBoundary.finishConversion(account?.user.id ?? null);
-        showToast(t("settings.logout_error", "We couldn’t sign out this browser. Try again."), "error");
-        return;
-      }
-      requestSessions.synchronizeAccountScope(null);
-      dailyCap.clear();
-      setAccount(null);
-      transcriptSessionCache.clearAuthenticatedState();
-      resetToEmptyChatSurface();
-      clearHistory();
-      window.location.href = "/biz";
-    } catch {
-      accountBoundary.finishConversion(account?.user.id ?? null);
-      showToast(
-        t(
-          "settings.logout_error",
-          "We couldn’t sign out this browser. Try again.",
-        ),
-        "error",
-      );
-    }
+    await leaveSession({
+      boundary: accountBoundary,
+      currentUserId: account?.user.id ?? null,
+      signOut: () => (options.sessionEnded ? Promise.resolve(null) : logoutFromApi()),
+      clearLocalState: () => {
+        requestSessions.synchronizeAccountScope(null);
+        dailyCap.clear();
+        setAccount(null);
+        transcriptSessionCache.clearAuthenticatedState();
+        resetToEmptyChatSurface();
+        clearHistory();
+      },
+      navigate: (href) => { window.location.href = href; },
+      onFailed: () => showToast(t("settings.logout_error", "We couldn’t sign out this browser. Try again."), "error"),
+      businessBuild: businessPilotEnabled,
+    });
   };
 
   const handleCancelConfirmationAction = async (action: ChatActionOption) => {
