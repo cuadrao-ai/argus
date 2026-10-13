@@ -23,6 +23,22 @@ export const ENABLED_LANGUAGE_CODES = ENABLED_LANGUAGES.map(
   (language) => language.code,
 );
 
+export const BUSINESS_BUILD =
+  process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED === "true";
+
+/** The language a visitor sees before any choice: Spanish on a Cuadrao Business build that ships it, English otherwise. */
+export function defaultLanguage(spanishEnabled: boolean, businessBuild: boolean): ArgusLanguage {
+  return spanishEnabled && businessBuild ? "es-419" : "en";
+}
+
+/** Where the shown language comes from, in order: a choice saved on this device; on a consumer build the browser's language too. The browser never decides on a Business build. */
+export function languageDetectionOrder(businessBuild: boolean): readonly string[] {
+  return businessBuild ? ["localStorage"] : ["localStorage", "navigator"];
+}
+
+export const DEFAULT_LANGUAGE = defaultLanguage(SPANISH_ENABLED, BUSINESS_BUILD);
+export const LANGUAGE_DETECTION_ORDER = languageDetectionOrder(BUSINESS_BUILD);
+
 export function normalizeEnabledLanguage(language?: string | null): ArgusLanguage {
   if (SPANISH_ENABLED && language?.toLowerCase().startsWith("es")) {
     return "es-419";

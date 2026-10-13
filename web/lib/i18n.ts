@@ -3,14 +3,15 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import HttpBackend from 'i18next-http-backend';
-import { ENABLED_LANGUAGE_CODES } from './language-features';
+import { DEFAULT_LANGUAGE, ENABLED_LANGUAGE_CODES, LANGUAGE_DETECTION_ORDER } from './language-features';
 
 i18n
   .use(HttpBackend)
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    fallbackLng: 'en',
+    // The default before any choice; a Business build starts in Spanish.
+    fallbackLng: DEFAULT_LANGUAGE,
     supportedLngs: ENABLED_LANGUAGE_CODES,
     defaultNS: 'common',
     ns: ['common'],
@@ -24,7 +25,7 @@ i18n
       loadPath: '/locales/{{lng}}/{{ns}}.json',
     },
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: [...LANGUAGE_DETECTION_ORDER],
       caches: ['localStorage'],
       // Declared rather than inherited, so the key the detector persists is
       // one the storage registry knows about.
