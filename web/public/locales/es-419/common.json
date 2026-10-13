@@ -2640,10 +2640,10 @@
       "reading_off": "Activa Leer mis recibos con IA en los ajustes de WhatsApp y vuelve a intentarlo.",
       "preparing": "Leyendo tu recibo. Puedes salir de esta página; el resultado te esperará en la bandeja.",
       "poll_stopped": "La lectura sigue en curso. Consulta el registro actual para ver el estado más reciente.",
-      "saved_by_hand": "Guardado. Nadie lo está leyendo: completa los datos a mano cuando quieras o pide la lectura con IA.",
-      "saved_by_hand_only": "Guardado. Nadie lo está leyendo: completa los datos a mano cuando quieras.",
-      "saved_prepare_only": "Guardado. Nadie lo está leyendo: pide la lectura con IA cuando quieras.",
-      "saved_waiting": "Guardado. Nadie lo está leyendo.",
+      "saved_by_hand": "Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea, o complétalo tú.",
+      "saved_by_hand_only": "Guardado, sin leer. Complétalo tú.",
+      "saved_prepare_only": "Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea.",
+      "saved_waiting": "Guardado, sin leer.",
       "retry": "Reintentar con IA",
       "retry_consent": "Si reintentas, el recibo se envía a nuestro proveedor de IA.",
       "saved_body": "Guardado como un gasto de {{amount}}.",
@@ -2666,7 +2666,7 @@
       "preparing": "Preparando",
       "queued": "En espera de preparación",
       "review_ready": "Listo para revisar",
-      "saved": "Guardado, sin preparar"
+      "saved": "Guardado, sin leer"
     },
     "updates": {
       "attention": "{{name}} necesita atención",
