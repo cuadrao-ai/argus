@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, FileText, ImageIcon, MessageCircle, NotebookPen } from "lucide-react";
+import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
@@ -104,6 +104,8 @@ export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpe
           <span className="mt-0.5 flex items-center gap-1.5 truncate text-[13px] text-black/50 dark:text-white/50">
             {receipt.channel === "whatsapp" ? (
               <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-label="WhatsApp" />
+            ) : receipt.channel === "email" ? (
+              <Mail className="h-3.5 w-3.5 shrink-0" data-testid="inbox-channel-email" aria-label={t("business.dossier.email", "Email")} />
             ) : null}
             {receipt.attention
               ? attentionLabel(receipt.attention)

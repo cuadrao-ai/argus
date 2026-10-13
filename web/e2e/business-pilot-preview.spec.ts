@@ -503,6 +503,17 @@ test.describe("A conversation opens in the shell of its own surface", () => {
     await expect(page).toHaveURL(/\/dev\/business-preview\?notice=conversation_unavailable$/);
   });
 
+  test("a chat on its own surface stays and renders", async ({ page }) => {
+    test.skip(BUSINESS_BUILD, "consumer build only: /chat hops to /biz on a Business build");
+    const seen: string[] = [];
+    await openPreview(page, "/chat", { emptyChat: false });
+    await serveSurface(page, "personal", seen);
+    await page.goto("/chat?conversation=conversation-alpha");
+
+    await expect(page.getByText("Lunch with the supplier").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/chat\?conversation=conversation-alpha$/);
+  });
+
   test("a Business chat opened on /chat moves to /biz with its id", async ({ page }) => {
     const seen: string[] = [];
     await openPreview(page, "/chat", { emptyChat: false });
