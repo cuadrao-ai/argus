@@ -199,11 +199,13 @@ async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(a
     connection_id = await _capture(destination, owner)
     _, context, _ = actions
     with documents.business_actions.authority.pool.connection() as db:
-        db.execute(
+        changed = db.execute(
             "update public.business_client_grants set capabilities=ARRAY['read','approve']"
             " where space_id=%s and grantee_id=%s and revoked_at is null",
             (context.actor.space_id, context.owner_id),
-        )
+        ).rowcount
+    # Exactly the owner's one live grant lost prepare; the refusal below is its doing.
+    assert changed == 1
     with pytest.raises(ActionError) as refused:
         await destination.read(owner_id=owner, connection_id=connection_id)
     assert refused.value.result.code == "business_permission_denied"
