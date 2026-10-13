@@ -12,6 +12,9 @@ struct ReceiptNativePicker: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
         switch source {
         case .scan:
+            #if DEBUG
+            if ScanStub.active { return ScanStub.controller { context.coordinator.finishScan($0) } }
+            #endif
             let controller = VNDocumentCameraViewController()
             controller.delegate = context.coordinator
             return controller
@@ -64,13 +67,30 @@ struct ReceiptNativePicker: UIViewControllerRepresentable {
                 }
             }
         }
-        func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) { cancel() }
-        func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFailWithError error: Error) { finish(.failure(error)) }
+        func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) { ScanTrace.mark("cancel"); cancel() }
+        func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFailWithError error: Error) {
+            ScanTrace.mark("fail \((error as NSError).domain) \((error as NSError).code)"); finish(.failure(error))
+        }
         func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFinishWith scan: VNDocumentCameraScan) {
+            ScanTrace.mark("confirm pages=\(scan.pageCount)")
             guard (1...10).contains(scan.pageCount) else { finish(.failure(ReceiptError.source)); return }
-            let pages = (0..<scan.pageCount).compactMap { scan.imageOfPage(at: $0).jpegData(compressionQuality: 0.8) }
-            guard pages.count == scan.pageCount, pages.reduce(0, { $0 + $1.count }) <= 20_000_000 else { finish(.failure(ReceiptError.source)); return }
-            finish(.success(pages.enumerated().map { ($0.element, "\(spanish ? "Página" : "Page") \($0.offset + 1)", false) }))
+            finishScan((0..<scan.pageCount).map { scan.imageOfPage(at: $0) })
+        }
+
+        /// Encoding full-resolution pages takes seconds on a phone; it runs off the main thread so the
+        /// confirm tap never freezes the app, and the result comes back on the main thread.
+        func finishScan(_ images: [UIImage]) {
+            ScanTrace.mark("encoding pages=\(images.count)")
+            let spanish = spanish
+            DispatchQueue.global(qos: .userInitiated).async {
+                let pages = images.compactMap { $0.jpegData(compressionQuality: 0.8) }
+                let result: Result<ReceiptCapturedFiles, Error> =
+                    pages.count == images.count && pages.reduce(0, { $0 + $1.count }) <= 20_000_000
+                    ? .success(pages.enumerated().map { ($0.element, "\(spanish ? "Página" : "Page") \($0.offset + 1)", false) })
+                    : .failure(ReceiptError.source)
+                ScanTrace.mark("encoded")
+                DispatchQueue.main.async { self.finish(result) }
+            }
         }
     }
 }

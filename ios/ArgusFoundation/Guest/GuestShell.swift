@@ -118,8 +118,11 @@ struct GuestShell: View {
             if let files = captured { captured = nil; keep(files) }
         }) { source in
             ReceiptNativePicker(source: source, spanish: spanish) { result in
-                capturing = nil
-                if case .success(let files) = result { captured = SavedReceiptFiles.prepared(files, source: source, spanish: spanish) }
+                guard case .success(let files) = result else { capturing = nil; return }
+                Task {
+                    captured = await SavedReceiptFiles.preparing(files, source: source, spanish: spanish)
+                    capturing = nil
+                }
             }.ignoresSafeArea()
         }
         .alert(GuestReceiptCopy(spanish: spanish).couldNotSave, isPresented: $receiptFailed) {
