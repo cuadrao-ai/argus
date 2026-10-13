@@ -48,11 +48,19 @@ final class CuadraoSkeletonToastUITests: XCTestCase {
         continueAfterFailure = false
         let app = gallery()
         app.switches["gallery-large-text"].tap()
+        // A running shimmer never lets the app go idle; freeze it as Reduce Motion does.
+        app.switches["gallery-reduce-motion"].tap()
         let show = app.buttons["gallery-toast-show"]
         reveal(app, show)
         show.tap()
         XCTAssertTrue(app.buttons["gallery-toast-undo"].waitForExistence(timeout: 3))
         shot(app, "toast-large-text-es")
+        // The skeleton holds too: it is there, on screen, and still reads as one loading label.
+        let rows = app.descendants(matching: .any)["gallery-skeleton-rows"]
+        reveal(app, rows)
+        XCTAssertTrue(rows.exists && rows.frame.width > 0 && rows.frame.height > 0, "the skeleton is drawn")
+        XCTAssertTrue(["Loading", "Cargando"].contains(rows.label))
+        shot(app, "skeleton-large-text-es")
     }
 
     func testRetryTemplateRunsItsAction() {
