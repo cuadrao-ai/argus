@@ -526,7 +526,7 @@ describe("landing starter prefill wiring", () => {
     expect(layout).toContain("LandingIntentCapture");
     expect(capture).toContain("captureLandingIntentFromLocation");
     expect(followup).toContain("captureLandingIntentFromLocation");
-    expect(followup).toContain("currentChatPath()");
+    expect(followup).toContain("signedInHomePath()");
     expect(followup).not.toContain('router.push("/chat")');
   });
 
