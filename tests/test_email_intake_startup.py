@@ -64,7 +64,7 @@ def test_everything_present_starts_with_the_provider(world):  # noqa: ANN001
 
 def test_a_missing_secret_starts_without_a_provider_and_names_it(world, monkeypatch):  # noqa: ANN001
     app, records = world
-    monkeypatch.setenv("CUADRAO_RESEND_WEBHOOK_SECRET", "   ")
+    monkeypatch.setenv("CUADRAO_RESEND_WEBHOOK_SECRET", "")
     intake.start_email_intake(app)
     assert intake.email_intake().provider is None
     [(message, missing)] = _logged(records)

@@ -620,12 +620,11 @@
       ]
     },
     "codex/cuadrao-email-intake-startup-log-20261012": {
-      "description": "Email intake says at startup, by condition name and never by value, why it did not start or why it carries no receiving provider, so the logs answer a 404 on the Resend webhook; a credential pasted with stray whitespace is trimmed and one made only of whitespace counts as absent.",
+      "description": "Email intake says at startup, by condition name and never by value, why it did not start or why it carries no receiving provider, so the logs answer a 404 on the Resend webhook.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
         "src/argus/api/email_intake.py",
-        "src/argus/domain/ingestion/email_intake/config.py",
         "tests/test_email_intake_startup.py"
       ],
       "deny": [

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BeforeValidator, Field, SecretStr, field_validator
+from pydantic import BeforeValidator, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from argus.domain.ingestion.documents.config import enabled_flag
@@ -29,12 +29,3 @@ class EmailIntakeSettings(BaseSettings):
     receiving_domain: str = Field(
         default="", validation_alias=setting_aliases("BUSINESS_EMAIL_DOMAIN")
     )
-
-    @field_validator("api_key", "webhook_secret", mode="before")
-    @classmethod
-    def _trimmed(cls, value: object) -> object:
-        # A credential pasted with a stray newline or spaces is the credential;
-        # one made only of whitespace is absent.
-        if isinstance(value, SecretStr):
-            value = value.get_secret_value()
-        return value.strip() if isinstance(value, str) else value
