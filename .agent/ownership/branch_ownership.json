@@ -909,7 +909,7 @@
     },
     "codex/cuadrao-email-repeat-20261013": {
       "description": "Follow-up to the email channel PR, stacked on it: a file first uploaded on the web keeps its label and the email that brings the same bytes later is the repeat (repeat_of_upload); email deliveries are listed earliest first so the receipt page points at the first email and the inbox opens on it; the per-delivery read uses one relations query; the same bytes in two Businesses never mark each other (tested).",
-      "base_ref": "origin/codex/cuadrao-email-channel-20261013",
+      "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
         "docs/API_CONTRACT.md",
@@ -918,8 +918,11 @@
         "src/argus/api/email_intake.py",
         "src/argus/api/routers/business.py",
         "src/argus/api/routers/email_intake.py",
+        "src/argus/domain/ingestion/documents/store.py",
+        "src/argus/domain/ingestion/documents/store_postgres.py",
         "src/argus/domain/ingestion/email_intake/store.py",
         "tests/business/test_business_email_api.py",
+        "tests/ingestion/test_email_intake_service.py",
         "tests/test_business_email_intake_postgres.py",
         "web/__tests__/email-delivery-repeat.dom.test.tsx",
         "web/__tests__/receipt-email-origin.test.tsx",

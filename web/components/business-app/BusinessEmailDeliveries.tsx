@@ -117,6 +117,8 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
   const [intake, setIntake] = useState<Load<BusinessEmailIntake>>({ status: "loading" });
   const [deliveries, setDeliveries] = useState<Load<BusinessEmailDelivery[]>>({ status: "loading" });
   const [expanded, setExpanded] = useState<string | null>(openEmailId ?? null);
+  // A later arrival from another receipt names another email: it opens too.
+  useEffect(() => { if (openEmailId) setExpanded(openEmailId); }, [openEmailId]);
   const [attempt, setAttempt] = useState(0);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {
