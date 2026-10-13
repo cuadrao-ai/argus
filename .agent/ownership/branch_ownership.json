@@ -602,6 +602,38 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-ecf-checks-20261012": {
+      "description": "Tier A e-CF checks: a draft prepared from a DGII e-CF XML carries what the file itself proved (content unchanged since signing, totals, the read against the XML, certificate window at the declared signing time, subject RNC) and names what is not checked (issuer trust, DGII acceptance, revocation, printed code), read locally with lxml c14n only, never blocking review.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "poetry.lock",
+        "pyproject.toml",
+        "src/argus/domain/business/actions/dossier.py",
+        "src/argus/domain/business/actions/mutations.py",
+        "src/argus/domain/business/contracts/checks.py",
+        "src/argus/domain/business/contracts/dossier.py",
+        "src/argus/domain/business/contracts/facts.py",
+        "src/argus/domain/ingestion/documents/ecf_checks.py",
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "src/argus/domain/ingestion/documents/models.py",
+        "src/argus/domain/ingestion/documents/preparation.py",
+        "tests/business/receipt_stub.py",
+        "tests/business/test_business_ecf_invoice.py",
+        "tests/ecf_signing_support.py",
+        "tests/ingestion/test_ecf_checks.py",
+        "tests/test_business_ecf_checks_draft.py",
+        "tests/test_business_ecf_invoice_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-ecf-hotel-invoice-20261012": {
       "description": "DGII e-CF hotel invoices: XML joins the accepted source types, read inertly as tag-named evidence; a dual-currency invoice records the DOP total, with a recorded projection guard when the read picks another currency; three fake fixtures. No prompt or schema text change.",
       "base_ref": "origin/codex/private-alpha-next",

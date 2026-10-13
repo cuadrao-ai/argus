@@ -21,6 +21,7 @@ from argus.domain.business.contracts.actions import (
     ProposeAllocation,
 )
 from argus.domain.business.contracts.authority import ActorProvenance
+from argus.domain.business.contracts.checks import EcfVerification
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
@@ -75,6 +76,7 @@ def save_revision(
     turn_key: str | None,
     read_purchases: tuple[ReadPurchase, ...] | None = None,
     read_total: str | None = None,
+    ecf_checks: EcfVerification | None = None,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -86,10 +88,16 @@ def save_revision(
             for item in previous.get("read_purchases") or ()
         )
         read_total = previous.get("read_total")
+    if ecf_checks is None:
+        # A later document (a photo beside the e-CF) or a person's revision
+        # brings no verification; the one the e-CF gave stays on the draft.
+        kept = previous.get("ecf_checks")
+        ecf_checks = EcfVerification.model_validate(kept) if kept else None
     resolution["business"] = BusinessResolution(
         facts=after,
         read_purchases=read_purchases,
         read_total=read_total,
+        ecf_checks=ecf_checks,
         remainder_settled=bool(previous.get("remainder_settled", False)),
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
@@ -376,7 +384,16 @@ def prepare_attachment(
         facts = merged
     after = BusinessFacts.model_validate(facts)
     return save_revision(
-        tx, event, before, after, (source_id,), actor, None, read_purchases, read_total
+        tx,
+        event,
+        before,
+        after,
+        (source_id,),
+        actor,
+        None,
+        read_purchases,
+        read_total,
+        batch.ecf_checks,
     )
 
 

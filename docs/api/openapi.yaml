@@ -12023,6 +12023,10 @@ components:
           type: integer
           minimum: 0.0
           default: 0
+        ecf_checks:
+          anyOf:
+          - $ref: '#/components/schemas/EcfVerification'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -14497,6 +14501,64 @@ components:
       - after
       - source_ids
       - created_at
+    EcfCheck:
+      properties:
+        name:
+          type: string
+          enum:
+          - signature_integrity
+          - totals_arithmetic
+          - read_matches_xml
+          - certificate_validity
+          - certificate_issuer
+          - dgii_accepted
+          - security_code
+          - subject_rnc
+        state:
+          type: string
+          enum:
+          - verified
+          - failed
+          - not_checked
+        code:
+          anyOf:
+          - type: string
+            maxLength: 80
+          - type: 'null'
+        detail:
+          additionalProperties:
+            type: string
+          type: object
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - state
+    EcfVerification:
+      properties:
+        encf:
+          anyOf:
+          - type: string
+            maxLength: 40
+          - type: 'null'
+        tipo_ecf:
+          anyOf:
+          - type: string
+            maxLength: 8
+          - type: 'null'
+        checked_at:
+          type: string
+          format: date-time
+        checks:
+          items:
+            $ref: '#/components/schemas/EcfCheck'
+          type: array
+          maxItems: 16
+      additionalProperties: false
+      type: object
+      required:
+      - checked_at
+      - checks
     EditFinancialAccountRequest:
       properties:
         expected_version:

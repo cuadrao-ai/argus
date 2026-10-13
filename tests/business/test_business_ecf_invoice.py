@@ -85,6 +85,16 @@ def test_each_hotel_invoice_file_is_one_receipt_at_the_dop_total(
     )
     assert stub.calls == [receipt_id]
     assert alice.get(f"/receipts/{receipt_id}/source").content == content
+    # The XML, alone or attached, is checked locally; the PDF render cannot be.
+    if media_type == "application/pdf":
+        assert batch.ecf_checks is None
+    else:
+        states = {c.name: (c.state, c.code) for c in batch.ecf_checks.checks}
+        assert states["signature_integrity"] == ("not_checked", "no_signature")
+        assert states["totals_arithmetic"] == ("verified", None)
+        assert states["read_matches_xml"] == ("verified", None)
+        assert states["dgii_accepted"] == ("not_checked", "network_not_in_tier_a")
+        assert (batch.ecf_checks.encf, batch.ecf_checks.tipo_ecf) == (ECF, "32")
 
 
 def test_a_usd_read_of_the_xml_invoice_is_held_and_recorded(
