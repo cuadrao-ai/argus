@@ -573,6 +573,7 @@
       "allow": [
         ".agent/ownership/branch_ownership.json",
         "web/__tests__/landing-language.test.ts",
+        "web/__tests__/profile-propagation.test.ts",
         "web/app/page.tsx",
         "web/lib/i18n.ts",
         "web/lib/language-features.ts"
