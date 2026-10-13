@@ -1,9 +1,54 @@
 # Argus private iPhone execution manifest
 
-**Updated:** October 11, 2026, 12:12:33 UTC verified coordinator checkpoint through #970 landing and bounded checkpoint/Personal/memory/voice/repair allocations; live quality and hosted gates remain pending under the October 10 23:37 UTC owner-handoff continuation.
+**Updated:** October 13, 2026 (see Current state below). Earlier line, October 11, 2026, 12:12:33 UTC verified coordinator checkpoint through #970 landing and bounded checkpoint/Personal/memory/voice/repair allocations; live quality and hosted gates remain pending under the October 10 23:37 UTC owner-handoff continuation.
 **Execution state:** Consumer PR #937 is merged with accepted simulator evidence and green pre-merge CI. Build 3455 is installed; hosted manual-money acceptance remains open. The current Consumer assignment below supersedes the older sequencing only for this lane. The [October 4 code checkpoint](../reports/2026-10-04-cuadrao-code-integration-landing.md) retains its historical evidence.
 **Product owner:** [MVEE](argus-minimum-viable-ecosystem-experience.md).
 **Authority and onboarding:** [DOCUMENTATION_AUTHORITY](../DOCUMENTATION_AUTHORITY.md).
+
+## Current state, October 13, 2026
+
+**Updated:** October 13, 2026. Integration tip `30911e7fb` (#1053; #1051 is `f75d32f96`).
+Checked with `git log origin/codex/private-alpha-next`. Render staging deploys
+(api `dep-db6s76rl550s739tpfug`, web `dep-db6s77ek1f9s73bcbhrg`, both on
+`30911e7fb`) and staging Supabase migrations matching the repo through
+`20261012090000` are as the coordinator reported them: unverified in this pass.
+Check the Render dashboard and the staging migration list before relying on them.
+This section is a status record. It grants no merge, deploy or spend authority.
+
+### Business landings on integration since October 12, 08:00 UTC
+
+| Area | PRs |
+| --- | --- |
+| Branding and settings | #985, #994, #993 |
+| WhatsApp intake and replies | #987, #989, #990, #991, #995, #1009, #1020, #1036, #1038, #1044, #1048, #1049, #1050 |
+| WhatsApp agent, switches and consent | #986, #988, #992, #1008, #1011, #1018, #1019, #1022, #1035, #1041 |
+| Receipts, duplicates and review | #996, #997, #998, #1006, #1010, #1012, #1014, #1015, #1026, #1027, #1028, #1030, #1033, #1037, #1055 |
+| Period control | #1016 |
+| DGII e-CF and QR | #1007, #1031, #1032, #1051, #1053 |
+| Email intake | #1034, #1039, #1054 |
+| Ops, CI and agent docs | #1002, #1040, #1042, #999, #1029 |
+
+### Mobile lane
+
+| Item | State |
+| --- | --- |
+| Lane branch | `codex/consumer-free-tier-completion` at `93869605f`: 76 ahead and 70 behind integration |
+| Merged into the lane branch, not on integration | #1000, #1043, #1056, #1046, #1047, #1045 |
+| #1056 | No inclusion question for a movement entered after a balance check |
+| #1046 | Founder phone walk steps 2 to 8 with literal balances (test) |
+| #1047 | A Personal money account saved blank starts at a recorded 0.00. Pending founder confirmation: see the [native design guide](../../.agent/designs/cuadrao/DESIGN.md) |
+| #1045 | Movement sheet shows the chosen account; Transfer can pay a credit card |
+| Open iPhone PRs | #1001, #1003 (dirty), #1005, #1013, #1025 |
+
+### Configuration notes
+
+- `ARGUS_CORS_ALLOW_ORIGINS` has no `CUADRAO_` twin. It is read only in
+  `src/argus/api/app_setup.py:46`. Set it under its Argus name.
+- The private-alpha email allowlist is the table `private_alpha_allowlist`. Its
+  rows exist only in each Supabase project's database (the schema is in
+  `supabase/migrations/20260530000001_private_alpha_allowlist.sql`; `supabase/seed.sql`
+  seeds local only). Edit the staging or production rows in that project's SQL editor.
+  No environment variable sets it.
 
 ## Business hosted invite-only build October 10, 2026
 
