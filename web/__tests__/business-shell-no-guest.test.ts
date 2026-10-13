@@ -43,6 +43,32 @@ describe("Business has no guest mode", () => {
     expect(app.indexOf("<ConversationShellGuard />")).toBeGreaterThanOrEqual(0);
     const expired = source("components/guest/ExpiredGuestSession.tsx");
     expect(expired).not.toContain('window.location.assign("/chat")');
-    expect((expired.match(/guestLandingHref\(businessPilotEnabled\)/g) ?? []).length).toBe(2);
+    // A restarted guest goes to the guest landing; a person who signed in goes where sign-in goes.
+    expect((expired.match(/guestLandingHref\(businessBuild\)/g) ?? []).length).toBe(1);
+    expect(expired).toContain("window.location.assign(postAuthPath(businessBuild))");
+  });
+});
+
+describe("the expired guest screen on a Business build", () => {
+  async function render(businessBuild: boolean) {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("../public/locales/es-419/common.json")).default;
+    const { default: ExpiredGuestSession } = await import("../components/guest/ExpiredGuestSession");
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+    return renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(ExpiredGuestSession, { publicAccountAccessEnabled: false, businessBuild })));
+  }
+
+  test("offers no new temporary chat; Iniciar sesión becomes the one primary action", async () => {
+    const business = await render(true);
+    expect(business).not.toContain(">Iniciar un nuevo chat temporal<");
+    expect(business).toContain(">Iniciar sesión<");
+    expect(business).toMatch(/<button[^>]*bg-black[^>]*>Iniciar sesión<\/button>/);
+    const consumer = await render(false);
+    expect(consumer).toContain(">Iniciar un nuevo chat temporal<");
+    expect(consumer).toMatch(/<button[^>]*bg-black[^>]*>Iniciar un nuevo chat temporal<\/button>/);
   });
 });

@@ -1248,7 +1248,6 @@
         "web/__tests__/account-deletion-api.test.ts",
         "web/__tests__/alpha-frontend.test.ts",
         "web/__tests__/logout-first-click.dom.test.tsx",
-        "web/__tests__/logout-first-click.test.ts",
         "web/components/chat/ChatInterface.tsx",
         "web/lib/logout-flow.ts"
       ],
@@ -1550,14 +1549,10 @@
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
-        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-dark-desktop.png",
-        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-dark-phone.png",
         "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-fiscal-dark-desktop.png",
         "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-fiscal-dark-phone.png",
         "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-fiscal-light-desktop.png",
         "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-fiscal-light-phone.png",
-        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-light-desktop.png",
-        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-light-phone.png",
         "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-unknown-amount-dark-desktop.png",
         "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-unknown-amount-dark-phone.png",
         "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-unknown-amount-light-desktop.png",
@@ -1930,6 +1925,32 @@
         "src/argus/domain/engine/**",
         "src/argus/domain/market_data/**",
         "tests/section3/**"
+      ]
+    },
+    "codex/cuadrao-followups-20261013": {
+      "description": "Review follow-ups collected from #1063, #1064, #1067, #1069 and #1072: the expense detail fetches once however often the workspace re-renders; an email receipt carries the mail mark in the Inbox list; a blocked suggestion offers no Confirmar; a Confirmar e2e checks the request and the chip; the expired guest screen offers no temporary chat on a Business build and sends a signed-in person where sign-in goes; the real account boundary ignores the SIGNED_OUT a conversion started; the consumer own-surface e2e returns under its build guard and the Playwright server takes the runner's flag; stale ownership paths dropped.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-dossier.test.ts",
+        "web/__tests__/business-shell-no-guest.test.ts",
+        "web/__tests__/chat-account-boundary.dom.test.tsx",
+        "web/__tests__/expense-detail-panel.dom.test.tsx",
+        "web/__tests__/receipt-email-origin.test.tsx",
+        "web/__tests__/receipt-fact-rows.test.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/ExpenseDetailPanel.tsx",
+        "web/components/business-app/ReceiptRecordFacts.tsx",
+        "web/components/guest/ExpiredGuestSession.tsx",
+        "web/e2e/business-pilot-preview.spec.ts",
+        "web/e2e/business-record-review.spec.ts",
+        "web/playwright.config.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
       ]
     }
   }
