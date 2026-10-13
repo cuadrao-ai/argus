@@ -1079,6 +1079,23 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-inbox-count-20261013": {
+      "description": "The Overview inbox card and the sidebar badge count what the Inbox list shows: receipts awaiting review without the email-itself rows, plus drafts with an open note; one shared inboxCount in BusinessInboxPanel, no backend change.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-inbox-notes.test.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/BusinessOverviewPanel.tsx",
+        "web/components/business-app/BusinessSidebarNav.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-live-delegation-foundation-20261011": {
       "description": "Provider-neutral offline live-delegation foundation; current paid/full entitlement and durable canonical admission remain default-denied prerequisites, no provider activation.",
       "base_ref": "origin/codex/private-alpha-next",
