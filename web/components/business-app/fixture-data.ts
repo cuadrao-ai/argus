@@ -626,7 +626,7 @@ const SAMPLE_EMAILS = [
     error_code: null,
     text_body: "Buenas tardes, adjunto la factura de hoy. Gracias por su compra.",
     parts: [
-      { id: "1.2", filename: "IMG_2214.jpg", media_type: "image/jpeg", state: "captured" as const, document_id: "rcpt-ferreteria", error_code: null },
+      { id: "1.2", filename: "IMG_2214.jpg", media_type: "image/jpeg", state: "captured" as const, document_id: "rcpt-ferreteria", error_code: null, repeat_of_delivery_id: null },
     ],
   },
   {

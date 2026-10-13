@@ -228,7 +228,26 @@ def stop_receiving(
     return Response(status_code=204, headers=NO_STORE)
 
 
-def _group(runtime: EmailCapture, delivery, *, detail: bool = False) -> dict[str, Any]:  # noqa: ANN001
+def _first_deliveries(runtime: EmailCapture, space_id: str) -> dict[str, str]:
+    """Document id to the delivery that brought it first, by arrival, within the
+    deliveries this Business lists. A later delivery of the same bytes names
+    that first one instead of pretending to add a receipt."""
+
+    first: dict[str, str] = {}
+    for item in sorted(runtime.store.list(space_id), key=lambda d: d.received_at):
+        for part in runtime.store.parts(item.id):
+            if part.document_id and part.document_id not in first:
+                first[part.document_id] = item.id
+    return first
+
+
+def _group(
+    runtime: EmailCapture,
+    delivery,  # noqa: ANN001
+    *,
+    detail: bool = False,
+    first: dict[str, str] | None = None,
+) -> dict[str, Any]:
     result = asdict(delivery)
     for key in (
         "provider",
@@ -244,7 +263,20 @@ def _group(runtime: EmailCapture, delivery, *, detail: bool = False) -> dict[str
     if not detail:
         result.pop("text_body")
     result["retryable"] = runtime.retryable(delivery)
-    result["parts"] = [asdict(part) for part in runtime.store.parts(delivery.id)]
+    earlier = (
+        first if first is not None else _first_deliveries(runtime, delivery.space_id)
+    )
+    result["parts"] = []
+    for part in runtime.store.parts(delivery.id):
+        origin = earlier.get(part.document_id or "")
+        result["parts"].append(
+            {
+                **asdict(part),
+                "repeat_of_delivery_id": origin
+                if origin and origin != delivery.id
+                else None,
+            }
+        )
     return result
 
 
@@ -256,10 +288,11 @@ def deliveries(
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
+    space_id = context.scope.owner.space_id
+    first = _first_deliveries(runtime, space_id)
     return {
         "items": [
-            _group(runtime, item)
-            for item in runtime.store.list(context.scope.owner.space_id)
+            _group(runtime, item, first=first) for item in runtime.store.list(space_id)
         ]
     }
 

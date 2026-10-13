@@ -30,11 +30,14 @@ class WebActionSource(Contract):
 class AttachmentSource(Contract):
     id: UUID
     kind: Literal["attachment"] = "attachment"
-    channel: Literal["web", "whatsapp"]
+    #: ``email`` and the deliveries are set at the API boundary from the email
+    #: queue; the stored row knows only web or whatsapp.
+    channel: Literal["web", "whatsapp", "email"]
     received_at: datetime
     connection_id: UUID
     filename: str | None
     media_type: str
+    email_delivery_ids: tuple[str, ...] = ()
 
 
 SourceEvidence = Annotated[

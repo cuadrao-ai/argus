@@ -127,3 +127,10 @@ export function LoadingRows({ rows = 3 }: { rows?: number }) {
     </div>
   );
 }
+
+/** Where a source arrived from, by its channel; WhatsApp keeps its name, the rest have a word. */
+export function useChannelLabel() {
+  const { t } = useTranslation();
+  return (channel: "web" | "whatsapp" | "email" | string) =>
+    channel === "whatsapp" ? "WhatsApp" : channel === "email" ? t("business.dossier.email", "Email") : t("business.dossier.web", "Web upload");
+}

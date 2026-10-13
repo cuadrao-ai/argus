@@ -134,6 +134,7 @@ def _email_flagged(context: BusinessContext, receipts: list) -> list:  # noqa: A
     return [
         replace(
             receipt,
+            channel="email",
             email_delivery_ids=flags[receipt.id][0],
             email_original=flags[receipt.id][1],
         )
@@ -699,6 +700,7 @@ def search(
     flags = email_receipt_flags(context.scope.owner.space_id)
     for item in found["receipts"]:
         if item["id"] in flags:
+            item["channel"] = "email"
             item["email_delivery_ids"] = list(flags[item["id"]][0])
             item["email_original"] = flags[item["id"]][1]
     return found

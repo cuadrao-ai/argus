@@ -189,6 +189,11 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
     assert listed[attachment_id]["email_original"] is False
     assert listed[attachment_id]["email_delivery_ids"] == [delivery.id]
     assert listed[attachment_id]["preparable"] is True
+    # Both arrived by email, and the views say so; the stored draft still knows only web.
+    assert (listed[original_id]["channel"], listed[attachment_id]["channel"]) == (
+        "email",
+        "email",
+    )
     detail = alice.detail(original_id)
     assert detail["email_original"] is True
 
@@ -213,3 +218,106 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
         f"/receipts/{attachment_id}/prepare", **{"X-Extraction-Consent": "true"}
     )
     assert prepared.status_code == 200, prepared.text
+
+
+def test_the_same_file_in_a_second_email_names_the_first_delivery_and_adds_no_receipt(
+    alice: Owner,  # noqa: F811
+    runtime,  # noqa: ANN001
+) -> None:
+    """The second email's part replays the first receipt; the deliveries list
+    says which delivery brought it first, the receipt lists both deliveries,
+    and the Business still has one receipt for those bytes."""
+
+    from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
+
+    first_upload = alice.upload(content=UNREADABLE, consent=False, name="recibo.png")
+    again = alice.upload(content=UNREADABLE, consent=False, name="recibo.png")
+    assert again.json()["replayed"] is True
+    document_id = first_upload.json()["id"]
+    space_id = alice.scope().owner.space_id
+    store = runtime.store
+    route = store.create_route(
+        recipient="recibos-00000002@recibos.example.test",
+        space_id=space_id,
+        principal_id=alice.scope().person_id,
+        granted_by=alice.scope().person_id,
+        grant_id=str(uuid4()),
+    )
+    ids = []
+    for subject in ("Factura 0041", "Fwd: Factura 0041"):
+        delivery = store.enqueue(
+            "resend",
+            str(uuid4()),
+            (route.recipient,),
+            route_id=route.id,
+            space_id=space_id,
+            principal_id=route.principal_id,
+        )
+        claimed = store.claim()
+        store.update(claimed, subject=subject)
+        store.put_part(
+            claimed,
+            EmailDeliveryPart(
+                "1.2", "recibo.png", "image/png", "captured", document_id, None
+            ),
+        )
+        store.finish(claimed, "captured")
+        ids.append(delivery.id)
+    first, second = ids
+    deliveries = {
+        item["id"]: item for item in alice.get("/email/deliveries").json()["items"]
+    }
+    assert deliveries[first]["parts"][0]["repeat_of_delivery_id"] is None
+    assert deliveries[second]["parts"][0]["repeat_of_delivery_id"] == first
+    one = alice.get(f"/email/deliveries/{second}").json()
+    assert one["parts"][0]["repeat_of_delivery_id"] == first
+    detail = alice.detail(document_id)
+    assert sorted(detail["email_delivery_ids"]) == sorted([first, second])
+    assert detail["channel"] == "email"
+    assert (
+        len(
+            [
+                i
+                for i in alice.get("/receipts", view="all").json()["items"]
+                if i["id"] == document_id
+            ]
+        )
+        == 1
+    )
+
+
+def test_dossier_attachment_sources_that_arrived_by_email_say_so(monkeypatch):  # noqa: ANN001
+    from datetime import datetime, timezone
+
+    from argus.api import business_drafts as api
+    from argus.domain.business.contracts.dossier import AttachmentSource, BusinessDossier
+
+    now = datetime(2026, 10, 13, 17, 14, tzinfo=timezone.utc)
+    by_email = AttachmentSource(
+        id=uuid4(),
+        channel="web",
+        received_at=now,
+        connection_id=uuid4(),
+        filename="a.pdf",
+        media_type="application/pdf",
+    )
+    by_web = AttachmentSource(
+        id=uuid4(),
+        channel="web",
+        received_at=now,
+        connection_id=uuid4(),
+        filename="b.pdf",
+        media_type="application/pdf",
+    )
+    dossier = BusinessDossier.model_construct(sources=(by_email, by_web))
+    monkeypatch.setattr(
+        "argus.api.email_intake.email_receipt_flags",
+        lambda space_id: {str(by_email.connection_id): (("d1", "d2"), False)},
+    )
+    seen = api.with_email_sources(dossier, "space")
+    assert [(s.channel, s.email_delivery_ids) for s in seen.sources] == [
+        ("email", ("d1", "d2")),
+        ("web", ()),
+    ]
+    monkeypatch.setattr("argus.api.email_intake.email_receipt_flags", lambda space_id: {})
+    assert api.with_email_sources(dossier, "space") is dossier
