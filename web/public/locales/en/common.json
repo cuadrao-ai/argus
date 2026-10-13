@@ -2371,6 +2371,18 @@
         "ecf": "e-CF",
         "itbis": "ITBIS"
       },
+      "standing": {
+        "suggestion": "Read from the source · suggestion, not verified",
+        "empty": "No value",
+        "missing": "Missing"
+      },
+      "confirm_value": "Confirm",
+      "suggestions_pending_one": "{{count}} suggestion to confirm",
+      "suggestions_pending_other": "{{count}} suggestions to confirm",
+      "missing_pending_one": "{{count}} detail missing",
+      "missing_pending_other": "{{count}} details missing",
+      "unresolved_pending_one": "{{count}} detail to resolve",
+      "unresolved_pending_other": "{{count}} details to resolve",
       "origin": {
         "extracted": "Read from source · not verified",
         "qr_decoded": "From the QR code · not verified",
