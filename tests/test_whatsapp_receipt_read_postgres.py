@@ -12,7 +12,6 @@ import pytest
 from argus.api.whatsapp import DocumentsDestination, _whatsapp_read_gate
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
-from argus.domain.ingestion.whatsapp.intake import CaptureFailed
 from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
@@ -22,6 +21,7 @@ from argus.domain.ingestion.documents.models import ExtractionResult
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
+from argus.domain.ingestion.whatsapp.intake import CaptureFailed
 
 from tests import test_business_actions_postgres as shared
 from tests.document_sources_support import source_objects
