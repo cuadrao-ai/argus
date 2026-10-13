@@ -619,6 +619,22 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-email-intake-startup-log-20261012": {
+      "description": "Email intake says at startup, by condition name and never by value, why it did not start or why it carries no receiving provider, so the logs answer a 404 on the Resend webhook; a credential pasted with stray whitespace is trimmed and one made only of whitespace counts as absent.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/api/email_intake.py",
+        "src/argus/domain/ingestion/email_intake/config.py",
+        "tests/test_email_intake_startup.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-expense-opens-dossier-20261012": {
       "description": "A saved expense opens the record it was recorded from: the API names the receipt a linked bridge draft recorded an expense from (the legacy lookup reads observations a bridge draft never has), in the expenses list and in search, and the whole Expenses row is the control that opens it.",
       "base_ref": "origin/codex/private-alpha-next",
