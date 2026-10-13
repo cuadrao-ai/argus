@@ -1808,6 +1808,7 @@ export default function ChatInterface() {
       navigate: (href) => { window.location.href = href; },
       onFailed: () => showToast(t("settings.logout_error", "We couldn’t sign out this browser. Try again."), "error"),
       businessBuild: businessPilotEnabled,
+      accountDeleted: Boolean(options.sessionEnded),
     });
   };
 

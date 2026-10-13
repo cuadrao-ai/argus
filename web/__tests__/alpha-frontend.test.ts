@@ -2923,7 +2923,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(logoutHandler).toContain("clearHistory()");
     expect(flow).toContain('result?.revocation === "failed"');
     expect(flow.indexOf("deps.clearLocalState()")).toBeLessThan(
-      flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild))"),
+      flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted))"),
     );
   });
 

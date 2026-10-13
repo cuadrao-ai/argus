@@ -5,7 +5,9 @@
  * failed revocation hands the surface back and says so; nothing is cleared
  * and nothing navigates. Signed out, the browser goes to the Business page
  * on a Business build (it sends a signed-out visitor to login with
- * return_to=/biz) and to the landing page otherwise.
+ * return_to=/biz) and to the landing page otherwise. A session that ended
+ * because the account was deleted goes to the landing page on every build:
+ * someone who just deleted their account must not land on a Business login.
  */
 export type LeaveSessionDeps = {
   boundary: { beginConversion: () => void; finishConversion: (userId: string | null) => void };
@@ -16,10 +18,12 @@ export type LeaveSessionDeps = {
   navigate: (href: string) => void;
   onFailed: () => void;
   businessBuild: boolean;
+  /** The account was deleted and the session already ended: nothing to sign out of, and no Business login to land on. */
+  accountDeleted?: boolean;
 };
 
-export function signedOutLanding(businessBuild: boolean): string {
-  return businessBuild ? "/biz" : "/";
+export function signedOutLanding(businessBuild: boolean, accountDeleted = false): string {
+  return businessBuild && !accountDeleted ? "/biz" : "/";
 }
 
 export async function leaveSession(deps: LeaveSessionDeps): Promise<"left" | "failed"> {
@@ -37,6 +41,6 @@ export async function leaveSession(deps: LeaveSessionDeps): Promise<"left" | "fa
     return "failed";
   }
   deps.clearLocalState();
-  deps.navigate(signedOutLanding(deps.businessBuild));
+  deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted));
   return "left";
 }

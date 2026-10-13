@@ -14,7 +14,7 @@ afterAll(async () => {
 
 type Log = string[];
 
-async function mount(options: { businessBuild: boolean; revocation?: "complete" | "failed"; throws?: boolean }) {
+async function mount(options: { businessBuild: boolean; revocation?: "complete" | "failed"; throws?: boolean; accountDeleted?: boolean }) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const log: Log = [];
@@ -30,6 +30,7 @@ async function mount(options: { businessBuild: boolean; revocation?: "complete" 
     navigate: (href: string) => log.push(`navigate:${href}`),
     onFailed: () => log.push("failed"),
     businessBuild: options.businessBuild,
+    accountDeleted: options.accountDeleted,
   };
   const host = document.createElement("div");
   document.body.appendChild(host);
@@ -56,6 +57,14 @@ describe("logout on the first click", () => {
     assert.deepEqual(page.log, ["beginConversion", "signOut", "clear", "navigate:/"]);
     assert.equal(signedOutLanding(false), "/");
     assert.equal(signedOutLanding(true), "/biz");
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("Done after account deletion lands on the landing page on a Business build too, never on a Business login", async () => {
+    const page = await mount({ businessBuild: true, accountDeleted: true });
+    await page.clickOnce();
+    assert.deepEqual(page.log, ["beginConversion", "signOut", "clear", "navigate:/"]);
+    assert.equal(signedOutLanding(true, true), "/");
     await page.act(async () => page.root.unmount());
   });
 
