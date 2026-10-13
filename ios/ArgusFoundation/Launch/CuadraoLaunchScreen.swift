@@ -70,6 +70,7 @@ struct CuadraoLaunchScreen: View {
                     .foregroundStyle(WelcomePalette.ink)
                     .multilineTextAlignment(.center)
                     .frame(width: 280)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("app.unreachable.message")
                 if retrying {
                     ProgressView().accessibilityIdentifier("app.unreachable.retrying")
