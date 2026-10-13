@@ -40,6 +40,11 @@ function window(value: string | undefined, t: T): string {
   return t("business.dossier.ecf_window_unknown", "not judged");
 }
 
+/** The window words are lowercase mid-sentence; the first one opens the sentence. */
+function sentence(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /** The five rows, from whatever checks the record carries; a missing check reads as not checked. */
 export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
   const by = new Map<string, EcfCheck>();
@@ -79,11 +84,13 @@ export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
   if (judged && validity) {
     const signedAt = validity.detail.signed_at ? ` (${validity.detail.signed_at})` : "";
     caption.push(
-      t("business.dossier.ecf_validity_facts", "{{at}} on the date the document declares{{when}}; {{today}} today. Revocation not checked.", {
-        at: window(validity.detail.at_signature, t),
-        when: signedAt,
-        today: window(validity.detail.today, t),
-      }),
+      sentence(
+        t("business.dossier.ecf_validity_facts", "{{at}} on the date the document declares{{when}}; {{today}} today. Revocation not checked.", {
+          at: window(validity.detail.at_signature, t),
+          when: signedAt,
+          today: window(validity.detail.today, t),
+        }),
+      ),
     );
   } else {
     caption.push(t("business.dossier.ecf_validity_not_checked", "Certificate validity not checked."));

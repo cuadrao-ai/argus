@@ -44,7 +44,7 @@ describe("the electronic invoice verification card", () => {
     assert.ok(html.includes("Contenido sin cambios desde la firma"));
     assert.ok(!html.includes("firma verificada") && !html.includes("al firmar"));
     assert.ok(html.includes("Revisar: la lectura difiere del XML en ITBIS"));
-    assert.ok(html.includes("Vigente en la fecha que declara el documento (09-10-2026 14:05:00); Vigente hoy. Revocación no comprobada."));
+    assert.ok(html.includes("Vigente en la fecha que declara el documento (09-10-2026 14:05:00); vigente hoy. Revocación no comprobada."));
     // Neutral facts sit after the caption in a neutral color, not the state color.
     assert.ok(html.includes('text-black/55 dark:text-white/55">Emisor del certificado no comprobado (Autoridad Ficticia de Prueba). El certificado nombra el RNC emisor; eso no prueba su identidad.</span>'));
     assert.ok(html.includes("Aceptación por la DGII no consultada. Código de seguridad esperado: AbC123."));
@@ -61,7 +61,7 @@ describe("the electronic invoice verification card", () => {
     const html = await render(dossier.ecf_checks, "en");
     assert.ok(html.includes("Electronic invoice verification"));
     assert.ok(html.includes("Content unchanged since it was signed"));
-    assert.ok(html.includes("Valid on the date the document declares (09-10-2026 14:05:00); Valid today. Revocation not checked."));
+    assert.ok(html.includes("Valid on the date the document declares (09-10-2026 14:05:00); valid today. Revocation not checked."));
     assert.ok(html.includes("RNC; that does not prove its identity."));
     assert.ok(html.includes("DGII acceptance not looked up."));
   });
@@ -86,7 +86,7 @@ describe("the electronic invoice verification card", () => {
     ] });
     assert.equal(signature.caption, "Revisar: el contenido cambió después de la firma");
     assert.equal(totals.caption, "Revisar: los totales no cuadran (total 100.00, suma 99.00)");
-    assert.ok(certificate.caption.startsWith("Vencido en la fecha que declara el documento (01-01-2026 10:00:00); Vencido hoy."));
+    assert.ok(certificate.caption.startsWith("Vencido en la fecha que declara el documento (01-01-2026 10:00:00); vencido hoy."));
     assert.ok(certificate.caption.endsWith("Revisar: el certificado no nombra el RNC emisor (101000000)."));
     assert.deepEqual(certificate.notes, ["Emisor del certificado no comprobado."]);
     assert.equal(certificate.state, "failed");
