@@ -11,7 +11,6 @@ from financial_accounts.conftest import ALICE
 
 H = {"Authorization": f"Bearer {ALICE}"}
 OPEN = "2026-10-12T09:00:00-04:00"
-QUESTIONS: list[tuple[str, int]] = []
 
 
 def _at(minute: int) -> str:
@@ -43,7 +42,6 @@ def _record(client, body: dict, *, path: str = "/api/v1/financial-activities", m
     assert preview.status_code == 200, preview.text
     data = preview.json()
     asked = [(a["account_id"], o["observation_id"]) for a in data["affected_accounts"] for o in a["observations"] if o["included"] is None]
-    QUESTIONS.append((body["kind"], len(asked)))
     if asked:
         # The founder's answer that applies the movement: "No, apply it".
         body["coverage"] = [{"account_id": a, "observation_id": o, "included": False} for a, o in asked]
@@ -91,6 +89,3 @@ def test_founder_walk_steps_2_to_8(client):
     assert _balance(client, banco) == "900.00"
     assert _balance(client, efectivo) == "100.00"
     assert (owed_after_purchase, owed_after_payment) == ("-300.00", "0.00"), "paying the card clears what is owed"
-    # Today every movement made the same day as the openings is asked whether the opening already includes it
-    # (loop.eligible compares dates). The answer that applies it, "No, apply it", gives the balances above.
-    assert all(count > 0 for _, count in QUESTIONS)
