@@ -1221,6 +1221,33 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-qr-notes-20261013": {
+      "description": "QR review notes, stacked on the web QR PR: API_CONTRACT prose for the userinfo and port refusal, the host rule re-applied on read-back and the 8-page scan cap; EcfCheck.read_vs_qr carries each compared field as typed {read, qr} so no reader parses a string; web card, fixture and tests read the typed pairs; OpenAPI regenerated.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/domain/business/contracts/checks.py",
+        "src/argus/domain/ingestion/documents/dgii_qr.py",
+        "tests/business/test_qr_fill.py",
+        "tests/ingestion/test_dgii_qr.py",
+        "web/__tests__/business-ecf-checks.test.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/ReceiptEcfChecks.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/e2e/business-ecf-checks.spec.ts",
+        "web/lib/business-dossier.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-receipt-notes-20261012": {
       "description": "Review notes on #996 and #997: a repeat mark never overwrites a bank-match warning; the observation reader skips rows the projection skips; the settle route declares its refusals; direct tests for the duplicate skip rule, the legacy duplicate pass, the zero-purchase label and the settle refusals.",
       "base_ref": "origin/codex/private-alpha-next",

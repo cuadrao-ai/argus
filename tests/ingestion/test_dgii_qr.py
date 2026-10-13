@@ -195,10 +195,11 @@ def test_the_qr_rows_say_present_and_match_field_by_field():
     assert rows["qr_present"].state == "verified"
     assert rows["qr_present"].detail["host"] == "fc.dgii.gov.do"
     assert rows["qr_matches_read"].state == "verified"
-    assert rows["qr_matches_read"].detail == {
-        "rnc": f"read={RNC} qr={RNC}",
-        "ecf": f"read={ENCF} qr={ENCF}",
-        "total": f"read={TOTAL} qr={TOTAL}",
+    assert rows["qr_matches_read"].detail == {}
+    assert {k: v.model_dump() for k, v in rows["qr_matches_read"].read_vs_qr.items()} == {
+        "rnc": {"read": RNC, "qr": RNC},
+        "ecf": {"read": ENCF, "qr": ENCF},
+        "total": {"read": TOTAL, "qr": TOTAL},
     }
     # A read that printed nothing comparable: present, nothing to match.
     rows = by_name(qr_checks(QR, ReceiptDetails(merchant="Hotel")))
@@ -219,9 +220,10 @@ def test_a_mismatch_is_a_row_to_review_with_both_values():
         "failed",
         "qr_differs",
     )
-    assert rows["qr_matches_read"].detail == {
-        "rnc": f"read=131111223 qr={RNC}",
-        "total": f"read=33254.19 qr={TOTAL}",
+    assert rows["qr_matches_read"].detail == {}
+    assert {k: v.model_dump() for k, v in rows["qr_matches_read"].read_vs_qr.items()} == {
+        "rnc": {"read": "131111223", "qr": RNC},
+        "total": {"read": "33254.19", "qr": TOTAL},
     }
     # The NCF the read found stands in for the e-NCF when that is what it printed.
     rows = by_name(qr_checks(QR, ReceiptDetails(ncf=ENCF)))

@@ -76,7 +76,9 @@ export type EcfCheckName = "signature_integrity" | "totals_arithmetic" | "read_m
 export type DgiiQr = { url: string; host: string; rnc_emisor: string; encf: string; monto_total: string | null; codigo_seguridad: string | null; fecha_emision: string | null; fecha_firma: string | null; rnc_comprador: string | null };
 export type EcfCheckState = "verified" | "failed" | "not_checked";
 /** One fact the e-CF file proved, or the reason it was not checked; never a blocker. */
-export type EcfCheck = { name: EcfCheckName; state: EcfCheckState; code: string | null; detail: Record<string, string> };
+/** One compared field as the read found it and as the QR states it; only the qr_matches_read row carries them. */
+export type ReadVsQr = { read: string; qr: string };
+export type EcfCheck = { name: EcfCheckName; state: EcfCheckState; code: string | null; detail: Record<string, string>; read_vs_qr?: Record<string, ReadVsQr> };
 export type EcfVerification = { encf: string | null; tipo_ecf: string | null; checked_at: string; checks: EcfCheck[] };
 
 export type BusinessDossier = BusinessRecordContext & {

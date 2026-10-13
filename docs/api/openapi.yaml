@@ -14420,7 +14420,9 @@ components:
 
         DGII''s own hosts are kept; the link is for a person to open, never fetched
 
-        by Cuadrao.'
+        by Cuadrao. The link is checked again every time the model is validated,
+
+        so a persisted value read back is held to the same rule.'
     DisconnectResponse:
       properties:
         connection:
@@ -14621,6 +14623,10 @@ components:
         detail:
           additionalProperties:
             type: string
+          type: object
+        read_vs_qr:
+          additionalProperties:
+            $ref: '#/components/schemas/ReadVsQr'
           type: object
       additionalProperties: false
       type: object
@@ -20899,6 +20905,20 @@ components:
       description: 'One purchase a document read showed, kept as evidence on the draft when
 
         the read found more than one, or none it could settle.'
+    ReadVsQr:
+      properties:
+        read:
+          type: string
+          maxLength: 64
+        qr:
+          type: string
+          maxLength: 64
+      additionalProperties: false
+      type: object
+      required:
+      - read
+      - qr
+      description: One field as the read found it and as the QR states it.
     ReceiptCardFacts:
       properties:
         execution_costs:

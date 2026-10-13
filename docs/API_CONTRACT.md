@@ -9326,14 +9326,24 @@ accept path recorded.
   `url`, `host` (exactly `fc.dgii.gov.do` or `ecf.dgii.gov.do`, `https`, any
   other link is dropped and the capture goes on), `rnc_emisor`, `encf`,
   `monto_total`, `codigo_seguridad`, and `fecha_emision`, `fecha_firma`,
-  `rnc_comprador` when the link names them. The QR is decoded by a plain
-  decoder from the page images after preparation, never by the model and
-  never as a gate before it; Cuadrao never fetches the link, the person opens
-  it. Two rows join `ecf_checks.checks`: `qr_present` (verified when a DGII QR
-  was decoded, else `not_checked` `no_qr`) and `qr_matches_read` (issuer RNC,
-  e-NCF and total from the QR against what the read found, field by field and
-  only where both exist; `failed` `qr_differs` names each differing field with
-  both values; `not_checked` `no_read` when nothing is comparable). A receipt
+  `rnc_comprador` when the link names them. A link with userinfo (`u:p@host`
+  in either spelling), an explicit port (`443` included), a trailing dot, a
+  punycode host or a look-alike suffix is another host and is refused, never
+  rewritten; text that does not split as a URL is not a link and never fails
+  the capture. The same rule is applied again whenever a stored `dgii_qr` is
+  read back. The decoder scans at most the first 8 page images of a
+  document, each already under the document size caps; the decoded text is
+  capped at 2048 characters and each query value at 64. The QR is decoded by
+  a plain decoder from the page images after preparation, never by the model
+  and never as a gate before it; Cuadrao never fetches the link, the person
+  opens it; the web renders the link only after checking the same host rule
+  itself. Two rows join `ecf_checks.checks`: `qr_present` (verified when a
+  DGII QR was decoded, else `not_checked` `no_qr`) and `qr_matches_read`
+  (issuer RNC, e-NCF and total from the QR against what the read found, field
+  by field and only where both exist; `read_vs_qr` carries each compared field
+  as `{read, qr}`, typed, so no reader parses a string; `failed` `qr_differs`
+  carries only the differing fields there; `not_checked` `no_read` when nothing
+  is comparable). A receipt
   with a QR and no XML gets a verification of its own with those rows and
   `dgii_accepted` `network_not_in_tier_a`. The typed merge step after decode
   and read fills only what the read left unknown (issuer RNC, e-NCF, total,
