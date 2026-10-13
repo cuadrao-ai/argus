@@ -53,7 +53,7 @@ private struct GuestModeHost<Content: View>: View {
             case .connected:
                 content.environment(\.cuadraoGuestEntry, { controller.enter() })
             case .launching:
-                CuadraoLaunchScreen().accessibilityIdentifier("guest.launching")
+                WelcomePalette.brandPaper.ignoresSafeArea().accessibilityIdentifier("guest.launching")
             case .guest:
                 if let model = controller.model {
                     GuestRoot(model: model, appearance: $appearance, webURL: auth.configuration?.webURL,
