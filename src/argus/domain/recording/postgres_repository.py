@@ -84,6 +84,16 @@ class PostgresFinancialAccountRepository:
                 raise IdempotencyConflict()
             if decision == "registered_required":
                 raise RegisteredAccountRequired()
+            if decision == "created" and opening is not None and opening.blank:
+                from psycopg.types.json import Jsonb
+
+                marked = connection.execute(
+                    "update public.financial_record_revisions v set details=details || %s where v.record_id=(select id from public.financial_records where account_id=%s and user_id=%s and record_kind='opening_balance') and v.revision=1",
+                    (Jsonb({"blank": True}), outcome["account_id"], user_id),
+                )
+                if marked.rowcount != 1:
+                    # Raising inside the connection block rolls the new account back too.
+                    raise RuntimeError("blank opening was not marked on the new account")
             stored = self._load(
                 connection, user_id, str(outcome["account_id"]), scope=scope
             )
@@ -343,6 +353,7 @@ class PostgresFinancialAccountRepository:
                     recorded_by=str(by) if by is not None else None,
                     recorded_at=at,
                     estimate_basis=details.get("estimate_basis"),
+                    blank=bool(details.get("blank", False)),
                 )
             )
         return {

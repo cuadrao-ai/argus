@@ -22102,6 +22102,7 @@ components:
           enum:
           - after_observation_day
           - entered_after_observation
+          - blank_opening
       type: object
       required:
       - observation_id

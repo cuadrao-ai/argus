@@ -21,7 +21,9 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
     @Published private(set) var kind: FinancialActivityKind
     @Published var accountId: UUID? { didSet { changed(accountId != oldValue) } }
     @Published var sourceAccountId: UUID? { didSet { changed(sourceAccountId != oldValue) } }
-    @Published var destinationAccountId: UUID? { didSet { changed(destinationAccountId != oldValue); payCardIfChosen() } }
+    @Published var destinationAccountId: UUID? { didSet { changed(destinationAccountId != oldValue); payCardIfChosen(); transferIfCardDropped() } }
+    /// True while a card payment exists only because a card was picked as a Transfer's "To".
+    private(set) var cardFromTransfer = false
     @Published var amount = "" { didSet { changed(amount != oldValue) } }
     @Published var principal = "" { didSet { changed(principal != oldValue) } }
     @Published var interest = "" { didSet { changed(interest != oldValue) } }
@@ -139,7 +141,8 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
     /// Transfer also lists credit cards: people pay a card from Transfer, and choosing one makes it a card payment.
     var destinationChoices: [FinancialAccount] {
         let cards = kind == .transfer && availableKinds.contains(.cardPayment) ? options?.destinationEligibility[FinancialActivityKind.cardPayment.rawValue] ?? [] : []
-        return choices(types: (options?.destinationEligibility[kind.rawValue] ?? []) + cards).filter { $0.id != sourceAccountId && (goal == nil || $0.id == goal?.destinationAccountId) && (debt == nil || $0.id == debt?.debtAccountId) && (returning == nil || $0.id == destinationAccountId) }
+        let transfers = kind == .cardPayment && cardFromTransfer ? options?.destinationEligibility[FinancialActivityKind.transfer.rawValue] ?? [] : []
+        return choices(types: (options?.destinationEligibility[kind.rawValue] ?? []) + cards + transfers).filter { $0.id != sourceAccountId && (goal == nil || $0.id == goal?.destinationAccountId) && (debt == nil || $0.id == debt?.debtAccountId) && (returning == nil || $0.id == destinationAccountId) }
     }
     var linkedPurchase: FinancialActivityDetail? { purchases.first { $0.activityId == purchaseActivityId } }
     /// The account the sheet names: the one chosen, the "From" side for paired kinds, else where it opened.
@@ -164,7 +167,7 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
 
     func setKind(_ next: FinancialActivityKind) {
         guard !isCorrection, goal == nil, debt == nil, returning == nil, planOccurrence == nil, canEdit, availableKinds.contains(next) || options == nil else { return }
-        kind = next; categoryId = nil; sourceId = nil; purchaseActivityId = nil
+        kind = next; categoryId = nil; sourceId = nil; purchaseActivityId = nil; cardFromTransfer = false
         answers = []; invalidate(); setAccounts(for: next)
         if next == .refund { Task { await loadPurchases() } }
     }
@@ -178,7 +181,19 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
         let source = sourceAccountId
         setKind(.cardPayment)
         guard kind == .cardPayment else { return }
-        sourceAccountId = source; destinationAccountId = card
+        sourceAccountId = source; destinationAccountId = card; cardFromTransfer = true
+    }
+
+    /// The reverse: a non-card "To" picked after that switch turns it back into a Transfer.
+    private func transferIfCardDropped() {
+        guard kind == .cardPayment, cardFromTransfer, let target = destinationAccountId, let options,
+              let type = options.accounts.first(where: { $0.id == target })?.type,
+              options.destinationEligibility[kind.rawValue]?.contains(type) != true,
+              options.destinationEligibility[FinancialActivityKind.transfer.rawValue]?.contains(type) == true else { return }
+        let source = sourceAccountId
+        setKind(.transfer)
+        guard kind == .transfer else { return }
+        sourceAccountId = source; destinationAccountId = target
     }
 
     private func setAccounts(for kind: FinancialActivityKind) {
