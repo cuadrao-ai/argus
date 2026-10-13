@@ -45,8 +45,8 @@ describe("the electronic invoice verification card", () => {
     assert.ok(!html.includes("firma verificada") && !html.includes("al firmar"));
     assert.ok(html.includes("Revisar: la lectura difiere del XML en ITBIS"));
     assert.ok(html.includes("Vigente en la fecha que declara el documento (09-10-2026 14:05:00); Vigente hoy. Revocación no comprobada."));
-    assert.ok(html.includes("Emisor del certificado no comprobado (Autoridad Ficticia de Prueba)."));
-    assert.ok(html.includes("El certificado nombra el RNC emisor; eso no prueba su identidad."));
+    // Neutral facts sit after the caption in a neutral color, not the state color.
+    assert.ok(html.includes('text-black/55 dark:text-white/55">Emisor del certificado no comprobado (Autoridad Ficticia de Prueba). El certificado nombra el RNC emisor; eso no prueba su identidad.</span>'));
     assert.ok(html.includes("Aceptación por la DGII no consultada. Código de seguridad esperado: AbC123."));
     assert.ok(html.includes("comprobado hace 3 minutos"));
     assert.ok(!html.includes("Comprobado</span>") && !html.includes("Sin comprobar</span>"));
@@ -88,6 +88,7 @@ describe("the electronic invoice verification card", () => {
     assert.equal(totals.caption, "Revisar: los totales no cuadran (total 100.00, suma 99.00)");
     assert.ok(certificate.caption.startsWith("Vencido en la fecha que declara el documento (01-01-2026 10:00:00); Vencido hoy."));
     assert.ok(certificate.caption.endsWith("Revisar: el certificado no nombra el RNC emisor (101000000)."));
+    assert.deepEqual(certificate.notes, ["Emisor del certificado no comprobado."]);
     assert.equal(certificate.state, "failed");
   });
 
@@ -99,10 +100,14 @@ describe("the electronic invoice verification card", () => {
       null as never,
     ] });
     assert.equal(odd.length, 5);
-    assert.deepEqual(odd.map((row) => row.state), ["not_checked", "not_checked", "not_checked", "verified", "not_checked"]);
+    // A verified window check with no window facts stays neutral, never green.
+    assert.deepEqual(odd.map((row) => row.state), ["not_checked", "not_checked", "not_checked", "not_checked", "not_checked"]);
     assert.equal(odd[0].caption, "Firma no comprobada: no se pudo leer la firma");
     assert.equal(odd[1].caption, "Totales no comprobados");
-    assert.ok(odd[3].caption.startsWith("Sin fecha declarada en la fecha que declara el documento; Sin fecha declarada hoy."));
+    assert.equal(odd[3].caption, "Vigencia del certificado no comprobada.");
+    assert.deepEqual(odd[3].notes, ["Emisor del certificado no comprobado."]);
+    const notArray = await rows({ ...BASE, checks: "nope" as never });
+    assert.equal(notArray.length, 5);
     const html = await render({ ...BASE, checked_at: "not a date", checks: [] }, "es-419");
     assert.ok(html.includes("Sin fecha") === false && html.includes("Firma no comprobada"));
     assert.ok(!html.includes("comprobado hace"));

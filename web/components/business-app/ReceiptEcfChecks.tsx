@@ -18,7 +18,7 @@ import { cardClass } from "./business-ui";
 
 type T = (key: string, fallback: string, options?: Record<string, unknown>) => string;
 type RowState = "verified" | "failed" | "not_checked";
-export type EcfRow = { key: string; title: string; caption: string; state: RowState };
+export type EcfRow = { key: string; title: string; caption: string; state: RowState; /** Neutral sentences after the caption: facts that carry no state of their own. */ notes?: string[] };
 
 const UNSUPPORTED = new Set(["unsupported_algorithm", "reference_unsupported", "unsupported_transform", "unsupported_key"]);
 
@@ -43,7 +43,8 @@ function window(value: string | undefined, t: T): string {
 /** The five rows, from whatever checks the record carries; a missing check reads as not checked. */
 export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
   const by = new Map<string, EcfCheck>();
-  for (const check of verification.checks ?? []) if (check && typeof check.name === "string") by.set(check.name, { ...check, detail: check.detail ?? {} });
+  const checks = Array.isArray(verification.checks) ? verification.checks : [];
+  for (const check of checks) if (check && typeof check.name === "string") by.set(check.name, { ...check, detail: check.detail ?? {} });
   const integrity = by.get("signature_integrity");
   const totals = by.get("totals_arithmetic");
   const read = by.get("read_matches_xml");
@@ -70,11 +71,14 @@ export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
 
   // Two facts about the window, the issuer named as unchecked, and the RNC the
   // certificate names, which is not proven identity while its issuer is unchecked.
-  const certificateState: RowState = stateOf(subject) === "failed" ? "failed" : stateOf(validity);
-  const parts: string[] = [];
-  if (validity?.state === "verified" || validity?.state === "failed") {
+  // The window is judged only when both facts are there; a verified check
+  // without them stays neutral rather than green.
+  const judged = (validity?.state === "verified" || validity?.state === "failed") && Boolean(validity.detail.at_signature) && Boolean(validity.detail.today);
+  const certificateState: RowState = stateOf(subject) === "failed" ? "failed" : judged ? stateOf(validity) : "not_checked";
+  const caption: string[] = [];
+  if (judged && validity) {
     const signedAt = validity.detail.signed_at ? ` (${validity.detail.signed_at})` : "";
-    parts.push(
+    caption.push(
       t("business.dossier.ecf_validity_facts", "{{at}} on the date the document declares{{when}}; {{today}} today. Revocation not checked.", {
         at: window(validity.detail.at_signature, t),
         when: signedAt,
@@ -82,12 +86,14 @@ export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
       }),
     );
   } else {
-    parts.push(t("business.dossier.ecf_validity_not_checked", "Certificate validity not checked."));
+    caption.push(t("business.dossier.ecf_validity_not_checked", "Certificate validity not checked."));
   }
-  parts.push(issuer?.detail.issuer ? t("business.dossier.ecf_issuer_not_checked", "Certificate issuer not checked ({{issuer}}).", { issuer: issuer.detail.issuer }) : t("business.dossier.ecf_issuer_unknown", "Certificate issuer not checked."));
-  if (subject?.state === "verified") parts.push(t("business.dossier.ecf_subject_named", "The certificate names the issuer's RNC; that does not prove its identity."));
-  else if (subject?.state === "failed") parts.push(t("business.dossier.ecf_subject_failed", "Review: the certificate does not name the issuer's RNC ({{serial}}).", { serial: subject.detail.subject_serial ?? "" }));
-  const certificate: EcfRow = { key: "certificate", title: t("business.dossier.ecf_row_certificate", "Certificate"), state: certificateState, caption: parts.join(" ") };
+  if (subject?.state === "failed") caption.push(t("business.dossier.ecf_subject_failed", "Review: the certificate does not name the issuer's RNC ({{serial}}).", { serial: subject.detail.subject_serial ?? "" }));
+  // Neutral facts, in a neutral color: no authority is trusted by name, and a
+  // named RNC is not proven identity.
+  const notes: string[] = [issuer?.detail.issuer ? t("business.dossier.ecf_issuer_not_checked", "Certificate issuer not checked ({{issuer}}).", { issuer: issuer.detail.issuer }) : t("business.dossier.ecf_issuer_unknown", "Certificate issuer not checked.")];
+  if (subject?.state === "verified") notes.push(t("business.dossier.ecf_subject_named", "The certificate names the issuer's RNC; that does not prove its identity."));
+  const certificate: EcfRow = { key: "certificate", title: t("business.dossier.ecf_row_certificate", "Certificate"), state: certificateState, caption: caption.join(" "), notes };
 
   const dgii: EcfRow = {
     key: "dgii",
@@ -132,6 +138,7 @@ export default function ReceiptEcfChecks({ verification }: { verification: EcfVe
               <span className="min-w-0 flex-1">
                 <span className="block text-[14px] font-medium text-black dark:text-white">{row.title}</span>
                 <span className={`block text-[13px] ${className}`}>{row.caption}</span>
+                {row.notes?.length ? <span className="block text-[13px] text-black/55 dark:text-white/55">{row.notes.join(" ")}</span> : null}
                 {checkedAt ? <span className="block text-[12px] text-black/45 dark:text-white/45">{checkedAt}</span> : null}
               </span>
             </li>
