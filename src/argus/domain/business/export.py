@@ -37,6 +37,11 @@ COLUMNS = (
     "category_id",
     "draft_ids",
     "source_ids",
+    # The owner's Personal mark, the fiscal number the draft carries (ncf, ecf)
+    # and the accountant's 606 answer (yes, no); empty when not applicable.
+    "personal",
+    "fiscal_value",
+    "include_606",
 )
 
 
@@ -95,6 +100,32 @@ def _cell(value: Any) -> str:
     ):
         return "'" + text
     return text
+
+
+def _marks(recording: list[dict]) -> dict[str, str]:
+    """The Personal mark, the fiscal number and the 606 answer of the draft that
+    recorded an activity, as the export's own words; a personal expense stays
+    in the export with its mark, never dropped."""
+
+    from argus.domain.business.contracts.facts import (
+        BusinessResolution,
+        fiscal_inclusion,
+        fiscal_value,
+        is_personal,
+    )
+
+    for draft in recording:
+        typed = (draft.get("resolution") or {}).get("business")
+        if not typed:
+            continue
+        facts = BusinessResolution.model_validate(typed).facts
+        answer = fiscal_inclusion(facts)
+        return {
+            "personal": "yes" if is_personal(facts) else "no",
+            "fiscal_value": fiscal_value(facts) or "",
+            "include_606": "" if answer is None else ("yes" if answer else "no"),
+        }
+    return {"personal": "no", "fiscal_value": "", "include_606": ""}
 
 
 def record_rows(snapshot: ExportSnapshot) -> list[dict[str, str]]:
@@ -433,6 +464,9 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                         for d in drafts
                         if str(d["activity_id"]) == a["activity_id"]
                     ],
+                    **_marks(
+                        [d for d in drafts if str(d["activity_id"]) == a["activity_id"]]
+                    ),
                 )
                 for a in activities
             )

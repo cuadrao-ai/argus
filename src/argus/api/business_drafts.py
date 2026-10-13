@@ -29,6 +29,9 @@ from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessResolution,
     Known,
+    fiscal_inclusion,
+    fiscal_value,
+    is_personal,
 )
 from argus.domain.business.scope import BusinessScope
 from argus.domain.business.service import BusinessService
@@ -50,7 +53,7 @@ def action_problem(request: Request, refusal: Refused) -> HTTPException:
         "idempotency_conflict": 409,
         "invalid_input": 422,
     }[refusal.outcome]
-    if refusal.code == "draft_not_prepared":
+    if refusal.code in ("draft_not_prepared", "business_606_not_applicable"):
         status = 409
     return problem(
         request,
@@ -337,6 +340,9 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         "account_id": str(funding.account_id)
         if isinstance(funding, BusinessAccountFunding)
         else None,
+        "personal": is_personal(facts),
+        "fiscal_value": fiscal_value(facts),
+        "include_606": fiscal_inclusion(facts),
     }
     for key, item in (("draft_id", str(row["id"])), ("version", row["version"])):
         if key in summary:
@@ -364,8 +370,18 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
         return summaries
     with transaction(store.authority, store.context) as tx:
         drafts = linked_drafts(tx, [summary["id"] for summary in summaries])
+        # Only the owner marks a receipt as personal; a grantee reads the mark.
+        editable = context.scope.acting_as_owner and "prepare" in (
+            context.record_context.capabilities if context.record_context else ()
+        )
         return [
-            draft_overlay(summary, drafts.get(summary["id"], [])) for summary in summaries
+            {
+                **draft_overlay(summary, linked),
+                # Only a receipt with a draft has anything to mark; one without is left alone.
+                **({"personal_editable": editable} if linked else {}),
+            }
+            for summary in summaries
+            for linked in [drafts.get(summary["id"], [])]
         ]
 
 
@@ -386,12 +402,26 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     """The home overview with its receipt counts taken from the overlaid views,
     so an approved draft is a saved expense, not a receipt awaiting review."""
 
+    from argus.domain.business import ledger
     from argus.domain.business.receipts import AWAITING_REVIEW
 
     data = context.service.overview(context.scope, start, end)
     items = receipt_summaries(context, "all")
     data["awaiting_review"] = sum(item["status"] in AWAITING_REVIEW for item in items)
     data["needs_attention"] = sum(item["status"] == "needs_attention" for item in items)
+    # Gastos reales leave the owner's personal receipts out; con valor fiscal
+    # are the real ones that carry an NCF or an e-CF; the rest do not go into
+    # the 606. All three from the same rows, so the line never disagrees.
+    rows = _with_records(
+        context, context.service.expense_rows(context.scope, start, data["to"])
+    )
+    real = [row for row in rows if not row.get("personal")]
+    fiscal = [row for row in real if row.get("fiscal_value")]
+    data["totals"] = ledger.totals(real)
+    data["fiscal_totals"] = ledger.totals(fiscal)
+    data["without_fiscal_totals"] = ledger.totals(
+        [row for row in real if not row.get("fiscal_value")]
+    )
     return data
 
 
@@ -409,7 +439,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
     if not activity_ids:
         return {}
     rows = tx.rows(
-        "select e.activity_id, e.id as draft_id, s.connection_id"
+        "select e.activity_id, e.id as draft_id, s.connection_id, e.resolution"
         " from public.financial_import_events e"
         " left join public.business_draft_sources l on l.draft_id=e.id"
         " and l.space_id=e.owner_space_id"
@@ -425,17 +455,27 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
     )
     drafts: dict[str, set[str]] = {}
     receipts: dict[str, set[str]] = {}
+    marks: dict[str, dict] = {}
     for row in rows:
         activity = str(row["activity_id"])
         drafts.setdefault(activity, set()).add(str(row["draft_id"]))
         if row["connection_id"]:
             receipts.setdefault(activity, set()).add(str(row["connection_id"]))
+        typed = (row.get("resolution") or {}).get("business")
+        if typed and activity not in marks:
+            facts = BusinessResolution.model_validate(typed).facts
+            marks[activity] = {
+                "personal": is_personal(facts),
+                "fiscal_value": fiscal_value(facts),
+                "include_606": fiscal_inclusion(facts),
+            }
     return {
         activity: {
             "draft_id": ids.pop() if len(ids) == 1 else None,
             "receipt_id": (
                 receipts[activity].pop() if len(receipts.get(activity, ())) == 1 else None
             ),
+            **marks.get(activity, {}),
         }
         for activity, ids in drafts.items()
     }
@@ -448,11 +488,10 @@ def _with_records(context: BusinessContext, expenses: list[dict]) -> list[dict]:
     nothing to open."""
 
     store = context.service.imports.store
-    missing = [item["id"] for item in expenses if item.get("receipt_id") is None]
-    if not isinstance(store, GrantImportStore) or not missing:
+    if not isinstance(store, GrantImportStore) or not expenses:
         return expenses
     with transaction(store.authority, store.context) as tx:
-        found = linked_records(tx, missing)
+        found = linked_records(tx, [item["id"] for item in expenses])
     return [
         {
             **item,

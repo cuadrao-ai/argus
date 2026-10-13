@@ -150,6 +150,18 @@ class ReceiptSummary(_Wire):
     currency: str | None
     category_id: str | None
     account_id: str | None
+    # Marked by the owner as no part of the Business: left out of the totals, kept visible.
+    personal: bool = Field(default=False, exclude_if=lambda value: value is False)
+    # The fiscal number the draft carries today (NCF or e-CF), absent without one or before a read.
+    fiscal_value: Literal["ncf", "ecf"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    # The accountant's 606 answer for a personal receipt with a fiscal number; absent until given or not applicable.
+    include_606: bool | None = Field(default=None, exclude_if=lambda value: value is None)
+    # Whether the caller may mark or unmark it: the owner, with prepare.
+    personal_editable: bool = Field(
+        default=False, exclude_if=lambda value: value is False
+    )
 
 
 class ReceiptEvidenceLine(_Wire):
@@ -209,6 +221,11 @@ class BusinessExpense(_Wire):
     # The bridge draft that recorded it, when one did: the record to open when
     # the expense names no single receipt.
     draft_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    personal: bool = Field(default=False, exclude_if=lambda value: value is False)
+    fiscal_value: Literal["ncf", "ecf"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    include_606: bool | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class ExpenseDetail(BusinessExpense):
@@ -242,7 +259,12 @@ class BusinessOverview(_Wire):
     to: date
     # The server's day in the recording time zone: the one clock for "today".
     today: date
+    #: "Gastos reales": every approved expense of the period that is not personal.
     totals: list[CurrencyTotal]
+    #: "Con valor fiscal": those that carry an NCF or an e-CF.
+    fiscal_totals: list[CurrencyTotal] = Field(default_factory=list)
+    #: "Sin comprobante fiscal": real minus fiscal, per currency; what does not go into the 606.
+    without_fiscal_totals: list[CurrencyTotal] = Field(default_factory=list)
     awaiting_review: int
     needs_attention: int
     last_received_at: datetime | None

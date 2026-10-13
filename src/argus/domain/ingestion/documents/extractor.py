@@ -85,6 +85,9 @@ not substitute a generic tax line for ITBIS. Never invent fiscal defaults.
 def fiscal_facts_from_receipt(receipt: ReceiptDetails, *, source_id: UUID) -> FiscalFacts:
     facts = {}
     for name in FiscalFacts.model_fields:
+        if not hasattr(receipt, name):
+            # A fact a person answers (the 606 inclusion) is never read from the source.
+            continue
         value = getattr(receipt, name)
         fact = {
             "state": "unknown" if value is None else "known",

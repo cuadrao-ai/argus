@@ -162,6 +162,34 @@ class SettleRemainderCommand(Contract):
     request: SettleRemainder
 
 
+class MarkPersonal(Contract):
+    """The owner marks a receipt as personal (no part of it is the Business's)
+    or takes the mark back. Reversible, a new revision each way."""
+
+    version: int = Field(ge=1)
+    personal: bool
+
+
+class MarkPersonalCommand(Contract):
+    action: Literal["mark_personal"] = "mark_personal"
+    draft_id: UUID
+    request: MarkPersonal
+
+
+class DecideFiscalInclusion(Contract):
+    """A prepare-holder other than the owner answers whether a personal receipt
+    that carries a fiscal number goes into the 606."""
+
+    version: int = Field(ge=1)
+    include: bool
+
+
+class DecideFiscalInclusionCommand(Contract):
+    action: Literal["decide_606"] = "decide_606"
+    draft_id: UUID
+    request: DecideFiscalInclusion
+
+
 class ReviewCommand(Contract):
     action: Literal["review_draft"] = "review_draft"
     draft_id: UUID
@@ -276,6 +304,8 @@ Command = (
     | PrepareAttachmentCommand
     | SettleRemainderCommand
     | RebindAttachmentCommand
+    | MarkPersonalCommand
+    | DecideFiscalInclusionCommand
 )
 
 

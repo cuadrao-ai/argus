@@ -16,6 +16,8 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
     ApproveExpense,
     ApproveIncome,
+    DecideFiscalInclusion,
+    MarkPersonal,
     Refused,
     ReviewDraft,
     SettleRemainder,
@@ -40,6 +42,10 @@ def _run(request, response, context, draft_id, command=None, key=None):
                 method = context.service.review
             elif isinstance(command, SettleRemainder):
                 method = context.service.settle_remainder
+            elif isinstance(command, MarkPersonal):
+                method = context.service.mark_personal
+            elif isinstance(command, DecideFiscalInclusion):
+                method = context.service.decide_606
             elif isinstance(command, ApproveIncome):
                 method = context.service.approve_income
             else:
@@ -72,6 +78,39 @@ def review_draft(
     context: Annotated[DraftContext, Depends(require_drafts)],
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
+    return _run(
+        request, response, context, draft_id, body, _key(request, idempotency_key)
+    )
+
+
+@router.post("/{draft_id}/personal", response_model=BusinessDossier)
+def mark_personal(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    body: MarkPersonal,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    """The owner marks the receipt as personal or takes the mark back."""
+
+    return _run(
+        request, response, context, draft_id, body, _key(request, idempotency_key)
+    )
+
+
+@router.post("/{draft_id}/fiscal-inclusion", response_model=BusinessDossier)
+def decide_fiscal_inclusion(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    body: DecideFiscalInclusion,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    """A prepare-holder other than the owner answers whether a personal receipt
+    with a fiscal number goes into the 606."""
+
     return _run(
         request, response, context, draft_id, body, _key(request, idempotency_key)
     )

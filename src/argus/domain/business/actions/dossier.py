@@ -97,8 +97,10 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
         result.append(Blocker(code="amount_positive_required", field="amount"))
     if (
         isinstance(facts.business_share, Known)
-        and facts.business_share.value.kind != "all"
+        and facts.business_share.value.kind == "partial"
     ):
+        # A personal receipt (none) is approved and left out of the totals;
+        # a partial share has no recording rule yet.
         result.append(
             Blocker(code="business_allocation_unsupported", field="business_share")
         )

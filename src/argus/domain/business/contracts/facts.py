@@ -137,6 +137,9 @@ class FiscalFacts(Contract):
     ncf: Fact[str] = Unknown()
     ecf: Fact[str] = Unknown()
     itbis: Fact[Amount] = Unknown()
+    # The accountant's answer to "¿Incluir en 606?" for a personal receipt that
+    # carries a fiscal number; never the app's and never the model's.
+    include_606: Fact[bool] = Unknown()
 
     @model_validator(mode="after")
     def no_fiscal_defaults(self) -> FiscalFacts:
@@ -295,3 +298,41 @@ def legacy_projection(facts: BusinessFacts) -> dict[str, object]:
         else None
     )
     return projected
+
+
+FiscalValue = Literal["ncf", "ecf"]
+
+
+def fiscal_value(facts: BusinessFacts) -> FiscalValue | None:
+    """Whether the receipt carries a fiscal number today: an NCF or an e-CF the
+    draft knows, of any origin. The e-CF check state comes later."""
+
+    if facts.fiscal is None:
+        return None
+    if isinstance(facts.fiscal.ecf, Known):
+        return "ecf"
+    if isinstance(facts.fiscal.ncf, Known):
+        return "ncf"
+    return None
+
+
+def is_personal(facts: BusinessFacts) -> bool:
+    """Marked by the owner as no part of the Business: business_share is none
+    and the owner stated it. A none of any other origin (a model's reading, a
+    default) is not a mark and excludes nothing."""
+
+    share = facts.business_share
+    return (
+        isinstance(share, Known)
+        and share.value.kind == "none"
+        and share.origin == "owner_stated"
+    )
+
+
+def fiscal_inclusion(facts: BusinessFacts) -> bool | None:
+    """The accountant's 606 answer when one applies, else None."""
+
+    if not is_personal(facts) or fiscal_value(facts) is None or facts.fiscal is None:
+        return None
+    answer = facts.fiscal.include_606
+    return answer.value if isinstance(answer, Known) else None
