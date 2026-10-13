@@ -176,3 +176,43 @@ def test_clients_cannot_read_the_queue(rig):
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 with db.transaction():
                     db.execute(f"select count(*) from public.{table}")
+
+
+def test_the_earliest_save_of_a_file_is_found_by_business_and_bytes(rig, users):  # noqa: ANN001
+    """On Postgres every document of a Business belongs to its owner (the
+    connection's owner_space_id and user_id are pinned to spaces(id,
+    created_by)), so the Business's first save of these bytes is the answer,
+    and a save in another Business never counts."""
+
+    import hashlib
+
+    documents, space = rig["documents"], rig["route"].space_id
+    content = message()
+    digest = hashlib.sha256(content).hexdigest()
+    assert documents.store.earliest_saved(space_id=space, sha256=digest) is None
+    asyncio.run(
+        documents.upload(
+            user_id=users["owner"],
+            scope=BusinessSpace(space),
+            content=content,
+            filename="a.eml",
+            media_type="message/rfc822",
+            consent=False,
+        )
+    )
+    first = documents.store.earliest_saved(space_id=space, sha256=digest)
+    assert first is not None
+    # The same bytes again are the same document: the first save stays the answer.
+    asyncio.run(
+        documents.upload(
+            user_id=users["owner"],
+            scope=BusinessSpace(space),
+            content=content,
+            filename="b.eml",
+            media_type="message/rfc822",
+            consent=False,
+        )
+    )
+    assert documents.store.earliest_saved(space_id=space, sha256=digest) == first
+    assert documents.store.earliest_saved(space_id=str(uuid4()), sha256=digest) is None
+    assert documents.store.earliest_saved(space_id=space, sha256="0" * 64) is None

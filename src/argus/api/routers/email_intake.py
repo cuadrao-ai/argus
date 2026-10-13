@@ -267,12 +267,19 @@ def _group(
         repeat_of_delivery = first if first and first != delivery.id else None
         repeat_of_upload = False
         if part.document_id and repeat_of_delivery is None:
+            # The Business, not the person, is the unit: a file anyone saved in
+            # this Business before the email came makes the email the repeat.
             draft = runtime.documents.store.draft(
                 user_id=delivery.principal_id, connection_id=part.document_id
             )
-            repeat_of_upload = (
-                draft is not None and draft.created_at < delivery.received_at
+            earliest = (
+                runtime.documents.store.earliest_saved(
+                    space_id=delivery.space_id, sha256=draft.sha256
+                )
+                if draft is not None
+                else None
             )
+            repeat_of_upload = earliest is not None and earliest < delivery.received_at
         result["parts"].append(
             {
                 **asdict(part),

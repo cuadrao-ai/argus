@@ -30,6 +30,7 @@ from argus.domain.ingestion.documents.objects import (
 class DocumentStore(Protocol):
     def get(self, *, user_id: str, connection_id: str) -> ExtractionBatch | None: ...
     def draft(self, *, user_id: str, connection_id: str) -> DocumentDraft | None: ...
+    def earliest_saved(self, *, space_id: str, sha256: str) -> datetime | None: ...
     def source(self, *, user_id: str, connection_id: str) -> bytes | None: ...
     def capture(self, *, user_id: str, draft: DocumentDraft, content: bytes) -> bool: ...
     def update(
@@ -151,6 +152,28 @@ class InMemoryDocumentStore:
                 else None
             )
             return DocumentDraft.model_validate_json(raw) if raw is not None else None
+
+    def earliest_saved(self, *, space_id: str, sha256: str) -> datetime | None:
+        """When these bytes were first saved in this Business, by anyone, or
+        None: a Business keeps one receipt per person and file, so the same
+        file from two people is two documents that share this answer."""
+
+        from argus.domain.owner_scope import space_id as scope_space
+
+        with self.connections._lock, self._lock:
+            found: datetime | None = None
+            for (user_id, connection_id), raw in self._drafts.items():
+                if not self._live(user_id, connection_id):
+                    continue
+                row = self.connections.get_any_scope(
+                    user_id=user_id, connection_id=connection_id
+                )
+                if scope_space(row.scope) != space_id:
+                    continue
+                draft = DocumentDraft.model_validate_json(raw)
+                if draft.sha256 == sha256 and (found is None or draft.created_at < found):
+                    found = draft.created_at
+            return found
 
     def source(self, *, user_id: str, connection_id: str) -> bytes | None:
         with self.connections._lock, self._lock:
