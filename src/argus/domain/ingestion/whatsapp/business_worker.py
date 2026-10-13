@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from contextlib import suppress
 from datetime import timedelta
 from typing import Any, Protocol
 from uuid import UUID, uuid4
@@ -29,6 +30,8 @@ from argus.domain.ingestion.whatsapp.replies import (
     compose_reply,
     reply_payload,
 )
+
+MAX_ATTEMPTS = 5
 
 
 class TurnExecutor(Protocol):
@@ -87,6 +90,7 @@ class BusinessWhatsAppWorker:
         self.send_enabled = send_enabled
         self.inbox_link = inbox_link
         self.holder = uuid4()
+        self._failures: dict[bytes, int] = {}
 
     async def run_once(self) -> bool:
         if not self.enabled():
@@ -106,15 +110,40 @@ class BusinessWhatsAppWorker:
                 continue
             try:
                 await asyncio.wait_for(self._process(key, lease), timeout=90)
+                self._failures.pop(key, None)
             except Exception as error:
                 logger.warning(
                     "Business WhatsApp worker interrupted",
                     failure_mode=type(error).__name__,
                 )
+                await self._count_failure(key, lease, error)
             finally:
                 await asyncio.to_thread(self.turns.release, lease)
             return True
         return False
+
+    async def _count_failure(
+        self, key: bytes, lease: SenderLease, error: Exception
+    ) -> None:
+        """Bounded tries: the oldest message of a sender is picked again every
+        second, so one that keeps failing would hide the sender's newer ones."""
+
+        self._failures[key] = self._failures.get(key, 0) + 1
+        if self._failures[key] < MAX_ATTEMPTS:
+            return
+        self._failures.pop(key, None)
+        code = getattr(error, "code", None) or "whatsapp_reply_failed"
+        logger.error(
+            "Business WhatsApp message given up after repeated failures",
+            event="business_whatsapp_given_up",
+            message_ref=key.hex()[:12],
+            failure_mode=type(error).__name__,
+            failure_code=code,
+        )
+        with suppress(Exception):
+            await asyncio.to_thread(
+                self.delivery.give_up, key, lease=lease, code="whatsapp_reply_failed"
+            )
 
     async def run(self) -> None:
         while True:
@@ -364,12 +393,14 @@ class BusinessWhatsAppWorker:
                 )
             if claim.state != "sending":
                 return
+            started = False
             try:
                 # The transport switch was read inside the claim, which is the
                 # last point a reply can still wait; a started send cannot be
                 # retried, so it is not asked again here.
                 if not self.enabled() or not await asyncio.to_thread(authorized):
                     raise PermissionError("whatsapp_ai_consent_required")
+                started = True
                 await self.transport.send(
                     reply_payload(
                         to=captured.envelope.sender,
@@ -378,8 +409,14 @@ class BusinessWhatsAppWorker:
                     )
                 )
             except BaseException:
+                # Nothing was sent when permission ended before the send began.
                 await asyncio.to_thread(
-                    self.delivery.settle, captured, claim.reply, lease=lease, sent=False
+                    self.delivery.settle,
+                    captured,
+                    claim.reply,
+                    lease=lease,
+                    sent=False,
+                    code=None if started else "whatsapp_send_not_permitted",
                 )
                 raise
             await asyncio.to_thread(

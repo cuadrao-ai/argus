@@ -754,3 +754,61 @@ async def test_the_receipts_only_reply_carries_the_inbox_link_when_there_is_one(
     assert [m["text"]["body"] for m in world.transport.messages] == [
         "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao" + ending
     ]
+
+
+def _outbox(world, message):
+    with world.pool.connection() as db:
+        return db.execute(
+            "select state,error_code from public.whatsapp_outbox where provider_message_key=%s",
+            (world.keys.message(message.id),),
+        ).fetchall()
+
+
+@pytest.mark.asyncio
+async def test_consent_ending_after_the_claim_records_not_permitted_not_unknown(world):
+    message = world.message()
+    world.captures.capture(message)
+    worker = world.worker(synthetic_consent=True)
+    original = worker.delivery.claim
+
+    def claim_then_revoke(*args, **kwargs):
+        claim = original(*args, **kwargs)
+        worker.has_consent = lambda *_: False
+        return claim
+
+    worker.delivery.claim = claim_then_revoke
+    await worker.run_once()
+    assert world.transport.messages == []
+    assert _outbox(world, message) == [("unknown", "whatsapp_send_not_permitted")]
+
+
+@pytest.mark.asyncio
+async def test_a_failing_reply_gives_up_after_bounded_tries_and_frees_the_sender(
+    world, monkeypatch
+):
+    from argus.domain.ingestion.whatsapp.business_worker import MAX_ATTEMPTS
+
+    sending = {"on": False}
+    worker = world.worker(synthetic_consent=True)
+    worker.send_enabled = lambda: sending["on"]
+    first = world.message("Compré materiales por 850")
+    world.captures.capture(first)
+    assert await worker.run_once()
+    assert _outbox(world, first) == [("pending", None)]
+    sending["on"] = True
+
+    def broken(*_, **__):
+        raise RuntimeError("synthetic outage")
+
+    monkeypatch.setattr(world.actions, "resolve_actor", broken)
+    for _ in range(MAX_ATTEMPTS):
+        assert await worker.run_once()
+    assert _outbox(world, first) == [("suppressed", "whatsapp_reply_failed")]
+    assert world.transport.messages == []
+    monkeypatch.undo()
+
+    world.executor.reply = "Siguiente"
+    second = world.message("Compré cemento por 300")
+    world.captures.capture(second)
+    assert await worker.run_once()
+    assert [m["text"]["body"] for m in world.transport.messages] == ["Siguiente"]
