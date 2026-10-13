@@ -14,7 +14,9 @@ from argus.domain.ingestion.whatsapp.business_store import BusinessTurnStore
 
 @dataclass(frozen=True)
 class DeliveryClaim:
-    state: Literal["sending", "done", "unknown", "waiting_for_window", "suppressed"]
+    state: Literal[
+        "sending", "done", "unknown", "waiting_for_window", "suppressed", "deferred"
+    ]
     reply: OutboundReply | None = None
 
 
@@ -23,8 +25,18 @@ class BusinessDeliveryStore:
         self.pool = pool
 
     def claim(
-        self, captured: CapturedText, *, lease: SenderLease, permitted: Callable[[], bool]
+        self,
+        captured: CapturedText,
+        *,
+        lease: SenderLease,
+        permitted: Callable[[], bool],
+        sending: Callable[[], bool] = lambda: True,
     ) -> DeliveryClaim:
+        """``permitted`` is about authority and ends the reply when false.
+        ``sending`` is only whether the transport is on: when off, or while an
+        older saved reply of this sender is still unsent, the reply stays
+        pending and is picked up later, in arrival order."""
+
         with self.pool.connection() as connection, connection.transaction():
             BusinessTurnStore.require_lease(connection, lease)
             if (captured.space_id, captured.sender_hash.hex()) != (
@@ -52,6 +64,8 @@ class BusinessDeliveryStore:
                 self._phase(connection, captured.turn_key, "reply_unknown")
                 BusinessTurnStore.require_lease(connection, lease)
                 return DeliveryClaim("unknown")
+            if not sending() or self._older_unsent(connection, captured):
+                return DeliveryClaim("deferred")
             bound = connection.execute(
                 "select 1 from public.whatsapp_sender_links where id=%s and status='active'"
                 " and destination_space_id=%s and destination_owner_id=%s and wa_id_hash=%s for share",
@@ -81,6 +95,22 @@ class BusinessDeliveryStore:
             )
             BusinessTurnStore.require_lease(connection, lease)
             return DeliveryClaim("sending", OutboundReply(index=row[0], body=row[1]))
+
+    @staticmethod
+    def _older_unsent(connection, captured: CapturedText) -> bool:  # noqa: ANN001
+        return (
+            connection.execute(
+                "select 1 from public.whatsapp_inbound_messages me"
+                " join public.whatsapp_inbound_messages older"
+                " on older.destination_space_id=me.destination_space_id"
+                " and older.sender_hash=me.sender_hash"
+                " and older.arrival_sequence<me.arrival_sequence"
+                " join public.whatsapp_outbox o on o.provider_message_key=older.provider_message_key"
+                " where me.provider_message_key=%s and o.state in ('pending','sending') limit 1",
+                (captured.message_key,),
+            ).fetchone()
+            is not None
+        )
 
     def settle(
         self,
