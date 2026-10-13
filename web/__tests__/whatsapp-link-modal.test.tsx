@@ -70,6 +70,15 @@ describe("WhatsApp link view", () => {
     expect(html).toMatch(/<button[^>]*\sdisabled=""[^>]*>Get a link code/);
   });
 
+  test("a code has a square copy button named Copy code, with Copied announced politely", () => {
+    const code = { message_text: "CUADRAO ABCD1234", wa_me_url: null, expires_at: "2026-10-12T23:59:00Z" } as WhatsAppLinkViewProps["code"];
+    const html = render({ code });
+    expect(html).toContain('aria-label="Copy code"');
+    expect(html).toContain('data-testid="whatsapp-copy-code"');
+    expect(html).toContain('role="status" aria-live="polite"');
+    expect(render({ code }, "es-419")).toContain('aria-label="Copiar código"');
+  });
+
   test("Spanish copy renders", () => {
     expect(render({}, "es-419")).toContain("Obtener un código");
   });

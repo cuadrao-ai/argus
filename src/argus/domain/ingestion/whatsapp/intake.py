@@ -316,7 +316,7 @@ class WhatsAppIntake:
         except Exception as error:
             log.warning(
                 "WhatsApp receipt read follow-up skipped",
-                failure_mode=type(error).__name__,
+                failure_mode=getattr(error, "code", type(error).__name__),
             )
 
     async def _discard(self, captured: Settlement, log) -> None:  # noqa: ANN001

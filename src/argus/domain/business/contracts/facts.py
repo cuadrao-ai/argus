@@ -18,6 +18,8 @@ from pydantic import (
 from pydantic.json_schema import SkipJsonSchema
 from typing_extensions import TypeAliasType
 
+from argus.domain.business.contracts.checks import EcfVerification
+
 T = TypeVar("T")
 
 
@@ -186,6 +188,8 @@ class BusinessResolution(Contract):
     read_purchases: tuple[ReadPurchase, ...] = ()
     #: The receipt total the read showed when it could not settle on one purchase.
     read_total: str | None = None
+    #: What the e-CF file proved when the draft came from one; kept on later revisions.
+    ecf_checks: EcfVerification | None = None
     #: A person settled the read purchases this draft does not record.
     remainder_settled: bool = False
 

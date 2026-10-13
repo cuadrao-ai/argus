@@ -25,6 +25,7 @@ from argus.domain.ingestion.documents.config import (
     DocumentExtractionSettings,
     load_document_extraction_settings,
 )
+from argus.domain.ingestion.documents.ecf_checks import EcfDocument, safe_ecf_checks
 from argus.domain.ingestion.documents.models import (
     RECEIPT_CURRENCY_CONFLICT,
     RECEIPT_PURCHASE_AMBIGUOUS,
@@ -126,6 +127,7 @@ def batch_from_result(
     pages: int,
     *,
     document_currency: str | None = None,
+    ecf: EcfDocument | None = None,
 ) -> ExtractionBatch:
     issues = []
     if not result.readable:
@@ -256,6 +258,7 @@ def batch_from_result(
         observations=result.observations,
         receipt=result.receipt,
         issues=tuple(issues),
+        ecf_checks=safe_ecf_checks(ecf, result.receipt, observed_at),
     )
 
 
@@ -366,6 +369,7 @@ class DocumentExtractor:
             observed_at,
             prepared.pages,
             document_currency=prepared.document_currency,
+            ecf=prepared.ecf,
         )
         attachment = Attachment(
             external_id=str(metadata["sha256"]),
