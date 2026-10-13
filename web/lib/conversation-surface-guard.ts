@@ -1,4 +1,5 @@
 import type { ConversationSurface } from "./conversation-surface-api";
+import { businessPilotEnabled } from "./private-alpha-flags";
 
 /**
  * A conversation opens only in the shell of its own surface. The backend says
@@ -31,8 +32,8 @@ export function registerConversationShell(next: Shell): () => void {
   };
 }
 
-export function surfacePath(surface: ConversationSurface): string {
-  return surface === "business" ? "/biz" : "/chat";
+export function surfacePath(surface: ConversationSurface, businessBuild: boolean = businessPilotEnabled): string {
+  return surface === "business" || businessBuild ? "/biz" : "/chat";
 }
 
 /** Throws, after sending the conversation to its own shell, when it belongs elsewhere. */

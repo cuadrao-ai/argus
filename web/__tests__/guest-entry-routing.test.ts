@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as landingEntry from "../lib/landing-entry";
+import { surfacePath } from "../lib/conversation-surface-guard";
 
 const root = join(import.meta.dir, "..");
 const { resolveLandingEntrySurface } = landingEntry;
@@ -110,9 +111,18 @@ describe("a Cuadrao Business build has no guest chat", () => {
     expect(resolveChatEntrySurface({ hasEstablishedUser: false, guestAccessEnabled: true, guestCaptchaConfigured: true, businessBuild: false })).toBe("chat");
   });
 
-  test("the pages wire the build flag: the chat page guard, the root page's guest entry, and the Business UI links", () => {
+  test("the pages wire the build flag: /chat sends everyone to the Business shell, the root page has no guest entry, and every chat-bound caller goes to the Business equivalent", () => {
     const chatPage = readFileSync(join(root, "app/chat/page.tsx"), "utf-8");
+    // Signed in or not: on a Business build the old chat page is not a surface.
+    expect(chatPage).toContain("if (businessPilotEnabled) redirect(businessShellPath(await searchParams));");
+    expect(chatPage.indexOf("if (businessPilotEnabled) redirect(")).toBeLessThan(chatPage.indexOf("supabase.auth.getUser()"));
     expect(chatPage).toContain("businessBuild: businessPilotEnabled");
+    expect(surfacePath("consumer", true)).toBe("/biz");
+    expect(surfacePath("business", true)).toBe("/biz");
+    expect(surfacePath("consumer", false)).toBe("/chat");
+    const followup = readFileSync(join(root, "components/receipt/ReceiptFollowup.tsx"), "utf-8");
+    expect(followup).toContain("router.push(signedInHomePath())");
+    expect(followup).not.toContain("currentChatPath()");
     const rootPage = readFileSync(join(root, "app/page.tsx"), "utf-8");
     expect(rootPage).toContain("!businessPilotEnabled && !profileProbeFailedClosed && guestAccessEnabled && guestCaptchaConfigured");
     const security = readFileSync(join(root, "app/account/security/page.tsx"), "utf-8");

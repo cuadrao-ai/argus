@@ -402,6 +402,18 @@ export function currentChatPath(): string {
   );
 }
 
+/** The Business shell for an address that named chat: /biz with the conversation and message it carried, nothing else. */
+export function businessShellPath(search: URLSearchParams | SearchRecord | string): string {
+  const source = toSearchParams(search);
+  const kept = new URLSearchParams();
+  for (const key of ["conversation", "message"]) {
+    const value = source.get(key);
+    if (value && /^[A-Za-z0-9_-]{1,128}$/.test(value)) kept.set(key, value);
+  }
+  const query = kept.toString();
+  return query ? `/biz?${query}` : "/biz";
+}
+
 /** The signed-in home: the Business workspace on a Business build, else chat with the current query. */
 export function signedInHomePath(businessBuild: boolean = businessPilotEnabled): string {
   return businessBuild ? "/biz" : currentChatPath();

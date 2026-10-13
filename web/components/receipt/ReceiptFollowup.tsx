@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import ReceiptFollowupBox from './ReceiptFollowupBox';
 import { createReceiptFollowup, saveReceiptFollowup } from '@/lib/receipt-followup';
 import { reportReceiptFunnelStage } from '@/lib/receipt-funnel';
-import { captureLandingIntentFromLocation, currentChatPath } from '@/lib/landing-intent';
+import { captureLandingIntentFromLocation, signedInHomePath } from '@/lib/landing-intent';
 import type { ReceiptKind } from '@/lib/public-receipt-turns';
 import type { ReceiptCopy } from '@/lib/receipt-copy';
 
@@ -22,6 +22,6 @@ export default function ReceiptFollowup({ publicId, copy, language, kind }: { pu
     if (!saveReceiptFollowup(createReceiptFollowup(publicId, value, language))) { setFailed(true); return; }
     setBusy(true);
     reportReceiptFunnelStage('try_argus', kind);
-    router.push(currentChatPath());
+    router.push(signedInHomePath());
   }}>{failed ? <p role="alert">{copy.followup.error}</p> : null}</ReceiptFollowupBox>;
 }
