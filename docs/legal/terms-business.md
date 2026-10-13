@@ -48,7 +48,7 @@ _Fecha de entrada en vigor: {{FECHA_DE_VIGENCIA}}_
 
 **B4. IA.** La lectura de recibos y el agente envían datos a OpenRouter solo con el permiso del dueño. El permiso de WhatsApp se guarda con el texto exacto y el modelo, y pide permiso otra vez si cambian. Se puede revocar. El agente no registra gastos por sí solo. [A CONFIRMAR: uso para entrenamiento por modelo]
 
-**B5. Acceso del contador.** Solo el dueño da acceso. Cada permiso dice qué puede hacer la persona (leer, preparar), puede vencer y se puede revocar. [A CONFIRMAR: la firma de contadores y la delegación de una firma contable, que es una fase posterior]. Cada acción de una persona con permiso queda registrada con quién la hizo.
+**B5. Acceso del contador.** Solo el dueño da acceso. Cada permiso dice qué puede hacer la persona (leer, preparar, aprobar), puede vencer y se puede revocar. [A CONFIRMAR: la firma de contadores y la delegación de una firma contable, que es una fase posterior]. Cada acción de una persona con permiso queda registrada con quién la hizo.
 
 **B6. WhatsApp.** El dueño vincula su propio número con un código de un solo uso. Cuadrao guarda una huella del número y sus últimos 4 dígitos. Solo se procesan mensajes que el dueño envía o reenvía. Dar de baja (opt-out): el dueño puede desvincular el número y retirar el permiso de IA en cualquier momento. Después, Cuadrao deja de aceptar mensajes de ese número y deja de enviarlos a IA. [A CONFIRMAR: texto del consentimiento para el número de teléfono, reglas de plantillas y opt-in de Meta, y si Meta permite el agente]
 
@@ -108,7 +108,7 @@ _Effective date: {{FECHA_DE_VIGENCIA}}_
 
 **B4. AI.** Receipt reading and the agent send data to OpenRouter only with the owner's permission. The WhatsApp permission is stored with the exact text and the model, and asks again if either changes. It can be revoked. The agent does not record expenses by itself. [A CONFIRMAR: training use per model]
 
-**B5. Accountant access.** Only the owner grants access. Each grant says what the person can do (read, prepare), can expire and can be revoked. [A CONFIRMAR: firm-level delegation, which is a later phase]. Every action by a granted person is recorded with who did it.
+**B5. Accountant access.** Only the owner grants access. Each grant says what the person can do (read, prepare, approve), can expire and can be revoked. [A CONFIRMAR: firm-level delegation, which is a later phase]. Every action by a granted person is recorded with who did it.
 
 **B6. WhatsApp.** The owner links their own number with a one-time code. Cuadrao stores a digest of the number and its last 4 digits. Only messages the owner sends or forwards are processed. Opt-out: the owner can unlink the number and withdraw the AI permission at any time. After that, Cuadrao stops accepting messages from that number and stops sending them to AI. [A CONFIRMAR: phone-number consent wording, Meta's template and opt-in rules, and whether Meta allows the agent]
 
@@ -131,6 +131,6 @@ _Effective date: {{FECHA_DE_VIGENCIA}}_
 - Aprobación humana, fuente y revisiones; agente sin registro automático: [especificación de ejecución de Business](../specs/lanes/cuadrao-business-agent-execution-spec.md) (D4 valores no verificados, L10 fondos del dueño, B02, recibos faltantes).
 - Permisos de WhatsApp con texto y modelo, revocación: [ai_consent.py](../../src/argus/domain/ingestion/whatsapp/ai_consent.py), [migración de consentimiento](../../supabase/migrations/20261011100000_business_whatsapp_ai_consent.sql).
 - Número como huella y últimos 4 dígitos; solo mensajes del dueño: [migración whatsapp_intake](../../supabase/migrations/20261008130000_whatsapp_intake.sql), [cuadrao-whatsapp-intake](../specs/lanes/cuadrao-whatsapp-intake.md), [API_CONTRACT](../API_CONTRACT.md).
-- Permisos de acceso (leer, preparar, vencimiento, revocación): [migración de base de Business](../../supabase/migrations/20261010223000_business_contract_foundation.sql).
+- Permisos de acceso (leer, preparar, aprobar, vencimiento, revocación): [migración de base de Business](../../supabase/migrations/20261010223000_business_contract_foundation.sql).
 - Retención de Business abierta: [DATA_MODEL](../DATA_MODEL.md), [decision log](../specs/argus-decision-log.md).
 - Exportación CSV y Excel con originales: [especificación de ejecución de Business](../specs/lanes/cuadrao-business-agent-execution-spec.md) (D1).
