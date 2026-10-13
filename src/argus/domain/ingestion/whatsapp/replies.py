@@ -185,4 +185,9 @@ class CloudApiTransport:
         except httpx.HTTPError:
             raise ReplyFailed("transport") from None
         if response.status_code >= 300:
-            raise ReplyFailed(str(response.status_code))
+            from argus.domain.ingestion.whatsapp.media import graph_error
+
+            code = graph_error(response).get("code")
+            raise ReplyFailed(
+                f"{response.status_code}:{code}" if code else str(response.status_code)
+            )

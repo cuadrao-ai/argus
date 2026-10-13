@@ -1,6 +1,22 @@
 {
   "default_base_ref": "codex/alpha-functional",
   "branches": {
+    "claude/whatsapp-graph-diagnostics": {
+      "description": "A failed Graph call logs its step, HTTP status and an allow-listed Graph error code, subcode and type, and a failed reply carries status:code; never a message, id, URL or token.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/domain/ingestion/whatsapp/media.py",
+        "src/argus/domain/ingestion/whatsapp/replies.py",
+        "tests/ingestion/test_whatsapp_graph_diagnostics.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-business-actions-20261010": {
       "description": "Actions-owned source delta; M1 and C0 dependencies must land and reconcile before full READY gate.",
       "base_ref": "origin/codex/private-alpha-next",
