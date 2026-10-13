@@ -20,6 +20,17 @@ import { cardClass, LoadingRows, primaryButtonClass, secondaryButtonClass } from
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
 
+/**
+ * The line under the approve control, by what the actor can do and what the
+ * record is. A person who can approve but whose record is not an expense yet
+ * gets no permission line: the blockers card above already names what is
+ * missing, and a sentence about approval permission would be false.
+ */
+export function approvalLine(canApprove: boolean, canPrepare: boolean, expense: boolean): "approval_effect" | "prepare_only" | "read_only" | null {
+  if (canApprove) return expense ? "approval_effect" : null;
+  return canPrepare ? "prepare_only" : "read_only";
+}
+
 export function ReceiptApprovalGuidance({ dossier }: { dossier: BusinessDossier }) {
   const { t } = useTranslation();
   if (!dossier.blockers.length || dossier.review_state === "accepted" && dossier.approval_result?.status === "recorded") return null;
@@ -249,6 +260,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
   const mutable = !capturePending && !captureOpen && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
   const canPrepare = dossier.capabilities.includes("prepare");
   const canApprove = dossier.capabilities.includes("approve");
+  const line = approvalLine(canApprove, canPrepare, expense);
   const title = dossier.facts.counterparty.state === "known" ? dossier.facts.counterparty.value : t("business.dossier.title", "Review record");
   const attachments = dossier.sources.filter((item) => item.kind === "attachment");
   const busy = operation.kind === "saving" || operation.kind === "approving";
@@ -285,7 +297,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
           <div className={cardClass}>
             {recorded ? <><p role="status" className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: factsRevision(dossier) })}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{dossier.approval_result?.status === "recorded" ? t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: dossier.approval_result.actor.display_name, issuer: dossier.approval_result.actor.issuer_display_name }) : null}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p></> : <>
               {canApprove && expense ? <button type="button" className={primaryButtonClass} disabled={!mutable || !dossier.approval_available || dirty || editing || !expense} onClick={() => void write("approve")}>{operation.kind === "approving" ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve", "Approve expense")}</button> : null}
-              <p className={`${canApprove ? "mt-3 " : ""}text-[13px] leading-relaxed text-black/65 dark:text-white/65`}>{canApprove && expense ? t("business.dossier.approval_effect", "Approval records this revision as one expense. Saving review details does not record it.") : canPrepare ? t("business.dossier.prepare_only", "Your permission allows preparing this record. A person with approval permission must approve it.") : t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>
+              {line ? <p className={`${canApprove ? "mt-3 " : ""}text-[13px] leading-relaxed text-black/65 dark:text-white/65`}>{line === "approval_effect" ? t("business.dossier.approval_effect", "Approval records this revision as one expense. Saving review details does not record it.") : line === "prepare_only" ? t("business.dossier.prepare_only", "Your permission allows preparing this record. A person with approval permission must approve it.") : t("business.dossier.read_only", "Your permission allows viewing this record.")}</p> : null}
               {dossier.approval_result?.status === "failed" ? <p role="alert" className="mt-3 text-[13px] text-black/70 dark:text-white/70">{t("business.dossier.approval_failed", "Approval did not finish. Check the current record before another action.")}</p> : null}
             </>}
             {operation.kind === "uncertain" || dossier.approval_result?.status === "outcome_unknown" || dossier.review_state === "accepting" ? <p role="status" className="mt-3 text-[13px] text-black/70 dark:text-white/70">{t("business.dossier.outcome_unknown", "The action's outcome isn't known yet. Check the saved status before taking another action.")}</p> : null}
