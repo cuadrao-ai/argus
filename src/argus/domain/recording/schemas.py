@@ -32,10 +32,17 @@ class CreateFinancialAccountRequest(BaseModel):
     type: AccountType
     currency: str = Field(min_length=3, max_length=3)
     nickname: str | None = Field(default=None, max_length=200)
-    # Starting balance as typed, dot-decimal; a liability is the positive amount
-    # owed. Omitted on a Personal account records 0; Business keeps it unknown.
-    # `as_of` defaults to now.
-    amount: str | None = Field(default=None, max_length=40)
+    amount: str | None = Field(
+        default=None,
+        max_length=40,
+        description=(
+            "Starting balance as typed, dot-decimal; a liability is the positive "
+            "amount owed. Omitted or blank on a Personal cash, checking, savings, "
+            "investment, credit card or other debt account records an opening of 0 "
+            "at as_of. Property, vehicle and other asset values, and Business "
+            "accounts, stay unknown when omitted. as_of defaults to now."
+        ),
+    )
     as_of: datetime | None = None
     time_zone: str | None = Field(default=None, max_length=64)
     ownership_share_bps: int = Field(default=FULL_SHARE_BPS, ge=1, le=FULL_SHARE_BPS)

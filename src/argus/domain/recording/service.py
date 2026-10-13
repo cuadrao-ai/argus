@@ -80,7 +80,8 @@ class FinancialAccountService:
             nickname=normalize_nickname(request.nickname),
             ownership_share_bps=validate_share(request.ownership_share_bps),
         )
-        amount = (request.amount or "").strip() or blank_opening(scope, account.type)
+        typed = (request.amount or "").strip() or None
+        amount = typed or blank_opening(scope, account.type)
         opening = None
         if amount is not None:
             opening = plan_opening_write(
@@ -99,8 +100,10 @@ class FinancialAccountService:
                 "currency": account.currency,
                 "nickname": account.nickname,
                 "ownership_share_bps": account.ownership_share_bps,
+                # A blank stays blank in the identity, so a retry of a blank create
+                # sent before the recorded-zero rule replays instead of conflicting.
                 "opening": None
-                if opening is None
+                if typed is None or opening is None
                 else {
                     "amount_minor": opening.amount_minor,
                     # The default balance date is the creation instant, which a

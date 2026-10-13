@@ -86,7 +86,6 @@ def write(scene, *, identifier=None, **values):
     )["activity"]
 
 
-@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_connected_acceptance_actuals_contributors_and_cash_independence(scene):
     checking, card = account(scene, "checking"), account(scene, "credit_card")
     unknown, dollar, other = (
@@ -163,9 +162,9 @@ def test_connected_acceptance_actuals_contributors_and_cash_independence(scene):
         purchase_activity_id=purchase["activity_id"],
     )
     check("15500", "-500", "500", 3)
-    assert (
-        scene[0].get(user_id=scene[1], account_id=unknown, scope=PERSONAL).opening is None
-    )
+    untouched = scene[0].get(user_id=scene[1], account_id=unknown, scope=PERSONAL)
+    assert [r.amount_minor for r in untouched.opening.revisions] == [0]
+    assert untouched.checks == ()
 
 
 def test_archive_restore_duplicate_replay_stale_and_search(scene):

@@ -23,7 +23,7 @@ def account(scene, kind="cash", currency="DOP", amount="100"):
             type=kind,
             currency=currency,
             amount=amount,
-            as_of=NOW - timedelta(days=10) if amount else None,
+            as_of=NOW - timedelta(days=10),
         ),
         scope=PERSONAL,
     ).stored.account.id
