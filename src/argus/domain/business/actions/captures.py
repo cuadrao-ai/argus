@@ -79,8 +79,8 @@ def entries(
         raise ActionError("invalid_input", "business_capture_query_invalid")
     with transaction(service.authority, context) as tx:
         return tx.rows(
-            "select e.id as draft_id,e.version,s.id as source_id,s.text_content as text,"
-            " s.received_at,e.state as review_state"
+            "select e.id as draft_id,e.version,v.version as revision,s.id as source_id,"
+            " s.text_content as text,s.received_at,e.state as review_state"
             " from public.business_action_receipts r"
             " join public.financial_import_events e on e.id::text=r.outcome->>'draft_id'"
             " and e.owner_space_id=r.space_id"

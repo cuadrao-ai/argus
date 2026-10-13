@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount, BusinessCapture, BusinessExpense, ReceiptDetail, ReceiptSummary } from "@/lib/business-api";
-import type { BusinessDossier } from "@/lib/business-dossier";
+import { factsRevision, type BusinessDossier } from "@/lib/business-dossier";
 import type { BusinessDataSource } from "./business-data";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
@@ -82,7 +82,7 @@ function NotePreview({ note, source, accounts }: { note: BusinessCapture; source
       <p className="mb-2 text-xs uppercase tracking-wide text-black/45 dark:text-white/45">{t("business.capture.saved_note", "Saved original note")} · {formatTimestamp(note.received_at, locale)}</p>
       <blockquote className="whitespace-pre-wrap break-words border-l-2 border-black/10 pl-3 text-[15px] leading-relaxed text-black/80 dark:border-white/15 dark:text-white/80">{note.text}</blockquote>
     </div>
-    <p className="text-sm text-black/55 dark:text-white/55">{t("business.dossier.revision", "Revision {{version}}", { version: note.version })} · {t(`business.dossier.state.${note.review_state}`, note.review_state)}</p>
+    <p className="text-sm text-black/55 dark:text-white/55">{t("business.dossier.revision", "Revision {{version}}", { version: dossier ? factsRevision(dossier) : note.revision })} · {t(`business.dossier.state.${note.review_state}`, note.review_state)}</p>
     {failed ? <p role="alert" className="text-sm">{t("business.search.record_unavailable", "This record isn't available.")}</p> : dossier ? <>
       <ReceiptRecordFacts dossier={dossier} accounts={[...accounts]} />
       <ReceiptMessages sources={dossier.sources} />
