@@ -84,7 +84,11 @@ def test_ci_runs_on_main_codex_and_jules_without_deploying() -> None:
 
     assert not (ROOT / ".github" / "workflows" / "deploy.yml").exists()
     assert workflow["name"] == "CI"
-    assert workflow["on"]["push"]["branches"] == ["main", "codex/**", "jules/**"]
+    assert workflow["on"]["push"]["branches"] == [
+        "main",
+        "codex/private-alpha-next",
+        "codex/private-alpha-next-jules-intake",
+    ]
     assert workflow["on"]["pull_request"]["branches"] == [
         "main",
         "codex/private-alpha-next",
