@@ -1383,6 +1383,22 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-reinvite-20261013": {
+      "description": "Re-inviting an email after its 14-day invite expired creates nothing and shows nothing: the live-invite unique index ignores expiry and the insert does nothing. An expired pending invite is now re-issued in place with a fresh window and its own receipt; a live one stays unique; revoked and accepted ones no longer hold the slot. Same rule in the in-memory store; four cases tested on real Postgres and in memory. No migration.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/domain/business/access.py",
+        "tests/business/test_business_access_api.py",
+        "tests/test_business_access_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-review-followups-20261012": {
       "description": "Review follow-ups: the saved receipt line names only what the person can do now; the WhatsApp read binds only to the owner who received the receipt, checked explicitly; a release that fails after a read that could not start keeps the original error as the one raised.",
       "base_ref": "origin/codex/private-alpha-next",
