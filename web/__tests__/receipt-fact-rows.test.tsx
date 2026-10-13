@@ -7,7 +7,7 @@ import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 import ReceiptRecordFacts from "@/components/business-app/ReceiptRecordFacts";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
-import { countsAsKnown, factStanding, recordFactRows, reviewCounts } from "@/components/business-app/receipt-fact-rows";
+import { blockedFields, factStanding, fiscalFactRows, recordFactRows, reviewCounts } from "@/components/business-app/receipt-fact-rows";
 import type { BusinessDossier, BusinessFact } from "@/lib/business-dossier";
 
 const known = (origin: BusinessFact<string>["origin"] & string, verified = false): BusinessFact<string> => ({ state: "known", value: "x", origin, verified, source_ids: [] });
@@ -20,97 +20,149 @@ async function i18n(lng: "es-419" | "en") {
   return instance;
 }
 
+async function fixture() {
+  const fixtures = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
+  return fixtures.dossier(dossierFixtureIds.unknownAmount);
+}
+
+async function render(dossier: BusinessDossier, lng: "es-419" | "en" = "es-419", confirmable = true) {
+  const instance = await i18n(lng);
+  const confirmed: string[] = [];
+  const html = renderToStaticMarkup(
+    <I18nextProvider i18n={instance}>
+      <ReceiptRecordFacts dossier={dossier} accounts={[]} confirmable={confirmable} onConfirm={(key) => confirmed.push(key)} />
+    </I18nextProvider>,
+  );
+  return { html, confirmed };
+}
+
 describe("where each fact stands", () => {
-  test("verified, stated by a person and decoded from the QR count as known; a suggestion from the read, a default and a missing value do not", () => {
+  test("every origin has its own standing; an origin the page does not know falls to a safe 'not verified'", () => {
     assert.equal(factStanding(known("extracted", true)), "verified");
     assert.equal(factStanding(known("owner_stated")), "person");
     assert.equal(factStanding(known("member_set")), "person");
-    assert.equal(factStanding(known("matched")), "person");
+    assert.equal(factStanding(known("matched")), "linked");
     assert.equal(factStanding(known("qr_decoded")), "qr");
     assert.equal(factStanding(known("extracted")), "suggestion");
     assert.equal(factStanding(known("default")), "default");
-    assert.equal(factStanding(unknown), "missing");
+    assert.equal(factStanding({ ...known("extracted"), origin: "something_new" as never }), "unverified");
+    assert.equal(factStanding(unknown), "empty");
     assert.equal(factStanding(ownerUnknown), "owner_unknown");
-    for (const standing of ["verified", "person", "qr"] as const) assert.ok(countsAsKnown(standing));
-    for (const standing of ["suggestion", "default", "owner_unknown", "missing"] as const) assert.ok(!countsAsKnown(standing));
   });
 
-  test("rows lead with what is settled, then suggestions, then defaults, then what is missing; the counts name suggestions and gaps", () => {
-    const facts = {
-      kind: known("member_set"),
-      counterparty: known("extracted"),
-      occurred_on: known("qr_decoded"),
-      amount: known("extracted"),
-      currency: known("default"),
-      category_id: unknown,
-      funding: unknown,
-      business_share: known("owner_stated", true),
-      receipt_state: ownerUnknown,
-      fiscal: null,
-    } as unknown as BusinessDossier["facts"];
-    const rows = recordFactRows(facts);
-    assert.deepEqual(rows.map((row) => `${row.key}:${row.standing}`), [
+  test("rows lead with what is settled, then suggestions, then defaults, then what has no value; blockers and open questions mark their fields", () => {
+    const dossier = {
+      facts: { kind: known("member_set"), counterparty: known("extracted"), occurred_on: known("qr_decoded"), amount: known("extracted"), currency: known("default"), category_id: unknown, funding: unknown, business_share: known("owner_stated", true), receipt_state: ownerUnknown, fiscal: null },
+      blockers: [{ code: "missing_fields", field: "amount" }, { code: "unknown_funding", field: "funding" }, { code: "unsupported_kind", field: null }],
+      questions: [{ id: "q1", draft_id: "d", field: "receipt_state", asked_of: "owner", channel: "web", state: "open", prompt: "", allowed_answers: [], answer_source_id: null }],
+    } as unknown as BusinessDossier;
+    const rows = recordFactRows(dossier);
+    assert.deepEqual(rows.map((row) => `${row.key}:${row.standing}${row.blocked ? ":blocked" : ""}${row.asked ? ":asked" : ""}`), [
       "business_share:verified",
       "kind:person",
       "occurred_on:qr",
       "counterparty:suggestion",
-      "amount:suggestion",
+      "amount:suggestion:blocked",
       "currency:default",
-      "receipt_state:owner_unknown",
-      "category_id:missing",
-      "funding:missing",
+      "receipt_state:owner_unknown:asked",
+      "category_id:empty",
+      "funding:empty:blocked",
     ]);
-    assert.deepEqual(reviewCounts(rows), { suggestions: 2, missing: 2 });
+    // Counts come from the backend's blockers, by field; a blocker with no field is the guidance card's.
+    assert.deepEqual([...blockedFields(dossier)].sort(), ["amount", "funding"]);
+    assert.deepEqual(reviewCounts(rows, dossier), { suggestions: 2, missing: 2 });
+  });
+});
+
+describe("the counts line agrees with 'Antes de aprobar'", () => {
+  test("all known and no blockers: no counts line at all", async () => {
+    const base = await fixture();
+    const dossier = { ...base, facts: { ...base.facts, amount: known("owner_stated") }, blockers: [], questions: [] } as BusinessDossier;
+    const { html } = await render(dossier);
+    assert.ok(!html.includes('data-testid="receipt-review-counts"'));
+    assert.ok(!html.includes("Falta"));
+  });
+
+  test("two fields the backend names as missing: 'Faltan 2 datos', each marked Falta with the decision marker; an empty field no blocker names is 'Sin dato'", async () => {
+    const base = await fixture();
+    const dossier = {
+      ...base,
+      facts: { ...base.facts, amount: unknown, funding: unknown, category_id: unknown },
+      blockers: [{ code: "missing_fields", field: "amount" }, { code: "unknown_funding", field: "funding" }],
+      questions: [],
+    } as BusinessDossier;
+    const { html } = await render(dossier);
+    assert.ok(html.includes(">Faltan 2 datos<"));
+    assert.ok(html.includes('data-fact="amount" data-standing="empty" data-blocked="true"'));
+    assert.ok(html.includes('data-fact="funding" data-standing="empty" data-blocked="true"'));
+    assert.equal((html.match(/>Falta</g) ?? []).length, 2);
+    assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 2);
+    assert.ok(html.includes('data-fact="category_id" data-standing="empty" class'));
+    assert.ok(html.includes(">Sin dato<"));
+  });
+
+  test("NCF or e-CF: a fiscal receipt with one of them never counts the other as missing", async () => {
+    const base = await fixture();
+    const dossier = {
+      ...base,
+      facts: { ...base.facts, amount: known("owner_stated"), fiscal: { rnc: known("qr_decoded"), ncf: unknown, ecf: known("owner_stated"), itbis: unknown } },
+      blockers: [],
+      questions: [],
+    } as unknown as BusinessDossier;
+    const rows = fiscalFactRows(dossier.facts);
+    assert.deepEqual(rows.map((row) => `${row.key}:${row.standing}`), ["ecf:person", "rnc:qr", "ncf:empty", "itbis:empty"]);
+    assert.deepEqual(reviewCounts([...recordFactRows(dossier), ...rows], dossier), { suggestions: 0, missing: 0 });
+    const { html } = await render(dossier);
+    assert.ok(!html.includes('data-testid="receipt-review-counts"'));
+    assert.ok(!html.includes(">Falta<") && !html.includes("Faltan"));
+    assert.ok(html.includes('data-fact="ncf" data-standing="empty"') && html.includes(">Sin dato<"));
+  });
+
+  test("one suggestion and one missing field: '1 sugerencia por confirmar · Falta 1 dato'", async () => {
+    const base = await fixture();
+    const dossier = { ...base, facts: { ...base.facts, counterparty: known("extracted"), amount: unknown }, blockers: [{ code: "missing_fields", field: "amount" }], questions: [] } as BusinessDossier;
+    const { html } = await render(dossier);
+    assert.ok(html.includes(">1 sugerencia por confirmar · Falta 1 dato<"));
   });
 });
 
 describe("the record facts on the review page", () => {
-  test("Spanish: a suggestion reads as one with a Confirmar button for a preparer, a QR value looks like the QR, a missing value says Falta, and the counts line names both", async () => {
-    const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
-    const dossier = await fixture.dossier(dossierFixtureIds.unknownAmount);
-    const facts = {
-      ...dossier.facts,
-      counterparty: known("extracted"),
-      amount: unknown,
-      occurred_on: known("qr_decoded"),
-      fiscal: { rnc: known("qr_decoded"), ncf: unknown, ecf: known("extracted"), itbis: unknown },
-    } as unknown as BusinessDossier["facts"];
-    const instance = await i18n("es-419");
-    const confirmed: string[] = [];
-    const html = renderToStaticMarkup(
-      <I18nextProvider i18n={instance}>
-        <ReceiptRecordFacts dossier={{ ...dossier, facts }} accounts={[]} confirmable onConfirm={(key) => confirmed.push(key)} />
-      </I18nextProvider>,
-    );
-    assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"'));
-    assert.ok(html.includes("Sugerencia · sin verificar"));
+  test("Spanish: AI-read, QR, person-set and linked values each read as what they are; a suggestion has Confirmar for a preparer", async () => {
+    const base = await fixture();
+    const dossier = {
+      ...base,
+      facts: { ...base.facts, counterparty: known("extracted"), occurred_on: known("qr_decoded"), category_id: known("matched"), amount: unknown, fiscal: { rnc: known("qr_decoded"), ncf: unknown, ecf: known("extracted"), itbis: unknown } },
+      blockers: [{ code: "missing_fields", field: "amount" }],
+      questions: [],
+    } as unknown as BusinessDossier;
+    const { html } = await render(dossier);
+    assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"') && html.includes("Leído de la fuente · sugerencia sin verificar"));
     assert.ok(html.includes('data-testid="confirm-counterparty"') && html.includes(">Confirmar<"));
-    assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"'));
-    assert.ok(html.includes("Del código QR · sin verificar"));
-    assert.ok(html.includes('data-fact="amount" data-standing="missing"') && html.includes(">Falta<"));
+    assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && html.includes("Del código QR · sin verificar"));
+    assert.ok(html.includes('data-fact="category_id" data-standing="linked"') && html.includes("Vinculado a la fuente · sin verificar"));
+    assert.ok(html.includes("Indicado por el dueño · sin verificar"));
     // Fiscal suggestions show their standing but have no in-place confirm (the review patch carries no fiscal fields).
-    assert.ok(html.includes('data-fact="ecf" data-standing="suggestion"') && !html.includes('confirm-ecf'));
-    assert.ok(html.includes("2 sugerencias por confirmar"));
-    assert.ok(html.includes("Faltan") && html.includes("datos"));
-    // Settled rows come before suggestions, which come before missing ones.
+    assert.ok(html.includes('data-fact="ecf" data-standing="suggestion"') && !html.includes("confirm-ecf"));
+    // Settled rows come before suggestions, which come before the empty ones; the value cell still reads Desconocido.
     assert.ok(html.indexOf('data-fact="occurred_on"') < html.indexOf('data-fact="counterparty"'));
     assert.ok(html.indexOf('data-fact="counterparty"') < html.indexOf('data-fact="amount"'));
-    // The value cell still reads Desconocido for a missing value.
     assert.ok(html.includes("Desconocido"));
     assert.ok(!html.includes("verificada") && !html.includes("—"));
   });
 
+  test("a field the owner does not know still carries the decision marker when a question on it is open", async () => {
+    const base = await fixture();
+    const dossier = { ...base, facts: { ...base.facts, funding: ownerUnknown }, blockers: [], questions: [{ id: "q", draft_id: base.draft_id, field: "funding", asked_of: "accountant", channel: "web", state: "open", prompt: "¿Cómo se pagó?", allowed_answers: ["known"], answer_source_id: null }] } as unknown as BusinessDossier;
+    const { html } = await render(dossier);
+    assert.ok(html.includes('data-fact="funding" data-standing="owner_unknown" data-blocked="true"'));
+    assert.ok(html.includes("Necesita una decisión antes de aprobar"));
+  });
+
   test("a reader who cannot prepare sees the standing without a Confirmar button; English words follow", async () => {
-    const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
-    const dossier = await fixture.dossier(dossierFixtureIds.unknownAmount);
-    const facts = { ...dossier.facts, counterparty: known("extracted") } as unknown as BusinessDossier["facts"];
-    const instance = await i18n("en");
-    const html = renderToStaticMarkup(
-      <I18nextProvider i18n={instance}>
-        <ReceiptRecordFacts dossier={{ ...dossier, facts }} accounts={[]} confirmable={false} onConfirm={() => undefined} />
-      </I18nextProvider>,
-    );
-    assert.ok(html.includes("Suggestion · not verified"));
+    const base = await fixture();
+    const dossier = { ...base, facts: { ...base.facts, counterparty: known("extracted") } } as BusinessDossier;
+    const { html } = await render(dossier, "en", false);
+    assert.ok(html.includes("Read from the source · suggestion, not verified"));
     assert.ok(!html.includes("confirm-counterparty"));
     assert.ok(html.includes("suggestion to confirm") || html.includes("suggestions to confirm"));
   });

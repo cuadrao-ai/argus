@@ -2372,7 +2372,8 @@
         "itbis": "ITBIS"
       },
       "standing": {
-        "suggestion": "Suggestion · not verified",
+        "suggestion": "Read from the source · suggestion, not verified",
+        "empty": "No value",
         "missing": "Missing"
       },
       "confirm_value": "Confirm",
