@@ -37,7 +37,7 @@ def world(monkeypatch):  # noqa: ANN001
         intake,
         "EmailCapture",
         lambda *args, **kwargs: SimpleNamespace(
-            provider=args[3], store=args[0], auto_reads=set()
+            provider=args[3], store=args[0], documents=args[1]
         ),
     )
     monkeypatch.setattr(intake.asyncio, "create_task", lambda coro: coro.close())

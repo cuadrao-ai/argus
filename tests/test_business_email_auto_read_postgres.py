@@ -160,7 +160,7 @@ async def test_with_the_permission_on_the_attachment_is_read_through_the_owners_
     read = [d for d in drafts if d.filename == "recibo.png" and d.consent]
     assert len(read) == 1 and read[0].status == "review_ready"
     assert world["extractor"].calls == 1
-    assert world["runtime"].auto_reads == set()
+    assert read[0].read_by == "email_switch"
     with world["pool"].connection() as db:
         states = db.execute(
             "select d.id::text, d.state from public.business_email_deliveries d"

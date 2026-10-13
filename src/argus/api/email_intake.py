@@ -66,7 +66,11 @@ class EmailReader:
 
         owner, scope = delivery.principal_id, BusinessSpace(delivery.space_id)
         self.documents.queue(
-            user_id=owner, connection_id=document_id, consent=True, scope=scope
+            user_id=owner,
+            connection_id=document_id,
+            consent=True,
+            scope=scope,
+            automatic=True,
         )
         tasks = BackgroundTasks()
         try:
@@ -91,13 +95,24 @@ class EmailReader:
 
 
 def automatic_read_gate(runtime: EmailCapture, consent: EmailConsentStore):  # noqa: ANN201
-    """A read this worker started goes on only while the owner's permission is
-    on at that moment; a person's own click on an emailed receipt is theirs."""
+    """A read the owner's switch started goes on only while that permission is
+    on at this moment; a person's own click on an emailed receipt is theirs.
+    The draft itself says who asked, so a restart between the queue and the
+    read changes nothing."""
 
     def allowed(user_id: str, connection_id: str) -> bool:
-        if connection_id not in runtime.auto_reads:
-            return True
         try:
+            draft = runtime.documents.store.draft(
+                user_id=user_id, connection_id=connection_id
+            )
+            # Only a read the switch asked for and that is still waiting or
+            # running is the switch's; a later click by a person is theirs.
+            if (
+                draft is None
+                or draft.read_by != "email_switch"
+                or draft.status not in ("queued", "preparing")
+            ):
+                return True
             space = runtime.store.document_space(connection_id)
             return space is not None and consent.reading_allowed(space)
         except Exception:

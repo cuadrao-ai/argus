@@ -85,9 +85,6 @@ class EmailCapture:
         self.route_authority = route_authority
         self.receiving_enabled = receiving_enabled or (lambda: self.provider is not None)
         self.reading, self.reader = reading, reader
-        # Attachments whose read this worker started, while that read runs: the
-        # owner's switch gates these and only these, never a person's own click.
-        self.auto_reads: set[str] = set()
 
     def check_route(self, route: RecipientRoute) -> None:
         """Raise unless the route is live and its grant still allows prepare.
@@ -326,7 +323,6 @@ class EmailCapture:
             return
         if not allowed:
             return
-        self.auto_reads.add(document)
         try:
             await self.reader(delivery, document)
         except Exception as error:  # noqa: BLE001 - the receipt stays saved; only the class is logged
@@ -335,5 +331,3 @@ class EmailCapture:
                 + f"{delivery.id} document_id={document} error="
                 + f"{getattr(error, 'code', type(error).__name__)}"
             )
-        finally:
-            self.auto_reads.discard(document)

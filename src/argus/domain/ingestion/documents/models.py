@@ -173,6 +173,10 @@ class DocumentDraft(_Frozen):
     source_available: bool = True
     status: DraftStatus = "saved"
     consent: bool = False
+    # Who asked for the read that is queued or running: a person's own click,
+    # or the owner's standing switch for emailed receipts. Durable, so a
+    # restart cannot turn a switch-started read into a person's.
+    read_by: Literal["person", "email_switch"] | None = None
     version: int = 1
     created_at: datetime
     updated_at: datetime

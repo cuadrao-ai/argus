@@ -373,7 +373,13 @@ class DocumentsService:
         )
 
     def queue(
-        self, *, user_id: str, connection_id: str, consent: bool, scope: OwnerScope
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        consent: bool,
+        scope: OwnerScope,
+        automatic: bool = False,
     ) -> DocumentOutcome:
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
         if draft.status == "preparing":
@@ -390,7 +396,14 @@ class DocumentsService:
             if not self._reading_allowed(user_id, connection_id):
                 # A click is a fresh action: it is told why nothing was queued.
                 raise DocumentServiceError("whatsapp_receipt_reading_off")
-            self._update(user_id, draft, status="queued", consent=True, error_code=None)
+            self._update(
+                user_id,
+                draft,
+                status="queued",
+                consent=True,
+                error_code=None,
+                read_by="email_switch" if automatic else "person",
+            )
         return self.outcome(
             user_id=user_id,
             connection_id=connection_id,

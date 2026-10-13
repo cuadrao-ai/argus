@@ -9272,8 +9272,9 @@ accept path recorded.
     second time. The permission is read fresh at the queue, when the read
     starts and once more before the provider is called, so one turned off
     mid-flight stops the read and the receipt stays saved, unread, for a
-    person. That switch gates only reads the worker started; a person's own
-    "Preparar con IA" is never refused by it. With the permission off or
+    person. That switch gates only reads it asked for, which the draft itself
+    records (`read_by: email_switch`, durable across a restart); a person's
+    own "Preparar con IA" is marked as theirs and never refused by it. With the permission off or
     unanswered, every captured part is an ordinary saved document with
     `consent=false`; AI preparation waits for a person. The grant is checked again
     before each fetch, and the provider's recipients must equal the signed

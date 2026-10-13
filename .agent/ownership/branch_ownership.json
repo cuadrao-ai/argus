@@ -785,6 +785,7 @@
         "src/argus/api/email_intake.py",
         "src/argus/api/routers/email_intake.py",
         "src/argus/api/whatsapp.py",
+        "src/argus/domain/ingestion/documents/models.py",
         "src/argus/domain/ingestion/documents/service.py",
         "src/argus/domain/ingestion/email_intake/ai_consent.py",
         "src/argus/domain/ingestion/email_intake/service.py",
