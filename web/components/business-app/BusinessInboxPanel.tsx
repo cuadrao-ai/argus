@@ -4,6 +4,7 @@ import { ChevronRight, FileText, ImageIcon, MessageCircle, NotebookPen } from "l
 import { useTranslation } from "react-i18next";
 import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
+import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, StatusPill, useAttentionLabel } from "./business-ui";
@@ -106,7 +107,9 @@ export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpe
             ) : null}
             {receipt.attention
               ? attentionLabel(receipt.attention)
-              : formatRelativeTime(receipt.received_at, locale)}
+              : savedUnread(receipt)
+                ? savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
+                : formatRelativeTime(receipt.received_at, locale)}
           </span>
         </span>
         <span className="hidden text-right text-[15px] font-medium tabular-nums text-black dark:text-white mobile:block">
