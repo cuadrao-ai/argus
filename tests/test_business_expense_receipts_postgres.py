@@ -28,7 +28,7 @@ users = bridge.users
 pytestmark = bridge.pytestmark
 
 
-def test_an_expense_approved_from_a_draft_names_its_receipt(actions):  # noqa: ANN001
+def test_an_expense_approved_from_a_draft_names_its_receipt(actions, users):  # noqa: ANN001
     saved = single._saved(actions, "expense")
     service, context, _, cid, _, _ = saved
     bridge.bind(saved)
