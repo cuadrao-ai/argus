@@ -339,3 +339,58 @@ def test_in_memory_queue_enforces_leases_and_single_claims():
     with pytest.raises(LeaseLost):
         world.store.finish(claimed, "captured")
     assert world.store.claim() is None
+
+
+def test_the_earliest_save_of_a_file_is_the_business_s_not_one_person_s():
+    """Two people of one Business saving the same bytes are two documents; the
+    Business's first save is the one the email repeat mark compares against,
+    and another Business's save never counts."""
+
+    import asyncio
+    from datetime import timedelta
+
+    world = rig()
+    documents, clock = world.documents, world.clock
+    content = png()
+    digest = __import__("hashlib").sha256(content).hexdigest()
+    space, other_space = world.route.space_id, str(uuid4())
+    assert documents.store.earliest_saved(space_id=space, sha256=digest) is None
+    accountant, owner = str(uuid4()), world.route.principal_id
+    asyncio.run(
+        documents.upload(
+            user_id=accountant,
+            scope=BusinessSpace(space),
+            content=content,
+            filename="a.png",
+            media_type="image/png",
+            consent=False,
+        )
+    )
+    first = clock.now
+    clock.advance(60)
+    asyncio.run(
+        documents.upload(
+            user_id=owner,
+            scope=BusinessSpace(space),
+            content=content,
+            filename="b.png",
+            media_type="image/png",
+            consent=False,
+        )
+    )
+    clock.advance(60)
+    asyncio.run(
+        documents.upload(
+            user_id=owner,
+            scope=BusinessSpace(other_space),
+            content=content,
+            filename="c.png",
+            media_type="image/png",
+            consent=False,
+        )
+    )
+    assert documents.store.earliest_saved(space_id=space, sha256=digest) == first
+    assert documents.store.earliest_saved(
+        space_id=other_space, sha256=digest
+    ) == first + timedelta(seconds=120)
+    assert documents.store.earliest_saved(space_id=space, sha256="0" * 64) is None

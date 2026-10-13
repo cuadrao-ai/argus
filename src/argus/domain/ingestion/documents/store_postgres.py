@@ -54,6 +54,19 @@ class PostgresDocumentStore:
             ExtractionBatch.model_validate(row[0]) if row and row[0] is not None else None
         )
 
+    def earliest_saved(self, *, space_id: str, sha256: str) -> datetime | None:
+        """When these bytes were first saved in this Business, by anyone, or None."""
+
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                "select min(d.created_at) from public.financial_document_extractions d "
+                "join public.financial_source_connections c on c.id=d.connection_id "
+                "where c.owner_space_id=%s and d.source_sha256=%s and d.draft is not null "
+                "and c.source='statement' and c.status <> 'disconnected'",
+                (space_id, sha256),
+            ).fetchone()
+            return row[0] if row else None
+
     def draft(self, *, user_id: str, connection_id: str) -> DocumentDraft | None:
         row = self._read(user_id, connection_id, "draft")
         return (

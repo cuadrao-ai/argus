@@ -907,6 +907,40 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-email-repeat-20261013": {
+      "description": "Follow-up to the email channel PR, stacked on it: a file first uploaded on the web keeps its label and the email that brings the same bytes later is the repeat (repeat_of_upload); email deliveries are listed earliest first so the receipt page points at the first email and the inbox opens on it; the per-delivery read uses one relations query; the same bytes in two Businesses never mark each other (tested).",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_drafts.py",
+        "src/argus/api/email_intake.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/api/routers/email_intake.py",
+        "src/argus/domain/ingestion/documents/store.py",
+        "src/argus/domain/ingestion/documents/store_postgres.py",
+        "src/argus/domain/ingestion/email_intake/store.py",
+        "tests/business/test_business_email_api.py",
+        "tests/ingestion/test_email_intake_service.py",
+        "tests/test_business_email_intake_postgres.py",
+        "web/__tests__/email-delivery-repeat.dom.test.tsx",
+        "web/__tests__/receipt-email-origin.test.tsx",
+        "web/components/business-app/BusinessEmailDeliveries.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ReceiptSourcePreview.tsx",
+        "web/lib/business-email.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-expense-detail-20261012": {
       "description": "Every saved expense opens something: its receipt, else the bridge draft that recorded it (named by the API as draft_id), else its own plain detail (GET /business/expenses/{id}) that says no receipt is attached, with when it was recorded and its revision; another Business's expense stays closed and an accountant opens the dossier read-only.",
       "base_ref": "origin/codex/private-alpha-next",

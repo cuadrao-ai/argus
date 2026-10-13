@@ -9242,10 +9242,12 @@ accept path recorded.
   - GET `/api/v1/business/email/deliveries` and `/{id}` list the Business's
     deliveries with state, error code, subject, sender, `retryable` and one
     `parts[]` row per attachment (`pending|captured|rejected`, `document_id`,
-    `repeat_of_delivery_id`: the earlier delivery of this Business that brought
-    the same bytes, by arrival, when this part replayed that document and added
-    no receipt; null otherwise). POST `/{id}/retry` (prepare capability)
-    re-queues a `partial` delivery.
+    `repeat_of_delivery_id`: the earliest delivery of this Business that brought
+    the same bytes, when this part replayed that document and added no receipt;
+    null otherwise; `repeat_of_upload`: true when the document was saved another
+    way, a web upload, before this email arrived). Each Business sees only its
+    own deliveries; the same bytes in two Businesses never mark each other.
+    POST `/{id}/retry` (prepare capability) re-queues a `partial` delivery.
   - Every captured part is an ordinary saved document with `consent=false`; AI
     preparation still waits for the owner's choice. The grant is checked again
     before each fetch, and the provider's recipients must equal the signed
@@ -9381,11 +9383,13 @@ accept path recorded.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake
-  captured for the scope's destination, `email` for a document that arrived in
-  an email delivery of the Business (decided at the API boundary from the email
-  queue; the stored draft knows only web or whatsapp), else `web`. The same rule
-  marks a dossier's attachment sources: `channel: "email"` and their
-  `email_delivery_ids`.
+  captured for the scope's destination, `email` for a document whose earliest
+  email delivery arrived before the document was saved (decided at the API
+  boundary from the email queue; the stored draft knows only web or whatsapp),
+  else `web`: a file uploaded on the web first keeps `web` even when an email
+  brings the same bytes later. `email_delivery_ids` lists the deliveries
+  earliest first. The same rule marks a dossier's attachment sources:
+  `channel: "email"` and their `email_delivery_ids`.
 - GET `/api/v1/business/receipts/{id}` returns a `ReceiptDetail`. `version` is
   the import event's version, and `0` while there is no purchase to review.
   `evidence` is what the receipt says, and corrections never change it.

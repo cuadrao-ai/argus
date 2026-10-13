@@ -126,7 +126,7 @@ export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpe
 
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
-  const { records, openPanel, actions } = useBusiness();
+  const { records, openPanel, actions, panel } = useBusiness();
   // The server marks an email's own ".eml" document once an attachment is a receipt;
   // it lives inside its email row, never in this list.
   const items = records.inbox?.filter((receipt) => !receipt.email_original) ?? null;
@@ -147,7 +147,7 @@ export default function BusinessInboxPanel() {
           ) : null
         }
       />
-      <BusinessEmailDeliveries />
+      <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />
       {records.error ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.inbox.error", "We couldn't load your inbox. Try again.")}
