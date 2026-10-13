@@ -11,7 +11,7 @@ export default function ReceiptHistory({ history, accounts }: { history: Busines
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
-  const fiscalStatus = (fact: BusinessFact<string> | undefined) => !fact ? t("business.dossier.not_recorded", "Not recorded") : fact.state === "known" && fact.verified ? t("business.dossier.verified", "Verified") : t("business.dossier.not_verified", "Not verified");
+  const fiscalStatus = (fact: BusinessFact<string | boolean> | undefined) => !fact ? t("business.dossier.not_recorded", "Not recorded") : fact.state === "known" && fact.verified ? t("business.dossier.verified", "Verified") : t("business.dossier.not_verified", "Not verified");
   const labels = {
     unknown: t("business.dossier.unknown", "Unknown"),
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),

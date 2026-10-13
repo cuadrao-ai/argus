@@ -115,7 +115,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
               const fact = fiscal[key];
               const value = presentFiscalFact(key, dossier.facts, locale, { ...labels, notRecorded: t("business.dossier.not_recorded", "Not recorded") });
               // NCF and e-CF are alternatives and no blocker names a fiscal field: an empty one is "Sin dato", never "Falta".
-              return row(key, t(`business.dossier.field.${key}`, key), value, standing, fact.state === "known" ? fact.origin : null, false, false);
+              return row(key, t(`business.dossier.field.${key}`, key), value, standing, fact?.state === "known" ? fact.origin : null, false, false);
             })}
           </dl>
         </div>

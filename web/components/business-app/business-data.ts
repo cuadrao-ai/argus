@@ -40,6 +40,10 @@ export type BusinessDataSource = Readonly<{
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
   approveDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
+  /** The owner marks the receipt as personal or takes the mark back. */
+  markPersonal: (id: string, version: number, personal: boolean, key: string) => Promise<BusinessDossier>;
+  /** The accountant answers whether a personal receipt with a fiscal number goes into the 606. */
+  decideFiscalInclusion: (id: string, version: number, include: boolean, key: string) => Promise<BusinessDossier>;
   receiptSource: (id: string) => Promise<Blob>;
   updates: () => Promise<BusinessUpdate[]>;
   expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
@@ -83,6 +87,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   reviewDraft: api.reviewBusinessDraft,
   approveDraft: api.approveBusinessDraft,
   settleRemainder: api.settleBusinessRemainder,
+  markPersonal: api.markBusinessPersonal,
+  decideFiscalInclusion: api.decideBusinessFiscalInclusion,
   receiptSource: api.fetchBusinessReceiptSource,
   updates: api.listBusinessUpdates,
   expenses: api.listBusinessExpenses,
@@ -140,6 +146,8 @@ export function withBusinessSpace(
     reviewDraft: source.reviewDraft,
     approveDraft: source.approveDraft,
     settleRemainder: source.settleRemainder,
+    markPersonal: source.markPersonal,
+    decideFiscalInclusion: source.decideFiscalInclusion,
     receiptSource: source.receiptSource,
     updates: after(source.updates),
     expenses: after(source.expenses),

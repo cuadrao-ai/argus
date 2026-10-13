@@ -16,7 +16,7 @@ export type BusinessFacts = {
   business_share: BusinessFact<{ kind: "all" | "none" } | { kind: "partial"; amount: string }>;
   receipt_state: BusinessFact<"fiscal_receipt" | "informal_receipt" | "no_receipt">;
   category_id: BusinessFact<string>;
-  fiscal: { rnc: BusinessFact<string>; ncf: BusinessFact<string>; ecf: BusinessFact<string>; itbis: BusinessFact<string> } | null;
+  fiscal: { rnc: BusinessFact<string>; ncf: BusinessFact<string>; ecf: BusinessFact<string>; itbis: BusinessFact<string>; include_606?: BusinessFact<boolean> } | null;
 };
 
 export type BusinessSourceEvidence =
@@ -25,7 +25,28 @@ export type BusinessSourceEvidence =
   | { id: string; kind: "attachment"; channel: "web" | "whatsapp" | "email"; received_at: string; connection_id: string; filename: string | null; media_type: string; email_delivery_ids?: string[] };
 
 export type BusinessFiscalField = keyof NonNullable<BusinessFacts["fiscal"]>;
-export const BUSINESS_FISCAL_FIELDS: BusinessFiscalField[] = ["rnc", "ncf", "ecf", "itbis"];
+export const BUSINESS_FISCAL_FIELDS: BusinessFiscalField[] = ["rnc", "ncf", "ecf", "itbis", "include_606"];
+
+/** Marked by the owner as no part of the Business: business_share none, stated by the owner. */
+export function dossierIsPersonal(facts: BusinessFacts): boolean {
+  const share = facts.business_share;
+  return share.state === "known" && share.value.kind === "none" && share.origin === "owner_stated";
+}
+
+/** The fiscal number the draft carries: an e-CF or an NCF it knows, of any origin. */
+export function dossierFiscalValue(facts: BusinessFacts): "ncf" | "ecf" | null {
+  if (!facts.fiscal) return null;
+  if (facts.fiscal.ecf.state === "known") return "ecf";
+  if (facts.fiscal.ncf.state === "known") return "ncf";
+  return null;
+}
+
+/** The accountant's 606 answer when one applies (personal, with a fiscal number), else null. */
+export function dossierFiscalInclusion(facts: BusinessFacts): boolean | null {
+  if (!dossierIsPersonal(facts) || !dossierFiscalValue(facts)) return null;
+  const answer = facts.fiscal?.include_606;
+  return answer && answer.state === "known" ? answer.value : null;
+}
 
 export type BusinessFactField = Exclude<keyof BusinessFacts, "fiscal">;
 export type BusinessFactInput<T> = { state: "known"; value: T } | { state: "unknown" | "owner_does_not_know"; value: null };

@@ -2373,7 +2373,8 @@
         "rnc": "RNC",
         "ncf": "NCF",
         "ecf": "e-CF",
-        "itbis": "ITBIS"
+        "itbis": "ITBIS",
+        "include_606": "Incluir en 606"
       },
       "standing": {
         "suggestion": "Leído de la fuente · sugerencia sin verificar",
@@ -2746,6 +2747,31 @@
       "access_line": "Ahora tienes acceso a {{name}} · Ver y preparar",
       "got_it": "Entendido",
       "lost": "Ya no tienes acceso a este negocio."
+    },
+    "marks": {
+      "real_expenses": "Gastos reales",
+      "fiscal_expenses": "Con valor fiscal",
+      "without_fiscal": "Sin comprobante fiscal: {{amount}} no entra al 606",
+      "no_fiscal_chip": "Sin comprobante fiscal",
+      "personal_chip": "Personal",
+      "mark_personal": "Personal",
+      "mark_personal_label": "Marcar como personal",
+      "unmark_personal_label": "Ya no es personal",
+      "marked_personal": "Marcado como personal. No cuenta en los totales del negocio.",
+      "unmarked_personal": "Ya no es personal. Vuelve a contar en los totales.",
+      "undo": "Deshacer",
+      "owner_only": "Solo el dueño puede marcar un recibo como personal.",
+      "mark_failed": "No pudimos guardar el cambio. Inténtalo de nuevo.",
+      "question_606": "¿Incluir en 606?",
+      "yes": "Sí",
+      "no": "No",
+      "pending_606": "Pendiente de contador",
+      "included_606": "Incluido en 606",
+      "excluded_606": "No incluido en 606",
+      "included_606_by": "Incluido en 606 por {{name}}",
+      "excluded_606_by": "Fuera del 606 por {{name}}",
+      "decide_failed": "No pudimos guardar la respuesta. Inténtalo de nuevo.",
+      "none_fiscal": "Ninguno con valor fiscal en este período."
     }
   },
   "money": {

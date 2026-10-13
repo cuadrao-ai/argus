@@ -32,5 +32,6 @@ export function presentFiscalFact(key: BusinessFiscalField, facts: BusinessFacts
   const fact = facts.fiscal?.[key];
   if (!fact) return labels.notRecorded;
   if (fact.state !== "known") return fact.state === "owner_does_not_know" ? labels.ownerUnknown : labels.unknown;
+  if (typeof fact.value === "boolean") return String(fact.value);
   return key === "itbis" && facts.currency.state === "known" ? formatMoney(fact.value, facts.currency.value, locale) : fact.value;
 }

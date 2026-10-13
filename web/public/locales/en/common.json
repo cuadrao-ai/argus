@@ -2373,7 +2373,8 @@
         "rnc": "RNC",
         "ncf": "NCF",
         "ecf": "e-CF",
-        "itbis": "ITBIS"
+        "itbis": "ITBIS",
+        "include_606": "Include in the 606"
       },
       "standing": {
         "suggestion": "Read from the source · suggestion, not verified",
@@ -2746,6 +2747,31 @@
       "access_line": "You now have access to {{name}} · View and prepare",
       "got_it": "Got it",
       "lost": "You no longer have access to this Business."
+    },
+    "marks": {
+      "real_expenses": "Actual expenses",
+      "fiscal_expenses": "With fiscal value",
+      "without_fiscal": "No fiscal receipt: {{amount}} does not go into the 606",
+      "no_fiscal_chip": "No fiscal receipt",
+      "personal_chip": "Personal",
+      "mark_personal": "Personal",
+      "mark_personal_label": "Mark as personal",
+      "unmark_personal_label": "No longer personal",
+      "marked_personal": "Marked as personal. It does not count in the Business totals.",
+      "unmarked_personal": "No longer personal. It counts in the totals again.",
+      "undo": "Undo",
+      "owner_only": "Only the owner can mark a receipt as personal.",
+      "mark_failed": "We could not save the change. Try again.",
+      "question_606": "Include in the 606?",
+      "yes": "Yes",
+      "no": "No",
+      "pending_606": "Waiting for the accountant",
+      "included_606": "Included in the 606",
+      "excluded_606": "Not included in the 606",
+      "included_606_by": "Included in the 606 by {{name}}",
+      "excluded_606_by": "Left out of the 606 by {{name}}",
+      "decide_failed": "We could not save the answer. Try again.",
+      "none_fiscal": "None with fiscal value in this period."
     }
   },
   "money": {

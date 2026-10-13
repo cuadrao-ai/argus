@@ -73,6 +73,7 @@ function seedReceipts(): ReceiptDetail[] {
       id: "rcpt-ferreteria",
       status: "review_ready",
       channel: "whatsapp",
+      personal_editable: true,
       filename: "IMG_2214.jpg",
       received_at: daysAgo(0),
       merchant: "Ferretería La Esquina",
@@ -194,6 +195,8 @@ function seedReceipts(): ReceiptDetail[] {
       category_id: "other",
       account_id: "acct-card",
       expense_id: "exp-hosting",
+      fiscal_value: "ncf",
+      personal_editable: true,
     }),
   ];
 }
@@ -210,6 +213,7 @@ function seedExpenses(): BusinessExpense[] {
       occurred_on: dayOnly(daysAgo(6)),
       receipt_id: "rcpt-confirmed",
       draft_id: null,
+      fiscal_value: "ncf",
     },
     {
       id: "exp-gas",
@@ -379,15 +383,22 @@ export function createFixtureBusinessDataSource(
           count: current.count + 1,
         });
       }
+      const sum = (items: typeof inPeriod) => {
+        const by = new Map<string, { amount: number; count: number }>();
+        for (const item of items) {
+          const current = by.get(item.currency) ?? { amount: 0, count: 0 };
+          by.set(item.currency, { amount: current.amount + Number(item.amount), count: current.count + 1 });
+        }
+        return [...by.entries()].map(([currency, total]) => ({ currency, amount: total.amount.toFixed(2), count: total.count }));
+      };
+      const real = inPeriod.filter((item) => !item.personal);
       return {
         from,
         to,
         today,
-        totals: [...byCurrency.entries()].map(([currency, total]) => ({
-          currency,
-          amount: total.amount.toFixed(2),
-          count: total.count,
-        })),
+        totals: sum(real),
+        fiscal_totals: sum(real.filter((item) => item.fiscal_value)),
+        without_fiscal_totals: sum(real.filter((item) => !item.fiscal_value)),
         needs_attention: receipts.filter((item) => item.status === "needs_attention").length,
         outside_period_count: expenses.length - inPeriod.length,
         outside_period_latest_on: expenses.filter((item) => !inPeriod.includes(item)).map((item) => item.occurred_on).sort().at(-1) ?? null,
@@ -404,6 +415,20 @@ export function createFixtureBusinessDataSource(
     receipt: async (id) => {
       await delay();
       return find(id);
+    },
+    markPersonal: async (id, version, personal) => {
+      await delay();
+      for (const item of receipts) if (item.id === id || item.draft_id === id) replace({ ...item, personal });
+      for (const item of expenses) if (item.receipt_id === id || item.draft_id === id) item.personal = personal;
+      void version;
+      return dossierSource.dossier(id);
+    },
+    decideFiscalInclusion: async (id, version, include) => {
+      await delay();
+      for (const item of receipts) if (item.id === id || item.draft_id === id) replace({ ...item, include_606: include });
+      for (const item of expenses) if (item.receipt_id === id || item.draft_id === id) item.include_606 = include;
+      void version;
+      return dossierSource.dossier(id);
     },
     receiptSource: async (id) => {
       await delay(120);

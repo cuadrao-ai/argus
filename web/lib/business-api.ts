@@ -50,6 +50,14 @@ export type ReceiptReviewFields = {
 export type ReceiptSummary = ReceiptReviewFields & {
   id: string;
   channel: ReceiptChannel;
+  /** Marked by the owner as no part of the Business: left out of the totals, kept visible. */
+  personal?: boolean;
+  /** The fiscal number the draft carries (NCF or e-CF); absent without one or before a read. */
+  fiscal_value?: "ncf" | "ecf" | null;
+  /** The accountant's 606 answer for a personal receipt with a fiscal number; absent until given. */
+  include_606?: boolean | null;
+  /** The caller may mark or unmark it: the owner, with prepare, on a receipt that has a draft. */
+  personal_editable?: boolean;
   filename: string | null;
   /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
   source_text?: string | null;
@@ -147,6 +155,24 @@ export async function approveBusinessDraft(draftId: string, version: number, ide
   });
 }
 
+/** The owner marks a receipt as personal (no part of it is the Business's) or takes the mark back. */
+export async function markBusinessPersonal(draftId: string, version: number, personal: boolean, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/personal`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version, personal }),
+  });
+}
+
+/** The accountant answers whether a personal receipt with a fiscal number goes into the 606. */
+export async function decideBusinessFiscalInclusion(draftId: string, version: number, include: boolean, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/fiscal-inclusion`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version, include }),
+  });
+}
+
 export async function settleBusinessRemainder(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/remainder/settle`, {
     method: "POST",
@@ -198,6 +224,12 @@ export type BusinessExpense = {
   receipt_id: string | null;
   /** The bridge draft that recorded it, when one did: the record to open when no single receipt is named. Absent for a hand-entered expense. */
   draft_id?: string | null;
+  /** Marked by the owner as no part of the Business: left out of the totals, kept visible. */
+  personal?: boolean;
+  /** The fiscal number the draft carries (NCF or e-CF); absent without one. */
+  fiscal_value?: "ncf" | "ecf" | null;
+  /** The accountant's 606 answer for a personal expense with a fiscal number; absent until given. */
+  include_606?: boolean | null;
 };
 
 /** One saved expense with when it was recorded and its revision; both null when the money read does not say. */
@@ -208,7 +240,12 @@ export type BusinessOverview = {
   to: string;
   /** The server's day in the Business time zone: the one clock for "today". */
   today: string;
+  /** "Gastos reales": every approved expense of the period that is not personal. */
   totals: { currency: CurrencyCode; amount: DecimalString; count: number }[];
+  /** "Con valor fiscal": those that carry an NCF or an e-CF. Absent in older payloads. */
+  fiscal_totals?: { currency: CurrencyCode; amount: DecimalString; count: number }[];
+  /** "Sin comprobante fiscal": real minus fiscal, per currency; what does not go into the 606. */
+  without_fiscal_totals?: { currency: CurrencyCode; amount: DecimalString; count: number }[];
   needs_attention: number;
   last_received_at: string | null;
   last_confirmed_at: string | null;

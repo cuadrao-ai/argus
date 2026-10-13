@@ -7,7 +7,7 @@ import type { BusinessExpense } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatDay, formatMoney } from "./business-format";
 import { expensePanel } from "./business-expense-target";
-import { cardClass, LoadingRows, PanelHeading, secondaryButtonClass, useCategoryLabel } from "./business-ui";
+import { cardClass, LoadingRows, PanelHeading, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
 import BusinessPeriodControl from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
 
@@ -97,6 +97,7 @@ export default function BusinessExpensesPanel() {
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
+                  <RecordMarks personal={expense.personal} fiscalValue={expense.fiscal_value} known className="mt-1" />
                 </span>
                 <span className="text-right text-[15px] font-medium tabular-nums text-black dark:text-white">
                   {formatMoney(expense.amount, expense.currency, locale)}
