@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ConversationShellGuard from "@/components/chat/ConversationShellGuard";
 import { DevModeBadge } from "@/components/ui/DevModeBadge";
-import { guestAccessEnabled } from "@/lib/private-alpha-flags";
+import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-flags";
 import { guestCaptchaConfigured } from "@/lib/guest-session";
 import { resolveChatEntrySurface } from "@/lib/landing-entry";
 import { authLoginPathFromSearch } from "@/lib/landing-intent";
@@ -25,6 +25,7 @@ export default async function ChatPage({
         hasEstablishedUser: !error && Boolean(data.user),
         guestAccessEnabled,
         guestCaptchaConfigured,
+        businessBuild: businessPilotEnabled,
       }) === "auth"
     ) {
       redirect(authLoginPathFromSearch(await searchParams, "/chat"));

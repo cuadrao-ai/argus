@@ -6,7 +6,7 @@ import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
 import { useProfileUpdates } from "@/components/chat/useProfileUpdates";
 import { useTranslation } from "react-i18next";
 import { readStored, writeStored } from "@/lib/browser-storage";
-import { currentAuthLoginPath } from "@/lib/landing-intent";
+import { currentAuthLoginPath, signedInHomePath } from "@/lib/landing-intent";
 import ChatCommandPalette from "@/components/sidebar/ChatCommandPalette";
 import { KeyboardShortcutSurfaces } from "@/components/keyboard/KeyboardShortcutSurfaces";
 import { useChatKeyboardShortcuts } from "@/components/keyboard/useChatKeyboardShortcuts";
@@ -2169,7 +2169,7 @@ export default function ChatInterface() {
   if (accountBoundary.expired) {
     return <main className="flex h-[100dvh] flex-col items-center justify-center gap-4 bg-[#f9f9f9] p-6 text-center text-black dark:bg-[#141517] dark:text-white">
       <p role="alert" className="max-w-lg">{t("chat.account_changed")}</p>
-      <button className="min-h-11 rounded-full bg-black px-6 py-3 text-base font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25 dark:bg-white dark:text-black dark:focus-visible:ring-white/30" onClick={() => window.location.assign("/chat")}>{t("chat.account_changed_reload")}</button>
+      <button className="min-h-11 rounded-full bg-black px-6 py-3 text-base font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25 dark:bg-white dark:text-black dark:focus-visible:ring-white/30" onClick={() => window.location.assign(signedInHomePath())}>{t("chat.account_changed_reload")}</button>
     </main>;
   }
   if (profileState === "probing" || profileState === "unavailable") {

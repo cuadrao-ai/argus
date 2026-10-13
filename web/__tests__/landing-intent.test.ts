@@ -8,6 +8,8 @@ import {
   CAMPAIGN_VALUE_FIELDS,
   captureLandingIntent,
   currentChatPath,
+  postAuthPath,
+  signedInHomePath,
   hasCampaignAttribution,
   LANDING_INTENT_STORAGE_KEY,
   LANDING_STARTER_STORAGE_KEY,
@@ -594,6 +596,26 @@ describe("landing intent merge and redirects", () => {
       location: { search: "?utm_campaign=x" },
     };
     expect(currentChatPath()).toBe("/chat?utm_campaign=x");
+    // The signed-in home: chat on a consumer build, the Business workspace on a Business build.
+    expect(signedInHomePath(false)).toBe("/chat?utm_campaign=x");
+    expect(signedInHomePath(true)).toBe("/biz");
+    expect(postAuthPath(false)).toBe("/chat?utm_campaign=x");
+    expect(postAuthPath(true)).toBe("/biz");
+    // A listed return page wins on either build; anything else is ignored.
+    (globalThis as { window?: { location: { search: string } } }).window = {
+      location: { search: "?return_to=%2Fbiz%3Freceipt%3Dr1&auth=login" },
+    };
+    expect(postAuthPath(true)).toBe("/biz?receipt=r1");
+    expect(postAuthPath(false)).toBe("/biz?receipt=r1");
+    (globalThis as { window?: { location: { search: string } } }).window = {
+      location: { search: "?return_to=https%3A%2F%2Fevil.example%2Fbiz" },
+    };
+    expect(postAuthPath(true)).toBe("/biz");
+    (globalThis as { window?: { location: { search: string } } }).window = {
+      location: { search: "?return_to=%2F%2Fevil.example" },
+    };
+    expect(postAuthPath(true)).toBe("/biz");
+    delete (globalThis as { window?: unknown }).window;
   });
 
   test("login bounce drops next, redirect, unknown params, and invalid starters", () => {

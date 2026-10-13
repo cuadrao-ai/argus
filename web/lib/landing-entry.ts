@@ -18,8 +18,11 @@ export function resolveChatEntrySurface(input: {
   hasEstablishedUser: boolean;
   guestAccessEnabled: boolean;
   guestCaptchaConfigured: boolean;
+  /** A Cuadrao Business build: signed-out visitors always go to login, never to guest chat. */
+  businessBuild?: boolean;
 }): ChatEntrySurface {
   if (input.hasEstablishedUser) return "chat";
+  if (input.businessBuild) return "auth";
   return input.guestAccessEnabled && input.guestCaptchaConfigured
     ? "chat"
     : "auth";

@@ -10,6 +10,7 @@ type ResolveChatEntrySurface = (input: {
   hasEstablishedUser: boolean;
   guestAccessEnabled: boolean;
   guestCaptchaConfigured: boolean;
+  businessBuild?: boolean;
 }) => "chat" | "auth";
 
 describe("landing entry routing", () => {
@@ -98,5 +99,27 @@ describe("landing entry routing", () => {
     expect(chatPage).toContain("authLoginPathFromSearch");
     expect(chatPage).toContain('authLoginPathFromSearch(await searchParams, "/chat")');
     expect(chatPage).toContain("<ChatInterface />");
+  });
+});
+
+describe("a Cuadrao Business build has no guest chat", () => {
+  test("signed out goes to login even with both guest gates open; signed in still reaches chat", () => {
+    const resolveChatEntrySurface = landingEntry.resolveChatEntrySurface;
+    expect(resolveChatEntrySurface({ hasEstablishedUser: false, guestAccessEnabled: true, guestCaptchaConfigured: true, businessBuild: true })).toBe("auth");
+    expect(resolveChatEntrySurface({ hasEstablishedUser: true, guestAccessEnabled: true, guestCaptchaConfigured: true, businessBuild: true })).toBe("chat");
+    expect(resolveChatEntrySurface({ hasEstablishedUser: false, guestAccessEnabled: true, guestCaptchaConfigured: true, businessBuild: false })).toBe("chat");
+  });
+
+  test("the pages wire the build flag: the chat page guard, the root page's guest entry, and the Business UI links", () => {
+    const chatPage = readFileSync(join(root, "app/chat/page.tsx"), "utf-8");
+    expect(chatPage).toContain("businessBuild: businessPilotEnabled");
+    const rootPage = readFileSync(join(root, "app/page.tsx"), "utf-8");
+    expect(rootPage).toContain("!businessPilotEnabled && !profileProbeFailedClosed && guestAccessEnabled && guestCaptchaConfigured");
+    const security = readFileSync(join(root, "app/account/security/page.tsx"), "utf-8");
+    expect(security).toContain("href={signedInHomePath()}");
+    expect(security).not.toContain('href="/chat"');
+    const chat = readFileSync(join(root, "components/chat/ChatInterface.tsx"), "utf-8");
+    expect(chat).toContain("window.location.assign(signedInHomePath())");
+    expect(chat).not.toContain('window.location.assign("/chat")');
   });
 });

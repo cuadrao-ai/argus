@@ -1,4 +1,5 @@
 import { readReturnPath, returnPathFor } from "./auth-return-path";
+import { businessPilotEnabled } from "./private-alpha-flags";
 import {
   readSessionStored,
   readStored,
@@ -401,10 +402,15 @@ export function currentChatPath(): string {
   );
 }
 
-/** Where to go after signing in: a listed return page, else chat. */
-export function postAuthPath(): string {
-  if (typeof window === "undefined") return currentChatPath();
-  return readReturnPath(window.location.search) ?? currentChatPath();
+/** The signed-in home: the Business workspace on a Business build, else chat with the current query. */
+export function signedInHomePath(businessBuild: boolean = businessPilotEnabled): string {
+  return businessBuild ? "/biz" : currentChatPath();
+}
+
+/** Where to go after signing in: a listed return page, else the signed-in home. */
+export function postAuthPath(businessBuild: boolean = businessPilotEnabled): string {
+  if (typeof window === "undefined") return signedInHomePath(businessBuild);
+  return readReturnPath(window.location.search) ?? signedInHomePath(businessBuild);
 }
 
 export function currentAuthLoginPath(): string {
