@@ -455,14 +455,32 @@ test.describe("A conversation opens in the shell of its own surface", () => {
     });
   }
 
-  test("a Personal chat opened on /biz moves to /chat with its id", async ({ page }) => {
+  /** Full page loads after the first: a reload loop shows up here as a count that keeps growing. */
+  function countDocumentLoads(page: Page) {
+    const loads: string[] = [];
+    page.on("request", (request) => { if (request.resourceType() === "document" && request.isNavigationRequest()) loads.push(request.url()); });
+    return loads;
+  }
+
+  test("a Personal chat opened on /biz on a Business build goes nowhere but the notice: one hop, no loop, one link", async ({ page }) => {
+    // The dev server runs with NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true (the local recipe), the build this guards.
     const seen: string[] = [];
     await openPreview(page, PREVIEW, { emptyChat: false });
     await serveSurface(page, "personal", seen);
+    const loads = countDocumentLoads(page);
     await page.goto(`${PREVIEW}?conversation=conversation-alpha&message=message-1`);
 
-    await expect(page).toHaveURL(/\/chat\?conversation=conversation-alpha&message=message-1$/);
-    expect(seen.length).toBeGreaterThan(0);
+    const notice = page.getByTestId("conversation-unavailable");
+    await expect(notice).toBeVisible();
+    await expect(page).toHaveURL(/\/dev\/business-preview\?notice=conversation_unavailable$/);
+    await expect(notice).toContainText("This conversation isn't available in Cuadrao Business.");
+    await expect(notice.getByRole("link", { name: "Go to Cuadrao Business" })).toHaveAttribute("href", "/biz");
+    // Give a loop time to show itself: no further page load, no further ask for the conversation.
+    await page.waitForTimeout(3000);
+    expect(loads.length).toBeLessThanOrEqual(2);
+    expect(loads.filter((url) => url.includes("notice=conversation_unavailable")).length).toBe(1);
+    expect(seen.length).toBeLessThanOrEqual(1);
+    await expect(page).toHaveURL(/\/dev\/business-preview\?notice=conversation_unavailable$/);
   });
 
   test("a Business chat opened on /chat moves to /biz with its id", async ({ page }) => {
@@ -474,14 +492,19 @@ test.describe("A conversation opens in the shell of its own surface", () => {
     await expect(page).toHaveURL(/\/biz\?conversation=conversation-alpha$/);
   });
 
-  test("a chat on its own surface stays and renders", async ({ page }) => {
+  test("an old /chat link on a Business build hops once to the Business shell with its id and stops", async ({ page }) => {
+    // The server-side hop. The shell's own handling of a Personal id (the notice, no loop) is
+    // asserted above on the preview page; the live /biz needs the real API, which this fixture cannot serve.
     const seen: string[] = [];
     await openPreview(page, "/chat", { emptyChat: false });
     await serveSurface(page, "personal", seen);
+    const loads = countDocumentLoads(page);
     await page.goto("/chat?conversation=conversation-alpha");
 
-    await expect(page.getByText("Lunch with the supplier").first()).toBeVisible();
-    await expect(page).toHaveURL(/\/chat\?conversation=conversation-alpha$/);
+    await expect(page).toHaveURL(/\/biz\?conversation=conversation-alpha$/);
+    await page.waitForTimeout(3000);
+    expect(loads.length).toBeLessThanOrEqual(2);
+    await expect(page).not.toHaveURL(/\/chat/);
   });
 });
 

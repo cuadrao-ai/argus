@@ -19,6 +19,7 @@ import {
 } from "@/lib/argus-api";
 import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-flags";
 import {
+  guestEntryAvailable,
   resolveLandingEntrySurface,
 } from "@/lib/landing-entry";
 import {
@@ -145,8 +146,7 @@ export default function LandingPage() {
   const entrySurface = resolveLandingEntrySurface({
     authMode,
     // A Business build has no guest chat: a signed-out visitor sees login.
-    guestEntryAvailable:
-      !businessPilotEnabled && !profileProbeFailedClosed && guestAccessEnabled && guestCaptchaConfigured,
+    guestEntryAvailable: guestEntryAvailable({ businessBuild: businessPilotEnabled, probeFailedClosed: profileProbeFailedClosed, guestAccessEnabled, guestCaptchaConfigured }),
     isCheckingSession,
   });
 

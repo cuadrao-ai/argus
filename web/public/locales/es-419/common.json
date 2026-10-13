@@ -2566,6 +2566,10 @@
       "too_large": "Este archivo pesa más de {{size}} MB. Usa una foto o un PDF más pequeño.",
       "unsupported": "Este tipo de archivo no es compatible. Usa {{formats}}."
     },
+    "notice": {
+      "conversation_unavailable": "Esta conversación no está disponible en Cuadrao Business.",
+      "go_business": "Ir a Cuadrao Business"
+    },
     "nav": {
       "expenses": "Gastos",
       "inbox": "Bandeja",

@@ -27,3 +27,8 @@ export function resolveChatEntrySurface(input: {
     ? "chat"
     : "auth";
 }
+
+/** Whether the signed-out front door may offer guest chat: never on a Business build, and only when the probe did not fail closed and both guest gates are open. */
+export function guestEntryAvailable(input: { businessBuild: boolean; probeFailedClosed: boolean; guestAccessEnabled: boolean; guestCaptchaConfigured: boolean }): boolean {
+  return !input.businessBuild && !input.probeFailedClosed && input.guestAccessEnabled && input.guestCaptchaConfigured;
+}

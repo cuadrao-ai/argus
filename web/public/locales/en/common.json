@@ -2469,6 +2469,10 @@
       "ask_spending": "What did I spend this month?",
       "attach_receipt": "Add a receipt"
     },
+    "notice": {
+      "conversation_unavailable": "This conversation isn't available in Cuadrao Business.",
+      "go_business": "Go to Cuadrao Business"
+    },
     "nav": {
       "label": "Business",
       "overview": "Overview",
