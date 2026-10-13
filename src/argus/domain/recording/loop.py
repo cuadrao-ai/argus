@@ -99,6 +99,7 @@ class Observation:
     as_of: datetime
     time_zone: str
     recorded_at: datetime
+    blank: bool = False
 
 
 def observations(
@@ -116,6 +117,7 @@ def observations(
                 r.as_of,
                 r.time_zone,
                 r.recorded_at,
+                r.blank,
             )
         )
     result.extend(
@@ -127,7 +129,9 @@ def observations(
     return tuple(result)
 
 
-CoverageSkip = Literal["after_observation_day", "entered_after_observation"]
+CoverageSkip = Literal[
+    "after_observation_day", "entered_after_observation", "blank_opening"
+]
 
 
 def coverage_skip(
@@ -136,6 +140,8 @@ def coverage_skip(
     """Why no inclusion question applies; None means the person must answer.
 
     Only a movement dated the day it was entered has a real time on that day."""
+    if observation.blank:
+        return "blank_opening"
     zone = ZoneInfo(observation.time_zone)
     occurred = expense.occurred_at.astimezone(zone).date()
     observed = observation.as_of.astimezone(zone).date()

@@ -6963,7 +6963,9 @@ entry time: when that time is after the observation, no question is asked. A
 backdated activity on that day has no real time and always asks. Answers stored under
 the earlier same-day rule stand. Each affected account lists
 `skipped_observations: [{observation_id, reason}]` where `reason` is
-`after_observation_day` or `entered_after_observation`, so a skipped question is
+`after_observation_day`, `entered_after_observation` or `blank_opening` (an opening
+recorded as 0 because the balance was left blank never covers activity, so all
+activity counts on top of it), so a skipped question is
 never silent; the same reasons are stored on the activity revision. The preview
 decides the entry day once and returns it as `entered_on` in `reviewed_request`;
 confirm uses that day, so a preview before midnight and a confirm after it cannot
