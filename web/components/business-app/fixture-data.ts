@@ -209,6 +209,7 @@ function seedExpenses(): BusinessExpense[] {
       account_id: "acct-card",
       occurred_on: dayOnly(daysAgo(6)),
       receipt_id: "rcpt-confirmed",
+      draft_id: null,
     },
     {
       id: "exp-gas",
@@ -219,6 +220,7 @@ function seedExpenses(): BusinessExpense[] {
       account_id: "acct-ops",
       occurred_on: dayOnly(daysAgo(4)),
       receipt_id: null,
+      draft_id: null,
     },
     {
       id: "exp-lunch",
@@ -230,6 +232,7 @@ function seedExpenses(): BusinessExpense[] {
       funding: "owner_funds",
       occurred_on: dayOnly(daysAgo(8)),
       receipt_id: null,
+      draft_id: null,
     },
   ];
 }
@@ -323,7 +326,7 @@ export function createFixtureBusinessDataSource(
       if (receipt && dossier.approval_result?.status === "recorded") {
         const facts = dossier.facts;
         if (facts.amount.state === "known" && facts.currency.state === "known" && facts.occurred_on.state === "known" && facts.funding.state === "known" && facts.funding.value.kind === "business_account") {
-          expenses = [{ id: dossier.approval_result.activity_id, merchant: facts.counterparty.value, amount: facts.amount.value, currency: facts.currency.value, category_id: facts.category_id.value, account_id: facts.funding.value.account_id, occurred_on: facts.occurred_on.value, receipt_id: receipt.id }, ...expenses];
+          expenses = [{ id: dossier.approval_result.activity_id, merchant: facts.counterparty.value, amount: facts.amount.value, currency: facts.currency.value, category_id: facts.category_id.value, account_id: facts.funding.value.account_id, occurred_on: facts.occurred_on.value, receipt_id: receipt.id, draft_id: id }, ...expenses];
           replace({ ...receipt, status: "confirmed", expense_id: dossier.approval_result.activity_id });
         }
       }
@@ -412,6 +415,12 @@ export function createFixtureBusinessDataSource(
           label: item.merchant ?? item.filename,
         }));
       return items;
+    },
+    expense: async (id) => {
+      await delay();
+      const found = expenses.find((item) => item.id === id);
+      if (!found) throw Object.assign(new Error("expense_not_found"), { status: 404, code: "expense_not_found" });
+      return { ...found, recorded_at: `${found.occurred_on}T15:00:00Z`, revision: 1 };
     },
     expenses: async (from, end) => {
       await delay();
@@ -537,6 +546,7 @@ export function createFixtureBusinessDataSource(
         account_id: account.id,
         occurred_on: input.occurred_on,
         receipt_id: null,
+        draft_id: null,
       };
       expenses = [created, ...expenses];
       return created;

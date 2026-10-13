@@ -196,7 +196,12 @@ export type BusinessExpense = {
   funding?: "owner_funds";
   occurred_on: string;
   receipt_id: string | null;
+  /** The bridge draft that recorded it, when one did: the record to open when no single receipt is named. Absent for a hand-entered expense. */
+  draft_id?: string | null;
 };
+
+/** One saved expense with when it was recorded and its revision; both null when the money read does not say. */
+export type BusinessExpenseDetail = BusinessExpense & { recorded_at: string | null; revision: number | null };
 
 export type BusinessOverview = {
   from: string;
@@ -326,6 +331,10 @@ export async function listBusinessUpdates(): Promise<BusinessUpdate[]> {
 export async function searchBusiness(q: string, limit = 5): Promise<BusinessSearchResult> {
   const query = new URLSearchParams({ q, limit: String(limit) });
   return apiFetch(`/business/search?${query}`);
+}
+
+export async function getBusinessExpense(expenseId: string): Promise<BusinessExpenseDetail> {
+  return apiFetch<BusinessExpenseDetail>(`/business/expenses/${encodeURIComponent(expenseId)}`);
 }
 
 export async function listBusinessExpenses(

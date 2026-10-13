@@ -704,6 +704,43 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-expense-detail-20261012": {
+      "description": "Every saved expense opens something: its receipt, else the bridge draft that recorded it (named by the API as draft_id), else its own plain detail (GET /business/expenses/{id}) that says no receipt is attached, with when it was recorded and its revision; another Business's expense stays closed and an accountant opens the dossier read-only.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_drafts.py",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/domain/business/service.py",
+        "tests/business/test_business_expense_detail.py",
+        "tests/business/test_receipt_views_leave_through_the_overlay.py",
+        "tests/test_business_expense_receipts_postgres.py",
+        "web/__tests__/business-expense-target.test.ts",
+        "web/__tests__/business-search.test.tsx",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
+        "web/components/business-app/BusinessPanel.tsx",
+        "web/components/business-app/BusinessSidebarNav.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ExpenseDetailPanel.tsx",
+        "web/components/business-app/business-data.ts",
+        "web/components/business-app/business-expense-target.ts",
+        "web/components/business-app/fixture-data.ts",
+        "web/components/business-app/useBusinessSearch.ts",
+        "web/e2e/business-expense-opens-dossier.spec.ts",
+        "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-expense-opens-dossier-20261012": {
       "description": "A saved expense opens the record it was recorded from: the API names the receipt a linked bridge draft recorded an expense from (the legacy lookup reads observations a bridge draft never has), in the expenses list and in search, and the whole Expenses row is the control that opens it.",
       "base_ref": "origin/codex/private-alpha-next",
