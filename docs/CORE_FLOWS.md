@@ -48,9 +48,9 @@ Flows 1 to 7 are the trackers [#943](https://github.com/lagarcess/argus/issues/9
 
 | Flow | Short name | Test steps | Label | State | Last walked | Result and note | Owner | Design fixes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Business Core Flow 1: Set up a business and manage client access | 1. Access and clients | n/a, no sheet yet | none | ⚠️ | see rows below | Parent of the access rows | #943 | none yet |
+| Business Core Flow 1: Set up a business and manage client access | 1. Access and clients | n/a, no sheet yet | none | ⚠️ | see rows below | Parent of the access rows. Verified gaps by code audit 2026-10-13, see 1b. | #943 | none yet |
 | 1a. Sign-up and sign-in | same as flow | n/a, no sheet yet | none | ✅ | 2026-10-12, build not recorded (staging before the #1035 deploy), claude, read-only in the founder's staging browser | Works. Known report, not yet checked: login lands on /chat. Logout needing two clicks. | #943 | none yet |
-| 1b. Accountant invite and read-only view | same as flow | n/a, no sheet yet | none | ⚠️ | never | Invite by email and owner grant landed (#988). Not walked. | #943 | none yet |
+| 1b. Accountant invite and read-only view | same as flow | n/a, no sheet yet | none | ⚠️ | never (verified by code audit 2026-10-13, nothing to walk) | Verified gaps: (a) invites create a `business_access_invites` row or a grant and send no email; (b) acceptance is silent matching on a verified email at sign-in, with no pending-invite screen; (c) no Business switcher, and no scope from a grant; (d) grants other than the owner's carry read and prepare only (`src/argus/domain/business/access.py:29-30`); (e) approve is owner-only (`src/argus/domain/business/actions/approval.py:95,125`; `src/argus/api/business_drafts.py:136-142`); (f) approval delegation is not built; (g) re-invite after expiry is a bug (reported, unverified); (h) signup admission for an invited email with no account is a gap (reported, unverified). | #943 | none yet |
 | Business Core Flow 2: Capture activity through upload, email, WhatsApp and notes | 2. Capture | n/a, no sheet yet | none | ⚠️ | see rows below | Parent of the capture rows | #944 | none yet |
 | 2a. Upload to approve to saved expense | same as flow | n/a, no sheet yet | none | ✅ | 2026-10-12, build not recorded (staging before the #1035 deploy), claude, read-only | Works end to end in the founder's browser | #944, #947 | none yet |
 | 2b. Several files and all types | same as flow | n/a, no sheet yet | none | ⚠️ | never | Not walked | #944 | none yet |
@@ -78,7 +78,7 @@ the E3 accountant month test in the
 
 | Flow | Short name | Test steps | Label | State | Last walked | Result and note | Owner | Design fixes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| A. Accountant's month: open a period, see every record with evidence and uncertainty, ask or receive corrections, accept the month | same as flow | n/a, no sheet yet | none | ⚠️ | never | Never walked. | #949, spec J8 and E3 | none yet |
+| A. Accountant's month: open a period, see every record with evidence and uncertainty, ask or receive corrections, accept the month | same as flow | n/a, no sheet yet | none | ⚠️ | never (verified by code audit 2026-10-13, nothing to walk) | Cannot be walked: there is no accountant view of a client's records and no Business switcher. Accountants never approve; only the owner does (`src/argus/domain/business/access.py:29-30`, `src/argus/domain/business/actions/approval.py:95,125`). | #949, spec J8 and E3 | none yet |
 
 ## WhatsApp and email
 
