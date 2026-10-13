@@ -30,24 +30,24 @@ describe("what a saved receipt says is happening to it", () => {
 
   test("a saved receipt that nothing will read says so and leaves the person to fill it in", async () => {
     const es = await render("saved", false, "es-419");
-    assert.ok(es.includes("Guardado. Nadie lo está leyendo: completa los datos a mano cuando quieras o pide la lectura con IA."));
+    assert.ok(es.includes("Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea, o complétalo tú."));
     assert.ok(!es.includes("Leyendo tu recibo"));
     const en = await render("saved", false, "en");
-    assert.ok(en.includes("Saved. Nothing is reading it: fill in the details by hand whenever you like, or ask for an AI read."));
+    assert.ok(en.includes("Saved, unread. Press “Prepare with AI” so Cuadrao reads it, or fill it in yourself."));
   });
 
   test("the saved line names only what the person can do now", async () => {
     const byHand = await render("saved", false, "es-419", { enterable: true, preparable: false });
-    assert.ok(byHand.includes("Guardado. Nadie lo está leyendo: completa los datos a mano cuando quieras."));
+    assert.ok(byHand.includes("Guardado, sin leer. Complétalo tú."));
     assert.ok(!byHand.includes("lectura con IA"));
     const aiOnly = await render("saved", false, "es-419", { enterable: false, preparable: true });
-    assert.ok(aiOnly.includes("Guardado. Nadie lo está leyendo: pide la lectura con IA cuando quieras."));
+    assert.ok(aiOnly.includes("Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea."));
     assert.ok(!aiOnly.includes("a mano"));
     const neither = await render("saved", false, "es-419", { enterable: false, preparable: false });
-    assert.ok(neither.includes("Guardado. Nadie lo está leyendo."));
+    assert.ok(neither.includes("Guardado, sin leer."));
     assert.ok(!neither.includes("a mano") && !neither.includes("lectura con IA"));
     const en = await render("saved", false, "en", { enterable: false, preparable: true });
-    assert.ok(en.includes("Saved. Nothing is reading it: ask for an AI read whenever you like."));
+    assert.ok(en.includes("Saved, unread. Press “Prepare with AI” so Cuadrao reads it."));
   });
 
   test("any other state says nothing", async () => {
