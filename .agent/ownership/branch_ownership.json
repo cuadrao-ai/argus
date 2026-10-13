@@ -1388,6 +1388,7 @@
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
         "src/argus/domain/business/access.py",
         "tests/business/test_business_access_api.py",
         "tests/test_business_access_postgres.py"
