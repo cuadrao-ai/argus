@@ -2505,6 +2505,7 @@
       "consent": "Cuadrao can read this receipt with AI and fill in the details for you to check. The receipt is sent to our AI provider only if you choose this. You can also fill in the details yourself.",
       "prepare": "Prepare with AI",
       "preparing": "Reading your receipt. You can leave this page; the result will wait in your inbox.",
+      "saved_by_hand": "Saved. Nothing is reading it: fill in the details by hand whenever you like, or ask for an AI read.",
       "merchant": "Merchant",
       "date": "Date",
       "category": "Category",

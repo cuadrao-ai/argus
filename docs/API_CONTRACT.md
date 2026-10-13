@@ -9350,6 +9350,11 @@ accept path recorded.
   receipt with no single purchase is `needs_attention`, with the blocker as
   `error_code`.
 - Every `ReceiptSummary` and `ReceiptDetail` carries the owner's next step,
+  `read_pending` is true only while a read is in flight or will start (queued
+  with consent and the owner's reading allowed now); a queued receipt whose
+  owner switched reading off is reported `saved`, waits for a person, and is
+  `preparable` and `enterable` again. The web shows "Leyendo tu recibo" only
+  on `read_pending`.
   decided by the backend. `preparable` is true when nothing was read or
   entered, the source is stored, nothing is reading it, and another read could
   succeed; the client then offers the consented `/prepare`. `enterable` is true

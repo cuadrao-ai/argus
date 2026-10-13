@@ -47,6 +47,7 @@ function receipt(
     attention: null,
     preparable: false,
     enterable: partial.status === "review_ready",
+    read_pending: partial.status === "queued" || partial.status === "preparing",
     expense_id: null,
     merchant: null,
     occurred_on: null,
@@ -450,7 +451,7 @@ export function createFixtureBusinessDataSource(
       if (!current.preparable) {
         throw Object.assign(new Error("document_busy"), { status: 409, code: "document_busy" });
       }
-      return replace({ ...current, status: "queued", error_code: null, attention: null, preparable: false, enterable: false });
+      return replace({ ...current, status: "queued", error_code: null, attention: null, preparable: false, enterable: false, read_pending: true });
     },
     saveReview: async (id, version, fields) => {
       await delay();

@@ -20885,6 +20885,9 @@ components:
         replayed:
           type: boolean
           default: false
+        read_pending:
+          type: boolean
+          default: false
         preparable:
           type: boolean
         enterable:
@@ -21431,6 +21434,9 @@ components:
           - type: string
           - type: 'null'
         replayed:
+          type: boolean
+          default: false
+        read_pending:
           type: boolean
           default: false
         preparable:
