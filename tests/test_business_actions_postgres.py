@@ -34,17 +34,16 @@ def actions(users, request):
     marked ``owner_acts`` runs the same flow as the owner through the owner's
     own grant."""
 
-    acting = (
-        users["owner"]
-        if request.node.get_closest_marker("owner_acts")
-        else users["other"]
-    )
+    owner_acts = request.node.get_closest_marker("owner_acts") is not None
+    acting = users["owner"] if owner_acts else users["other"]
+    # The database refuses approve on anyone's grant but the owner's.
+    capabilities = ["read", "prepare", "approve"] if owner_acts else ["read", "prepare"]
     with Connection.connect(shared.DSN) as db:
         space_id = space(db, users["owner"])
         grant = db.execute(
             "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
-            " values (%s,%s,%s,ARRAY['read','prepare','approve']) returning id",
-            (space_id, acting, users["owner"]),
+            " values (%s,%s,%s,%s) returning id",
+            (space_id, acting, users["owner"], capabilities),
         ).fetchone()[0]
     with ConnectionPool(shared.DSN, min_size=0, max_size=4) as pool:
         money = MoneyService(

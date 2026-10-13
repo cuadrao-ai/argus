@@ -2041,6 +2041,24 @@
         "src/argus/domain/market_data/**",
         "tests/section3/**"
       ]
+    },
+    "codex/cuadrao-approve-trigger-20261013": {
+      "description": "The database refuses approve on any grant whose grantee is not the Business owner, on insert and update (migration 20261014110000); the shared Postgres actions fixture gives the accountant read and prepare only, and the cross-Business proof shows the hand-written approve refused by the database itself.",
+      "base_ref": "origin/codex/cuadrao-business-switcher-20261013",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/DATA_MODEL.md",
+        "supabase/migrations/20261014110000_business_grant_approve_owner_only.sql",
+        "tests/test_business_actions_postgres.py",
+        "tests/test_business_grant_approve_trigger_postgres.py",
+        "tests/test_business_scope_switch_routes_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
     }
   }
 }
