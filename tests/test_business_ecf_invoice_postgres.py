@@ -15,6 +15,7 @@ import pytest
 from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
+from argus.domain.ingestion.documents.preparation import prepare_document
 from psycopg.types.json import Jsonb
 
 from tests import test_business_attachment_preparation_postgres as bridge
@@ -79,7 +80,12 @@ def _saved_invoice(actions, filename: str, media_type: str):  # noqa: ANN001
                 ),
             )
         )
-        batch = batch_from_result(result, digest, cid, now, 1, document_currency="DOP")
+        # The same preparation the extractor runs: the e-CF read once, from the
+        # XML itself or from the XML part of the email, for the local checks.
+        prepared = prepare_document(content, media_type)
+        batch = batch_from_result(
+            result, digest, cid, now, 1, document_currency="DOP", ecf=prepared.ecf
+        )
         attachment = Attachment(
             external_id=digest,
             sha256=digest,
