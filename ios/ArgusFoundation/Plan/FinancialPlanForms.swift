@@ -32,6 +32,10 @@ struct FinancialExpectationForm: View {
                                 Text(verbatim: $0).tag($0)
                             }
                         }.accessibilityIdentifier("plan.expectation.currency")
+                        if model.projection?.accounts.contains(where: { !PlanCurrency.supported.contains($0.currency) }) == true {
+                            Text("plan.currency.offered").font(ArgusStyle.body(12, relativeTo: .caption)).foregroundStyle(ArgusStyle.secondary)
+                                .accessibilityIdentifier("plan.expectation.currency.note")
+                        }
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("loop.amount")

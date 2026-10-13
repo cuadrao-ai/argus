@@ -11,14 +11,16 @@ final class CurrencyChoiceTests: XCTestCase {
         XCTAssertEqual(CurrencyTable.pickerCodes, CurrencyTable.offered)
     }
 
-    func testNoPickerReadsTheDeviceCurrencyList() throws {
+    func testNoPickerBuildsItsOwnCurrencyList() throws {
         let root = URL(fileURLWithPath: try XCTUnwrap(ProcessInfo.processInfo.environment["ARGUS_REPO_ROOT"]))
         let app = root.appendingPathComponent("ios/ArgusFoundation")
         let files = try XCTUnwrap(FileManager.default.enumerator(at: app, includingPropertiesForKeys: nil))
         var offenders: [String] = []
         for case let url as URL in files where url.pathExtension == "swift" {
             let text = try String(contentsOf: url, encoding: .utf8)
-            if text.contains("commonISOCurrencyCodes") || text.contains("isoCurrencyCodes") { offenders.append(url.lastPathComponent) }
+            let ownList = text.contains("commonISOCurrencyCodes") || text.contains("isoCurrencyCodes")
+                || text.contains("[\"DOP\", \"USD\"") || text.contains("accounts.map(\\.currency))).sorted()")
+            if ownList { offenders.append(url.lastPathComponent) }
         }
         XCTAssertEqual(offenders, [])
     }

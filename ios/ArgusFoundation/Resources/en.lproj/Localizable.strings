@@ -359,6 +359,7 @@
 "plan.kind.income" = "Income";
 "plan.kind.bill" = "Bill";
 "plan.name" = "Name";
+"plan.currency.offered" = "Bills use DOP, USD or EUR for now. An account in another currency cannot have a bill yet.";
 "plan.account.unassigned" = "Choose later";
 "plan.account.hint" = "An account is needed before this affects the forecast or can be recorded.";
 "plan.date" = "Starts";

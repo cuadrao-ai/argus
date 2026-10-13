@@ -137,7 +137,19 @@ struct AccountForm: View {
         }
     }
 
-    private var currencyControl: some View {
+    @ViewBuilder private var currencyControl: some View {
+        if let current = model.draft?.currency, !PlanCurrency.supported.contains(current) {
+            // An account kept in another currency shows it, selected and read-only; new choices are the shared three.
+            Label { Text(verbatim: current) } icon: { Image(systemName: "lock.fill") }
+                .font(ArgusStyle.body(13, relativeTo: .caption)).foregroundStyle(ArgusStyle.secondary)
+                .frame(minHeight: 44)
+                .accessibilityLabel(Text(verbatim: current)).accessibilityIdentifier("accounts.currency.fixed")
+        } else {
+            currencyMenu
+        }
+    }
+
+    private var currencyMenu: some View {
         Menu {
             Picker("accounts.currency", selection: binding(\.currency)) {
                 ForEach(PlanCurrency.supported, id: \.self) { code in

@@ -95,15 +95,11 @@ struct HouseholdPlanDefinitionEditor: View {
             TextField("sharedPlan.name", text: $name).focused($focused).accessibilityIdentifier("sharedPlan.name")
             TextField(LocalizedStringKey(kind == .budget ? "sharedPlan.limit" : kind == .goal ? "sharedPlan.target" : "sharedPlan.agreed"), text: $amount).keyboardType(.decimalPad).focused($focused).accessibilityIdentifier("sharedPlan.amount")
             if editing == nil {
-                if accounts.isEmpty {
-                    TextField("accounts.currency", text: $currency).textInputAutocapitalization(.characters).autocorrectionDisabled().focused($focused).accessibilityIdentifier("sharedPlan.currency")
-                    Text("sharedPlan.noAccounts").font(.footnote)
-                } else {
-                    Picker("accounts.currency", selection: $currency) {
-                        Text("household.choose").tag("")
-                        ForEach(Array(Set(accounts.map(\.currency))).sorted(), id: \.self) { Text($0).tag($0) }
-                    }.accessibilityIdentifier("sharedPlan.currency")
-                }
+                Picker("accounts.currency", selection: $currency) {
+                    Text("household.choose").tag("")
+                    ForEach(PlanCurrency.supported, id: \.self) { Text($0).tag($0) }
+                }.accessibilityIdentifier("sharedPlan.currency")
+                if accounts.isEmpty { Text("sharedPlan.noAccounts").font(.footnote) }
                 Text("sharedPlan.privateAccounts").font(.footnote)
                 if kind == .budget {
                     ForEach(accounts.filter { $0.currency == currency }) { account in

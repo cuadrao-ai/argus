@@ -359,6 +359,7 @@
 "plan.kind.income" = "Ingreso";
 "plan.kind.bill" = "Pago";
 "plan.name" = "Nombre";
+"plan.currency.offered" = "Las facturas usan DOP, USD o EUR por ahora. Una cuenta en otra moneda no puede tener factura todavía.";
 "plan.account.unassigned" = "Elegir después";
 "plan.account.hint" = "Necesita una cuenta para incluirse en la proyección o registrarse.";
 "plan.date" = "Comienza";
