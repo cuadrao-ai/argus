@@ -16,6 +16,7 @@ from argus.domain.ingestion.whatsapp.business_worker import (
     no_ai_consent,
 )
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
+from argus.domain.ingestion.whatsapp.replies import inbox_url
 from argus.llm.openrouter_key_policy import openrouter_traffic_class
 
 
@@ -31,6 +32,7 @@ def build_worker(
     runner=None,
     has_consent: Callable[[UUID, UUID], bool] = no_ai_consent,
     consent=None,
+    app_origin: str | None = None,
 ) -> BusinessWhatsAppWorker:
     async def execute(
         *, captured, turn, lease, authorization, begin_reply, history
@@ -78,6 +80,7 @@ def build_worker(
         consent=consent,
         enabled=enabled,
         send_enabled=send_enabled,
+        inbox_link=inbox_url(app_origin) if app_origin else None,
     )
 
 

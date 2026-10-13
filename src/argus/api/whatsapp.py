@@ -392,6 +392,7 @@ def build_whatsapp(
             and load_whatsapp_settings().agent_enabled
             and load_document_extraction_settings().enabled,
             send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
+            app_origin=app_origin,
         )
     intake = WhatsAppIntake(
         store=store,
