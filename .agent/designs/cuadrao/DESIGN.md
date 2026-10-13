@@ -340,7 +340,11 @@ Current shared collection gestures below supersede the original hold-action/reor
 tray experiment. Account detail retains its native back path and visible actions.
 
 Creation requires a type; name and initial balance remain optional. Blank balance
-means unknown. Currency belongs at the left of the right-aligned money editor.
+means unknown. **Pending founder confirmation (October 13, 2026):** the Mobile lane
+change #1047 (not on integration yet) starts a new money account saved with no opening
+amount at a recorded 0.00. Property, vehicle, other asset, Business and on-device guest
+accounts stay unknown. Until the founder confirms, "blank means unknown" is the rule
+on this page. Currency belongs at the left of the right-aligned money editor.
 Preserve approved vectors, inline validation, whole-unit-first entry and a disabled
 save while required input is invalid. Archive preserves history and supports recovery.
 

@@ -9329,7 +9329,14 @@ accept path recorded.
   `rnc_comprador` when the link names them. The QR is decoded by a plain
   decoder from the page images after preparation, never by the model and
   never as a gate before it; Cuadrao never fetches the link, the person opens
-  it. Two rows join `ecf_checks.checks`: `qr_present` (verified when a DGII QR
+  it. The link is refused when it has userinfo (`user:password@`), a port, a
+  backslash, or any scheme other than `https`; the host must be exactly
+  `fc.dgii.gov.do` or `ecf.dgii.gov.do`. The same rule applies again when a stored
+  value is read back. The decoder scans at most 8 page images per capture
+  (`MAX_PAGES_SCANNED`), and the page images it sees were prepared under a cap of
+  20,000,000 pixels per image (`MAX_PIXELS` in `documents/preparation.py`); an
+  image over the cap is an invalid document, not a QR miss. Two rows join
+  `ecf_checks.checks`: `qr_present` (verified when a DGII QR
   was decoded, else `not_checked` `no_qr`) and `qr_matches_read` (issuer RNC,
   e-NCF and total from the QR against what the read found, field by field and
   only where both exist; `failed` `qr_differs` names each differing field with

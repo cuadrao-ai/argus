@@ -4,11 +4,16 @@
 This document is a plan. It does not claim built behavior. It authorizes no
 hosted action, no live WhatsApp message, no paid model call and no merge.
 
+**Update, October 13, 2026.** WhatsApp is receipts-only. A receipt is read; any
+other text gets one fixed reply with the web link (#1020, #1022). There is no AI
+chat in WhatsApp, because of Meta's AI-first policy for business messaging. The
+agent contract below applies to the web and accountant side. Where a section
+describes an agent turn started from a WhatsApp message, read it as the web
+conversation. The execution manifest owns current status.
+
 **Base branch:** `codex/private-alpha-next`, reconciled at
 `35fae200034c51ef27cee64d76adc4a903c19672`. The default-off Business foundation
-and planning PRs #900 and #910 are integrated. The local sandbox at
-`df208f7ec2379cd84efd55eea0deb685d67c5360` is separate audit evidence.
-This documentation landing does not publish or merge that sandbox or #925.
+and planning PRs #900 and #910 are integrated.
 
 **Tracker:** [#942](https://github.com/lagarcess/argus/issues/942). Flow
 issues: #943 to #949.
@@ -74,7 +79,7 @@ real use shows a need or a critical risk.
 | D2 | Who answers the owner | The AI agent answers each message. No person answers on the Cuadrao side. AI is on for each pilot business. |
 | D3 | The agent's replies | No person approves the words. The model follows the platform policies and the Cuadrao prompt rules. Evals measure behavior: the correct record, the correct question and no invented facts. No word lists and no regex. |
 | D4 | Tax numbers on receipts | J2 reads RNC, NCF or e-CF, and ITBIS. Each value is "not verified" until the admin or an authorized associate signs off. This is not tax filing. |
-| D5 | The WhatsApp 24-hour window | The agent replies within seconds of each owner message, so each reply is inside the window. The window limits only a message that Cuadrao starts after 24 hours of owner silence, for example a reminder. Those messages use Meta-approved templates after #941. |
+| D5 | The WhatsApp 24-hour window | The agent replies within seconds of each owner message, so each reply is inside the window. The window limits only a message that Cuadrao starts after 24 hours of owner silence, for example a reminder. Under receipts-only WhatsApp there is no such message. |
 
 ### 3.3 Build now, build later
 
@@ -153,10 +158,9 @@ Pointers:
 - Executor: `src/argus/agent_runtime/stages/tool_execution.py:60-185`.
 - Tool catalog: `src/argus/domain/capability_registry.py:72-93`.
 - Model call: `invoke_openrouter_json_schema` in `src/argus/llm/openrouter.py:438-558`.
-- Write authority: `mutation()` in `src/argus/api/business_actions.py:19-35`
-  (sandbox branch).
-- Sender link: `src/argus/api/whatsapp_destination.py:18-26` (sandbox branch).
-- Surface filter for tools: PR #925, `ToolDeclaration.surfaces`.
+- Write authority and sender link: unverified on integration. The October 10
+  line numbers came from a branch that is no longer a source. Re-locate them in
+  `src/argus/api/` before use.
 
 Do not add `bind_tools` or a second loop. If the structured pattern cannot do a
 step, record the reason in the decision log first.
@@ -314,7 +318,7 @@ an existing service where one exists.
 | `business_explain_status` | Reads the saved state of a draft or a record. | Status fields, dossier and history in `routers/business_authority.py:206-225` | No |
 
 Pointers without a directory are under `src/argus/domain/business/` or
-`src/argus/domain/ingestion/` on the sandbox branch.
+`src/argus/domain/ingestion/`.
 
 ### 6.7 Turn key and conversation
 
@@ -376,7 +380,7 @@ are new.
 | 15. The export has no version or freshness | Confirmed | K1 | #949 |
 | 16. The export stops at 100 receipts or 50 MiB | Confirmed | K1 | #949 |
 | 17. No proof that the accountant can use the package | Confirmed | E3 | #949 |
-| N1. No Business tools exist. #925 declares none. | New, blocker | T1 | #945 |
+| N1. No Business tools existed on October 10. | New, blocker | T1 | #945 |
 | N2. WhatsApp never starts an agent turn | New, blocker | W1 | #944 |
 | N3. Two messages cannot join one draft | New | C0, T1 | #946 |
 | N4. An agent proposal has no source kind | New | C0 | #945 |
@@ -390,8 +394,7 @@ Other findings:
 - Business chat resolves the business through the old owner-only lookup
   (`conversation_surface.py:45-56`). T1 replaces it with the authorized
   context.
-- The #925 dollar guard is for tests only. L12 owns the spend decision.
-  T1 records cost and preserves bounded calls and retries. It adds no new
+- L12 owns the spend decision. T1 records cost and preserves bounded calls and retries. It adds no new
   Cuadrao dollar cap.
 - Audio is dropped when the webhook is parsed (`payload.py:112-114`). No
   transcription code exists. V1 adds it.
@@ -403,9 +406,7 @@ Other findings:
 ### 8.1 Order
 
 1. P0. Use the integrated default-off foundation and the landed #900/#910
-   plans. Before runtime work, identify any missing sandbox dependency and
-   scope its reconciliation separately. Do not publish the sandbox wholesale.
-   This docs-only landing neither selects nor implements a runtime subset.
+   plans. This docs-only landing neither selects nor implements a runtime subset.
 2. C0. The contract. One writer.
 3. T1, M1, W1, A1 and E1 start in parallel against C0. Each uses the C0
    fixtures for the parts that are not built.
@@ -563,7 +564,7 @@ that changes model-facing text.
 | M2 | Adds transfers, refunds, owner withdrawals, credit purchases with later payment, and loans. | M1 |
 | K1 | Builds the period package (section 10). Uses `occurred_on`. Adds a version and freshness. Removes the 100-receipt limit with continuation. | M1, D1 |
 | R1 | Adds opening position, opening cash, cash count and the completeness check against statements. | M1 |
-| E2 | Runs the timed novice-owner test on real phones. Needs #941 for real WhatsApp. | J4 |
+| E2 | Runs the timed novice-owner test on real phones. Needs live WhatsApp approval. | J4 |
 | E3 | Runs the accountant workflow test on one month (J8). | K1, R1 |
 
 ## 9. Journeys
@@ -642,7 +643,9 @@ These items are out of scope for this spec:
 - Fiscal issuance, filing, sales invoicing and collections.
 - WhatsApp messages to the accountant.
 - Approval in WhatsApp.
-- Template messages before #941 closes.
+- AI chat in WhatsApp. WhatsApp reads receipts and sends one fixed reply with
+  the web link for any other text.
+- Template messages.
 - A separate MCP server, Jev or a new model vendor.
 - Broad visual polish. Removing steps that block J1 to J8 is in scope.
 - Hosted deploys, real WhatsApp messages and paid calls without a separate
@@ -650,19 +653,12 @@ These items are out of scope for this spec:
 
 ## 13. Blockers and preconditions
 
-1. **Runtime reconciliation is separate work.** P0 uses the integrated
-   foundation. The sandbox contract at
-   `docs/specs/lanes/cuadrao-business-sandbox-contract.md` is a local-only
-   historical source at `df208f7ec`, not a published integration contract.
-   Use this spec and the [landed space plan](cuadrao-business-space-slice-plan.md)
-   for published direction. C0 defines the future shared contract.
-2. **#925 remains excluded.** Plan the per-surface filter inside T1, through its canonical tool
-   catalog. This avoids making the excluded PR's refusal wording and eval
-   guard a dependency. Reuse from #925, if useful, needs scoped review and
-   T1's required scorecard. This documentation landing does not repair or merge #925.
-3. **#941 blocks real WhatsApp delivery.** Fixture and simulated proof can
-   continue.
-4. **Holds from the handoff.** The October 10 decision lifts "Business chat
+1. **Published direction.** Use this spec and the [landed space plan](cuadrao-business-space-slice-plan.md).
+   C0 defines the shared contract.
+2. **WhatsApp scope.** WhatsApp is receipts-only, with one fixed reply carrying the
+   web link for any other text. Fixture and simulated proof remain valid; live
+   WhatsApp needs its own approval.
+3. **Holds from the handoff.** The October 10 decision lifts "Business chat
    stays off". Business chat is a future implementation surface in this plan. This PR changes documents only. Hosted pilot activation uses server flags after J1 passes and the founder approves. Hosted actions, live calls and merges stay held
    until then.
 
@@ -739,7 +735,6 @@ The full notes, with each source, are in
 
 ## Appendix B. Evidence
 
-- Code audit at `df208f7ec` on `codex/cuadrao-business-sandbox`, October 10,
-  2026. Four read-only agents. No paid calls and no deploys.
-- PR #925 at `1426404d8`.
+- Code audit of October 10, 2026. Four read-only agents. No paid calls and no
+  deploys. Its branch is no longer a source.
 - Base `codex/private-alpha-next` at `cd14c9883`.
