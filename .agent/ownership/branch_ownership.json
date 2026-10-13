@@ -1129,6 +1129,21 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-logout-first-click-20261013": {
+      "description": "Logout works on the first click: the account boundary is told before the provider sign-out so the SIGNED_OUT event no longer swaps the surface for the account-changed screen whose Reload button was the second click; a failed revocation hands the surface back; signed out, the browser lands on /biz, which sends it to login with return_to=/biz.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/alpha-frontend.test.ts",
+        "web/components/chat/ChatInterface.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-multi-purchase-receipts-20261012": {
       "description": "Multi-purchase and ambiguous receipt reads become one open draft with shared facts known, the amount left to a person and every read purchase kept on the draft as evidence; never a refusal with nothing to review.",
       "base_ref": "origin/codex/private-alpha-next",
