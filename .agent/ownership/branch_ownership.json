@@ -1254,6 +1254,24 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-review-poll-20261012": {
+      "description": "The receipt review page asks the server again every few seconds while it says a read is pending, stops the moment the state leaves pending, on unmount, or after two minutes (then says so and offers Consultar registro actual); fields a person typed meanwhile keep their text. Backend state drives it; a hand-driven clock tests it.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/receipt-read-poll.dom.test.tsx",
+        "web/components/business-app/ReceiptReviewPanel.tsx",
+        "web/components/business-app/receipt-read-poll.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-revision-labels-20261012": {
       "description": "Every revision label a person sees names a facts revision the history lists: the dossier's latest revision on the review panel and the note dialog, and each saved note's own revision in the inbox and in search, carried by the captures API as revision beside the draft's current version.",
       "base_ref": "origin/codex/private-alpha-next",

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import ReceiptDossierReview from "./ReceiptDossierReview";
 import ReceiptReadNotice from "./ReceiptReadNotice";
 import { rebindAndPrepare } from "./receipt-rebind";
+import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
@@ -82,6 +83,29 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const confirmed = detail?.status === "confirmed";
   // Backend state only: a read is pending when the API says so, never from the status alone.
   const waitingForAi = detail?.read_pending === true;
+  const [readStalled, setReadStalled] = useState(false);
+  // The read settles on the server; this page asks again until it has, so the
+  // same page fills in. Fields the person typed meanwhile keep their text.
+  useReceiptReadPoll({
+    source,
+    receiptId,
+    pending: waitingForAi,
+    onSettled: (next) => {
+      const before = detail ? draftFrom(detail) : null;
+      const fresh = draftFrom(next);
+      setDetail(next);
+      setDraft((current) =>
+        current && before
+          ? (Object.fromEntries(FIELDS.map((key) => [key, current[key] !== before[key] ? current[key] : fresh[key]])) as Draft)
+          : fresh,
+      );
+      setAmountInvalid(false);
+      setUnprepared(false);
+      setReadStalled(false);
+      reload();
+    },
+    onStalled: () => setReadStalled(true),
+  });
 
   if (failed) {
     return (
@@ -285,6 +309,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
             </div>
           ) : null}
           <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={detail.enterable && canPrepare && !locked} preparable={detail.preparable && canPrepare} />
+          {waitingForAi && readStalled ? (
+            <div role="status" data-testid="receipt-read-stalled" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>
+              <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
+              <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button>
+            </div>
+          ) : null}
 
           <div className={`${cardClass} space-y-4`}>
             {field(
