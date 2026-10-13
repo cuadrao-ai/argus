@@ -68,7 +68,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   }
   const fiscalDossier = dossiers.get(dossierFixtureIds.fiscal)!;
   const fiscalBefore: BusinessFacts = { ...fiscalDossier.facts, receipt_state: known("fiscal_receipt"), fiscal: { rnc: unknown(), ncf: known("B0100000098"), ecf: unknown(), itbis: known("100.01") } };
-  const fiscalAfter: BusinessFacts = { ...fiscalBefore, fiscal: { rnc: known("131999888"), ncf: known("B0100000099"), ecf: { state: "owner_does_not_know", value: null, origin: "owner_stated", verified: false, source_ids: [sourceId] }, itbis: { state: "known", value: "526.27", origin: "matched", verified: true, source_ids: [sourceId] } } };
+  // The e-CF fixture carries a DGII QR: the RNC came from it; the merchant is the read's suggestion, not yet confirmed.
+  const fiscalAfter: BusinessFacts = { ...fiscalBefore, counterparty: { ...known("Ferretería La Esquina"), origin: "extracted" }, fiscal: { rnc: { ...known("131999888"), origin: "qr_decoded" }, ncf: known("B0100000099"), ecf: { state: "owner_does_not_know", value: null, origin: "owner_stated", verified: false, source_ids: [sourceId] }, itbis: { state: "known", value: "526.27", origin: "matched", verified: true, source_ids: [sourceId] } } };
   const fiscalChecks: BusinessDossier["ecf_checks"] = { encf: "E310000000777", tipo_ecf: "31", checked_at: "2026-10-10T14:25:00Z", checks: [
     { name: "signature_integrity", state: "verified", code: null, detail: {} },
     { name: "totals_arithmetic", state: "verified", code: null, detail: { monto_total: "33254.91", sum_of_parts: "33254.91" } },

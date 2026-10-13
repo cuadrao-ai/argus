@@ -1383,6 +1383,35 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-review-redesign-20261013": {
+      "description": "Review page redesign: the record's facts lead with what is settled, a value the AI read suggested is a Sugerencia with an in-place Confirmar for a preparer and never counts as known, a value from the DGII QR looks like the QR, a missing value says Falta, a counts line names suggestions and gaps; cream and green tokens; es-419 first; rendered evidence under docs/reports/evidence.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-dark-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-dark-phone.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-light-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-light-phone.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/page-dark-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/page-dark-phone.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/page-light-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/page-light-phone.png",
+        "web/__tests__/receipt-fact-rows.test.tsx",
+        "web/app/globals.css",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/ReceiptRecordFacts.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/components/business-app/receipt-fact-rows.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-revision-labels-20261012": {
       "description": "Every revision label a person sees names a facts revision the history lists: the dossier's latest revision on the review panel and the note dialog, and each saved note's own revision in the inbox and in search, carried by the captures API as revision beside the draft's current version.",
       "base_ref": "origin/codex/private-alpha-next",

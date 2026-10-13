@@ -46,6 +46,10 @@
   --rui-color-teal: #5ba897;
   --rui-color-warning: #c2a44d;
   --rui-color-danger: #d66d75;
+  /* Cuadrao Business: the cream canvas and the deep green of the approved
+     landing, as tokens so Business surfaces share one owner for them. */
+  --cuadrao-cream: #fafbf8;
+  --cuadrao-green: #2f5a49;
   --argus-scroll-indicator: rgba(0, 0, 0, 0.12);
   --argus-scroll-indicator-dark: rgba(255, 255, 255, 0.16);
 }
@@ -53,6 +57,8 @@
 .dark {
   --bg: #191c1f;
   --fg: #ffffff;
+  --cuadrao-cream: #172b26;
+  --cuadrao-green: #8fcbb0;
 }
 
 body {
