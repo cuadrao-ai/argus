@@ -10,7 +10,7 @@ loop only waits on the provider."""
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from typing import Protocol
 from uuid import UUID
@@ -43,6 +43,10 @@ class ReceivingProvider(Protocol):
 
 
 RouteAuthority = Callable[[RecipientRoute], None]
+#: Whether the owner's permission to read emailed receipts is on right now, by space.
+ReadingPermission = Callable[[str], bool]
+#: Starts one automatic read of a captured attachment and waits for it to settle.
+AttachmentReader = Callable[[EmailDelivery, str], Awaitable[None]]
 
 
 def grant_route_authority(pool: ConnectionPool) -> RouteAuthority:
@@ -69,6 +73,8 @@ class EmailCapture:
         provider: ReceivingProvider | None,
         enabled: Callable[[], bool],
         receiving_enabled: Callable[[], bool] | None = None,
+        reading: ReadingPermission | None = None,
+        reader: AttachmentReader | None = None,
     ) -> None:
         self.store, self.documents, self.provider, self.enabled = (
             store,
@@ -78,6 +84,10 @@ class EmailCapture:
         )
         self.route_authority = route_authority
         self.receiving_enabled = receiving_enabled or (lambda: self.provider is not None)
+        self.reading, self.reader = reading, reader
+        # Attachments whose read this worker started, while that read runs: the
+        # owner's switch gates these and only these, never a person's own click.
+        self.auto_reads: set[str] = set()
 
     def check_route(self, route: RecipientRoute) -> None:
         """Raise unless the route is live and its grant still allows prepare.
@@ -242,6 +252,7 @@ class EmailCapture:
                 original_rejected = True
         existing = {part.id: part for part in await run(self.store.parts, delivery.id)}
         transient = False
+        to_read: list[str] = []
         for part in envelope.parts:
             await run(self.store.renew, delivery)
             previous = existing.get(part.id)
@@ -268,6 +279,10 @@ class EmailCapture:
                 result = replace(
                     result, state="captured", document_id=outcome.connection_id
                 )
+                # Only a file this email brought first is read on its own: the same
+                # bytes already saved are one receipt, never read twice.
+                if not outcome.replayed:
+                    to_read.append(outcome.connection_id)
             except DocumentExtractionError as error:
                 result = replace(result, state="rejected", error_code=error.code)
             except DocumentServiceError as error:
@@ -290,3 +305,35 @@ class EmailCapture:
             if rejected
             else None,
         )
+        # The lease is released first: a read waits on the provider, the queue does not.
+        for document in to_read:
+            await self._read(delivery, document)
+
+    async def _read(self, delivery: EmailDelivery, document: str) -> None:
+        """Read one attachment now if the owner's permission is on at this
+        moment; otherwise it waits saved, unread, for a person. A read that
+        fails leaves the receipt saved; nothing here retries the email."""
+
+        if self.reading is None or self.reader is None:
+            return
+        try:
+            allowed = await asyncio.to_thread(self.reading, delivery.space_id)
+        except Exception as error:  # noqa: BLE001 - an unreadable permission is off, not on
+            logger.warning(
+                "email_reading_permission_unreadable delivery_id="
+                + f"{delivery.id} error={type(error).__name__}"
+            )
+            return
+        if not allowed:
+            return
+        self.auto_reads.add(document)
+        try:
+            await self.reader(delivery, document)
+        except Exception as error:  # noqa: BLE001 - the receipt stays saved; only the class is logged
+            logger.warning(
+                "email_auto_read_failed delivery_id="
+                + f"{delivery.id} document_id={document} error="
+                + f"{getattr(error, 'code', type(error).__name__)}"
+            )
+        finally:
+            self.auto_reads.discard(document)

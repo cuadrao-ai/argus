@@ -24,6 +24,7 @@ UNREADABLE = (
 SECRET_KEY = b"synthetic-webhook-secret"
 SECRET = "whsec_" + base64.b64encode(SECRET_KEY).decode()
 WEBHOOK = "/api/v1/webhooks/resend"
+BASE_EMAIL = "/api/v1/business/email"
 
 
 def signed(body: bytes, *, now: int | None = None) -> dict[str, str]:
@@ -126,7 +127,11 @@ def test_owner_sees_readiness_and_in_memory_app_cannot_mint_an_address(
 ) -> None:  # noqa: F811
     status = alice.get("/email")
     assert status.status_code == 200, status.text
-    assert status.json() == {"enabled": False, "receiving_address": None}
+    assert status.json() == {
+        "enabled": False,
+        "receiving_address": None,
+        "ai_reading": None,
+    }
     assert alice.get("/email/deliveries").json() == {"items": []}
     assert alice.get(f"/email/deliveries/{uuid4()}").status_code == 404
     created = alice.post("/email", key=str(uuid4()))
@@ -441,3 +446,152 @@ def test_a_file_uploaded_on_the_web_first_keeps_its_label_and_the_email_is_the_r
     ) == (first, False)
     one = alice.get(f"/email/deliveries/{second}").json()
     assert one["parts"][0]["repeat_of_delivery_id"] == first
+
+
+class Consent:
+    """The owner's permission store as the routes see it: every call recorded."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+        self.state = "unseen"
+        self.refuse: Exception | None = None
+
+    def _view(self, space_id: str, person_id: str) -> dict:
+        return {
+            "state": self.state,
+            "available": True,
+            "reason": None,
+            "owner": True,
+            "scope_version": 1,
+            "purpose": "business_email_receipt_reading",
+            "disclosure": "Cuadrao leerá con IA los recibos que lleguen a esta dirección.",
+            "route": {
+                "gateway": "openrouter",
+                "interpretation": [{"model": "m"}],
+                "reply": [],
+            },
+            "disclosure_token": "a" * 64,
+            "consented_at": None,
+            "consented_by": None,
+            "revoked_at": None,
+        }
+
+    def status(self, space_id: str, person_id: str, language: str | None = None) -> dict:
+        self.calls.append(("status", space_id, person_id, language))
+        return self._view(space_id, person_id)
+
+    def enable(self, space_id: str, person_id: str, request, key: str) -> dict:  # noqa: ANN001
+        self.calls.append(("enable", space_id, person_id, request.disclosure_token, key))
+        if self.refuse:
+            raise self.refuse
+        self.state = "on"
+        return self._view(space_id, person_id)
+
+    def decline(self, space_id: str, person_id: str, key: str) -> dict:
+        self.calls.append(("decline", space_id, person_id, key))
+        if self.refuse:
+            raise self.refuse
+        self.state = "off"
+        return self._view(space_id, person_id)
+
+    def revoke(self, space_id: str, person_id: str) -> None:
+        self.calls.append(("revoke", space_id, person_id))
+        if self.refuse:
+            raise self.refuse
+        self.state = "off"
+
+
+@pytest.fixture
+def consent(runtime):  # noqa: ANN001
+    store = Consent()
+    runtime_module.configure_email_intake(runtime, store)
+    yield store
+    runtime_module.configure_email_intake(None)
+
+
+def test_readiness_carries_where_the_ai_permission_stands_for_this_person(
+    alice: Owner,  # noqa: F811
+    consent: Consent,
+) -> None:
+    status = alice.get("/email", language="es-419")
+    assert status.status_code == 200, status.text
+    body = status.json()
+    assert body["ai_reading"]["state"] == "unseen"
+    assert body["ai_reading"]["disclosure_token"] == "a" * 64
+    scope = alice.scope()
+    assert consent.calls == [("status", scope.owner.space_id, scope.person_id, "es-419")]
+
+
+def test_the_owner_turns_reading_on_against_the_text_shown_declines_or_turns_it_off(
+    alice: Owner,  # noqa: F811
+    consent: Consent,
+) -> None:
+    scope = alice.scope()
+    on = alice.post(
+        "/email/ai-consent",
+        {"action": "enable", "disclosure_token": "a" * 64, "language": "es-419"},
+        key="k-1",
+    )
+    assert (on.status_code, on.json()["state"]) == (200, "on"), on.text
+    assert consent.calls[-1] == (
+        "enable",
+        scope.owner.space_id,
+        scope.person_id,
+        "a" * 64,
+        "k-1",
+    )
+    declined = alice.post("/email/ai-consent", {"action": "decline"}, key="k-2")
+    assert (declined.status_code, declined.json()["state"]) == (200, "off"), declined.text
+    assert consent.calls[-1] == ("decline", scope.owner.space_id, scope.person_id, "k-2")
+    assert (
+        alice.post("/email/ai-consent", {"action": "enable"}, key="k-3").status_code
+        == 422
+    )
+    assert (
+        alice.post(
+            "/email/ai-consent", {"action": "enable", "disclosure_token": "a" * 64}
+        ).status_code
+        == 422
+    )
+    off = alice.client.delete(BASE_EMAIL + "/ai-consent", headers=alice.auth)
+    assert off.status_code == 204
+    assert off.headers["cache-control"] == "no-store"
+    assert consent.calls[-1] == ("revoke", scope.owner.space_id, scope.person_id)
+
+
+def test_a_refusal_from_the_permission_store_is_a_typed_problem(
+    alice: Owner,  # noqa: F811
+    consent: Consent,
+) -> None:
+    from argus.domain.ingestion.whatsapp.ai_consent import ConsentError
+
+    consent.refuse = ConsentError("business_owner_required")
+    refused = alice.post("/email/ai-consent", {"action": "decline"}, key="k-4")
+    assert (refused.status_code, refused.json()["code"]) == (
+        403,
+        "business_owner_required",
+    )
+    assert refused.headers["cache-control"] == "no-store"
+    consent.refuse = ConsentError("email_consent_disclosure_stale", 409)
+    stale = alice.post(
+        "/email/ai-consent", {"action": "enable", "disclosure_token": "b" * 64}, key="k-5"
+    )
+    assert (stale.status_code, stale.json()["code"]) == (
+        409,
+        "email_consent_disclosure_stale",
+    )
+
+
+def test_without_a_permission_store_the_consent_routes_say_so(
+    alice: Owner,  # noqa: F811
+    runtime,  # noqa: F811
+) -> None:
+    refused = alice.post("/email/ai-consent", {"action": "decline"}, key="k-6")
+    assert (refused.status_code, refused.json()["code"]) == (
+        503,
+        "email_ai_consent_unavailable",
+    )
+    assert (
+        alice.client.delete(BASE_EMAIL + "/ai-consent", headers=alice.auth).status_code
+        == 503
+    )

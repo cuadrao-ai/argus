@@ -144,6 +144,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_client_grants",
         "public.business_draft_revisions",
         "public.business_draft_sources",
+        "public.business_email_ai_consents",
         "public.business_email_deliveries",
         "public.business_email_parts",
         "public.business_email_routes",

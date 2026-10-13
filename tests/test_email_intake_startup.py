@@ -34,7 +34,11 @@ def world(monkeypatch):  # noqa: ANN001
     monkeypatch.setattr(intake, "PostgresEmailStore", lambda pool: Mock())
     monkeypatch.setattr(intake, "grant_route_authority", lambda pool: Mock())
     monkeypatch.setattr(
-        intake, "EmailCapture", lambda *args: SimpleNamespace(provider=args[3])
+        intake,
+        "EmailCapture",
+        lambda *args, **kwargs: SimpleNamespace(
+            provider=args[3], store=args[0], auto_reads=set()
+        ),
     )
     monkeypatch.setattr(intake.asyncio, "create_task", lambda coro: coro.close())
     records: list = []

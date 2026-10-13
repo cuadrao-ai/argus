@@ -14,26 +14,96 @@ from argus.api.documents import documents_service
 from argus.api.ingestion import ingestion_enabled
 from argus.domain.business.config import business_pilot_enabled
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
+from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.email_intake.ai_consent import (
+    EmailConsentStore,
+    email_consent_store,
+)
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
+from argus.domain.ingestion.email_intake.models import EmailDelivery
 from argus.domain.ingestion.email_intake.provider import ResendReceivingClient
 from argus.domain.ingestion.email_intake.service import (
     EmailCapture,
     grant_route_authority,
 )
 from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+from argus.domain.owner_scope import BusinessSpace
 
 RESEND_DOWNLOAD_HOSTS = ("cdn.resend.app",)
 
 _runtime: EmailCapture | None = None
+_consent: EmailConsentStore | None = None
 
 
 def email_intake() -> EmailCapture | None:
     return _runtime
 
 
-def configure_email_intake(runtime: EmailCapture | None) -> None:
-    global _runtime
-    _runtime = runtime
+def email_consent() -> EmailConsentStore | None:
+    return _consent
+
+
+def configure_email_intake(
+    runtime: EmailCapture | None, consent: EmailConsentStore | None = None
+) -> None:
+    global _runtime, _consent
+    _runtime, _consent = runtime, consent
+
+
+class EmailReader:
+    """One automatic read of an emailed attachment, through the owner's own
+    preparation path, exactly as a WhatsApp receipt is read: queued with the
+    owner's permission, bound to the owner's grant, settled before returning."""
+
+    def __init__(self, documents: DocumentsService) -> None:
+        self.documents = documents
+
+    async def __call__(self, delivery: EmailDelivery, document_id: str) -> None:
+        from fastapi import BackgroundTasks
+
+        from argus.api.documents import dispatch_preparation
+        from argus.api.whatsapp import as_owner
+
+        owner, scope = delivery.principal_id, BusinessSpace(delivery.space_id)
+        self.documents.queue(
+            user_id=owner, connection_id=document_id, consent=True, scope=scope
+        )
+        tasks = BackgroundTasks()
+        try:
+            await dispatch_preparation(
+                as_owner(self.documents, owner, scope),
+                owner,
+                document_id,
+                tasks,
+                scope=scope,
+            )
+        except Exception as error:
+            # A read that could not start is not "reading": the receipt waits
+            # saved, with the reason recorded, for a person to prepare it.
+            self.documents.release_queued(
+                user_id=owner,
+                connection_id=document_id,
+                scope=scope,
+                code=getattr(error, "code", type(error).__name__),
+            )
+            raise
+        await tasks()
+
+
+def automatic_read_gate(runtime: EmailCapture, consent: EmailConsentStore):  # noqa: ANN201
+    """A read this worker started goes on only while the owner's permission is
+    on at that moment; a person's own click on an emailed receipt is theirs."""
+
+    def allowed(user_id: str, connection_id: str) -> bool:
+        if connection_id not in runtime.auto_reads:
+            return True
+        try:
+            space = runtime.store.document_space(connection_id)
+            return space is not None and consent.reading_allowed(space)
+        except Exception:
+            return False
+
+    return allowed
 
 
 def capture_enabled() -> bool:
@@ -126,16 +196,19 @@ def start_email_intake(app) -> None:  # noqa: ANN001
         )
     else:
         logger.info("Email intake started with the receiving provider")
-    configure_email_intake(
-        EmailCapture(
-            PostgresEmailStore(pool),
-            documents,
-            grant_route_authority(pool),
-            provider,
-            capture_enabled,
-            webhook_enabled,
-        )
+    consent = email_consent_store(pool)
+    runtime = EmailCapture(
+        PostgresEmailStore(pool),
+        documents,
+        grant_route_authority(pool),
+        provider,
+        capture_enabled,
+        webhook_enabled,
+        reading=consent.reading_allowed,
+        reader=EmailReader(documents),
     )
+    documents.add_read_gate(automatic_read_gate(runtime, consent))
+    configure_email_intake(runtime, consent)
     app.state.email_intake_client = client
     app.state.email_intake_task = asyncio.create_task(_drain(_runtime))
 

@@ -9,7 +9,7 @@ from dataclasses import asdict
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,11 +20,15 @@ from argus.api.business import (
 )
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
-from argus.api.email_intake import email_intake, webhook_enabled
+from argus.api.email_intake import email_consent, email_intake, webhook_enabled
 from argus.api.ingestion import ingestion_hub
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.ingestion.email_intake.ai_consent import (
+    EmailConsentRequest,
+    EmailConsentStore,
+)
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
 from argus.domain.ingestion.email_intake.service import EmailCapture
 from argus.domain.ingestion.email_intake.signatures import (
@@ -32,6 +36,7 @@ from argus.domain.ingestion.email_intake.signatures import (
     verify_webhook,
 )
 from argus.domain.ingestion.reconcile.service import ReconciliationService
+from argus.domain.ingestion.whatsapp.ai_consent import ConsentError
 
 webhook_router = APIRouter(prefix="/webhooks/resend", tags=["business-email"])
 router = APIRouter(prefix="/business/email", tags=["business-email"])
@@ -48,6 +53,20 @@ class ReceivedEvent(BaseModel):
     model_config = ConfigDict(extra="ignore")
     type: str
     data: ReceivedData
+
+
+class AddressReading(BaseModel):
+    """The one-line notice was on the screen that asked for the address: the
+    token binds the agreement to that exact text and model."""
+
+    model_config = ConfigDict(extra="forbid")
+    disclosure_token: str = Field(pattern=r"^[0-9a-f]{64}$")
+    language: str | None = Field(default=None, max_length=16)
+
+
+class CreateAddress(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ai_reading: AddressReading | None = None
 
 
 def _problem(request: Request, status: int, code: str, detail: str):
@@ -127,14 +146,57 @@ def _runtime(request: Request) -> EmailCapture:
     return runtime
 
 
-def _readiness(runtime: EmailCapture, space_id: str) -> dict[str, Any]:
+def _reading_view(
+    space_id: str, person_id: str, language: str | None
+) -> dict[str, Any] | None:
+    """Where the owner's permission to read emailed receipts stands, as this
+    person may see it; None where no permission store exists (no database)."""
+
+    consent = email_consent()
+    if consent is None:
+        return None
+    return consent.status(space_id, person_id, language)
+
+
+def _readiness(
+    runtime: EmailCapture,
+    space_id: str,
+    person_id: str | None = None,
+    language: str | None = None,
+) -> dict[str, Any]:
     route = runtime.store.route_for_space(space_id)
     usable = route is not None and runtime.route_usable(route)
     # Configuration readiness, not a claim about provider or DNS health.
     return {
         "enabled": bool(usable and webhook_enabled() and runtime.provider is not None),
         "receiving_address": route.recipient if usable else None,
+        "ai_reading": _reading_view(space_id, person_id, language)
+        if person_id is not None
+        else None,
     }
+
+
+def _consent_problem(request: Request, error: ConsentError):  # noqa: ANN202
+    return problem(
+        request,
+        status_code=error.status,
+        code=error.code,
+        title="Email AI permission unavailable",
+        detail=error.code,
+        headers=NO_STORE,
+    )
+
+
+def _consent_store(request: Request) -> EmailConsentStore:
+    consent = email_consent()
+    if consent is None:
+        raise _problem(
+            request,
+            503,
+            "email_ai_consent_unavailable",
+            "The AI reading permission is unavailable.",
+        )
+    return consent
 
 
 @router.get("")
@@ -142,9 +204,15 @@ def receiving(
     request: Request,
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business)],
+    language: str | None = Query(default=None, max_length=16),
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
-    return _readiness(_runtime(request), context.scope.owner.space_id)
+    return _readiness(
+        _runtime(request),
+        context.scope.owner.space_id,
+        context.scope.person_id,
+        language,
+    )
 
 
 def _require_usable(request: Request, runtime: EmailCapture, route) -> None:  # noqa: ANN001
@@ -166,19 +234,25 @@ def create_receiving_address(
     request: Request,
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    body: CreateAddress | None = None,
 ) -> dict[str, Any]:
     """One address per Business. The Business owner owns the captured documents;
     the caller's own live grant is the authority checked before each capture.
-    A replay or a concurrent create returns the one live address."""
+    A replay or a concurrent create returns the one live address. With the
+    notice's token, the owner's permission to read with AI is recorded in the
+    same request, against the text that was on the screen."""
 
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     space_id = context.scope.owner.space_id
+    person_id = context.scope.person_id
+    reading = body.ai_reading if body else None
     existing = runtime.store.route_for_space(space_id)
     if existing is not None:
         _require_usable(request, runtime, existing)
         response.status_code = 200
-        return _readiness(runtime, space_id)
+        _agree(request, space_id, person_id, reading)
+        return _readiness(runtime, space_id, person_id, reading and reading.language)
     domain = EmailIntakeSettings().receiving_domain.strip().lower()
     pool = getattr(request.app.state, "financial_accounts_pool", None)
     hub = ingestion_hub()
@@ -216,7 +290,67 @@ def create_receiving_address(
     if route.granted_by != context.scope.person_id:
         _require_usable(request, runtime, route)
         response.status_code = 200
-    return _readiness(runtime, space_id)
+    _agree(request, space_id, person_id, reading)
+    return _readiness(runtime, space_id, person_id, reading and reading.language)
+
+
+def _agree(
+    request: Request, space_id: str, person_id: str, reading: AddressReading | None
+) -> None:
+    """The agreement given on the address screen. Its key is the token itself,
+    so a replayed create records one permission."""
+
+    if reading is None:
+        return
+    try:
+        _consent_store(request).enable(
+            space_id,
+            person_id,
+            EmailConsentRequest(
+                action="enable",
+                disclosure_token=reading.disclosure_token,
+                language=reading.language,
+            ),
+            "address:" + reading.disclosure_token[:64],
+        )
+    except ConsentError as error:
+        raise _consent_problem(request, error) from None
+
+
+@router.post("/ai-consent")
+def answer_ai_reading(
+    request: Request,
+    response: Response,
+    body: EmailConsentRequest,
+    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    idempotency_key: str = Header(min_length=1, max_length=80),
+) -> dict[str, Any]:
+    """The owner turns reading on against the text shown, or declines the
+    one-time notice. Only the owner may answer; the store refuses anyone else."""
+
+    response.headers.update(NO_STORE)
+    space_id, person_id = context.scope.owner.space_id, context.scope.person_id
+    consent = _consent_store(request)
+    try:
+        if body.action == "enable":
+            return consent.enable(space_id, person_id, body, idempotency_key)
+        return consent.decline(space_id, person_id, idempotency_key)
+    except ConsentError as error:
+        raise _consent_problem(request, error) from None
+
+
+@router.delete("/ai-consent", status_code=204)
+def revoke_ai_reading(
+    request: Request,
+    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+) -> Response:
+    try:
+        _consent_store(request).revoke(
+            context.scope.owner.space_id, context.scope.person_id
+        )
+    except ConsentError as error:
+        raise _consent_problem(request, error) from None
+    return Response(status_code=204, headers=NO_STORE)
 
 
 @router.delete("", status_code=204)

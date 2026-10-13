@@ -27,9 +27,10 @@ async def test_factory_binds_canonical_actions_without_creating_consent(monkeypa
     sink = ReconciliationService(object(), object(), lambda: None)
     pool = object()
     documents = SimpleNamespace(
+        add_read_gate=lambda gate: None,
         hub=SimpleNamespace(
             sink=sink, box=SecretBox(bytes(range(32))), clock=lambda: None
-        )
+        ),
     )
     client = httpx.AsyncClient(
         transport=httpx.MockTransport(lambda request: pytest.fail("Unexpected HTTP"))
@@ -273,11 +274,12 @@ async def test_with_the_agent_off_text_never_reaches_it_even_with_the_pilot_on(
             raise RuntimeError("the pool must not be used")
 
     documents = SimpleNamespace(
+        add_read_gate=lambda gate: None,
         hub=SimpleNamespace(
             sink=ReconciliationService(object(), object(), lambda: None),
             box=SecretBox(bytes(range(32))),
             clock=lambda: None,
-        )
+        ),
     )
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: None))
     runtime = build_whatsapp(
@@ -320,11 +322,12 @@ async def test_text_reaches_the_agent_only_while_the_worker_is_enabled(
             raise RuntimeError("the pool must not be used while disabled")
 
     documents = SimpleNamespace(
+        add_read_gate=lambda gate: None,
         hub=SimpleNamespace(
             sink=ReconciliationService(object(), object(), lambda: None),
             box=SecretBox(bytes(range(32))),
             clock=lambda: None,
-        )
+        ),
     )
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: None))
     runtime = build_whatsapp(

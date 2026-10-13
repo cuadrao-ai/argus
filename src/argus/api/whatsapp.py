@@ -163,7 +163,7 @@ class DocumentsDestination:
         tasks = BackgroundTasks()
         try:
             await dispatch_preparation(
-                _as_owner(self.documents, owner_id, scope.owner),
+                as_owner(self.documents, owner_id, scope.owner),
                 owner_id,
                 connection_id,
                 tasks,
@@ -240,7 +240,7 @@ def plain_merchant(text: str | None) -> str | None:
     return cleaned
 
 
-def _as_owner(documents: DocumentsService, owner_id: str, scope):  # noqa: ANN001, ANN202
+def as_owner(documents: DocumentsService, owner_id: str, scope):  # noqa: ANN001, ANN202
     """The documents service the Business routes build for the signed-in owner:
     the same hub with a sink bound to the owner's own grant. A read started by a
     delivery has no request, so it is bound here, and only to the owner who
@@ -371,7 +371,7 @@ def build_whatsapp(
 
         receipts = receipt_consent_store(pool)
         reading = lambda owner: receipt_reading_enabled(receipts, owner)  # noqa: E731
-        documents.read_gate = _whatsapp_read_gate(store, reading)
+        documents.add_read_gate(_whatsapp_read_gate(store, reading))
     if pool is not None and documents.hub.box is not None:
         from argus.api.whatsapp_worker import build_worker
         from argus.domain.business.actions import BusinessActions

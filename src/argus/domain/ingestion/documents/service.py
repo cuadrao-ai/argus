@@ -342,6 +342,18 @@ class DocumentsService:
         if draft.status == "queued":
             self._update(user_id, draft, status="saved", consent=False, error_code=code)
 
+    def add_read_gate(self, gate: Callable[[str, str], bool]) -> None:
+        """One more permission asked at every read; each gate keeps its own scope
+        and answers True for documents that are not its own."""
+
+        previous = self.read_gate
+        self.read_gate = (
+            gate
+            if previous is None
+            else lambda user_id, connection_id: previous(user_id, connection_id)
+            and gate(user_id, connection_id)
+        )
+
     def _reading_allowed(self, user_id: str, connection_id: str) -> bool:
         return self.read_gate is None or self.read_gate(user_id, connection_id)
 

@@ -95,6 +95,8 @@ class EmailStore(Protocol):
 
     def membership(self, space_id: str) -> dict[str, EmailRelation]: ...
 
+    def document_space(self, document_id: str) -> str | None: ...
+
 
 _UPDATABLE = {"original_document_id", "subject", "sender", "sent_at", "text_body"}
 
@@ -380,6 +382,19 @@ class PostgresEmailStore:
             ).fetchall()
         return _relations(rows)
 
+    def document_space(self, document_id: str) -> str | None:
+        """The Business an emailed attachment was captured into, or None for a
+        document that did not arrive as an email attachment."""
+
+        with self.pool.connection() as connection:
+            row = connection.execute(
+                "select d.space_id::text from public.business_email_parts p"
+                " join public.business_email_deliveries d on d.id=p.delivery_id"
+                " where p.document_id=%s and p.state='captured' limit 1",
+                (document_id,),
+            ).fetchone()
+            return row[0] if row else None
+
 
 def _relations(rows: list[dict]) -> dict[str, EmailRelation]:
     found: dict[str, EmailRelation] = {}
@@ -638,3 +653,10 @@ class InMemoryEmailStore:
                     }
                 )
         return _relations(rows)
+
+    def document_space(self, document_id: str) -> str | None:
+        for delivery in self._deliveries.values():
+            for part in self.parts(delivery.id):
+                if part.state == "captured" and part.document_id == document_id:
+                    return delivery.space_id
+        return None
