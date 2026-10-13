@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from contextlib import suppress
 from datetime import timedelta
 from typing import Any, Protocol
 from uuid import UUID, uuid4
@@ -32,6 +31,13 @@ from argus.domain.ingestion.whatsapp.replies import (
 )
 
 MAX_ATTEMPTS = 5
+_DENIED_CODES = frozenset(
+    {
+        "business_permission_denied",
+        "business_record_not_found",
+        "business_plan_authority_changed",
+    }
+)
 
 
 class TurnExecutor(Protocol):
@@ -131,19 +137,28 @@ class BusinessWhatsAppWorker:
         self._failures[key] = self._failures.get(key, 0) + 1
         if self._failures[key] < MAX_ATTEMPTS:
             return
+        try:
+            await asyncio.to_thread(
+                self.delivery.give_up, key, lease=lease, code="whatsapp_reply_failed"
+            )
+        except Exception as giving_up:
+            # Still blocking its sender: the count stays, so the next failure
+            # tries to give up again.
+            logger.error(
+                "Business WhatsApp message could not be given up",
+                event="business_whatsapp_give_up_failed",
+                message_ref=key.hex()[:12],
+                failure_mode=type(giving_up).__name__,
+            )
+            return
         self._failures.pop(key, None)
-        code = getattr(error, "code", None) or "whatsapp_reply_failed"
         logger.error(
             "Business WhatsApp message given up after repeated failures",
             event="business_whatsapp_given_up",
             message_ref=key.hex()[:12],
             failure_mode=type(error).__name__,
-            failure_code=code,
+            failure_code=getattr(error, "code", None) or "whatsapp_reply_failed",
         )
-        with suppress(Exception):
-            await asyncio.to_thread(
-                self.delivery.give_up, key, lease=lease, code="whatsapp_reply_failed"
-            )
 
     async def run(self) -> None:
         while True:
@@ -253,13 +268,10 @@ class BusinessWhatsAppWorker:
                 )
             await self._send(captured, turn, context, lease)
         except BaseException as error:
-            denied = isinstance(error, PermissionError) or getattr(
-                error, "code", None
-            ) in {
-                "business_permission_denied",
-                "business_record_not_found",
-                "business_plan_authority_changed",
-            }
+            denied = (
+                isinstance(error, PermissionError)
+                or getattr(error, "code", None) in _DENIED_CODES
+            )
             try:
                 if denied:
                     await asyncio.to_thread(self.delivery.suppress, captured, lease=lease)
@@ -394,11 +406,25 @@ class BusinessWhatsAppWorker:
             if claim.state != "sending":
                 return
             started = False
+            code = "whatsapp_send_check_failed"
             try:
                 # The transport switch was read inside the claim, which is the
                 # last point a reply can still wait; a started send cannot be
                 # retried, so it is not asked again here.
-                if not self.enabled() or not await asyncio.to_thread(authorized):
+                if not self.enabled():
+                    code = "whatsapp_send_disabled"
+                    raise PermissionError("whatsapp_agent_disabled")
+                try:
+                    allowed_now = await asyncio.to_thread(authorized)
+                except Exception as check:
+                    if (
+                        isinstance(check, PermissionError)
+                        or getattr(check, "code", None) in _DENIED_CODES
+                    ):
+                        code = "whatsapp_send_not_permitted"
+                    raise
+                if not allowed_now:
+                    code = "whatsapp_send_not_permitted"
                     raise PermissionError("whatsapp_ai_consent_required")
                 started = True
                 await self.transport.send(
@@ -409,14 +435,16 @@ class BusinessWhatsAppWorker:
                     )
                 )
             except BaseException:
-                # Nothing was sent when permission ended before the send began.
+                # Nothing was sent before the send began; the code says why:
+                # permission ended, the agent was switched off, or the check
+                # itself failed.
                 await asyncio.to_thread(
                     self.delivery.settle,
                     captured,
                     claim.reply,
                     lease=lease,
                     sent=False,
-                    code=None if started else "whatsapp_send_not_permitted",
+                    code=None if started else code,
                 )
                 raise
             await asyncio.to_thread(
