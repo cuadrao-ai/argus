@@ -284,7 +284,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               </button>
             </div>
           ) : null}
-          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} />
+          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={detail.enterable && canPrepare && !locked} preparable={detail.preparable && canPrepare} />
 
           <div className={`${cardClass} space-y-4`}>
             {field(
