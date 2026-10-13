@@ -116,7 +116,7 @@ def test_route_capture_lands_in_the_business_as_unprepared_documents(rig):
     assert rig["provider"].calls == 1
     assert rig["store"].membership(rig["route"].space_id)[parts[0].document_id][
         "delivery_ids"
-    ] == {delivery.id}
+    ] == [delivery.id]
 
 
 def test_revoked_grant_rejects_new_mail_and_the_route_cannot_move(rig):
