@@ -861,9 +861,12 @@
         ".agent/ownership/branch_ownership.json",
         "tests/test_business_expense_receipts_postgres.py",
         "web/__tests__/expense-detail-panel.dom.test.tsx",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
         "web/components/business-app/BusinessWorkspace.tsx",
         "web/components/business-app/ExpenseDetailPanel.tsx",
-        "web/e2e/business-expense-opens-dossier.spec.ts"
+        "web/e2e/business-expense-opens-dossier.spec.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
       ],
       "deny": [
         ".env",

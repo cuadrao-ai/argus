@@ -7,15 +7,17 @@ import type { BusinessExpenseDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { expensePanel } from "./business-expense-target";
 import { formatDay, formatMoney, formatTimestamp } from "./business-format";
-import { cardClass, LoadingRows, useCategoryLabel } from "./business-ui";
+import { cardClass, LoadingRows, secondaryButtonClass, useCategoryLabel } from "./business-ui";
 
 /**
  * One saved expense opened by its id (a direct ?expense= link). It resolves
  * the record the same way an Expenses row does: an expense that names a
  * receipt or a draft opens that record; only an expense entered by hand,
  * with neither, shows its plain detail here, when it was recorded and its
- * revision. Back returns to Expenses. The panel takes focus when it opens
- * and gives it back to whatever opened it when it closes.
+ * revision. Back returns to Expenses naming this expense, so the list focuses
+ * that row once it renders again (the workspace shows one panel at a time,
+ * so the row that opened this panel is not on the page while it is open).
+ * The panel takes focus when it opens.
  */
 export default function ExpenseDetailPanel({ expenseId }: { expenseId: string }) {
   const { t, i18n } = useTranslation();
@@ -24,12 +26,9 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
   const locale = i18n.resolvedLanguage ?? "en";
   const [state, setState] = useState<{ status: "loading" } | { status: "ready"; expense: BusinessExpenseDetail } | { status: "failed" }>({ status: "loading" });
   const panel = useRef<HTMLElement>(null);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     panel.current?.focus();
-    return () => {
-      if (opener?.isConnected) opener.focus();
-    };
   }, []);
   useEffect(() => {
     let active = true;
@@ -46,18 +45,23 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
     return () => {
       active = false;
     };
-  }, [expenseId, source, openPanel]);
+  }, [expenseId, source, openPanel, attempt]);
   const accounts = new Map((records.workspace?.accounts ?? []).map((account) => [account.id, account]));
   const title = state.status === "ready" ? (state.expense.merchant ?? t("business.expenses.no_merchant", "Expense")) : t("business.expenses.detail_title", "Saved expense");
   return (
     <section ref={panel} tabIndex={-1} aria-labelledby="expense-detail-title" data-testid="business-expense-detail" className="outline-none">
-      <button type="button" onClick={() => openPanel({ kind: "expenses" })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/65">
+      <button type="button" onClick={() => openPanel({ kind: "expenses", expenseId })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/65">
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         {t("business.nav.expenses", "Expenses")}
       </button>
       {state.status !== "ready" ? <h2 id="expense-detail-title" className="sr-only">{title}</h2> : null}
       {state.status === "loading" ? <LoadingRows /> : null}
-      {state.status === "failed" ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.expenses.detail_error", "We couldn't open this expense. Try again.")}</p> : null}
+      {state.status === "failed" ? (
+        <div role="alert" className="space-y-3">
+          <p className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.expenses.detail_error", "We couldn't open this expense. Try again.")}</p>
+          <button type="button" data-testid="expense-detail-retry" className={secondaryButtonClass} onClick={() => setAttempt((value) => value + 1)}>{t("business.expenses.retry", "Try again")}</button>
+        </div>
+      ) : null}
       {state.status === "ready" ? (
         <>
           <header className="mb-5">

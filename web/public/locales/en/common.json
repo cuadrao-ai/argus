@@ -2424,6 +2424,7 @@
       "no_receipt": "No receipt attached",
       "recorded_on": "Recorded on {{when}}",
       "detail_error": "We couldn't open this expense. Try again.",
+      "retry": "Try again",
       "account_unknown": "Unknown"
     },
     "sample": {
