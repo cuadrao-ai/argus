@@ -13,20 +13,25 @@ import base64
 import binascii
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
+from datetime import datetime
+from decimal import Decimal, DecimalException
+from zoneinfo import ZoneInfo
 
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.x509.oid import NameOID
+from loguru import logger
 from lxml import etree
 
 from argus.domain.business.contracts.checks import EcfCheck, EcfVerification
 from argus.domain.ingestion.documents.models import ReceiptDetails
+from argus.domain.recording.records import DEFAULT_TIME_ZONE
 
 DS = "http://www.w3.org/2000/09/xmldsig#"
+DS_PREFIX = "{" + DS + "}"
+INCLUSIVE_C14N = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"
 ENVELOPED = "http://www.w3.org/2000/09/xmldsig#enveloped-signature"
 #: Canonicalization algorithm -> (exclusive, with_comments). c14n only.
 C14N = {
@@ -35,19 +40,21 @@ C14N = {
     "http://www.w3.org/2001/10/xml-exc-c14n#": (True, False),
     "http://www.w3.org/2001/10/xml-exc-c14n#WithComments": (True, True),
 }
-DIGESTS = {
-    "http://www.w3.org/2001/04/xmlenc#sha256": hashlib.sha256,
-    "http://www.w3.org/2000/09/xmldsig#sha1": hashlib.sha1,
-}
-SIGNATURES = {
-    "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256": hashes.SHA256,
-    "http://www.w3.org/2000/09/xmldsig#rsa-sha1": hashes.SHA1,
-}
+#: SHA-256 only; SHA-1 is not checked rather than trusted.
+DIGESTS = {"http://www.w3.org/2001/04/xmlenc#sha256": hashlib.sha256}
+SIGNATURES = {"http://www.w3.org/2001/04/xmldsig-more#rsa-sha256": hashes.SHA256}
 #: Caps read before any canonicalization, so a hostile file cannot make it costly.
 MAX_CERTIFICATE_CHARS = 8192
 MAX_SIGNATURE_CHARS = 4096
 MAX_SIGNED_INFO_BYTES = 16384
 SECURITY_CODE_CHARS = 6
+#: Explicit caps on what is read: nesting, field and number lengths.
+MAX_XML_DEPTH = 32
+MAX_ENCF_CHARS = 40
+MAX_TIPO_CHARS = 8
+MAX_FIELD_CHARS = 200
+MAX_NUMBER_CHARS = 40
+MAX_NUMBER_EXPONENT = 30
 SIGNED_AT_FORMAT = "%d-%m-%Y %H:%M:%S"
 ISSUED_ON_FORMAT = "%d-%m-%Y"
 TOTAL_PARTS = (
@@ -91,11 +98,24 @@ def _local(tag: object) -> str:
     return str(tag).rsplit("}", 1)[-1]
 
 
-def _text(node: etree._Element | None) -> str | None:
-    if node is None or node.text is None:
+def _elements(node: etree._Element):  # noqa: ANN202
+    """Child elements, leaving out comments, processing instructions and the
+    signature subtree, which is not invoice content."""
+
+    return (c for c in node if isinstance(c.tag, str) and not c.tag.startswith(DS_PREFIX))
+
+
+def _text(node: etree._Element | None, limit: int = MAX_FIELD_CHARS) -> str | None:
+    """The element's own text, the pieces around any comment joined, trimmed;
+    None when empty or longer than the field allows."""
+
+    if node is None:
         return None
-    value = node.text.strip()
-    return value or None
+    pieces = [node.text or "", *((c.tail or "") for c in node)]
+    value = "".join(pieces).strip()
+    if not value or len(value) > limit:
+        return None
+    return value
 
 
 def _child(node: etree._Element, *path: str) -> etree._Element | None:
@@ -103,17 +123,36 @@ def _child(node: etree._Element, *path: str) -> etree._Element | None:
     for name in path:
         if current is None:
             return None
-        current = next(
-            (c for c in current if isinstance(c.tag, str) and _local(c.tag) == name),
-            None,
-        )
+        current = next((c for c in _elements(current) if _local(c.tag) == name), None)
     return current
+
+
+def _within_depth(root: etree._Element) -> bool:
+    stack = [(root, 1)]
+    while stack:
+        node, depth = stack.pop()
+        if depth > MAX_XML_DEPTH:
+            return False
+        stack.extend((c, depth + 1) for c in node if isinstance(c.tag, str))
+    return True
 
 
 def read_ecf(content: bytes) -> EcfDocument | None:
     """The facts an e-CF states about itself, or None for anything that is
-    not a well-formed DGII e-CF. Entities, DTDs and the network stay off."""
+    not a well-formed DGII e-CF. Entities, DTDs and the network stay off, and
+    nothing a hostile file can do raises past here: capture goes on without
+    checks."""
 
+    try:
+        return _read_ecf(content)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "e-CF could not be read; no checks", failure_mode=type(exc).__name__
+        )
+        return None
+
+
+def _read_ecf(content: bytes) -> EcfDocument | None:
     try:
         text = content.decode("utf-8-sig")
     except UnicodeError:
@@ -125,15 +164,16 @@ def read_ecf(content: bytes) -> EcfDocument | None:
         root = etree.fromstring(text.encode("utf-8"), _PARSER)
     except (etree.XMLSyntaxError, ValueError):
         return None
-    if _local(root.tag) != "ECF":
+    if _local(root.tag) != "ECF" or not _within_depth(root):
         return None
     header = _child(root, "Encabezado")
     totals_node = _child(root, "Encabezado", "Totales")
     totals = (
         {
-            _local(c.tag): _text(c) or ""
-            for c in totals_node
-            if isinstance(c.tag, str) and _text(c)
+            _local(c.tag): value
+            for c in _elements(totals_node)
+            for value in [_text(c)]
+            if value
         }
         if totals_node is not None
         else {}
@@ -141,14 +181,13 @@ def read_ecf(content: bytes) -> EcfDocument | None:
     items_node = _child(root, "DetallesItems")
     amounts = tuple(
         value
-        for item in (items_node if items_node is not None else ())
-        if isinstance(item.tag, str)
+        for item in (_elements(items_node) if items_node is not None else ())
         for value in [_text(_child(item, "MontoItem"))]
         if value
     )
     return EcfDocument(
-        tipo_ecf=_text(_child(root, "Encabezado", "IdDoc", "TipoeCF")),
-        encf=_text(_child(root, "Encabezado", "IdDoc", "eNCF")),
+        tipo_ecf=_text(_child(root, "Encabezado", "IdDoc", "TipoeCF"), MAX_TIPO_CHARS),
+        encf=_text(_child(root, "Encabezado", "IdDoc", "eNCF"), MAX_ENCF_CHARS),
         rnc_emisor=_text(_child(root, "Encabezado", "Emisor", "RNCEmisor")),
         fecha_emision=_text(_child(root, "Encabezado", "Emisor", "FechaEmision")),
         fecha_hora_firma=_text(_child(root, "FechaHoraFirma")),
@@ -236,7 +275,10 @@ def _read_signature(root: etree._Element) -> SignatureReading:
         certificate = x509.load_der_x509_certificate(base64.b64decode(certificate_text))
     except (ValueError, binascii.Error):
         return _unchecked("certificate_unreadable")
-    public_key = certificate.public_key()
+    try:
+        public_key = certificate.public_key()
+    except Exception:  # noqa: BLE001
+        public_key = None
     if not isinstance(public_key, rsa.RSAPublicKey):
         return SignatureReading(
             "not_checked", "unsupported_key", {}, certificate, security_code
@@ -285,14 +327,20 @@ def _read_signature(root: etree._Element) -> SignatureReading:
             certificate,
             security_code,
         )
-    document_c14n = next((t for t in transforms if t in C14N), c14n_algorithm)
+    # A reference without its own canonicalization uses inclusive c14n 1.0.
+    document_c14n = next((t for t in transforms if t in C14N), INCLUSIVE_C14N)
     try:
         digest = DIGESTS[digest_algorithm](
             _without(root, signature, document_c14n)
         ).digest()
+        signed_info_bytes = _canonical(signed_info, c14n_algorithm)
     except ValueError:
         return SignatureReading(
             "not_checked", "signature_misplaced", {}, certificate, security_code
+        )
+    except Exception:  # noqa: BLE001
+        return SignatureReading(
+            "not_checked", "canonicalization_failed", {}, certificate, security_code
         )
     expected = "".join((digest_value.text or "").split())
     if base64.b64encode(digest).decode("ascii") != expected:
@@ -302,7 +350,7 @@ def _read_signature(root: etree._Element) -> SignatureReading:
     try:
         public_key.verify(
             base64.b64decode(value_text),
-            _canonical(signed_info, c14n_algorithm),
+            signed_info_bytes,
             padding.PKCS1v15(),
             SIGNATURES[signature_algorithm](),
         )
@@ -320,15 +368,32 @@ def _read_signature(root: etree._Element) -> SignatureReading:
 
 
 def _decimal(value: str | None) -> Decimal | None:
-    if value is None:
+    """A finite decimal of bounded length; NaN, infinities and oversized
+    numbers read as unreadable."""
+
+    if value is None or len(value) > MAX_NUMBER_CHARS:
         return None
     try:
-        return Decimal(value)
-    except InvalidOperation:
+        number = Decimal(value)
+    except (DecimalException, ValueError):
         return None
+    # Finite and within thirty orders of magnitude: no amount an invoice can
+    # carry is larger, and arithmetic on anything larger would overflow.
+    if not number.is_finite() or abs(number.adjusted()) > MAX_NUMBER_EXPONENT:
+        return None
+    return number
 
 
 def _totals_check(document: EcfDocument) -> EcfCheck:
+    try:
+        return _totals(document)
+    except (DecimalException, ArithmeticError):
+        return EcfCheck(
+            name="totals_arithmetic", state="not_checked", code="totals_unreadable"
+        )
+
+
+def _totals(document: EcfDocument) -> EcfCheck:
     total = _decimal(document.totals.get("MontoTotal"))
     if total is None:
         return EcfCheck(
@@ -442,7 +507,9 @@ def _signed_at(value: str | None) -> datetime | None:
     if value is None:
         return None
     try:
-        return datetime.strptime(value, SIGNED_AT_FORMAT).replace(tzinfo=timezone.utc)
+        return datetime.strptime(value, SIGNED_AT_FORMAT).replace(
+            tzinfo=ZoneInfo(DEFAULT_TIME_ZONE)
+        )
     except ValueError:
         return None
 
@@ -485,7 +552,9 @@ def _certificate_checks(document: EcfDocument, now: datetime) -> list[EcfCheck]:
         validity = EcfCheck(
             name="certificate_validity",
             state="failed",
-            code="certificate_not_valid_at_signature",
+            code="certificate_expired"
+            if at_signature == "expired"
+            else "certificate_not_yet_valid",
             detail=detail,
         )
     else:
@@ -568,3 +637,18 @@ def ecf_checks(
         checked_at=now,
         checks=tuple(checks),
     )
+
+
+def safe_ecf_checks(
+    document: EcfDocument | None, receipt: ReceiptDetails | None, now: datetime
+) -> EcfVerification | None:
+    """The checks, or None when there is no e-CF or the checks themselves
+    fail: a hostile file never blocks capture."""
+
+    if document is None:
+        return None
+    try:
+        return ecf_checks(document, receipt, now)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("e-CF checks failed; none kept", failure_mode=type(exc).__name__)
+        return None

@@ -8,10 +8,13 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
+from argus.domain.ingestion.documents import ecf_checks as module
 from argus.domain.ingestion.documents.ecf_checks import (
     MAX_CERTIFICATE_CHARS,
+    MAX_XML_DEPTH,
     ecf_checks,
     read_ecf,
+    safe_ecf_checks,
 )
 from argus.domain.ingestion.documents.models import ReceiptDetails
 
@@ -133,7 +136,7 @@ def test_the_certificate_window_is_judged_at_the_declared_signing_time():
     validity = checks["certificate_validity"]
     assert (validity.state, validity.code) == (
         "failed",
-        "certificate_not_valid_at_signature",
+        "certificate_expired",
     )
     assert (validity.detail["at_signature"], validity.detail["today"]) == (
         "expired",
@@ -274,3 +277,201 @@ def test_a_valid_signature_window_is_read_in_utc_against_the_declared_time():
         )
     )
     assert checks["certificate_validity"].detail["at_signature"] == "valid"
+
+
+def _with(xml: bytes, old: bytes, new: bytes) -> bytes:
+    assert xml.count(old) == 1
+    return xml.replace(old, new)
+
+
+def test_a_certificate_that_is_not_yet_valid_names_it():
+    key = fake_key()
+    later = fake_certificate(
+        key,
+        not_before=datetime(2027, 1, 1, tzinfo=timezone.utc),
+        not_after=datetime(2028, 1, 1, tzinfo=timezone.utc),
+    )
+    checks = by_name(
+        ecf_checks(read_ecf(signed_ecf(key=key, certificate=later)), READ, NOW)
+    )
+    assert checks["certificate_validity"].code == "certificate_not_yet_valid"
+
+
+def test_the_declared_signing_time_is_dominican_time():
+    # 14:05 in Santo Domingo is 18:05 UTC: a window opening at 18:00 UTC holds it;
+    # read as UTC it would not yet be valid.
+    key = fake_key()
+    window = fake_certificate(
+        key,
+        not_before=datetime(2026, 10, 9, 18, 0, tzinfo=timezone.utc),
+        not_after=datetime(2027, 10, 9, tzinfo=timezone.utc),
+    )
+    checks = by_name(
+        ecf_checks(
+            read_ecf(signed_ecf(key=key, certificate=window, signed_at=SIGNED_AT)),
+            READ,
+            NOW,
+        )
+    )
+    assert checks["certificate_validity"].detail["at_signature"] == "valid"
+
+
+def test_hostile_values_never_raise_and_read_as_unreadable_or_absent(monkeypatch):
+    signed = signed_ecf()
+    long_encf = read_ecf(
+        _with(signed, b"<eNCF>E320000001234</eNCF>", b"<eNCF>" + b"E" * 41 + b"</eNCF>")
+    )
+    assert long_encf is not None and long_encf.encf is None
+    long_type = read_ecf(
+        _with(signed, b"<TipoeCF>32</TipoeCF>", b"<TipoeCF>" + b"9" * 9 + b"</TipoeCF>")
+    )
+    assert long_type is not None and long_type.tipo_ecf is None
+    for hostile in (b"sNaN", b"NaN", b"Infinity", b"1e999999999", b"9" * 41):
+        document = read_ecf(
+            _with(
+                signed,
+                b"<MontoTotal>33254.91</MontoTotal>",
+                b"<MontoTotal>" + hostile + b"</MontoTotal>",
+            )
+        )
+        verification = ecf_checks(document, READ, NOW)
+        assert by_name(verification)["totals_arithmetic"].code in (
+            "totals_unreadable",
+            "totals_missing",
+        ), hostile
+        assert by_name(verification)["read_matches_xml"].state in (
+            "failed",
+            "not_checked",
+        )
+    # The projection's entry swallows anything the checks themselves raise.
+    monkeypatch.setattr(module, "_totals_check", lambda document: 1 / 0)
+    assert safe_ecf_checks(read_ecf(signed), READ, NOW) is None
+    assert safe_ecf_checks(None, READ, NOW) is None
+    monkeypatch.setattr(module, "_read_signature", lambda root: 1 / 0)
+    assert read_ecf(signed) is None
+
+
+def test_a_key_that_is_not_rsa_and_a_canonicalization_error_are_not_checked(monkeypatch):
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    key = fake_key()
+    elliptic = fake_certificate(ec.generate_private_key(ec.SECP256R1()))  # type: ignore[arg-type]
+    checks = by_name(
+        ecf_checks(read_ecf(signed_ecf(key=key, certificate=elliptic)), READ, NOW)
+    )
+    assert (checks["signature_integrity"].state, checks["signature_integrity"].code) == (
+        "not_checked",
+        "unsupported_key",
+    )
+    monkeypatch.setattr(
+        module,
+        "_canonical",
+        lambda node, algorithm: (_ for _ in ()).throw(RuntimeError("c14n")),
+    )
+    checks = by_name(ecf_checks(read_ecf(signed_ecf()), READ, NOW))
+    assert (checks["signature_integrity"].state, checks["signature_integrity"].code) == (
+        "not_checked",
+        "canonicalization_failed",
+    )
+
+
+def test_sha1_is_not_checked_rather_than_trusted():
+    signed = signed_ecf()
+    by_method = read_ecf(_with(signed, b"xmldsig-more#rsa-sha256", b"xmldsig#rsa-sha1"))
+    assert (
+        by_name(ecf_checks(by_method, READ, NOW))["signature_integrity"].code
+        == "unsupported_algorithm"
+    )
+    by_digest = read_ecf(_with(signed, b"xmlenc#sha256", b"xmldsig#sha1"))
+    assert (
+        by_name(ecf_checks(by_digest, READ, NOW))["signature_integrity"].code
+        == "unsupported_transform"
+    )
+
+
+def test_signature_wrapping_fails_integrity():
+    """The signed invoice moved inside another invoice: the signature still
+    verifies over its SignedInfo, but the digest is over the document it now
+    sits in, so the wrapper is never trusted."""
+    from lxml import etree
+
+    signed = signed_ecf()
+    parser = etree.XMLParser(resolve_entities=False, no_network=True, load_dtd=False)
+    inner = etree.fromstring(signed, parser)
+    outer = etree.fromstring(
+        FIXTURE.read_bytes().replace(
+            b"<MontoTotal>33254.91</MontoTotal>", b"<MontoTotal>1.00</MontoTotal>"
+        ),
+        parser,
+    )
+    signature = inner.find("{http://www.w3.org/2000/09/xmldsig#}Signature")
+    inner.remove(signature)
+    wrapper = etree.SubElement(outer, "Anexo")
+    wrapper.append(inner)
+    outer.append(signature)
+    checks = by_name(
+        ecf_checks(
+            read_ecf(etree.tostring(outer, xml_declaration=True, encoding="UTF-8")),
+            READ,
+            NOW,
+        )
+    )
+    assert (checks["signature_integrity"].state, checks["signature_integrity"].code) == (
+        "failed",
+        "digest_mismatch",
+    )
+    assert checks["totals_arithmetic"].detail["monto_total"] == "1.00"
+
+
+def test_an_entity_expansion_payload_reads_as_none():
+    bomb = (
+        b'<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">'
+        + b"".join(
+            b'<!ENTITY lol%d "%s">' % (i, b"&lol%d;" % (i - 1) * 10) for i in range(1, 6)
+        )
+        + b"]><ECF><Encabezado><Totales><MontoTotal>&lol5;</MontoTotal></Totales></Encabezado></ECF>"
+    )
+    assert read_ecf(bomb) is None
+    assert (
+        read_ecf(
+            b"<ECF><Encabezado><Totales><MontoTotal>&ent;</MontoTotal></Totales></Encabezado></ECF>"
+        )
+        is None
+    )
+
+
+def test_a_comment_cannot_split_a_field_and_the_signature_subtree_holds_no_items():
+    signed = signed_ecf()
+    split = _with(
+        signed,
+        b"<MontoTotal>33254.91</MontoTotal>",
+        b"<MontoTotal>332<!-- x -->54.91</MontoTotal>",
+    )
+    checks = by_name(ecf_checks(read_ecf(split), READ, NOW))
+    assert checks["totals_arithmetic"].state == "verified"
+    # Canonicalization drops the comment: the signed content is unchanged.
+    assert checks["signature_integrity"].state == "verified"
+    smuggled = _with(
+        signed,
+        b"</ds:Signature>",
+        b"<DetallesItems><Item><MontoItem>999</MontoItem></Item></DetallesItems></ds:Signature>",
+    )
+    document = read_ecf(smuggled)
+    assert document.item_amounts == ("24620.40", "1360.00")
+
+
+def test_nesting_deeper_than_the_cap_reads_as_none():
+    deep = (
+        b"<ECF>"
+        + b"<a>" * (MAX_XML_DEPTH + 1)
+        + b"</a>" * (MAX_XML_DEPTH + 1)
+        + b"</ECF>"
+    )
+    assert read_ecf(deep) is None
+    shallow = (
+        b"<ECF>"
+        + b"<a>" * (MAX_XML_DEPTH - 2)
+        + b"</a>" * (MAX_XML_DEPTH - 2)
+        + b"</ECF>"
+    )
+    assert read_ecf(shallow) is not None

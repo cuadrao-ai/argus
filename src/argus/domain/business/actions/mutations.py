@@ -88,6 +88,9 @@ def save_revision(
             for item in previous.get("read_purchases") or ()
         )
         read_total = previous.get("read_total")
+    if ecf_checks is None:
+        # A later document (a photo beside the e-CF) or a person's revision
+        # brings no verification; the one the e-CF gave stays on the draft.
         kept = previous.get("ecf_checks")
         ecf_checks = EcfVerification.model_validate(kept) if kept else None
     resolution["business"] = BusinessResolution(

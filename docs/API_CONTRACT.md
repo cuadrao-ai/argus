@@ -9301,7 +9301,9 @@ accept path recorded.
   it was signed with the key the file carries; it does not name who signed),
   `totals_arithmetic`, `read_matches_xml` (the model's read against the XML,
   field by field), `certificate_validity` (two facts, at the declared
-  `FechaHoraFirma` and today, code `revocation_not_checked`),
+  `FechaHoraFirma`, read as Dominican time, and today; verified carries code
+  `revocation_not_checked`, failed `certificate_expired` or
+  `certificate_not_yet_valid`),
   `certificate_issuer` (always `not_checked`, `issuer_not_on_trust_list`: no
   authority is trusted by name), `dgii_accepted` (always `not_checked`,
   `network_not_in_tier_a`: nothing proves DGII accepted the invoice),
@@ -9309,7 +9311,11 @@ accept path recorded.
   signature value, kept in `detail` for a person; `no_printed_code` since the
   read carries none) and `subject_rnc`. Caps on certificate, signature and
   SignedInfo size, one signature and one enveloped reference are read before
-  any canonicalization; anything else is `not_checked`, never trusted. A failed
+  any canonicalization; RSA with SHA-256 only, so SHA-1 and any other key or
+  algorithm are `not_checked`, never trusted. Nesting past 32 levels, a
+  non-finite or oversized number, an over-long field or any failure while
+  reading means no checks or an unreadable check, never a blocked capture. A
+  later document beside the e-CF keeps its verification. A failed
   check never blocks capture, review or approval. Later revisions keep the
   verification; a PDF render or any other source has `ecf_checks: null`.
 - POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt

@@ -78,6 +78,24 @@ def test_the_verification_lands_on_the_draft_and_survives_a_revision(
         tx.imports.put_event.call_args.args[0].resolution["business"]
     )
     assert again.ecf_checks == batch.ecf_checks
+    # A second document beside the e-CF (a photo: a clean read, no verification)
+    # keeps the e-CF's verification too.
+    mutations.save_revision(
+        tx,
+        tx.imports.put_event.call_args.args[0],
+        resolution.facts,
+        resolution.facts,
+        (uuid4(),),
+        binding.actor,
+        None,
+        (),
+        None,
+        None,
+    )
+    photo = BusinessResolution.model_validate(
+        tx.imports.put_event.call_args.args[0].resolution["business"]
+    )
+    assert photo.ecf_checks == batch.ecf_checks
 
 
 def test_a_source_that_is_not_an_ecf_carries_no_verification(

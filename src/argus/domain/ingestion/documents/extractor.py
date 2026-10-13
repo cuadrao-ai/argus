@@ -25,7 +25,7 @@ from argus.domain.ingestion.documents.config import (
     DocumentExtractionSettings,
     load_document_extraction_settings,
 )
-from argus.domain.ingestion.documents.ecf_checks import EcfDocument, ecf_checks
+from argus.domain.ingestion.documents.ecf_checks import EcfDocument, safe_ecf_checks
 from argus.domain.ingestion.documents.models import (
     RECEIPT_CURRENCY_CONFLICT,
     RECEIPT_PURCHASE_AMBIGUOUS,
@@ -256,7 +256,7 @@ def batch_from_result(
         observations=result.observations,
         receipt=result.receipt,
         issues=tuple(issues),
-        ecf_checks=ecf_checks(ecf, result.receipt, observed_at) if ecf else None,
+        ecf_checks=safe_ecf_checks(ecf, result.receipt, observed_at),
     )
 
 
