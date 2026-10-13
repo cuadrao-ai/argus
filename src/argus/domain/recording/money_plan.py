@@ -1,7 +1,7 @@
 """Plan atomic activity revisions over the shared financial projection."""
 
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
 from typing import Any, NoReturn
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -125,6 +125,10 @@ def plan(
         )
     reason = _normalize_reason(request.reason, required=old is not None)
     stamp = _stamp(request.occurred_at, request.time_zone, now)
+    today = now.astimezone(ZoneInfo(request.time_zone)).date()
+    entered_on = request.entered_on or today
+    if entered_on not in (today, today - timedelta(days=1)):
+        problem("preview_required", "Review the proposed change before saving it.")
     targets = selected(request)
     existing = current_activities(accounts)
     return_original = next(
@@ -284,6 +288,7 @@ def plan(
             "preview_token": None,
             "note": (request.note or "").strip() or None,
             "reason": reason,
+            "entered_on": entered_on,
         }
     )
     answers = {}
@@ -347,9 +352,7 @@ def plan(
                 payment.reference,
                 payment.reference_revision,
             )
-            record = ExpenseRecord(
-                rid, aid, (*current.revisions, revision) if current else (revision,)
-            )
+            revision = replace(revision, entered_on=entered_on)
             links = []
             for anchor in observations(stored.opening, stored.checks):
                 skip = coverage_skip(revision, anchor)
@@ -382,6 +385,13 @@ def plan(
                             anchor.id, anchor.revision, rid, revision.revision, choice
                         )
                     )
+            revision = replace(
+                revision,
+                coverage_skips=tuple((i["observation_id"], i["reason"]) for i in skipped),
+            )
+            record = ExpenseRecord(
+                rid, aid, (*current.revisions, revision) if current else (revision,)
+            )
             mutation = Mutation(record, tuple(links), request.kind)
             mutations[aid] = mutation
             if all(q["included"] is not None for q in questions):

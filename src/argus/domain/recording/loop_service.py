@@ -34,9 +34,9 @@ from argus.domain.recording.errors import (
 from argus.domain.recording.loop import (
     CheckRecord,
     Coverage,
-    eligible,
     expected_at,
     observations,
+    on_or_before_day,
     position,
     residuals,
     validate_monotonic,
@@ -248,7 +248,7 @@ class FinancialLoopService:
         links = tuple(
             Coverage(check.id, 1, e.id, e.current.revision, True)
             for e in stored.expenses
-            if e.current.active and eligible(e.current, anchor)
+            if e.current.active and on_or_before_day(e.current, anchor)
         )
         expected = expected_at(
             anchor,
@@ -369,7 +369,7 @@ class FinancialLoopService:
         applicable = {
             e.id
             for e in stored.expenses
-            if e.current.active and eligible(e.current, anchor)
+            if e.current.active and on_or_before_day(e.current, anchor)
         }
         if set(answers) - applicable:
             raise RecordingInputError(

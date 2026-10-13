@@ -17866,6 +17866,11 @@ components:
           - type: string
             maxLength: 128
           - type: 'null'
+        entered_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       additionalProperties: false
       type: object
       required:

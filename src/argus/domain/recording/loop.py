@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -33,6 +33,8 @@ class ExpenseRevision:
     interest_minor: int | None = None
     reversal_of_activity_id: str | None = None
     reversal_of_revision: int | None = None
+    entered_on: date | None = None
+    coverage_skips: tuple[tuple[str, str], ...] = ()
 
     @property
     def movement_minor(self) -> int:
@@ -140,17 +142,26 @@ def coverage_skip(
     if occurred != observed:
         return None if occurred < observed else "after_observation_day"
     own = ZoneInfo(expense.time_zone)
-    entered_same_day = (
-        expense.occurred_at.astimezone(own).date()
-        == expense.recorded_at.astimezone(own).date()
-    )
-    if entered_same_day and expense.occurred_at > observation.as_of:
+    entered_on = expense.entered_on or expense.recorded_at.astimezone(own).date()
+    if (
+        expense.occurred_at.astimezone(own).date() == entered_on
+        and expense.occurred_at > observation.as_of
+    ):
         return "entered_after_observation"
     return None
 
 
 def eligible(expense: ExpenseRevision, observation: Observation) -> bool:
     return coverage_skip(expense, observation) is None
+
+
+def on_or_before_day(expense: ExpenseRevision, observation: Observation) -> bool:
+    """The balance-check and opening rule: any activity on or before the observation's day."""
+    zone = ZoneInfo(observation.time_zone)
+    return (
+        expense.occurred_at.astimezone(zone).date()
+        <= observation.as_of.astimezone(zone).date()
+    )
 
 
 def _link(

@@ -6961,7 +6961,12 @@ backdated activity on that day has no real time and always asks. Answers stored 
 the earlier same-day rule stand. Each affected account lists
 `skipped_observations: [{observation_id, reason}]` where `reason` is
 `after_observation_day` or `entered_after_observation`, so a skipped question is
-never silent. An included expense remains included in every later eligible
+never silent; the same reasons are stored on the activity revision. The preview
+decides the entry day once and returns it as `entered_on` in `reviewed_request`;
+confirm uses that day, so a preview before midnight and a confirm after it cannot
+flip "same day". A confirm without it is planned with the current day and must
+match the previewed token. Balance checks and opening corrections keep the by-day
+rule: they include or ask about every activity on or before their day. An included expense remains included in every later eligible
 observation. Contradictory answers are rejected. Expenses after an observation day
 cannot be included in it. Amount equality never establishes inclusion.
 
