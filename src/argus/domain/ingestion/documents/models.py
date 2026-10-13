@@ -3,6 +3,7 @@ from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from argus.domain.business.contracts.checks import EcfVerification
 from argus.domain.household.planning_schemas import PlanRef
 from argus.domain.ingestion.contract import (
     AccountHint,
@@ -137,6 +138,8 @@ class ExtractionBatch(_Frozen):
     observations: tuple[ExtractedObservation, ...] = ()
     receipt: ReceiptDetails | None = None
     issues: tuple[ProjectionIssue, ...] = ()
+    #: What the file itself proved when it is a DGII e-CF; None otherwise.
+    ecf_checks: EcfVerification | None = None
 
 
 ParticipantRef = Annotated[str, Field(min_length=1, max_length=100)]
