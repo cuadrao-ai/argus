@@ -246,7 +246,8 @@ struct ConnectedTransactionSheet: View {
                 Text(name(affected.accountId)).font(CuadraoTypography.supporting)
                 balance("loop.recorded", value: affected.before, currency: affected.currency)
                 if let after = affected.after { balance("loop.after", value: after, currency: affected.currency) }
-                ForEach(affected.observations, id: \.observationId) { observation in
+                ForEach(affected.observations.filter { !model.automaticAnswers.contains(FinancialActivityEditor.questionKey(affected.accountId, $0.observationId)) },
+                        id: \.observationId) { observation in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(observation.kind == "opening" || observation.kind == "opening_balance" ? "loop.coverage.opening" : "loop.coverage.check")
                         Text(verbatim: observation.timeZone.map { AccountPresentation.date(observation.asOf, zone: $0, locale: locale) } ?? observation.asOf)

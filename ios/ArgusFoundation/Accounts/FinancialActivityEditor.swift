@@ -41,6 +41,8 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
     @Published private(set) var errorKey: String?
 
     private var answers: [FinancialAccountCoverage] = []
+    /// Questions the app answered itself because the movement is after the recorded balance; the sheet does not show them.
+    private(set) var automaticAnswers: Set<String> = []
     private var reviewedCommand: FinancialActivityCommand?
     private var pendingWrite: PendingFinancialConfirmation?
     private var key = UUID()
@@ -165,7 +167,7 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
     func setKind(_ next: FinancialActivityKind) {
         guard !isCorrection, goal == nil, debt == nil, returning == nil, planOccurrence == nil, canEdit, availableKinds.contains(next) || options == nil else { return }
         kind = next; categoryId = nil; sourceId = nil; purchaseActivityId = nil
-        answers = []; invalidate(); setAccounts(for: next)
+        answers = []; automaticAnswers = []; invalidate(); setAccounts(for: next)
         if next == .refund { Task { await loadPurchases() } }
     }
 
@@ -213,7 +215,7 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
     }
     private func invalidate() {
         guard canEdit, !busy else { return }
-        answers = []; preview = nil; reviewedCommand = nil
+        answers = []; automaticAnswers = []; preview = nil; reviewedCommand = nil
     }
 
     func edit() {
@@ -245,6 +247,8 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
         reviewedCommand = nil
         await review(locale: locale)
     }
+
+    static func questionKey(_ account: UUID, _ observation: UUID) -> String { account.uuidString + "/" + observation.uuidString }
 
     /// A movement timed after a balance was recorded cannot be part of that balance, so its question is answered
     /// "No, apply it" for the person. Only a movement at or before a recorded balance is still asked.
@@ -308,6 +312,7 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
             let automatic = Self.answersAfterChecks(next, movement: date, answered: answers)
             if !automatic.isEmpty {
                 answers += automatic
+                automaticAnswers.formUnion(automatic.map { Self.questionKey($0.accountId, $0.observationId) })
                 phase = .editing
                 return await review(locale: locale)
             }

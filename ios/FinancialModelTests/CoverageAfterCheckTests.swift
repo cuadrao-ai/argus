@@ -45,4 +45,8 @@ final class CoverageAfterCheckTests: XCTestCase {
         XCTAssertTrue(FinancialActivityEditor.answersAfterChecks(try preview(asOf: "2026-10-12T13:00:00Z", included: true),
                                                                  movement: try at("2026-10-12T14:01:00Z"), answered: []).isEmpty)
     }
+
+    func testTheQuestionKeyNamesOneAccountAndBalance() {
+        XCTAssertEqual(FinancialActivityEditor.questionKey(account, opening), account.uuidString + "/" + opening.uuidString)
+    }
 }
