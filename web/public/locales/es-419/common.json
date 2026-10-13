@@ -2406,7 +2406,8 @@
       "detail_title": "Gasto guardado",
       "no_receipt": "Sin recibo adjunto",
       "recorded_on": "Registrado el {{when}}",
-      "detail_error": "No pudimos abrir este gasto. Reintenta."
+      "detail_error": "No pudimos abrir este gasto. Reintenta.",
+      "account_unknown": "Desconocida"
     },
     "home": {
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",

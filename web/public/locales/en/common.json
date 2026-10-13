@@ -2367,7 +2367,8 @@
       "detail_title": "Saved expense",
       "no_receipt": "No receipt attached",
       "recorded_on": "Recorded on {{when}}",
-      "detail_error": "We couldn't open this expense. Try again."
+      "detail_error": "We couldn't open this expense. Try again.",
+      "account_unknown": "Unknown"
     },
     "sample": {
       "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."

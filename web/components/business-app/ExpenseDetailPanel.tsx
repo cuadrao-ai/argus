@@ -53,11 +53,11 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
               <dt className="text-black/55 dark:text-white/55">{t("business.review.category", "Category")}</dt>
               <dd className="text-black dark:text-white">{categoryLabel(state.expense.category_id)}</dd>
               <dt className="text-black/55 dark:text-white/55">{t("business.review.account", "Paid from")}</dt>
-              <dd className="text-black dark:text-white">{state.expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : state.expense.account_id ? (accounts.get(state.expense.account_id)?.nickname ?? state.expense.account_id) : t("business.dossier.unknown", "Unknown")}</dd>
+              <dd className="text-black dark:text-white">{state.expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : (state.expense.account_id && accounts.get(state.expense.account_id)?.nickname) || t("business.expenses.account_unknown", "Unknown")}</dd>
             </dl>
             <p className="mt-5 text-[14px] text-black/65 dark:text-white/65">{t("business.expenses.no_receipt", "No receipt attached")}</p>
             <p className="mt-2 text-[13px] text-black/55 dark:text-white/55">
-              {[state.expense.recorded_at ? t("business.expenses.recorded_on", "Recorded on {{when}}", { when: formatTimestamp(state.expense.recorded_at, locale) }) : null, state.expense.revision !== null ? t("business.dossier.revision", "Revision {{version}}", { version: state.expense.revision }) : null].filter(Boolean).join(" · ")}
+              {[state.expense.recorded_at ? t("business.expenses.recorded_on", "Recorded on {{when}}", { when: formatTimestamp(state.expense.recorded_at, locale) }) : null, state.expense.revision != null ? t("business.dossier.revision", "Revision {{version}}", { version: state.expense.revision }) : null].filter(Boolean).join(" · ")}
             </p>
           </div>
         </>
