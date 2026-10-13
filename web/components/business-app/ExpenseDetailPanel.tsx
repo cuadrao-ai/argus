@@ -1,17 +1,21 @@
 "use client";
 
 import { ChevronLeft } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessExpenseDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
+import { expensePanel } from "./business-expense-target";
 import { formatDay, formatMoney, formatTimestamp } from "./business-format";
 import { cardClass, LoadingRows, useCategoryLabel } from "./business-ui";
 
 /**
- * The plain detail of an expense entered by hand: no receipt and no draft to
- * open, so the record is the expense itself, when it was recorded and its
- * revision. Back returns to Expenses.
+ * One saved expense opened by its id (a direct ?expense= link). It resolves
+ * the record the same way an Expenses row does: an expense that names a
+ * receipt or a draft opens that record; only an expense entered by hand,
+ * with neither, shows its plain detail here, when it was recorded and its
+ * revision. Back returns to Expenses. The panel takes focus when it opens
+ * and gives it back to whatever opened it when it closes.
  */
 export default function ExpenseDetailPanel({ expenseId }: { expenseId: string }) {
   const { t, i18n } = useTranslation();
@@ -19,31 +23,46 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
   const categoryLabel = useCategoryLabel();
   const locale = i18n.resolvedLanguage ?? "en";
   const [state, setState] = useState<{ status: "loading" } | { status: "ready"; expense: BusinessExpenseDetail } | { status: "failed" }>({ status: "loading" });
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panel.current?.focus();
+    return () => {
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
   useEffect(() => {
     let active = true;
     setState({ status: "loading" });
     source.expense(expenseId).then(
-      (expense) => active && setState({ status: "ready", expense }),
+      (expense) => {
+        if (!active) return;
+        const target = expensePanel(expense);
+        if (target.kind === "expense") setState({ status: "ready", expense });
+        else openPanel(target);
+      },
       () => active && setState({ status: "failed" }),
     );
     return () => {
       active = false;
     };
-  }, [expenseId, source]);
+  }, [expenseId, source, openPanel]);
   const accounts = new Map((records.workspace?.accounts ?? []).map((account) => [account.id, account]));
+  const title = state.status === "ready" ? (state.expense.merchant ?? t("business.expenses.no_merchant", "Expense")) : t("business.expenses.detail_title", "Saved expense");
   return (
-    <section aria-labelledby="expense-detail-title" data-testid="business-expense-detail">
+    <section ref={panel} tabIndex={-1} aria-labelledby="expense-detail-title" data-testid="business-expense-detail" className="outline-none">
       <button type="button" onClick={() => openPanel({ kind: "expenses" })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/65">
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         {t("business.nav.expenses", "Expenses")}
       </button>
+      {state.status !== "ready" ? <h2 id="expense-detail-title" className="sr-only">{title}</h2> : null}
       {state.status === "loading" ? <LoadingRows /> : null}
       {state.status === "failed" ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.expenses.detail_error", "We couldn't open this expense. Try again.")}</p> : null}
       {state.status === "ready" ? (
         <>
           <header className="mb-5">
             <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t("business.expenses.detail_title", "Saved expense")}</p>
-            <h2 id="expense-detail-title" className="min-w-0 break-words font-display text-[25px] font-medium tracking-tight text-black dark:text-white">{state.expense.merchant ?? t("business.expenses.no_merchant", "Expense")}</h2>
+            <h2 id="expense-detail-title" className="min-w-0 break-words font-display text-[25px] font-medium tracking-tight text-black dark:text-white">{title}</h2>
             <p className="mt-3 font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{formatMoney(state.expense.amount, state.expense.currency, locale)}</p>
           </header>
           <div className={cardClass}>

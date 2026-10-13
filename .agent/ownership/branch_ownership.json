@@ -854,6 +854,24 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-expense-link-20261013": {
+      "description": "Eval follow-ups to #1033: a direct ?expense= link resolves the record the way the Expenses row does (receipt, else draft, else plain detail), so an expense with a receipt never reads 'Sin recibo adjunto'; the detail panel's aria-labelledby names an element that exists in every state, the panel takes focus on open and gives it back to the opener on close; a Postgres case for a draft-recorded expense with no receipt; BusinessContext exported for DOM tests.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "tests/test_business_expense_receipts_postgres.py",
+        "web/__tests__/expense-detail-panel.dom.test.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ExpenseDetailPanel.tsx",
+        "web/e2e/business-expense-opens-dossier.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-expense-opens-dossier-20261012": {
       "description": "A saved expense opens the record it was recorded from: the API names the receipt a linked bridge draft recorded an expense from (the legacy lookup reads observations a bridge draft never has), in the expenses list and in search, and the whole Expenses row is the control that opens it.",
       "base_ref": "origin/codex/private-alpha-next",
