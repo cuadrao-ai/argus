@@ -82,9 +82,14 @@ def _saved_invoice(actions, filename: str, media_type: str):  # noqa: ANN001
         )
         # The same preparation the extractor runs: the e-CF read once, from the
         # XML itself or from the XML part of the email, for the local checks.
-        prepared = prepare_document(content, media_type)
+        # A PDF render carries no e-CF and needs the PDF tools the matrix lacks.
+        ecf = (
+            prepare_document(content, media_type).ecf
+            if media_type != "application/pdf"
+            else None
+        )
         batch = batch_from_result(
-            result, digest, cid, now, 1, document_currency="DOP", ecf=prepared.ecf
+            result, digest, cid, now, 1, document_currency="DOP", ecf=ecf
         )
         attachment = Attachment(
             external_id=digest,
