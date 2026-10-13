@@ -20,8 +20,8 @@ struct ConnectedTransactionSheet: View {
 
     var body: some View {
         CuadraoTransactionSheet(
-            account: CuadraoTransactionAccount(title: name(model.origin), artwork: ConnectedAccountPresentation.artwork(model.origin.type),
-                                               symbol: AccountPresentation.symbol(model.origin.type)),
+            account: CuadraoTransactionAccount(title: name(model.headerAccount), artwork: ConnectedAccountPresentation.artwork(model.headerAccount.type),
+                                               symbol: AccountPresentation.symbol(model.headerAccount.type)),
             spanish: spanish, reviewing: reviewing, title: title, primaryTitle: primaryTitle,
             primaryEnabled: primaryEnabled, primaryBusy: model.busy,
             primaryIdentifier: closed ? nil : reviewing && confirmable ? "loop.confirm" : "loop.review",

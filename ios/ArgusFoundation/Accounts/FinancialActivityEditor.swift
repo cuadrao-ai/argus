@@ -140,6 +140,11 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
         choices(types: options?.destinationEligibility[kind.rawValue]).filter { $0.id != sourceAccountId && (goal == nil || $0.id == goal?.destinationAccountId) && (debt == nil || $0.id == debt?.debtAccountId) && (returning == nil || $0.id == destinationAccountId) }
     }
     var linkedPurchase: FinancialActivityDetail? { purchases.first { $0.activityId == purchaseActivityId } }
+    /// The account the sheet names: the one chosen, the "From" side for paired kinds, else where it opened.
+    var headerAccount: FinancialAccount {
+        let chosen = kind == .paymentReversal ? destinationAccountId : kind.isPaired ? sourceAccountId : accountId
+        return options?.accounts.first { $0.id == chosen } ?? origin
+    }
 
     func load() async {
         do {
