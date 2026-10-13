@@ -1402,6 +1402,21 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-record-export-20261013": {
+      "description": "The record page no longer mounts the export panel: exports belong to a period or export surface, not to one record. The ReceiptPeriodExport component and its request helpers stay for that surface, unmounted; a test pins the record page free of it.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-dossier.test.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-refresh-after-actions-20261012": {
       "description": "Founder rule: after approve, review, upload or rebind the affected lists, counts and cards refresh on their own; proven by an e2e that approves from the inbox and sees the home card and inbox count change without a reload.",
       "base_ref": "origin/codex/private-alpha-next",
