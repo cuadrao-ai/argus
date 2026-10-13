@@ -40,3 +40,28 @@ final class PercentInputTests: XCTestCase {
         XCTAssertEqual(PercentInput.message(.notNumber, .interest, spanish: false), "Use numbers only, for example 18.5.")
     }
 }
+
+/// The plan editor's rate hint and disabled state follow the visible field only.
+final class PlanRateCheckTests: XCTestCase {
+    func testAnInvalidDebtRateBlocksAndNamesTheField() {
+        let problem = PlanRateCheck.blocking(kind: "debt", showsRate: true, text: "abc")
+        XCTAssertEqual(problem, .notNumber)
+        XCTAssertEqual(PlanRateCheck.hint(problem, spanish: true), "Revisa el interés anual.")
+        XCTAssertEqual(PlanRateCheck.blocking(kind: "debt", showsRate: true, text: "150"), .range)
+        XCTAssertNil(PlanRateCheck.blocking(kind: "debt", showsRate: true, text: "18,5"))
+    }
+
+    func testSwitchingAwayFromDeudaClearsTheBlock() {
+        XCTAssertNil(PlanRateCheck.blocking(kind: "goal", showsRate: true, text: "abc"))
+        XCTAssertNil(PlanRateCheck.blocking(kind: "budget", showsRate: true, text: "abc"))
+        XCTAssertNil(PlanRateCheck.hint(PlanRateCheck.blocking(kind: "goal", showsRate: true, text: "abc"), spanish: true))
+        XCTAssertNil(PlanRateCheck.blocking(kind: "debt", showsRate: false, text: "abc"), "a host that hides the rate never blocks on it")
+    }
+
+    func testWholeShareRejectsDecimals() {
+        XCTAssertEqual(PercentInput.problem("50.5", .wholeShare), .decimals)
+        XCTAssertEqual(PercentInput.message(.decimals, .wholeShare, spanish: true), "Usa un número entero.")
+        XCTAssertEqual(PercentInput.message(.range, .wholeShare, spanish: true), "Debe estar entre 1 y 100.")
+        XCTAssertNil(PercentInput.problem("50 %", .wholeShare))
+    }
+}

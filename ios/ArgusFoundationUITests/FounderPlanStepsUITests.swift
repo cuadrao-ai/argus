@@ -65,3 +65,28 @@ extension FinancialLoopUITests {
         XCTAssertTrue(save.waitForNonExistence(timeout: 15), "the plan saves and the sheet closes")
     }
 }
+
+extension FinancialLoopUITests {
+    /// Step 12 interest: a bad rate is named at the field and the button, and leaving Deuda clears it.
+    func testInterestErrorIsNamedAndClearsWhenThePlanTypeChanges() throws {
+        try signIn()
+        openPlanFromAdd()
+        tapVisible(app.buttons["plan-kind-debt"])
+        fillMoneyField("debt.name", with: "Tarjeta")
+        dismissMoneyKeyboard()
+        let details = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "Punto de partida", "Starting point")).firstMatch
+        tapVisible(details)
+        fillMoneyField("debt.rate", with: "abc")
+        dismissMoneyKeyboard()
+        XCTAssertTrue(app.staticTexts["debt.rate.error"].waitForExistence(timeout: 5))
+        XCTAssertTrue(["Usa solo números, por ejemplo 18.5.", "Use numbers only, for example 18.5."].contains(app.staticTexts["debt.rate.error"].label))
+        XCTAssertTrue(["Revisa el interés anual.", "Check the annual interest."].contains(app.staticTexts["plan.missing"].label))
+        XCTAssertFalse(app.buttons["debt.save"].isEnabled)
+        app.swipeDown()
+        tapVisible(app.buttons["plan-kind-goal"])
+        fillMoneyField("goal.target", with: "20000")
+        dismissMoneyKeyboard()
+        XCTAssertFalse(app.staticTexts["debt.rate.error"].exists)
+        assertSavesAndCloses("goal.save")
+    }
+}

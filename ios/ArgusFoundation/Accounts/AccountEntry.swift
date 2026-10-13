@@ -25,8 +25,11 @@ enum PercentInput {
     enum Problem: Error, Equatable { case notNumber, decimals, range, required }
     struct Bounds: Equatable {
         let minimum: Decimal, maximum: Decimal, emptyAllowed: Bool
+        var decimals = 2
         static let interest = Bounds(minimum: 0, maximum: 100, emptyAllowed: true)
         static let share = Bounds(minimum: Decimal(string: "0.01")!, maximum: 100, emptyAllowed: false)
+        /// The first-account sheet stores whole percents.
+        static let wholeShare = Bounds(minimum: 1, maximum: 100, emptyAllowed: false, decimals: 0)
     }
 
     /// The accepted value, nil for an allowed empty field, or the problem to name next to the field.
@@ -37,16 +40,23 @@ enum PercentInput {
         let parts = text.split(separator: Character(text.contains(",") ? "," : "."), omittingEmptySubsequences: false)
         let whole = parts.first.map(String.init).flatMap { $0.isEmpty ? "0" : $0 } ?? "0"
         let fraction = parts.count > 1 ? String(parts[1]) : ""
-        guard fraction.count <= 2 else { return .failure(.decimals) }
+        guard fraction.count <= bounds.decimals else { return .failure(.decimals) }
         guard let value = Decimal(string: fraction.isEmpty ? whole : whole + "." + fraction, locale: Locale(identifier: "en_US_POSIX")) else { return .failure(.notNumber) }
         guard value >= bounds.minimum && value <= bounds.maximum else { return .failure(.range) }
         return .success(value)
     }
 
+    /// The problem with this text, or nil when it is accepted.
+    static func problem(_ raw: String, _ bounds: Bounds) -> Problem? {
+        if case .failure(let problem) = parse(raw, bounds) { return problem }
+        return nil
+    }
+
     static func message(_ problem: Problem, _ bounds: Bounds, spanish: Bool) -> String {
-        let low = bounds.minimum == 0 ? "0" : "0.01"
+        let low = NSDecimalNumber(decimal: bounds.minimum).stringValue
         switch problem {
         case .notNumber: return spanish ? "Usa solo números, por ejemplo 18.5." : "Use numbers only, for example 18.5."
+        case .decimals where bounds.decimals == 0: return spanish ? "Usa un número entero." : "Use a whole number."
         case .decimals: return spanish ? "Usa hasta 2 decimales." : "Use up to 2 decimals."
         case .range: return spanish ? "Debe estar entre \(low) y 100." : "It must be between \(low) and 100."
         case .required: return spanish ? "Escribe un porcentaje." : "Enter a percentage."
@@ -56,5 +66,15 @@ enum PercentInput {
     /// Basis points for an accepted share, the unit the server stores.
     static func basisPoints(_ value: Decimal) -> Int {
         NSDecimalNumber(decimal: value * 100).intValue
+    }
+}
+
+/// The plan editor's interest rule: only the visible Deuda rate field holds the save back, and it names itself.
+enum PlanRateCheck {
+    static func blocking(kind: String, showsRate: Bool, text: String) -> PercentInput.Problem? {
+        kind == "debt" && showsRate ? PercentInput.problem(text, .interest) : nil
+    }
+    static func hint(_ problem: PercentInput.Problem?, spanish: Bool) -> String? {
+        problem == nil ? nil : (spanish ? "Revisa el interés anual." : "Check the annual interest.")
     }
 }

@@ -13,7 +13,10 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
     @FocusState private var nameFocused: Bool
     @FocusState private var rateFocused: Bool
     @State private var rateText = ""
-    @State private var rateProblem: PercentInput.Problem?
+    /// Only a visible rate field can hold the save back; switching away from Deuda clears it.
+    private var rateProblem: PercentInput.Problem? {
+        PlanRateCheck.blocking(kind: draft.kind.rawValue, showsRate: host.showsRate, text: rateText)
+    }
     @Environment(\.dismiss) private var dismiss
     private var editing: Bool { host.editing }
     private var ids: CuadraoPlanEditorIdentifiers { host.identifiers }
@@ -87,24 +90,14 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                                     amountRow(draft.kind.recordedTitle(spanish), value: $draft.recorded, id: "plan-recorded")
                                 }
                                 if draft.kind == .debt && host.showsRate {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        HStack {
-                                            Text(spanish ? "Interés anual" : "Annual interest")
-                                            TextField("0", text: $rateText).keyboardType(.decimalPad).focused($rateFocused).multilineTextAlignment(.trailing)
-                                                .accessibilityIdentifier(ids.rate)
-                                                .onChange(of: rateText) { _, text in
-                                                    switch PercentInput.parse(text, .interest) {
-                                                    case .success(let value): rateProblem = nil; draft.annualRate = NSDecimalNumber(decimal: value ?? 0).doubleValue
-                                                    case .failure(let problem): rateProblem = problem
-                                                    }
-                                                }
-                                            Text(verbatim: "%").foregroundStyle(.secondary)
+                                    PercentField(title: spanish ? "Interés anual" : "Annual interest", text: $rateText, bounds: .interest,
+                                                 spanish: spanish, identifier: ids.rate)
+                                        .focused($rateFocused).padding(18)
+                                        .onChange(of: rateText) { _, text in
+                                            if case .success(let value) = PercentInput.parse(text, .interest) {
+                                                draft.annualRate = NSDecimalNumber(decimal: value ?? 0).doubleValue
+                                            }
                                         }
-                                        if let rateProblem {
-                                            Text(PercentInput.message(rateProblem, .interest, spanish: spanish))
-                                                .font(CuadraoTypography.caption).foregroundStyle(.red).accessibilityIdentifier(ids.rate + ".error")
-                                        }
-                                    }.padding(18)
                                     .onAppear { if draft.annualRate != 0 && rateText.isEmpty { rateText = draft.annualRate.formatted(.number.grouping(.never)) } }
                                     Text(spanish ? "La estimación supone una tasa fija, pagos mensuales, sin compras nuevas ni comisiones." : "The estimate assumes a fixed rate, monthly payments, no new purchases or fees.")
                                         .font(.caption).foregroundStyle(.secondary)
@@ -127,7 +120,7 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                         }
                     }
                     if !valid {
-                        Text((rateProblem != nil ? (spanish ? "Revisa el interés anual." : "Check the annual interest.") : nil)
+                        Text(PlanRateCheck.hint(rateProblem, spanish: spanish)
                              ?? host.missing(draft) ?? (spanish ? "Añade un nombre y revisa los montos." : "Add a name and check the amounts."))
                             .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("plan.missing")
                     }
