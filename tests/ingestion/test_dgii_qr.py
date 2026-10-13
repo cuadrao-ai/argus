@@ -77,12 +77,60 @@ def test_preparation_decodes_the_qr_from_an_image_a_pdf_page_and_an_email_attach
         "https://fc.dgii.gov.do/eCF/ConsultaTimbreFC?MontoTotal=1",
         "hola",
         "",
+        # Userinfo, in both spellings, is refused, never stripped.
+        "https://user:pass@fc.dgii.gov.do/x?RncEmisor=1&ENCF=E320000000001",
+        "https://fc.dgii.gov.do@evil.example/x?RncEmisor=1&ENCF=E320000000001",
+        "https://evil.example\\@fc.dgii.gov.do/x?RncEmisor=1&ENCF=E320000000001",
+        "https://fc.dgii.gov.do\\@evil.example/x?RncEmisor=1&ENCF=E320000000001",
+        # A trailing dot, punycode and a look-alike suffix are other hosts.
+        "https://fc.dgii.gov.do./x?RncEmisor=1&ENCF=E320000000001",
+        "https://xn--fc-dgii-gov-do.example/x?RncEmisor=1&ENCF=E320000000001",
+        "https://fc.dgii.gov.do.example/x?RncEmisor=1&ENCF=E320000000001",
+        "https://fcdgii.gov.do/x?RncEmisor=1&ENCF=E320000000001",
+        "https://fc.dgii.gov.do:443/x?RncEmisor=1&ENCF=E320000000001",
+        # Text that does not even split as a URL is not a link, and nothing raises.
+        "https://fc.dgii.gov.do:99999/x?RncEmisor=1&ENCF=E320000000001",
+        "https://fc.dgii.gov.do:abc/x?RncEmisor=1&ENCF=E320000000001",
+        "https://[x/",
+        "https://[x/?RncEmisor=1&ENCF=E320000000001",
     ],
 )
 def test_anything_but_a_dgii_consultation_link_decodes_to_nothing(text):
     assert parse_dgii_url(text) is None
     if text:
         assert read_dgii_qr((qr_png(text),)) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "https://fc.dgii.gov.do:99999/x?RncEmisor=1&ENCF=E320000000001",
+        "https://fc.dgii.gov.do:abc/x?RncEmisor=1&ENCF=E320000000001",
+        "https://[x/",
+    ],
+)
+def test_a_qr_that_does_not_split_as_a_url_never_fails_the_capture(text):
+    prepared = prepare_document(qr_jpeg(text), "image/jpeg")
+    assert prepared.dgii_qr is None
+    assert prepare_document(qr_email(text), "message/rfc822").dgii_qr is None
+
+
+def test_the_model_itself_refuses_a_link_that_is_not_dgii_when_read_back():
+    import pydantic
+
+    good = parse_dgii_url(URL).model_dump(mode="json")
+    assert DgiiQr.model_validate(good).host == "fc.dgii.gov.do"
+    for bad in (
+        {**good, "url": "https://evil.example/x?RncEmisor=1&ENCF=E1"},
+        {**good, "url": "http://fc.dgii.gov.do/x?RncEmisor=1&ENCF=E1"},
+        {**good, "url": "https://u:p@fc.dgii.gov.do/x?RncEmisor=1&ENCF=E1"},
+        {**good, "url": "https://fc.dgii.gov.do:8443/x?RncEmisor=1&ENCF=E1"},
+        {**good, "url": "https://fc.dgii.gov.do:abc/x"},
+        {**good, "host": "evil.example"},
+        {**good, "host": "ecf.dgii.gov.do"},  # the host must be the link's host
+    ):
+        with pytest.raises(pydantic.ValidationError):
+            DgiiQr.model_validate(bad)
 
 
 def test_the_other_dgii_page_its_optional_fields_and_case_insensitive_keys():

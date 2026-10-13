@@ -20,11 +20,16 @@ from urllib.parse import parse_qsl, urlsplit, urlunsplit
 from loguru import logger
 from PIL import Image
 
-from argus.domain.business.contracts.checks import DgiiQr, EcfCheck, EcfVerification
+from argus.domain.business.contracts.checks import (
+    DGII_HOSTS,
+    DgiiQr,
+    EcfCheck,
+    EcfVerification,
+    dgii_link_host,
+)
 from argus.domain.ingestion.documents.models import ReceiptDetails
 
-#: DGII's public consultation hosts, and nothing else.
-DGII_HOSTS = frozenset({"fc.dgii.gov.do", "ecf.dgii.gov.do"})
+__all__ = ["DGII_HOSTS", "parse_dgii_url", "read_dgii_qr"]
 MAX_URL_CHARS = 2048
 MAX_VALUE_CHARS = 64
 MAX_PAGES_SCANNED = 8
@@ -79,28 +84,38 @@ def parse_dgii_url(text: str) -> DgiiQr | None:
 
     if not text or len(text) > MAX_URL_CHARS:
         return None
-    parts = urlsplit(text.strip())
-    host = (parts.hostname or "").lower()
-    if parts.scheme.lower() != "https" or host not in DGII_HOSTS or parts.port:
+    # Text that does not split as a URL (a bad port, a broken IPv6 bracket) is
+    # not a link; QR parsing never fails a capture.
+    try:
+        parts = urlsplit(text.strip())
+        query_pairs = parse_qsl(parts.query, keep_blank_values=False)
+    except ValueError:
+        return None
+    host = dgii_link_host(text.strip())
+    if host is None:
         return None
     query = {}
-    for key, value in parse_qsl(parts.query, keep_blank_values=False):
+    for key, value in query_pairs:
         query.setdefault(key.lower(), value)
     rnc = _value(query, "rncemisor")
     encf = _value(query, "encf")
     if rnc is None or encf is None:
         return None
-    return DgiiQr(
-        url=urlunsplit(("https", host, parts.path or "/", parts.query, "")),
-        host=host,
-        rnc_emisor=rnc,
-        encf=encf,
-        monto_total=_amount(_value(query, "montototal")),
-        codigo_seguridad=_value(query, "codigoseguridad"),
-        fecha_emision=_day(_value(query, "fechaemision")),
-        fecha_firma=_value(query, "fechafirma"),
-        rnc_comprador=_value(query, "rnccomprador"),
-    )
+    try:
+        link = DgiiQr(
+            url=urlunsplit(("https", host, parts.path or "/", parts.query, "")),
+            host=host,
+            rnc_emisor=rnc,
+            encf=encf,
+            monto_total=_amount(_value(query, "montototal")),
+            codigo_seguridad=_value(query, "codigoseguridad"),
+            fecha_emision=_day(_value(query, "fechaemision")),
+            fecha_firma=_value(query, "fechafirma"),
+            rnc_comprador=_value(query, "rnccomprador"),
+        )
+    except ValueError:
+        return None
+    return link
 
 
 def read_dgii_qr(images: Sequence[bytes]) -> DgiiQr | None:

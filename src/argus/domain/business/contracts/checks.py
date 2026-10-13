@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Contract(BaseModel):
@@ -52,10 +53,34 @@ class EcfVerification(Contract):
     checks: tuple[EcfCheck, ...] = Field(max_length=16)
 
 
+#: DGII's public consultation hosts, and nothing else.
+DGII_HOSTS = frozenset({"fc.dgii.gov.do", "ecf.dgii.gov.do"})
+
+
+def dgii_link_host(url: str) -> str | None:
+    """The host of an https link to one of DGII's consultation pages, with no
+    userinfo and no port; None for anything else, including text that does
+    not split as a URL."""
+
+    try:
+        parts = urlsplit(url)
+        host = (parts.hostname or "").lower()
+        if parts.scheme.lower() != "https" or host not in DGII_HOSTS:
+            return None
+        if parts.username is not None or parts.password is not None:
+            return None
+        if "@" in parts.netloc or "\\" in parts.netloc or parts.port is not None:
+            return None
+    except ValueError:
+        return None
+    return host
+
+
 class DgiiQr(Contract):
     """The DGII consultation link a receipt's QR carries, as typed facts. Only
     DGII's own hosts are kept; the link is for a person to open, never fetched
-    by Cuadrao."""
+    by Cuadrao. The link is checked again every time the model is validated,
+    so a persisted value read back is held to the same rule."""
 
     url: str = Field(max_length=2048)
     host: str = Field(max_length=64)
@@ -66,3 +91,9 @@ class DgiiQr(Contract):
     fecha_emision: date | None = None
     fecha_firma: str | None = Field(default=None, max_length=64)
     rnc_comprador: str | None = Field(default=None, max_length=64)
+
+    @model_validator(mode="after")
+    def _dgii_link(self) -> DgiiQr:
+        if self.host not in DGII_HOSTS or dgii_link_host(self.url) != self.host:
+            raise ValueError("not a link to a DGII consultation page")
+        return self
