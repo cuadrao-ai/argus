@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import StarterActions from "@/components/chat/StarterActions";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useBusiness } from "./BusinessWorkspace";
+import { inboxCount } from "./BusinessInboxPanel";
 import { formatDay, formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows } from "./business-ui";
 import BusinessPeriodControl, { usePeriodLabel } from "./BusinessPeriodControl";
@@ -45,7 +46,7 @@ export default function BusinessOverviewPanel() {
               {t("business.overview.in_inbox", "In your inbox")}
             </span>
             <span className="mt-3 font-display text-[34px] font-medium tabular-nums tracking-tight text-black dark:text-white">
-              {records.inbox?.length ?? 0}
+              {inboxCount(records)}
             </span>
             <span className="mt-auto flex items-center gap-1 pt-3 text-[13px] text-black/55 group-hover:text-black dark:text-white/55 dark:group-hover:text-white">
               {t("business.overview.open_inbox", "Open inbox")}
