@@ -21,7 +21,7 @@ export type ReceiptStatus =
   | "confirmed"
   | "dismissed";
 
-export type ReceiptChannel = "web" | "whatsapp";
+export type ReceiptChannel = "web" | "whatsapp" | "email";
 
 /** Why a `needs_attention` receipt needs the owner. The backend decides it. */
 export const RECEIPT_ATTENTIONS = [

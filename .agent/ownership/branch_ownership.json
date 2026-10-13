@@ -772,6 +772,42 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-email-channel-20261013": {
+      "description": "Staging email findings: a receipt that arrived by email says Correo (channel email decided at the API boundary from the email queue, on receipt views and on dossier attachment sources, nothing stored), with a way to Correos recibidos and the count of emails it arrived in; a second email with the same bytes names the first delivery (repeat_of_delivery_id) and the row says Ya recibiste este archivo. OpenAPI regenerated; no migration.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_drafts.py",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/api/routers/business_drafts.py",
+        "src/argus/api/routers/email_intake.py",
+        "src/argus/domain/business/contracts/dossier.py",
+        "src/argus/domain/business/receipts.py",
+        "tests/business/test_business_email_api.py",
+        "web/__tests__/email-delivery-repeat.dom.test.tsx",
+        "web/__tests__/receipt-email-origin.test.tsx",
+        "web/components/business-app/BusinessEmailDeliveries.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/ReceiptSourcePreview.tsx",
+        "web/components/business-app/business-ui.tsx",
+        "web/components/business-app/fixture-data.ts",
+        "web/lib/business-api.ts",
+        "web/lib/business-dossier.ts",
+        "web/lib/business-email.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-email-intake-startup-log-20261012": {
       "description": "Email intake says at startup, by condition name and never by value, why it did not start or why it carries no receiving provider, so the logs answer a 404 on the Resend webhook.",
       "base_ref": "origin/codex/private-alpha-next",

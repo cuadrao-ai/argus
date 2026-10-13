@@ -20,7 +20,8 @@ from argus.domain.ingestion.receipt_review import (
     receipt_review,
 )
 
-Channel = Literal["web", "whatsapp"]
+# ``email`` is set at the API boundary from the email queue, never stored on the draft.
+Channel = Literal["web", "whatsapp", "email"]
 REVIEW_FIELDS = (
     "merchant",
     "occurred_on",

@@ -22,7 +22,7 @@ export type BusinessFacts = {
 export type BusinessSourceEvidence =
   | { id: string; kind: "message" | "agent_proposal"; channel: "web" | "whatsapp"; received_at: string; text: string }
   | { id: string; kind: "web_action"; channel: "web"; received_at: string; text: string }
-  | { id: string; kind: "attachment"; channel: "web" | "whatsapp"; received_at: string; connection_id: string; filename: string | null; media_type: string };
+  | { id: string; kind: "attachment"; channel: "web" | "whatsapp" | "email"; received_at: string; connection_id: string; filename: string | null; media_type: string; email_delivery_ids?: string[] };
 
 export type BusinessFiscalField = keyof NonNullable<BusinessFacts["fiscal"]>;
 export const BUSINESS_FISCAL_FIELDS: BusinessFiscalField[] = ["rnc", "ncf", "ecf", "itbis"];

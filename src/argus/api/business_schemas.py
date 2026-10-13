@@ -99,7 +99,8 @@ class CreateBusinessAccount(_Wire):
 
 class ReceiptSummary(_Wire):
     id: str
-    channel: Literal["web", "whatsapp"]
+    # ``email`` is decided at the API boundary from the email queue.
+    channel: Literal["web", "whatsapp", "email"]
     filename: str | None
     # The sender's own words sent with the file (a WhatsApp caption), verbatim.
     source_text: str | None = None

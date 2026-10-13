@@ -461,3 +461,27 @@ def receipt_detail(context: BusinessContext, receipt) -> dict:
     if context.record_context is not None:
         detail["record_context"] = context.record_context.model_dump(mode="json")
     return detail
+
+
+def with_email_sources(dossier, space_id: str):  # noqa: ANN001, ANN201
+    """The dossier's attachment sources that arrived by email say so, with their
+    deliveries, from the email queue; the stored source row knows only web or
+    whatsapp, so this is decided here and never written back."""
+
+    from argus.api.email_intake import email_receipt_flags
+
+    flags = email_receipt_flags(space_id)
+    if not flags:
+        return dossier
+    sources = tuple(
+        source.model_copy(
+            update={
+                "channel": "email",
+                "email_delivery_ids": flags[str(source.connection_id)][0],
+            }
+        )
+        if source.kind == "attachment" and str(source.connection_id) in flags
+        else source
+        for source in dossier.sources
+    )
+    return dossier.model_copy(update={"sources": sources})
