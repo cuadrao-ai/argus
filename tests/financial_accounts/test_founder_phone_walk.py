@@ -13,6 +13,7 @@ import pytest
 from argus.api.financial_accounts import configure_financial_accounts_service
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
 from argus.domain.recording.service import FinancialAccountService
+
 from financial_accounts.conftest import ALICE
 
 H = {"Authorization": f"Bearer {ALICE}"}
