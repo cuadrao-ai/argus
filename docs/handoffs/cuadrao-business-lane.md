@@ -1,3 +1,5 @@
+> **Superseded (October 13, 2026): current state lives in [docs/specs/argus-execution-board.md](../specs/argus-execution-board.md).** This handoff is kept as dated history. Do not take next steps, branches or worktrees from it without checking the board.
+
 ## October 11, 2026 — Claude handoff checkpoint (current)
 
 This section supersedes the historical next-step/status instructions below. Lucas asked lanes to close the nearest started loop, preserve work, and stop. No new task or hosted phase starts from this handoff. This documentation-only checkpoint is published on the existing bridge branch for remote resumption. Runtime source remains the ae9e9604 checkpoint; no reconciliation or feature work occurred.
