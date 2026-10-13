@@ -38,6 +38,7 @@ AccessAction = Literal[
     "accept_invite",
     "revoke_grant",
     "revoke_invite",
+    "access_seen",
 ]
 RevokeGrantResult = Literal["revoked", "own_grant", "missing"]
 
@@ -49,6 +50,23 @@ class AccessCommand(Contract):
     grant_id: UUID | None = None
     invite_id: UUID | None = None
     email: str | None = None
+
+
+@dataclass(frozen=True)
+class GrantedSpace:
+    """One Business a person may enter, through one live grant of theirs."""
+
+    space_id: str
+    name: str
+    grant_id: str
+    owner_id: str
+    capabilities: tuple[str, ...]
+
+    @property
+    def role(self) -> str:
+        return "owner" if self.owner_id == self.grantee_id else "accountant"
+
+    grantee_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -114,6 +132,24 @@ class AccessStore(Protocol):
 
     def accept_invites(self, user_id: str) -> int:
         """Turn the live invites for this person's confirmed email into grants."""
+        ...
+
+    def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
+        """Every open Business where this person holds a live read grant, their
+        own first; the name comes from the space, never from the client."""
+        ...
+
+    def granted(self, person_id: str, grant_id: str) -> GrantedSpace | None:
+        """One live grant of this person, by id, or None: a grant that is not
+        theirs, revoked or expired answers the same None."""
+        ...
+
+    def seen_grants(self, person_id: str) -> frozenset[str]:
+        """Grants whose one-time "you now have access" line this person dismissed."""
+        ...
+
+    def mark_seen(self, person_id: str, grant_id: str) -> None:
+        """Record the dismissal once, as this person's own ledger row."""
         ...
 
 
@@ -291,6 +327,79 @@ class PostgresAccessStore:
             if not self._owned(connection, space_id, owner_id):
                 raise LookupError("business_space_missing")
             return self._list(connection, space_id, owner_id)
+
+    _GRANTED = (
+        "select g.id::text, g.space_id::text, s.name, s.created_by::text, g.capabilities"
+        " from public.business_client_grants g join public.spaces s on s.id=g.space_id"
+        " where g.grantee_id=%s and g.revoked_at is null"
+        " and (g.expires_at is null or g.expires_at > clock_timestamp())"
+        " and 'read'=any(g.capabilities) and s.kind='business' and s.closed_at is null"
+    )
+
+    def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
+        with self.pool.connection() as connection:
+            rows = connection.execute(
+                self._GRANTED
+                + " order by (s.created_by=%s::uuid) desc, s.name, g.created_at",
+                (person_id, person_id),
+            ).fetchall()
+        return tuple(
+            GrantedSpace(space, name, grant, owner, tuple(caps), person_id)
+            for grant, space, name, owner, caps in rows
+        )
+
+    def granted(self, person_id: str, grant_id: str) -> GrantedSpace | None:
+        with self.pool.connection() as connection:
+            row = connection.execute(
+                self._GRANTED + " and g.id=%s", (person_id, grant_id)
+            ).fetchone()
+        if row is None:
+            return None
+        grant, space, name, owner, caps = row
+        return GrantedSpace(space, name, grant, owner, tuple(caps), person_id)
+
+    def seen_grants(self, person_id: str) -> frozenset[str]:
+        with self.pool.connection() as connection:
+            rows = connection.execute(
+                "select command->>'grant_id' from public.business_action_receipts"
+                " where actor_id=%s and turn_key is null and command->>'action'='access_seen'",
+                (person_id,),
+            ).fetchall()
+        return frozenset(row[0] for row in rows if row[0])
+
+    def mark_seen(self, person_id: str, grant_id: str) -> None:
+        found = self.granted(person_id, grant_id)
+        if found is None or found.role == "owner":
+            # Not this person's live grant, or their own Business: nothing to dismiss.
+            return
+        from argus.domain.business.authority import authorize
+        from argus.domain.business.contracts.authority import TrustedActor
+
+        with self.pool.connection() as connection, connection.transaction():
+            auth = authorize(
+                connection,
+                TrustedActor(
+                    actor_id=UUID(person_id),
+                    actor_kind="member",
+                    space_id=UUID(found.space_id),
+                ),
+                UUID(grant_id),
+            )
+            command = AccessCommand(action="access_seen", grant_id=UUID(grant_id))
+            connection.execute(
+                "insert into public.business_action_receipts"
+                " (space_id, actor_id, actor, idempotency_key, input_hash, command, outcome)"
+                " values (%s, %s, %s, %s, %s, %s, %s) on conflict do nothing",
+                (
+                    found.space_id,
+                    person_id,
+                    Jsonb(auth.provenance.model_dump(mode="json")),
+                    f"access:seen:{grant_id}",
+                    canonical_input_hash(command),
+                    Jsonb(command.model_dump(mode="json", exclude_none=True)),
+                    Jsonb({"outcome": "applied"}),
+                ),
+            )
 
     def give(self, space_id: str, owner_id: str, email: str) -> tuple[bool, AccessList]:
         email = normalize_email(email)
@@ -527,6 +636,70 @@ class InMemoryAccessStore:
         with self._lock:
             grant = self._live(space_id, grantee_id)
             return grant["capabilities"] if grant else ()
+
+    def _granted(self, grant: dict) -> GrantedSpace:
+        # The in-memory rows know no names (the route asks the space store)
+        # and no owners: the owner issued the grant, or holds a self-issued one.
+        return GrantedSpace(
+            grant["space_id"],
+            "",
+            grant["id"],
+            grant["issuer_id"],
+            tuple(grant["capabilities"]),
+            grant["grantee_id"],
+        )
+
+    def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
+        with self._lock:
+            rows = [
+                g
+                for g in self._grants
+                if g["grantee_id"] == person_id
+                and g["revoked_at"] is None
+                and "read" in g["capabilities"]
+            ]
+        rows.sort(key=lambda g: (g["issuer_id"] != g["grantee_id"], g["created_at"]))
+        return tuple(self._granted(g) for g in rows)
+
+    def granted(self, person_id: str, grant_id: str) -> GrantedSpace | None:
+        with self._lock:
+            grant = next(
+                (
+                    g
+                    for g in self._grants
+                    if g["id"] == grant_id
+                    and g["grantee_id"] == person_id
+                    and g["revoked_at"] is None
+                    and "read" in g["capabilities"]
+                ),
+                None,
+            )
+        return self._granted(grant) if grant else None
+
+    def seen_grants(self, person_id: str) -> frozenset[str]:
+        with self._lock:
+            return frozenset(
+                str(c.grant_id)
+                for c in self.ledger
+                if c.action == "access_seen" and c.email == person_id
+            )
+
+    def mark_seen(self, person_id: str, grant_id: str) -> None:
+        found = self.granted(person_id, grant_id)
+        if found is None or found.role == "owner":
+            return
+        with self._lock:
+            if any(
+                c.action == "access_seen" and str(c.grant_id) == grant_id
+                for c in self.ledger
+            ):
+                return
+            # The in-memory ledger has no actor column: the person rides in ``email``.
+            self.ledger.append(
+                AccessCommand(
+                    action="access_seen", grant_id=UUID(grant_id), email=person_id
+                )
+            )
 
     def _list(self, space_id: str, owner_id: str) -> AccessList:
         now = self._now()

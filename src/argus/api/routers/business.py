@@ -27,6 +27,7 @@ from fastapi.concurrency import run_in_threadpool
 from argus.api.business import (
     BusinessContext,
     BusinessPerson,
+    owner_only,
     require_business,
     require_business_document_write,
     require_business_person,
@@ -41,6 +42,7 @@ from argus.api.business_drafts import (
     receipt_detail,
     receipt_summaries,
     receipt_summary,
+    record_upload,
     require_legacy_receipt_write,
     search_with_drafts,
     updates_with_drafts,
@@ -52,6 +54,7 @@ from argus.api.business_schemas import (
     BusinessOverview,
     BusinessSearch,
     BusinessSpaceInfo,
+    BusinessSpaces,
     BusinessWorkspace,
     ConfirmBody,
     CreateBusinessAccount,
@@ -215,6 +218,48 @@ def get_space(
     return _space(space)
 
 
+@router.get("/spaces", response_model=BusinessSpaces)
+def list_spaces(
+    request: Request,
+    response: Response,
+    person: BusinessPerson = Depends(require_business_person),  # noqa: B008
+) -> dict[str, Any]:
+    """Every Business the caller may enter through a live grant of theirs,
+    their own first. Names come from the spaces; the one-time access line is
+    marked seen per grant, server side."""
+
+    _no_store(response)
+    access = _access_store(request)
+    seen = access.seen_grants(person.person_id)
+    return {
+        "spaces": [
+            {
+                "space_id": found.space_id,
+                "name": found.name
+                or (person.spaces.get(found.space_id) or Space("", "")).name,
+                "grant_id": found.grant_id,
+                "role": found.role,
+                "capabilities": list(found.capabilities),
+                "access_seen": found.role == "owner" or found.grant_id in seen,
+            }
+            for found in access.spaces_for(person.person_id)
+        ]
+    }
+
+
+@router.post("/spaces/{grant_id}/seen", status_code=204)
+def mark_space_seen(
+    request: Request,
+    grant_id: str,
+    person: BusinessPerson = Depends(require_business_person),  # noqa: B008
+) -> Response:
+    """The caller dismissed the "you now have access" line for one of their
+    grants: one ledger row, once; a grant that is not theirs changes nothing."""
+
+    _access_store(request).mark_seen(person.person_id, grant_id)
+    return Response(status_code=204, headers=NO_STORE)
+
+
 @router.post("/space", response_model=BusinessSpaceInfo, status_code=201)
 def start_space(
     request: Request,
@@ -280,6 +325,7 @@ def list_access(
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
+    owner_only(request, context)
     """Who can act in the owner's Business: live grants and pending invites."""
 
     response.headers.update(NO_STORE)
@@ -299,6 +345,7 @@ def give_access(
 
     The reply is the access list either way, so nothing about an unknown
     email is revealed beyond what the list shows. A replay answers 200."""
+    owner_only(request, context)
 
     response.headers.update(NO_STORE)
     store = _access_store(request)
@@ -325,6 +372,7 @@ def revoke_access_grant(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> Response:
+    owner_only(request, context)
     store = _access_store(request)
     result = store.revoke_grant(
         context.scope.owner.space_id, context.scope.person_id, str(grant_id)
@@ -356,6 +404,7 @@ def revoke_access_invite(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> Response:
+    owner_only(request, context)
     store = _access_store(request)
     if not store.revoke_invite(
         context.scope.owner.space_id, context.scope.person_id, str(invite_id)
@@ -403,6 +452,7 @@ def create_account(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
+    owner_only(request, context)
     key = _required_idempotency_key(request, idempotency_key)
     try:
         account, created = context.service.create_account(
@@ -442,6 +492,9 @@ async def upload_receipt(
     """The receipt's identity is its bytes, so a retry returns the same receipt."""
 
     _required_idempotency_key(request, idempotency_key)
+    if consent == "true":
+        # Sending a document to the AI provider is the owner's choice alone.
+        owner_only(request, context)
     media_type, content = await read_document_upload(request)
     try:
         receipt = await context.service.upload(
@@ -451,6 +504,7 @@ async def upload_receipt(
             media_type=media_type,
             consent=consent == "true",
         )
+        record_upload(context, receipt.id)
         if receipt.status == "queued":
             await dispatch_preparation(
                 context.service.documents,
@@ -520,6 +574,8 @@ async def prepare_receipt(
     consent: str | None = Header(default=None, alias="X-Extraction-Consent"),
     context: BusinessContext = Depends(require_business_document_write),  # noqa: B008
 ) -> dict[str, Any]:
+    # Sending a document to the AI provider is the owner's choice alone.
+    owner_only(request, context)
     try:
         if consent != "true":
             raise DocumentServiceError("document_extraction_consent_required")
@@ -678,6 +734,7 @@ def record_expense(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
+    owner_only(request, context)
     key = _required_idempotency_key(request, idempotency_key)
     entered = {**body.model_dump(), "account_id": str(body.account_id)}
     try:

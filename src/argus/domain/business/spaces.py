@@ -37,6 +37,10 @@ def default_space_name(language: str | None) -> str:
 class SpaceStore(Protocol):
     def open_space(self, person_id: str) -> Space | None: ...
 
+    def get(self, space_id: str) -> Space | None:
+        """An open Business space by id, for a grant that names it."""
+        ...
+
     def create(self, person_id: str, name: str) -> tuple[Space, bool]:
         """The person's open space, created with ``name`` when there is none.
 
@@ -57,6 +61,15 @@ class PostgresSpaceStore:
                 "select id::text, name from public.spaces"
                 " where id = public.business_space_of(%s)",
                 (person_id,),
+            ).fetchone()
+        return Space(*row) if row else None
+
+    def get(self, space_id: str) -> Space | None:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                "select id::text, name from public.spaces"
+                " where id = %s and kind = 'business' and closed_at is null",
+                (space_id,),
             ).fetchone()
         return Space(*row) if row else None
 
@@ -97,6 +110,10 @@ class InMemorySpaceStore:
     def open_space(self, person_id: str) -> Space | None:
         with self._lock:
             return self._spaces.get(person_id)
+
+    def get(self, space_id: str) -> Space | None:
+        with self._lock:
+            return next((s for s in self._spaces.values() if s.id == space_id), None)
 
     def create(self, person_id: str, name: str) -> tuple[Space, bool]:
         with self._lock:

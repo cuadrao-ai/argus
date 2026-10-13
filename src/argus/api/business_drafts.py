@@ -14,7 +14,7 @@ from argus.api.business import (
     require_business_surface,
     unavailable_problem,
 )
-from argus.api.business_spaces import business_spaces
+from argus.api.business_spaces import business_access, business_spaces
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.ingestion import IngestionContext, require_ingestion_context
@@ -32,7 +32,11 @@ from argus.domain.business.contracts.facts import (
 )
 from argus.domain.business.scope import BusinessScope
 from argus.domain.business.service import BusinessService
-from argus.domain.business.transactions import GrantImportStore, transaction
+from argus.domain.business.transactions import (
+    GrantImportStore,
+    record_legacy_action,
+    transaction,
+)
 from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
@@ -77,13 +81,24 @@ def require_drafts(
     )
 
 
-def bind_to_grant(documents, hub, actions, context, capability):  # noqa: ANN001, ANN201
+def legacy_action(request) -> str | None:  # noqa: ANN001
+    """The name a legacy receipt write leaves in the ledger, from the route."""
+
+    path = request.url.path
+    if request.method == "PATCH" and path.endswith("/review"):
+        return "receipt_review"
+    if request.method == "POST" and path.endswith("/confirm"):
+        return "receipt_confirm"
+    return None
+
+
+def bind_to_grant(documents, hub, actions, context, capability, action=None):  # noqa: ANN001, ANN201
     """The one place a documents service is bound to a person's Business grant:
     the same hub with an import sink that acts only as that grant, for a request
     or for a delivery that has none. Returns the bound service and its sink."""
 
     imports = ReconciliationService(
-        GrantImportStore(actions.authority, context, capability),
+        GrantImportStore(actions.authority, context, capability, action),
         hub.sink.money,
         hub.sink.clock,
         connections=hub.sink.connections,
@@ -102,10 +117,31 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         account_rows = hub.sink.money.accounts.list_accounts(
             user_id=scope.person_id, scope=scope.owner
         )
-        space = business_spaces().open_space(user_id)
+        space = business_spaces().get(scope.owner.space_id)
+        capabilities = {"read", "prepare"}
+        if scope.actor_id is not None:
+            # A chosen grant: its own capabilities, never approve for a member.
+            held = business_access().capabilities(scope.owner.space_id, scope.actor_id)
+            capabilities = set(held) & {"read", "prepare"}
+            if not scope.acting_as_owner:
+                needed = (
+                    "read"
+                    if request.method == "GET"
+                    else (
+                        "approve" if request.url.path.endswith("/confirm") else "prepare"
+                    )
+                )
+                if needed not in capabilities:
+                    raise action_problem(
+                        request,
+                        Refused(
+                            outcome="permission_denied",
+                            code="business_permission_denied",
+                        ),
+                    )
         record = RecordContext(
             space_id=scope.owner.space_id,
-            space_name=space.name,
+            space_name=space.name if space else "",
             accounts=tuple(
                 AccountChoice(
                     id=row.account.id,
@@ -115,7 +151,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
                 )
                 for row in account_rows
             ),
-            capabilities={"read", "prepare"},
+            capabilities=capabilities,
         )
         return BusinessContext(
             scope, BusinessService(documents, hub.sink, _captured), record
@@ -129,7 +165,8 @@ def scoped_legacy(request, documents, hub, user_id, scope):
             else actions.resolve_actor(
                 TrustedActor(
                     actor_id=user_id, actor_kind="member", space_id=scope.owner.space_id
-                )
+                ),
+                grant_id=UUID(scope.grant_id) if scope and scope.grant_id else None,
             )
         )
         record = actions.record_context(context)
@@ -147,13 +184,31 @@ def scoped_legacy(request, documents, hub, user_id, scope):
     except ActionError as error:
         raise action_problem(request, error.result) from None
     scoped_documents, imports = bind_to_grant(
-        documents, hub, actions, context, capability
+        documents, hub, actions, context, capability, legacy_action(request)
     )
     return BusinessContext(
-        BusinessScope(context.owner_id, context.scope),
+        BusinessScope(
+            context.owner_id,
+            context.scope,
+            actor_id=user_id,
+            grant_id=str(context.grant_id),
+            role="owner" if str(context.owner_id) == str(user_id) else "accountant",
+        ),
         BusinessService(scoped_documents, imports, _captured),
         record,
     )
+
+
+def record_upload(context: BusinessContext, receipt_id: str) -> None:
+    """A saved upload is a write on the legacy surface: one ledger row naming
+    the grant it ran under. The in-memory app keeps no ledger here."""
+
+    store = context.service.imports.store
+    if isinstance(store, GrantImportStore):
+        with transaction(store.authority, store.context, "prepare") as tx:
+            record_legacy_action(
+                tx.connection, tx.authorization, "receipt_upload", [receipt_id]
+            )
 
 
 def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> None:
