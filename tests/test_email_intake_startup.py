@@ -68,8 +68,22 @@ def test_a_missing_secret_starts_without_a_provider_and_names_it(world, monkeypa
     intake.start_email_intake(app)
     assert intake.email_intake().provider is None
     [(message, missing)] = _logged(records)
-    assert message.startswith("Email intake started without a receiving provider")
+    assert message == (
+        "Email intake started without a receiving provider;"
+        " the Resend webhook answers 404; missing: webhook_secret_present"
+    )
     assert missing == ["webhook_secret_present"]
+
+
+def test_the_message_text_names_every_missing_condition_itself(world, monkeypatch):  # noqa: ANN001
+    # Hosted log viewers show the message and drop the structured fields.
+    app, records = world
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED", "false")
+    monkeypatch.setenv("RESEND_BUSINESS_API_KEY", " ")
+    intake.start_email_intake(app)
+    [(message, missing)] = _logged(records)
+    assert message.endswith("; missing: receiving_flag, api_key_present")
+    assert missing == ["receiving_flag", "api_key_present"]
 
 
 def test_a_missing_runtime_piece_names_every_missing_condition(world, monkeypatch):  # noqa: ANN001
@@ -80,7 +94,10 @@ def test_a_missing_runtime_piece_names_every_missing_condition(world, monkeypatc
     intake.start_email_intake(app)
     assert intake.email_intake() is None
     assert _logged(records) == [
-        ("Email intake did not start", ["document_extraction_flag", "documents_service"])
+        (
+            "Email intake did not start; missing: document_extraction_flag, documents_service",
+            ["document_extraction_flag", "documents_service"],
+        )
     ]
 
 

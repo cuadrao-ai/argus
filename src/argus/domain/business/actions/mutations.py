@@ -21,7 +21,7 @@ from argus.domain.business.contracts.actions import (
     ProposeAllocation,
 )
 from argus.domain.business.contracts.authority import ActorProvenance
-from argus.domain.business.contracts.checks import EcfVerification
+from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
@@ -29,6 +29,7 @@ from argus.domain.business.contracts.facts import (
     ReadPurchase,
 )
 from argus.domain.business.transactions import ActionTransaction
+from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
@@ -77,6 +78,7 @@ def save_revision(
     read_purchases: tuple[ReadPurchase, ...] | None = None,
     read_total: str | None = None,
     ecf_checks: EcfVerification | None = None,
+    dgii_qr: DgiiQr | None = None,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -93,11 +95,15 @@ def save_revision(
         # brings no verification; the one the e-CF gave stays on the draft.
         kept = previous.get("ecf_checks")
         ecf_checks = EcfVerification.model_validate(kept) if kept else None
+    if dgii_qr is None:
+        kept_qr = previous.get("dgii_qr")
+        dgii_qr = DgiiQr.model_validate(kept_qr) if kept_qr else None
     resolution["business"] = BusinessResolution(
         facts=after,
         read_purchases=read_purchases,
         read_total=read_total,
         ecf_checks=ecf_checks,
+        dgii_qr=dgii_qr,
         remainder_settled=bool(previous.get("remainder_settled", False)),
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
@@ -369,6 +375,9 @@ def prepare_attachment(
     facts["fiscal"] = fiscal_facts_from_receipt(
         batch.receipt, source_id=source_id
     ).model_dump(mode="json")
+    # The typed merge after decode and read: the QR fills only what the read
+    # left unknown, each filled fact naming its origin; a mismatch fills nothing.
+    facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
     facts = BusinessFacts.model_validate(facts).model_dump(mode="json")
     if before is not None:
         merged = before.model_dump(mode="json")
@@ -394,6 +403,7 @@ def prepare_attachment(
         read_purchases,
         read_total,
         batch.ecf_checks,
+        batch.dgii_qr,
     )
 
 

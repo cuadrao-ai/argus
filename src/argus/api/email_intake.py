@@ -102,7 +102,10 @@ def start_email_intake(app) -> None:  # noqa: ANN001
         return
     if any(name in missing for name in _RUNTIME_CONDITIONS):
         # Routes and the queue are Postgres rows; the in-memory app has no receiving.
-        logger.warning("Email intake did not start", missing=missing)
+        logger.warning(
+            "Email intake did not start; missing: " + ", ".join(missing),
+            missing=missing,
+        )
         return
     pool = app.state.financial_accounts_pool
     documents = documents_service()
@@ -114,9 +117,10 @@ def start_email_intake(app) -> None:  # noqa: ANN001
         else None
     )
     if provider is None:
+        # The names go in the text: hosted log viewers show the message, not the fields.
         logger.warning(
             "Email intake started without a receiving provider;"
-            " the Resend webhook answers 404",
+            " the Resend webhook answers 404; missing: " + ", ".join(missing),
             missing=missing,
         )
     else:
