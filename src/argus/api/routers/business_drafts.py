@@ -85,7 +85,21 @@ def approve_draft(
     )
 
 
-@router.post("/{draft_id}/remainder/settle", response_model=BusinessDossier)
+@router.post(
+    "/{draft_id}/remainder/settle",
+    response_model=BusinessDossier,
+    responses={
+        403: {
+            "description": "`business_permission_denied` without approve permission;"
+            " `business_human_command_required` for a non-person actor."
+        },
+        409: {"description": "`stale_version` or `idempotency_conflict`."},
+        422: {
+            "description": "`business_draft_not_recorded` before approval;"
+            " `business_remainder_none` when nothing is left."
+        },
+    },
+)
 def settle_remainder(
     request: Request,
     response: Response,

@@ -585,6 +585,23 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-e2e-robustness-20261012": {
+      "description": "The record-review e2e reads the home counts from the elements that carry them and fails loudly when a read misses; the live upload spec asserts exactly what it collects; the workspace derives its scoped source the moment the person leaves a record, so no unscoped fetch is wasted. The stale fixture lists the concurrent revision in its history, so the header after a stale refusal names it.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/e2e/business-record-review.spec.ts",
+        "web/e2e/business-upload-review-live.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-ecf-hotel-invoice-20261012": {
       "description": "DGII e-CF hotel invoices: XML joins the accepted source types, read inertly as tag-named evidence; a dual-currency invoice records the DOP total, with a recorded projection guard when the read picks another currency; three fake fixtures. No prompt or schema text change.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -611,6 +628,25 @@
         "tests/test_business_ecf_invoice_postgres.py",
         "web/__tests__/receipt-upload-queue.test.ts",
         "web/components/business-app/receipt-file.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-expense-opens-dossier-20261012": {
+      "description": "A saved expense opens the record it was recorded from: the API names the receipt a linked bridge draft recorded an expense from (the legacy lookup reads observations a bridge draft never has), in the expenses list and in search, and the whole Expenses row is the control that opens it.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/api/business_drafts.py",
+        "src/argus/api/routers/business.py",
+        "tests/business/test_receipt_views_leave_through_the_overlay.py",
+        "tests/test_business_expense_receipts_postgres.py",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
+        "web/e2e/business-expense-opens-dossier.spec.ts"
       ],
       "deny": [
         ".env",
@@ -892,6 +928,21 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-overlay-guard-cases-20261012": {
+      "description": "The receipt-view guard is an ast scan over all of src/argus, and the Postgres views cover a dismissed draft, a receipt linked to two drafts and an approved draft still asking for purchases.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "tests/business/test_receipt_views_leave_through_the_overlay.py",
+        "tests/test_business_receipt_views_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-owner-funds-20261010": {
       "description": "M1-owned owner funding source delta; canonical shared schema/census reconciliation remains coordinator-owned.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -967,6 +1018,28 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-receipt-notes-20261012": {
+      "description": "Review notes on #996 and #997: a repeat mark never overwrites a bank-match warning; the observation reader skips rows the projection skips; the settle route declares its refusals; direct tests for the duplicate skip rule, the legacy duplicate pass, the zero-purchase label and the settle refusals.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/routers/business_drafts.py",
+        "src/argus/domain/business/actions/mutations.py",
+        "src/argus/domain/business/duplicates.py",
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "tests/business/test_business_duplicates_direct.py",
+        "tests/test_business_multi_purchase.py",
+        "tests/test_business_multi_purchase_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-refresh-after-actions-20261012": {
       "description": "Founder rule: after approve, review, upload or rebind the affected lists, counts and cards refresh on their own; proven by an e2e that approves from the inbox and sees the home card and inbox count change without a reload.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -975,6 +1048,34 @@
         "web/e2e/business-record-review.spec.ts",
         "web/components/business-app/ReceiptDossierReview.tsx",
         "web/components/business-app/BusinessWorkspace.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-revision-labels-20261012": {
+      "description": "Every revision label a person sees names a facts revision the history lists: the dossier's latest revision on the review panel and the note dialog, and each saved note's own revision in the inbox and in search, carried by the captures API as revision beside the draft's current version.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_manual_schemas.py",
+        "src/argus/domain/business/actions/captures.py",
+        "tests/business/test_actions_capture_api.py",
+        "tests/test_business_manual_capture_postgres.py",
+        "web/__tests__/business-inbox-notes.test.tsx",
+        "web/__tests__/business-search.test.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/BusinessSearchDossier.tsx",
+        "web/components/business-app/ManualCaptureDialog.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/components/business-app/useBusinessSearch.ts",
+        "web/lib/business-api.ts"
       ],
       "deny": [
         ".env",

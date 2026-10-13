@@ -8,7 +8,7 @@ import { useBusiness } from "./BusinessWorkspace";
 import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, StatusPill, useAttentionLabel } from "./business-ui";
 
-export type OpenNote = { draftId: string; text: string; receivedAt: string; version: number; earlier: number };
+export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
 /**
  * One row per draft still awaiting review: its latest note, and how many came
@@ -20,12 +20,12 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
     if (note.review_state !== "open" && note.review_state !== "accepting") continue;
     const current = byDraft.get(note.draft_id);
     if (!current) {
-      byDraft.set(note.draft_id, { draftId: note.draft_id, text: note.text, receivedAt: note.received_at, version: note.version, earlier: 0 });
+      byDraft.set(note.draft_id, { draftId: note.draft_id, text: note.text, receivedAt: note.received_at, revision: note.revision, earlier: 0 });
     } else if (note.received_at > current.receivedAt) {
-      byDraft.set(note.draft_id, { ...current, text: note.text, receivedAt: note.received_at, version: Math.max(note.version, current.version), earlier: current.earlier + 1 });
+      byDraft.set(note.draft_id, { ...current, text: note.text, receivedAt: note.received_at, revision: Math.max(note.revision, current.revision), earlier: current.earlier + 1 });
     } else {
       current.earlier += 1;
-      current.version = Math.max(note.version, current.version);
+      current.revision = Math.max(note.revision, current.revision);
     }
   }
   return [...byDraft.values()].sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
@@ -56,7 +56,7 @@ export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }:
                 <span className="min-w-0 flex-1">
                   <span className="line-clamp-2 whitespace-pre-line break-words text-[15px] text-black dark:text-white">{note.text.trim()}</span>
                   <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
-                    {[formatRelativeTime(note.receivedAt, locale), t("business.dossier.revision", "Revision {{version}}", { version: note.version }), note.earlier ? t("business.inbox.note_more", "{{count}} earlier notes", { count: note.earlier }) : null].filter(Boolean).join(" · ")}
+                    {[formatRelativeTime(note.receivedAt, locale), t("business.dossier.revision", "Revision {{version}}", { version: note.revision }), note.earlier ? t("business.inbox.note_more", "{{count}} earlier notes", { count: note.earlier }) : null].filter(Boolean).join(" · ")}
                   </span>
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" />

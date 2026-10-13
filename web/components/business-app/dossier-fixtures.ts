@@ -107,7 +107,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         approval_available: previous?.approval_available ?? false, approval_result: null,
       };
       dossiers.set(id, next);
-      captures.push({ draft_id: id, version, source_id: noteSourceId, text: request.text, received_at: receivedAt, review_state: "open" });
+      captures.push({ draft_id: id, version, revision: version, source_id: noteSourceId, text: request.text, received_at: receivedAt, review_state: "open" });
       captureReceipts.set(key, { input, draftId: id });
       return get(id);
     },
@@ -183,7 +183,11 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const current = get(id);
       if (id === dossierFixtureIds.denied) fail(403, "permission_denied");
       if (id === dossierFixtureIds.stale) {
-        dossiers.set(id, { ...current, version: current.version + 1, facts: { ...current.facts, amount: known("3550.00") } });
+        // Another person saved a revision first: the facts changed, so the
+        // history lists that revision and the header names it.
+        const otherSourceId = "20000000-0000-4000-8000-000000000015";
+        const otherFacts: BusinessFacts = { ...current.facts, amount: { state: "known", value: "3550.00", origin: "member_set", verified: false, source_ids: [otherSourceId] } };
+        dossiers.set(id, { ...current, version: current.version + 1, facts: otherFacts, history: [...current.history, { draft_id: id, version: current.version + 1, actor: { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" }, before: current.facts, after: otherFacts, source_ids: [otherSourceId], turn_key: null, created_at: "2026-10-10T14:32:00Z" }] });
         fail(409, "stale_version");
       }
       if (current.version !== version) fail(409, "stale_version");
