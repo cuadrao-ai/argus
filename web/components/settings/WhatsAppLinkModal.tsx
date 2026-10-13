@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import Switch from "@/components/ui/Switch";
+import CopyCodeButton from "@/components/settings/CopyCodeButton";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
   canEnableAI,
@@ -75,7 +76,10 @@ export function WhatsAppLinkView({
       {code ? (
         <section className="space-y-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
           <p>{t("settings.whatsapp.send_steps", "Send this message from your own WhatsApp to the Cuadrao number. The code works once and expires soon.")}</p>
-          <p className="select-all break-all font-mono text-base" data-testid="whatsapp-link-message">{code.message_text}</p>
+          <div className="flex items-start gap-2">
+            <p className="min-w-0 flex-1 select-all break-all font-mono text-base" data-testid="whatsapp-link-message">{code.message_text}</p>
+            <CopyCodeButton text={code.message_text} />
+          </div>
           {code.wa_me_url ? (
             <a className={`${primary} inline-flex items-center`} href={code.wa_me_url} target="_blank" rel="noopener noreferrer">
               {t("settings.whatsapp.open", "Open WhatsApp")}
