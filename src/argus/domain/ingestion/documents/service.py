@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import unicodedata
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
@@ -130,6 +131,9 @@ class DocumentsService:
     ) -> None:
         self.hub, self.store, self.extractor = hub, store, extractor
         self.business_actions = business_actions
+        # Asked at the moment of a read, so a permission withdrawn after the
+        # draft was queued stops a read that has not started.
+        self.read_gate: Callable[[str, str], bool] | None = None
         # An app with a Postgres pool never falls back to legacy Business
         # delivery; without a pool there is no canonical wiring to require.
         self.business_preparation_required = business_preparation_required
@@ -329,6 +333,33 @@ class DocumentsService:
             connection_id, replayed, len(batch.candidates) if batch else 0, draft.status
         )
 
+    def release_queued(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope, code: str
+    ) -> None:
+        """A queued read that could not start waits saved, unread, with its reason."""
+
+        draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if draft.status == "queued":
+            self._update(user_id, draft, status="saved", consent=False, error_code=code)
+
+    def _reading_allowed(self, user_id: str, connection_id: str) -> bool:
+        return self.read_gate is None or self.read_gate(user_id, connection_id)
+
+    def read_pending(
+        self, user_id: str, connection_id: str, draft: DocumentDraft
+    ) -> bool:
+        """A read will happen: one is in flight, or the document is queued with
+        consent and the owner's reading is allowed right now. A queued document
+        whose owner switched reading off waits for a person, not for a read."""
+
+        if draft.status == "preparing":
+            return True
+        return (
+            draft.status == "queued"
+            and draft.consent
+            and self._reading_allowed(user_id, connection_id)
+        )
+
     def queue(
         self, *, user_id: str, connection_id: str, consent: bool, scope: OwnerScope
     ) -> DocumentOutcome:
@@ -344,6 +375,9 @@ class DocumentsService:
                 raise DocumentServiceError("document_extraction_consent_required")
             if not draft.source_available:
                 raise DocumentServiceError("document_source_unavailable")
+            if not self._reading_allowed(user_id, connection_id):
+                # A click is a fresh action: it is told why nothing was queued.
+                raise DocumentServiceError("whatsapp_receipt_reading_off")
             self._update(user_id, draft, status="queued", consent=True, error_code=None)
         return self.outcome(
             user_id=user_id,
@@ -440,6 +474,10 @@ class DocumentsService:
             raise DocumentServiceError("document_preparation_not_queued")
         if draft.status == "preparing":
             raise DocumentServiceError("document_busy", retryable=True)
+        if batch is None and not self._reading_allowed(user_id, connection_id):
+            if draft.status == "queued":
+                self._update(user_id, draft, status="saved", consent=False)
+            raise DocumentServiceError("document_reading_not_allowed")
         holder = str(uuid.uuid4())
         repo = self.hub.connections
         if not repo.lease(
@@ -482,6 +520,11 @@ class DocumentsService:
                 )
                 if hashlib.sha256(content).hexdigest() != draft.sha256:
                     raise DocumentServiceError("document_source_changed")
+                # Asked again just before the provider is reached, so a switch
+                # turned off while the source was read still stops this read. The
+                # only window left is the commit below and the request start.
+                if not self._reading_allowed(user_id, connection_id):
+                    raise DocumentServiceError("document_reading_not_allowed")
                 # Committed before the provider can be reached: without it an
                 # attempt provably never called the provider and may be retried.
                 if attempt_id is not None and not self.store.mark_provider_call(
@@ -567,13 +610,16 @@ class DocumentsService:
                 else "document_extraction_failed"
             )
             try:
+                withdrawn = code == "document_reading_not_allowed"
                 if draft.source_available:
+                    # A withdrawn permission is the owner's choice, not a failure.
                     self._update(
                         user_id,
                         draft,
                         holder=holder,
-                        status="needs_attention",
-                        error_code=code,
+                        status="saved" if withdrawn else "needs_attention",
+                        error_code=None if withdrawn else code,
+                        **({"consent": False} if withdrawn else {}),
                         source_available=code != "document_source_unavailable",
                     )
                 repo.record_failure(

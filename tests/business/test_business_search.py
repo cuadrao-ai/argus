@@ -6,6 +6,7 @@ from datetime import datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+from argus.api.documents import documents_service
 from argus.api.financial_accounts import financial_accounts_service
 from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_schemas import MoneyRequest
@@ -211,3 +212,35 @@ def test_query_bounds(alice: Owner) -> None:  # noqa: F811
         alice.get("/search", q="caja", limit="21"),
     ]
     assert [r.status_code for r in refused] == [422] * 5
+
+
+def test_the_match_sees_the_receipt_as_the_person_sees_it(alice: Owner) -> None:  # noqa: F811
+    """With the hosted bridge a linked draft owns merchant, amount and expense;
+    the search matches on that view, never on the pre-overlay legacy fields."""
+    from argus.api.business import _captured
+    from argus.domain.business.service import BusinessService
+
+    receipt_id = prepared(alice)
+    documents = documents_service()
+    assert documents is not None
+    service = BusinessService(documents, documents.hub.sink, _captured)
+    scope = alice.scope()
+    [receipt] = [r for r in service.receipts(scope) if r.id == receipt_id]
+    view = {
+        **receipt.summary(),
+        "status": "review_ready",
+        "merchant": "Hotel Brisa del Este SRL",
+        "amount": "33254.91",
+    }
+    assert service.search(scope, "Brisa", 5)["receipts"] == []
+    [hit] = service.search(scope, "Brisa", 5, {receipt_id: view})["receipts"]
+    assert (hit["id"], hit["status"], hit["merchant"]) == (
+        receipt_id,
+        "review_ready",
+        "Hotel Brisa del Este SRL",
+    )
+    # The view's amount is matched too, and a view already saved as a listed
+    # expense is left out: its expense opens it.
+    assert [
+        r["id"] for r in service.search(scope, "33254", 5, {receipt_id: view})["receipts"]
+    ] == [receipt_id]

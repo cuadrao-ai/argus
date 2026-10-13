@@ -114,6 +114,9 @@ class ReceiptSummary(_Wire):
     duplicate_of: str | None = None
     # The upload found the same bytes already saved; this is that receipt.
     replayed: bool = False
+    # A read is in flight or will start: queued with consent and the owner's
+    # reading allowed now. False for a queued receipt nothing will read.
+    read_pending: bool = False
     # The owner may ask for a consented AI read now.
     preparable: bool
     # The owner may fill in the one purchase by hand from version 0.
@@ -210,11 +213,16 @@ class BusinessOverview(_Wire):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     from_: date = Field(alias="from")
     to: date
+    # The server's day in the recording time zone: the one clock for "today".
+    today: date
     totals: list[CurrencyTotal]
     awaiting_review: int
     needs_attention: int
     last_received_at: datetime | None
     last_confirmed_at: datetime | None
+    # Saved expenses the chosen period leaves out, so none looks vanished.
+    outside_period_count: int = 0
+    outside_period_latest_on: date | None = None
 
 
 class BusinessUpdate(_Wire):

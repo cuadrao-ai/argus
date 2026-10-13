@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import Switch from "@/components/ui/Switch";
+import CopyCodeButton from "@/components/settings/CopyCodeButton";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
   canEnableAI,
@@ -75,7 +76,10 @@ export function WhatsAppLinkView({
       {code ? (
         <section className="space-y-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
           <p>{t("settings.whatsapp.send_steps", "Send this message from your own WhatsApp to the Cuadrao number. The code works once and expires soon.")}</p>
-          <p className="select-all break-all font-mono text-base" data-testid="whatsapp-link-message">{code.message_text}</p>
+          <div className="flex items-start gap-2">
+            <p className="min-w-0 flex-1 select-all break-all font-mono text-base" data-testid="whatsapp-link-message">{code.message_text}</p>
+            <CopyCodeButton text={code.message_text} />
+          </div>
           {code.wa_me_url ? (
             <a className={`${primary} inline-flex items-center`} href={code.wa_me_url} target="_blank" rel="noopener noreferrer">
               {t("settings.whatsapp.open", "Open WhatsApp")}
@@ -88,14 +92,14 @@ export function WhatsAppLinkView({
           </button>
         </section>
       ) : null}
-      {status?.linked && consent && consent.reason !== "whatsapp_agent_off" ? (
+      {status?.linked && consent ? (
         <section
           className="flex items-start justify-between gap-3 rounded-xl border border-black/[0.06] px-3.5 py-3 dark:border-white/[0.08]"
           data-testid="whatsapp-ai-consent"
         >
           <div className="min-w-0 space-y-1">
             <p className="text-[13px] font-medium text-black dark:text-white">
-              {t("settings.whatsapp.ai_title", "Let AI read my WhatsApp messages")}
+              {t("settings.whatsapp.ai_title", "Read my receipts with AI")}
             </p>
             {consent.disclosure ? (
               <p className="whitespace-pre-wrap text-[11.5px] text-black/60 dark:text-white/60">{consent.disclosure}</p>
@@ -109,14 +113,17 @@ export function WhatsAppLinkView({
               {consent.enabled
                 ? t("settings.whatsapp.ai_on", "On. You can turn it off at any time.")
                 : consent.available
-                  ? t("settings.whatsapp.ai_off", "Off. Cuadrao cannot answer your messages yet.")
+                  ? t("settings.whatsapp.ai_off", "Off. Receipts you send wait in your Inbox for you to fill in.")
                   : t(`settings.whatsapp.ai_reason_${consent.reason ?? "unavailable"}`, t("settings.whatsapp.ai_reason_unavailable", "It cannot be turned on right now."))}
             </p>
+            {!consent.enabled && consent.active_scope_version && consent.active_scope_version !== consent.scope_version ? (
+              <p className="text-[11.5px] text-black/45 dark:text-white/45">{t("settings.whatsapp.ai_replaces", "Another AI permission is on for this number. Turning this on replaces it.")}</p>
+            ) : null}
             <p className="text-[11.5px] text-black/45 dark:text-white/45">{t("settings.whatsapp.ai_approval", "You always approve money records yourself in Cuadrao.")}</p>
           </div>
           <Switch
             checked={consent.enabled}
-            label={t("settings.whatsapp.ai_title", "Let AI read my WhatsApp messages")}
+            label={t("settings.whatsapp.ai_title", "Read my receipts with AI")}
             disabled={busy || (!consent.enabled && !canEnableAI(consent))}
             onChange={onToggleAI}
           />
@@ -173,7 +180,7 @@ export default function WhatsAppLinkModal({
       setProblem(null);
       if (next.linked) {
         setCode(null);
-        setConsent(await getWhatsAppAIConsent().catch(() => null));
+        setConsent(await getWhatsAppAIConsent(i18n.language).catch(() => null));
       } else {
         setConsent(null);
       }
@@ -204,12 +211,12 @@ export default function WhatsAppLinkModal({
     if (!consent) return;
     setBusy(true);
     try {
-      setConsent(await toggleWhatsAppAI(consent));
+      setConsent(await toggleWhatsAppAI(consent, undefined, i18n.language));
       setProblem(null);
     } catch (error) {
       const next = whatsAppLinkProblem(error);
       setProblem(next);
-      if (next === "stale") setConsent(await getWhatsAppAIConsent().catch(() => consent));
+      if (next === "stale") setConsent(await getWhatsAppAIConsent(i18n.language).catch(() => consent));
     } finally {
       setBusy(false);
     }

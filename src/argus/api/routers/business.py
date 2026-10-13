@@ -35,8 +35,14 @@ from argus.api.business import (
 )
 from argus.api.business_drafts import (
     action_problem,
+    expenses_with_receipts,
+    overview_with_drafts,
     receipt_detail,
+    receipt_summaries,
+    receipt_summary,
     require_legacy_receipt_write,
+    search_with_drafts,
+    updates_with_drafts,
 )
 from argus.api.business_schemas import (
     BusinessAccess,
@@ -452,7 +458,7 @@ async def upload_receipt(
             )
     except Exception as error:
         raise _problem(request, error) from None
-    return receipt.summary()
+    return receipt_summary(context, receipt)
 
 
 @router.get("/receipts", response_model=ReceiptPage)
@@ -461,16 +467,10 @@ def list_receipts(
     view: Literal["inbox", "all"] = "inbox",
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
-    service = context.service
     try:
-        receipts = (
-            service.inbox(context.scope)
-            if view == "inbox"
-            else service.receipts(context.scope)
-        )
+        return {"items": receipt_summaries(context, view)}
     except Exception as error:
         raise _problem(request, error) from None
-    return {"items": [receipt.summary() for receipt in _email_flagged(context, receipts)]}
 
 
 @router.get("/receipts/{receipt_id}", response_model=ReceiptDetail)
@@ -533,7 +533,7 @@ async def prepare_receipt(
         [receipt] = _email_flagged(
             context, [context.service.receipt(context.scope, receipt_id)]
         )
-        return receipt.summary()
+        return receipt_summary(context, receipt)
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -628,15 +628,30 @@ def confirm_receipt(
         raise _problem(request, error) from None
 
 
+def _period(request: Request, start: date, end: date | None) -> None:
+    """A range runs forward; an omitted end means the server's today."""
+
+    if end is not None and start > end:
+        raise problem(
+            request,
+            status_code=422,
+            code="period_reversed",
+            title="Invalid period",
+            detail="The period must start on or before its end.",
+            headers=NO_STORE,
+        )
+
+
 @router.get("/expenses", response_model=ExpensePage)
 def list_expenses(
     request: Request,
     start: date = Query(alias="from"),  # noqa: B008
-    end: date = Query(alias="to"),  # noqa: B008
+    end: date | None = Query(default=None, alias="to"),  # noqa: B008
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
+    _period(request, start, end)
     try:
-        return {"items": context.service.expenses(context.scope, start, end)}
+        return {"items": expenses_with_receipts(context, start, end)}
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -664,7 +679,7 @@ def search(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        found = context.service.search(context.scope, q, limit)
+        found = search_with_drafts(context, q, limit)
     except Exception as error:
         raise _problem(request, error) from None
     flags = email_receipt_flags(context.scope.owner.space_id)
@@ -679,11 +694,12 @@ def search(
 def get_overview(
     request: Request,
     start: date = Query(alias="from"),  # noqa: B008
-    end: date = Query(alias="to"),  # noqa: B008
+    end: date | None = Query(default=None, alias="to"),  # noqa: B008
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
+    _period(request, start, end)
     try:
-        return context.service.overview(context.scope, start, end)
+        return overview_with_drafts(context, start, end)
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -694,6 +710,6 @@ def list_updates(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        return {"items": context.service.updates(context.scope)}
+        return {"items": updates_with_drafts(context)}
     except Exception as error:
         raise _problem(request, error) from None

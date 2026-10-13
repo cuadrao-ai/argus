@@ -1,3 +1,4 @@
+from dataclasses import replace
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -109,7 +110,11 @@ def test_exact_disclosure_drift_invalidates_token_receipt_and_capture(
     monkeypatch.setattr(store, "_latest", lambda *args: receipt)
     monkeypatch.setattr(store, "_valid_grant", lambda *args: True)
     assert store.capture_consent(None, link[0]) == receipt["id"]
-    monkeypatch.setattr(ai_consent, "DISCLOSURE", ai_consent.DISCLOSURE + suffix)
+    monkeypatch.setattr(
+        store,
+        "scope",
+        replace(store.scope, disclosure=ai_consent.DISCLOSURE + suffix),
+    )
     changed = store._view(link, receipt, route)
     assert changed["disclosure_token"] != original["disclosure_token"]
     assert not changed["enabled"]

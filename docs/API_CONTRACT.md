@@ -8849,9 +8849,8 @@ answers the not-linked reply.
 The Business agent over WhatsApp has its own switch,
 `CUADRAO_WHATSAPP_AGENT_ENABLED` (older `ARGUS_WHATSAPP_AGENT_ENABLED`), off by
 default. Off: text from a linked owner never reaches the agent and gets the
-ordinary reply, the worker does nothing, `GET /api/v1/whatsapp/ai-consent`
-answers `available: false` with `reason: whatsapp_agent_off` and no disclosure
-token, and `POST /api/v1/whatsapp/ai-consent` answers 404 `whatsapp_agent_off`.
+ordinary reply, and the worker does nothing. The receipt reading permission
+(`/api/v1/whatsapp/ai-consent`, below) does not depend on this switch, and
 `DELETE` stays reachable so an owner can always revoke.
 
 Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
@@ -8860,6 +8859,32 @@ link's `reply_language`, or Spanish for a sender with no active link. A new mess
 whose bytes the owner's inbox already holds gets the duplicate reply. A message whose WhatsApp
 timestamp is more than 24 hours old is still captured but gets no reply, so
 nothing is sent outside the service window.
+
+#### Linked-number receipt reading permission
+
+The one WhatsApp AI switch (`/api/v1/whatsapp/ai-consent`) is the owner's
+permission to read the receipts they send by WhatsApp: scope version 2, purpose
+`business_whatsapp_receipt_reading`, route `document_extraction`. `GET` takes an
+optional `language`; a Spanish language returns the Spanish disclosure text for
+display. The stored and hashed disclosure is the text shown. One active
+permission exists per linked number: turning receipt reading on replaces an
+agent permission (scope 1) and the reverse, never a second row. The read also
+returns `active_scope_version`, the scope of any active permission, so a screen
+can say another permission is on. `POST` takes an optional `language`; the text
+shown in that language is the one stored and hashed, and the token binds it.
+Changing the words an owner was shown asks for consent again. With the
+permission off, a received receipt is saved unread, and
+`POST /api/v1/business/receipts/{id}/prepare` on a WhatsApp receipt returns 409
+`whatsapp_receipt_reading_off` instead of queueing it. With it on, the receipt is
+read after the acknowledgement. The permission is checked again just before the
+provider call, whoever asks for the read, against the owner who received the
+receipt; the only window left is the commit and the request start. One
+follow-up message tells the sender what was read, only inside the 24 hour
+window. It names the merchant, amount and currency only when the read found one
+clear purchase with nothing marked uncertain and a merchant of letters, digits,
+spaces and & ' - . only (no domain-like text); otherwise it says only that the
+receipt is read. With document jobs on, the job reads the receipt later and no follow-up
+is sent; the acknowledgement link stands.
 
 #### Linked-number Business AI permission
 
@@ -9076,8 +9101,10 @@ stale targets, foreign targets and missing capabilities use the errors above.
 existing Business and live read grant; it does not infer an accountant's client.
 `q` defaults to empty, is at most 200 characters, rejects U+0000 (NUL), and
 matches a literal case-insensitive substring of original text (`%` and `_` are literal).
-`limit` is 1–50, default 20. Items contain `draft_id`, current `version` and
-`review_state`, plus original `source_id`, `text` and `received_at`. Selection
+`limit` is 1–50, default 20. Items contain `draft_id`, current `version`, the
+`revision` the note created (the number the draft's history lists; the web shows
+it as the note's revision) and `review_state`, plus original `source_id`, `text`
+and `received_at`. Selection
 follows successful capture receipts through their exact immutable revision and
 source, ordered by source receipt time descending, then source ID descending.
 Each item represents a note; multiple notes may name the same draft. Reviewing
@@ -9244,6 +9271,12 @@ accept path recorded.
   `receipt_purchase_ambiguous`, keeps the rows as evidence and holds the read
   for a person; a source that names no currency never fires it. The batch
   metadata records `document_currency`.
+- A read that was saved but never became a record (the hosted hand-off refused
+  or failed after the extractor answered) is `needs_attention` with attention
+  `interrupted`, `preparable: true` and the real cause in `error_code`; "Try
+  again with AI" replays the saved read without a new provider call and runs
+  the hand-off again. It is never reported as `no_purchase_found`, which stays
+  for a read that found nothing.
 - A read that shows several purchases, or one it cannot settle, still becomes
   one open draft on the hosted bridge: the facts every read purchase shares are
   known, the amount stays unknown for a person to set, and each read purchase
@@ -9257,11 +9290,37 @@ accept path recorded.
   (error code `purchases_unrecorded`) while `unrecorded_purchases` is above 0.
   `POST /api/v1/business/drafts/{draft_id}/remainder/settle` with `{version}`
   and an `Idempotency-Key` lets a person with `approve` permission settle the
-  rest (ledger action `settle_remainder`); the dossier then reports 0. 409
+  rest (ledger action `settle_remainder`); the dossier then reports 0. 403
+  `business_permission_denied` without approve permission; 409
   `stale_version`; 422 `business_draft_not_recorded` before approval and
   `business_remainder_none` when nothing is left. An
   unreadable read is still refused to the document layer, which keeps the
   receipt enterable by hand.
+- A draft prepared from a DGII e-CF XML (alone or attached to an email)
+  carries `ecf_checks` on the dossier: `encf`, `tipo_ecf` (shown neutrally,
+  never a blocker), `checked_at` and `checks`, each `{name, state, code,
+  detail}` with state `verified|failed|not_checked`. The checks are local and
+  read the file only: `signature_integrity` (the content has not changed since
+  it was signed with the key the file carries; it does not name who signed),
+  `totals_arithmetic`, `read_matches_xml` (the model's read against the XML,
+  field by field), `certificate_validity` (two facts, at the declared
+  `FechaHoraFirma`, read as Dominican time, and today; verified carries code
+  `revocation_not_checked`, failed `certificate_expired` or
+  `certificate_not_yet_valid`),
+  `certificate_issuer` (always `not_checked`, `issuer_not_on_trust_list`: no
+  authority is trusted by name), `dgii_accepted` (always `not_checked`,
+  `network_not_in_tier_a`: nothing proves DGII accepted the invoice),
+  `security_code` (the expected code, the first six characters of the
+  signature value, kept in `detail` for a person; `no_printed_code` since the
+  read carries none) and `subject_rnc`. Caps on certificate, signature and
+  SignedInfo size, one signature and one enveloped reference are read before
+  any canonicalization; RSA with SHA-256 only, so SHA-1 and any other key or
+  algorithm are `not_checked`, never trusted. Nesting past 32 levels, a
+  non-finite or oversized number, an over-long field or any failure while
+  reading means no checks or an unreadable check, never a blocked capture. A
+  later document beside the e-CF keeps its verification. A failed
+  check never blocks capture, review or approval. Later revisions keep the
+  verification; a PDF render or any other source has `ecf_checks: null`.
 - POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt
   whose preparation grant was revoked to the owner's current grant, writes one
   `business_action_receipts` row (`rebind_attachment`, previous binding and
@@ -9270,6 +9329,15 @@ accept path recorded.
   (`business_preparation_binding_live`), without a binding
   (`business_preparation_binding_missing`), or for anyone but the owner
   (`business_owner_required`).
+- GET `/api/v1/business/overview?from&to` also returns `outside_period_count`
+  (saved expenses whose date falls outside `[from, to]`) and
+  `outside_period_latest_on` (the latest such date, or null), so a saved
+  expense never looks vanished behind a period filter; the web offers this
+  month, last month, last 30 days, all (from 2000-01-01) and a typed range.
+  The server is the one clock: the overview returns `today` (the Business day
+  in America/Santo_Domingo), and `/overview` and `/expenses` accept an omitted
+  `to`, which means that day; the web sends no `to` for this month, last 30
+  days and all. A `from` after `to` answers 422 `period_reversed`.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake
@@ -9282,6 +9350,11 @@ accept path recorded.
   receipt with no single purchase is `needs_attention`, with the blocker as
   `error_code`.
 - Every `ReceiptSummary` and `ReceiptDetail` carries the owner's next step,
+  `read_pending` is true only while a read is in flight or will start (queued
+  with consent and the owner's reading allowed now); a queued receipt whose
+  owner switched reading off is reported `saved`, waits for a person, and is
+  `preparable` and `enterable` again. The web shows "Leyendo tu recibo" only
+  on `read_pending`.
   decided by the backend. `preparable` is true when nothing was read or
   entered, the source is stored, nothing is reading it, and another read could
   succeed; the client then offers the consented `/prepare`. `enterable` is true

@@ -94,6 +94,7 @@ class ReceiptStub:
             observed_at,
             1,
             document_currency=prepared.document_currency,
+            ecf=prepared.ecf,
         )
         attachment = Attachment(
             external_id=digest,

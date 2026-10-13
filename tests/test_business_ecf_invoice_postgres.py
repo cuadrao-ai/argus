@@ -15,6 +15,7 @@ import pytest
 from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
+from argus.domain.ingestion.documents.preparation import prepare_document
 from psycopg.types.json import Jsonb
 
 from tests import test_business_attachment_preparation_postgres as bridge
@@ -79,7 +80,17 @@ def _saved_invoice(actions, filename: str, media_type: str):  # noqa: ANN001
                 ),
             )
         )
-        batch = batch_from_result(result, digest, cid, now, 1, document_currency="DOP")
+        # The same preparation the extractor runs: the e-CF read once, from the
+        # XML itself or from the XML part of the email, for the local checks.
+        # A PDF render carries no e-CF and needs the PDF tools the matrix lacks.
+        ecf = (
+            prepare_document(content, media_type).ecf
+            if media_type != "application/pdf"
+            else None
+        )
+        batch = batch_from_result(
+            result, digest, cid, now, 1, document_currency="DOP", ecf=ecf
+        )
         attachment = Attachment(
             external_id=digest,
             sha256=digest,
@@ -142,6 +153,15 @@ def test_a_hotel_ecf_becomes_one_draft_at_the_dop_total(actions, filename, media
     assert fiscal.ncf.state == "unknown"
     assert [s.kind for s in view.sources] == ["attachment"]
     assert view.sources[0].media_type == media_type
+    # What the file proved travels to the dossier; a PDF render proves nothing.
+    if media_type == "application/pdf":
+        assert view.ecf_checks is None
+    else:
+        states = {c.name: c.state for c in view.ecf_checks.checks}
+        assert (states["totals_arithmetic"], states["signature_integrity"]) == (
+            "verified",
+            "not_checked",
+        )
     with service.authority.pool.connection() as db:
         stored = db.execute(
             "select draft->>'media_type', batch->'metadata'->>'document_currency'"

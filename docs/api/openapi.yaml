@@ -926,12 +926,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessDossier'
+        '403':
+          description: '`business_permission_denied` without approve permission; `business_human_command_required`
+            for a non-person actor.'
+        '409':
+          description: '`stale_version` or `idempotency_conflict`.'
         '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          description: '`business_draft_not_recorded` before approval; `business_remainder_none`
+            when nothing is left.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -1150,10 +1152,12 @@ paths:
           format: date
       - name: to
         in: query
-        required: true
+        required: false
         schema:
-          type: string
-          format: date
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       responses:
         '200':
           description: Successful Response
@@ -1282,10 +1286,12 @@ paths:
           format: date
       - name: to
         in: query
-        required: true
+        required: false
         schema:
-          type: string
-          format: date
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       responses:
         '200':
           description: Successful Response
@@ -9791,6 +9797,15 @@ paths:
       tags:
       - financial-accounts
       - whatsapp
+      parameters:
+      - name: language
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 16
+          - type: 'null'
       responses:
         '200':
           description: Successful Response
@@ -9798,6 +9813,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AIConsentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -9951,6 +9972,10 @@ components:
           type: integer
         purpose:
           type: string
+        active_scope_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
         disclosure:
           type: string
         route:
@@ -11998,6 +12023,10 @@ components:
           type: integer
           minimum: 0.0
           default: 0
+        ecf_checks:
+          anyOf:
+          - $ref: '#/components/schemas/EcfVerification'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -12150,6 +12179,9 @@ components:
         to:
           type: string
           format: date
+        today:
+          type: string
+          format: date
         totals:
           items:
             $ref: '#/components/schemas/CurrencyTotal'
@@ -12168,11 +12200,20 @@ components:
           - type: string
             format: date-time
           - type: 'null'
+        outside_period_count:
+          type: integer
+          default: 0
+        outside_period_latest_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
       - from
       - to
+      - today
       - totals
       - awaiting_review
       - needs_attention
@@ -14460,6 +14501,64 @@ components:
       - after
       - source_ids
       - created_at
+    EcfCheck:
+      properties:
+        name:
+          type: string
+          enum:
+          - signature_integrity
+          - totals_arithmetic
+          - read_matches_xml
+          - certificate_validity
+          - certificate_issuer
+          - dgii_accepted
+          - security_code
+          - subject_rnc
+        state:
+          type: string
+          enum:
+          - verified
+          - failed
+          - not_checked
+        code:
+          anyOf:
+          - type: string
+            maxLength: 80
+          - type: 'null'
+        detail:
+          additionalProperties:
+            type: string
+          type: object
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - state
+    EcfVerification:
+      properties:
+        encf:
+          anyOf:
+          - type: string
+            maxLength: 40
+          - type: 'null'
+        tipo_ecf:
+          anyOf:
+          - type: string
+            maxLength: 8
+          - type: 'null'
+        checked_at:
+          type: string
+          format: date-time
+        checks:
+          items:
+            $ref: '#/components/schemas/EcfCheck'
+          type: array
+          maxItems: 16
+      additionalProperties: false
+      type: object
+      required:
+      - checked_at
+      - checks
     EditFinancialAccountRequest:
       properties:
         expected_version:
@@ -14540,6 +14639,11 @@ components:
         disclosure_token:
           type: string
           pattern: ^[0-9a-f]{64}$
+        language:
+          anyOf:
+          - type: string
+            maxLength: 16
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -17535,6 +17639,9 @@ components:
         version:
           type: integer
           minimum: 1.0
+        revision:
+          type: integer
+          minimum: 1.0
         source_id:
           type: string
           format: uuid
@@ -17557,6 +17664,7 @@ components:
       required:
       - draft_id
       - version
+      - revision
       - source_id
       - text
       - received_at
@@ -20777,6 +20885,9 @@ components:
         replayed:
           type: boolean
           default: false
+        read_pending:
+          type: boolean
+          default: false
         preparable:
           type: boolean
         enterable:
@@ -21323,6 +21434,9 @@ components:
           - type: string
           - type: 'null'
         replayed:
+          type: boolean
+          default: false
+        read_pending:
           type: boolean
           default: false
         preparable:

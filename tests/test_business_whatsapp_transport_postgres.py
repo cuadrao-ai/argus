@@ -110,7 +110,7 @@ async def test_without_ai_consent_the_owner_hears_that_plainly_and_no_model_runs
     assert world.executor.interpretations == []
     assert [m["text"]["body"] for m in world.transport.messages] == [
         "Todavía no has dado permiso para que Cuadrao lea tus mensajes con IA. "
-        "Puedes activarlo en Ajustes, en WhatsApp."
+        "Puedes activarlo en tu perfil, en App y luego WhatsApp."
     ]
 
 
@@ -586,6 +586,47 @@ async def test_interruption_marking_questions_waiting_recovers_without_recomposi
     assert world.executor.compositions == 1 and not world.transport.messages
 
 
+@pytest.mark.asyncio
+async def test_a_crash_between_saving_the_resend_reply_and_marking_unknown_replays_once(
+    world,
+):
+    from argus.domain.ingestion.whatsapp.replies import compose_reply
+
+    message = world.message()
+    world.captures.capture(message)
+    lease = _lease(world, message)
+    captured = world.captures.read(world.keys.message(message.id), lease=lease)
+    world.outbox.save_reply(
+        captured,
+        compose_reply("whatsapp_agent_unavailable", language=captured.language),
+        lease=lease,
+        fixed=True,
+    )
+    world.turns.release(lease)
+    # The process died here: the reply is saved, the turn was never marked unknown.
+    assert await world.worker(synthetic_consent=True).run_once()
+    assert not await world.worker(synthetic_consent=True).run_once()
+    assert world.executor.interpretations == []
+    assert [m["text"]["body"] for m in world.transport.messages] == [
+        "No pude entender tu mensaje esta vez. Envíalo de nuevo, por favor."
+    ]
+    assert world.states(message) == [("sent",)]
+
+
+def _lease(world, message):
+    from datetime import timedelta
+    from uuid import uuid4
+
+    lease = world.turns.acquire(
+        space_id=world.space,
+        sender_hash=world.keys.sender(message.sender).hex(),
+        holder=uuid4(),
+        duration=timedelta(seconds=60),
+    )
+    assert lease is not None
+    return lease
+
+
 def second_sender(world, users):
     """Another owner with a Business space and an active WhatsApp link."""
 
@@ -628,3 +669,88 @@ async def test_with_sending_off_a_saved_reply_does_not_hide_other_senders(world,
     sending["on"] = True
     assert world.captures.pending(include_unsent=True)
     assert await worker.run_once()
+    assert await worker.run_once()
+    assert not await worker.run_once()
+    assert [m["text"]["body"] for m in world.transport.messages] == [
+        "Guardé el borrador para revisión."
+    ] * 2
+    assert world.states(first) == [("sent",)] and world.states(other) == [("sent",)]
+    assert not await worker.run_once() and len(world.transport.messages) == 2
+
+
+@pytest.mark.asyncio
+async def test_sending_switched_off_just_before_the_claim_keeps_the_reply_pending(world):
+    message = world.message()
+    world.captures.capture(message)
+    sending = {"on": True}
+    worker = world.worker(synthetic_consent=True)
+    worker.send_enabled = lambda: sending["on"]
+    original = worker.delivery.claim
+
+    def switch_off_then_claim(*args, **kwargs):
+        sending["on"] = False
+        return original(*args, **kwargs)
+
+    worker.delivery.claim = switch_off_then_claim
+    assert await worker.run_once()
+    assert world.states(message) == [("pending",)] and world.transport.messages == []
+    worker.delivery.claim = original
+    sending["on"] = True
+    assert await worker.run_once()
+    assert [m["text"]["body"] for m in world.transport.messages] == [
+        "Guardé el borrador para revisión."
+    ]
+    assert world.states(message) == [("sent",)]
+    assert not await worker.run_once() and len(world.transport.messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_newer_reply_never_overtakes_an_older_saved_one(world):
+    sending = {"on": False}
+    worker = world.worker(synthetic_consent=True)
+    worker.send_enabled = lambda: sending["on"]
+    world.executor.reply = "Primera"
+    first = world.message("Compré materiales por 850")
+    world.captures.capture(first)
+    assert await worker.run_once()
+    world.executor.reply = "Segunda"
+    second = world.message("Compré cemento por 300")
+    world.captures.capture(second)
+    assert await worker.run_once()
+    assert world.states(first) == [("pending",)] and world.states(second) == [
+        ("pending",)
+    ]
+
+    # A batch picked while sending was off names only the newer message.
+    sending["on"] = True
+    sender = world.keys.sender("15550101234").hex()
+    real = worker.captures.pending
+    worker.captures.pending = lambda **_: [
+        (world.space, sender, world.keys.message(second.id))
+    ]
+    assert await worker.run_once()
+    assert world.transport.messages == []
+    worker.captures.pending = real
+    assert await worker.run_once() and await worker.run_once()
+    assert not await worker.run_once()
+    assert [m["text"]["body"] for m in world.transport.messages] == ["Primera", "Segunda"]
+    assert world.states(first) == [("sent",)] and world.states(second) == [("sent",)]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("link", "ending"),
+    [("https://app.test/biz", ": https://app.test/biz"), (None, ".")],
+)
+async def test_the_receipts_only_reply_carries_the_inbox_link_when_there_is_one(
+    world, link, ending
+):
+    worker = world.worker(synthetic_consent=True)
+    worker.execute_turn = None
+    worker.inbox_link = link
+    message = world.message()
+    world.captures.capture(message)
+    assert await worker.run_once()
+    assert [m["text"]["body"] for m in world.transport.messages] == [
+        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao" + ending
+    ]

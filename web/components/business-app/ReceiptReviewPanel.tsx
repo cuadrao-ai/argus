@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowLeft, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ReceiptDossierReview from "./ReceiptDossierReview";
+import ReceiptReadNotice from "./ReceiptReadNotice";
 import { rebindAndPrepare } from "./receipt-rebind";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import { receiptReviewAccess } from "./receipt-review-access";
@@ -79,7 +80,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     [detail, draft],
   );
   const confirmed = detail?.status === "confirmed";
-  const waitingForAi = detail?.status === "queued" || detail?.status === "preparing";
+  // Backend state only: a read is pending when the API says so, never from the status alone.
+  const waitingForAi = detail?.read_pending === true;
 
   if (failed) {
     return (
@@ -129,8 +131,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       show(await source.receipt(detail.id));
       setUnprepared(false);
       reload();
-    } catch {
-      setProblem(t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again."));
+    } catch (error) {
+      setProblem(
+        (error as { code?: string }).code === "whatsapp_receipt_reading_off"
+          ? t("business.review.reading_off", "Turn on Read my receipts with AI in your WhatsApp settings, then try again.")
+          : t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again."),
+      );
     } finally {
       setBusy(null);
     }
@@ -278,11 +284,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               </button>
             </div>
           ) : null}
-          {waitingForAi ? (
-            <div role="status" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>
-              {t("business.review.preparing", "Reading your receipt. You can leave this page; the result will wait in your inbox.")}
-            </div>
-          ) : null}
+          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={detail.enterable && canPrepare && !locked} preparable={detail.preparable && canPrepare} />
 
           <div className={`${cardClass} space-y-4`}>
             {field(

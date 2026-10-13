@@ -536,6 +536,22 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-dossier-revision-number-20261012": {
+      "description": "The dossier header shows the latest facts revision, the same number the revision history lists, not the event's internal version that also counts approvals and settlements.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-dossier.test.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/lib/business-dossier.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-duplicate-receipts-20261012": {
       "description": "Duplicate receipts never record money twice: same bytes come back as the saved receipt (replayed), same read facts set the second draft aside as a possible duplicate with an approval blocker, attention and a link to the original. No regex or phrase logic.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -559,6 +575,76 @@
         "web/components/business-app/ReceiptReviewPanel.tsx",
         "web/components/business-app/business-ui.tsx",
         "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-e2e-robustness-20261012": {
+      "description": "The record-review e2e reads the home counts from the elements that carry them and fails loudly when a read misses; the live upload spec asserts exactly what it collects; the workspace derives its scoped source the moment the person leaves a record, so no unscoped fetch is wasted. The stale fixture lists the concurrent revision in its history, so the header after a stale refusal names it.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/e2e/business-record-review.spec.ts",
+        "web/e2e/business-upload-review-live.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-ecf-checks-20261012": {
+      "description": "Tier A e-CF checks: a draft prepared from a DGII e-CF XML carries what the file itself proved (content unchanged since signing, totals, the read against the XML, certificate window at the declared signing time, subject RNC) and names what is not checked (issuer trust, DGII acceptance, revocation, printed code), read locally with lxml c14n only, never blocking review.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "poetry.lock",
+        "pyproject.toml",
+        "src/argus/domain/business/actions/dossier.py",
+        "src/argus/domain/business/actions/mutations.py",
+        "src/argus/domain/business/contracts/checks.py",
+        "src/argus/domain/business/contracts/dossier.py",
+        "src/argus/domain/business/contracts/facts.py",
+        "src/argus/domain/ingestion/documents/ecf_checks.py",
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "src/argus/domain/ingestion/documents/models.py",
+        "src/argus/domain/ingestion/documents/preparation.py",
+        "tests/business/receipt_stub.py",
+        "tests/business/test_business_ecf_invoice.py",
+        "tests/ecf_signing_support.py",
+        "tests/ingestion/test_ecf_checks.py",
+        "tests/test_business_ecf_checks_draft.py",
+        "tests/test_business_ecf_invoice_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-ecf-checks-card-20261012": {
+      "description": "Tier A web card: the record of an electronic invoice lists what the file proved, one line per check with its state, in words that never overreach (content unchanged since signing, never who signed; DGII acceptance and the issuing authority named as not checked); a line to review never blocks approval.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-ecf-checks.test.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/ReceiptEcfChecks.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/e2e/business-ecf-checks.spec.ts",
+        "web/lib/business-dossier.ts",
         "web/public/locales/en/common.json",
         "web/public/locales/es-419/common.json"
       ],
@@ -595,6 +681,73 @@
         "tests/test_business_ecf_invoice_postgres.py",
         "web/__tests__/receipt-upload-queue.test.ts",
         "web/components/business-app/receipt-file.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-email-intake-startup-log-20261012": {
+      "description": "Email intake says at startup, by condition name and never by value, why it did not start or why it carries no receiving provider, so the logs answer a 404 on the Resend webhook.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/api/email_intake.py",
+        "tests/test_email_intake_startup.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-expense-opens-dossier-20261012": {
+      "description": "A saved expense opens the record it was recorded from: the API names the receipt a linked bridge draft recorded an expense from (the legacy lookup reads observations a bridge draft never has), in the expenses list and in search, and the whole Expenses row is the control that opens it.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/api/business_drafts.py",
+        "src/argus/api/routers/business.py",
+        "tests/business/test_receipt_views_leave_through_the_overlay.py",
+        "tests/test_business_expense_receipts_postgres.py",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
+        "web/e2e/business-expense-opens-dossier.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-expense-period-20261012": {
+      "description": "Expenses and the home take a period of this month, last month, last 30 days, all, or a typed range; a saved expense the period leaves out is named with its date and a way to show it, never left to look vanished.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/domain/business/ledger.py",
+        "src/argus/domain/business/service.py",
+        "tests/business/test_business_overview_period.py",
+        "web/__tests__/business-period.test.ts",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
+        "web/components/business-app/BusinessOverviewPanel.tsx",
+        "web/components/business-app/BusinessPeriodControl.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/OutsidePeriodNote.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/business-data.ts",
+        "web/components/business-app/business-format.ts",
+        "web/components/business-app/fixture-data.ts",
+        "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
       ],
       "deny": [
         ".env",
@@ -843,6 +996,21 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-overlay-guard-cases-20261012": {
+      "description": "The receipt-view guard is an ast scan over all of src/argus, and the Postgres views cover a dismissed draft, a receipt linked to two drafts and an approved draft still asking for purchases.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "tests/business/test_receipt_views_leave_through_the_overlay.py",
+        "tests/test_business_receipt_views_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-owner-funds-20261010": {
       "description": "M1-owned owner funding source delta; canonical shared schema/census reconciliation remains coordinator-owned.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -918,6 +1086,119 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-receipt-notes-20261012": {
+      "description": "Review notes on #996 and #997: a repeat mark never overwrites a bank-match warning; the observation reader skips rows the projection skips; the settle route declares its refusals; direct tests for the duplicate skip rule, the legacy duplicate pass, the zero-purchase label and the settle refusals.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/routers/business_drafts.py",
+        "src/argus/domain/business/actions/mutations.py",
+        "src/argus/domain/business/duplicates.py",
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "tests/business/test_business_duplicates_direct.py",
+        "tests/test_business_multi_purchase.py",
+        "tests/test_business_multi_purchase_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-receipt-read-pending-20261012": {
+      "description": "A receipt says whether a read will actually happen: read_pending from backend state; a queued receipt whose owner switched reading off is reported saved, waits for a person with the form enabled, and the web shows Leyendo tu recibo only on a pending read.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_schemas.py",
+        "src/argus/domain/business/receipts.py",
+        "src/argus/domain/business/service.py",
+        "src/argus/domain/ingestion/documents/service.py",
+        "tests/business/test_receipt_read_pending.py",
+        "web/__tests__/receipt-read-notice.test.tsx",
+        "web/components/business-app/ReceiptReadNotice.tsx",
+        "web/components/business-app/ReceiptReviewPanel.tsx",
+        "web/components/business-app/fixture-data.ts",
+        "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-refresh-after-actions-20261012": {
+      "description": "Founder rule: after approve, review, upload or rebind the affected lists, counts and cards refresh on their own; proven by an e2e that approves from the inbox and sees the home card and inbox count change without a reload.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/e2e/business-record-review.spec.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-review-followups-20261012": {
+      "description": "Review follow-ups: the saved receipt line names only what the person can do now; the WhatsApp read binds only to the owner who received the receipt, checked explicitly; a release that fails after a read that could not start keeps the original error as the one raised.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/api/whatsapp.py",
+        "tests/test_whatsapp_read_followups.py",
+        "web/__tests__/receipt-read-notice.test.tsx",
+        "web/components/business-app/ReceiptReadNotice.tsx",
+        "web/components/business-app/ReceiptReviewPanel.tsx",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-revision-labels-20261012": {
+      "description": "Every revision label a person sees names a facts revision the history lists: the dossier's latest revision on the review panel and the note dialog, and each saved note's own revision in the inbox and in search, carried by the captures API as revision beside the draft's current version.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_manual_schemas.py",
+        "src/argus/domain/business/actions/captures.py",
+        "tests/business/test_actions_capture_api.py",
+        "tests/test_business_manual_capture_postgres.py",
+        "web/__tests__/business-inbox-notes.test.tsx",
+        "web/__tests__/business-search.test.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/BusinessSearchDossier.tsx",
+        "web/components/business-app/ManualCaptureDialog.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/components/business-app/useBusinessSearch.ts",
+        "web/lib/business-api.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-settings-names-20261012": {
       "description": "Cuadrao setting names: CUADRAO_* read first, ARGUS_* as a fallback, for the Business pilot and chat, ingestion, document extraction and jobs, vision model, financial accounts, email intake, app origin and the web NEXT_PUBLIC_* names. Setting names only; no package, database or WhatsApp change. The example env files are documentation here; real env files stay denied.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -972,6 +1253,31 @@
       "deny": [
         ".env",
         "web/.env.local"
+      ]
+    },
+    "codex/cuadrao-single-candidate-draft-20261012": {
+      "description": "A clean single-purchase read always becomes one draft; a saved read whose hosted hand-off refused or failed is retryable from the inbox with its real code, never a dead 'no purchase found'.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "src/argus/api/business_drafts.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/domain/business/receipts.py",
+        "src/argus/domain/business/service.py",
+        "src/argus/domain/ingestion/receipt_review.py",
+        "tests/business/test_business_handoff_retry.py",
+        "tests/business/test_business_search.py",
+        "tests/business/test_receipt_views_leave_through_the_overlay.py",
+        "tests/test_business_multi_purchase_postgres.py",
+        "tests/test_business_receipt_views_postgres.py",
+        "tests/test_business_single_candidate_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
       ]
     },
     "codex/cuadrao-upload-review-crash-20261012": {
@@ -1055,6 +1361,29 @@
         "web/public/manifest.json",
         "web/public/screenshots/argus-desktop.png",
         "web/public/screenshots/argus-mobile.png"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-whatsapp-copy-code-20261012": {
+      "description": "A square copy button beside the WhatsApp link code: press it, the full code lands on the clipboard, the icon turns into a check for a moment and comes back; named Copiar código, Copiado announced politely, a refusing clipboard never crashes the panel.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/copy-code-button.dom.test.tsx",
+        "web/__tests__/copy-text.test.ts",
+        "web/__tests__/whatsapp-link-modal.test.tsx",
+        "web/bun.lock",
+        "web/components/settings/CopyCodeButton.tsx",
+        "web/components/settings/WhatsAppLinkModal.tsx",
+        "web/lib/copy-text.ts",
+        "web/package.json",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
       ],
       "deny": [
         ".env",

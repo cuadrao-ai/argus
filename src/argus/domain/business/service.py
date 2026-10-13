@@ -22,7 +22,6 @@ from argus.domain.business.receipts import (
     CLOSED,
     Receipt,
     compose,
-    review_fields,
     updates,
 )
 from argus.domain.business.scope import BusinessScope
@@ -162,13 +161,15 @@ class BusinessService:
         whatsapp: frozenset[str],
     ) -> Receipt:
         person = scope.person_id
+        draft = self.documents.get(
+            user_id=person, connection_id=receipt_id, scope=scope.owner
+        )
         return compose(
-            self.documents.get(
-                user_id=person, connection_id=receipt_id, scope=scope.owner
-            ),
+            draft,
             self.documents.store.get(user_id=person, connection_id=receipt_id),
             events,
             "whatsapp" if receipt_id in whatsapp else "web",
+            read_pending=self.documents.read_pending(person, receipt_id, draft),
         )
 
     async def upload(
@@ -340,8 +341,9 @@ class BusinessService:
 
     # --- Expenses ---------------------------------------------------------
     def expenses(
-        self, scope: BusinessScope, start: date, end: date
+        self, scope: BusinessScope, start: date, end: date | None = None
     ) -> list[dict[str, Any]]:
+        end = end if end is not None else ledger.today()
         return self._expenses(scope, self._activities(scope), start, end)
 
     def _expenses(
@@ -358,11 +360,20 @@ class BusinessService:
             _wire(item) for item in ledger.expenses(activities, receipt_of, start, end)
         ]
 
-    def search(self, scope: BusinessScope, q: str, limit: int) -> dict[str, Any]:
+    def search(
+        self,
+        scope: BusinessScope,
+        q: str,
+        limit: int,
+        views: Mapping[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Expenses and accounts through the canonical financial search, plus
         receipts matched by the same rule on merchant, filename and amount.
 
-        A receipt whose expense is already a hit is left out: the expense opens it.
+        ``views`` are the receipt summaries as the API shows them (a linked draft
+        owns merchant, amount and expense), so the match sees what the person
+        sees. A receipt whose expense is already a hit is left out: the expense
+        opens it.
         """
 
         query = financial_search.query_text(q)
@@ -376,11 +387,13 @@ class BusinessService:
         ]
         expenses = self._expenses(scope, activities, date.min, date.max)[:limit]
         listed = {expense["id"] for expense in expenses}
+        shown = views or {}
         receipts = [
-            receipt.summary()
+            summary
             for receipt in self.receipts(scope)
-            if receipt.review.expense_id not in listed
-            and financial_search.matches(query, _receipt_text(receipt))
+            for summary in [shown.get(receipt.id) or receipt.summary()]
+            if summary["expense_id"] not in listed
+            and financial_search.matches(query, _summary_text(summary))
         ]
         accounts = [
             {
@@ -433,22 +446,40 @@ class BusinessService:
             raise IdempotencyConflict()
         return _wire(recorded[0])
 
-    def overview(self, scope: BusinessScope, start: date, end: date) -> dict[str, Any]:
+    def overview(
+        self, scope: BusinessScope, start: date, end: date | None = None
+    ) -> dict[str, Any]:
+        today = ledger.today()
+        end = end if end is not None else today
         receipts = self.receipts(scope)
         activities = self._activities(scope)
         recorded = ledger.recorded_at(activities)
+        outside = [
+            item
+            for item in ledger.expenses(activities, {}, date.min, date.max)
+            if not start <= item["occurred_on"] <= end
+        ]
         return {
             "from": start,
             "to": end,
+            "today": today,
             "totals": ledger.totals(ledger.expenses(activities, {}, start, end)),
+            "outside_period_count": len(outside),
+            "outside_period_latest_on": max(
+                (item["occurred_on"] for item in outside), default=None
+            ),
             "awaiting_review": sum(r.status in AWAITING_REVIEW for r in receipts),
             "needs_attention": sum(r.status == "needs_attention" for r in receipts),
             "last_received_at": max((r.draft.created_at for r in receipts), default=None),
             "last_confirmed_at": max(recorded.values(), default=None),
         }
 
-    def updates(self, scope: BusinessScope) -> list[dict[str, Any]]:
-        return updates(self.receipts(scope), ledger.recorded_at(self._activities(scope)))
+    def updates(
+        self, scope: BusinessScope, views: Mapping[str, dict[str, Any]] | None = None
+    ) -> list[dict[str, Any]]:
+        return updates(
+            self.receipts(scope), ledger.recorded_at(self._activities(scope)), views
+        )
 
     def inbox(self, scope: BusinessScope) -> list[Receipt]:
         return [r for r in self.receipts(scope) if r.status not in CLOSED]
@@ -459,10 +490,9 @@ class BusinessService:
         )
 
 
-def _receipt_text(receipt: Receipt) -> str:
-    fields = review_fields(receipt.review)
+def _summary_text(summary: Mapping[str, Any]) -> str:
     return " ".join(
-        filter(None, [fields["merchant"], receipt.draft.filename, fields["amount"]])
+        filter(None, [summary["merchant"], summary["filename"], summary["amount"]])
     )
 
 

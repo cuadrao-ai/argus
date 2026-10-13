@@ -73,6 +73,7 @@ class BusinessWhatsAppWorker:
         consent=None,
         enabled: Callable[[], bool] = lambda: True,
         send_enabled: Callable[[], bool] = lambda: True,
+        inbox_link: str | None = None,
     ) -> None:
         self.captures, self.turns, self.outbox, self.delivery = (
             captures,
@@ -84,6 +85,7 @@ class BusinessWhatsAppWorker:
         self.has_consent, self.enabled = has_consent, enabled
         self.consent = consent
         self.send_enabled = send_enabled
+        self.inbox_link = inbox_link
         self.holder = uuid4()
 
     async def run_once(self) -> bool:
@@ -156,6 +158,7 @@ class BusinessWhatsAppWorker:
                             if missing
                             else "whatsapp_receipt_missing",
                             language=captured.language,
+                            link=self.inbox_link,
                         ),
                         lease=lease,
                         fixed=True,
@@ -339,8 +342,8 @@ class BusinessWhatsAppWorker:
                 self.delivery.claim,
                 captured,
                 lease=lease,
+                sending=self.send_enabled,
                 permitted=lambda allowed=allowed: self.enabled()
-                and self.send_enabled()
                 and allowed
                 and (
                     turn is None
@@ -362,11 +365,10 @@ class BusinessWhatsAppWorker:
             if claim.state != "sending":
                 return
             try:
-                if (
-                    not self.enabled()
-                    or not self.send_enabled()
-                    or not await asyncio.to_thread(authorized)
-                ):
+                # The transport switch was read inside the claim, which is the
+                # last point a reply can still wait; a started send cannot be
+                # retried, so it is not asked again here.
+                if not self.enabled() or not await asyncio.to_thread(authorized):
                     raise PermissionError("whatsapp_ai_consent_required")
                 await self.transport.send(
                     reply_payload(

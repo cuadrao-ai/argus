@@ -64,14 +64,25 @@ export function formatRelativeTime(iso: string | null, locale: string): string {
   return rtf.format(Math.round(hours / 24), "day");
 }
 
-export type Period = { key: "this_month" | "last_month" | "last_30_days"; from: string; to: string };
+export type PeriodKey = "this_month" | "last_month" | "last_30_days" | "all" | "custom";
+/** `to` null means "through today by the server's clock": the API fills it. */
+export type Period = { key: PeriodKey; from: string; to: string | null };
+export const PERIOD_PRESETS: PeriodKey[] = ["this_month", "last_month", "last_30_days", "all"];
+/** "All" starts before any receipt this product can hold. */
+export const ALL_FROM = "2000-01-01";
 
 function isoDay(date: Date): string {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
-export function periodRange(key: Period["key"], now = new Date()): Period {
+export function todayIso(now = new Date()): string {
+  return isoDay(now);
+}
+
+export function periodRange(key: PeriodKey, now = new Date()): Period {
+  if (key === "all") return { key, from: ALL_FROM, to: null };
+  if (key === "custom") return { key, from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: isoDay(now) };
   if (key === "last_month") {
     const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const last = new Date(now.getFullYear(), now.getMonth(), 0);
@@ -80,9 +91,9 @@ export function periodRange(key: Period["key"], now = new Date()): Period {
   if (key === "last_30_days") {
     const start = new Date(now);
     start.setDate(start.getDate() - 29);
-    return { key, from: isoDay(start), to: isoDay(now) };
+    return { key, from: isoDay(start), to: null };
   }
-  return { key, from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: isoDay(now) };
+  return { key, from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: null };
 }
 
 export const RECEIPT_CATEGORY_IDS = [
@@ -96,13 +107,20 @@ export const RECEIPT_CATEGORY_IDS = [
   "interest_fees",
 ] as const;
 
+/** A range the person typed; both days are required and in order. */
+export function customPeriod(from: string, to: string): Period | null {
+  const day = /^\d{4}-\d{2}-\d{2}$/;
+  if (!day.test(from) || !day.test(to) || from > to) return null;
+  return { key: "custom", from, to };
+}
+
 /** The first period filter whose range holds `day`, if any does. */
-export function periodContaining(day: string, now = new Date()): Period["key"] | null {
-  const keys: Period["key"][] = ["this_month", "last_month", "last_30_days"];
+export function periodContaining(day: string, now = new Date()): PeriodKey | null {
+  const keys: PeriodKey[] = ["this_month", "last_month", "last_30_days"];
   return (
     keys.find((key) => {
       const { from, to } = periodRange(key, now);
-      return from <= day && day <= to;
+      return from <= day && day <= (to ?? isoDay(now));
     }) ?? null
   );
 }

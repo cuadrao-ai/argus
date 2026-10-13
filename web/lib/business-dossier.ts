@@ -66,7 +66,20 @@ export type BusinessRecordContext = {
 /** One purchase a document read showed, kept as evidence when the read could not settle on one. */
 export type BusinessReadPurchase = { index: number; amount: string | null; currency: string | null; occurred_on: string | null; merchant: string | null; kind_hint: string | null };
 
+/** The revision number a person sees: the latest revision of the facts, the same number the history lists. The event's own version also counts approvals and settlements. */
+export function factsRevision(dossier: Pick<BusinessDossier, "version" | "history">): number {
+  return dossier.history.length ? Math.max(...dossier.history.map((revision) => revision.version)) : dossier.version;
+}
+
+export type EcfCheckName = "signature_integrity" | "totals_arithmetic" | "read_matches_xml" | "certificate_validity" | "certificate_issuer" | "subject_rnc" | "dgii_accepted" | "security_code";
+export type EcfCheckState = "verified" | "failed" | "not_checked";
+/** One fact the e-CF file proved, or the reason it was not checked; never a blocker. */
+export type EcfCheck = { name: EcfCheckName; state: EcfCheckState; code: string | null; detail: Record<string, string> };
+export type EcfVerification = { encf: string | null; tipo_ecf: string | null; checked_at: string; checks: EcfCheck[] };
+
 export type BusinessDossier = BusinessRecordContext & {
+  /** What the e-CF XML proved by itself; null for any other source. */
+  ecf_checks?: EcfVerification | null;
   read_purchases?: BusinessReadPurchase[];
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
   read_total?: string | null;
