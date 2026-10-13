@@ -1134,6 +1134,7 @@
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
+        "web/__tests__/account-deletion-api.test.ts",
         "web/__tests__/alpha-frontend.test.ts",
         "web/__tests__/logout-first-click.dom.test.tsx",
         "web/__tests__/logout-first-click.test.ts",

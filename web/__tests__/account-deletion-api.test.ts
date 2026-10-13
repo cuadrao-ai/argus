@@ -138,7 +138,7 @@ describe("account deletion outcomes (Lane 6)", () => {
       "if (options.afterAccountDeletion) return endSessionKeepingSurface(accountBoundary);",
     );
     expect(chat).toContain(
-      "const result = options.sessionEnded ? null : await logoutFromApi();",
+      "signOut: () => (options.sessionEnded ? Promise.resolve(null) : logoutFromApi())",
     );
   });
 });
