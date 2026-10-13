@@ -41,7 +41,15 @@ final class FinancialDebtDraft: ObservableObject, Identifiable {
         fees = debt.assumptions.map { AccountPresentation.amount($0.recurringFees, locale: .current) } ?? ""
         periodStart = PlanPresentation.date(debt.assumptions?.firstPeriodStart ?? debt.earliestEffectiveDate)
     }
-    var ready: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 100 && sourceID != nil && !amount.isEmpty && (!estimate || (!rate.isEmpty && !fees.isEmpty)) }
+    var ready: Bool { missing == nil }
+    /// The first thing this debt plan still needs; the save check and the editor's hint both read it.
+    var missing: ConnectedPlanMissing? {
+        if let problem = ConnectedPlanMissing.name(name) { return problem }
+        if amount.isEmpty { return .monthly }
+        if sourceID == nil { return .source }
+        if estimate && rate.isEmpty { return .rate }
+        return estimate && fees.isEmpty ? .fees : nil
+    }
     func command(locale: Locale) throws -> FinancialDebtCommand {
         guard ready, let exact = try AccountEntry.amount(amount, locale: locale) else { throw AccountEntry.Failure.amount }
         let old = existing?.schedule
