@@ -26,7 +26,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(card.locator('[data-state="failed"]')).toHaveCount(1);
       await expect(card.locator("li")).toHaveCount(5);
       await expect(card).toContainText("Vigente en la fecha que declara el documento");
-      await expect(card).toContainText(/comprobado hace/);
+      // The fixture was checked days ago; the relative time says so in words.
+      await expect(card).toContainText(/comprobado (hace|anteayer|ayer)/);
       await expect(card).not.toContainText("firma verificada");
       await expect(card).not.toContainText("al firmar");
       // A line to review is information for a person, never a blocker.
