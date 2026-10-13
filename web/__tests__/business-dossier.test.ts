@@ -1,5 +1,7 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
@@ -301,4 +303,10 @@ test("the line under approve never tells a person who can approve that someone e
   assert.equal(approvalLine(false, true, false), "prepare_only");
   assert.equal(approvalLine(false, true, true), "prepare_only");
   assert.equal(approvalLine(false, false, true), "read_only");
+});
+
+test("the record page mounts no export panel: exports belong to a period surface", () => {
+  const source = readFileSync(join(import.meta.dir, "..", "components", "business-app", "ReceiptDossierReview.tsx"), "utf-8");
+  const page = source.slice(source.indexOf("export default function ReceiptDossierReview"));
+  assert.ok(!page.includes("<ReceiptPeriodExport"));
 });

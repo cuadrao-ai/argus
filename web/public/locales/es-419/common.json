@@ -2259,6 +2259,10 @@
       "web_actions": "Revisiones en la web",
       "submitted_action": "Acción enviada originalmente",
       "web_message": "Mensaje web",
+      "email": "Correo",
+      "see_emails": "Ver en Correos recibidos",
+      "email_times_one": "Este archivo llegó {{count}} vez por correo.",
+      "email_times_other": "Este archivo llegó {{count}} veces por correo.",
       "web": "Carga web",
       "message_unavailable": "El mensaje original no está disponible.",
       "received": "Recibido {{time}}",
@@ -2371,6 +2375,18 @@
         "ecf": "e-CF",
         "itbis": "ITBIS"
       },
+      "standing": {
+        "suggestion": "Leído de la fuente · sugerencia sin verificar",
+        "empty": "Sin dato",
+        "missing": "Falta"
+      },
+      "confirm_value": "Confirmar",
+      "suggestions_pending_one": "{{count}} sugerencia por confirmar",
+      "suggestions_pending_other": "{{count}} sugerencias por confirmar",
+      "missing_pending_one": "Falta {{count}} dato",
+      "missing_pending_other": "Faltan {{count}} datos",
+      "unresolved_pending_one": "{{count}} dato por resolver",
+      "unresolved_pending_other": "{{count}} datos por resolver",
       "origin": {
         "extracted": "Leído de la fuente · sin verificar",
         "qr_decoded": "Del código QR · sin verificar",
@@ -2463,6 +2479,7 @@
       "no_receipt": "Sin recibo adjunto",
       "recorded_on": "Registrado el {{when}}",
       "detail_error": "No pudimos abrir este gasto. Reintenta.",
+      "retry": "Reintentar",
       "account_unknown": "Desconocida"
     },
     "home": {
@@ -2498,6 +2515,7 @@
       "attachments_other": "{{count}} adjuntos",
       "original": "Abrir el correo original",
       "open_receipt": "Abrir recibo",
+      "repeat": "Ya recibiste este archivo",
       "no_filename": "Adjunto sin nombre",
       "body_failed": "No se pudo cargar el mensaje.",
       "no_body": "Sin texto en el mensaje.",
@@ -2565,6 +2583,10 @@
       },
       "too_large": "Este archivo pesa más de {{size}} MB. Usa una foto o un PDF más pequeño.",
       "unsupported": "Este tipo de archivo no es compatible. Usa {{formats}}."
+    },
+    "notice": {
+      "conversation_unavailable": "Esta conversación no está disponible en Cuadrao Business.",
+      "go_business": "Ir a Cuadrao Business"
     },
     "nav": {
       "expenses": "Gastos",

@@ -2259,6 +2259,10 @@
       "web_actions": "Web review actions",
       "submitted_action": "Original submitted action",
       "web_message": "Web message",
+      "email": "Email",
+      "see_emails": "See in Received emails",
+      "email_times_one": "This file arrived {{count}} time by email.",
+      "email_times_other": "This file arrived {{count}} times by email.",
       "web": "Web upload",
       "message_unavailable": "The original message isn't available.",
       "received": "Received {{time}}",
@@ -2371,6 +2375,18 @@
         "ecf": "e-CF",
         "itbis": "ITBIS"
       },
+      "standing": {
+        "suggestion": "Read from the source · suggestion, not verified",
+        "empty": "No value",
+        "missing": "Missing"
+      },
+      "confirm_value": "Confirm",
+      "suggestions_pending_one": "{{count}} suggestion to confirm",
+      "suggestions_pending_other": "{{count}} suggestions to confirm",
+      "missing_pending_one": "{{count}} detail missing",
+      "missing_pending_other": "{{count}} details missing",
+      "unresolved_pending_one": "{{count}} detail to resolve",
+      "unresolved_pending_other": "{{count}} details to resolve",
       "origin": {
         "extracted": "Read from source · not verified",
         "qr_decoded": "From the QR code · not verified",
@@ -2424,6 +2440,7 @@
       "no_receipt": "No receipt attached",
       "recorded_on": "Recorded on {{when}}",
       "detail_error": "We couldn't open this expense. Try again.",
+      "retry": "Try again",
       "account_unknown": "Unknown"
     },
     "sample": {
@@ -2469,6 +2486,10 @@
       "ask_spending": "What did I spend this month?",
       "attach_receipt": "Add a receipt"
     },
+    "notice": {
+      "conversation_unavailable": "This conversation isn't available in Cuadrao Business.",
+      "go_business": "Go to Cuadrao Business"
+    },
     "nav": {
       "label": "Business",
       "overview": "Overview",
@@ -2512,6 +2533,7 @@
       "attachments_other": "{{count}} attachments",
       "original": "Open the original email",
       "open_receipt": "Open receipt",
+      "repeat": "You already received this file",
       "no_filename": "Unnamed attachment",
       "body_failed": "Could not load the message.",
       "no_body": "No message text.",

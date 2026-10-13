@@ -32,6 +32,41 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-biz-landing-20261013": {
+      "description": "On a Cuadrao Business build (NEXT_PUBLIC_BUSINESS_PILOT_ENABLED) the signed-in home is /biz: login without return_to lands there, the signed-out /chat guest page is gone (signed-out visitors go to login) and the Business UI links that pointed at /chat use the signed-in home. return_to stays allow-listed to same-origin /biz paths. Consumer builds are unchanged.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-shell-no-guest.test.ts",
+        "web/__tests__/conversation-unavailable-notice.dom.test.tsx",
+        "web/__tests__/guest-entry-routing.test.ts",
+        "web/__tests__/landing-intent.test.ts",
+        "web/__tests__/receipt-followup.test.ts",
+        "web/app/account/security/page.tsx",
+        "web/app/biz/page.tsx",
+        "web/app/chat/page.tsx",
+        "web/app/page.tsx",
+        "web/components/business-app/BusinessApp.tsx",
+        "web/components/business-app/ConversationUnavailableNotice.tsx",
+        "web/components/chat/ChatInterface.tsx",
+        "web/components/chat/ConversationShellGuard.tsx",
+        "web/components/chat/useInitialChatSession.ts",
+        "web/components/guest/ExpiredGuestSession.tsx",
+        "web/components/receipt/ReceiptFollowup.tsx",
+        "web/e2e/business-pilot-preview.spec.ts",
+        "web/lib/conversation-surface-guard.ts",
+        "web/lib/landing-entry.ts",
+        "web/lib/landing-intent.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-business-actions-20261010": {
       "description": "Actions-owned source delta; M1 and C0 dependencies must land and reconcile before full READY gate.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -567,6 +602,25 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-default-spanish-20261013": {
+      "description": "On a Cuadrao Business build Spanish (es-419) is the language a visitor sees first and the browser's language never decides; a choice saved on the device does, and the account's saved language rules once signed in. The auth page gets a footer link named by the other language (English / Español) that switches at once and is saved on the account at sign-in. Consumer builds keep English and browser detection.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/ARCHITECTURE.md",
+        "web/__tests__/landing-language.test.ts",
+        "web/__tests__/profile-propagation.test.ts",
+        "web/app/page.tsx",
+        "web/lib/i18n.ts",
+        "web/lib/language-features.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-dgii-qr-20261012": {
       "description": "DGII QR on Dominican e-invoices: decoded deterministically from the page images with zxing-cpp, only fc.dgii.gov.do and ecf.dgii.gov.do links kept as a typed fact on the draft, two check rows (qr_present, qr_matches_read), and a typed merge step after decode and read that fills only what the read left empty with origin qr_decoded; a mismatch fills nothing and is a row to review; Cuadrao never fetches the link.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -772,6 +826,42 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-email-channel-20261013": {
+      "description": "Staging email findings: a receipt that arrived by email says Correo (channel email decided at the API boundary from the email queue, on receipt views and on dossier attachment sources, nothing stored), with a way to Correos recibidos and the count of emails it arrived in; a second email with the same bytes names the first delivery (repeat_of_delivery_id) and the row says Ya recibiste este archivo. OpenAPI regenerated; no migration.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_drafts.py",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/api/routers/business_drafts.py",
+        "src/argus/api/routers/email_intake.py",
+        "src/argus/domain/business/contracts/dossier.py",
+        "src/argus/domain/business/receipts.py",
+        "tests/business/test_business_email_api.py",
+        "web/__tests__/email-delivery-repeat.dom.test.tsx",
+        "web/__tests__/receipt-email-origin.test.tsx",
+        "web/components/business-app/BusinessEmailDeliveries.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/ReceiptSourcePreview.tsx",
+        "web/components/business-app/business-ui.tsx",
+        "web/components/business-app/fixture-data.ts",
+        "web/lib/business-api.ts",
+        "web/lib/business-dossier.ts",
+        "web/lib/business-email.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-email-intake-startup-log-20261012": {
       "description": "Email intake says at startup, by condition name and never by value, why it did not start or why it carries no receiving provider, so the logs answer a 404 on the Resend webhook.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -844,6 +934,27 @@
         "web/components/business-app/useBusinessSearch.ts",
         "web/e2e/business-expense-opens-dossier.spec.ts",
         "web/lib/business-api.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-expense-link-20261013": {
+      "description": "Eval follow-ups to #1033: a direct ?expense= link resolves the record the way the Expenses row does (receipt, else draft, else plain detail), so an expense with a receipt never reads 'Sin recibo adjunto'; the detail panel's aria-labelledby names an element that exists in every state, the panel takes focus on open and gives it back to the opener on close; a Postgres case for a draft-recorded expense with no receipt; BusinessContext exported for DOM tests.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "tests/test_business_expense_receipts_postgres.py",
+        "web/__tests__/expense-detail-panel.dom.test.tsx",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ExpenseDetailPanel.tsx",
+        "web/e2e/business-expense-opens-dossier.spec.ts",
         "web/public/locales/en/common.json",
         "web/public/locales/es-419/common.json"
       ],
@@ -1348,6 +1459,21 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-record-export-20261013": {
+      "description": "The record page no longer mounts the export panel: exports belong to a period or export surface, not to one record. The ReceiptPeriodExport component and its request helpers stay for that surface, unmounted; a test pins the record page free of it.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-dossier.test.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-refresh-after-actions-20261012": {
       "description": "Founder rule: after approve, review, upload or rebind the affected lists, counts and cards refresh on their own; proven by an e2e that approves from the inbox and sees the home card and inbox count change without a reload.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -1392,6 +1518,43 @@
         "web/__tests__/receipt-read-poll.dom.test.tsx",
         "web/components/business-app/ReceiptReviewPanel.tsx",
         "web/components/business-app/receipt-read-poll.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-review-redesign-20261013": {
+      "description": "Review page redesign: the record's facts lead with what is settled, a value the AI read suggested is a Sugerencia with an in-place Confirmar for a preparer and never counts as known, a value from the DGII QR looks like the QR, a missing value says Falta, a counts line names suggestions and gaps; cream and green tokens; es-419 first; rendered evidence under docs/reports/evidence.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-dark-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-dark-phone.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-fiscal-dark-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-fiscal-dark-phone.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-fiscal-light-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-fiscal-light-phone.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-light-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-light-phone.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-unknown-amount-dark-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-unknown-amount-dark-phone.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-unknown-amount-light-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/facts-unknown-amount-light-phone.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/page-dark-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/page-dark-phone.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/page-light-desktop.png",
+        "docs/reports/evidence/cuadrao-business/review-redesign-20261013/page-light-phone.png",
+        "web/__tests__/receipt-fact-rows.test.tsx",
+        "web/app/globals.css",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/ReceiptRecordFacts.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/components/business-app/receipt-fact-rows.ts",
         "web/public/locales/en/common.json",
         "web/public/locales/es-419/common.json"
       ],

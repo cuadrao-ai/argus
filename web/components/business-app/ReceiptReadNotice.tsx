@@ -5,12 +5,6 @@ import type { ReceiptStatus } from "@/lib/business-api";
 import { cardClass } from "./business-ui";
 
 /**
- * What is happening to a saved receipt, from backend state only: "Leyendo tu
- * recibo" while a read is pending; a neutral line while nothing will read it,
- * naming only what the person can do now (fill it in by hand, ask for an AI
- * read, both, or neither); nothing otherwise.
- */
-/**
  * The one sentence for a receipt saved without a read, naming only what the
  * person can do now: the per-receipt "Preparar con IA" button is the consent
  * for web and email receipts, and filling it in by hand needs no read.

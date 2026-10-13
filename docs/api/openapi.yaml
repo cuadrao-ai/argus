@@ -10923,6 +10923,7 @@ components:
           enum:
           - web
           - whatsapp
+          - email
         received_at:
           type: string
           format: date-time
@@ -10935,6 +10936,11 @@ components:
           - type: 'null'
         media_type:
           type: string
+        email_delivery_ids:
+          items:
+            type: string
+          type: array
+          default: []
       additionalProperties: false
       type: object
       required:
@@ -21008,6 +21014,7 @@ components:
           enum:
           - web
           - whatsapp
+          - email
         filename:
           anyOf:
           - type: string
@@ -21559,6 +21566,7 @@ components:
           enum:
           - web
           - whatsapp
+          - email
         filename:
           anyOf:
           - type: string

@@ -1,4 +1,5 @@
 import { readReturnPath, returnPathFor } from "./auth-return-path";
+import { businessPilotEnabled } from "./private-alpha-flags";
 import {
   readSessionStored,
   readStored,
@@ -401,10 +402,32 @@ export function currentChatPath(): string {
   );
 }
 
-/** Where to go after signing in: a listed return page, else chat. */
-export function postAuthPath(): string {
-  if (typeof window === "undefined") return currentChatPath();
-  return readReturnPath(window.location.search) ?? currentChatPath();
+/** The Business shell for an address that named chat: /biz with the conversation and message it carried, nothing else. */
+export function businessShellPath(search: URLSearchParams | SearchRecord | string): string {
+  const source = toSearchParams(search);
+  const kept = new URLSearchParams();
+  for (const key of ["conversation", "message"]) {
+    const value = source.get(key);
+    if (value && /^[A-Za-z0-9_-]{1,128}$/.test(value)) kept.set(key, value);
+  }
+  const query = kept.toString();
+  return query ? `/biz?${query}` : "/biz";
+}
+
+/** Where a public-receipt follow-up goes: on a consumer build it is saved and sent into chat; on a Business build nothing is saved or sent, the person lands on the Business inbox. */
+export function receiptFollowupTarget(businessBuild: boolean = businessPilotEnabled): { send: boolean; href: string } {
+  return businessBuild ? { send: false, href: "/biz?view=inbox" } : { send: true, href: currentChatPath() };
+}
+
+/** The signed-in home: the Business workspace on a Business build, else chat with the current query. */
+export function signedInHomePath(businessBuild: boolean = businessPilotEnabled): string {
+  return businessBuild ? "/biz" : currentChatPath();
+}
+
+/** Where to go after signing in: a listed return page, else the signed-in home. */
+export function postAuthPath(businessBuild: boolean = businessPilotEnabled): string {
+  if (typeof window === "undefined") return signedInHomePath(businessBuild);
+  return readReturnPath(window.location.search) ?? signedInHomePath(businessBuild);
 }
 
 export function currentAuthLoginPath(): string {

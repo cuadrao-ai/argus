@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessExpense } from "@/lib/business-api";
@@ -36,9 +36,25 @@ export default function BusinessExpensesPanel() {
   }, [period.from, period.to, revision, source]);
 
   const record = actions.create.find((action) => action.id === "record_expense");
+  // Coming back from one expense's panel: focus its row once the list has
+  // rendered, so keyboard focus returns where it left. A row outside the
+  // period is not in the list; the panel itself takes focus then. Once per
+  // arrival: a background reload re-renders the list but never takes focus
+  // back from wherever the person moved it.
+  const section = useRef<HTMLElement>(null);
+  const focusedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!found) focusedFor.current = null;
+  }, [found]);
+  useEffect(() => {
+    if (!found || items === null || focusedFor.current === found) return;
+    focusedFor.current = found;
+    const row = section.current?.querySelector<HTMLButtonElement>(`[data-expense-id="${CSS.escape(found)}"] button`);
+    (row ?? section.current)?.focus();
+  }, [found, items]);
 
   return (
-    <section>
+    <section ref={section} tabIndex={-1} className="outline-none">
       <PanelHeading
         title={t("business.expenses.title", "Expenses")}
         subtitle={t("business.expenses.subtitle", "Saved expenses from {{from}} to {{to}}.", {
@@ -90,6 +106,7 @@ export default function BusinessExpensesPanel() {
             return (
               <li
                 key={expense.id}
+                data-expense-id={expense.id}
                 aria-current={expense.id === found ? "true" : undefined}
                 ref={expense.id === found ? (row) => row?.scrollIntoView({ block: "nearest" }) : undefined}
                 className="rounded-[14px] px-3 py-1 aria-[current=true]:bg-black/[0.04] dark:aria-[current=true]:bg-white/[0.06]"

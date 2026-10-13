@@ -9,6 +9,8 @@ export type BusinessEmailPart = {
   state: "pending" | "captured" | "rejected";
   document_id: string | null;
   error_code: string | null;
+  /** The earlier delivery that brought the same file; this part added no receipt. */
+  repeat_of_delivery_id?: string | null;
 };
 
 export type BusinessEmailDelivery = {

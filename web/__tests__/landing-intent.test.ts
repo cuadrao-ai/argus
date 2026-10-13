@@ -7,7 +7,10 @@ import {
   authLoginPathFromSearch,
   CAMPAIGN_VALUE_FIELDS,
   captureLandingIntent,
+  businessShellPath,
   currentChatPath,
+  postAuthPath,
+  signedInHomePath,
   hasCampaignAttribution,
   LANDING_INTENT_STORAGE_KEY,
   LANDING_STARTER_STORAGE_KEY,
@@ -523,7 +526,7 @@ describe("landing starter prefill wiring", () => {
     expect(layout).toContain("LandingIntentCapture");
     expect(capture).toContain("captureLandingIntentFromLocation");
     expect(followup).toContain("captureLandingIntentFromLocation");
-    expect(followup).toContain("currentChatPath()");
+    expect(followup).toContain("receiptFollowupTarget()");
     expect(followup).not.toContain('router.push("/chat")');
   });
 
@@ -594,6 +597,48 @@ describe("landing intent merge and redirects", () => {
       location: { search: "?utm_campaign=x" },
     };
     expect(currentChatPath()).toBe("/chat?utm_campaign=x");
+    // The signed-in home: chat on a consumer build, the Business workspace on a Business build.
+    expect(signedInHomePath(false)).toBe("/chat?utm_campaign=x");
+    expect(signedInHomePath(true)).toBe("/biz");
+    expect(postAuthPath(false)).toBe("/chat?utm_campaign=x");
+    expect(postAuthPath(true)).toBe("/biz");
+    // A listed return page wins on either build; anything else is ignored.
+    (globalThis as { window?: { location: { search: string } } }).window = {
+      location: { search: "?return_to=%2Fbiz%3Freceipt%3Dr1&auth=login" },
+    };
+    expect(postAuthPath(true)).toBe("/biz?receipt=r1");
+    expect(postAuthPath(false)).toBe("/biz?receipt=r1");
+    (globalThis as { window?: { location: { search: string } } }).window = {
+      location: { search: "?return_to=https%3A%2F%2Fevil.example%2Fbiz" },
+    };
+    expect(postAuthPath(true)).toBe("/biz");
+    // Protocol-relative, backslash, scheme and encoded spellings of another host all fall back to home.
+    for (const hostile of [
+      "%2F%2Fevil.example",
+      "%2F%5Cevil.example%2Fbiz",
+      "/\\evil.example",
+      "javascript%3Aalert(1)",
+      "%2Fbiz%2F..%2F..%2F%2Fevil.example",
+      "%252F%252Fevil.example",
+      "https%3A%2F%2Fevil.example%2Fbiz",
+      "%2Fchat",
+    ]) {
+      (globalThis as { window?: { location: { search: string } } }).window = {
+        location: { search: `?return_to=${hostile}` },
+      };
+      expect(postAuthPath(true)).toBe("/biz");
+      expect(postAuthPath(false)).toBe("/chat");
+    }
+    // A listed page carrying junk keeps only its listed keys: the junk is dropped, the page stays.
+    (globalThis as { window?: { location: { search: string } } }).window = {
+      location: { search: "?return_to=%2Fbiz%3Freturn_to%3D%2F%2Fevil.example%26receipt%3Dr9" },
+    };
+    expect(postAuthPath(false)).toBe("/biz?receipt=r9");
+    delete (globalThis as { window?: unknown }).window;
+    // The Business shell path keeps only the conversation and message a chat address named.
+    expect(businessShellPath("conversation=c1&message=m2&auth=login&next=%2Fadmin")).toBe("/biz?conversation=c1&message=m2");
+    expect(businessShellPath("conversation=%2F%2Fevil")).toBe("/biz");
+    expect(businessShellPath("")).toBe("/biz");
   });
 
   test("login bounce drops next, redirect, unknown params, and invalid starters", () => {

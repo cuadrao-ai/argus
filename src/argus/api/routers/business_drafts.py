@@ -5,7 +5,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, Request, Response
 
-from argus.api.business_drafts import DraftContext, action_problem, require_drafts
+from argus.api.business_drafts import (
+    DraftContext,
+    action_problem,
+    require_drafts,
+    with_email_sources,
+)
 from argus.api.documents import NO_STORE
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
@@ -42,7 +47,8 @@ def _run(request, response, context, draft_id, command=None, key=None):
             result = method(actor, draft_id, command, key)
             if isinstance(result, Refused):
                 raise action_problem(request, result)
-        return context.service.dossier(actor, draft_id)
+        dossier = context.service.dossier(actor, draft_id)
+        return with_email_sources(dossier, str(actor.actor.space_id))
     except ActionError as error:
         raise action_problem(request, error.result) from None
 
