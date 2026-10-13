@@ -23,6 +23,7 @@ from fastapi import (
     Response,
 )
 from fastapi.concurrency import run_in_threadpool
+from loguru import logger
 
 from argus.api.business import (
     BusinessContext,
@@ -499,7 +500,20 @@ def get_receipt_source(
     try:
         media_type, content = context.service.source(context.scope, receipt_id)
     except Exception as error:
+        # Names only: the receipt id and the outcome code, so a preview that
+        # never settles on a hosted build can be read from the log.
+        logger.warning(
+            "receipt_source_failed",
+            receipt_id=receipt_id,
+            code=getattr(error, "code", type(error).__name__),
+        )
         raise _problem(request, error) from None
+    logger.info(
+        "receipt_source_served",
+        receipt_id=receipt_id,
+        media_type=media_type,
+        size_bytes=len(content),
+    )
     return Response(
         content,
         media_type=media_type,
