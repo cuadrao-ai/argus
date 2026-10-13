@@ -89,7 +89,7 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
                 <Paperclip className="h-4 w-4 shrink-0 text-black/45 dark:text-white/45" aria-hidden="true" />
                 <span className="min-w-0 flex-1 break-words text-[14px] text-black dark:text-white">{part.filename || t("business.email.no_filename", "Unnamed attachment")}</span>
                 <span className="text-[12px] text-black/50 dark:text-white/50">{t(`business.email.part_state.${part.state}`, part.state)}</span>
-                {part.repeat_of_delivery_id ? <span data-testid="email-part-repeat" className="text-[12px] font-medium text-black/70 dark:text-white/70">{t("business.email.repeat", "You already received this file")}</span> : null}
+                {part.repeat_of_delivery_id || part.repeat_of_upload ? <span data-testid="email-part-repeat" className="text-[12px] font-medium text-black/70 dark:text-white/70">{part.repeat_of_delivery_id ? t("business.email.repeat", "You already received this file") : t("business.email.repeat_upload", "You already saved this file")}</span> : null}
                 {part.state === "captured" && part.document_id ? <button type="button" className={secondaryButtonClass} onClick={() => openReceipt(part.document_id!)}>{t("business.email.open_receipt", "Open receipt")}</button> : null}
               </li>
             ))}
@@ -110,12 +110,13 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
 }
 
 /** Received emails, newest first, and the address that receives them. */
-export default function BusinessEmailDeliveries() {
+/** `openEmailId`: the delivery to show expanded on arrival, when a receipt sent the person to its first email. */
+export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?: string } = {}) {
   const { t } = useTranslation();
   const { source, openPanel, revision } = useBusiness();
   const [intake, setIntake] = useState<Load<BusinessEmailIntake>>({ status: "loading" });
   const [deliveries, setDeliveries] = useState<Load<BusinessEmailDelivery[]>>({ status: "loading" });
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(openEmailId ?? null);
   const [attempt, setAttempt] = useState(0);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {

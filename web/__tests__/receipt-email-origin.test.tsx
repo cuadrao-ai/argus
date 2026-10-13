@@ -30,20 +30,24 @@ describe("where a receipt arrived from, on its own page", () => {
     const html = await render({ ...base, channel: "email", email_delivery_ids: ["d1"] });
     assert.ok(html.includes('data-testid="receipt-source-channel"'));
     assert.ok(html.includes("Correo"));
-    assert.ok(html.includes("Ver en Correos recibidos"));
+    assert.ok(html.includes("Ver el primer correo"));
     assert.ok(!html.includes("Carga web"));
     assert.ok(!html.includes('data-testid="receipt-email-times"'));
   });
 
-  test("a file that arrived in two emails says so, by count", async () => {
+  test("a file that arrived in two emails says so, by count; one uploaded first on the web keeps Carga web and still points at the first email", async () => {
     const html = await render({ ...base, channel: "email", email_delivery_ids: ["d1", "d2"] });
     assert.ok(html.includes("Este archivo llegó 2 veces por correo."));
+    const webFirst = await render({ ...base, channel: "web", email_delivery_ids: ["d1"] });
+    assert.ok(webFirst.includes("Carga web") && !webFirst.includes("Correo ·"));
+    const webThenTwice = await render({ ...base, channel: "web", email_delivery_ids: ["d1", "d2"] });
+    assert.ok(webThenTwice.includes("Carga web") && webThenTwice.includes("Este archivo llegó 2 veces por correo.") && webThenTwice.includes("Ver el primer correo"));
   });
 
   test("WhatsApp and web keep their words; English follows", async () => {
     assert.ok((await render({ ...base, channel: "whatsapp" })).includes("WhatsApp"));
     assert.ok((await render({ ...base, channel: "web" })).includes("Carga web"));
     const en = await render({ ...base, channel: "email", email_delivery_ids: ["d1", "d2"] }, "en");
-    assert.ok(en.includes(">Email") && en.includes("See in Received emails") && en.includes("This file arrived 2 times by email."));
+    assert.ok(en.includes(">Email") && en.includes("See the first email") && en.includes("This file arrived 2 times by email."));
   });
 });

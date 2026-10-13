@@ -76,7 +76,7 @@ from argus.api.documents import (
     document_problem,
     read_document_upload,
 )
-from argus.api.email_intake import email_receipt_flags
+from argus.api.email_intake import arrived_by_email, email_receipt_flags
 from argus.api.financial_accounts import domain_problem
 from argus.api.ingestion import ingestion_hub
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
@@ -134,7 +134,9 @@ def _email_flagged(context: BusinessContext, receipts: list) -> list:  # noqa: A
     return [
         replace(
             receipt,
-            channel="email",
+            channel="email"
+            if arrived_by_email(receipt.draft.created_at, flags[receipt.id][2])
+            else receipt.channel,
             email_delivery_ids=flags[receipt.id][0],
             email_original=flags[receipt.id][1],
         )
@@ -700,7 +702,8 @@ def search(
     flags = email_receipt_flags(context.scope.owner.space_id)
     for item in found["receipts"]:
         if item["id"] in flags:
-            item["channel"] = "email"
+            if arrived_by_email(item["received_at"], flags[item["id"]][2]):
+                item["channel"] = "email"
             item["email_delivery_ids"] = list(flags[item["id"]][0])
             item["email_original"] = flags[item["id"]][1]
     return found
