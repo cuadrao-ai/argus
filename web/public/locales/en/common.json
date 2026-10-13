@@ -2362,7 +2362,12 @@
       "error": "We couldn't load your expenses. Try again.",
       "empty": "No expenses saved in this period.",
       "no_merchant": "Expense",
-      "view_receipt": "Receipt"
+      "view_receipt": "Receipt",
+      "view_detail": "Detail",
+      "detail_title": "Saved expense",
+      "no_receipt": "No receipt attached",
+      "recorded_on": "Recorded on {{when}}",
+      "detail_error": "We couldn't open this expense. Try again."
     },
     "sample": {
       "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."

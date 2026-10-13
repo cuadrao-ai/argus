@@ -37,10 +37,33 @@ test.describe("A saved expense opens its record", () => {
     await expect(panel.getByRole("heading", { name: "Expenses", exact: true })).toBeVisible();
     await panel.getByRole("button", { name: /Ferretería La Esquina/ }).first().click();
     await expect(dossier(page)).toBeVisible();
+    await expect(page).toHaveURL(/[?&]receipt=/);
     await expect(dossier(page)).toContainText("One expense was recorded after approval");
     await expect(dossier(page)).toContainText("Ferretería La Esquina");
     await expect(dossier(page).getByText(/Revision history/)).toBeVisible();
     await expect(dossier(page).getByText(/^Revision \d+$/)).toBeVisible();
+    // Back returns to Expenses, and the address follows.
+    await dossier(page).getByRole("button", { name: "Expenses" }).click();
+    await expect(panel.getByRole("heading", { name: "Expenses", exact: true })).toBeVisible();
+    await expect(page).not.toHaveURL(/[?&]receipt=/);
+  });
+
+  test("an expense entered by hand opens its own detail, which says no receipt is attached", async ({ page }) => {
+    await openPreview(page);
+    const nav = page.getByTestId("business-sidebar-nav");
+    const panel = page.getByTestId("workspace-panel-region");
+    await nav.getByRole("button", { name: /^Expenses/ }).click();
+    await panel.getByRole("button", { name: /Estación Ruta 3/ }).click();
+    const detail = page.getByTestId("business-expense-detail");
+    await expect(detail).toBeVisible();
+    await expect(page).toHaveURL(/[?&]expense=exp-gas/);
+    await expect(detail.getByRole("heading", { name: "Estación Ruta 3" })).toBeVisible();
+    await expect(detail).toContainText("No receipt attached");
+    await expect(detail).toContainText(/Recorded on/);
+    await expect(detail).toContainText("Revision 1");
+    await detail.getByRole("button", { name: "Expenses" }).click();
+    await expect(panel.getByRole("heading", { name: "Expenses", exact: true })).toBeVisible();
+    await expect(page).not.toHaveURL(/[?&]expense=/);
   });
 
   test("the search hit opens the same dossier", async ({ page }) => {

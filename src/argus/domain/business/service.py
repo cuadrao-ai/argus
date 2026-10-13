@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 
 from argus.domain import financial_search
 from argus.domain.business import ledger
+from argus.domain.business.authority import ActionError
 from argus.domain.business.config import business_chat_enabled
 from argus.domain.business.receipts import (
     AWAITING_REVIEW,
@@ -343,6 +344,20 @@ class BusinessService:
     ) -> list[dict[str, Any]]:
         end = end if end is not None else ledger.today()
         return self._expenses(scope, self._activities(scope), start, end)
+
+    def expense(self, scope: BusinessScope, expense_id: str) -> dict[str, Any]:
+        """One saved expense of this Business, with when it was recorded and its
+        revision; any other id, including another Business's, is not found."""
+
+        for activity in ledger.expense_activities(self._activities(scope)):
+            if activity["activity_id"] == expense_id:
+                [item] = self._expenses(scope, [activity], date.min, date.max)
+                return {
+                    **item,
+                    "recorded_at": activity.get("recorded_at"),
+                    "revision": activity.get("revision"),
+                }
+        raise ActionError("not_found", "expense_not_found")
 
     def _expenses(
         self,

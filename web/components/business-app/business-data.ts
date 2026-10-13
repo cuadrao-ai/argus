@@ -7,6 +7,7 @@ import type {
   BusinessCapture,
   BusinessCaptureInput,
   BusinessExpense,
+  BusinessExpenseDetail,
   BusinessOverview,
   BusinessSearchResult,
   BusinessSpace,
@@ -37,6 +38,7 @@ export type BusinessDataSource = Readonly<{
   receiptSource: (id: string) => Promise<Blob>;
   updates: () => Promise<BusinessUpdate[]>;
   expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
+  expense: (id: string) => Promise<BusinessExpenseDetail>;
   search: (query: string) => Promise<BusinessSearchResult>;
   captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
   captures: (query?: string, limit?: number) => Promise<BusinessCapture[]>;
@@ -79,6 +81,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   receiptSource: api.fetchBusinessReceiptSource,
   updates: api.listBusinessUpdates,
   expenses: api.listBusinessExpenses,
+  expense: api.getBusinessExpense,
   search: (query) => api.searchBusiness(query),
   captureNote: api.captureBusinessNote,
   captures: api.listBusinessCaptures,
@@ -125,6 +128,7 @@ export function withBusinessSpace(
     overview: after(source.overview),
     receipts: after(source.receipts),
     receipt: source.receipt,
+    expense: source.expense,
     dossier: source.dossier,
     reviewDraft: source.reviewDraft,
     approveDraft: source.approveDraft,

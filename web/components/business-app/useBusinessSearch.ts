@@ -7,7 +7,8 @@ import type { WorkspaceSearch } from "@/components/chat/ChatWorkspace";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDataSource } from "./business-data";
 import BusinessSearchDossier, { type BusinessSearchRecord } from "./BusinessSearchDossier";
-import { formatDay, formatMoney, periodContaining, type Period } from "./business-format";
+import { expensePanel } from "./business-expense-target";
+import { formatDay, formatMoney, type Period } from "./business-format";
 import { useCategoryLabel, useStatusLabel } from "./business-ui";
 import type { BusinessPanelState } from "./BusinessWorkspace";
 
@@ -22,7 +23,6 @@ export function useBusinessSearch({
   chatAvailable,
   accounts,
   openPanel,
-  setPeriod,
 }: {
   source: BusinessDataSource;
   chatAvailable: boolean;
@@ -66,15 +66,7 @@ export function useBusinessSearch({
               detail: line(formatDay(expense.occurred_on, locale), categoryLabel(expense.category_id), expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : expense.account_id ? nickname.get(expense.account_id) : null),
               amount: formatMoney(expense.amount, expense.currency, locale),
               preview: preview({ kind: "expense", expense }),
-              open: () => {
-                if (expense.receipt_id) {
-                  openPanel({ kind: "receipt", receiptId: expense.receipt_id });
-                  return;
-                }
-                const key = periodContaining(expense.occurred_on);
-                if (key) setPeriod(key);
-                openPanel({ kind: "expenses", expenseId: expense.id });
-              },
+              open: () => openPanel(expensePanel(expense)),
             })),
           },
           {
@@ -107,5 +99,5 @@ export function useBusinessSearch({
         ];
       },
     };
-  }, [accounts, categoryLabel, chatAvailable, locale, openPanel, setPeriod, source, statusLabel, t]);
+  }, [accounts, categoryLabel, chatAvailable, locale, openPanel, source, statusLabel, t]);
 }

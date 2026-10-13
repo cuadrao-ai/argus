@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { BusinessExpense } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatDay, formatMoney } from "./business-format";
+import { expensePanel } from "./business-expense-target";
 import { cardClass, LoadingRows, PanelHeading, secondaryButtonClass, useCategoryLabel } from "./business-ui";
 import BusinessPeriodControl from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
@@ -93,21 +94,16 @@ export default function BusinessExpensesPanel() {
                 ref={expense.id === found ? (row) => row?.scrollIntoView({ block: "nearest" }) : undefined}
                 className="rounded-[14px] px-3 py-1 aria-[current=true]:bg-black/[0.04] dark:aria-[current=true]:bg-white/[0.06]"
               >
-                {expense.receipt_id ? (
-                  // The whole row opens the record the expense was recorded from.
-                  <button
-                    type="button"
-                    onClick={() => openPanel({ kind: "receipt", receiptId: expense.receipt_id as string })}
-                    className="flex min-h-11 w-full items-center gap-3 rounded-[12px] py-2 text-left hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30"
-                  >
-                    {facts}
-                    <Paperclip className="h-4 w-4 shrink-0 text-black/45 dark:text-white/45" aria-hidden="true" />
-                    <span className="sr-only">{t("business.expenses.view_receipt", "Receipt")}</span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-black/35 dark:text-white/35" aria-hidden="true" />
-                  </button>
-                ) : (
-                  <div className="flex min-h-11 w-full items-center gap-3 py-2">{facts}</div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => openPanel(expensePanel(expense))}
+                  className="flex min-h-11 w-full items-center gap-3 rounded-[12px] py-2 text-left hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30"
+                >
+                  {facts}
+                  {expense.receipt_id ? <Paperclip className="h-4 w-4 shrink-0 text-black/45 dark:text-white/45" aria-hidden="true" /> : null}
+                  <span className="sr-only">{expense.receipt_id ? t("business.expenses.view_receipt", "Receipt") : t("business.expenses.view_detail", "Detail")}</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-black/35 dark:text-white/35" aria-hidden="true" />
+                </button>
               </li>
             );
           })}

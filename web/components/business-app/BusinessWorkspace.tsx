@@ -46,6 +46,7 @@ export type BusinessPanelState =
   | { kind: "overview" }
   | { kind: "inbox" }
   | { kind: "expenses"; expenseId?: string }
+  | { kind: "expense"; expenseId: string }
   | { kind: "updates" }
   | { kind: "access" }
   | { kind: "receipt"; receiptId: string }
@@ -98,6 +99,8 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   if (draftId) return { kind: "draft", draftId };
   const receiptId = params.get("receipt");
   if (receiptId) return { kind: "receipt", receiptId };
+  const expenseId = params.get("expense");
+  if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
   if (view && PANEL_KINDS.has(view)) {
     return { kind: view as "overview" | "inbox" | "expenses" | "updates" | "access" };
@@ -115,9 +118,11 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
     url.searchParams.delete("view");
     url.searchParams.delete("receipt");
     url.searchParams.delete("draft");
+    url.searchParams.delete("expense");
     if (view === "workspace") {
       if (panel.kind === "receipt") url.searchParams.set("receipt", panel.receiptId);
       else if (panel.kind === "draft") url.searchParams.set("draft", panel.draftId);
+      else if (panel.kind === "expense") url.searchParams.set("expense", panel.expenseId);
       else if (panel.kind !== "overview") url.searchParams.set("view", panel.kind);
     } else if (view === "chat" && !url.searchParams.has("conversation")) {
       url.searchParams.set("view", "chat");

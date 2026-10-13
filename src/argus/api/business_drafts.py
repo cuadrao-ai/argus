@@ -335,47 +335,67 @@ def receipt_summary(context: BusinessContext, receipt) -> dict:  # noqa: ANN001
     return bridged(context, [receipt.summary()])[0]
 
 
-def linked_receipts(tx, activity_ids: list[str]) -> dict[str, str]:  # noqa: ANN001
-    """Activity id to the one receipt whose linked bridge draft recorded it.
-
-    An activity recorded from a draft linked to several receipts, or to
-    none, has no entry: the person opens those through the draft."""
+def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | None]]:  # noqa: ANN001
+    """Activity id to the bridge draft that recorded it and, when the draft is
+    linked to exactly one receipt, that receipt. A draft linked to several
+    receipts or to none names no receipt: the person opens the draft."""
 
     if not activity_ids:
         return {}
     rows = tx.rows(
-        "select e.activity_id, s.connection_id from public.financial_import_events e"
-        " join public.business_draft_sources l on l.draft_id=e.id and l.space_id=e.owner_space_id"
-        " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
+        "select e.activity_id, e.id as draft_id, s.connection_id"
+        " from public.financial_import_events e"
+        " left join public.business_draft_sources l on l.draft_id=e.id"
+        " and l.space_id=e.owner_space_id"
+        " left join public.business_sources s on s.id=l.source_id"
+        " and s.space_id=l.space_id and s.connection_id is not null"
         " where e.owner_space_id=%s and e.user_id=%s and e.activity_id = any(%s)"
-        " and e.resolution ? 'business' and s.connection_id is not null",
+        " and e.resolution ? 'business'",
         (
             tx.context.actor.space_id,
             tx.context.owner_id,
             [UUID(activity_id) for activity_id in activity_ids],
         ),
     )
-    held: dict[str, set[str]] = {}
+    drafts: dict[str, set[str]] = {}
+    receipts: dict[str, set[str]] = {}
     for row in rows:
-        held.setdefault(str(row["activity_id"]), set()).add(str(row["connection_id"]))
-    return {activity: ids.pop() for activity, ids in held.items() if len(ids) == 1}
+        activity = str(row["activity_id"])
+        drafts.setdefault(activity, set()).add(str(row["draft_id"]))
+        if row["connection_id"]:
+            receipts.setdefault(activity, set()).add(str(row["connection_id"]))
+    return {
+        activity: {
+            "draft_id": ids.pop() if len(ids) == 1 else None,
+            "receipt_id": (
+                receipts[activity].pop() if len(receipts.get(activity, ())) == 1 else None
+            ),
+        }
+        for activity, ids in drafts.items()
+    }
 
 
-def _with_receipts(context: BusinessContext, expenses: list[dict]) -> list[dict]:
-    """Saved expenses with the receipt a linked bridge draft recorded them from.
-
-    The legacy lookup reaches a receipt through import observations, which a
-    bridge draft never has, so an expense approved from a draft had no
-    receipt to open."""
+def _with_records(context: BusinessContext, expenses: list[dict]) -> list[dict]:
+    """Saved expenses with the draft that recorded them and the receipt it came
+    from. The legacy lookup reaches a receipt through import observations,
+    which a bridge draft never has, so an expense approved from a draft had
+    nothing to open."""
 
     store = context.service.imports.store
     missing = [item["id"] for item in expenses if item.get("receipt_id") is None]
     if not isinstance(store, GrantImportStore) or not missing:
         return expenses
     with transaction(store.authority, store.context) as tx:
-        found = linked_receipts(tx, missing)
+        found = linked_records(tx, missing)
     return [
-        {**item, "receipt_id": found.get(item["id"], item.get("receipt_id"))}
+        {
+            **item,
+            **{
+                key: value
+                for key, value in found.get(item["id"], {}).items()
+                if item.get(key) is None and value is not None
+            },
+        }
         for item in expenses
     ]
 
@@ -383,7 +403,15 @@ def _with_receipts(context: BusinessContext, expenses: list[dict]) -> list[dict]
 def expenses_with_receipts(context: BusinessContext, start, end) -> list[dict]:  # noqa: ANN001
     """The saved expenses of a period, each with the receipt that opens its record."""
 
-    return _with_receipts(context, context.service.expenses(context.scope, start, end))
+    return _with_records(context, context.service.expenses(context.scope, start, end))
+
+
+def expense_detail(context: BusinessContext, expense_id: str) -> dict:
+    """One saved expense with the records behind it: a receipt to open, the
+    draft that recorded it, or neither for an expense entered by hand."""
+
+    [item] = _with_records(context, [context.service.expense(context.scope, expense_id)])
+    return item
 
 
 def search_with_drafts(context: BusinessContext, q: str, limit: int) -> dict:
@@ -395,7 +423,7 @@ def search_with_drafts(context: BusinessContext, q: str, limit: int) -> dict:
         item["id"]: item for item in bridged(context, [r.summary() for r in receipts])
     }
     found = context.service.search(context.scope, q, limit, views)
-    found["expenses"] = _with_receipts(context, found["expenses"])
+    found["expenses"] = _with_records(context, found["expenses"])
     return found
 
 

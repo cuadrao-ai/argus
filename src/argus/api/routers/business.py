@@ -35,6 +35,7 @@ from argus.api.business import (
 )
 from argus.api.business_drafts import (
     action_problem,
+    expense_detail,
     expenses_with_receipts,
     overview_with_drafts,
     receipt_detail,
@@ -54,6 +55,7 @@ from argus.api.business_schemas import (
     BusinessWorkspace,
     ConfirmBody,
     CreateBusinessAccount,
+    ExpenseDetail,
     ExpenseInput,
     ExpensePage,
     GiveBusinessAccess,
@@ -652,6 +654,18 @@ def list_expenses(
     _period(request, start, end)
     try:
         return {"items": expenses_with_receipts(context, start, end)}
+    except Exception as error:
+        raise _problem(request, error) from None
+
+
+@router.get("/expenses/{expense_id}", response_model=ExpenseDetail)
+def get_expense(
+    request: Request,
+    expense_id: str,
+    context: BusinessContext = Depends(require_business),  # noqa: B008
+) -> dict[str, Any]:
+    try:
+        return expense_detail(context, expense_id)
     except Exception as error:
         raise _problem(request, error) from None
 

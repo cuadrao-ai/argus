@@ -23,6 +23,7 @@ BYPASSES = (
     r"service\.inbox\(",
     r"service\.receipts\(",
     r"service\.expenses\(",
+    r"service\.expense\(",
 )
 
 
