@@ -22,13 +22,14 @@ from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_single_candidate_postgres as single
 from tests.test_business_multi_purchase_postgres import _account
 from tests.test_business_receipt_views_postgres import _web
+from tests.test_financial_accounts_postgres import _create_users
 
 actions = bridge.actions
 users = bridge.users
 pytestmark = bridge.pytestmark
 
 
-def test_an_expense_approved_from_a_draft_names_its_receipt(actions, users):  # noqa: ANN001
+def test_an_expense_approved_from_a_draft_names_its_receipt(actions):  # noqa: ANN001
     saved = single._saved(actions, "expense")
     service, context, _, cid, _, _ = saved
     bridge.bind(saved)
@@ -79,16 +80,18 @@ def test_an_expense_approved_from_a_draft_names_its_receipt(actions, users):  # 
     detail = expense_detail(web, str(approved.activity_id))
     assert (detail["receipt_id"], detail["draft_id"]) == (cid, str(result.draft_id))
     assert detail["recorded_at"] is not None and detail["revision"] >= 1
-    # An accountant with read and prepare opens the dossier behind it read-only.
+    # An accountant with read and prepare (a fresh person: the fixture's other
+    # user already holds approve) opens the dossier behind it read-only.
     with service.authority.pool.connection() as db:
+        accountant = _create_users(db, ("accountant", False))["accountant"]
         db.execute(
             "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
             " values (%s,%s,%s,ARRAY['read','prepare'])",
-            (context.actor.space_id, users["other"], context.owner_id),
+            (context.actor.space_id, accountant, context.owner_id),
         )
     reader = service.resolve_actor(
         TrustedActor(
-            actor_id=UUID(users["other"]),
+            actor_id=UUID(accountant),
             actor_kind="member",
             space_id=context.actor.space_id,
         )
