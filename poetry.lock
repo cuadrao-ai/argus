@@ -7016,6 +7016,18 @@ doc = ["intersphinx_registry", "jupyterlite-pyodide-kernel", "jupyterlite-sphinx
 test = ["Cython", "array-api-strict (>=2.3.1)", "asv", "gmpy2", "hypothesis (>=6.30)", "meson", "mpmath", "ninja ; sys_platform != \"emscripten\"", "pooch", "pytest (>=8.0.0)", "pytest-cov", "pytest-timeout", "pytest-xdist", "scikit-umfpack", "threadpoolctl"]
 
 [[package]]
+name = "segno"
+version = "1.6.6"
+description = "QR Code and Micro QR Code generator for Python"
+optional = false
+python-versions = ">=3.5"
+groups = ["dev"]
+files = [
+    {file = "segno-1.6.6-py3-none-any.whl", hash = "sha256:28c7d081ed0cf935e0411293a465efd4d500704072cdb039778a2ab8736190c7"},
+    {file = "segno-1.6.6.tar.gz", hash = "sha256:e60933afc4b52137d323a4434c8340e0ce1e58cec71439e46680d4db188f11b3"},
+]
+
+[[package]]
 name = "sentry-sdk"
 version = "2.58.0"
 description = "Python client for Sentry (https://sentry.io)"
@@ -8588,7 +8600,43 @@ files = [
 [package.extras]
 cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and python_version < \"3.14\"", "cffi (>=2.0.0b0) ; platform_python_implementation != \"PyPy\" and python_version >= \"3.14\""]
 
+[[package]]
+name = "zxing-cpp"
+version = "2.3.0"
+description = "Python bindings for the zxing-cpp barcode library"
+optional = false
+python-versions = ">=3.6"
+groups = ["main"]
+files = [
+    {file = "zxing_cpp-2.3.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:4e1ffcdd8e44a344cbf32bb0435e1fbe67241337c0a0f22452c2b8f7c16dc75e"},
+    {file = "zxing_cpp-2.3.0-cp310-cp310-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:bfde95506d3fec439705dbc8771ace025d049dce324861ddbf74be3ab0fabd36"},
+    {file = "zxing_cpp-2.3.0-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:fd3f175f7b57cfbdea56afdb5335eaebaadeebc06e20a087d9aa3f99637c4aa5"},
+    {file = "zxing_cpp-2.3.0-cp310-cp310-win32.whl", hash = "sha256:6d710241e311962bafa93fa3faf0b01904a878c27cd84374359d3a7f491c2f10"},
+    {file = "zxing_cpp-2.3.0-cp310-cp310-win_amd64.whl", hash = "sha256:387690091a9edef2a44932d0aa705e267d4b72e5953a1d00a893ad22b365ebe0"},
+    {file = "zxing_cpp-2.3.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:6ef0548f4247480da988ce1dad4d9c5b8d7cb2871538894fb9615c9ac0bb8656"},
+    {file = "zxing_cpp-2.3.0-cp311-cp311-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:bfc1095dc3303ed24be2622916e199a071bae19b19d432a0ce7ca993f95879ec"},
+    {file = "zxing_cpp-2.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:64e5a4ff5168142d8b33ca648978c8ec4125c50b33aa1521e0c5344c6ffacef7"},
+    {file = "zxing_cpp-2.3.0-cp311-cp311-win32.whl", hash = "sha256:504f59d6cef772c95fa328d6c2318149d34dc61803fa47541cdb4a4f10579d2d"},
+    {file = "zxing_cpp-2.3.0-cp311-cp311-win_amd64.whl", hash = "sha256:b5bf247d887c8fc34021bd88caa04ac54674fbd79cbebbab35dd42fd0344522f"},
+    {file = "zxing_cpp-2.3.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:2f457c0aa53c1de263e34cac9917ef647bfb9adcc9e3d4f42a8a1fc02558e1a6"},
+    {file = "zxing_cpp-2.3.0-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:899955e0091fa0e159b9eb429e43d0a23e2be4a5347c9629c858844f02024b4b"},
+    {file = "zxing_cpp-2.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:dec2805c0e9dec0d7707c97ca5196f98d2730d2dfcea80442807123b9f8ec850"},
+    {file = "zxing_cpp-2.3.0-cp312-cp312-win32.whl", hash = "sha256:5469bc83ac137a211f54cc650c71af62435cb9b7235e32664f4d35bfd3ce68d0"},
+    {file = "zxing_cpp-2.3.0-cp312-cp312-win_amd64.whl", hash = "sha256:3771e5b0255d8b3bd457573fb6d57d29a346b6c45682320509d8e1ecb49d07ea"},
+    {file = "zxing_cpp-2.3.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:3da0fbf0d93ef85663def561e8f7880447970710ea6b1768dfc05550a9ee3e00"},
+    {file = "zxing_cpp-2.3.0-cp313-cp313-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:a0b36f3be2e6d928bea9bd529f173ef41092061f0f46d27f591c87486f9a7366"},
+    {file = "zxing_cpp-2.3.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7ba641ca5a0f19b97d7bc6a0212e61dab267a2b1a52a84946d02bdcd859ec318"},
+    {file = "zxing_cpp-2.3.0-cp313-cp313-win32.whl", hash = "sha256:49a07be29ca28278ab0d8d9924d873e28111b1067acae68f2112a25c7f7efe77"},
+    {file = "zxing_cpp-2.3.0-cp313-cp313-win_amd64.whl", hash = "sha256:971dad40c4765eeb74a4f4557889053b934484ad8c7f9d64c412d3a3d8441f3f"},
+    {file = "zxing_cpp-2.3.0-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:bdb864239cea44b5374ecb26ad740a392849139f6fe6146cc14f2f174c99056f"},
+    {file = "zxing_cpp-2.3.0-cp39-cp39-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:e19b3b8a05a4215b743f4552f135d2cb5e51466f95d704402d5d333facb36752"},
+    {file = "zxing_cpp-2.3.0-cp39-cp39-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7d8d1ae8fa85d854414afe32280c1f75bfd90f20737d19bafdf4a91f53fcf831"},
+    {file = "zxing_cpp-2.3.0-cp39-cp39-win32.whl", hash = "sha256:fbd5b253ad0f8823c5c104feaaa19acab95c217cb924b012d55ff339c42b3583"},
+    {file = "zxing_cpp-2.3.0-cp39-cp39-win_amd64.whl", hash = "sha256:c166dfc6ede7ae5c013a09abb4f9708fec0243d2b7c1730c22c64f95c2cf5dc4"},
+    {file = "zxing_cpp-2.3.0.tar.gz", hash = "sha256:3babedb67a4c15c9de2c2b4c42d70af83a6c85780c1b2d9803ac64c6ae69f14e"},
+]
+
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "bff36da65002c80f941105e5985529ca125a299044020466f7d6192341beec3b"
+content-hash = "9a9426d08a03fc57156bdc92bdef2f1067db8bef1a82bcb3f1f7650731618457"

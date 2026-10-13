@@ -18,10 +18,12 @@ from pathlib import Path
 import psutil
 from PIL import Image, ImageOps
 
+from argus.domain.business.contracts.checks import DgiiQr
 from argus.domain.ingestion.documents.config import (
     DocumentExtractionSettings,
     load_document_extraction_settings,
 )
+from argus.domain.ingestion.documents.dgii_qr import read_dgii_qr
 from argus.domain.ingestion.documents.ecf_checks import EcfDocument, read_ecf
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 from argus.domain.ingestion.documents.tabular import (
@@ -52,6 +54,8 @@ class PreparedDocument:
     document_currency: str | None = None
     #: The e-CF the source is, read once for the local checks; None otherwise.
     ecf: EcfDocument | None = None
+    #: The DGII QR decoded from the page images; None when there is none.
+    dgii_qr: DgiiQr | None = None
 
 
 def _image(content: bytes, media_type: str) -> bytes:
@@ -148,7 +152,8 @@ def prepare_document(
         ecf = read_ecf(content) if media_type in XML_MEDIA_TYPES else None
         return PreparedDocument(pages, (), text, currency, ecf)
     if media_type in ("image/png", "image/jpeg"):
-        return PreparedDocument(1, (_image(content, media_type),))
+        image = _image(content, media_type)
+        return PreparedDocument(1, (image,), dgii_qr=read_dgii_qr((image,)))
     if media_type != "application/pdf":
         raise DocumentExtractionError("unsupported_media_type")
     if not content.startswith(b"%PDF-"):
@@ -198,7 +203,10 @@ def prepare_document(
                 raise DocumentExtractionError("document_too_large")
             images.append(_image(rendered.read_bytes(), "image/jpeg"))
         return PreparedDocument(
-            pages, tuple(images), text_path.read_text(errors="replace")
+            pages,
+            tuple(images),
+            text_path.read_text(errors="replace"),
+            dgii_qr=read_dgii_qr(images),
         )
 
 
@@ -254,7 +262,9 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
     text = "\n\n".join(texts)
     if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
         raise DocumentExtractionError("document_text_limit")
-    return PreparedDocument(pages, tuple(images), text or None, currency, ecf)
+    return PreparedDocument(
+        pages, tuple(images), text or None, currency, ecf, read_dgii_qr(images)
+    )
 
 
 def validate_source(content: bytes, media_type: str) -> None:

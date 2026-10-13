@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from .authority import ActorProvenance, Capability
-from .checks import EcfVerification
+from .checks import DgiiQr, EcfVerification
 from .facts import BusinessFacts, Contract, FactField, ReadPurchase
 
 
@@ -138,3 +138,5 @@ class BusinessDossier(RecordContext):
     unrecorded_purchases: int = Field(default=0, ge=0)
     #: The local checks on the e-CF the draft came from; None for any other source.
     ecf_checks: EcfVerification | None = None
+    #: The DGII QR the receipt carried: the link a person opens on DGII's page.
+    dgii_qr: DgiiQr | None = None
