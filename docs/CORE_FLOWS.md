@@ -101,40 +101,58 @@ and [section 6](specs/argus-minimum-viable-ecosystem-experience.md#6-connected-j
 
 Full stays off this list until the founder and the coordinator shape it.
 
-**Test sheet.** PRUEBA_MOVIL is not in this repository: unverified, check where it lives.
-Step numbers below are mapped from the results the founder reported on 2026-10-13. Each
-mapping is inferred from the described result and not read from the sheet, so confirm it
-against the sheet. Steps 10 to 36 are not yet walked and not mapped.
+**Test sheet.** `PRUEBA_MOVIL.txt` (36 steps, Spanish, staging) is the Personal test sheet.
+It lives outside the repository, in the founder's local `cuadrao-test-receipts` folder, and is
+not committed because that folder holds private receipts. The coordinator keeps its
+expected numbers current. Every step maps to one row below (step 0 is setup). Each row
+quotes the sheet's expected result in its note.
 
 **Founder walk:** 2026-10-13 about 03:00 UTC, phone build `phone-build-ebff591e0`, lane tip
-`ebff591e0`. Steps 1, 2, 3, 4 and 9 pass. Step 5 not tested (refund entry not intuitive).
-Step 6 fails (a zero balance shown as unknown; an "already included" question on every
-movement). Step 7 fails (a card expense showed the wrong account and did not move the card;
-the card is missing from Transfer). Step 8 unsure (balance numbers).
+`ebff591e0`. Steps 1, 2, 3, 4 and 9 pass. Step 5 not tested. Step 6 fails. Step 7 fails.
+Step 8 unsure. Steps 10 to 36 not yet walked.
+
+Steps 17, 18, 21 and 23 depend on #1001, which is not in the installed build. Their rows
+say "Build lacks #1001".
 
 Fixes merged on the Mobile lane branch only, not on integration: #1045, #1046, #1047,
 #1056. #1059 is an open PR. Rows these fixes touch are "fixed on lane branch, not re-walked".
 
-| Flow | Label | State | Last walked | Result and note | Owner | Design fixes |
-| --- | --- | --- | --- | --- | --- | --- |
-| P1. Free without an account | triage | ⚠️ | never | Not walked. Parent row. | MVEE 1.3 Access | none yet |
-| P1a. Local book and receipts kept on the device, no AI read | triage | ⚠️ | never | Not walked | MVEE 1.3 Access, Intake | none yet |
-| P2. Free with an account | triage | ⚠️ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Parent row. Steps 1 to 9 walked, results below. | MVEE 1.3 | none yet |
-| P2a. Sign-in (steps 1 to 4, mapping inferred) | triage | ✅ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Steps 1 to 4 pass. Which step is sign-in: unverified. | MVEE 1.3 Access | none yet |
-| P2b. Accounts (step 6, inferred) | triage | ❌ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Step 6 fail: zero balance shown as unknown. Fixed on lane branch (#1047), not re-walked. Pending founder confirmation of the #1047 rule. | MVEE 1.3 Accounts | none yet |
-| P2c. Activity (steps 5 and 7, inferred) | triage | ❌ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Step 7 fail: card expense on the wrong account, card missing from Transfer. Fixed on lane branch (#1045), not re-walked. Step 5 (refund) not tested. | MVEE 1.3 Activity | none yet |
-| P2d. Reconciliation (steps 6 and 8, inferred) | triage | ❌ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | "Already included" asked on every movement. Fixed on lane branch (#1056, #1046), not re-walked. Step 8 unsure on balance numbers. #1059 open. | MVEE 1.3 Reconciliation | none yet |
-| P2e. Step 9 (area unverified) | triage | ✅ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Passes. Which area it covers: unverified. | MVEE 1.3 | none yet |
-| P2f. Home | triage | ⚠️ | never | Steps 10 to 36 not walked. Which step: unmapped. | MVEE 1.3 Home | none yet |
-| P2g. Plan | triage | ⚠️ | never | Not walked. Step: unmapped. | MVEE 1.3 Plan | none yet |
-| P2h. Receipts with AI read after consent | triage | ⚠️ | never | Not walked. Step: unmapped. | MVEE 1.3 Intake | none yet |
-| P2i. Search | triage | ⚠️ | never | Not walked. Step: unmapped. | MVEE 1.3 Search | none yet |
-| P2j. Updates | triage | ⚠️ | never | Not walked. Step: unmapped. | MVEE 1.3 Updates | none yet |
-| P2k. Profile, language and appearance | triage | ⚠️ | never | Not walked. Step: unmapped. | MVEE 1.3 Profile | none yet |
-| P3. Household | triage | ⚠️ | never | Not walked. Parent row. | MVEE 1.3 Household | none yet |
-| P3a. Invitations | triage | ⚠️ | never | Not walked. Step: unmapped. | MVEE section 12 | none yet |
-| P3b. Shared records and plans | triage | ⚠️ | never | Not walked. Step: unmapped. | MVEE 1.3 Household | none yet |
-| Voice | deferred | ✅ | not applicable | Later. | MVEE 1.3 Voice | none yet |
+| Flow | Test steps | Label | State | Last walked | Result and note | Owner | Design fixes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| P1. Free without an account | 29 to 34 | triage | ⚠️ | never | Expected (sheet): a local book on this iPhone, no AI read. Parent row, steps 29 to 34. | MVEE 1.3 Access | none yet |
+| P1a. Try without an account | 29 | triage | ⚠️ | never | Expected (sheet): "Probar sin cuenta" opens an empty book on this iPhone.  | MVEE 1.3 Access | none yet |
+| P1b. Account and expense, no account | 30 | triage | ⚠️ | never | Expected (sheet): they work with no internet in between.  | MVEE 1.3 Access | none yet |
+| P1c. Receipt kept on the device | 31, 32 | triage | ⚠️ | never | Expected (sheet): "Recibo guardado en este iPhone"; join it to the expense; no AI read; open the expense, see the receipt, remove it.  | MVEE 1.3 Intake | none yet |
+| P1d. Search in the local book | 33 | triage | ⚠️ | never | Expected (sheet): Search finds the expense or receipt; Profile > Recibos lists all.  | MVEE 1.3 Search | none yet |
+| P1e. Local book persists | 34 | triage | ⚠️ | never | Expected (sheet): close and open: the book is still there and does not move to your account.  | MVEE 1.3 Access | none yet |
+| P2. Free with an account | 1 to 25, 28, 35, 36 | triage | ⚠️ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Expected (sheet): see the rows below. Parent row. Steps 1 to 9 walked, results below. Steps 10 to 36 not yet walked. | MVEE 1.3 | none yet |
+| P2a. Setup | 0 | triage | ⚠️ | never | Expected (sheet): phone in Spanish; app opens in Spanish and portrait only.  | MVEE 1.3 Profile | none yet |
+| P2b. Sign-in | 1 | triage | ✅ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Expected (sheet): Home with "Personal" and your balance. Pass. | MVEE 1.3 Access | none yet |
+| P2c. Create an account | 2 | triage | ✅ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Expected (sheet): Banco prueba DOP 1,000.00. Pass. | MVEE 1.3 Accounts | none yet |
+| P2d. Income | 3 | triage | ✅ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Expected (sheet): Banco prueba DOP 1,500.00. Pass. | MVEE 1.3 Activity | none yet |
+| P2e. Expense | 4 | triage | ✅ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Expected (sheet): Banco prueba DOP 1,300.00. Pass. | MVEE 1.3 Activity | none yet |
+| P2f. Refund | 5 | triage | ⚠️ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Expected (sheet): Banco prueba DOP 1,350.00. Not tested: refund entry not intuitive. | MVEE 1.3 Activity | none yet |
+| P2g. Cash account and transfer | 6 | triage | ❌ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Expected (sheet): Efectivo DOP 0.00; after a 100 transfer, Banco prueba DOP 1,250.00 and Efectivo DOP 100.00. Fail: a zero balance shown as unknown; "already included" asked on every movement. Fixed on lane branch (#1047, #1056), not re-walked. Pending founder confirmation of the #1047 rule. | MVEE 1.3 Accounts, Reconciliation | none yet |
+| P2h. Credit card spend and payment | 7 | triage | ❌ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Expected (sheet): BoFa owes DOP 300.00 and Banco prueba stays DOP 1,250.00; after the card payment BoFa DOP 0.00 and Banco prueba DOP 950.00. Fail: card expense showed the wrong account and did not move the card; card missing from Transfer. Fixed on lane branch (#1045), not re-walked. | MVEE 1.3 Accounts, Activity | none yet |
+| P2i. Correct an expense | 8 | triage | ⚠️ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Expected (sheet): expense 200 corrected to 250 with a reason: Banco prueba DOP 900.00, Efectivo DOP 100.00, change in the history. Unsure on the balance numbers. #1059 open. | MVEE 1.3 Reconciliation | none yet |
+| P2j. Reorder accounts | 9 | triage | ✅ | 2026-10-13 ~03:00 UTC, `ebff591e0` / `phone-build-ebff591e0`, founder | Expected (sheet): the order stays after reopening the app. Pass. | MVEE 1.3 Accounts | none yet |
+| P2k. Plan: budget, goal, recurring | 10, 11, 12 | triage | ⚠️ | never | Expected (sheet): budget and goal appear in Plan; a recurring bill appears in Lo que viene with its date.  | MVEE 1.3 Plan | none yet |
+| P2l. Two currencies | 13 | triage | ⚠️ | never | Expected (sheet): DOP and USD shown apart, not summed.  | MVEE 1.3 Accounts | none yet |
+| P2m. Search | 14, 15 | triage | ⚠️ | never | Expected (sheet): the account is found; the corrected expense shows 250.00 (may take about 20 seconds on staging). The sheet lists a known failure: an expense without a note is not found by "Gasto" or "250". | MVEE 1.3 Search | none yet |
+| P2n. Receipt consent | 16, 25 | triage | ⚠️ | never | Expected (sheet): first time: "¿Leemos tus recibos con IA?" names Google Gemini, offers Leer or Solo guardar; turning the setting off makes the app ask again.  | MVEE 1.3 Intake | none yet |
+| P2o. Receipt read and review | 17, 18 | triage | ⚠️ | never | Expected (sheet): photo visible while reading, then merchant, date and total in one screen, editable in place. Build lacks #1001. | MVEE 1.3 Intake | none yet |
+| P2p. Receipt save and open | 19, 20 | triage | ⚠️ | never | Expected (sheet): "Gasto guardado"; the expense is in Home and Search; Ver recibo opens the original photo.  | MVEE 1.3 Intake | none yet |
+| P2q. Same receipt twice | 21 | triage | ⚠️ | never | Expected (sheet): "¿Ya anotaste este gasto?" with "Añadir a ese movimiento"; no second expense. Build lacks #1001. | MVEE 1.3 Intake | none yet |
+| P2r. Save only, no read | 22 | triage | ⚠️ | never | Expected (sheet): no long consent text; stored under Perfil > Datos y privacidad > Recibos guardados.  | MVEE 1.3 Intake | none yet |
+| P2s. Unreadable photo | 23 | triage | ⚠️ | never | Expected (sheet): "No pudimos leerlo", photo stays, Leer can be tapped again. Build lacks #1001. | MVEE 1.3 Intake | none yet |
+| P2t. Receipt search | 24 | triage | ⚠️ | never | Expected (sheet): the merchant appears under Recibos.  | MVEE 1.3 Search | none yet |
+| P2u. Session persists | 28 | triage | ⚠️ | never | Expected (sheet): after closing the app: still signed in, same balances.  | MVEE 1.3 Access | none yet |
+| P2v. Language and appearance | 35, 36 | triage | ⚠️ | never | Expected (sheet): everything in English with the same data; back in Spanish and dark mode, readable.  | MVEE 1.3 Profile | none yet |
+| P2w. Updates | none | triage | ⚠️ | never | Expected (sheet): not in the sheet. No test step covers it. | MVEE 1.3 Updates | none yet |
+| P3. Household | 26, 27 | triage | ⚠️ | never | Expected (sheet): see the rows below. Parent row. (In English copy write "household"; the Spanish label is Hogar.) | MVEE 1.3 Household | none yet |
+| P3a. Create a household | 26 | triage | ⚠️ | never | Expected (sheet): your household is created and you can invite someone.  | MVEE 1.3 Household | none yet |
+| P3b. Invitation | 27 | triage | ⚠️ | never | Expected (sheet): the invited account joins and sees only what you chose to share. Needs a second staging email. | MVEE section 12 | none yet |
+| Voice | none | deferred | ✅ | not applicable | Expected (sheet): not in the sheet. Later. | MVEE 1.3 Voice | none yet |
 
 Phone build constraints: the build profile expires 2026-10-13 22:03 UTC. The Apple ID is
 not signed in to Xcode. Both are as reported: unverified.
