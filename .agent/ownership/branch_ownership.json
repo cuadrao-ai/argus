@@ -619,6 +619,25 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-expense-opens-dossier-20261012": {
+      "description": "A saved expense opens the record it was recorded from: the API names the receipt a linked bridge draft recorded an expense from (the legacy lookup reads observations a bridge draft never has), in the expenses list and in search, and the whole Expenses row is the control that opens it.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/api/business_drafts.py",
+        "src/argus/api/routers/business.py",
+        "tests/business/test_receipt_views_leave_through_the_overlay.py",
+        "tests/test_business_expense_receipts_postgres.py",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
+        "web/e2e/business-expense-opens-dossier.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-expense-period-20261012": {
       "description": "Expenses and the home take a period of this month, last month, last 30 days, all, or a typed range; a saved expense the period leaves out is named with its date and a way to show it, never left to look vanished.",
       "base_ref": "origin/codex/private-alpha-next",
