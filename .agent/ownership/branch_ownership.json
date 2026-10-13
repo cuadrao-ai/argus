@@ -704,6 +704,21 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-email-intake-trim-20261012": {
+      "description": "Email intake credentials are trimmed: a webhook secret or API key pasted with a stray newline or spaces is the credential, one made only of whitespace is absent; without this a trailing newline failed every Resend signature.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/domain/ingestion/email_intake/config.py",
+        "tests/business/test_email_intake_secret_trimming.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-expense-detail-20261012": {
       "description": "Every saved expense opens something: its receipt, else the bridge draft that recorded it (named by the API as draft_id), else its own plain detail (GET /business/expenses/{id}) that says no receipt is attached, with when it was recorded and its revision; another Business's expense stays closed and an accountant opens the dossier read-only.",
       "base_ref": "origin/codex/private-alpha-next",
