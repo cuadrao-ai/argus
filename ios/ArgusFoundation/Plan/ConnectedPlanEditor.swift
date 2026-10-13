@@ -90,6 +90,10 @@ struct ConnectedPlanEditor: View {
         host.monthlyTitle = monthlyTitle
         host.identifiers = identifiers
         host.canSave = { plan in loop.pendingConfirmation == nil && ready(plan) }
+        host.missing = { plan in
+            ConnectedPlanReadiness.missing(plan, details, creatingDebt: { if case .create = seed { return true }; return false }(),
+                                           optionsLoaded: budgets.options != nil)?.hint(spanish: spanish)
+        }
         host.saving = saving
         host.dismissesOnSave = false
         return host
@@ -173,10 +177,10 @@ struct ConnectedPlanEditor: View {
     private func goalDetails(_ plan: CanvasPlan) -> some View {
         ConnectedPlanDetailsCard {
             choice("goal.destination", id: "goal.destination", selection: $details.destinationID,
-                   accounts: funding(plan.currency, includeArchived: true), empty: "plan.account.unassigned")
+                   accounts: funding(plan.currency, includeArchived: true), empty: plan.monthly > 0 ? "plan.account.required" : "plan.account.unassigned")
             if plan.monthly > 0 {
                 Divider()
-                choice("goal.source", id: "goal.source", selection: $details.sourceID, accounts: funding(plan.currency), empty: "plan.account.unassigned")
+                choice("goal.source", id: "goal.source", selection: $details.sourceID, accounts: funding(plan.currency), empty: "plan.account.required")
             }
             Text("goal.plan.disclosure").font(CuadraoTypography.caption).foregroundStyle(.secondary)
         }
@@ -218,7 +222,7 @@ struct ConnectedPlanEditor: View {
                 }), accounts: debtCandidates, empty: "debt.chooseAccount")
                 Divider()
             }
-            choice("debt.source", id: "debt.source", selection: $details.sourceID, accounts: funding(current.currency), empty: "plan.account.unassigned")
+            choice("debt.source", id: "debt.source", selection: $details.sourceID, accounts: funding(current.currency), empty: "plan.account.required")
             Text("debt.plan.disclosure").font(CuadraoTypography.caption).foregroundStyle(.secondary)
         }
     }

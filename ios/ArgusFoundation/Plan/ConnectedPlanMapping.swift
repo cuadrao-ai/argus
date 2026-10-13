@@ -77,3 +77,48 @@ enum ConnectedPlanMapping {
         cadence == .monthly ? nil : NSLocalizedString("plan.repeat." + cadence.rawValue, comment: "")
     }
 }
+
+/// The first field a new or edited plan still needs; the editor names it next to a disabled button.
+enum ConnectedPlanMissing: String, Equatable {
+    case name, amount, monthly, debtAccount, accounts, categories, destination, source, sameAccount, loading
+
+    func hint(spanish: Bool) -> String {
+        switch self {
+        case .name: spanish ? "Falta el nombre del plan." : "Add a name for the plan."
+        case .amount: spanish ? "Falta el monto." : "Add the amount."
+        case .monthly: spanish ? "Falta el pago de cada mes." : "Add the monthly payment."
+        case .debtAccount: spanish ? "Elige la tarjeta o préstamo." : "Choose the card or loan."
+        case .accounts: spanish ? "Elige al menos una cuenta incluida." : "Choose at least one included account."
+        case .categories: spanish ? "Elige al menos una categoría." : "Choose at least one category."
+        case .destination: spanish ? "Con un aporte mensual, elige el destino de los ahorros." : "With a monthly amount, choose the savings destination."
+        case .source: spanish ? "Elige la cuenta de donde sale el dinero." : "Choose the account the money comes from."
+        case .sameAccount: spanish ? "El origen y el destino deben ser cuentas distintas." : "The source and destination must be different accounts."
+        case .loading: spanish ? "Cargando tus cuentas…" : "Loading your accounts…"
+        }
+    }
+}
+
+/// One rule for every plan type, the same facts the kind drafts check before saving.
+enum ConnectedPlanReadiness {
+    static func missing(_ plan: CanvasPlan, _ details: ConnectedPlanDetails, creatingDebt: Bool, optionsLoaded: Bool) -> ConnectedPlanMissing? {
+        if plan.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .name }
+        switch plan.kind {
+        case .goal:
+            if !(plan.target > 0) { return .amount }
+            guard plan.monthly > 0 else { return nil }
+            if details.destinationID == nil { return .destination }
+            if details.sourceID == nil { return .source }
+            if details.destinationID == details.sourceID { return .sameAccount }
+        case .budget:
+            if !(plan.target > 0) { return .amount }
+            if !optionsLoaded { return .loading }
+            if details.accountIDs.isEmpty { return .accounts }
+            if details.categoryIDs.isEmpty && !details.includeUncategorized { return .categories }
+        case .debt:
+            if creatingDebt && details.debtAccountID == nil { return .debtAccount }
+            if !(plan.monthly > 0) { return .monthly }
+            if details.sourceID == nil { return .source }
+        }
+        return nil
+    }
+}

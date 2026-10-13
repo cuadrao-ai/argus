@@ -114,8 +114,8 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                         }
                     }
                     if !valid {
-                        Text(spanish ? "Añade un nombre y revisa los montos." : "Add a name and check the amounts.")
-                            .font(.caption).foregroundStyle(.secondary)
+                        Text(host.missing(draft) ?? (spanish ? "Añade un nombre y revisa los montos." : "Add a name and check the amounts."))
+                            .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("plan.missing")
                     }
                     footer()
                 }.padding(24)
