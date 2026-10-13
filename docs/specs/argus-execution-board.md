@@ -52,6 +52,8 @@ This section is a status record. It grants no merge, deploy or spend authority.
 
 ## Business hosted invite-only build October 10, 2026
 
+Flow list and last-walked state: [Core flows](../CORE_FLOWS.md).
+
 The [22:13 UTC founder grant](argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant)
 authorizes the bounded hosted Business build, clean integration merges and
 staging only. The root coordinator owns the sole merge slot and staging
@@ -787,6 +789,8 @@ and profile verification gate remains open. No lane priority or live fiscal
 route changes through this publication.
 
 ## Current mobile roadmap: October 4 founder lock
+
+Flow list and last-walked state: [Core flows](../CORE_FLOWS.md).
 
 The founder approved this execution update on October 4 after reviewing build
 3423 and the mobile roadmap. The immediate work is to connect and verify the
