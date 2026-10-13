@@ -1598,6 +1598,7 @@
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
+        "web/__tests__/email-delivery-repeat.dom.test.tsx",
         "web/__tests__/receipt-read-notice.test.tsx",
         "web/__tests__/saved-unread-hint.dom.test.tsx",
         "web/components/business-app/BusinessEmailDeliveries.tsx",
