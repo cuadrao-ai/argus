@@ -105,6 +105,7 @@ def plan(
     *,
     legacy: bool = False,
     actor_id: str | None = None,
+    confirming: bool = False,
 ) -> MoneyPlan:
     by_id = {s.account.id: s for s in accounts}
     old = activity(accounts, activity_id) if activity_id else None
@@ -126,7 +127,8 @@ def plan(
     reason = _normalize_reason(request.reason, required=old is not None)
     stamp = _stamp(request.occurred_at, request.time_zone, now)
     today = now.astimezone(ZoneInfo(request.time_zone)).date()
-    entered_on = request.entered_on or today
+    # The server decides the entry day; only a confirm carries back the previewed day.
+    entered_on = (request.entered_on if confirming else None) or today
     if entered_on not in (today, today - timedelta(days=1)):
         problem("preview_required", "Review the proposed change before saving it.")
     targets = selected(request)

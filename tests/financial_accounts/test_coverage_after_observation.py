@@ -98,6 +98,7 @@ def test_movement_dated_after_the_opening_day_is_not_asked(scene):
     assert account["after"]["amount_minor"] == 80000
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_account_without_a_recorded_balance_has_no_question(scene):
     aid = opened(scene, None)
     preview, account = effect(scene, aid, NOW - timedelta(hours=1))
@@ -321,3 +322,22 @@ def test_skip_reason_and_entered_day_are_stored_on_the_revision(scene):
     revision = stored.expenses[0].current
     assert revision.entered_on == NOW.astimezone(SD).date()
     assert revision.coverage_skips == ((stored.opening.id, "entered_after_observation"),)
+
+
+def test_a_client_cannot_choose_its_entry_day_at_preview():
+    service, user, _ = world(local(13, 0, 30))
+    aid = open_at(service, user, local(12, 23))
+    preview = MoneyService(service).preview(
+        user_id=user,
+        request=MoneyRequest(
+            kind="expense",
+            account_id=aid,
+            amount="200",
+            occurred_at=local(12, 23, 30),
+            entered_on=date(2026, 10, 12),
+        ),
+        scope=PERSONAL,
+    )
+    account = preview["affected_accounts"][0]
+    assert not preview["ready"] and len(account["observations"]) == 1
+    assert account["skipped_observations"] == []
