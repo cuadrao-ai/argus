@@ -79,7 +79,8 @@ export type BusinessContextValue = Readonly<{
   clearAttachedReceipt: () => void;
 }>;
 
-const BusinessContext = createContext<BusinessContextValue | null>(null);
+/** Exported for DOM tests that mount one panel with a hand-made context; the app provides it through BusinessWorkspaceProvider. */
+export const BusinessContext = createContext<BusinessContextValue | null>(null);
 
 export function useBusiness(): BusinessContextValue {
   const value = useContext(BusinessContext);

@@ -15,7 +15,11 @@ from argus.api.business_drafts import (
     search_with_drafts,
 )
 from argus.domain.business.authority import ActionError, TrustedActor
-from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
+from argus.domain.business.contracts.actions import (
+    ApproveExpense,
+    CaptureNote,
+    ReviewDraft,
+)
 from argus.domain.business.contracts.facts import BusinessFactPatch
 
 from tests import test_business_attachment_preparation_postgres as bridge
@@ -117,3 +121,63 @@ def test_an_expense_of_another_business_is_not_found(actions):  # noqa: ANN001
     with pytest.raises(ActionError) as refused:
         expense_detail(web, str(uuid4()))
     assert refused.value.result.code == "expense_not_found"
+
+
+def test_an_expense_recorded_from_a_note_names_its_draft_and_no_receipt(actions):  # noqa: ANN001
+    """The left join in linked_records: a draft with no receipt still links the
+    expense to the draft, and names no receipt. The web shows "Sin recibo
+    adjunto" only for an expense with neither."""
+
+    service, context, _ = actions
+    created = service.capture(
+        context, CaptureNote(text="Pagué 850 de gasolina en Estación Ruta 3."), "note"
+    )
+    assert created.outcome == "applied", created
+    funding = _account(service, context)
+    version = service.dossier(context, created.draft_id).version
+    filled = service.review(
+        context,
+        created.draft_id,
+        ReviewDraft(
+            version=version,
+            facts=BusinessFactPatch.model_validate(
+                {
+                    "kind": {"state": "known", "value": "expense"},
+                    "amount": {"state": "known", "value": "850.00"},
+                    "currency": {"state": "known", "value": "DOP"},
+                    "occurred_on": {"state": "known", "value": "2026-10-09"},
+                    "counterparty": {"state": "known", "value": "Estación Ruta 3"},
+                    "funding": {
+                        "state": "known",
+                        "value": {"kind": "business_account", "account_id": funding},
+                    },
+                    "business_share": {"state": "known", "value": {"kind": "all"}},
+                    "receipt_state": {"state": "known", "value": "no_receipt"},
+                }
+            ),
+        ),
+        "fill",
+    )
+    assert filled.outcome == "applied", filled
+    approved = service.approve(
+        context,
+        created.draft_id,
+        ApproveExpense(version=filled.version, action="record_expense"),
+        "approve",
+    )
+    assert approved.outcome == "applied", approved
+    web = _web(service, context)
+    period = (date(2026, 10, 1), date(2026, 10, 31))
+    expense_id = str(approved.activity_id)
+    # The expense opens: its draft is named, no receipt is, and nothing errors.
+    [expense] = [e for e in expenses_with_receipts(web, *period) if e["id"] == expense_id]
+    assert (expense["draft_id"], expense["receipt_id"]) == (str(created.draft_id), None)
+    detail = expense_detail(web, expense_id)
+    assert (detail["draft_id"], detail["receipt_id"]) == (str(created.draft_id), None)
+    assert detail["recorded_at"] is not None
+    [hit] = [
+        e
+        for e in search_with_drafts(web, "Ruta 3", 5)["expenses"]
+        if e["id"] == expense_id
+    ]
+    assert (hit["draft_id"], hit["receipt_id"]) == (str(created.draft_id), None)

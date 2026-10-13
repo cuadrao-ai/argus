@@ -2475,6 +2475,7 @@
       "no_receipt": "Sin recibo adjunto",
       "recorded_on": "Registrado el {{when}}",
       "detail_error": "No pudimos abrir este gasto. Reintenta.",
+      "retry": "Reintentar",
       "account_unknown": "Desconocida"
     },
     "home": {
