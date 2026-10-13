@@ -137,6 +137,8 @@ export type ChatSidebarProps = {
   guestSettings?: ReactNode;
   /** A workspace's own destinations, between Search and Recents. */
   primaryNav?: ReactNode;
+  /** Rendered directly under the lockup, before any nav entry. */
+  headerSlot?: ReactNode;
   /** A workspace's actions, pinned above the profile footer. */
   footerActions?: ReactNode;
   /**
@@ -191,6 +193,7 @@ export default function ChatSidebar({
   onRequestClose,
   guestSettings = null,
   primaryNav = null,
+  headerSlot = null,
   footerActions = null,
   profileSlot = null,
 }: ChatSidebarProps) {
@@ -515,6 +518,8 @@ export default function ChatSidebar({
         onToggle={onToggle}
         onRequestClose={onRequestClose}
       />
+
+      {headerSlot}
 
       <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-[6px] pb-4 pt-2">
         {/* Main Navigation */}

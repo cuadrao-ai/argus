@@ -3,6 +3,7 @@ import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } 
 import type { ArgusLanguage } from "@/lib/language-features";
 import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
 import type {
+  GrantedSpace,
   BusinessAccount,
   BusinessCapture,
   BusinessCaptureInput,
@@ -27,6 +28,10 @@ import type {
 export type BusinessDataSource = Readonly<{
   mode: "live" | "fixture";
   ensureSpace: (language: ArgusLanguage) => Promise<BusinessSpace>;
+  /** Every Business the person may enter through a live grant, their own first. */
+  spaces: () => Promise<GrantedSpace[]>;
+  /** The person dismissed the one-time access line for one of their grants. */
+  markAccessSeen: (grantId: string) => Promise<void>;
   workspace: () => Promise<BusinessWorkspaceInfo>;
   overview: (from: string, to: string | null) => Promise<BusinessOverview>;
   receipts: (view: "inbox" | "all") => Promise<ReceiptSummary[]>;
@@ -101,6 +106,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   giveAccess: api.giveBusinessAccess,
   revokeAccessGrant: api.revokeBusinessAccessGrant,
   revokeAccessInvite: api.revokeBusinessAccessInvite,
+  spaces: api.getBusinessSpaces,
+  markAccessSeen: api.markBusinessAccessSeen,
 };
 
 export function withBusinessSpace(
@@ -155,5 +162,7 @@ export function withBusinessSpace(
     giveAccess: after(source.giveAccess),
     revokeAccessGrant: source.revokeAccessGrant,
     revokeAccessInvite: source.revokeAccessInvite,
+    spaces: after(source.spaces),
+    markAccessSeen: source.markAccessSeen,
   };
 }

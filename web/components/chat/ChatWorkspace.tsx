@@ -90,6 +90,8 @@ export type ChatWorkspace = Readonly<{
   /** Whether the current panel keeps the composer at its bottom edge. */
   panelHasComposer: boolean;
   sidebarNav: (bridge: ChatShellBridge) => ReactNode;
+  /** What sits directly under the lockup, above every nav entry: a workspace's own identity control, if any. */
+  sidebarHeader?: (bridge: ChatShellBridge) => ReactNode;
   sidebarFooter: (bridge: ChatShellBridge) => ReactNode;
   headerActions: (bridge: ChatShellBridge) => ReactNode;
   panel: (bridge: ChatShellBridge) => ReactNode;

@@ -2733,6 +2733,19 @@
       "notes": "Notas originales",
       "saved_note": "Nota original guardada",
       "search_failed": "Las notas no están disponibles. Los demás resultados se muestran abajo."
+    },
+    "switcher": {
+      "label": "Negocio",
+      "change": "Cambiar de negocio",
+      "choose": "Elige un negocio",
+      "own": "Tu negocio",
+      "client": "Cliente",
+      "client_cue": "Cliente: {{name}}",
+      "role_owner": "Dueño",
+      "role_accountant": "Ver y preparar",
+      "access_line": "Ahora tienes acceso a {{name}} · Ver y preparar",
+      "got_it": "Entendido",
+      "lost": "Ya no tienes acceso a este negocio."
     }
   },
   "money": {

@@ -1,3 +1,4 @@
+import { chosenGrantHeader } from "./business-grant";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { publicApiUrl } from "./public-env";
 
@@ -31,6 +32,9 @@ export function argusApiRequestHeaders(
     "X-Argus-Client-Capabilities",
     ARGUS_CLIENT_CAPABILITIES.join(","),
   );
+  // The Business the person chose to work in, as the grant that admits them;
+  // the server proves it on every request. Absent for the own Business.
+  for (const [key, value] of Object.entries(chosenGrantHeader())) headers.set(key, value);
   return headers;
 }
 

@@ -114,7 +114,7 @@ export async function fetchBusinessExport(draftId: string, start: string, end: s
   signal?.throwIfAborted();
   const query = new URLSearchParams({ start, end, draft_id: draftId });
   const response = await fetch(`${ARGUS_API_BASE_URL}/business/exports?${query}`, {
-    headers: authHeaders, credentials: "include", cache: "no-store", signal,
+    headers: argusApiRequestHeaders(undefined, authHeaders), credentials: "include", cache: "no-store", signal,
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -298,6 +298,34 @@ export async function startBusinessSpace(language: ArgusLanguage): Promise<Busin
   });
 }
 
+/** One Business the person may enter, through one live grant of theirs; the server's answer, names included. */
+export type GrantedSpace = {
+  space_id: string;
+  name: string;
+  grant_id: string;
+  role: "owner" | "accountant";
+  capabilities: ("read" | "prepare" | "approve")[];
+  /** Whether the one-time "you now have access" line was dismissed; always true for the own Business. */
+  access_seen: boolean;
+};
+
+/** Every Business the person may enter, their own first. */
+export async function getBusinessSpaces(): Promise<GrantedSpace[]> {
+  const answer = await apiFetch<{ spaces: GrantedSpace[] }>("/business/spaces");
+  return answer.spaces;
+}
+
+/** The person dismissed the one-time access line for one of their grants; remembered server side. */
+export async function markBusinessAccessSeen(grantId: string): Promise<void> {
+  const authHeaders = await authenticatedRequestHeaders();
+  const response = await fetch(`${ARGUS_API_BASE_URL}/business/spaces/${encodeURIComponent(grantId)}/seen`, {
+    method: "POST",
+    credentials: "include",
+    headers: argusApiRequestHeaders(undefined, authHeaders),
+  });
+  if (!response.ok) throw new Error(`API error ${response.status}`);
+}
+
 export async function getBusinessWorkspace(): Promise<BusinessWorkspaceInfo> {
   return apiFetch("/business/workspace");
 }
@@ -386,7 +414,7 @@ export async function fetchBusinessReceiptSource(id: string): Promise<Blob> {
   const authHeaders = await authenticatedRequestHeaders();
   const response = await fetch(
     `${ARGUS_API_BASE_URL}/business/receipts/${encodeURIComponent(id)}/source`,
-    { credentials: "include", headers: authHeaders },
+    { credentials: "include", headers: argusApiRequestHeaders(undefined, authHeaders) },
   );
   if (!response.ok) throw new Error(`API error ${response.status}`);
   return response.blob();

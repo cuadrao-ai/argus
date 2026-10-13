@@ -296,6 +296,9 @@ const access: { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] }
   invites: [],
 };
 
+// The sample's memory of dismissed access lines; the live app keeps it server side.
+const seenGrants = new Set<string>();
+
 export function createFixtureBusinessDataSource(
   { chatAvailable }: FixtureOptions = { chatAvailable: true },
 ): BusinessDataSource {
@@ -336,6 +339,17 @@ export function createFixtureBusinessDataSource(
     ensureSpace: async () => {
       await delay();
       return { id: "fixture-space", name: "Mi negocio" };
+    },
+    spaces: async () => {
+      await delay();
+      return [
+        { space_id: "fixture-space", name: "Mi negocio", grant_id: "fixture-grant-own", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true },
+        { space_id: "fixture-client", name: "Colmado Peña", grant_id: "fixture-grant-client", role: "accountant", capabilities: ["read", "prepare"], access_seen: seenGrants.has("fixture-grant-client") },
+      ];
+    },
+    markAccessSeen: async (grantId: string) => {
+      await delay();
+      seenGrants.add(grantId);
     },
     workspace: async () => {
       await delay();
