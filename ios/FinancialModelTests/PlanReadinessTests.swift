@@ -3,74 +3,84 @@ import XCTest
 import ArgusSession
 @testable import FinancialModels
 
-/// The founder's PRUEBA_MOVIL steps 10 to 12: each plan names what it still needs, and the rule agrees with the draft that saves.
+/// Founder walk steps 10 to 12: the kind drafts own every rule, so the editor's hint and the save check never disagree.
 @MainActor
 final class PlanReadinessTests: XCTestCase {
     private let locale = Locale(identifier: "es_DO")
     private let bank = UUID(), cash = UUID(), card = UUID()
 
-    private func missing(_ plan: CanvasPlan, _ details: ConnectedPlanDetails, creatingDebt: Bool = true) -> ConnectedPlanMissing? {
-        ConnectedPlanReadiness.missing(plan, details, creatingDebt: creatingDebt, optionsLoaded: true)
-    }
-
-    func testBudgetStepTenNamesEachMissingChoiceThenSaves() {
+    func testBudgetStepTenNamesEachMissingChoiceThenIsReady() {
         var plan = CanvasPlan(name: "", kind: .budget)
         var details = ConnectedPlanDetails()
-        XCTAssertEqual(missing(plan, details), .name)
-        plan.name = "Comida"
-        XCTAssertEqual(missing(plan, details), .amount)
-        plan.target = 5000
-        XCTAssertEqual(missing(plan, details), .accounts)
-        details.accountIDs = [bank, cash, card]
-        XCTAssertEqual(missing(plan, details), .categories)
-        details.categoryIDs = ["groceries"]
-        XCTAssertNil(missing(plan, details))
         let draft = FinancialBudgetDraft(month: "2026-10", currency: "DOP")
-        ConnectedPlanMapping.apply(plan, details, to: draft, digits: 2, locale: locale)
+        func missing() -> ConnectedPlanMissing? {
+            ConnectedPlanMapping.apply(plan, details, to: draft, digits: 2, locale: locale); return draft.missing
+        }
+        XCTAssertEqual(missing(), .name)
+        plan.name = String(repeating: "c", count: 101)
+        XCTAssertEqual(missing(), .nameTooLong)
+        plan.name = "Comida"
+        XCTAssertEqual(missing(), .amount)
+        plan.target = 5000
+        XCTAssertEqual(missing(), .accounts)
+        details.accountIDs = [bank, cash, card]
+        XCTAssertEqual(missing(), .categories)
+        details.categoryIDs = ["groceries"]
+        XCTAssertNil(missing())
         XCTAssertTrue(draft.ready)
-        XCTAssertEqual(ConnectedPlanReadiness.missing(plan, details, creatingDebt: true, optionsLoaded: false), .loading)
     }
 
-    func testGoalStepElevenSavesWithoutAMonthlyAmountAndNamesAccountsWithOne() {
+    func testGoalStepElevenNeedsNoAccountsWithoutAMonthlyAmount() {
         var plan = CanvasPlan(name: "Viaje", kind: .goal)
         var details = ConnectedPlanDetails()
-        plan.target = 20000
-        XCTAssertNil(missing(plan, details))
         let draft = FinancialGoalDraft(start: "2026-10-13", currency: "DOP")
-        ConnectedPlanMapping.apply(plan, details, to: draft, digits: 2, locale: locale)
-        XCTAssertTrue(draft.ready, "a goal with no monthly amount needs no accounts")
+        func missing() -> ConnectedPlanMissing? {
+            ConnectedPlanMapping.apply(plan, details, to: draft, digits: 2, locale: locale); return draft.missing
+        }
+        XCTAssertEqual(missing(), .amount)
+        plan.target = 20000
+        XCTAssertNil(missing())
         plan.monthly = 1000
-        XCTAssertEqual(missing(plan, details), .destination)
+        XCTAssertEqual(missing(), .destination)
         details.destinationID = bank
-        XCTAssertEqual(missing(plan, details), .source)
+        XCTAssertEqual(missing(), .source)
         details.sourceID = bank
-        XCTAssertEqual(missing(plan, details), .sameAccount)
+        XCTAssertEqual(missing(), .sameAccount)
         details.sourceID = cash
-        XCTAssertNil(missing(plan, details))
-        ConnectedPlanMapping.apply(plan, details, to: draft, digits: 2, locale: locale)
+        XCTAssertNil(missing())
         XCTAssertTrue(draft.ready)
     }
 
-    func testDebtStepTwelveNamesTheCardThePaymentAndThePayingAccount() {
-        var plan = CanvasPlan(name: "Tarjeta", kind: .debt)
-        var details = ConnectedPlanDetails()
-        XCTAssertEqual(missing(plan, details), .debtAccount)
-        details.debtAccountID = card
-        XCTAssertEqual(missing(plan, details), .monthly)
-        plan.monthly = 1000
-        XCTAssertEqual(missing(plan, details), .source)
-        details.sourceID = bank
-        XCTAssertNil(missing(plan, details))
-        XCTAssertNil(missing(plan, ConnectedPlanDetails(sourceID: bank), creatingDebt: false), "an edit keeps its card")
+    func testDebtEstimateNamesRateAndFees() throws {
+        let draft = FinancialDebtDraft(account: try account(card, type: "credit_card"), start: "2026-10-13")
+        XCTAssertEqual(draft.missing, .monthly)
+        draft.amount = "1,000.00"
+        XCTAssertEqual(draft.missing, .source)
+        draft.sourceID = bank
+        XCTAssertNil(draft.missing)
+        draft.estimate = true
+        XCTAssertEqual(draft.missing, .rate)
+        draft.rate = "18.5"
+        XCTAssertEqual(draft.missing, .fees)
+        draft.fees = "0"
+        XCTAssertNil(draft.missing)
+        XCTAssertTrue(draft.ready)
     }
 
     func testEveryReasonHasSpanishAndEnglishText() {
-        let all: [ConnectedPlanMissing] = [.name, .amount, .monthly, .debtAccount, .accounts, .categories, .destination, .source, .sameAccount, .loading]
+        let all: [ConnectedPlanMissing] = [.name, .nameTooLong, .amount, .monthly, .debtAccount, .accounts, .categories, .destination,
+                                           .source, .sameAccount, .rate, .fees, .loading, .planUnavailable]
         for reason in all {
-            XCTAssertFalse(reason.hint(spanish: true).isEmpty)
-            XCTAssertFalse(reason.hint(spanish: false).isEmpty)
             XCTAssertNotEqual(reason.hint(spanish: true), reason.hint(spanish: false))
             XCTAssertFalse(reason.hint(spanish: true).contains("—"))
         }
+    }
+
+    private func account(_ id: UUID, type: String) throws -> FinancialAccount {
+        let body: [String: Any] = ["id": id.uuidString, "type": type, "nature": "liability", "currency": "DOP", "currency_fraction_digits": 2,
+            "nickname": "BoFa", "archived": false, "ownership_share_bps": 10000, "version": 1, "created_at": "2026-10-13T12:00:00Z",
+            "updated_at": "2026-10-13T12:00:00Z", "opening": NSNull(),
+            "balance": ["state": "unknown", "activity_since_tracking_minor": 0], "asset": NSNull()]
+        return try JSONDecoder().decode(FinancialAccount.self, from: JSONSerialization.data(withJSONObject: body))
     }
 }

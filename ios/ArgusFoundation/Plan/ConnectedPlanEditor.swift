@@ -39,6 +39,7 @@ struct ConnectedPlanEditor: View {
 
     var body: some View {
         CuadraoPlanEditor(host: host, initial: initial, spanish: spanish, details: { plan in detailsView(plan) }, footer: { footerView })
+            .task { if loop.plan.projection == nil { await loop.plan.refresh() } }
     }
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
@@ -90,10 +91,7 @@ struct ConnectedPlanEditor: View {
         host.monthlyTitle = monthlyTitle
         host.identifiers = identifiers
         host.canSave = { plan in loop.pendingConfirmation == nil && ready(plan) }
-        host.missing = { plan in
-            ConnectedPlanReadiness.missing(plan, details, creatingDebt: { if case .create = seed { return true }; return false }(),
-                                           optionsLoaded: budgets.options != nil)?.hint(spanish: spanish)
-        }
+        host.missing = { plan in missing(plan)?.hint(spanish: spanish) }
         host.saving = saving
         host.dismissesOnSave = false
         return host
@@ -137,11 +135,18 @@ struct ConnectedPlanEditor: View {
         ConnectedPlanMapping.apply(plan, details, to: draft, digits: digits(plan.currency), locale: locale)
         return draft
     }
-    private func ready(_ plan: CanvasPlan) -> Bool {
+    private func ready(_ plan: CanvasPlan) -> Bool { missing(plan) == nil }
+    /// The drafts own every rule; a create also needs the plan read, which names its own problem instead of a silent grey button.
+    private func missing(_ plan: CanvasPlan) -> ConnectedPlanMissing? {
         switch plan.kind {
-        case .goal: goalDraft(plan, seeded: false)?.ready ?? false
-        case .budget: budgets.options != nil && (budgetDraft(plan, seeded: false)?.ready ?? false)
-        case .debt: debtDraft(plan, seeded: false)?.ready ?? false
+        case .goal:
+            return goalDraft(plan, seeded: false).map(\.missing) ?? .planUnavailable
+        case .budget:
+            guard let draft = budgetDraft(plan, seeded: false) else { return .planUnavailable }
+            return draft.missing ?? (budgets.options == nil ? .loading : nil)
+        case .debt:
+            if case .create = seed, details.debtAccountID == nil { return .debtAccount }
+            return debtDraft(plan, seeded: false).map(\.missing) ?? .planUnavailable
         }
     }
     private func save(_ plan: CanvasPlan) async {
@@ -254,6 +259,10 @@ struct ConnectedPlanEditor: View {
     private var footerView: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let errorKey { Text(LocalizedStringKey(errorKey)).accessibilityIdentifier(kind.rawValue + ".error") }
+            if loop.plan.projection == nil {
+                Button("accounts.retry") { Task { await loop.plan.refresh() } }
+                    .frame(minHeight: 44).accessibilityIdentifier("plan.reload")
+            }
             if loop.pendingConfirmation != nil { PlanPendingView(loop: loop) }
         }
     }
