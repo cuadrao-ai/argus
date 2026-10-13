@@ -56,7 +56,8 @@ export type BusinessDataSource = Readonly<{
     input: { nickname: string; type: string; currency: string },
     key: string,
   ) => Promise<BusinessAccount>;
-  emailIntake: () => Promise<BusinessEmailIntake>;
+  /** The permission text inside comes back in `language`; sample data ignores it. */
+  emailIntake: (language?: ArgusLanguage) => Promise<BusinessEmailIntake>;
   createEmailAddress: () => Promise<BusinessEmailIntake>;
   emailDeliveries: () => Promise<BusinessEmailDelivery[]>;
   emailDelivery: (id: string) => Promise<BusinessEmailDetail>;
@@ -146,7 +147,7 @@ export function withBusinessSpace(
     confirmReceipt: source.confirmReceipt,
     recordExpense: after(source.recordExpense),
     createAccount: after(source.createAccount),
-    emailIntake: after(source.emailIntake),
+    emailIntake: after(() => source.emailIntake(language())),
     createEmailAddress: after(source.createEmailAddress),
     emailDeliveries: after(source.emailDeliveries),
     emailDelivery: source.emailDelivery,

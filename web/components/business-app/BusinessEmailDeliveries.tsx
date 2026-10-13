@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailAIReading, BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
 import { businessReceivingAddress, emailDeliveriesNeedRefresh } from "@/lib/business-email";
-import { canAgreeToReading, declineEmailReading, enableEmailReading, getEmailIntake, readingModels } from "@/lib/business-email-consent-api";
+import { canAgreeToReading, declineEmailReading, enableEmailReading, readingModels } from "@/lib/business-email-consent-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatRelativeTime } from "./business-format";
@@ -195,11 +195,7 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
     let timer: ReturnType<typeof setTimeout> | undefined;
     let polls = 0;
     setStalled(false);
-    // The permission's text comes in the person's language; sample data carries no permission.
-    source.emailIntake()
-      .then((data) => (data.ai_reading === undefined ? data : getEmailIntake(i18n.language).catch(() => data)))
-      .then((data) => { if (current) setIntake({ status: "ready", data }); })
-      .catch(() => { if (current) setIntake({ status: "error" }); });
+    source.emailIntake().then((data) => { if (current) setIntake({ status: "ready", data }); }).catch(() => { if (current) setIntake({ status: "error" }); });
     const refresh = async () => {
       try {
         const items = await source.emailDeliveries();
@@ -212,11 +208,11 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
     };
     void refresh();
     return () => { current = false; clearTimeout(timer); };
-  }, [source, attempt, revision, i18n.language]);
+  }, [source, attempt, revision]);
   if (intake.status === "error" && deliveries.status === "error") return null;
   const ready = intake.status === "ready" ? intake.data : null;
   const reading = ready?.ai_reading ?? null;
-  const reload = async () => setIntake({ status: "ready", data: await getEmailIntake(i18n.language) });
+  const reload = async () => setIntake({ status: "ready", data: await source.emailIntake() });
   // Asking for the address with the notice on the screen is the owner's agreement, recorded in the same breath.
   const activate = async () => {
     const next = await source.createEmailAddress();

@@ -444,8 +444,9 @@ export async function createBusinessAccount(
   });
 }
 
-export async function getBusinessEmailIntake(): Promise<BusinessEmailIntake> {
-  return apiFetch("/business/email");
+export async function getBusinessEmailIntake(language?: ArgusLanguage): Promise<BusinessEmailIntake> {
+  // The permission's disclosure comes back in the person's language.
+  return apiFetch(`/business/email${language ? `?language=${encodeURIComponent(language)}` : ""}`);
 }
 
 export async function createBusinessEmailAddress(): Promise<BusinessEmailIntake> {
