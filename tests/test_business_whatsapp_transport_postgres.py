@@ -801,8 +801,10 @@ async def test_a_failing_reply_gives_up_after_bounded_tries_and_frees_the_sender
         raise RuntimeError("synthetic outage")
 
     monkeypatch.setattr(world.actions, "resolve_actor", broken)
-    for _ in range(MAX_ATTEMPTS):
+    for _ in range(MAX_ATTEMPTS - 1):
         assert await worker.run_once()
+    assert _outbox(world, first) == [("pending", None)]
+    assert await worker.run_once()
     assert _outbox(world, first) == [("suppressed", "whatsapp_reply_failed")]
     assert world.transport.messages == []
     monkeypatch.undo()
@@ -812,3 +814,77 @@ async def test_a_failing_reply_gives_up_after_bounded_tries_and_frees_the_sender
     world.captures.capture(second)
     assert await worker.run_once()
     assert [m["text"]["body"] for m in world.transport.messages] == ["Siguiente"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cause", ["store_error", "agent_off"])
+async def test_a_failed_check_or_a_disabled_agent_is_not_recorded_as_not_permitted(
+    world, cause
+):
+    message = world.message()
+    world.captures.capture(message)
+    worker = world.worker(synthetic_consent=True)
+    original = worker.delivery.claim
+
+    def claim_then_break(*args, **kwargs):
+        claim = original(*args, **kwargs)
+        if cause == "store_error":
+
+            def broken(*_):
+                raise RuntimeError("synthetic store outage")
+
+            worker.has_consent = broken
+        else:
+            worker.enabled = lambda: False
+        return claim
+
+    worker.delivery.claim = claim_then_break
+    await worker.run_once()
+    assert world.transport.messages == []
+    expected = (
+        "whatsapp_send_check_failed"
+        if cause == "store_error"
+        else "whatsapp_send_disabled"
+    )
+    assert _outbox(world, message) == [("unknown", expected)]
+
+
+@pytest.mark.asyncio
+async def test_a_give_up_that_fails_is_logged_and_tried_again_on_the_next_failure(
+    world, monkeypatch
+):
+    from argus.domain.ingestion.whatsapp.business_worker import MAX_ATTEMPTS
+    from loguru import logger
+
+    seen = []
+    sink = logger.add(lambda m: seen.append(m.record), level="ERROR")
+    sending = {"on": False}
+    worker = world.worker(synthetic_consent=True)
+    worker.send_enabled = lambda: sending["on"]
+    message = world.message()
+    world.captures.capture(message)
+    assert await worker.run_once()
+    sending["on"] = True
+    monkeypatch.setattr(
+        world.actions,
+        "resolve_actor",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError()),
+    )
+    real = worker.delivery.give_up
+
+    def failing(*args, **kwargs):
+        raise RuntimeError("synthetic give-up outage")
+
+    worker.delivery.give_up = failing
+    for _ in range(MAX_ATTEMPTS):
+        await worker.run_once()
+    assert [r["extra"]["event"] for r in seen] == ["business_whatsapp_give_up_failed"]
+    assert _outbox(world, message) == [("pending", None)]
+    worker.delivery.give_up = real
+    await worker.run_once()
+    logger.remove(sink)
+    assert [r["extra"]["event"] for r in seen] == [
+        "business_whatsapp_give_up_failed",
+        "business_whatsapp_given_up",
+    ]
+    assert _outbox(world, message) == [("suppressed", "whatsapp_reply_failed")]
