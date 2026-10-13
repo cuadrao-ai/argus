@@ -92,23 +92,3 @@ enum GuestMovementPresentation {
                 sign(movement, perspective: account) + amount(movement, in: book, locale: locale) + " " + currency, symbol(movement.kind))
     }
 }
-
-/// A small undo notice at the bottom of the screen, in the look of the archived-account one.
-struct GuestUndoToast: View {
-    let message: String
-    let spanish: Bool
-    let undo: () -> Void
-    let close: () -> Void
-
-    var body: some View {
-        HStack {
-            Text(message)
-            Spacer()
-            Button(spanish ? "Deshacer" : "Undo", action: undo).accessibilityIdentifier("guest.undo")
-            Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                .accessibilityLabel(spanish ? "Cerrar" : "Close")
-        }.font(.subheadline).padding(.leading, 20).padding(.trailing, 6)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
-            .padding(.horizontal, 20).padding(.bottom, 90)
-    }
-}

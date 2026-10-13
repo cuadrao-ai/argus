@@ -104,9 +104,9 @@ struct CuadraoHomeCanvas: View {
         }
         .overlay(alignment: .bottom) {
             if let archivedID {
-                CuadraoArchivedAccountToast(spanish: spanish, undo: {
-                    data.archive(archivedID, false); self.archivedID = nil
-                }, close: { self.archivedID = nil })
+                CuadraoToast(text: spanish ? "Cuenta archivada" : "Account archived", actionTitle: spanish ? "Deshacer" : "Undo",
+                    actionIdentifier: "accounts.archived.undo", action: { data.archive(archivedID, false); self.archivedID = nil }, spanish: spanish,
+                    closeIdentifier: "accounts.archived.close", token: archivedID, close: { self.archivedID = nil })
             }
         }
     }
