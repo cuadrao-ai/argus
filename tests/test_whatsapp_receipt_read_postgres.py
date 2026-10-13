@@ -5,13 +5,17 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from hashlib import sha256
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from argus.api.whatsapp import DocumentsDestination
+from argus.api.whatsapp import DocumentsDestination, _whatsapp_read_gate
 from argus.domain.business.actions import BusinessActions
+from argus.domain.business.authority import ActionError
+from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
+from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import ExtractionResult
 from argus.domain.ingestion.documents.service import DocumentsService
@@ -53,17 +57,31 @@ class Extractor:
                 receipt=dict(total="250.50", currency="DOP"),
             )
         )
-        return batch_from_result(
-            result,
-            sha256(kwargs["content"]).hexdigest(),
-            kwargs["connection_id"],
-            datetime.now(timezone.utc),
-            1,
+        digest = sha256(kwargs["content"]).hexdigest()
+        batch = batch_from_result(
+            result, digest, kwargs["connection_id"], datetime.now(timezone.utc), 1
+        )
+        attachment = Attachment(
+            external_id=digest,
+            sha256=digest,
+            media_type=kwargs["media_type"],
+            size_bytes=len(kwargs["content"]),
+            filename=kwargs["filename"],
+        )
+        return batch.model_copy(
+            update={
+                "metadata": {"sha256": digest},
+                "candidates": tuple(
+                    c.model_copy(update={"attachments": (attachment,)})
+                    for c in batch.candidates
+                ),
+            }
         )
 
 
-@pytest.mark.asyncio
-async def test_a_whatsapp_receipt_is_read_through_the_owners_grant(actions):  # noqa: ANN001
+def _rig(actions, switch):  # noqa: ANN001, ANN202
+    """Real Postgres, Business actions wired, the owner's grant seeded."""
+
     service, context, _ = actions
     pool = service.authority.pool
     with pool.connection() as db:
@@ -94,17 +112,78 @@ async def test_a_whatsapp_receipt_is_read_through_the_owners_grant(actions):  # 
         business_actions=BusinessActions(pool, hub.sink),
         business_preparation_required=True,
     )
-    destination = DocumentsDestination(
-        documents, PostgresSpaceStore(pool), lambda _owner: True
-    )
+    reading = lambda _owner: switch["on"]  # noqa: E731
     owner = str(context.owner_id)
+    documents.read_gate = _whatsapp_read_gate(
+        SimpleNamespace(capture_owner=lambda **_: owner), reading
+    )
+    destination = DocumentsDestination(documents, PostgresSpaceStore(pool), reading)
+    return destination, documents, extractor, owner
+
+
+async def _capture(destination, owner):  # noqa: ANN001, ANN202
     captured = await destination.capture(
         owner_id=owner,
         content=RECEIPT_PNG,
         filename="whatsapp-image",
         media_type="image/png",
     )
-    result = await destination.read(owner_id=owner, connection_id=captured.connection_id)
-    assert result is not None
-    assert result[0] in ("review_ready", "needs_attention")
+    return captured.connection_id
+
+
+def _draft(destination, owner, connection_id):  # noqa: ANN001, ANN202
+    scope = resolve_business_scope(destination.spaces, owner)
+    return destination.documents.get(
+        user_id=owner, connection_id=connection_id, scope=scope.owner
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_whatsapp_receipt_is_read_through_the_owners_grant(actions):  # noqa: ANN001
+    destination, _, extractor, owner = _rig(actions, {"on": True})
+    connection_id = await _capture(destination, owner)
+    result = await destination.read(owner_id=owner, connection_id=connection_id)
+    assert result is not None and result[0] == "review_ready"
     assert extractor.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_a_switch_turned_off_after_capture_stops_the_read(actions):  # noqa: ANN001
+    switch = {"on": True}
+    destination, _, extractor, owner = _rig(actions, switch)
+    connection_id = await _capture(destination, owner)
+    switch["on"] = False
+    await destination.read(owner_id=owner, connection_id=connection_id)
+    assert extractor.calls == 0
+    assert _draft(destination, owner, connection_id).status == "saved"
+
+
+@pytest.mark.asyncio
+async def test_only_the_receiving_owner_can_be_the_actor(actions):  # noqa: ANN001
+    destination, _, extractor, owner = _rig(actions, {"on": True})
+    connection_id = await _capture(destination, owner)
+    accountant = str(actions[1].actor.actor_id)
+    assert accountant != owner
+    assert (
+        await destination.read(owner_id=accountant, connection_id=connection_id) is None
+    )
+    assert extractor.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: ANN201
+    actions,
+    monkeypatch,  # noqa: ANN001
+):
+    destination, documents, extractor, owner = _rig(actions, {"on": True})
+    connection_id = await _capture(destination, owner)
+
+    def refused(*_: Any, **__: Any) -> None:
+        raise ActionError("permission_denied", "business_permission_denied")
+
+    monkeypatch.setattr(documents.business_actions, "resolve_actor", refused)
+    with pytest.raises(ActionError):
+        await destination.read(owner_id=owner, connection_id=connection_id)
+    draft = _draft(destination, owner, connection_id)
+    assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
+    assert extractor.calls == 0

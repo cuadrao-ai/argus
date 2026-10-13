@@ -114,6 +114,9 @@ class ReceiptSummary(_Wire):
     duplicate_of: str | None = None
     # The upload found the same bytes already saved; this is that receipt.
     replayed: bool = False
+    # A read is in flight or will start: queued with consent and the owner's
+    # reading allowed now. False for a queued receipt nothing will read.
+    read_pending: bool = False
     # The owner may ask for a consented AI read now.
     preparable: bool
     # The owner may fill in the one purchase by hand from version 0.

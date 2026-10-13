@@ -63,15 +63,49 @@ async def _drain(runtime: EmailCapture) -> None:
         await asyncio.sleep(0.05 if did_work else 2)
 
 
+def intake_conditions(app) -> dict[str, bool]:  # noqa: ANN001
+    """Every condition email receiving needs, by name, so a startup log can say
+    which one failed. Names only: no value is read into the result."""
+
+    settings = EmailIntakeSettings()
+    return {
+        "email_capture_flag": settings.capture_enabled,
+        "business_pilot_flag": business_pilot_enabled(),
+        "ingestion_flag": ingestion_enabled(),
+        "document_extraction_flag": load_document_extraction_settings().enabled,
+        "persistence_supabase": api_state.PERSISTENCE_MODE == "supabase",
+        "financial_accounts_pool": getattr(
+            getattr(app, "state", None), "financial_accounts_pool", None
+        )
+        is not None,
+        "documents_service": documents_service() is not None,
+        "receiving_flag": settings.receiving_enabled,
+        "webhook_secret_present": bool(settings.webhook_secret.get_secret_value()),
+        "api_key_present": bool(settings.api_key.get_secret_value()),
+    }
+
+
+# The queue and the routes need these; without them nothing starts.
+_RUNTIME_CONDITIONS = (
+    "email_capture_flag",
+    "persistence_supabase",
+    "financial_accounts_pool",
+    "documents_service",
+)
+
+
 def start_email_intake(app) -> None:  # noqa: ANN001
     configure_email_intake(None)
-    if not EmailIntakeSettings().capture_enabled:
+    conditions = intake_conditions(app)
+    missing = [name for name, held in conditions.items() if not held]
+    if not conditions["email_capture_flag"]:
         return
-    pool = getattr(getattr(app, "state", None), "financial_accounts_pool", None)
+    if any(name in missing for name in _RUNTIME_CONDITIONS):
+        # Routes and the queue are Postgres rows; the in-memory app has no receiving.
+        logger.warning("Email intake did not start", missing=missing)
+        return
+    pool = app.state.financial_accounts_pool
     documents = documents_service()
-    # Routes and the queue are Postgres rows; the in-memory app has no receiving.
-    if pool is None or documents is None or api_state.PERSISTENCE_MODE != "supabase":
-        return
     client = httpx.AsyncClient(timeout=20, follow_redirects=False, trust_env=False)
     key = EmailIntakeSettings().api_key.get_secret_value()
     provider = (
@@ -79,6 +113,14 @@ def start_email_intake(app) -> None:  # noqa: ANN001
         if key and webhook_enabled()
         else None
     )
+    if provider is None:
+        logger.warning(
+            "Email intake started without a receiving provider;"
+            " the Resend webhook answers 404",
+            missing=missing,
+        )
+    else:
+        logger.info("Email intake started with the receiving provider")
     configure_email_intake(
         EmailCapture(
             PostgresEmailStore(pool),

@@ -77,6 +77,23 @@ def require_drafts(
     )
 
 
+def bind_to_grant(documents, hub, actions, context, capability):  # noqa: ANN001, ANN201
+    """The one place a documents service is bound to a person's Business grant:
+    the same hub with an import sink that acts only as that grant, for a request
+    or for a delivery that has none. Returns the bound service and its sink."""
+
+    imports = ReconciliationService(
+        GrantImportStore(actions.authority, context, capability),
+        hub.sink.money,
+        hub.sink.clock,
+        connections=hub.sink.connections,
+    )
+    scoped_hub, scoped_documents = copy(hub), copy(documents)
+    scoped_hub.sink = imports
+    scoped_documents.hub = scoped_hub
+    return scoped_documents, imports
+
+
 def scoped_legacy(request, documents, hub, user_id, scope):
     pool = getattr(request.app.state, "financial_accounts_pool", None)
     if pool is None:
@@ -129,15 +146,9 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         ) from None
     except ActionError as error:
         raise action_problem(request, error.result) from None
-    imports = ReconciliationService(
-        GrantImportStore(actions.authority, context, capability),
-        hub.sink.money,
-        hub.sink.clock,
-        connections=hub.sink.connections,
+    scoped_documents, imports = bind_to_grant(
+        documents, hub, actions, context, capability
     )
-    scoped_hub, scoped_documents = copy(hub), copy(documents)
-    scoped_hub.sink = imports
-    scoped_documents.hub = scoped_hub
     return BusinessContext(
         BusinessScope(context.owner_id, context.scope),
         BusinessService(scoped_documents, imports, _captured),
