@@ -17,6 +17,21 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-approval-line-20261013": {
+      "description": "The line under the approve control never tells a person who can approve that someone with approval permission must; when the record is not an expense yet the blockers card already names what is missing. Pure approvalLine helper with a unit test; no backend change, no new copy.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-dossier.test.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-business-actions-20261010": {
       "description": "Actions-owned source delta; M1 and C0 dependencies must land and reconcile before full READY gate.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -1077,6 +1092,23 @@
         ".env.*",
         "web/.env.*",
         "web/.env.local"
+      ]
+    },
+    "codex/cuadrao-inbox-count-20261013": {
+      "description": "The Overview inbox card and the sidebar badge count what the Inbox list shows: receipts awaiting review without the email-itself rows, plus drafts with an open note; one shared inboxCount in BusinessInboxPanel, no backend change.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-inbox-notes.test.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/BusinessOverviewPanel.tsx",
+        "web/components/business-app/BusinessSidebarNav.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
       ]
     },
     "codex/cuadrao-live-delegation-foundation-20261011": {

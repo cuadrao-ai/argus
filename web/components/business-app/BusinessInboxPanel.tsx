@@ -31,6 +31,17 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
   return [...byDraft.values()].sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
 }
 
+/**
+ * What the Inbox list shows, as one number for the Overview card and the
+ * sidebar badge: receipts awaiting review (the email itself is not a row,
+ * its attachments are) plus the drafts with an open note. Both lists come
+ * from the backend; the count is never computed from anything else.
+ */
+export function inboxCount(records: { inbox: readonly ReceiptSummary[] | null; notes: readonly BusinessCapture[] | null }): number {
+  const receipts = records.inbox?.filter((receipt) => !receipt.email_original).length ?? 0;
+  return receipts + (records.notes ? openNotesByDraft(records.notes).length : 0);
+}
+
 export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }: { notes: OpenNote[]; error: boolean; truncated?: boolean; onOpen: (draftId: string) => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
