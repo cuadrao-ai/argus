@@ -84,10 +84,9 @@ final class AccountsModel: ObservableObject {
             switch draft.mode {
             case .create:
                 if self.pendingCreate == nil {
-                    let opening = try AccountEntry.amount(draft.createOpening, locale: locale)
                     self.pendingCreate = CreateFinancialAccountRequest(type: draft.type, currency: draft.currency,
-                        nickname: draft.nickname, amount: opening,
-                        asOf: opening == nil ? nil : draft.asOf, timeZone: draft.timeZone, ownershipShareBps: share)
+                        nickname: draft.nickname, amount: amount,
+                        asOf: draft.amount.isEmpty ? nil : draft.asOf, timeZone: draft.timeZone, ownershipShareBps: share)
                 }
                 guard let confirm = self.confirmCreate else { throw FinancialWriteJournalError.storageUnavailable }
                 saved = try await confirm(self.pendingCreate!)
@@ -241,9 +240,6 @@ struct AccountDraft: Identifiable {
     var timeZone = "America/Santo_Domingo"
     var reason = ""
     var share = "100"
-    /// Cash starts tracking what is in hand, so a blank wallet is a recorded zero.
-    /// Every other type keeps a blank balance unknown.
-    var createOpening: String { amount.isEmpty && type == "cash" ? "0" : amount }
 
     init() {}
     init(account: FinancialAccount, mode: Mode) {
