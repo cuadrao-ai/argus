@@ -1222,6 +1222,26 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-whatsapp-copy-code-20261012": {
+      "description": "A square copy button beside the WhatsApp link code: press it, the full code lands on the clipboard, the icon turns into a check for a moment and comes back; named Copiar código, Copiado announced politely, a refusing clipboard never crashes the panel.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/copy-text.test.ts",
+        "web/__tests__/whatsapp-link-modal.test.tsx",
+        "web/components/settings/CopyCodeButton.tsx",
+        "web/components/settings/WhatsAppLinkModal.tsx",
+        "web/lib/copy-text.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-whatsapp-settings-ui-20261011": {
       "description": "Assigned linked-number settings UI and typed transport/proof; no backend or unrelated Business authority settings ownership.",
       "base_ref": "origin/codex/private-alpha-next",
