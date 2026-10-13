@@ -15,6 +15,8 @@ struct CuadraoDesignGallery: View {
     @State private var currency = "DOP"
     @State private var distribution = false
     @State private var period: CanvasHistoryRange = .month
+    @State private var toast: CuadraoToastMessage?
+    @State private var retries = 0
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -85,6 +87,29 @@ struct CuadraoDesignGallery: View {
                             detail: spanish ? "El historial de este período está incompleto." : "This period's history is incomplete.")
                             .accessibilityIdentifier("gallery-unavailable-state")
                     }
+                    sample(spanish ? "Carga con filas" : "Loading with rows") {
+                        CuadraoSkeleton(layout: .rows(3), motionEnabled: !previewReducedMotion, identifier: "gallery-skeleton-rows")
+                    }
+                    sample(spanish ? "Carga de Inicio" : "Home loading") {
+                        CuadraoSkeleton(layout: .home, motionEnabled: !previewReducedMotion, identifier: "gallery-skeleton-home")
+                    }
+                    sample(spanish ? "Aviso y háptica" : "Toast and haptics") {
+                        Button(spanish ? "Mostrar aviso con Deshacer" : "Show toast with Undo") {
+                            toast = CuadraoToastMessage(text: spanish ? "Movimiento eliminado" : "Transaction deleted",
+                                actionTitle: spanish ? "Deshacer" : "Undo", actionIdentifier: "gallery-toast-undo") { toast = nil }
+                            CuadraoHaptics.impact()
+                        }.frame(minHeight: 44).accessibilityIdentifier("gallery-toast-show")
+                        HStack {
+                            Button(spanish ? "Éxito" : "Success") { CuadraoHaptics.success() }.frame(minHeight: 44)
+                            Button(spanish ? "Alerta" : "Warning") { CuadraoHaptics.warning() }.frame(minHeight: 44)
+                            Button(spanish ? "Selección" : "Selection") { CuadraoHaptics.selection() }.frame(minHeight: 44)
+                        }
+                    }
+                    sample(spanish ? "No se pudo cargar" : "Could not load") {
+                        CuadraoRetryState(message: "loop.error.connection", identifier: "gallery-retry-state",
+                                          retryIdentifier: "gallery-retry-action") { retries += 1; CuadraoHaptics.selection() }
+                        Text("\(retries)").font(CuadraoTypography.caption).foregroundStyle(.secondary).accessibilityIdentifier("gallery-retry-count")
+                    }
                     sample(spanish ? "Carga en curso" : "Loading in progress") {
                         CuadraoChartState(title: spanish ? "Reuniendo tu historia" : "Gathering your history",
                             detail: spanish ? "Un momento para poner todo en su lugar." : "A moment to bring everything together.", loading: true, motionEnabled: !previewReducedMotion)
@@ -98,6 +123,7 @@ struct CuadraoDesignGallery: View {
             .onAppear { originalAppearance = appearance }
             .onDisappear { if let originalAppearance { appearance = originalAppearance } }
             .environment(\.dynamicTypeSize, largeText ? .accessibility2 : .large)
+            .cuadraoToast($toast, spanish: spanish)
             .tint(WelcomePalette.pine)
     }
     private var controls: some View {
