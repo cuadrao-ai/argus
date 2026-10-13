@@ -1,7 +1,7 @@
 """Plan atomic activity revisions over the shared financial projection."""
 
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, NoReturn
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -105,7 +105,6 @@ def plan(
     *,
     legacy: bool = False,
     actor_id: str | None = None,
-    confirming: bool = False,
 ) -> MoneyPlan:
     by_id = {s.account.id: s for s in accounts}
     old = activity(accounts, activity_id) if activity_id else None
@@ -127,10 +126,8 @@ def plan(
     reason = _normalize_reason(request.reason, required=old is not None)
     stamp = _stamp(request.occurred_at, request.time_zone, now)
     today = now.astimezone(ZoneInfo(request.time_zone)).date()
-    # The server decides the entry day; only a confirm carries back the previewed day.
-    entered_on = (request.entered_on if confirming else None) or today
-    if entered_on not in (today, today - timedelta(days=1)):
-        problem("preview_required", "Review the proposed change before saving it.")
+    # The entry day is always the server's; a client value is never trusted.
+    entered_on = today
     targets = selected(request)
     existing = current_activities(accounts)
     return_original = next(

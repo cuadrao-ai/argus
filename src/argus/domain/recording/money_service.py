@@ -151,9 +151,7 @@ class MoneyService:
         request: MoneyRequest,
         activity_id: str | None = None,
     ) -> MoneyPlan:
-        result = plan(
-            accounts, request, activity_id, self.accounts._clock(), confirming=True
-        )
+        result = plan(accounts, request, activity_id, self.accounts._clock())
         if request.expected_versions != result.preview["expected_versions"]:
             raise StaleVersion()
         if not result.preview["ready"]:
