@@ -49,6 +49,9 @@ class AccessCommand(Contract):
     grant_id: UUID | None = None
     invite_id: UUID | None = None
     email: str | None = None
+    # An invite re-issued after expiry keeps its row and gets a new window: the
+    # window makes the re-issue its own ledger row.
+    expires_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -159,6 +162,8 @@ def _record(
         issuer_display_name=labels[issuer_id],
     )
     subject = command.grant_id or command.invite_id
+    if command.expires_at is not None:
+        subject = f"{subject}:{command.expires_at.timestamp():.6f}"
     connection.execute(
         "insert into public.business_action_receipts"
         " (space_id, actor_id, actor, idempotency_key, input_hash, command, outcome)"
@@ -343,7 +348,7 @@ class PostgresAccessStore:
                     " do update set issuer_id=excluded.issuer_id, created_at=now(),"
                     " expires_at=excluded.expires_at"
                     " where public.business_access_invites.expires_at <= now()"
-                    " returning id::text",
+                    " returning id::text, expires_at",
                     (space_id, owner_id, email, INVITE_LIFETIME),
                 ).fetchone()
                 if invite is not None:
@@ -354,7 +359,10 @@ class PostgresAccessStore:
                         grant_id=owner_grant,
                         issuer_id=owner_id,
                         command=AccessCommand(
-                            action="invite_access", invite_id=UUID(invite[0]), email=email
+                            action="invite_access",
+                            invite_id=UUID(invite[0]),
+                            email=email,
+                            expires_at=invite[1],
                         ),
                     )
                     created = True
@@ -641,6 +649,7 @@ class InMemoryAccessStore:
                             action="invite_access",
                             invite_id=UUID(invite["id"]),
                             email=email,
+                            expires_at=invite["expires_at"],
                         )
                     )
                     created = True
