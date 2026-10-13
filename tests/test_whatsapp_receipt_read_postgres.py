@@ -12,6 +12,7 @@ import pytest
 from argus.api.whatsapp import DocumentsDestination, _whatsapp_read_gate
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
+from argus.domain.ingestion.whatsapp.intake import CaptureFailed
 from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
@@ -192,8 +193,9 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
 @pytest.mark.asyncio
 async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(actions):  # noqa: ANN001
     """No fake: the owner's grant loses prepare in the table the authority
-    reads, so the read cannot start for a permission reason, and the draft
-    records exactly ``business_permission_denied``."""
+    reads, so the read cannot start for a permission reason (the WhatsApp
+    path refuses with ``CaptureFailed``), and the draft records exactly
+    ``business_permission_denied``."""
 
     destination, documents, extractor, owner = _rig(actions, {"on": True})
     connection_id = await _capture(destination, owner)
@@ -206,9 +208,11 @@ async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(a
         ).rowcount
     # Exactly the owner's one live grant lost prepare; the refusal below is its doing.
     assert changed == 1
-    with pytest.raises(ActionError) as refused:
+    # The read path refuses before dispatch with the WhatsApp capture error,
+    # carrying the same literal code; the draft records it on release.
+    with pytest.raises(CaptureFailed) as refused:
         await destination.read(owner_id=owner, connection_id=connection_id)
-    assert refused.value.result.code == "business_permission_denied"
+    assert refused.value.code == "business_permission_denied"
     draft = _draft(destination, owner, connection_id)
     assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
     assert extractor.calls == 0
