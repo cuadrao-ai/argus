@@ -866,6 +866,7 @@
         "src/argus/api/routers/email_intake.py",
         "src/argus/domain/ingestion/email_intake/store.py",
         "tests/business/test_business_email_api.py",
+        "tests/test_business_email_intake_postgres.py",
         "web/__tests__/email-delivery-repeat.dom.test.tsx",
         "web/__tests__/receipt-email-origin.test.tsx",
         "web/components/business-app/BusinessEmailDeliveries.tsx",
