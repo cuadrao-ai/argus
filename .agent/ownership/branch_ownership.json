@@ -572,6 +572,7 @@
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
+        "docs/ARCHITECTURE.md",
         "web/__tests__/landing-language.test.ts",
         "web/__tests__/profile-propagation.test.ts",
         "web/app/page.tsx",

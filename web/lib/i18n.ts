@@ -3,15 +3,16 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import HttpBackend from 'i18next-http-backend';
-import { DEFAULT_LANGUAGE, ENABLED_LANGUAGE_CODES, LANGUAGE_DETECTION_ORDER } from './language-features';
+import { DEFAULT_LANGUAGE, ENABLED_LANGUAGE_CODES, LANGUAGE_DETECTION_ORDER, fallbackChain } from './language-features';
 
 i18n
   .use(HttpBackend)
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    // The default before any choice; a Business build starts in Spanish.
-    fallbackLng: DEFAULT_LANGUAGE,
+    // Nothing shown yet starts from the default (Spanish on a Business build);
+    // a key the shown language lacks is read from that language's own chain.
+    fallbackLng: (code?: string) => fallbackChain(code, DEFAULT_LANGUAGE),
     supportedLngs: ENABLED_LANGUAGE_CODES,
     defaultNS: 'common',
     ns: ['common'],

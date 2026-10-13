@@ -229,7 +229,7 @@ export default function LandingPage() {
                   key={language.code}
                   type="button"
                   lang={language.code}
-                  className="font-medium underline-offset-4 transition-opacity hover:opacity-80 hover:underline"
+                  className="min-h-11 rounded-full px-3 font-medium underline-offset-4 transition-opacity hover:opacity-80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f5a49]/40"
                   onClick={() => void chooseLanguage(language.code)}
                 >
                   {language.name}
