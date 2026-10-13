@@ -13,6 +13,7 @@ with ``expired=True``. The person can send it again.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -41,17 +42,26 @@ if not any(isinstance(f, _DropMetaRequestLines) for f in _httpx_logger.filters):
     _httpx_logger.addFilter(_DropMetaRequestLines())
 
 
+_GRAPH_NUMBER = re.compile(r"[0-9]{1,10}")
+_GRAPH_WORD = re.compile(r"[A-Za-z0-9_]{1,40}")
+
+
 def graph_error(response: httpx.Response) -> dict[str, str]:
     """The Graph error's code, subcode and type: fixed, non-secret fields that
     tell an expired token (code 190) from a gone media id. Never the message."""
 
     try:
         error = response.json().get("error") or {}
-        return {
-            key: str(error[key])[:40]
-            for key in ("code", "error_subcode", "type")
-            if isinstance(error.get(key), (int, str))
-        }
+        found = {}
+        for key, shape in (
+            ("code", _GRAPH_NUMBER),
+            ("error_subcode", _GRAPH_NUMBER),
+            ("type", _GRAPH_WORD),
+        ):
+            value = error.get(key)
+            if isinstance(value, (int, str)) and not isinstance(value, bool):
+                found[key] = str(value) if shape.fullmatch(str(value)) else "unknown"
+        return found
     except (ValueError, AttributeError):
         return {}
 
@@ -127,10 +137,8 @@ class GraphMedia:
                 timeout=_TIMEOUT,
                 follow_redirects=False,
             )
-        except httpx.HTTPError as error:
-            raise _unavailable(
-                "locate", "transport", error=type(error).__name__
-            ) from None
+        except httpx.HTTPError:
+            raise _unavailable("locate", "transport") from None
         if response.status_code in _GONE:
             raise MediaUnavailable("whatsapp_media_expired")
         if response.status_code != 200:
@@ -183,7 +191,5 @@ class GraphMedia:
                     if len(content) > self._max_bytes:
                         raise MediaRejected("whatsapp_media_too_large")
                 return bytes(content)
-        except httpx.HTTPError as error:
-            raise _unavailable(
-                "download", "transport", error=type(error).__name__
-            ) from None
+        except httpx.HTTPError:
+            raise _unavailable("download", "transport") from None
