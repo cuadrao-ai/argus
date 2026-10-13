@@ -410,11 +410,14 @@ export async function uploadBusinessReceipt(
   return response.json() as Promise<ReceiptSummary>;
 }
 
-export async function fetchBusinessReceiptSource(id: string): Promise<Blob> {
+/** A source fetch that never answers ends here, so the preview can say so and offer a retry instead of loading forever. */
+export const RECEIPT_SOURCE_TIMEOUT_MS = 30_000;
+
+export async function fetchBusinessReceiptSource(id: string, options: { timeoutMs?: number } = {}): Promise<Blob> {
   const authHeaders = await authenticatedRequestHeaders();
   const response = await fetch(
     `${ARGUS_API_BASE_URL}/business/receipts/${encodeURIComponent(id)}/source`,
-    { credentials: "include", headers: argusApiRequestHeaders(undefined, authHeaders) },
+    { credentials: "include", headers: argusApiRequestHeaders(undefined, authHeaders), signal: AbortSignal.timeout(options.timeoutMs ?? RECEIPT_SOURCE_TIMEOUT_MS) },
   );
   if (!response.ok) throw new Error(`API error ${response.status}`);
   return response.blob();

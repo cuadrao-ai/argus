@@ -50,6 +50,9 @@ class AccessCommand(Contract):
     grant_id: UUID | None = None
     invite_id: UUID | None = None
     email: str | None = None
+    # An invite re-issued after expiry keeps its row and gets a new window: the
+    # window makes the re-issue its own ledger row.
+    expires_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -195,6 +198,8 @@ def _record(
         issuer_display_name=labels[issuer_id],
     )
     subject = command.grant_id or command.invite_id
+    if command.expires_at is not None:
+        subject = f"{subject}:{command.expires_at.timestamp():.6f}"
     connection.execute(
         "insert into public.business_action_receipts"
         " (space_id, actor_id, actor, idempotency_key, input_hash, command, outcome)"
@@ -441,11 +446,18 @@ class PostgresAccessStore:
                     )
                     created = True
             else:
+                # One pending row per Business and email. A live one stays as it
+                # is; an expired one is re-issued in place with a fresh window
+                # and its own receipt; a revoked or accepted one no longer holds
+                # the slot, so a new row is born.
                 invite = connection.execute(
                     "insert into public.business_access_invites (space_id, issuer_id, email, expires_at)"
                     " values (%s, %s, %s, now() + %s)"
                     " on conflict (space_id, email) where revoked_at is null and accepted_at is null"
-                    " do nothing returning id::text",
+                    " do update set issuer_id=excluded.issuer_id, created_at=now(),"
+                    " expires_at=excluded.expires_at"
+                    " where public.business_access_invites.expires_at <= now()"
+                    " returning id::text, expires_at",
                     (space_id, owner_id, email, INVITE_LIFETIME),
                 ).fetchone()
                 if invite is not None:
@@ -456,7 +468,10 @@ class PostgresAccessStore:
                         grant_id=owner_grant,
                         issuer_id=owner_id,
                         command=AccessCommand(
-                            action="invite_access", invite_id=UUID(invite[0]), email=email
+                            action="invite_access",
+                            invite_id=UUID(invite[0]),
+                            email=email,
+                            expires_at=invite[1],
                         ),
                     )
                     created = True
@@ -768,7 +783,10 @@ class InMemoryAccessStore:
                     )
                     created = True
             else:
-                live = next(
+                # The same rule as Postgres: one pending row per Business and
+                # email; live stays, expired is re-issued in place, revoked or
+                # accepted no longer holds the slot.
+                pending = next(
                     (
                         i
                         for i in self._invites
@@ -776,11 +794,17 @@ class InMemoryAccessStore:
                         and i["email"] == email
                         and i["revoked_at"] is None
                         and i["accepted_at"] is None
-                        and i["expires_at"] > self._now()
                     ),
                     None,
                 )
-                if live is None:
+                if pending is not None and pending["expires_at"] > self._now():
+                    invite = None
+                elif pending is not None:
+                    pending["issuer_id"] = owner_id
+                    pending["created_at"] = self._now()
+                    pending["expires_at"] = self._now() + INVITE_LIFETIME
+                    invite = pending
+                else:
                     invite = {
                         "id": str(uuid4()),
                         "space_id": space_id,
@@ -792,11 +816,13 @@ class InMemoryAccessStore:
                         "revoked_at": None,
                     }
                     self._invites.append(invite)
+                if invite is not None:
                     self.ledger.append(
                         AccessCommand(
                             action="invite_access",
                             invite_id=UUID(invite["id"]),
                             email=email,
+                            expires_at=invite["expires_at"],
                         )
                     )
                     created = True

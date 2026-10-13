@@ -9210,7 +9210,11 @@ person starts their space, every route below except POST `/space` answers 404
     becomes the same grant the first time that confirmed email signs in (on
     GET `/me`). The reply is the access list in both cases, 201 when something
     new was created and 200 on a replay, so an unknown email reveals nothing.
-    422 `invalid_email` without one address.
+    422 `invalid_email` without one address. An expired pending invite is
+    re-issued in place by a new POST with the same email: the same invite id,
+    a fresh 14-day `expires_at` and its own ledger receipt (201); a live one is
+    left as it is (200), and a revoked or accepted one no longer holds the
+    slot, so a new invite is born beside it.
   - DELETE `/api/v1/business/access/grants/{id}` revokes a grant at once; 409
     `owner_grant_required` for the owner's own grant; 404
     `business_access_not_found` otherwise. DELETE

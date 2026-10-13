@@ -1554,6 +1554,23 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-reinvite-20261013": {
+      "description": "Re-inviting an email after its 14-day invite expired creates nothing and shows nothing: the live-invite unique index ignores expiry and the insert does nothing. An expired pending invite is now re-issued in place with a fresh window and its own receipt; a live one stays unique; revoked and accepted ones no longer hold the slot. Same rule in the in-memory store; four cases tested on real Postgres and in memory. No migration.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "src/argus/domain/business/access.py",
+        "tests/business/test_business_access_api.py",
+        "tests/test_business_access_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-review-followups-20261012": {
       "description": "Review follow-ups: the saved receipt line names only what the person can do now; the WhatsApp read binds only to the owner who received the receipt, checked explicitly; a release that fails after a read that could not start keeps the original error as the one raised.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -1657,6 +1674,28 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-saved-unread-20261013": {
+      "description": "Founder caveat after the email forward test: a receipt saved without a read never looks stuck. One sentence owned by ReceiptReadNotice (Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea, o complétalo tú.) shown on the receipt page, under the Inbox row and under the captured attachment in Correos recibidos; the status pill reads Guardado, sin leer. The per-receipt button stays the consent; copy only, no API change.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/email-delivery-repeat.dom.test.tsx",
+        "web/__tests__/receipt-read-notice.test.tsx",
+        "web/__tests__/saved-unread-hint.dom.test.tsx",
+        "web/components/business-app/BusinessEmailDeliveries.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ReceiptReadNotice.tsx",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-settings-names-20261012": {
       "description": "Cuadrao setting names: CUADRAO_* read first, ARGUS_* as a fallback, for the Business pilot and chat, ingestion, document extraction and jobs, vision model, financial accounts, email intake, app origin and the web NEXT_PUBLIC_* names. Setting names only; no package, database or WhatsApp change. The example env files are documentation here; real env files stay denied.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -1730,6 +1769,23 @@
         "tests/test_business_multi_purchase_postgres.py",
         "tests/test_business_receipt_views_postgres.py",
         "tests/test_business_single_candidate_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-source-timeout-20261013": {
+      "description": "Staging finding B2: the receipt preview could stay on Cargando forever. The source fetch now gives up after 30 s so the preview ends in its error state with Try opening again; the source route logs its outcome by name (served with size, or the failure code) so a hosted hang can be read from the log. No API change.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/api/routers/business.py",
+        "tests/business/test_receipt_source_log.py",
+        "web/__tests__/receipt-source-timeout.test.ts",
+        "web/lib/business-api.ts"
       ],
       "deny": [
         ".env",
