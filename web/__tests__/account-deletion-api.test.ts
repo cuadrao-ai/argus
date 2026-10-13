@@ -140,6 +140,11 @@ describe("account deletion outcomes (Lane 6)", () => {
     expect(chat).toContain(
       "signOut: () => (options.sessionEnded ? Promise.resolve(null) : logoutFromApi())",
     );
+    // The flow gets the chat's own boundary and the build flag, and Done after
+    // deletion is the accountDeleted branch that lands on "/".
+    expect(chat).toContain("boundary: accountBoundary,");
+    expect(chat).toContain("businessBuild: businessPilotEnabled,");
+    expect(chat).toContain("accountDeleted: Boolean(options.sessionEnded),");
   });
 });
 
