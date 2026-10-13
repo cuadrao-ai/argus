@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 
 class MissingDraft:
-    def context_for_draft(self, actor_id, draft_id):
+    def context_for_draft(self, actor_id, draft_id, **_pin):
         return object()
 
     def dossier(self, context, draft_id):

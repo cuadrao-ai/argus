@@ -27,9 +27,7 @@ async def test_real_graph_executor_and_postgres_match_business_corpus(case: dict
     capture = await capture_case(case, dsn=DSN, interpreter_factory=scripted_interpreter)
     assert len(capture.observed_steps) == len(case["steps"])
     assert capture.step_route_receipts == [[] for _ in case["steps"]]
-    assert len(capture.graph_run_ids) == sum(
-        step["actor"] == "owner_a" for step in case["steps"]
-    )
+    assert len(capture.graph_run_ids) == sum("message" in step for step in case["steps"])
     assert all(capture.graph_run_ids)
     assert all(
         state["space_id"] == capture.db_namespace for state in capture.saved_states

@@ -9201,6 +9201,34 @@ person starts their space, every route below except POST `/space` answers 404
     Every legacy write under a grant leaves a `business_action_receipts` row
     (`receipt_upload`, `receipt_review`, `receipt_confirm`) naming the grant
     and its issuer.
+  - The chosen grant binds every Business route, including the draft, note,
+    export, chat and legacy receipt routes: a record (receipt, draft, source,
+    export anchor) of any other Business is 404 `business_record_not_found`
+    under it, whatever other grants the caller holds, and with no header the
+    own Business is the only one in scope. Notes (`/business/captures`) and
+    exports (`/business/exports`) run in the chosen Business under the
+    grantee's own `read` and `prepare`; approval is the owner's alone whatever
+    a grant row says (`approve` is dropped for anyone but the Business owner
+    on every route: approve, settle, confirm). Business conversations stay
+    the owner's: a stored conversation belongs to its space's creator
+    (`conversations_owner_space_fkey`), so every conversation route with
+    `surface=business` refuses a chosen grant with 403
+    `business_permission_denied` rather than run in the caller's own Business.
+    The own Business's routes refuse a chosen grant with 403
+    `business_permission_denied`: GET and PATCH `/business/space`, creating or
+    stopping the receiving email address (`POST` and `DELETE
+    /business/email`; a grantee reads it), and every WhatsApp link route
+    (WhatsApp is the owner's channel; ending one's own sender link is never
+    gated). GET `/business/workspace` under a grant reads the client's
+    Business as it is and never heals an owner grant. A grant is live only
+    while the owner who issued it keeps owner access: once the issuer's own
+    owner grant is revoked with no live one since, every grant they gave
+    answers 403 `business_grant_not_live`, and comes back when owner access is
+    restored. Each grantee write on the legacy receipt surface (upload, review,
+    confirm) leaves one `business_action_receipts` row naming the grant,
+    keyed by the record and the request's `Idempotency-Key` (a replay repeats
+    its row, a second review gets its own); the upload row is written in the
+    transaction that saves the receipt.
   - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
     capabilities, created_at, owner}], invites: [{id, email, created_at,
     expires_at}]}`: live grants, the owner first, and pending invites.

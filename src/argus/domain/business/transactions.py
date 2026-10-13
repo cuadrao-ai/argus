@@ -88,14 +88,17 @@ class GrantImportStore:
         context: ActionContext,
         capability: Capability,
         action: str | None = None,
+        request_key: str | None = None,
     ) -> None:
         self.authority = authority
         self.context = context
         self.capability = capability
         # The name of the legacy write this request makes (receipt_review,
         # receipt_confirm), so the write leaves a ledger row naming the grant
-        # it ran under and for whom, in the same transaction.
+        # it ran under and for whom, in the same transaction; the request key
+        # keeps a replay to one row and gives a second write its own.
         self.action = action
+        self.request_key = request_key
 
     @contextmanager
     def transaction(self, user_id: str, *, scope: OwnerScope) -> Iterator[_PostgresTx]:
@@ -113,17 +116,25 @@ class GrantImportStore:
                     tx.authorization,
                     self.action,
                     sorted(legacy.changed_events) + sorted(legacy.changed_connections),
+                    self.request_key,
                 )
 
 
 def record_legacy_action(
-    connection: Connection, live: Authorization, action: str, subjects: list[str]
+    connection: Connection,
+    live: Authorization,
+    action: str,
+    subjects: list[str],
+    request_key: str | None = None,
 ) -> None:
     """One ledger row for a write on the legacy receipt surface: who, through
-    which grant, issued by whom, what. The key repeats for a replay."""
+    which grant, issued by whom, what. The key names the request too, so a
+    replay repeats its row and a second write on the same record gets its own."""
 
     command = {"action": action, "subjects": subjects}
-    digest = hashlib.sha256(",".join(subjects).encode()).hexdigest()
+    digest = hashlib.sha256(
+        ",".join(subjects).encode() + b"\n" + (request_key or "").encode()
+    ).hexdigest()
     connection.execute(
         "insert into public.business_action_receipts"
         " (space_id, actor_id, actor, idempotency_key, input_hash, command, outcome)"

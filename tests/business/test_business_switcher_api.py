@@ -9,14 +9,20 @@ from __future__ import annotations
 from uuid import uuid4
 
 from argus.api.business_spaces import business_access
+from fastapi.testclient import TestClient
 
 from tests.business.test_business_api import (  # noqa: F401
+    ALICE,
     BASE,
+    BOB,
     RECEIPT,
     Owner,
     alice,
     bob,
 )
+from tests.business.test_business_email_api import runtime  # noqa: F401
+from tests.business.test_business_whatsapp import wa_biz  # noqa: F401
+from tests.test_conversation_surfaces import client as chat_client  # noqa: F401
 
 GRANT = "X-Business-Grant"
 OTHER_RECEIPT = RECEIPT[:-8] + bytes(8)
@@ -216,3 +222,166 @@ def test_a_record_of_another_business_is_missing_not_forbidden(
     # Alice's receipt, asked for with no header (Bob's own Business): not there either.
     theirs = alice.upload(consent=False)
     assert bob.get(f"/receipts/{theirs.json()['id']}").status_code == 404
+
+
+def test_the_own_business_routes_and_the_owner_channels_refuse_a_chosen_grant(
+    alice: Owner,  # noqa: F811
+    bob: Owner,  # noqa: F811
+    runtime,  # noqa: ANN001, F811
+) -> None:
+    """The own space's name and the receiving address are the owner's: under a
+    client grant the space routes and the address writes refuse; the address
+    itself is view-only."""
+
+    grant = _grant(alice, bob)
+    headers = {GRANT: grant}
+    assert (
+        get_as(bob, "/space", grant).status_code,
+        get_as(bob, "/space", grant).json()["code"],
+    ) == (
+        403,
+        "business_permission_denied",
+    )
+    renamed = bob.client.patch(
+        BASE + "/space", json={"name": "Otro nombre"}, headers={**bob.auth, **headers}
+    )
+    assert (renamed.status_code, renamed.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
+    # Without the header Bob's own space is his to read and rename.
+    assert bob.get("/space").status_code == 200
+    # The email address: seen, never created or stopped, by a grantee.
+    assert get_as(bob, "/email", grant).status_code == alice.get("/email").status_code
+    created = bob.post("/email", key=str(uuid4()), **headers)
+    assert (created.status_code, created.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
+    stopped = bob.client.delete(BASE + "/email", headers={**bob.auth, **headers})
+    assert (stopped.status_code, stopped.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
+
+
+def test_whatsapp_stays_the_owners_channel_under_a_chosen_grant(
+    wa_biz,  # noqa: ANN001, F811
+    identities,  # noqa: ANN001, F811
+) -> None:
+    client, _ = wa_biz
+    owner = Owner(client, ALICE, identities[ALICE]["id"])
+    accountant = Owner(client, BOB, identities[BOB]["id"])
+    assert owner.start().status_code == 201 and accountant.start().status_code == 201
+    grant = _grant(owner, accountant)
+    headers = {GRANT: grant}
+    # WhatsApp is the owner's channel: every link route refuses a grantee.
+    for response in (
+        client.post(
+            "/api/v1/whatsapp/link-codes", headers={**accountant.auth, **headers}
+        ),
+        client.get("/api/v1/whatsapp/link", headers={**accountant.auth, **headers}),
+    ):
+        assert (response.status_code, response.json()["code"]) == (
+            403,
+            "business_permission_denied",
+        )
+    assert client.get("/api/v1/whatsapp/link", headers=accountant.auth).status_code == 200
+    # Ending one's own sender link is never gated: it is the person's, not the Business's.
+    assert (
+        client.delete(
+            "/api/v1/whatsapp/link", headers={**accountant.auth, **headers}
+        ).status_code
+        == 204
+    )
+
+
+def test_business_chat_stays_the_owners_under_a_chosen_grant(
+    chat_client: TestClient,  # noqa: F811
+) -> None:
+    from argus.api.business_spaces import business_access, configure_business_access
+    from argus.domain.business.access import InMemoryAccessStore
+
+    from tests.test_conversation_surfaces import _as as as_person
+    from tests.test_conversation_surfaces import _start_space
+
+    client = chat_client
+    space_a = _start_space(ALICE)
+    space_b = _start_space(BOB)
+    previous = business_access()
+    store = InMemoryAccessStore()
+    configure_business_access(store)
+    try:
+        _chat_under_grant(client, store, space_a, space_b, as_person)
+    finally:
+        configure_business_access(previous)
+
+
+def _chat_under_grant(client, store, space_a, space_b, as_person) -> None:  # noqa: ANN001
+    from argus.api import state as api_state
+
+    store.ensure_owner_grant(space_a, ALICE)
+    store.ensure_owner_grant(space_b, BOB)
+    store.confirm(BOB, "bob@example.test")
+    created, _ = store.give(space_a, ALICE, "bob@example.test")
+    assert created is True
+    [grant] = [s.grant_id for s in store.spaces_for(BOB) if s.role == "accountant"]
+    # A stored conversation belongs to its space's owner, so Business chat under a
+    # client grant is refused outright: never run in Bob's own Business by mistake.
+    for response in (
+        client.post(
+            "/api/v1/conversations",
+            json={"surface": "business"},
+            headers={**as_person(BOB), GRANT: grant},
+        ),
+        client.get(
+            "/api/v1/conversations",
+            params={"surface": "business"},
+            headers={**as_person(BOB), GRANT: grant},
+        ),
+    ):
+        assert (response.status_code, response.json()["code"]) == (
+            403,
+            "business_permission_denied",
+        ), response.text
+    own = client.post(
+        "/api/v1/conversations", json={"surface": "business"}, headers=as_person(BOB)
+    )
+    assert own.status_code == 200, own.text
+    assert (
+        api_state.store.conversation_spaces[own.json()["conversation"]["id"]] == space_b
+    )
+    dead = client.post(
+        "/api/v1/conversations",
+        json={"surface": "business"},
+        headers={**as_person(BOB), GRANT: str(uuid4())},
+    )
+    assert (dead.status_code, dead.json()["code"]) == (403, "business_grant_not_live")
+
+
+def test_a_grant_ends_when_its_issuer_loses_owner_access(
+    alice: Owner,  # noqa: F811
+    bob: Owner,  # noqa: F811
+) -> None:
+    from datetime import datetime, timezone
+
+    grant = _grant(alice, bob)
+    assert get_as(bob, "/receipts", grant).status_code == 200
+    store = business_access()
+    assert store is not None
+    own = next(
+        g
+        for g in store._grants
+        if g["grantee_id"] == alice.person and g["issuer_id"] == alice.person
+    )
+    own["revoked_at"] = datetime.now(timezone.utc)
+    refused = get_as(bob, "/receipts", grant)
+    assert (refused.status_code, refused.json()["code"]) == (
+        403,
+        "business_grant_not_live",
+    )
+    assert [s["role"] for s in _listed(bob)] == ["owner"]
+    # Owner access restored: the grant Alice gave is live again, as given.
+    assert store.ensure_owner_grant(alice.scope().owner.space_id, alice.person) is True
+    assert get_as(bob, "/receipts", grant).status_code == 200
+    assert [s["role"] for s in _listed(bob)] == ["owner", "accountant"]

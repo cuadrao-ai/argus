@@ -94,7 +94,7 @@ def test_hidden_state_checks_reject_missing_money_source_revision_and_authority(
     observed[3]["money"]["bank_versions_unchanged"] = False
     observed[3]["actions"][0]["issuer"] = "accountant_a"
     observed[3]["actions"][0]["receipt_key"] = "invented_approval"
-    observed[3]["approval"]["actor"] = "owner_a"
+    observed[3]["approval"]["actor"] = "accountant_a"
     observed[3]["recorded_activity"]["amount"] = "851"
     observed[3]["history"][2]["sources"] = ["message_a2"]
     assert evaluation.check_case(case, observed) == [

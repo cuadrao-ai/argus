@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from argus.api.business import (
     BusinessContext,
+    owner_only,
     require_business,
     require_business_document_write,
 )
@@ -171,6 +172,8 @@ def create_receiving_address(
     the caller's own live grant is the authority checked before each capture.
     A replay or a concurrent create returns the one live address."""
 
+    # The address is the owner's to create or stop; a grantee only sees it.
+    owner_only(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     space_id = context.scope.owner.space_id
@@ -224,6 +227,7 @@ def stop_receiving(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_document_write)],
 ) -> Response:
+    owner_only(request, context)
     _runtime(request).store.deactivate_routes(context.scope.owner.space_id)
     return Response(status_code=204, headers=NO_STORE)
 

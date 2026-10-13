@@ -25,6 +25,7 @@ from argus.domain.ingestion.documents.objects import (
     connection_prefix,
     source_path,
 )
+from argus.domain.ingestion.documents.store import CaptureHook
 
 
 class PostgresDocumentStore:
@@ -69,7 +70,14 @@ class PostgresDocumentStore:
             return self.objects.get(path)
         return bytes(legacy) if legacy is not None else None
 
-    def capture(self, *, user_id: str, draft: DocumentDraft, content: bytes) -> bool:
+    def capture(
+        self,
+        *,
+        user_id: str,
+        draft: DocumentDraft,
+        content: bytes,
+        on_capture: CaptureHook | None = None,
+    ) -> bool:
         """Rewrites the object unless the row holds legacy bytes: the path names
         its content, so a repeat makes no second object and repairs a lost one.
         Refused, and the object removed, once the connection is gone or an
@@ -105,6 +113,8 @@ class PostgresDocumentStore:
                         draft.created_at,
                     ),
                 )
+            if live is not None and on_capture is not None:
+                on_capture(connection, connection_id)
             if live is not None and not legacy:
                 connection.execute(
                     "update public.financial_document_extractions set "

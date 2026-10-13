@@ -28,6 +28,7 @@ from loguru import logger
 from argus.api.business import (
     BusinessContext,
     BusinessPerson,
+    own_business_only,
     owner_only,
     require_business,
     require_business_document_write,
@@ -43,10 +44,10 @@ from argus.api.business_drafts import (
     receipt_detail,
     receipt_summaries,
     receipt_summary,
-    record_upload,
     require_legacy_receipt_write,
     search_with_drafts,
     updates_with_drafts,
+    upload_recorder,
 )
 from argus.api.business_schemas import (
     BusinessAccess,
@@ -213,6 +214,8 @@ def get_space(
     request: Request,
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
+    # The own Business only: a client's name comes from the listing.
+    own_business_only(request, person.person_id)
     space = person.spaces.open_space(person.person_id)
     if space is None:
         raise space_missing_problem(request)
@@ -427,6 +430,7 @@ def rename_space(
     body: RenameBusinessSpace,
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
+    own_business_only(request, person.person_id)
     space = person.spaces.rename(person.person_id, body.name)
     if space is None:
         raise space_missing_problem(request)
@@ -437,10 +441,10 @@ def rename_space(
 def get_workspace(
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
-    # The workspace is only ever the owner's own space; an old space without
-    # the owner's grant gets it here, once, with one ledger row.
+    # An old own space without the owner's grant gets it here, once, with one
+    # ledger row; a client's Business is read as it is.
     store = business_access()
-    if store is not None:
+    if store is not None and context.scope.acting_as_owner:
         store.ensure_owner_grant(context.scope.owner.space_id, context.scope.person_id)
     return context.service.workspace(context.scope)
 
@@ -504,8 +508,8 @@ async def upload_receipt(
             filename=document_filename(filename),
             media_type=media_type,
             consent=consent == "true",
+            on_capture=upload_recorder(context, request),
         )
-        record_upload(context, receipt.id)
         if receipt.status == "queued":
             await dispatch_preparation(
                 context.service.documents,

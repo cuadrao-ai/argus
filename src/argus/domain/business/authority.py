@@ -73,6 +73,15 @@ def authorize(
                 and 'read'=any(g.capabilities)
                 and s.kind='business' and s.closed_at is null
                 and coalesce(u.is_anonymous,false)=false
+                and not exists (select 1 from public.business_client_grants lost
+                    where lost.space_id=g.space_id and lost.grantee_id=g.issuer_id
+                    and lost.issuer_id=lost.grantee_id
+                    and (lost.revoked_at is not null
+                        or (lost.expires_at is not null and lost.expires_at <= clock_timestamp()))
+                    and not exists (select 1 from public.business_client_grants own
+                        where own.space_id=lost.space_id and own.grantee_id=lost.grantee_id
+                        and own.issuer_id=own.grantee_id and own.revoked_at is null
+                        and (own.expires_at is null or own.expires_at > clock_timestamp())))
             order by cardinality(g.capabilities) desc, g.created_at, g.id
             limit 1 for share of g, s""",
             (actor.space_id, actor.actor_id, grant_id, grant_id),
@@ -83,6 +92,9 @@ def authorize(
     capabilities = frozenset(row["capabilities"])
     if actor.actor_kind != "member":
         capabilities &= {"read", "prepare"}
+    if str(actor.actor_id) != row["owner_id"]:
+        # Approval is the owner's alone, whatever a grant row says.
+        capabilities -= {"approve"}
     return Authorization(
         context=ActionContext(actor, row["id"], row["owner_id"], row["name"]),
         provenance=ActorProvenance(
@@ -110,8 +122,18 @@ class BusinessAuthority:
             return authorize(connection, actor, grant_id).context
 
     def for_record(
-        self, actor_id: UUID, record_id: UUID, *, receipt: bool
+        self,
+        actor_id: UUID,
+        record_id: UUID,
+        *,
+        receipt: bool,
+        space_id: UUID | str | None = None,
+        grant_id: UUID | None = None,
     ) -> ActionContext:
+        """The context a record is read in. Pinned to the Business the caller
+        is working in (``space_id``, through ``grant_id``), a record of another
+        Business is missing, not forbidden: an id reveals nothing."""
+
         table = "financial_source_connections" if receipt else "financial_import_events"
         with self.pool.connection() as connection, connection.transaction():
             row = connection.execute(
@@ -122,7 +144,10 @@ class BusinessAuthority:
             ).fetchone()
             if row is None or row[0] is None:
                 raise ActionError("not_found", "business_record_not_found")
+            if space_id is not None and str(row[0]) != str(space_id):
+                raise ActionError("not_found", "business_record_not_found")
             return authorize(
                 connection,
                 TrustedActor(actor_id=actor_id, actor_kind="member", space_id=row[0]),
+                grant_id,
             ).context

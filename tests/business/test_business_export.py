@@ -304,11 +304,11 @@ def export_client(monkeypatch):
     class Service:
         authority = object()
 
-        def resolve_actor(self, actor):
+        def resolve_actor(self, actor, **_pin):
             calls.append(("owner", actor))
             return resolved
 
-        def context_for_draft(self, actor, draft):
+        def context_for_draft(self, actor, draft, **_pin):
             calls.append(("draft", actor, draft))
             return resolved
 
@@ -378,7 +378,7 @@ def test_export_api_foreign_anchor_never_falls_back(export_client):
 
     client, calls, service, _, _, _ = export_client
 
-    def refuse(*_):
+    def refuse(*_, **__):
         raise ActionError("not_found", "business_record_not_found")
 
     service.context_for_draft = refuse
@@ -444,7 +444,7 @@ def test_export_api_limit_failure_is_problem_not_partial_zip(
 
     client, _, _, _, _, _ = export_client
 
-    def refuse(*_):
+    def refuse(*_, **__):
         raise error
 
     monkeypatch.setattr(business_export, "export_package", refuse)
@@ -468,7 +468,7 @@ def test_export_api_final_authorization_or_database_failure_emits_no_archive(
         (OperationalError("synthetic DB loss"), 503),
     ]:
 
-        def refuse(*_, failure=error):
+        def refuse(*_, failure=error, **__):
             raise failure
 
         monkeypatch.setattr(business_export, "export_package", refuse)

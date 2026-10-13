@@ -191,6 +191,7 @@ def test_foreign_candidate_is_not_found_and_leaves_no_source(actions, users):
     assert len(service.captures(foreign)) == 1
 
 
+@pytest.mark.owner_acts
 def test_original_note_search_is_literal_and_survives_record_state(actions):
     service, context, _ = actions
     first = note(service, context, "Compra 100%_ ORIGINAL", "literal")

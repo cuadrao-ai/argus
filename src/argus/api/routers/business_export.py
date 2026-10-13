@@ -12,13 +12,10 @@ from pydantic import BeforeValidator
 
 from argus.api.business import BusinessPerson, require_business_person
 from argus.api.business_drafts import DraftContext, action_problem, require_drafts
-from argus.api.business_spaces import space_missing_problem
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE, require_saved_documents
 from argus.domain.business.authority import ActionError
-from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.export import ExportLimit, ExportPeriod, export_package
-from argus.domain.business.scope import resolve_business_scope
 from argus.domain.ingestion.documents.service import DocumentsService
 
 
@@ -108,19 +105,12 @@ def download_export(
             headers=NO_STORE,
         ) from None
     try:
-        if draft_id is not None:
-            actor = context.service.context_for_draft(context.actor_id, draft_id)
-        else:
-            scope = resolve_business_scope(person.spaces, person.person_id)
-            if scope is None:
-                raise space_missing_problem(request)
-            actor = context.service.resolve_actor(
-                TrustedActor(
-                    actor_id=context.actor_id,
-                    actor_kind="member",
-                    space_id=scope.owner.space_id,
-                )
-            )
+        # The Business the caller is working in: a chosen client's, else their own.
+        actor = (
+            context.for_draft(draft_id)
+            if draft_id is not None
+            else context.for_space(request, person.spaces)
+        )
         objects = getattr(documents.store, "objects", None)
         if objects is None:
             raise problem(

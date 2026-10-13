@@ -34,6 +34,7 @@ from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
+from argus.domain.ingestion.documents.store import CaptureHook
 from argus.domain.ingestion.receipt_review import RECEIPT_EVENT_STATES, receipt_ids
 from argus.domain.ingestion.reconcile.model import ReconcileError, StaleEvent
 from argus.domain.ingestion.reconcile.recording import DEFAULT_ZONE
@@ -181,6 +182,7 @@ class BusinessService:
         filename: str,
         media_type: str,
         consent: bool,
+        on_capture: CaptureHook | None = None,
     ) -> Receipt:
         outcome = await self.documents.upload(
             user_id=scope.person_id,
@@ -189,6 +191,7 @@ class BusinessService:
             media_type=media_type,
             consent=consent,
             scope=scope.owner,
+            on_capture=on_capture,
         )
         # The same bytes saved before come back as that receipt, said so.
         return replace(

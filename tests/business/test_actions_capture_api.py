@@ -36,11 +36,11 @@ class CaptureService:
         )
         self.outcome = Applied(outcome="applied", draft_id=self.view.draft_id, version=1)
 
-    def resolve_actor(self, actor):
+    def resolve_actor(self, actor, **_pin):
         self.calls.append(("owner", actor))
         return actor
 
-    def context_for_draft(self, actor, draft):
+    def context_for_draft(self, actor, draft, **_pin):
         self.calls.append(("draft", actor, draft))
         return self.actor
 
@@ -205,7 +205,7 @@ def test_search_preserves_source_identity_and_bounds(capture_api):
 
 
 def test_revoked_capture_context_keeps_not_found_envelope(capture_api, monkeypatch):
-    def denied(actor):
+    def denied(actor, **_pin):
         raise ActionError("not_found", "business_record_not_found")
 
     monkeypatch.setattr(capture_api.service, "resolve_actor", denied)

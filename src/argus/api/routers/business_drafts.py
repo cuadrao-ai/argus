@@ -34,7 +34,7 @@ def _key(request: Request, value: str | None) -> str:
 def _run(request, response, context, draft_id, command=None, key=None):
     response.headers.update(NO_STORE)
     try:
-        actor = context.service.context_for_draft(context.actor_id, draft_id)
+        actor = context.for_draft(draft_id)
         if command is not None:
             if isinstance(command, ReviewDraft):
                 method = context.service.review

@@ -85,18 +85,39 @@ def chosen_scope(request: Request, user_id: str) -> BusinessScope | None:
     )
 
 
+def _owner_required(request: Request) -> HTTPException:
+    return problem(
+        request,
+        status_code=403,
+        code="business_permission_denied",
+        title="Forbidden",
+        detail="Only the Business owner can do this.",
+        headers=NO_STORE,
+    )
+
+
 def owner_only(request: Request, context: BusinessContext) -> None:
     """A route that only the Business owner may call; a grantee is told so."""
 
     if not context.scope.acting_as_owner:
-        raise problem(
-            request,
-            status_code=403,
-            code="business_permission_denied",
-            title="Forbidden",
-            detail="Only the Business owner can do this.",
-            headers=NO_STORE,
-        )
+        raise _owner_required(request)
+
+
+def own_business_only(request: Request, user_id: str) -> None:
+    """A route about the caller's own Business: under a chosen client grant it
+    is refused (a dead grant is refused first, the same way as everywhere)."""
+
+    scope = chosen_scope(request, user_id)
+    if scope is not None and not scope.acting_as_owner:
+        raise _owner_required(request)
+
+
+def working_scope(
+    request: Request, spaces: SpaceStore, user_id: str
+) -> BusinessScope | None:
+    """The Business the caller is working in: the chosen grant's, else their own."""
+
+    return chosen_scope(request, user_id) or resolve_business_scope(spaces, user_id)
 
 
 @dataclass(frozen=True)
@@ -143,7 +164,7 @@ def _context(
         or documents.hub is not hub
     ):
         raise unavailable_problem(request)
-    scope = chosen_scope(request, user_id) or resolve_business_scope(spaces, user_id)
+    scope = working_scope(request, spaces, user_id)
     if scope is None and not (
         request.path_params.get("receipt_id")
         and getattr(request.app.state, "financial_accounts_pool", None)
@@ -171,9 +192,7 @@ def require_business_workspace(
 ) -> BusinessContext:
     if not isinstance(context.hub.sink, ReconciliationService):
         raise unavailable_problem(request)
-    scope = chosen_scope(request, person.person_id) or resolve_business_scope(
-        person.spaces, person.person_id
-    )
+    scope = working_scope(request, person.spaces, person.person_id)
     if scope is None:
         raise space_missing_problem(request)
     return BusinessContext(scope, BusinessService(documents, context.hub.sink, _captured))

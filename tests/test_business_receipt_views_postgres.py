@@ -10,6 +10,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
+import pytest
 from argus.api.business_drafts import (
     bridged,
     overview_with_drafts,
@@ -101,6 +102,7 @@ def _views(web, cid: str):  # noqa: ANN001
     return row, detail
 
 
+@pytest.mark.owner_acts
 def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  # noqa: ANN001
     saved = single._saved(actions, "expense")
     service, context, _, cid, _, _ = saved
@@ -396,6 +398,7 @@ def test_a_receipt_linked_to_two_drafts_asks_a_person_to_check(actions):  # noqa
     assert result1.draft_id != result2.draft_id
 
 
+@pytest.mark.owner_acts
 def test_an_approved_draft_still_asking_for_purchases_says_so_in_every_view(actions):  # noqa: ANN001
     from tests.test_business_multi_purchase_postgres import _account, saved_two_purchases
 

@@ -103,7 +103,7 @@ cases:
           plan_references:
             - {action_index: 0, existing_draft: draft_a, version: 2}
           visible_sources: [message_a1, message_a2, message_a3]
-      - actor: accountant_a
+      - actor: owner_a
         channel: web
         command_key: approval_a1
         command: {action: approve_expense, draft: draft_a, version: current_dossier}
@@ -130,13 +130,13 @@ cases:
           approval_available: false
           money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           recorded_activity: {kind: expense, amount: '850', currency: DOP, funding: owner_funds}
-          approval: {status: recorded, reviewed_version: 3, actor: accountant_a, grant: grant_a, issuer: owner_a}
+          approval: {status: recorded, reviewed_version: 3, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           history:
             - {version: 1, actor: owner_a, grant: owner_grant_a, issuer: owner_a, sources: [message_a1]}
             - {version: 2, actor: owner_a, grant: owner_grant_a, issuer: owner_a, sources: [message_a2]}
             - {version: 3, actor: owner_a, grant: owner_grant_a, issuer: owner_a, sources: [message_a3]}
           actions:
-            - {name: approve_expense, outcome: applied, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_a1}
+            - {name: approve_expense, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, receipt_key: approval_a1}
           visible_sources: [message_a1, message_a2, message_a3]
 
   - id: en_funding_correction
@@ -397,7 +397,7 @@ cases:
           plan_references:
             - {action_index: 0, existing_draft: draft_e, version: 1}
           visible_sources: [message_e1, message_e2]
-      - actor: accountant_a
+      - actor: owner_a
         channel: web
         command_key: approval_e_stale
         command: {action: approve_expense, draft: draft_e, version: 1}
@@ -416,9 +416,9 @@ cases:
           approval: {status: failed, reviewed_version: 1, code: stale_version}
           money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           actions:
-            - {name: approve_expense, outcome: stale_version, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_e_stale}
+            - {name: approve_expense, outcome: stale_version, actor: owner_a, grant: owner_grant_a, issuer: owner_a, receipt_key: approval_e_stale}
           visible_sources: [message_e1, message_e2]
-      - actor: accountant_a
+      - actor: owner_a
         channel: web
         command_key: approval_e_current
         command: {action: approve_expense, draft: draft_e, version: current_dossier}
@@ -441,11 +441,11 @@ cases:
           approval_available: false
           money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           recorded_activity: {kind: expense, amount: '78', currency: DOP, funding: owner_funds}
-          approval: {status: recorded, reviewed_version: 2, actor: accountant_a, grant: grant_a, issuer: owner_a}
+          approval: {status: recorded, reviewed_version: 2, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           actions:
-            - {name: approve_expense, outcome: applied, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_e_current}
+            - {name: approve_expense, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, receipt_key: approval_e_current}
           visible_sources: [message_e1, message_e2]
-      - actor: accountant_a
+      - actor: owner_a
         channel: web
         command_key: approval_e_current
         replay: true
@@ -469,9 +469,9 @@ cases:
           approval_available: false
           money: {record_count: 1, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
           recorded_activity: {kind: expense, amount: '78', currency: DOP, funding: owner_funds}
-          approval: {status: recorded, reviewed_version: 2, actor: accountant_a, grant: grant_a, issuer: owner_a}
+          approval: {status: recorded, reviewed_version: 2, actor: owner_a, grant: owner_grant_a, issuer: owner_a}
           actions:
-            - {name: approve_expense, outcome: applied, actor: accountant_a, grant: grant_a, issuer: owner_a, receipt_key: approval_e_current}
+            - {name: approve_expense, outcome: applied, actor: owner_a, grant: owner_grant_a, issuer: owner_a, receipt_key: approval_e_current}
           replay_receipts_unchanged: true
           replay_domain_unchanged: true
           visible_sources: [message_e1, message_e2]

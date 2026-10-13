@@ -50,6 +50,8 @@
      landing, as tokens so Business surfaces share one owner for them. */
   --cuadrao-cream: #fafbf8;
   --cuadrao-green: #2f5a49;
+  /* A floating menu's surface, light and dark, one owner for Business menus. */
+  --cuadrao-menu-surface: #ffffff;
   --argus-scroll-indicator: rgba(0, 0, 0, 0.12);
   --argus-scroll-indicator-dark: rgba(255, 255, 255, 0.16);
 }
@@ -59,6 +61,7 @@
   --fg: #ffffff;
   --cuadrao-cream: #172b26;
   --cuadrao-green: #8fcbb0;
+  --cuadrao-menu-surface: #1f2225;
 }
 
 body {

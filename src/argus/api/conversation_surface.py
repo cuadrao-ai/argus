@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 from fastapi import Depends, HTTPException, Request
 
 from argus.api import state as api_state
-from argus.api.business import unavailable_problem
+from argus.api.business import own_business_only, unavailable_problem
 from argus.api.business_spaces import business_spaces, space_missing_problem
 from argus.api.dependencies import current_user, problem
 from argus.api.schemas import ConversationSurface, User
@@ -60,6 +60,12 @@ def surface_scope(
     spaces = business_spaces()
     if not business_pilot_enabled() or spaces is None:
         raise unavailable_problem(request)
+    # A stored conversation belongs to its space's creator
+    # (conversations_owner_space_fkey pins owner_space_id to spaces.created_by),
+    # so Business chat is the owner's: a chosen client grant is refused rather
+    # than silently run in the caller's own Business. A grantee's chat in a
+    # client's Business needs that constraint changed first.
+    own_business_only(request, user_id)
     resolved = resolve_business_scope(spaces, user_id)
     if resolved is None:
         raise space_missing_problem(request)

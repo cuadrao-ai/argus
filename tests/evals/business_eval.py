@@ -87,7 +87,7 @@ def _complete_expected_case(case: dict[str, Any]) -> None:
     evidence: dict[str, dict] = {}
     for step in case["steps"]:
         expected = step["expect"]
-        if step["actor"] == "owner_a":
+        if "message" in step:
             alias = step["source"]
             submitted = {
                 "kind": "message",
@@ -127,7 +127,7 @@ def _complete_expected_case(case: dict[str, Any]) -> None:
                         )
                     if updated.get("origin") == "default":
                         sources[field] = []
-                    elif step["actor"] == "owner_a":
+                    elif "message" in step:
                         sources[field] = [step["source"]]
                     else:
                         raise ValueError("human fact change needs explicit source")
@@ -140,7 +140,7 @@ def _complete_expected_case(case: dict[str, Any]) -> None:
             earlier = prior_versions.get(alias, 0)
             history = deepcopy(revisions.get(alias, []))
             if version != earlier:
-                if step["actor"] == "owner_a" and version == earlier + 1:
+                if "message" in step and version == earlier + 1:
                     history.append(
                         {
                             "version": version,
@@ -449,7 +449,7 @@ def score_runtime_capture(
             "candidate SHA and approved runtime and judge models are required"
         )
     human_only = case["id"] == "en_revoked_accountant_read" and not any(
-        step["actor"] == "owner_a" for step in case["steps"]
+        "message" in step for step in case["steps"]
     )
     provenance_valid = bool(
         adapter_provenance

@@ -333,12 +333,26 @@ class PostgresAccessStore:
                 raise LookupError("business_space_missing")
             return self._list(connection, space_id, owner_id)
 
+    # Live means: not revoked or expired, the Business open, the person not
+    # anonymous, and the issuer still holding owner access: an issuer whose own
+    # owner grant was revoked, with no live one since, ends every grant they gave.
     _GRANTED = (
         "select g.id::text, g.space_id::text, s.name, s.created_by::text, g.capabilities"
         " from public.business_client_grants g join public.spaces s on s.id=g.space_id"
+        " join auth.users u on u.id=g.grantee_id"
         " where g.grantee_id=%s and g.revoked_at is null"
         " and (g.expires_at is null or g.expires_at > clock_timestamp())"
         " and 'read'=any(g.capabilities) and s.kind='business' and s.closed_at is null"
+        " and coalesce(u.is_anonymous,false)=false"
+        " and not exists (select 1 from public.business_client_grants lost"
+        "   where lost.space_id=g.space_id and lost.grantee_id=g.issuer_id"
+        "   and lost.issuer_id=lost.grantee_id"
+        "   and (lost.revoked_at is not null"
+        "     or (lost.expires_at is not null and lost.expires_at <= clock_timestamp()))"
+        "   and not exists (select 1 from public.business_client_grants own"
+        "     where own.space_id=lost.space_id and own.grantee_id=lost.grantee_id"
+        "     and own.issuer_id=own.grantee_id and own.revoked_at is null"
+        "     and (own.expires_at is null or own.expires_at > clock_timestamp())))"
     )
 
     def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
@@ -664,6 +678,19 @@ class InMemoryAccessStore:
             grant["grantee_id"],
         )
 
+    def _issuer_live(self, grant: dict) -> bool:
+        """The issuer still holds owner access: an issuer whose own owner grant
+        was revoked, with no live one since, has ended every grant they gave."""
+
+        own = [
+            g
+            for g in self._grants
+            if g["space_id"] == grant["space_id"]
+            and g["grantee_id"] == grant["issuer_id"]
+            and g["issuer_id"] == g["grantee_id"]
+        ]
+        return not own or any(g["revoked_at"] is None for g in own)
+
     def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
         with self._lock:
             rows = [
@@ -672,6 +699,7 @@ class InMemoryAccessStore:
                 if g["grantee_id"] == person_id
                 and g["revoked_at"] is None
                 and "read" in g["capabilities"]
+                and self._issuer_live(g)
             ]
         rows.sort(key=lambda g: (g["issuer_id"] != g["grantee_id"], g["created_at"]))
         return tuple(self._granted(g) for g in rows)
@@ -686,6 +714,7 @@ class InMemoryAccessStore:
                     and g["grantee_id"] == person_id
                     and g["revoked_at"] is None
                     and "read" in g["capabilities"]
+                    and self._issuer_live(g)
                 ),
                 None,
             )
