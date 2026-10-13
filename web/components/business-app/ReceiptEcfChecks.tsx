@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, CircleDashed } from "lucide-react";
+import { AlertCircle, CheckCircle2, CircleDashed, ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { EcfCheck, EcfVerification } from "@/lib/business-dossier";
+import type { DgiiQr, EcfCheck, EcfVerification } from "@/lib/business-dossier";
 import { formatRelativeTime } from "./business-format";
 import { cardClass } from "./business-ui";
 
@@ -111,7 +111,26 @@ export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
       security?.detail.expected ? t("business.dossier.ecf_security_expected", "Expected security code: {{code}}.", { code: security.detail.expected }) : t("business.dossier.ecf_security_unavailable", "Security code not available."),
     ].join(" "),
   };
-  return [signature, sums, reading, certificate, dgii];
+  const rows = [signature, sums, reading, certificate, dgii];
+  // The QR row exists only for a record whose verification looked for one.
+  const present = by.get("qr_present");
+  const match = by.get("qr_matches_read");
+  if (present || match) {
+    const qr: EcfRow = { key: "qr", title: t("business.dossier.ecf_row_qr", "QR code"), state: "not_checked", caption: "" };
+    if (stateOf(present) !== "verified") {
+      qr.caption = t("business.dossier.ecf_qr_missing", "No readable QR code");
+    } else if (stateOf(match) === "verified") {
+      qr.state = "verified";
+      qr.caption = t("business.dossier.ecf_qr_match", "The QR code matches what was read");
+    } else if (stateOf(match) === "failed") {
+      qr.state = "failed";
+      qr.caption = t("business.dossier.ecf_qr_differs", "Review: the QR code does not match what was read in {{fields}}", { fields: Object.keys(match?.detail ?? {}).map((field) => t(`business.dossier.ecf_field_${field}`, field)).join(", ") });
+    } else {
+      qr.caption = t("business.dossier.ecf_qr_no_read", "QR code read; nothing read from the receipt to compare it with");
+    }
+    rows.push(qr);
+  }
+  return rows;
 }
 
 const STATE_STYLE: Record<RowState, { Icon: typeof CheckCircle2; className: string }> = {
@@ -120,7 +139,7 @@ const STATE_STYLE: Record<RowState, { Icon: typeof CheckCircle2; className: stri
   not_checked: { Icon: CircleDashed, className: "text-black/45 dark:text-white/45" },
 };
 
-export default function ReceiptEcfChecks({ verification }: { verification: EcfVerification | null | undefined }) {
+export default function ReceiptEcfChecks({ verification, qr = null }: { verification: EcfVerification | null | undefined; qr?: DgiiQr | null }) {
   const { t, i18n } = useTranslation();
   if (!verification) return null;
   const locale = i18n.resolvedLanguage ?? "en";
@@ -152,6 +171,15 @@ export default function ReceiptEcfChecks({ verification }: { verification: EcfVe
           );
         })}
       </ul>
+      {qr?.url ? (
+        <div className="mt-4">
+          <a href={qr.url} target="_blank" rel="noopener noreferrer" data-testid="receipt-dgii-verify" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-[14px] text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white">
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            {t("business.dossier.ecf_qr_verify", "Check on DGII")}
+          </a>
+          <p className="mt-2 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.ecf_qr_verify_note", "Opens DGII's official consultation page in a new tab. Cuadrao sends nothing.")}</p>
+        </div>
+      ) : null}
       <p className="mt-4 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.ecf_note", "What the file proves by itself. Nothing here confirms DGII accepted the invoice; a row marked Review does not block approval.")}</p>
     </section>
   );

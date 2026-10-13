@@ -2328,6 +2328,13 @@
       "ecf_dgii_not_checked": "DGII acceptance not looked up.",
       "ecf_security_expected": "Expected security code: {{code}}.",
       "ecf_security_unavailable": "Security code not available.",
+      "ecf_row_qr": "QR code",
+      "ecf_qr_match": "The QR code matches what was read",
+      "ecf_qr_differs": "Review: the QR code does not match what was read in {{fields}}",
+      "ecf_qr_no_read": "QR code read; nothing read from the receipt to compare it with",
+      "ecf_qr_missing": "No readable QR code",
+      "ecf_qr_verify": "Check on DGII",
+      "ecf_qr_verify_note": "Opens DGII's official consultation page in a new tab. Cuadrao sends nothing.",
       "refresh": "Check current record",
       "stale": "This record changed. Open the current revision and review it before taking another action.",
       "unavailable": "This record isn't available with your current access.",
@@ -2365,6 +2372,7 @@
       },
       "origin": {
         "extracted": "Read from source · not verified",
+        "qr_decoded": "From the QR code · not verified",
         "owner_stated": "Stated by owner · not verified",
         "member_set": "Set by reviewer · not verified",
         "matched": "Matched to source · not verified"

@@ -24,7 +24,13 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(card).toContainText("Revisar: la lectura difiere del XML en ITBIS");
       await expect(card).toContainText("Aceptación por la DGII no consultada");
       await expect(card.locator('[data-state="failed"]')).toHaveCount(1);
-      await expect(card.locator("li")).toHaveCount(5);
+      await expect(card.locator("li")).toHaveCount(6);
+      await expect(card).toContainText("El código QR coincide con lo leído");
+      const verify = card.getByTestId("receipt-dgii-verify");
+      await expect(verify).toHaveAttribute("href", /^https:\/\/ecf\.dgii\.gov\.do\//);
+      await expect(verify).toHaveAttribute("target", "_blank");
+      await expect(verify).toHaveAttribute("rel", "noopener noreferrer");
+      await expect(verify).toHaveText("Verificar en DGII");
       await expect(card).toContainText("Vigente en la fecha que declara el documento");
       // The fixture was checked days ago; the relative time says so in words.
       await expect(card).toContainText(/comprobado (hace|anteayer|ayer)/);

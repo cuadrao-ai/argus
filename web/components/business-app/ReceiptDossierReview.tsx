@@ -268,7 +268,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
           <ReceiptMessages sources={dossier.sources} />
           {!attachments.length ? <div className={`${cardClass} text-[14px] text-black/65 dark:text-white/65`}>{dossier.facts.receipt_state.state === "known" && dossier.facts.receipt_state.value === "no_receipt" ? t("business.dossier.no_receipt", "No receipt was supplied.") : t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</div> : null}
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
-          <ReceiptEcfChecks verification={dossier.ecf_checks ?? null} />
+          <ReceiptEcfChecks verification={dossier.ecf_checks ?? null} qr={dossier.dgii_qr ?? null} />
           <ReceiptHistory history={dossier.history} accounts={accounts} />
         </div>
         <div className="space-y-4">

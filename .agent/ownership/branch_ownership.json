@@ -552,6 +552,27 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-dgii-qr-web-20261012": {
+      "description": "Web half of the DGII QR: a sixth 'Codigo QR' row on the electronic invoice card (present, matches the read, differs, nothing to compare), a 'Verificar en DGII' link that opens DGII's own consultation page in a new tab with noopener and no server call, the qr_decoded source label on facts filled from the QR, es-419 first, fixtures and tests. Rendering backend state only; honest words, never 'verificada'.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-ecf-checks.test.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/ReceiptEcfChecks.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/e2e/business-ecf-checks.spec.ts",
+        "web/lib/business-dossier.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-dossier-revision-number-20261012": {
       "description": "The dossier header shows the latest facts revision, the same number the revision history lists, not the event's internal version that also counts approvals and settlements.",
       "base_ref": "origin/codex/private-alpha-next",
