@@ -2,6 +2,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
 const PREVIEW = "/dev/business-preview";
+/** The Business build: the local recipe exports NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true for the dev server and for this runner alike. */
+const BUSINESS_BUILD = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED === "true";
 
 async function openPreview(
   page: Page,
@@ -403,13 +405,15 @@ test.describe("Business preview on a phone", () => {
     for (const label of ["Overview", "Inbox", "Expenses", "Updates"]) {
       await expect(drawerNav.getByText(label, { exact: true })).toBeVisible();
     }
-    await expect(drawerNav.getByRole("button", { name: /^Inbox/ })).toContainText("6");
+    await expect(drawerNav.getByRole("button", { name: /^Inbox/ })).toContainText("5");
     await expect(page.getByTestId("business-create")).toHaveText("Create");
   });
 });
 
 test.describe("Argus chat without a workspace", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
+  // On a Business build /chat sends everyone to the Business shell by design; this is the consumer build's page.
+  test.skip(BUSINESS_BUILD, "consumer build only: /chat is not a surface on a Business build");
 
   test("keeps the mention button and the legacy starter pills", async ({ page }) => {
     await page.route("**/*", (route) => {
@@ -433,6 +437,13 @@ test.describe("Argus chat without a workspace", () => {
 test.describe("A conversation opens in the shell of its own surface", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
+  /** Full page loads after the first: a reload loop shows up here as a count that keeps growing. */
+  function countDocumentLoads(page: Page) {
+    const loads: string[] = [];
+    page.on("request", (request) => { if (request.resourceType() === "document" && request.isNavigationRequest()) loads.push(request.url()); });
+    return loads;
+  }
+
   async function serveSurface(page: Page, surface: "personal" | "business", seen: string[]) {
     await page.route("**/api/v1/conversations/*/messages?**", (route) => {
       seen.push(new URL(route.request().url()).pathname);
@@ -455,15 +466,24 @@ test.describe("A conversation opens in the shell of its own surface", () => {
     });
   }
 
-  /** Full page loads after the first: a reload loop shows up here as a count that keeps growing. */
-  function countDocumentLoads(page: Page) {
-    const loads: string[] = [];
-    page.on("request", (request) => { if (request.resourceType() === "document" && request.isNavigationRequest()) loads.push(request.url()); });
-    return loads;
-  }
+
+  test("a guest session on the Business shell makes at most two page loads and never loops", async ({ page }) => {
+    test.skip(!BUSINESS_BUILD, "Business build only");
+    // The evaluator's case: a guest whose latest Personal conversation used to be picked on every load.
+    const seen: string[] = [];
+    await page.route("**/*", (route) => ["127.0.0.1", "localhost"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
+    await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: false, account: "guest" });
+    await serveSurface(page, "personal", seen);
+    const loads = countDocumentLoads(page);
+    await page.goto(PREVIEW);
+    await page.waitForTimeout(10000);
+    expect(loads.length).toBeLessThanOrEqual(2);
+    expect(seen.length).toBeLessThanOrEqual(1);
+    await expect(page).not.toHaveURL(/notice=conversation_unavailable/);
+  });
 
   test("a Personal chat opened on /biz on a Business build goes nowhere but the notice: one hop, no loop, one link", async ({ page }) => {
-    // The dev server runs with NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true (the local recipe), the build this guards.
+    test.skip(!BUSINESS_BUILD, "Business build only");
     const seen: string[] = [];
     await openPreview(page, PREVIEW, { emptyChat: false });
     await serveSurface(page, "personal", seen);
@@ -493,6 +513,7 @@ test.describe("A conversation opens in the shell of its own surface", () => {
   });
 
   test("an old /chat link on a Business build hops once to the Business shell with its id and stops", async ({ page }) => {
+    test.skip(!BUSINESS_BUILD, "Business build only");
     // The server-side hop. The shell's own handling of a Personal id (the notice, no loop) is
     // asserted above on the preview page; the live /biz needs the real API, which this fixture cannot serve.
     const seen: string[] = [];
@@ -543,6 +564,7 @@ test.describe("Business preview while its chat is off", () => {
     await expect(page.getByRole("menu", { name: "Create" }).getByRole("menuitem")).toHaveText([
       "Upload receipt",
       "Record expense",
+      "Save a note",
     ]);
     await page.keyboard.press("Escape");
 

@@ -14,6 +14,7 @@ import { DevModeBadge } from "@/components/ui/DevModeBadge";
 import {
   getMe,
   loginWithEmail,
+  logoutFromApi,
   normalizeApiLanguage,
   signupWithEmail,
 } from "@/lib/argus-api";
@@ -21,6 +22,7 @@ import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-fl
 import {
   guestEntryAvailable,
   resolveLandingEntrySurface,
+  sessionAdmitted,
 } from "@/lib/landing-entry";
 import {
   captureLandingIntentFromLocation,
@@ -75,6 +77,14 @@ export default function LandingPage() {
         if (cancelled) return;
         if (meResponse === null) {
           setProfileProbeFailedClosed(true);
+          setIsCheckingSession(false);
+          return;
+        }
+        if (!sessionAdmitted(meResponse.account_kind, businessPilotEnabled)) {
+          // Business has no guest mode: the guest session is ended here so it
+          // cannot bounce between the front door and the Business shell.
+          await logoutFromApi().catch(() => undefined);
+          if (cancelled) return;
           setIsCheckingSession(false);
           return;
         }

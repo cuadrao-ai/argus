@@ -17,7 +17,8 @@ export default async function BusinessPage({
   if (process.env.NEXT_PUBLIC_MOCK_AUTH !== "true") {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
+    // A guest session is an anonymous Supabase user; Business has no guest mode.
+    if (error || !data.user || data.user.is_anonymous) {
       redirect(authLoginPathFromSearch(await searchParams, "/biz"));
     }
   }

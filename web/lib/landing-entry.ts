@@ -32,3 +32,13 @@ export function resolveChatEntrySurface(input: {
 export function guestEntryAvailable(input: { businessBuild: boolean; probeFailedClosed: boolean; guestAccessEnabled: boolean; guestCaptchaConfigured: boolean }): boolean {
   return !input.businessBuild && !input.probeFailedClosed && input.guestAccessEnabled && input.guestCaptchaConfigured;
 }
+
+/** Whether a session that passed the profile probe may enter: on a Business build a guest session is treated as signed out (Business has no guest mode). */
+export function sessionAdmitted(accountKind: "guest" | "registered" | undefined, businessBuild: boolean): boolean {
+  return !(businessBuild && accountKind === "guest");
+}
+
+/** Where an expired or restarted guest goes: the guest chat on a consumer build; login on a Business build, which has no guest mode. */
+export function guestLandingHref(businessBuild: boolean): string {
+  return businessBuild ? "/?auth=login" : "/chat";
+}
