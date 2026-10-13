@@ -230,7 +230,7 @@ struct ReceiptJourneySheet: View {
     private func duplicateBanner(_ draft: ReceiptReviewDraft) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(copy.duplicateTitle).font(CuadraoTypography.body.weight(.semibold))
-            Text(copy.duplicateDetail(money(draft.amount, draft.currency)))
+            Text(copy.duplicateDetail)
                 .font(CuadraoTypography.supporting).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             // Side by side when both fit on one line each; otherwise stacked, adding to the movement first.
             ViewThatFits(in: .horizontal) {

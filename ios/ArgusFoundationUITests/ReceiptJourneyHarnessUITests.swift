@@ -198,7 +198,15 @@ final class ReceiptJourneyHarnessUITests: XCTestCase {
         app.launch()
         app.buttons["harness.duplicate"].tap()
         readUntilReview()
-        XCTAssertTrue(app.descendants(matching: .any)["receipt.review.duplicate"].exists)
+        let banner = app.descendants(matching: .any)["receipt.review.duplicate"]
+        XCTAssertTrue(banner.exists)
+        XCTAssertTrue(banner.staticTexts["¿Ya anotaste este gasto?"].exists, "the question is the banner's title")
+        XCTAssertFalse(banner.staticTexts.matching(NSPredicate(format: "label CONTAINS 'DOP'")).firstMatch.exists,
+                       "the banner states no amount the server did not return")
+        let add = app.buttons["receipt.review.link"], other = app.buttons["receipt.review.newPurchase"]
+        XCTAssertEqual(add.label, "Añadir a ese movimiento")
+        XCTAssertLessThan(add.frame.minY, other.frame.minY, "at the largest text the two choices stack, adding first")
+        XCTAssertLessThan(banner.frame.minY, app.textFields["receipt.review.merchant"].frame.minY, "the banner sits above the fields")
         capture("receipt-review-duplicate-xxxl-es")
         app.swipeUp()
         capture("receipt-review-xxxl-es-lower")

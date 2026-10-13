@@ -65,9 +65,10 @@ struct ReceiptJourneyCopy {
     var alreadyRecorded: String { spanish ? "Añadir a ese movimiento" : "Add to that movement" }
     var newPurchase: String { spanish ? "Es otro gasto" : "It is a new expense" }
     var duplicateTitle: String { spanish ? "¿Ya anotaste este gasto?" : "Already recorded this?" }
-    func duplicateDetail(_ amount: String) -> String {
-        spanish ? "Hay un movimiento de \(amount). Puedes añadirle este recibo en vez de crear otro."
-                : "There is a movement of \(amount). You can add this receipt to it instead of creating another."
+    /// Says nothing about the matched movement's amount: the server returns only which movement matched.
+    var duplicateDetail: String {
+        spanish ? "Encontramos un movimiento que se parece a este recibo. Puedes añadirle el recibo en vez de crear otro gasto."
+                : "We found a movement that looks like this receipt. You can add the receipt to it instead of creating another expense."
     }
     var writeByHand: String { spanish ? "Escribirlo a mano" : "Write it by hand" }
     var linked: String { spanish ? "Recibo añadido al movimiento" : "Receipt added to the movement" }
