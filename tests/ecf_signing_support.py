@@ -18,6 +18,7 @@ from lxml import etree
 
 DS = "http://www.w3.org/2000/09/xmldsig#"
 C14N = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"
+EXCLUSIVE_C14N = "http://www.w3.org/2001/10/xml-exc-c14n#"
 ENVELOPED = "http://www.w3.org/2000/09/xmldsig#enveloped-signature"
 RSA_SHA256 = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
 SHA256 = "http://www.w3.org/2001/04/xmlenc#sha256"
@@ -65,6 +66,7 @@ def signed_ecf(
     signed_at: str | None = SIGNED_AT,
     sign_with: rsa.RSAPrivateKey | None = None,
     digest_of: bytes | None = None,
+    signed_info_c14n: str = C14N,
 ) -> bytes:
     """The fixture (or ``xml``) with FechaHoraFirma and one enveloped
     signature appended. ``sign_with`` signs with another key than the
@@ -90,7 +92,9 @@ def signed_ecf(
     digest = base64.b64encode(hashlib.sha256(digested).digest()).decode("ascii")
     signature = etree.SubElement(root, f"{{{DS}}}Signature", nsmap={"ds": DS})
     signed_info = etree.SubElement(signature, f"{{{DS}}}SignedInfo")
-    etree.SubElement(signed_info, f"{{{DS}}}CanonicalizationMethod", Algorithm=C14N)
+    etree.SubElement(
+        signed_info, f"{{{DS}}}CanonicalizationMethod", Algorithm=signed_info_c14n
+    )
     etree.SubElement(signed_info, f"{{{DS}}}SignatureMethod", Algorithm=RSA_SHA256)
     reference = etree.SubElement(signed_info, f"{{{DS}}}Reference", URI="")
     transforms = etree.SubElement(reference, f"{{{DS}}}Transforms")
@@ -99,7 +103,11 @@ def signed_ecf(
     etree.SubElement(reference, f"{{{DS}}}DigestValue").text = digest
     signer = sign_with or key
     value = signer.sign(
-        etree.tostring(signed_info, method="c14n"), padding.PKCS1v15(), hashes.SHA256()
+        etree.tostring(
+            signed_info, method="c14n", exclusive=signed_info_c14n == EXCLUSIVE_C14N
+        ),
+        padding.PKCS1v15(),
+        hashes.SHA256(),
     )
     etree.SubElement(signature, f"{{{DS}}}SignatureValue").text = base64.b64encode(
         value

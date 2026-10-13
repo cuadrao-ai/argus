@@ -19,6 +19,7 @@ from argus.domain.ingestion.documents.ecf_checks import (
 from argus.domain.ingestion.documents.models import ReceiptDetails
 
 from tests.ecf_signing_support import (
+    EXCLUSIVE_C14N,
     FIXTURE,
     RNC,
     SIGNED_AT,
@@ -475,3 +476,21 @@ def test_nesting_deeper_than_the_cap_reads_as_none():
         + b"</ECF>"
     )
     assert read_ecf(shallow) is not None
+
+
+def test_a_reference_without_its_own_canonicalization_uses_inclusive_c14n():
+    """SignedInfo signed with exclusive c14n, the reference carrying only the
+    enveloped transform: the document digest is inclusive c14n 1.0, so an
+    unused namespace declaration on the root (which exclusive c14n would drop)
+    is part of what was signed."""
+    xml = FIXTURE.read_bytes().replace(
+        b'<ECF xmlns="https://dgii.gov.do/ecf/v1">',
+        b'<ECF xmlns="https://dgii.gov.do/ecf/v1" xmlns:x="urn:unused">',
+    )
+    assert b"urn:unused" in xml
+    checks = by_name(
+        ecf_checks(read_ecf(signed_ecf(xml, signed_info_c14n=EXCLUSIVE_C14N)), READ, NOW)
+    )
+    integrity = checks["signature_integrity"]
+    assert (integrity.state, integrity.code) == ("verified", None)
+    assert integrity.detail["signature"].endswith("rsa-sha256")
