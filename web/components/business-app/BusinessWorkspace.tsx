@@ -153,10 +153,13 @@ export function BusinessWorkspaceProvider({
     () => withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
     [apiSource, i18n],
   );
-  const source = directRecord ? apiSource : workspaceSource;
   const [panel, setPanel] = useState<BusinessPanelState>(() =>
     panelFromSearch(new URLSearchParams(searchParams.toString())),
   );
+  // Derived, not the latch: the moment the person leaves the record the
+  // workspace-scoped source is in effect, so the first fetch is already scoped.
+  const onRecord = directRecord && (panel.kind === "receipt" || panel.kind === "draft");
+  const source = onRecord ? apiSource : workspaceSource;
   const [initialView] = useState<ChatShellView>(() =>
     shellViewFromSearch(new URLSearchParams(searchParams.toString())),
   );
@@ -216,7 +219,7 @@ export function BusinessWorkspaceProvider({
 
   useEffect(() => {
     let cancelled = false;
-    if (directRecord) return;
+    if (onRecord) return;
     Promise.all([
       source.workspace(),
       source.overview(period.from, period.to),
@@ -231,11 +234,11 @@ export function BusinessWorkspaceProvider({
     return () => {
       cancelled = true;
     };
-  }, [directRecord, period.from, period.to, revision, source]);
+  }, [onRecord, period.from, period.to, revision, source]);
 
   useEffect(() => {
     let cancelled = false;
-    if (directRecord) return;
+    if (onRecord) return;
     source.captures("", NOTES_PAGE).then(
       (notes) => {
         if (!cancelled) setRecords((current) => ({ ...current, notes, notesError: false, notesTruncated: notes.length >= NOTES_PAGE }));
@@ -247,7 +250,7 @@ export function BusinessWorkspaceProvider({
     return () => {
       cancelled = true;
     };
-  }, [directRecord, revision, source]);
+  }, [onRecord, revision, source]);
 
   // The shell may replace the route while leaving a conversation; writing again
   // once that navigation lands keeps the panel in the address bar.

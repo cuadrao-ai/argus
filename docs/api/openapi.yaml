@@ -17669,6 +17669,9 @@ components:
         version:
           type: integer
           minimum: 1.0
+        revision:
+          type: integer
+          minimum: 1.0
         source_id:
           type: string
           format: uuid
@@ -17691,6 +17694,7 @@ components:
       required:
       - draft_id
       - version
+      - revision
       - source_id
       - text
       - received_at

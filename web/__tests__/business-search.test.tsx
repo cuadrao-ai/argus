@@ -183,7 +183,7 @@ describe("Business hits open the panel that holds them", () => {
 
 describe("original note search", () => {
   test("distinct sources sharing a draft open only the canonical draft", async () => {
-    const note: BusinessCapture = { draft_id: "draft-1", version: 3, source_id: "source-1", text: "  pintura sin recibo  ", received_at: "2026-10-10T14:00:00Z", review_state: "open" };
+    const note: BusinessCapture = { draft_id: "draft-1", version: 3, revision: 3, source_id: "source-1", text: "  pintura sin recibo  ", received_at: "2026-10-10T14:00:00Z", review_state: "open" };
     const { groups, opened } = await businessSearch({ expenses: [], receipts: [], accounts: [] }, [note, { ...note, source_id: "source-2", text: "Agrego el pago" }]);
     const captures = groups.find((group) => group.id === "captures")!;
     assert.deepEqual(captures.hits.map((hit) => [hit.id, hit.title, hit.amount]), [["source-1", note.text, null], ["source-2", "Agrego el pago", null]]);
@@ -266,7 +266,7 @@ describe("record preview in the results", () => {
   });
 
   test("every Business hit carries a preview that shows what the hit already knows", async () => {
-    const note: BusinessCapture = { draft_id: "draft-1", version: 2, source_id: "source-1", text: "pintura sin recibo", received_at: "2026-10-10T14:00:00Z", review_state: "open" };
+    const note: BusinessCapture = { draft_id: "draft-1", version: 5, revision: 2, source_id: "source-1", text: "pintura sin recibo", received_at: "2026-10-10T14:00:00Z", review_state: "open" };
     const receipt = { id: "rcpt-9", channel: "web" as const, filename: "factura-9.pdf", media_type: "application/pdf", size_bytes: 1, received_at: "2026-10-07T14:00:00Z", status: "review_ready" as const, error_code: null, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null, attention: null, preparable: false, enterable: false };
     const { groups: found, search: built } = await businessSearch({ expenses: [expense], receipts: [receipt], accounts: [] }, [note]);
     assert.equal(built.previewAvailable, true);
