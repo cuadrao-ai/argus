@@ -1135,6 +1135,7 @@
       "allow": [
         ".agent/ownership/branch_ownership.json",
         "web/__tests__/alpha-frontend.test.ts",
+        "web/__tests__/logout-first-click.test.ts",
         "web/components/chat/ChatInterface.tsx"
       ],
       "deny": [

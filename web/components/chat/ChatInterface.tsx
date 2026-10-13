@@ -1792,21 +1792,13 @@ export default function ChatInterface() {
 
   const handleLogout = async (options: LogoutOptions = {}) => {
     if (options.afterAccountDeletion) return endSessionKeepingSurface(accountBoundary);
-    // The account boundary is told first: the provider's SIGNED_OUT event
-    // arrives during sign-out, and without this it swaps the surface for the
-    // account-changed screen, whose Reload button is the second click.
+    // Told first, the boundary ignores the SIGNED_OUT event instead of showing "account changed".
     accountBoundary.beginConversion();
     try {
       const result = options.sessionEnded ? null : await logoutFromApi();
       if (result?.revocation === "failed") {
         accountBoundary.finishConversion(account?.user.id ?? null);
-        showToast(
-          t(
-            "settings.logout_error",
-            "We couldn’t sign out this browser. Try again.",
-          ),
-          "error",
-        );
+        showToast(t("settings.logout_error", "We couldn’t sign out this browser. Try again."), "error");
         return;
       }
       requestSessions.synchronizeAccountScope(null);
@@ -1815,8 +1807,6 @@ export default function ChatInterface() {
       transcriptSessionCache.clearAuthenticatedState();
       resetToEmptyChatSurface();
       clearHistory();
-      // Signed out, the Business page sends the browser to login with
-      // return_to=/biz, so the next sign-in comes back here.
       window.location.href = "/biz";
     } catch {
       accountBoundary.finishConversion(account?.user.id ?? null);
