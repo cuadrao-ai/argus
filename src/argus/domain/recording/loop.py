@@ -125,27 +125,73 @@ def observations(
     return tuple(result)
 
 
-def eligible(expense: ExpenseRevision, observation: Observation) -> bool:
+CoverageSkip = Literal["after_observation_day", "entered_after_observation"]
+
+
+def coverage_skip(
+    expense: ExpenseRevision, observation: Observation
+) -> CoverageSkip | None:
+    """Why no inclusion question applies; None means the person must answer.
+
+    Only a movement dated the day it was entered has a real time on that day."""
     zone = ZoneInfo(observation.time_zone)
-    return (
-        expense.occurred_at.astimezone(zone).date()
-        <= observation.as_of.astimezone(zone).date()
+    occurred = expense.occurred_at.astimezone(zone).date()
+    observed = observation.as_of.astimezone(zone).date()
+    if occurred != observed:
+        return None if occurred < observed else "after_observation_day"
+    own = ZoneInfo(expense.time_zone)
+    entered_same_day = (
+        expense.occurred_at.astimezone(own).date()
+        == expense.recorded_at.astimezone(own).date()
+    )
+    if entered_same_day and expense.occurred_at > observation.as_of:
+        return "entered_after_observation"
+    return None
+
+
+def eligible(expense: ExpenseRevision, observation: Observation) -> bool:
+    return coverage_skip(expense, observation) is None
+
+
+def _link(
+    expense: ExpenseRecord, observation: Observation, coverage: tuple[Coverage, ...]
+) -> Coverage | None:
+    key = (observation.id, observation.revision, expense.id, expense.current.revision)
+    return next(
+        (
+            link
+            for link in coverage
+            if (
+                link.observation_id,
+                link.observation_revision,
+                link.activity_id,
+                link.activity_revision,
+            )
+            == key
+        ),
+        None,
+    )
+
+
+def answerable(
+    expense: ExpenseRecord, observation: Observation, coverage: tuple[Coverage, ...]
+) -> bool:
+    """Eligible now, or answered under an earlier eligibility rule; answers stand."""
+    return eligible(expense.current, observation) or (
+        _link(expense, observation, coverage) is not None
     )
 
 
 def included(
     expense: ExpenseRecord, observation: Observation, coverage: tuple[Coverage, ...]
 ) -> bool:
-    if not expense.current.active or not eligible(expense.current, observation):
+    if not expense.current.active:
         return False
-    for link in coverage:
-        if (
-            link.observation_id,
-            link.observation_revision,
-            link.activity_id,
-            link.activity_revision,
-        ) == (observation.id, observation.revision, expense.id, expense.current.revision):
-            return link.included
+    link = _link(expense, observation, coverage)
+    if link is not None:
+        return link.included
+    if not eligible(expense.current, observation):
+        return False
     raise ValueError("financial observation is missing explicit activity coverage")
 
 
@@ -228,7 +274,7 @@ def validate_monotonic(
 ) -> None:
     seen = False
     for observation in anchors:
-        if not expense.current.active or not eligible(expense.current, observation):
+        if not expense.current.active or not answerable(expense, observation, coverage):
             if seen:
                 raise RecordingInputError(
                     "coverage_date_conflict",

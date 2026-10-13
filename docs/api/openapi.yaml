@@ -17474,6 +17474,11 @@ components:
           items:
             $ref: '#/components/schemas/ObservationQuestion'
           type: array
+        skipped_observations:
+          items:
+            $ref: '#/components/schemas/SkippedObservation'
+          type: array
+          default: []
         unexplained_before:
           additionalProperties:
             anyOf:
@@ -22078,6 +22083,19 @@ components:
       - email
       - password
       - captcha_token
+    SkippedObservation:
+      properties:
+        observation_id:
+          type: string
+        reason:
+          type: string
+          enum:
+          - after_observation_day
+          - entered_after_observation
+      type: object
+      required:
+      - observation_id
+      - reason
     Snapshot:
       properties:
         household_id:

@@ -21,7 +21,7 @@ from argus.domain.recording.loop import (
     Coverage,
     ExpenseRecord,
     ExpenseRevision,
-    eligible,
+    coverage_skip,
     observations,
     residuals,
     validate_monotonic,
@@ -312,6 +312,7 @@ def plan(
         )
         role = targets.get(aid)
         questions = []
+        skipped: list[dict[str, str]] = []
         candidate: StoredAccount | None = stored
         if role or current:
             rid = (
@@ -351,7 +352,10 @@ def plan(
             )
             links = []
             for anchor in observations(stored.opening, stored.checks):
-                if not eligible(revision, anchor):
+                skip = coverage_skip(revision, anchor)
+                if skip is not None:
+                    if role:
+                        skipped.append({"observation_id": anchor.id, "reason": skip})
                     continue
                 key = (aid, anchor.id)
                 choice = answers.get(key) if role else False
@@ -398,6 +402,7 @@ def plan(
                 "before": _view(stored),
                 "after": _view(candidate) if candidate else None,
                 "observations": questions,
+                "skipped_observations": skipped,
                 "unexplained_before": residuals(
                     stored.opening, stored.checks, stored.expenses, stored.coverage
                 ),

@@ -6954,9 +6954,14 @@ The stored IANA zone is retained independently of the server zone.
 
 `coverage` is a list of `{observation_id, included}` answers. An opening and a
 balance check are both observations. For an activity on or before an observation's
-local calendar day, the preview asks whether it was already included. Same-day
-activity always asks; the API does not infer inclusion from a time supplied by a
-date-only control. An included expense remains included in every later eligible
+local calendar day, the preview asks whether it was already included. On the
+observation's own day, an activity dated the day it was recorded carries its real
+entry time: when that time is after the observation, no question is asked. A
+backdated activity on that day has no real time and always asks. Answers stored under
+the earlier same-day rule stand. Each affected account lists
+`skipped_observations: [{observation_id, reason}]` where `reason` is
+`after_observation_day` or `entered_after_observation`, so a skipped question is
+never silent. An included expense remains included in every later eligible
 observation. Contradictory answers are rejected. Expenses after an observation day
 cannot be included in it. Amount equality never establishes inclusion.
 
@@ -7274,7 +7279,7 @@ Expected_versions maps UUID to account version. Coverage is
 
 Preview is `{ready,expected_versions,affected_accounts,reviewed_request,preview_token}`.
 Each affected account is `{account_id,currency,currency_fraction_digits,before,after,
-observations,unexplained_before,unexplained_after}`. Before/after use BalanceResponse;
+observations,skipped_observations,unexplained_before,unexplained_after}`. Before/after use BalanceResponse;
 after/unexplained_after are null until ready. Unexplained maps check UUID to nullable
 signed minor units. Observations use existing ObservationQuestion. Include all old/new
 leg accounts and old/new linked purchase accounts, even unchanged dependencies.
