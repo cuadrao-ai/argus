@@ -6,7 +6,8 @@ final class ProfileAuthModel: ObservableObject {
     enum State { case accountDeletionUncertain, accountDeletionPending, disabled, configurationInvalid, signedOut, authenticated, pendingSignOut, unsupportedAnonymous, credentialValidationRequired, reauthenticationRequired }
     @Published private(set) var state: State = .disabled
     @Published private(set) var busy = false
-    /// True once the first launch restore has finished, so a host can wait for it before choosing what to show.
+    /// True once a restore has run to the end, so a host can wait for it before choosing what to show. A call that
+    /// finds another restore in flight returns early and leaves this to that restore.
     @Published private(set) var hasRestored = false
     @Published private(set) var profile: SessionProfile?
     @Published private(set) var confirmationRequired = false
@@ -108,12 +109,16 @@ final class ProfileAuthModel: ObservableObject {
         guard !started else { return }
         started = true
         await restore()
-        hasRestored = true
         await deletion?.load()
     }
 
     func restore() async {
-        guard let controller else { return }
+        guard let controller else { hasRestored = true; return }
+        #if DEBUG
+        // UI tests stand in for a slow hosted /me with `-cuadraoRestoreDelayMs`.
+        let delay = UserDefaults.standard.integer(forKey: "cuadraoRestoreDelayMs")
+        if delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
+        #endif
         do {
             accept(try await controller.requestCredentialRevalidation())
         } catch {
@@ -134,6 +139,7 @@ final class ProfileAuthModel: ObservableObject {
                 errorKey = Self.messageKey(error)
             }
         } while revalidationRequested
+        hasRestored = true
     }
 
     private func finishOperation() {
