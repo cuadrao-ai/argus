@@ -25,6 +25,7 @@ from argus.domain.business.contracts.checks import (
     DgiiQr,
     EcfCheck,
     EcfVerification,
+    ReadVsQr,
     dgii_link_host,
 )
 from argus.domain.ingestion.documents.models import ReceiptDetails
@@ -157,7 +158,7 @@ def qr_checks(qr: DgiiQr | None, receipt: ReceiptDetails | None) -> list[EcfChec
     """Two rows: whether a DGII QR was there, and whether what it names
     (issuer RNC, e-NCF, total) equals what the read found, field by field
     and only where both exist. A mismatch fills nothing and is a row to
-    review with both values."""
+    review; ``read_vs_qr`` carries both values of each compared field."""
 
     if qr is None:
         return [
@@ -179,7 +180,7 @@ def qr_checks(qr: DgiiQr | None, receipt: ReceiptDetails | None) -> list[EcfChec
         "ecf": (receipt.ecf or receipt.ncf, qr.encf, False),
         "total": (receipt.total, qr.monto_total, True),
     }
-    compared: dict[str, str] = {}
+    compared: dict[str, ReadVsQr] = {}
     differing: list[str] = []
     for name, (read, stated, numeric) in pairs.items():
         if read is None or stated is None:
@@ -189,7 +190,7 @@ def qr_checks(qr: DgiiQr | None, receipt: ReceiptDetails | None) -> list[EcfChec
             if numeric
             else str(read).strip().upper() == str(stated).strip().upper()
         )
-        compared[name] = f"read={read} qr={stated}"
+        compared[name] = ReadVsQr(read=str(read)[:64], qr=str(stated)[:64])
         if not same:
             differing.append(name)
     if not compared:
@@ -204,10 +205,13 @@ def qr_checks(qr: DgiiQr | None, receipt: ReceiptDetails | None) -> list[EcfChec
                 name="qr_matches_read",
                 state="failed",
                 code="qr_differs",
-                detail={name: compared[name] for name in differing},
+                read_vs_qr={name: compared[name] for name in differing},
             ),
         ]
-    return [present, EcfCheck(name="qr_matches_read", state="verified", detail=compared)]
+    return [
+        present,
+        EcfCheck(name="qr_matches_read", state="verified", read_vs_qr=compared),
+    ]
 
 
 def with_qr(

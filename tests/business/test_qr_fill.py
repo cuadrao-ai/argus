@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from argus.domain.business.contracts.checks import EcfCheck
 from argus.domain.business.contracts.facts import BusinessResolution
 from argus.domain.ingestion.documents.dgii_qr import parse_dgii_url
 from argus.domain.ingestion.documents.extractor import batch_from_result
@@ -143,10 +144,14 @@ def test_a_qr_and_printed_numbers_that_disagree_fill_nothing_and_ask_for_review(
     )
     match = next(c for c in batch.ecf_checks.checks if c.name == "qr_matches_read")
     assert (match.state, match.code) == ("failed", "qr_differs")
-    assert match.detail == {
-        "rnc": f"read=131111223 qr={RNC}",
-        "total": f"read=33254.19 qr={TOTAL}",
+    assert match.detail == {}
+    assert {k: v.model_dump() for k, v in match.read_vs_qr.items()} == {
+        "rnc": {"read": "131111223", "qr": RNC},
+        "total": {"read": "33254.19", "qr": TOTAL},
     }
+    # The typed pairs survive the JSON round trip the draft row takes.
+    again = EcfCheck.model_validate(match.model_dump(mode="json"))
+    assert again.read_vs_qr["rnc"].qr == RNC
     assert resolution.dgii_qr == QR
 
 

@@ -109,7 +109,7 @@ describe("the electronic invoice verification card", () => {
   });
 
   test("a QR that differs from the read, or with nothing to compare, reads as its words", async () => {
-    const differs = await rows({ ...BASE, checks: [{ name: "qr_present", state: "verified", code: null, detail: {} }, { name: "qr_matches_read", state: "failed", code: "qr_differs", detail: { rnc: "read=1 qr=2", total: "read=1 qr=2" } }] });
+    const differs = await rows({ ...BASE, checks: [{ name: "qr_present", state: "verified", code: null, detail: {} }, { name: "qr_matches_read", state: "failed", code: "qr_differs", detail: {}, read_vs_qr: { rnc: { read: "1", qr: "2" }, total: { read: "1", qr: "2" } } }] });
     assert.equal(differs[5].state, "failed");
     assert.equal(differs[5].caption, "Revisar: el código QR no coincide con lo leído. RNC: leído 1, QR 2; total: leído 1, QR 2");
     const noRead = await rows({ ...BASE, checks: [{ name: "qr_present", state: "verified", code: null, detail: {} }, { name: "qr_matches_read", state: "not_checked", code: "no_read", detail: {} }] });

@@ -36,12 +36,6 @@ export function dgiiLink(url: string | null | undefined): string | null {
   return parsed.href;
 }
 
-/** A check detail value "read=X qr=Y" as its two values; anything else reads as the whole text. */
-function readAndQr(value: string | undefined): { read: string; qr: string } {
-  const match = /^read=(.*) qr=(.*)$/.exec(value ?? "");
-  return match ? { read: match[1], qr: match[2] } : { read: value ?? "", qr: "" };
-}
-
 function stateOf(check: EcfCheck | undefined): RowState {
   return check?.state === "verified" || check?.state === "failed" ? check.state : "not_checked";
 }
@@ -145,10 +139,9 @@ export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
     } else if (stateOf(match) === "failed") {
       qr.state = "failed";
       // Both values, so the person sees what differs without opening anything.
-      const pairs = Object.entries(match?.detail ?? {}).map(([field, value]) => {
-        const { read, qr: stated } = readAndQr(value);
-        return t("business.dossier.ecf_qr_pair", "{{field}}: read {{read}}, QR {{qr}}", { field: t(`business.dossier.ecf_field_${field}`, field), read, qr: stated });
-      });
+      const pairs = Object.entries(match?.read_vs_qr ?? {}).map(([field, pair]) =>
+        t("business.dossier.ecf_qr_pair", "{{field}}: read {{read}}, QR {{qr}}", { field: t(`business.dossier.ecf_field_${field}`, field), read: pair?.read ?? "", qr: pair?.qr ?? "" }),
+      );
       qr.caption = t("business.dossier.ecf_qr_differs", "Review: the QR code does not match what was read. {{pairs}}", { pairs: pairs.join("; ") });
     } else {
       qr.caption = t("business.dossier.ecf_qr_no_read", "QR code read; nothing read from the receipt to compare it with");
