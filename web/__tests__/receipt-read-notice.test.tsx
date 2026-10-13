@@ -1,0 +1,43 @@
+import assert from "node:assert/strict";
+import { describe, test } from "bun:test";
+import i18next from "i18next";
+import { renderToStaticMarkup } from "react-dom/server";
+import { I18nextProvider } from "react-i18next";
+
+import english from "@/public/locales/en/common.json";
+import spanish from "@/public/locales/es-419/common.json";
+import ReceiptReadNotice from "../components/business-app/ReceiptReadNotice";
+import type { ReceiptStatus } from "../lib/business-api";
+
+async function render(status: ReceiptStatus, readPending: boolean, lng: "es-419" | "en") {
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng, resources: { "es-419": { translation: spanish }, en: { translation: english } } });
+  return renderToStaticMarkup(
+    <I18nextProvider i18n={i18n}>
+      <ReceiptReadNotice status={status} readPending={readPending} />
+    </I18nextProvider>,
+  );
+}
+
+describe("what a saved receipt says is happening to it", () => {
+  test("a pending read says the receipt is being read", async () => {
+    const es = await render("queued", true, "es-419");
+    assert.ok(es.includes("Leyendo tu recibo. Puedes salir de esta página; el resultado te esperará en la bandeja."));
+    assert.ok(es.includes('role="status"'));
+    const en = await render("preparing", true, "en");
+    assert.ok(en.includes("Reading your receipt. You can leave this page; the result will wait in your inbox."));
+  });
+
+  test("a saved receipt that nothing will read says so and leaves the person to fill it in", async () => {
+    const es = await render("saved", false, "es-419");
+    assert.ok(es.includes("Guardado. Nadie lo está leyendo: completa los datos a mano cuando quieras o pide la lectura con IA."));
+    assert.ok(!es.includes("Leyendo tu recibo"));
+    const en = await render("saved", false, "en");
+    assert.ok(en.includes("Saved. Nothing is reading it: fill in the details by hand whenever you like, or ask for an AI read."));
+  });
+
+  test("any other state says nothing", async () => {
+    assert.equal(await render("review_ready", false, "es-419"), "");
+    assert.equal(await render("needs_attention", false, "en"), "");
+  });
+});
