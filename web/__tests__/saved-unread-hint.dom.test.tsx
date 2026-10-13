@@ -37,6 +37,8 @@ async function mount(node: (React: typeof import("react")) => import("react").Re
     source: { emailIntake: async () => ({ enabled: true, receiving_address: "recibos-ab12@example.test" }), emailDeliveries: async () => [delivery], emailDelivery: async () => ({ ...delivery, text_body: "Adjunto" }) },
     records: { inbox, notes: [], notesError: false, notesTruncated: false, workspace: null, overview: null, error: false },
     openPanel: () => undefined,
+    // The Inbox reads which email to open on arrival; nothing here opens one.
+    panel: { kind: "inbox" },
     revision: 0,
     actions: { create: [] },
   } as unknown as BusinessContextValue;
