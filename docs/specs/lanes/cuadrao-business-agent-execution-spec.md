@@ -569,7 +569,7 @@ that changes model-facing text.
 
 ## 9. Journeys
 
-Each journey is an acceptance test. Each starts in WhatsApp and ends in the
+Flow status and last-walked evidence live in [Core flows](../../CORE_FLOWS.md); this section keeps the acceptance tests. Each journey is an acceptance test. Each starts in WhatsApp and ends in the
 accountant's package. Each must survive a restart and a repeated webhook
 delivery.
 
