@@ -5,11 +5,12 @@ import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
+import { inboxCount as countInbox } from "./BusinessInboxPanel";
 
 export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }) {
   const { t } = useTranslation();
   const { panel, openPanel, records } = useBusiness();
-  const inboxCount = records.inbox?.length ?? 0;
+  const inboxCount = countInbox(records);
   const isActive = (kind: BusinessPanelState["kind"]) =>
     shell.currentView === "workspace" &&
     (panel.kind === kind || (kind === "inbox" && panel.kind === "receipt") || (kind === "expenses" && panel.kind === "expense"));
