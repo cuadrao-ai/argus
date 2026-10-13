@@ -28,6 +28,7 @@ test.describe("Upload with consent lands on review", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test("one PNG with AI consent reaches the review panel without a client crash", async ({ page }) => {
+    // Page errors and console errors are both collected, and both must be empty.
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}\n${error.stack ?? ""}`));
     page.on("console", (message) => {
@@ -58,6 +59,6 @@ test.describe("Upload with consent lands on review", () => {
     // Dev mode runs effects twice; a stable data source means no further refetch of the record.
     expect(detailFetches.length).toBeLessThanOrEqual(2);
     await expect(page.getByRole("heading", { name: "Review receipt", exact: true })).toBeVisible();
-    expect(errors.filter((e) => e.startsWith("pageerror"))).toEqual([]);
+    expect(errors).toEqual([]);
   });
 });

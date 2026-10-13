@@ -9101,8 +9101,10 @@ stale targets, foreign targets and missing capabilities use the errors above.
 existing Business and live read grant; it does not infer an accountant's client.
 `q` defaults to empty, is at most 200 characters, rejects U+0000 (NUL), and
 matches a literal case-insensitive substring of original text (`%` and `_` are literal).
-`limit` is 1–50, default 20. Items contain `draft_id`, current `version` and
-`review_state`, plus original `source_id`, `text` and `received_at`. Selection
+`limit` is 1–50, default 20. Items contain `draft_id`, current `version`, the
+`revision` the note created (the number the draft's history lists; the web shows
+it as the note's revision) and `review_state`, plus original `source_id`, `text`
+and `received_at`. Selection
 follows successful capture receipts through their exact immutable revision and
 source, ordered by source receipt time descending, then source ID descending.
 Each item represents a note; multiple notes may name the same draft. Reviewing
@@ -9288,7 +9290,8 @@ accept path recorded.
   (error code `purchases_unrecorded`) while `unrecorded_purchases` is above 0.
   `POST /api/v1/business/drafts/{draft_id}/remainder/settle` with `{version}`
   and an `Idempotency-Key` lets a person with `approve` permission settle the
-  rest (ledger action `settle_remainder`); the dossier then reports 0. 409
+  rest (ledger action `settle_remainder`); the dossier then reports 0. 403
+  `business_permission_denied` without approve permission; 409
   `stale_version`; 422 `business_draft_not_recorded` before approval and
   `business_remainder_none` when nothing is left. An
   unreadable read is still refused to the document layer, which keeps the

@@ -293,17 +293,26 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
   });
 }
 
-test("landing on a record, the person can still open the overview, inbox and expenses", async ({ page }) => {
+test("landing on a record, then opening inbox, expenses and overview, each loads from the Business-scoped source", async ({ page }) => {
+  // The workspace derives its data source from the latch and the panel kind: the
+  // first fetch after leaving the record is already scoped, so every panel loads.
   await openRecord(page, dossierFixtureIds.ready);
   const nav = page.getByTestId("business-sidebar-nav");
   const panel = page.getByTestId("workspace-panel-region");
   await nav.getByRole("button", { name: /^Inbox/ }).click();
   await expect(panel.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
-  await expect(panel.getByRole("button", { name: /Ferretería La Esquina/ }).first()).toBeVisible();
+  await expect(panel.getByRole("button", { name: /Ferretería La Esquina.*Ready to review/ })).toBeVisible();
+  await expect(panel).not.toContainText("couldn't load");
   await nav.getByRole("button", { name: /^Expenses/ }).click();
   await expect(panel.getByRole("heading", { name: "Expenses", exact: true })).toBeVisible();
+  await expect(panel.getByRole("listitem").filter({ hasText: "Nube Hosting" })).toBeVisible();
+  await expect(panel).not.toContainText("couldn't load");
   await nav.getByRole("button", { name: /^Overview|^Home/ }).click();
-  await expect(panel.getByRole("heading", { level: 2 }).first()).toBeVisible();
+  // The home is scoped to the Business from the first fetch: its cards carry real counts.
+  const inboxCard = panel.getByRole("button", { name: /In your inbox/ });
+  await expect(inboxCard.getByText(/^\d+$/)).toBeVisible();
+  expect(Number(await inboxCard.getByText(/^\d+$/).innerText())).toBeGreaterThan(0);
+  await expect(panel.getByRole("button", { name: /Saved expenses/ }).getByText(/^\d+ expenses?$/).first()).toBeVisible();
   await expect(panel).not.toContainText("couldn't load");
 });
 
@@ -315,9 +324,15 @@ test("after approving from the inbox, the home card and the inbox count change w
   const panel = page.getByTestId("workspace-panel-region");
   const inboxCard = panel.getByRole("button", { name: /In your inbox/ });
   await expect(inboxCard).toBeVisible();
-  const before = Number((await inboxCard.innerText()).match(/\d+/)?.[0]);
+  // Exact counts, read from the elements that carry them, and the read must succeed.
+  const before = Number(await inboxCard.getByText(/^\d+$/).innerText());
+  expect(before).toBeGreaterThan(0);
   const expensesCard = panel.getByRole("button", { name: /Saved expenses/ });
-  const dopBefore = Number((await expensesCard.innerText()).match(/RD\$[^\n]*\n?(\d+) expenses?/)?.[1] ?? 0);
+  const dopLine = expensesCard.locator("li", { hasText: /RD\$/ });
+  await expect(dopLine).toHaveCount(1);
+  const dopMatch = (await dopLine.innerText()).match(/^(\d+) expenses?$/m);
+  expect(dopMatch, "the DOP line ends with its expense count").not.toBeNull();
+  const dopBefore = Number(dopMatch![1]);
   await nav.getByRole("button", { name: /^Inbox/ }).click();
   await panel.getByRole("button", { name: /Ferretería La Esquina/ }).first().click();
   await page.getByLabel(/Paid from/).selectOption({ label: "Operating account · DOP" });
@@ -326,6 +341,6 @@ test("after approving from the inbox, the home card and the inbox count change w
   await expect(panel).toContainText("One expense was recorded after approval");
   // No reload, no navigation beyond the panel switch: the home already knows.
   await nav.getByRole("button", { name: /^Overview/ }).click();
-  await expect(panel.getByRole("button", { name: /In your inbox/ })).toContainText(String(before - 1));
-  await expect(panel.getByRole("button", { name: /Saved expenses/ })).toContainText(new RegExp(`${dopBefore + 1} expenses?`));
+  await expect(panel.getByRole("button", { name: /In your inbox/ }).getByText(new RegExp(`^${before - 1}$`))).toBeVisible();
+  await expect(panel.getByRole("button", { name: /Saved expenses/ }).locator("li", { hasText: /RD\$/ }).getByText(new RegExp(`^${dopBefore + 1} expenses?$`))).toBeVisible();
 });
