@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { signedInHomePath } from "@/lib/landing-intent";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -189,7 +190,7 @@ export default function AccountSecurityPage() {
   return (
     <main className="min-h-[100dvh] px-6 py-10 md:px-12">
       <div className="mx-auto w-full max-w-2xl">
-        <Link href="/chat" className="text-sm font-medium text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white">
+        <Link href={signedInHomePath()} className="text-sm font-medium text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white">
           {t("account_security.back", "Back to Cuadrao")}
         </Link>
         <h1 className="mt-6 font-display text-4xl font-medium tracking-tight text-black dark:text-white">

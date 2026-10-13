@@ -1,6 +1,8 @@
 "use client";
 
 import { CuadraoLockup } from "@/components/CuadraoLockup";
+import { guestLandingHref } from "@/lib/landing-entry";
+import { businessPilotEnabled } from "@/lib/private-alpha-flags";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import AuthForm, {
@@ -38,7 +40,7 @@ export default function ExpiredGuestSession({
     setRestartErrorKind(null);
     try {
       await retryGuestSession(i18n.resolvedLanguage ?? i18n.language);
-      window.location.assign("/chat");
+      window.location.assign(guestLandingHref(businessPilotEnabled));
     } catch (error) {
       const kind = guestEntryErrorKind(error);
       setRestartErrorKind(kind);
@@ -118,7 +120,7 @@ export default function ExpiredGuestSession({
                 } else {
                   await loginWithEmail({ email, password });
                 }
-                window.location.assign("/chat");
+                window.location.assign(guestLandingHref(businessPilotEnabled));
               }}
             />
             <button

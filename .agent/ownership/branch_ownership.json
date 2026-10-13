@@ -32,6 +32,41 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-biz-landing-20261013": {
+      "description": "On a Cuadrao Business build (NEXT_PUBLIC_BUSINESS_PILOT_ENABLED) the signed-in home is /biz: login without return_to lands there, the signed-out /chat guest page is gone (signed-out visitors go to login) and the Business UI links that pointed at /chat use the signed-in home. return_to stays allow-listed to same-origin /biz paths. Consumer builds are unchanged.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-shell-no-guest.test.ts",
+        "web/__tests__/conversation-unavailable-notice.dom.test.tsx",
+        "web/__tests__/guest-entry-routing.test.ts",
+        "web/__tests__/landing-intent.test.ts",
+        "web/__tests__/receipt-followup.test.ts",
+        "web/app/account/security/page.tsx",
+        "web/app/biz/page.tsx",
+        "web/app/chat/page.tsx",
+        "web/app/page.tsx",
+        "web/components/business-app/BusinessApp.tsx",
+        "web/components/business-app/ConversationUnavailableNotice.tsx",
+        "web/components/chat/ChatInterface.tsx",
+        "web/components/chat/ConversationShellGuard.tsx",
+        "web/components/chat/useInitialChatSession.ts",
+        "web/components/guest/ExpiredGuestSession.tsx",
+        "web/components/receipt/ReceiptFollowup.tsx",
+        "web/e2e/business-pilot-preview.spec.ts",
+        "web/lib/conversation-surface-guard.ts",
+        "web/lib/landing-entry.ts",
+        "web/lib/landing-intent.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-business-actions-20261010": {
       "description": "Actions-owned source delta; M1 and C0 dependencies must land and reconcile before full READY gate.",
       "base_ref": "origin/codex/private-alpha-next",
