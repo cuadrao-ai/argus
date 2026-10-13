@@ -2376,6 +2376,18 @@
         "ecf": "e-CF",
         "itbis": "ITBIS"
       },
+      "standing": {
+        "suggestion": "Read from the source · suggestion, not verified",
+        "empty": "No value",
+        "missing": "Missing"
+      },
+      "confirm_value": "Confirm",
+      "suggestions_pending_one": "{{count}} suggestion to confirm",
+      "suggestions_pending_other": "{{count}} suggestions to confirm",
+      "missing_pending_one": "{{count}} detail missing",
+      "missing_pending_other": "{{count}} details missing",
+      "unresolved_pending_one": "{{count}} detail to resolve",
+      "unresolved_pending_other": "{{count}} details to resolve",
       "origin": {
         "extracted": "Read from source · not verified",
         "qr_decoded": "From the QR code · not verified",
@@ -2429,6 +2441,7 @@
       "no_receipt": "No receipt attached",
       "recorded_on": "Recorded on {{when}}",
       "detail_error": "We couldn't open this expense. Try again.",
+      "retry": "Try again",
       "account_unknown": "Unknown"
     },
     "sample": {
@@ -2473,6 +2486,10 @@
       "review_inbox_other": "Review {{count}} receipts",
       "ask_spending": "What did I spend this month?",
       "attach_receipt": "Add a receipt"
+    },
+    "notice": {
+      "conversation_unavailable": "This conversation isn't available in Cuadrao Business.",
+      "go_business": "Go to Cuadrao Business"
     },
     "nav": {
       "label": "Business",

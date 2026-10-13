@@ -95,6 +95,7 @@ export function saveBlobDownload(blob: Blob, filename: string, revokeAfterMs = 3
   try { link.click(); } finally { link.remove(); globalThis.setTimeout(() => URL.revokeObjectURL(url), revokeAfterMs); }
 }
 
+/** Exports belong to a period surface, not to one record; this stays for that surface and is not mounted on the record page. */
 export function ReceiptPeriodExport({ dossier, start, end, available }: { dossier: BusinessDossier; start: string; end: string; available: boolean }) {
   const { t } = useTranslation();
   const [from, setFrom] = useState(start);
@@ -137,7 +138,7 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
 
 export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftId: string; onUnprepared?: () => void }) {
   const { t, i18n } = useTranslation();
-  const { source, openPanel, reload, period, records } = useBusiness();
+  const { source, openPanel, reload } = useBusiness();
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [operation, setOperation] = useState<Operation>({ kind: "idle" });
@@ -286,12 +287,11 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
         <div className="space-y-4">
           <div className={cardClass}>
             <div className="mb-5 flex items-center justify-between gap-3"><h3 className="text-[14px] font-medium text-black dark:text-white">{(operation.kind === "uncertain" && operation.action === "save" ? t("business.dossier.pending_details", "Your unconfirmed edits") : t("business.dossier.current_details", "Current details"))}</h3>{canPrepare && mutable && !editing ? <button type="button" onClick={() => setEditing(true)} className="min-h-11 rounded-full px-2 text-[13px] font-medium text-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/65">{t("business.dossier.edit", "Edit details")}</button> : null}</div>
-            {editing && canPrepare ? <ReceiptFactEditor key={operation.kind === "uncertain" && operation.action === "save" ? operation.version : dossier.version} facts={dossier.facts} accounts={accounts} currencies={[...new Set([...accounts.map((account) => account.currency), ...(currency ? [currency] : [])])]} disabled={!mutable} onChange={setDirty} onSave={(facts) => void write("save", facts)} onCancel={() => { setEditing(false); setDirty(false); }} /> : <ReceiptRecordFacts dossier={dossier} accounts={accounts} />}
+            {editing && canPrepare ? <ReceiptFactEditor key={operation.kind === "uncertain" && operation.action === "save" ? operation.version : dossier.version} facts={dossier.facts} accounts={accounts} currencies={[...new Set([...accounts.map((account) => account.currency), ...(currency ? [currency] : [])])]} disabled={!mutable} onChange={setDirty} onSave={(facts) => void write("save", facts)} onCancel={() => { setEditing(false); setDirty(false); }} /> : <ReceiptRecordFacts dossier={dossier} accounts={accounts} confirmable={canPrepare && mutable && !editing && !dirty} onConfirm={(key) => { const fact = dossier.facts[key]; if (fact.state === "known") void write("save", { [key]: { state: "known", value: fact.value } } as BusinessFactPatch); }} />}
           </div>
           {editing && operation.kind === "uncertain" && operation.action === "save" ? <div className={cardClass}><h3 className="mb-5 text-[14px] font-medium text-black dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
           {canPrepare && mutable && !editing && !dirty ? <button type="button" className={secondaryButtonClass} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
-          <ReceiptPeriodExport key={dossier.draft_id} dossier={dossier} start={period.from} end={period.to ?? records.overview?.to ?? period.from} available={source.mode === "live"} />
           <ReceiptApprovalGuidance dossier={dossier} />
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
           <div className={cardClass}>

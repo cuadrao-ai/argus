@@ -14,18 +14,23 @@ import { DevModeBadge } from "@/components/ui/DevModeBadge";
 import {
   getMe,
   loginWithEmail,
+  logoutFromApi,
   normalizeApiLanguage,
   signupWithEmail,
 } from "@/lib/argus-api";
-import { guestAccessEnabled } from "@/lib/private-alpha-flags";
+import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-flags";
 import {
+  guestEntryAvailable,
   resolveLandingEntrySurface,
+  sessionAdmitted,
 } from "@/lib/landing-entry";
 import {
   captureLandingIntentFromLocation,
   postAuthPath,
 } from "@/lib/landing-intent";
 import { guestCaptchaConfigured } from "@/lib/guest-session";
+import { ENABLED_LANGUAGES, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
+import { saveProfileLanguage } from "@/lib/profile-writes";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
 
 type AuthMode = "intro" | "request" | "signup" | "login";
@@ -77,6 +82,14 @@ export default function LandingPage() {
           setIsCheckingSession(false);
           return;
         }
+        if (!sessionAdmitted(meResponse.account_kind, businessPilotEnabled)) {
+          // Business has no guest mode: the guest session is ended here so it
+          // cannot bounce between the front door and the Business shell.
+          await logoutFromApi().catch(() => undefined);
+          if (cancelled) return;
+          setIsCheckingSession(false);
+          return;
+        }
         router.replace(postAuthPath());
       } catch (error) {
         if (cancelled) return;
@@ -105,6 +118,16 @@ export default function LandingPage() {
     const query = params.toString();
     const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
     window.history.replaceState(null, "", nextUrl);
+  };
+  // A language chosen on this page before signing in. It is shown at once and,
+  // once the account signs in, saved on it; the account's own setting rules
+  // every later visit.
+  const [chosenLanguage, setChosenLanguage] = useState<ArgusLanguage | null>(null);
+  const shownLanguage = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language);
+  const otherLanguages = ENABLED_LANGUAGES.filter((language) => language.code !== shownLanguage);
+  const chooseLanguage = async (code: ArgusLanguage) => {
+    await i18n.changeLanguage(code);
+    setChosenLanguage(code);
   };
   const showRequest = () => updateAuthMode("request");
   const showSignup = () => updateAuthMode("signup");
@@ -135,6 +158,12 @@ export default function LandingPage() {
         email: submission.email,
         password: submission.password,
       });
+      // The choice made on this page outlives the sign-in: saved on the
+      // account now, so the workspace does not switch back to the account's
+      // earlier language. A failed save keeps the shown language for this visit.
+      if (chosenLanguage) {
+        await saveProfileLanguage(i18n, chosenLanguage, { onSaved: () => undefined }).catch(() => false);
+      }
     }
 
     router.replace(postAuthPath());
@@ -144,8 +173,8 @@ export default function LandingPage() {
   const isSignup = authMode === "signup";
   const entrySurface = resolveLandingEntrySurface({
     authMode,
-    guestEntryAvailable:
-      !profileProbeFailedClosed && guestAccessEnabled && guestCaptchaConfigured,
+    // A Business build has no guest chat: a signed-out visitor sees login.
+    guestEntryAvailable: guestEntryAvailable({ businessBuild: businessPilotEnabled, probeFailedClosed: profileProbeFailedClosed, guestAccessEnabled, guestCaptchaConfigured }),
     isCheckingSession,
   });
 
@@ -203,6 +232,22 @@ export default function LandingPage() {
               )}
             </div>
           )}
+
+          {otherLanguages.length > 0 ? (
+            <p className="text-[13px] tracking-wide text-black/60 dark:text-white/60" data-testid="auth-language-switch">
+              {otherLanguages.map((language) => (
+                <button
+                  key={language.code}
+                  type="button"
+                  lang={language.code}
+                  className="min-h-11 rounded-full px-3 font-medium underline-offset-4 transition-opacity hover:opacity-80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f5a49]/40"
+                  onClick={() => void chooseLanguage(language.code)}
+                >
+                  {language.name}
+                </button>
+              ))}
+            </p>
+          ) : null}
 
           {authMode === "intro" && (
             <>

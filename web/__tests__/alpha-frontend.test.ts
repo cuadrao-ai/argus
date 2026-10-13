@@ -2905,27 +2905,25 @@ describe("Argus Alpha frontend contract", () => {
 
     expect(chatPage).toContain("authLoginPathFromSearch");
     expect(chatPage).not.toContain('redirect("/login")');
-    expect(chat).toContain('window.location.href = "/"');
+    expect(chat).toContain("leaveSession(");
     expect(chat).not.toContain('window.location.href = "/?auth=login"');
     expect(chat).not.toContain('window.location.href = "/login"');
   });
 
   test("ordinary logout leaves only after provider revocation and clears private state", () => {
-    const chat = readFileSync(
-      join(root, "components/chat/ChatInterface.tsx"),
-      "utf-8",
-    );
+    const chat = readFileSync(join(root, "components/chat/ChatInterface.tsx"), "utf-8");
+    const flow = readFileSync(join(root, "lib/logout-flow.ts"), "utf-8");
     const logoutHandler = chat.slice(
       chat.indexOf("const handleLogout = async ("),
       chat.indexOf("const handleCancelConfirmationAction"),
     );
 
     expect(logoutHandler).toContain("settings.logout_error");
-    expect(logoutHandler).toContain('result?.revocation === "failed"');
     expect(logoutHandler).toContain("resetToEmptyChatSurface()");
     expect(logoutHandler).toContain("clearHistory()");
-    expect(logoutHandler.indexOf("resetToEmptyChatSurface()")).toBeLessThan(
-      logoutHandler.indexOf('window.location.href = "/"'),
+    expect(flow).toContain('result?.revocation === "failed"');
+    expect(flow.indexOf("deps.clearLocalState()")).toBeLessThan(
+      flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted))"),
     );
   });
 

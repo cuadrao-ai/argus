@@ -2376,6 +2376,18 @@
         "ecf": "e-CF",
         "itbis": "ITBIS"
       },
+      "standing": {
+        "suggestion": "Leído de la fuente · sugerencia sin verificar",
+        "empty": "Sin dato",
+        "missing": "Falta"
+      },
+      "confirm_value": "Confirmar",
+      "suggestions_pending_one": "{{count}} sugerencia por confirmar",
+      "suggestions_pending_other": "{{count}} sugerencias por confirmar",
+      "missing_pending_one": "Falta {{count}} dato",
+      "missing_pending_other": "Faltan {{count}} datos",
+      "unresolved_pending_one": "{{count}} dato por resolver",
+      "unresolved_pending_other": "{{count}} datos por resolver",
       "origin": {
         "extracted": "Leído de la fuente · sin verificar",
         "qr_decoded": "Del código QR · sin verificar",
@@ -2468,6 +2480,7 @@
       "no_receipt": "Sin recibo adjunto",
       "recorded_on": "Registrado el {{when}}",
       "detail_error": "No pudimos abrir este gasto. Reintenta.",
+      "retry": "Reintentar",
       "account_unknown": "Desconocida"
     },
     "home": {
@@ -2572,6 +2585,10 @@
       },
       "too_large": "Este archivo pesa más de {{size}} MB. Usa una foto o un PDF más pequeño.",
       "unsupported": "Este tipo de archivo no es compatible. Usa {{formats}}."
+    },
+    "notice": {
+      "conversation_unavailable": "Esta conversación no está disponible en Cuadrao Business.",
+      "go_business": "Ir a Cuadrao Business"
     },
     "nav": {
       "expenses": "Gastos",
