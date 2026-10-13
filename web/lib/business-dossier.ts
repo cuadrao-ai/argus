@@ -71,7 +71,15 @@ export function factsRevision(dossier: Pick<BusinessDossier, "version" | "histor
   return dossier.history.length ? Math.max(...dossier.history.map((revision) => revision.version)) : dossier.version;
 }
 
+export type EcfCheckName = "signature_integrity" | "totals_arithmetic" | "read_matches_xml" | "certificate_validity" | "certificate_issuer" | "subject_rnc" | "dgii_accepted" | "security_code";
+export type EcfCheckState = "verified" | "failed" | "not_checked";
+/** One fact the e-CF file proved, or the reason it was not checked; never a blocker. */
+export type EcfCheck = { name: EcfCheckName; state: EcfCheckState; code: string | null; detail: Record<string, string> };
+export type EcfVerification = { encf: string | null; tipo_ecf: string | null; checked_at: string; checks: EcfCheck[] };
+
 export type BusinessDossier = BusinessRecordContext & {
+  /** What the e-CF XML proved by itself; null for any other source. */
+  ecf_checks?: EcfVerification | null;
   read_purchases?: BusinessReadPurchase[];
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
   read_total?: string | null;
