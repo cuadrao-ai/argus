@@ -89,7 +89,9 @@ the E3 accountant month test in the
 | AI read, follow-up reply and filled form | same as flow | n/a, no sheet yet | none | ✅ | 2026-10-13 03:50 UTC, staging API on `16d96c621`, founder | Works. A first PDF at 03:24 UTC failed on an expired Meta token; fixed by rotating the token. | #944 | none yet |
 | AI-permission switch | same as flow | n/a, no sheet yet | none | ⚠️ | never | Switches landed (#1011, #1019, #1022). Not walked on its own. | #944 | none yet |
 | AI chat in WhatsApp | same as flow | n/a, no sheet yet | none | ⏸ off on purpose | not applicable | Off on purpose. WhatsApp reads receipts only. Any other text gets one fixed reply with the web link. | [Authority](DOCUMENTATION_AUTHORITY.md) | none yet |
-| Email forward | same as flow | n/a, no sheet yet | none | ⚠️ | never (never walked end to end) | Cause confirmed 2026-10-13: the API has no Resend webhook signing secret (log line `missing: webhook_secret_present`). | #944 | none yet |
+| Email forward | same as flow | n/a, no sheet yet | none | ⚠️ | 2026-10-13 17:14 UTC, staging on integration `91e470b9` (deploy `dep-db75nngn74is739q76h0`, Resend webhook secret applied; deploy id as reported, unverified), the Grok bot account (founder drives it) | Works end to end: an address is assigned per Business; the email and its duplicate were both captured; one receipt in the Bandeja; "Preparar con IA" read the receipt correctly (merchant, date, total, ITBIS, RNC and NCF each "Leído de la fuente · sin verificar"); nothing approved. Earlier cause (missing webhook secret) is fixed. Stays ⚠️ until the two bugs below close. | #944 | none yet |
+| Duplicate file notice | same as flow | n/a, no sheet yet | none | ⚠️ | 2026-10-13 17:14 UTC, staging on integration `91e470b9`, the Grok bot account | Gap: the same PDF twice created one receipt with no visible duplicate warning. | #944 | none yet |
+| Email source label | same as flow | n/a, no sheet yet | none | ❌ | 2026-10-13 17:14 UTC, staging on integration `91e470b9`, the Grok bot account | Bug open: the source label says "Carga web" for an email receipt. A second open bug: the PDF preview stays on "Cargando..." before the read. | #944 | none yet |
 
 ## Personal (iPhone)
 
@@ -162,13 +164,13 @@ not signed in to Xcode. Both are as reported: unverified.
 
 ## Platform
 
-| Flow | Label | State | Last walked | Result and note | Owner | Design fixes |
-| --- | --- | --- | --- | --- | --- | --- |
-| Worktree environment tool | none | ⚠️ | never | Not walked as a flow | [AGENTS.md](../AGENTS.md) | none yet |
-| CI | none | ✅ | PR #1058 checks, 2026-10-13, bot (GitHub Actions) | CI trigger rules (#1040) and poppler (#1042) landed | [CI/CD discipline](specs/private-alpha-ci-cd-sota.md) | none yet |
-| Docs | none | ✅ | PR #1058 docs-checks, 2026-10-13, bot (GitHub Actions) | Alignment PR #1058 merged (`229742a54`) | [Authority](DOCUMENTATION_AUTHORITY.md) | none yet |
-| Legal drafts | none | ⚠️ | never | Drafts only (#1029). Company not formed. Lawyer review before publication. | [Open questions](legal/OPEN_QUESTIONS.md) | none yet |
-| Staging deploys | none | ⚠️ | never | Render deploy state is as the coordinator reported: unverified. Check the Render dashboard. | [Board](specs/argus-execution-board.md) | none yet |
+| Flow | Test steps | Label | State | Last walked | Result and note | Owner | Design fixes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Worktree environment tool | n/a | none | ⚠️ | never | Not walked as a flow | [AGENTS.md](../AGENTS.md) | none yet |
+| CI | n/a | none | ✅ | PR #1058 checks, 2026-10-13, bot (GitHub Actions) | CI trigger rules (#1040) and poppler (#1042) landed | [CI/CD discipline](specs/private-alpha-ci-cd-sota.md) | none yet |
+| Docs | n/a | none | ✅ | PR #1058 docs-checks, 2026-10-13, bot (GitHub Actions) | Alignment PR #1058 merged (`229742a54`) | [Authority](DOCUMENTATION_AUTHORITY.md) | none yet |
+| Legal drafts | n/a | none | ⚠️ | never | Drafts only (#1029). Company not formed. Lawyer review before publication. | [Open questions](legal/OPEN_QUESTIONS.md) | none yet |
+| Staging deploys | n/a | none | ⚠️ | never | Render deploy state is as the coordinator reported: unverified. Check the Render dashboard. | [Board](specs/argus-execution-board.md) | none yet |
 
 ## How to use this as a checklist
 
