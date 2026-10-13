@@ -890,6 +890,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/fiscal-inclusion:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'A prepare-holder other than the owner answers whether a personal receipt
+
+        with a fiscal number goes into the 606.'
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecideFiscalInclusion'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDossier'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/personal:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: The owner marks the receipt as personal or takes the mark back.
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkPersonal'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDossier'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/remainder/settle:
     post:
       tags:
@@ -12176,6 +12272,20 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        personal:
+          type: boolean
+          default: false
+        fiscal_value:
+          anyOf:
+          - type: string
+            enum:
+            - ncf
+            - ecf
+          - type: 'null'
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -12284,6 +12394,14 @@ components:
           type: string
           format: date
         totals:
+          items:
+            $ref: '#/components/schemas/CurrencyTotal'
+          type: array
+        fiscal_totals:
+          items:
+            $ref: '#/components/schemas/CurrencyTotal'
+          type: array
+        without_fiscal_totals:
           items:
             $ref: '#/components/schemas/CurrencyTotal'
           type: array
@@ -14153,6 +14271,21 @@ components:
       required:
       - expected_version
       - activity
+    DecideFiscalInclusion:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        include:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - include
+      description: 'A prepare-holder other than the owner answers whether a personal receipt
+
+        that carries a fiscal number goes into the 606.'
     DecisionCalculation:
       properties:
         kind:
@@ -15142,6 +15275,20 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        personal:
+          type: boolean
+          default: false
+        fiscal_value:
+          anyOf:
+          - type: string
+            enum:
+            - ncf
+            - ecf
+          - type: 'null'
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
         recorded_at:
           anyOf:
           - type: string
@@ -15343,6 +15490,17 @@ components:
         propertyName: state
         mapping:
           known: '#/components/schemas/Known_Literal__fiscal_receipt____informal_receipt____no_receipt___'
+          owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
+          unknown: '#/components/schemas/Unknown'
+    Fact_bool_:
+      oneOf:
+      - $ref: '#/components/schemas/Known_bool_'
+      - $ref: '#/components/schemas/Unknown'
+      - $ref: '#/components/schemas/OwnerDoesNotKnow'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/Known_bool_'
           owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
           unknown: '#/components/schemas/Unknown'
     Fact_date_:
@@ -15577,6 +15735,12 @@ components:
             source_ids: []
         itbis:
           $ref: '#/components/schemas/Fact_Annotated_str__StringConstraints__AfterValidator__'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        include_606:
+          $ref: '#/components/schemas/Fact_bool_'
           default:
             state: unknown
             verified: false
@@ -17640,6 +17804,37 @@ components:
       - value
       - origin
       - source_ids
+    Known_bool_:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: boolean
+        origin:
+          type: string
+          enum:
+          - extracted
+          - qr_decoded
+          - owner_stated
+          - member_set
+          - matched
+          - default
+        verified:
+          type: boolean
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - origin
+      - source_ids
     Known_date_:
       properties:
         state:
@@ -17946,6 +18141,21 @@ components:
       type: object
       required:
       - items
+    MarkPersonal:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        personal:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - personal
+      description: 'The owner marks a receipt as personal (no part of it is the Business''s)
+
+        or takes the mark back. Reversible, a new revision each way.'
     MarketSession:
       properties:
         phase:
@@ -21209,6 +21419,23 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        personal:
+          type: boolean
+          default: false
+        fiscal_value:
+          anyOf:
+          - type: string
+            enum:
+            - ncf
+            - ecf
+          - type: 'null'
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        personal_editable:
+          type: boolean
+          default: false
         draft_id:
           anyOf:
           - type: string
@@ -21761,6 +21988,23 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        personal:
+          type: boolean
+          default: false
+        fiscal_value:
+          anyOf:
+          - type: string
+            enum:
+            - ncf
+            - ecf
+          - type: 'null'
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        personal_editable:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:

@@ -9201,6 +9201,33 @@ person starts their space, every route below except POST `/space` answers 404
     Every legacy write under a grant leaves a `business_action_receipts` row
     (`receipt_upload`, `receipt_review`, `receipt_confirm`) naming the grant
     and its issuer.
+  - Personal receipts and the 606. A receipt is personal when its
+    `business_share` is `none` and the owner stated it: POST
+    `/api/v1/business/drafts/{id}/personal` (`Idempotency-Key`, body
+    `{version, personal}`), the owner alone (403 `business_permission_denied`
+    for a grantee), on an open or an approved draft, reversible with
+    `personal: false`; each way is a new revision in the history and one
+    `mark_personal` ledger row naming the grant. A `none` of any other origin
+    (a model's reading, a member's edit) marks nothing. Approval admits a
+    personal receipt and records it as today; a partial share stays refused.
+    "Has fiscal value" is an NCF or an e-CF the draft knows, of any origin
+    (the e-CF check state comes later); the 606 itself is not built. A
+    prepare-holder who is not the owner answers POST
+    `/api/v1/business/drafts/{id}/fiscal-inclusion` (`Idempotency-Key`, body
+    `{version, include}`) for a personal receipt with a fiscal number (the
+    owner acting as owner is 403 `business_permission_denied`; otherwise 409
+    `business_606_not_applicable`); the answer is the fact
+    `fiscal.include_606`, a revision and a `decide_606` ledger row. Receipt
+    summaries and details, expenses and their detail carry `personal`,
+    `fiscal_value` (`ncf`, `ecf` or null) and `include_606` (true, false or
+    null when not applicable or unanswered), present only when set; receipt
+    summaries add `personal_editable` for the owner with prepare on a receipt
+    that has a draft. The overview's `totals` are "Gastos reales" (approved
+    expenses that are not personal), `fiscal_totals` are those with fiscal
+    value and `without_fiscal_totals` the rest, all per currency from the same
+    rows. The export's records gain `personal`, `fiscal_value` and
+    `include_606` (`yes`, `no` or empty); a personal expense stays in the
+    export with its mark.
   - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
     capabilities, created_at, owner}], invites: [{id, email, created_at,
     expires_at}]}`: live grants, the owner first, and pending invites.
