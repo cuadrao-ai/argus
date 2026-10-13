@@ -158,7 +158,11 @@ class DocumentsDestination:
             return None
         tasks = BackgroundTasks()
         await dispatch_preparation(
-            self.documents, owner_id, connection_id, tasks, scope=scope.owner
+            _as_owner(self.documents, owner_id, scope.owner),
+            owner_id,
+            connection_id,
+            tasks,
+            scope=scope.owner,
         )
         await tasks()
         settled = self.documents.get(
@@ -214,6 +218,38 @@ def plain_merchant(text: str | None) -> str | None:
     if _DOMAIN_LIKE.search(cleaned) or cleaned != " ".join((text or "").split()):
         return None
     return cleaned
+
+
+def _as_owner(documents: DocumentsService, owner_id: str, scope):  # noqa: ANN001, ANN202
+    """The documents service the Business routes build for the signed-in owner:
+    the same hub with a sink bound to the owner's own grant. A read started by a
+    delivery has no request, so it is bound here, and only to the owner who
+    received the receipt."""
+
+    from copy import copy
+
+    from argus.domain.business.contracts.authority import TrustedActor
+    from argus.domain.business.transactions import GrantImportStore
+    from argus.domain.ingestion.reconcile.service import ReconciliationService
+
+    actions, sink = documents.business_actions, documents.hub.sink
+    if actions is None or not isinstance(sink, ReconciliationService):
+        return documents
+    context = actions.resolve_actor(
+        TrustedActor(actor_id=owner_id, actor_kind="member", space_id=scope.space_id)
+    )
+    if "prepare" not in actions.record_context(context).capabilities:
+        raise CaptureFailed("whatsapp_processing_failed")
+    bound = ReconciliationService(
+        GrantImportStore(actions.authority, context, "prepare"),
+        sink.money,
+        sink.clock,
+        connections=sink.connections,
+    )
+    scoped_hub, scoped = copy(documents.hub), copy(documents)
+    scoped_hub.sink = bound
+    scoped.hub = scoped_hub
+    return scoped
 
 
 def _whatsapp_read_gate(store, reading):  # noqa: ANN001, ANN202
