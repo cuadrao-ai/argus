@@ -65,6 +65,8 @@ export type ReceiptSummary = ReceiptReviewFields & {
   replayed?: boolean;
   /** The owner may ask for a consented AI read now. */
   preparable: boolean;
+  /** A read is in flight or will start; a queued receipt nothing will read says false and reads as saved. */
+  read_pending?: boolean;
   /** The owner may fill in the one purchase by hand from version 0. */
   enterable: boolean;
   /** Email deliveries this document arrived in, if any. */

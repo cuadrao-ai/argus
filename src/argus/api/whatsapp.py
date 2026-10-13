@@ -135,7 +135,11 @@ class DocumentsDestination:
             return False
         try:
             return self.reading_enabled(owner_id)
-        except Exception:
+        except Exception as error:
+            logger.warning(
+                "WhatsApp receipt reading permission unreadable; the receipt waits unread",
+                failure_mode=getattr(error, "code", type(error).__name__),
+            )
             return False
 
     async def read(
@@ -157,13 +161,24 @@ class DocumentsDestination:
         if current.status != "queued":
             return None
         tasks = BackgroundTasks()
-        await dispatch_preparation(
-            _as_owner(self.documents, owner_id, scope.owner),
-            owner_id,
-            connection_id,
-            tasks,
-            scope=scope.owner,
-        )
+        try:
+            await dispatch_preparation(
+                _as_owner(self.documents, owner_id, scope.owner),
+                owner_id,
+                connection_id,
+                tasks,
+                scope=scope.owner,
+            )
+        except Exception as error:
+            # A read that could not start is not "reading": the receipt waits
+            # saved, with the reason recorded, for the owner to prepare.
+            self.documents.release_queued(
+                user_id=owner_id,
+                connection_id=connection_id,
+                scope=scope.owner,
+                code=getattr(error, "code", type(error).__name__),
+            )
+            raise
         await tasks()
         settled = self.documents.get(
             user_id=owner_id, connection_id=connection_id, scope=scope.owner
@@ -226,10 +241,8 @@ def _as_owner(documents: DocumentsService, owner_id: str, scope):  # noqa: ANN00
     delivery has no request, so it is bound here, and only to the owner who
     received the receipt."""
 
-    from copy import copy
-
+    from argus.api.business_drafts import bind_to_grant
     from argus.domain.business.contracts.authority import TrustedActor
-    from argus.domain.business.transactions import GrantImportStore
     from argus.domain.ingestion.reconcile.service import ReconciliationService
 
     actions, sink = documents.business_actions, documents.hub.sink
@@ -239,17 +252,8 @@ def _as_owner(documents: DocumentsService, owner_id: str, scope):  # noqa: ANN00
         TrustedActor(actor_id=owner_id, actor_kind="member", space_id=scope.space_id)
     )
     if "prepare" not in actions.record_context(context).capabilities:
-        raise CaptureFailed("whatsapp_processing_failed")
-    bound = ReconciliationService(
-        GrantImportStore(actions.authority, context, "prepare"),
-        sink.money,
-        sink.clock,
-        connections=sink.connections,
-    )
-    scoped_hub, scoped = copy(documents.hub), copy(documents)
-    scoped_hub.sink = bound
-    scoped.hub = scoped_hub
-    return scoped
+        raise CaptureFailed("business_permission_denied")
+    return bind_to_grant(documents, documents.hub, actions, context, "prepare")[0]
 
 
 def _whatsapp_read_gate(store, reading):  # noqa: ANN001, ANN202

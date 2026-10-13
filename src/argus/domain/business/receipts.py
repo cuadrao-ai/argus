@@ -127,16 +127,31 @@ class Receipt:
     email_original: bool = False
     # The upload that produced this view found the same bytes already saved.
     replayed: bool = False
+    # A read will happen (in flight, or queued and allowed now); None reads it
+    # from the draft's status alone, for callers without a documents service.
+    read_pending: bool | None = None
 
     @property
     def id(self) -> str:
         return self.draft.connection_id
 
     @property
+    def busy(self) -> bool:
+        """Something is reading, or will read, this receipt."""
+
+        if self.read_pending is not None:
+            return self.read_pending
+        return self.draft.status in _BUSY
+
+    @property
     def status(self) -> ReceiptStatus:
         # Prepared, yet with no single purchase to confirm: the owner must look.
         if self.review.status == "review_ready" and self.review.blocker is not None:
             return "needs_attention"
+        # Queued, yet nothing will read it (the owner's reading is off): it is
+        # saved and waits for a person, and the view says so.
+        if self.review.status == "queued" and not self.busy:
+            return "saved"
         return self.review.status
 
     @property
@@ -160,7 +175,7 @@ class Receipt:
             not self.email_original
             and self.review.blocker is not None
             and self.review.blocker != "possible_duplicate"
-            and self.draft.status not in _BUSY
+            and not self.busy
             and all(
                 read.state in ("open", "dismissed") for read in self.review.read_purchases
             )
@@ -175,7 +190,7 @@ class Receipt:
             not self.email_original
             and self.review.blocker == "not_prepared"
             and self.draft.source_available
-            and self.draft.status not in _BUSY
+            and not self.busy
             and _UNREAD_ATTENTION.get(self.draft.error_code or "") not in _NO_RETRY
         )
 
@@ -229,6 +244,7 @@ class Receipt:
             "attention": self.attention,
             "duplicate_of": self.review.duplicate_of,
             "replayed": self.replayed,
+            "read_pending": self.busy,
             "preparable": self.preparable,
             "enterable": self.enterable,
             "expense_id": self.review.expense_id,
@@ -269,9 +285,14 @@ def compose(
     batch: ExtractionBatch | None,
     events: Iterable[Mapping[str, Any]],
     channel: Channel,
+    read_pending: bool | None = None,
 ) -> Receipt:
     return Receipt(
-        draft, receipt_review(draft, batch, events), channel, entered_by_owner(batch)
+        draft,
+        receipt_review(draft, batch, events),
+        channel,
+        entered_by_owner(batch),
+        read_pending=read_pending,
     )
 
 
