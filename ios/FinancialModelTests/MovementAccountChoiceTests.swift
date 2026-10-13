@@ -4,7 +4,7 @@ import XCTest
 @testable import FinancialModels
 
 /// The movement sheet opened from Home starts on the first money account. These tests pin which account
-/// the sheet names.
+/// the sheet names, and that Transfer can pay a credit card by becoming a card payment.
 @MainActor
 final class MovementAccountChoiceTests: XCTestCase {
     func testHeaderNamesTheChosenExpenseAccountNotTheOrigin() async throws {
@@ -21,6 +21,40 @@ final class MovementAccountChoiceTests: XCTestCase {
         editor.sourceAccountId = MovementServer.cash
         XCTAssertEqual(editor.headerAccount.id, MovementServer.cash)
         XCTAssertEqual(editor.headerAccount.nickname, "Efectivo")
+    }
+
+    func testTransferOffersTheCardAndChoosingItBecomesACardPayment() async throws {
+        let fixture = try MovementFixture(); let editor = try await fixture.editor()
+        editor.setKind(.transfer)
+        let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-10T12:00:00Z"))
+        editor.amount = "300.00"; editor.note = "Pago BoFa"; editor.date = date
+        XCTAssertEqual(editor.sourceAccountId, MovementServer.bank)
+        XCTAssertTrue(editor.destinationChoices.map(\.id).contains(MovementServer.card))
+        editor.destinationAccountId = MovementServer.card
+        XCTAssertEqual(editor.kind, .cardPayment)
+        XCTAssertEqual(editor.amount, "300.00")
+        XCTAssertEqual(editor.note, "Pago BoFa")
+        XCTAssertEqual(editor.date, date)
+        XCTAssertEqual(editor.sourceAccountId, MovementServer.bank)
+        XCTAssertEqual(editor.destinationAccountId, MovementServer.card)
+        XCTAssertEqual(editor.headerAccount.id, MovementServer.bank)
+    }
+
+    func testCardPaymentFromTransferReviewsBankToCard() async throws {
+        let fixture = try MovementFixture(); let editor = try await fixture.editor()
+        editor.setKind(.transfer)
+        editor.amount = "300.00"
+        editor.destinationAccountId = MovementServer.card
+        await editor.review(locale: Locale(identifier: "en_US"))
+        XCTAssertEqual(editor.phase, .review)
+        let previews = await fixture.server.previews
+        let sent = try XCTUnwrap(previews.last)
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(sent.httpBody)) as? [String: Any])
+        XCTAssertEqual(payload["kind"] as? String, "card_payment")
+        XCTAssertEqual(payload["source_account_id"] as? String, MovementServer.bank.uuidString)
+        XCTAssertEqual(payload["destination_account_id"] as? String, MovementServer.card.uuidString)
+        XCTAssertEqual(payload["amount"] as? String, "300.00")
+        XCTAssertTrue(payload["account_id"] is NSNull)
     }
 }
 
