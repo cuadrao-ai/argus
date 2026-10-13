@@ -9410,7 +9410,14 @@ accept path recorded.
   finish is finished first, and one expense is recorded.
 - GET `/api/v1/business/expenses?from&to` returns `{items: BusinessExpense[]}`.
   These are expense activities whose local date falls in `[from, to]`, newest
-  first. `receipt_id` names the receipt when the expense came from exactly one.
+  first. `receipt_id` names the receipt when the expense came from exactly one;
+  `draft_id` names the bridge draft that recorded it, so an expense whose
+  draft is linked to several receipts or to none still opens its record.
+- GET `/api/v1/business/expenses/{expense_id}` returns that expense with
+  `recorded_at` and `revision` from the money read; 404 `expense_not_found`
+  for any other id, including another Business's. An expense entered by hand
+  has `receipt_id` and `draft_id` null: the web shows a plain detail that says
+  no receipt is attached, with when it was recorded and its revision.
 - POST `/api/v1/business/expenses` (`Idempotency-Key` required) takes
   `{account_id, amount, occurred_on, merchant, category_id}` and records one
   expense through `MoneyService`, in the account's currency. A retry with the

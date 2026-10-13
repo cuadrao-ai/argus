@@ -4,6 +4,7 @@ import { useBusiness } from "./BusinessWorkspace";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
 import BusinessExpensesPanel from "./BusinessExpensesPanel";
+import ExpenseDetailPanel from "./ExpenseDetailPanel";
 import BusinessAccessPanel from "./BusinessAccessPanel";
 import BusinessUpdatesPanel from "./BusinessUpdatesPanel";
 import ReceiptReviewPanel from "./ReceiptReviewPanel";
@@ -15,10 +16,11 @@ export default function BusinessPanel() {
   return (
     <div className="mx-auto w-full max-w-3xl pb-6">
       <SampleDataNotice />
-      <PanelErrorBoundary key={panel.kind === "receipt" ? `receipt:${panel.receiptId}` : panel.kind === "draft" ? `draft:${panel.draftId}` : panel.kind}>
+      <PanelErrorBoundary key={panel.kind === "receipt" ? `receipt:${panel.receiptId}` : panel.kind === "draft" ? `draft:${panel.draftId}` : panel.kind === "expense" ? `expense:${panel.expenseId}` : panel.kind}>
         {panel.kind === "overview" ? <BusinessOverviewPanel /> : null}
         {panel.kind === "inbox" ? <BusinessInboxPanel /> : null}
         {panel.kind === "expenses" ? <BusinessExpensesPanel /> : null}
+        {panel.kind === "expense" ? <ExpenseDetailPanel key={panel.expenseId} expenseId={panel.expenseId} /> : null}
         {panel.kind === "updates" ? <BusinessUpdatesPanel /> : null}
         {panel.kind === "access" ? <BusinessAccessPanel /> : null}
         {panel.kind === "receipt" ? <ReceiptReviewPanel key={panel.receiptId} target={{ kind: "receipt", id: panel.receiptId }} /> : null}

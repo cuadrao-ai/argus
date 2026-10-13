@@ -139,14 +139,14 @@ describe("Business hits open the panel that holds them", () => {
     expect(opened).toEqual([{ kind: "receipt", receiptId: "rcpt-1" }]);
   });
 
-  test("an expense without a receipt opens its row in the Expenses list", async () => {
-    const today = new Date();
-    const day = new Date(today.getTime() - today.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-    const manual = { ...expense, id: "exp-2", receipt_id: null, occurred_on: day };
-    const { groups, opened, periods } = await businessSearch({ expenses: [manual], receipts: [], accounts: [] });
+  test("an expense without a receipt opens the draft that recorded it, or its own detail", async () => {
+    const recorded = { ...expense, id: "exp-2", receipt_id: null, draft_id: "draft-2" };
+    const byHand = { ...expense, id: "exp-3", receipt_id: null };
+    const { groups, opened, periods } = await businessSearch({ expenses: [recorded, byHand], receipts: [], accounts: [] });
     groups[0].hits[0].open();
-    expect(periods).toEqual(["this_month"]);
-    expect(opened).toEqual([{ kind: "expenses", expenseId: "exp-2" }]);
+    groups[0].hits[1].open();
+    expect(periods).toEqual([]);
+    expect(opened).toEqual([{ kind: "draft", draftId: "draft-2" }, { kind: "expense", expenseId: "exp-3" }]);
   });
 
   test("a receipt opens its review and shows the file type it is", async () => {

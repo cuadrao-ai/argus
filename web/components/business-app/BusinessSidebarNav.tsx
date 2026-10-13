@@ -12,7 +12,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   const inboxCount = records.inbox?.length ?? 0;
   const isActive = (kind: BusinessPanelState["kind"]) =>
     shell.currentView === "workspace" &&
-    (panel.kind === kind || (kind === "inbox" && panel.kind === "receipt"));
+    (panel.kind === kind || (kind === "inbox" && panel.kind === "receipt") || (kind === "expenses" && panel.kind === "expense"));
   const count = (value: number) =>
     value > 0 && !shell.sidebarCollapsed ? (
       <span className="rounded-full bg-black/5 px-2 py-0.5 text-[12px] tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60">

@@ -189,6 +189,16 @@ class BusinessExpense(_Wire):
     )
     occurred_on: date
     receipt_id: str | None
+    # The bridge draft that recorded it, when one did: the record to open when
+    # the expense names no single receipt.
+    draft_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class ExpenseDetail(BusinessExpense):
+    # When the activity was recorded and its current revision; null when the
+    # money read does not say.
+    recorded_at: datetime | None = None
+    revision: int | None = None
 
 
 class ExpensePage(_Wire):
