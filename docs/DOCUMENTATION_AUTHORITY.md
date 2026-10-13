@@ -1,6 +1,6 @@
 # Argus documentation authority
 
-**Updated:** September 29, 2026. Private iPhone direction and financial-loop landing.
+**Updated:** October 13, 2026. WhatsApp receipts-only scope, legal drafts and the server-owned inclusion rule. Earlier: September 29, 2026 private iPhone direction and financial-loop landing.
 **Business assignment reconciled:** October 10, 2026. See the hosted Business
 decision and assignment below. The September mobile lock retains its scope.
 Current delivered work, remaining scope and action authority live in the
@@ -22,6 +22,24 @@ and the [current assignment](specs/argus-execution-board.md#business-hosted-invi
 before interpreting a dated hold. That assignment is a bounded exception for
 Business integration and staging. It does not restart Consumer mobile work,
 authorize Apple TestFlight or change public signup or marketing publication.
+
+## Settled scope notes (October 13, 2026)
+
+- **WhatsApp is receipts-only.** There is no AI chat in WhatsApp, because of Meta's
+  AI-first policy for business messaging. A receipt is read. Any other text gets one
+  fixed reply with the web link. The agent conversation for the owner and the
+  accountant lives on the web. The [Business agent execution spec](specs/lanes/cuadrao-business-agent-execution-spec.md)
+  owns the contract; the [execution manifest](specs/argus-execution-board.md) owns status.
+- **Legal drafts.** [docs/legal](legal/OPEN_QUESTIONS.md) holds draft privacy, terms and
+  data-use documents. They use placeholders, the company is not formed, and a lawyer
+  must review them before any publication. They are not published policy.
+- **"Already included" is server-owned.** The API decides whether to ask if a movement
+  was already counted in a balance. It asks only when a movement is backdated to a date
+  on or before a balance check made after it. A skipped question is recorded with a
+  reason on the revision. The rule is in PR #1056 on the Mobile lane branch
+  (`codex/consumer-free-tier-completion`) and is not on integration yet; until it lands,
+  [API_CONTRACT](API_CONTRACT.md) on integration still describes the earlier same-day rule.
+  Clients render the server's questions and never decide inclusion.
 
 ## One owner per kind of decision
 
