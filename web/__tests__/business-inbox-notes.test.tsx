@@ -9,8 +9,9 @@ import spanish from "@/public/locales/es-419/common.json";
 import { NotesAwaitingReview, openNotesByDraft } from "../components/business-app/BusinessInboxPanel";
 import type { BusinessCapture } from "../lib/business-api";
 
-const note = (draft_id: string, version: number, text: string, received_at: string, review_state: BusinessCapture["review_state"] = "open"): BusinessCapture =>
-  ({ draft_id, version, source_id: `${draft_id}-${version}`, text, received_at, review_state });
+// The draft's version runs ahead of the note's revision (later actions bump it); rows show the revision.
+const note = (draft_id: string, revision: number, text: string, received_at: string, review_state: BusinessCapture["review_state"] = "open"): BusinessCapture =>
+  ({ draft_id, version: revision + 3, revision, source_id: `${draft_id}-${revision}`, text, received_at, review_state });
 
 const CAPTURES: BusinessCapture[] = [
   note("draft-a", 1, "Ayer compré pintura para el taller.", "2026-10-10T14:00:00Z"),
@@ -24,9 +25,9 @@ const CAPTURES: BusinessCapture[] = [
 describe("notes awaiting review in the Inbox", () => {
   test("one row per open draft, newest first, with its latest note and the count of earlier ones", () => {
     assert.deepEqual(openNotesByDraft(CAPTURES), [
-      { draftId: "draft-e", text: "Aprobando el pago de luz", receivedAt: "2026-10-11T12:00:00Z", version: 2, earlier: 0 },
-      { draftId: "draft-b", text: "Me pagaron 5,000 por la reparación.", receivedAt: "2026-10-11T09:00:00Z", version: 1, earlier: 0 },
-      { draftId: "draft-a", text: "Pagué con mi dinero.", receivedAt: "2026-10-10T15:30:00Z", version: 2, earlier: 1 },
+      { draftId: "draft-e", text: "Aprobando el pago de luz", receivedAt: "2026-10-11T12:00:00Z", revision: 2, earlier: 0 },
+      { draftId: "draft-b", text: "Me pagaron 5,000 por la reparación.", receivedAt: "2026-10-11T09:00:00Z", revision: 1, earlier: 0 },
+      { draftId: "draft-a", text: "Pagué con mi dinero.", receivedAt: "2026-10-10T15:30:00Z", revision: 2, earlier: 1 },
     ]);
     assert.deepEqual(openNotesByDraft([]), []);
   });
@@ -42,6 +43,7 @@ describe("notes awaiting review in the Inbox", () => {
     assert.ok(html.includes("Notas en revisión"));
     assert.ok(html.includes("Pagué con mi dinero."));
     assert.ok(html.includes("Revisión 2"));
+    assert.ok(!html.includes("Revisión 5"));
     assert.ok(html.includes("1 nota anterior"));
     assert.ok(html.includes("Aprobando el pago de luz"));
     assert.ok(!html.includes("Recorded already") && !html.includes("Dismissed"));

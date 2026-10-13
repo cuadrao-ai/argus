@@ -1024,6 +1024,34 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-revision-labels-20261012": {
+      "description": "Every revision label a person sees names a facts revision the history lists: the dossier's latest revision on the review panel and the note dialog, and each saved note's own revision in the inbox and in search, carried by the captures API as revision beside the draft's current version.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_manual_schemas.py",
+        "src/argus/domain/business/actions/captures.py",
+        "tests/business/test_actions_capture_api.py",
+        "tests/test_business_manual_capture_postgres.py",
+        "web/__tests__/business-inbox-notes.test.tsx",
+        "web/__tests__/business-search.test.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/BusinessSearchDossier.tsx",
+        "web/components/business-app/ManualCaptureDialog.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/components/business-app/useBusinessSearch.ts",
+        "web/lib/business-api.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-settings-names-20261012": {
       "description": "Cuadrao setting names: CUADRAO_* read first, ARGUS_* as a fallback, for the Business pilot and chat, ingestion, document extraction and jobs, vision model, financial accounts, email intake, app origin and the web NEXT_PUBLIC_* names. Setting names only; no package, database or WhatsApp change. The example env files are documentation here; real env files stay denied.",
       "base_ref": "origin/codex/private-alpha-next",
