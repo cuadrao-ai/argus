@@ -1,8 +1,10 @@
 name: CI
 
 "on":
+  # Push runs only for the long-lived branches. A feature branch with a PR runs
+  # CI once per push, from the pull_request event below.
   push:
-    branches: [main, "codex/**", "jules/**"]
+    branches: [main, "codex/private-alpha-next", "codex/private-alpha-next-jules-intake"]
   pull_request:
     branches: [main, "codex/private-alpha-next", "codex/private-alpha-next-jules-intake"]
     types: [opened, synchronize, reopened, ready_for_review]
