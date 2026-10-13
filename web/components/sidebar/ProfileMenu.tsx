@@ -46,6 +46,7 @@ import {
   FileText,
   Bug,
   Lightbulb,
+  Mail,
   MessageCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -745,7 +746,10 @@ export default function ProfileMenu({
           ? [{ id: "country", onSelect: () => openModal("country") }]
           : []),
         ...(whatsappLinkAvailable
-          ? [{ id: "whatsapp", onSelect: () => openModal("whatsapp") }]
+          ? [
+              { id: "whatsapp", onSelect: () => openModal("whatsapp") },
+              { id: "email_reading", onSelect: () => openModal("email_reading") },
+            ]
           : []),
         ...(onOpenSidebarPreference
           ? [
@@ -1227,6 +1231,18 @@ export default function ProfileMenu({
                   {t("settings.whatsapp.title", "WhatsApp")}
                 </span>
                 <span className="ml-auto flex shrink-0">{quickJumpBadge("whatsapp")}</span>
+              </button>
+            )}
+            {whatsappLinkAvailable && (
+              <button
+                onClick={() => openModal("email_reading")}
+                className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
+              >
+                <Mail className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
+                <span className="whitespace-nowrap">
+                  {t("settings.email_reading.title", "Receipt email")}
+                </span>
+                <span className="ml-auto flex shrink-0">{quickJumpBadge("email_reading")}</span>
               </button>
             )}
             {onOpenSidebarPreference && (

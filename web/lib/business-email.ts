@@ -1,6 +1,32 @@
 /** Received emails for a Business, as the API reports them. */
 
-export type BusinessEmailIntake = { enabled: boolean; receiving_address: string | null };
+/** Where the owner's permission to read emailed receipts with AI stands, as the server tells this person. */
+export type BusinessEmailAIReading = {
+  /** on: reads happen; off: the owner turned it off or declined; unseen: the owner has not answered yet. */
+  state: "on" | "off" | "unseen";
+  /** Whether this person may act on it now (the owner, with a live grant and a configured model). */
+  available: boolean;
+  reason: string | null;
+  /** Whether this person is the Business owner: only the owner answers. */
+  owner: boolean;
+  scope_version: number;
+  purpose: string;
+  /** The disclosure the owner reads before agreeing, verbatim from the server. */
+  disclosure: string;
+  route: { gateway: string; interpretation: { model: string }[]; reply: { model: string }[] } | null;
+  /** Binds the agreement to the exact text and model shown. */
+  disclosure_token: string | null;
+  consented_at: string | null;
+  consented_by: string | null;
+  revoked_at: string | null;
+};
+
+export type BusinessEmailIntake = {
+  enabled: boolean;
+  receiving_address: string | null;
+  /** Absent in sample data and where no permission store exists. */
+  ai_reading?: BusinessEmailAIReading | null;
+};
 
 export type BusinessEmailPart = {
   id: string;

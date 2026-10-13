@@ -6,6 +6,7 @@ import AppearanceModal from "@/components/settings/AppearanceModal";
 import LanguageModal from "@/components/settings/LanguageModal";
 import ArchivedChatsView from "@/components/settings/ArchivedChatsView";
 import DeletedItemsView from "@/components/settings/DeletedItemsView";
+import EmailReadingPanel from "@/components/settings/EmailReadingPanel";
 import HomeCountryModal from "@/components/settings/HomeCountryModal";
 import MemoryControlsModal from "@/components/settings/MemoryControlsModal";
 import SharedReceiptsView from "@/components/settings/SharedReceiptsView";
@@ -46,6 +47,12 @@ const SETTINGS_PANELS = {
     parent: "settings",
     render: ({ onClose, onBack, backLabel }) => (
       <WhatsAppLinkModal onClose={onClose} onBack={onBack} backLabel={backLabel} />
+    ),
+  },
+  email_reading: {
+    parent: "settings",
+    render: ({ onClose, onBack, backLabel }) => (
+      <EmailReadingPanel onClose={onClose} onBack={onBack} backLabel={backLabel} />
     ),
   },
   appearance: {

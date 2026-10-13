@@ -1043,6 +1043,27 @@
       "ai_reason_whatsapp_unavailable": "WhatsApp is not available yet.",
       "ai_reason_whatsapp_ai_route_unavailable": "The AI service is not available right now. Try again later."
     },
+    "email_reading": {
+      "title": "Receipt email",
+      "address": "Receiving address",
+      "no_address": "This business has no address yet. Get one in the Inbox.",
+      "loading": "Reading your permission…",
+      "ai_title": "Read emailed receipts with AI",
+      "ai_models": "Provider: OpenRouter. Model: {{models}}.",
+      "ai_on": "Turned on {{date}} by {{name}}. You can turn it off at any time.",
+      "ai_off": "Off. Receipts that arrive stay saved, unread.",
+      "ai_unseen": "Pending. Decide here or in the Inbox.",
+      "ai_owner_only": "Only the business owner can change this.",
+      "ai_approval": "You always approve money records yourself in Cuadrao.",
+      "ai_reason_unavailable": "AI reading cannot be turned on right now.",
+      "ai_reason_business_owner_required": "Only the business owner can change this.",
+      "ai_reason_business_permission_denied": "Your access cannot change this for this business.",
+      "ai_reason_email_ai_route_unavailable": "The AI service is not available right now. Try again later.",
+      "problem_stale": "The text or the model changed. Read it again and confirm.",
+      "problem_owner": "Only the business owner can change this.",
+      "problem_unavailable": "AI reading is not available right now.",
+      "problem_failed": "We could not save your answer. Try again."
+    },
     "title": "Settings",
     "profile": {
       "display_name": "Display name",
@@ -2550,7 +2571,17 @@
         "email_route_revoked": "The access behind this address was removed.",
         "email_recipient_mismatch": "The message did not match this address.",
         "other": "Part of this email could not be saved."
-      }
+      },
+      "reading_notice_title": "AI reading of emailed receipts",
+      "reading_notice": "We now read receipts that arrive by email with AI. The attachment is sent to our AI provider and may include other people's data.",
+      "reading_understood": "Understood",
+      "reading_turn_off": "Turn off",
+      "reading_failed": "We could not save your answer. Try again.",
+      "reading_models": "Provider: OpenRouter. Model: {{models}}.",
+      "reading_on": "AI reading: on.",
+      "reading_off": "AI reading: off. Receipts stay saved, unread.",
+      "reading_pending": "AI reading: waiting for the owner's decision.",
+      "reading_change": "Change in Settings"
     },
     "review": {
       "see_original": "See the receipt already saved",

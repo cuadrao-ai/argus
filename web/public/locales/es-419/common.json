@@ -1043,6 +1043,27 @@
       "ai_reason_whatsapp_unavailable": "WhatsApp todavía no está disponible.",
       "ai_reason_whatsapp_ai_route_unavailable": "El servicio de IA no está disponible ahora. Inténtalo más tarde."
     },
+    "email_reading": {
+      "title": "Correo de recibos",
+      "address": "Dirección de recepción",
+      "no_address": "Este negocio todavía no tiene dirección. Obtén una en la Bandeja.",
+      "loading": "Leyendo tu permiso…",
+      "ai_title": "Leer con IA los recibos que lleguen por correo",
+      "ai_models": "Proveedor: OpenRouter. Modelo: {{models}}.",
+      "ai_on": "Activado el {{date}} por {{name}}. Puedes apagarlo cuando quieras.",
+      "ai_off": "Apagado. Los recibos que lleguen quedan guardados, sin leer.",
+      "ai_unseen": "Pendiente. Decide aquí o en la Bandeja.",
+      "ai_owner_only": "Solo el dueño del negocio puede cambiar esto.",
+      "ai_approval": "Tú siempre apruebas los registros de dinero en Cuadrao.",
+      "ai_reason_unavailable": "Ahora no se puede activar la lectura con IA.",
+      "ai_reason_business_owner_required": "Solo el dueño del negocio puede cambiar esto.",
+      "ai_reason_business_permission_denied": "Tu acceso no puede cambiar esto para este negocio.",
+      "ai_reason_email_ai_route_unavailable": "El servicio de IA no está disponible ahora. Inténtalo más tarde.",
+      "problem_stale": "El texto o el modelo cambiaron. Vuelve a leerlo y confirma.",
+      "problem_owner": "Solo el dueño del negocio puede cambiar esto.",
+      "problem_unavailable": "La lectura con IA no está disponible ahora.",
+      "problem_failed": "No pudimos guardar tu respuesta. Inténtalo de nuevo."
+    },
     "title": "Ajustes",
     "profile": {
       "display_name": "Nombre para mostrar",
@@ -2536,7 +2557,17 @@
         "email_route_revoked": "Se retiró el acceso detrás de esta dirección.",
         "email_recipient_mismatch": "El mensaje no coincidió con esta dirección.",
         "other": "Una parte de este correo no se pudo guardar."
-      }
+      },
+      "reading_notice_title": "Lectura con IA de los recibos por correo",
+      "reading_notice": "Ahora leemos con IA los recibos que llegan por correo. El adjunto se envía a nuestro proveedor de IA y puede incluir datos de otras personas.",
+      "reading_understood": "Entendido",
+      "reading_turn_off": "Desactivar",
+      "reading_failed": "No pudimos guardar tu respuesta. Inténtalo de nuevo.",
+      "reading_models": "Proveedor: OpenRouter. Modelo: {{models}}.",
+      "reading_on": "Lectura con IA: activada.",
+      "reading_off": "Lectura con IA: apagada. Los recibos quedan guardados, sin leer.",
+      "reading_pending": "Lectura con IA: pendiente de la decisión del dueño.",
+      "reading_change": "Cambiar en Ajustes"
     },
     "intake": {
       "replayed": "Ya estaba guardado. Este es ese recibo.",

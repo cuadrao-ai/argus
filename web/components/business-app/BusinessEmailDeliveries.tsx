@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { ChevronRight, Mail, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
-import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
+import type { BusinessEmailAIReading, BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
 import { businessReceivingAddress, emailDeliveriesNeedRefresh } from "@/lib/business-email";
+import { canAgreeToReading, declineEmailReading, enableEmailReading, getEmailIntake, readingModels } from "@/lib/business-email-consent-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatRelativeTime } from "./business-format";
@@ -13,15 +14,74 @@ import { cardClass, secondaryButtonClass } from "./business-ui";
 
 type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 
+/** The one line the owner reads where the address is asked for: the server's text, with the provider and the model under it. */
+function ReadingDisclosure({ reading }: { reading: BusinessEmailAIReading }) {
+  const { t } = useTranslation();
+  return (
+    <p data-testid="email-reading-line" className="text-[13px] text-black/70 dark:text-white/70">
+      {reading.disclosure}
+      {reading.route ? <span className="mt-0.5 block text-[12px] text-black/50 dark:text-white/50">{t("business.email.reading_models", "Provider: OpenRouter. Model: {{models}}.", { models: readingModels(reading).join(", ") })}</span> : null}
+    </p>
+  );
+}
+
+/** Where AI reading stands for an address that exists; the owner's unanswered notice is the banner's, not this line's. */
+function ReadingState({ reading }: { reading: BusinessEmailAIReading }) {
+  const { t } = useTranslation();
+  if (reading.state === "unseen" && reading.owner) return null;
+  const text = reading.state === "on"
+    ? t("business.email.reading_on", "AI reading: on.")
+    : reading.state === "off"
+      ? t("business.email.reading_off", "AI reading: off. Receipts stay saved, unread.")
+      : t("business.email.reading_pending", "AI reading: waiting for the owner's decision.");
+  return (
+    <p data-testid="email-reading-state" data-state={reading.state} className="text-[13px] text-black/60 dark:text-white/60">
+      {text}{reading.owner ? ` ${t("business.email.reading_change", "Change in Settings")}` : ""}
+    </p>
+  );
+}
+
+/**
+ * The one-time notice for an address that existed before reading with AI was
+ * the default: a labelled region at the top of the Inbox with two answers of
+ * equal reach. Nothing but a tap on one of them is an answer; closing the page
+ * leaves it for next time.
+ */
+export function EmailReadingNotice({ reading, onAnswer }: { reading: BusinessEmailAIReading; onAnswer: (action: "enable" | "decline") => Promise<void> }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState<"enable" | "decline" | null>(null);
+  const [failed, setFailed] = useState(false);
+  const answer = async (action: "enable" | "decline") => {
+    setBusy(action);
+    setFailed(false);
+    try { await onAnswer(action); } catch { setFailed(true); } finally { setBusy(null); }
+  };
+  const button = "inline-flex min-h-11 items-center justify-center rounded-full px-4 text-[14px] font-medium transition-opacity disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40";
+  return (
+    <section role="region" aria-labelledby="email-reading-notice-title" data-testid="email-reading-notice" className="mb-3 rounded-[16px] border border-[var(--cuadrao-green)]/30 bg-[var(--cuadrao-cream)] px-4 py-3 dark:bg-white/[0.06]">
+      <h3 id="email-reading-notice-title" className="text-[14px] font-medium text-black dark:text-white">{t("business.email.reading_notice_title", "AI reading of emailed receipts")}</h3>
+      <p className="mt-1 text-[13px] text-black/75 dark:text-white/80">{t("business.email.reading_notice", "We now read receipts that arrive by email with AI. The attachment is sent to our AI provider and may include other people's data.")}</p>
+      {reading.route ? <p className="mt-1 text-[12px] text-black/50 dark:text-white/50">{t("business.email.reading_models", "Provider: OpenRouter. Model: {{models}}.", { models: readingModels(reading).join(", ") })}</p> : null}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" data-testid="email-reading-understood" className={`${button} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)] hover:opacity-85`} disabled={busy !== null || !canAgreeToReading(reading)} onClick={() => void answer("enable")}>{t("business.email.reading_understood", "Understood")}</button>
+        <button type="button" data-testid="email-reading-turn-off" className={`${button} border border-black/15 text-black/80 hover:bg-black/[0.04] dark:border-white/20 dark:text-white/85 dark:hover:bg-white/[0.06]`} disabled={busy !== null} onClick={() => void answer("decline")}>{t("business.email.reading_turn_off", "Turn off")}</button>
+      </div>
+      {failed ? <p role="alert" className="mt-2 text-[13px] text-black/70 dark:text-white/70">{t("business.email.reading_failed", "We could not save your answer. Try again.")}</p> : null}
+    </section>
+  );
+}
+
 export function EmailReceivingAddress({ intake, onActivate }: { intake: BusinessEmailIntake; onActivate: () => Promise<void> }) {
   const { t } = useTranslation();
   const address = businessReceivingAddress(intake);
+  const reading = intake.ai_reading ?? null;
   const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle");
   const [activation, setActivation] = useState<"idle" | "working" | "failed">("idle");
   if (!address) {
     return (
       <div className="space-y-2">
         <p className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.no_address", "This business has no receiving address yet.")}</p>
+        {reading?.owner && reading.disclosure ? <ReadingDisclosure reading={reading} /> : null}
         <button type="button" className={secondaryButtonClass} disabled={activation === "working"} onClick={async () => {
           setActivation("working");
           try { await onActivate(); setActivation("idle"); } catch { setActivation("failed"); }
@@ -40,6 +100,7 @@ export function EmailReceivingAddress({ intake, onActivate }: { intake: Business
         }}>{t("business.email.copy", "Copy address")}</button>
       </div>
       {copy !== "idle" ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{copy === "copied" ? t("business.email.copied", "Address copied.") : t("business.email.copy_failed", "Could not copy. Select the address to copy it.")}</p> : null}
+      {reading ? <ReadingState reading={reading} /> : null}
     </div>
   );
 }
@@ -122,7 +183,7 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
 /** Received emails, newest first, and the address that receives them. */
 /** `openEmailId`: the delivery to show expanded on arrival, when a receipt sent the person to its first email. */
 export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?: string } = {}) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { source, openPanel, revision, records } = useBusiness();
   const [intake, setIntake] = useState<Load<BusinessEmailIntake>>({ status: "loading" });
   const [deliveries, setDeliveries] = useState<Load<BusinessEmailDelivery[]>>({ status: "loading" });
@@ -134,7 +195,11 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
     let timer: ReturnType<typeof setTimeout> | undefined;
     let polls = 0;
     setStalled(false);
-    source.emailIntake().then((data) => { if (current) setIntake({ status: "ready", data }); }).catch(() => { if (current) setIntake({ status: "error" }); });
+    // The permission's text comes in the person's language; sample data carries no permission.
+    source.emailIntake()
+      .then((data) => (data.ai_reading === undefined ? data : getEmailIntake(i18n.language).catch(() => data)))
+      .then((data) => { if (current) setIntake({ status: "ready", data }); })
+      .catch(() => { if (current) setIntake({ status: "error" }); });
     const refresh = async () => {
       try {
         const items = await source.emailDeliveries();
@@ -147,9 +212,26 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
     };
     void refresh();
     return () => { current = false; clearTimeout(timer); };
-  }, [source, attempt, revision]);
+  }, [source, attempt, revision, i18n.language]);
   if (intake.status === "error" && deliveries.status === "error") return null;
   const ready = intake.status === "ready" ? intake.data : null;
+  const reading = ready?.ai_reading ?? null;
+  const reload = async () => setIntake({ status: "ready", data: await getEmailIntake(i18n.language) });
+  // Asking for the address with the notice on the screen is the owner's agreement, recorded in the same breath.
+  const activate = async () => {
+    const next = await source.createEmailAddress();
+    if (canAgreeToReading(reading)) {
+      try { await enableEmailReading(reading.disclosure_token, crypto.randomUUID(), i18n.language); } catch { /* the notice asks again next time */ }
+      await reload().catch(() => setIntake({ status: "ready", data: next }));
+      return;
+    }
+    setIntake({ status: "ready", data: next });
+  };
+  const answer = async (action: "enable" | "decline") => {
+    if (action === "enable" && canAgreeToReading(reading)) await enableEmailReading(reading.disclosure_token, crypto.randomUUID(), i18n.language);
+    else if (action === "decline") await declineEmailReading(crypto.randomUUID());
+    await reload();
+  };
   return (
     <section aria-label={t("business.email.title", "Received emails")} className="mb-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -159,9 +241,10 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
         </div>
         <button type="button" className={secondaryButtonClass} onClick={() => setAttempt((value) => value + 1)}>{t("business.email.reload", "Refresh")}</button>
       </div>
+      {reading && reading.state === "unseen" && reading.owner && businessReceivingAddress(ready!) ? <div className="mt-3"><EmailReadingNotice reading={reading} onAnswer={answer} /></div> : null}
       <div className={`${cardClass} mt-3 space-y-4`}>
         {intake.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.address_failed", "Could not load the receiving address.")}</p> : null}
-        {ready ? <EmailReceivingAddress intake={ready} onActivate={async () => { const next = await source.createEmailAddress(); setIntake({ status: "ready", data: next }); }} /> : null}
+        {ready ? <EmailReceivingAddress intake={ready} onActivate={activate} /> : null}
         {deliveries.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.list_failed", "Could not load received emails.")}</p> : null}
         {stalled ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.poll_stopped", "Some emails are still being read. Use Refresh to see the latest state.")}</p> : null}
         {deliveries.status === "ready" ? (deliveries.data.length ? (
