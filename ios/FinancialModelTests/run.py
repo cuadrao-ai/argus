@@ -82,6 +82,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(Path(__file__).with_name("ReceiptSearchTests.swift"), tests / "ReceiptSearchTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedPlanMappingTests.swift"), tests / "ConnectedPlanMappingTests.swift")
     shutil.copy(Path(__file__).with_name("MovementAccountChoiceTests.swift"), tests / "MovementAccountChoiceTests.swift")
+    shutil.copy(Path(__file__).with_name("CoverageAfterCheckTests.swift"), tests / "CoverageAfterCheckTests.swift")
     (package / "Package.swift").write_text('''// swift-tools-version: 6.0
 import PackageDescription
 let package = Package(name: "FinancialModels", platforms: [.macOS(.v14)], dependencies: [

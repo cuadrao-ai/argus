@@ -246,6 +246,20 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
         await review(locale: locale)
     }
 
+    /// A movement timed after a balance was recorded cannot be part of that balance, so its question is answered
+    /// "No, apply it" for the person. Only a movement at or before a recorded balance is still asked.
+    static func answersAfterChecks(_ preview: FinancialActivityPreview, movement: Date,
+                                   answered: [FinancialAccountCoverage]) -> [FinancialAccountCoverage] {
+        preview.affectedAccounts.flatMap { affected in
+            affected.observations.compactMap { observation -> FinancialAccountCoverage? in
+                guard observation.included == nil,
+                      !answered.contains(where: { $0.accountId == affected.accountId && $0.observationId == observation.observationId }),
+                      let recorded = AccountPresentation.parseDate(observation.asOf), movement > recorded else { return nil }
+                return .init(accountId: affected.accountId, observationId: observation.observationId, included: false)
+            }
+        }
+    }
+
     func review(locale: Locale) async {
         guard !busy, phase != .uncertain else { return }
         phase = .loading; errorKey = nil
@@ -291,6 +305,12 @@ final class FinancialActivityEditor: ObservableObject, Identifiable {
                 next = try await controller.financialActivityPreview(command, activityId: correcting?.activityId, expectedIdentity: identity)
             }
             guard !(await retireIfNeeded()) else { return }
+            let automatic = Self.answersAfterChecks(next, movement: date, answered: answers)
+            if !automatic.isEmpty {
+                answers += automatic
+                phase = .editing
+                return await review(locale: locale)
+            }
             preview = next
             if next.ready, var reviewed = next.reviewedRequest, let token = next.previewToken {
                 reviewed.previewToken = token
