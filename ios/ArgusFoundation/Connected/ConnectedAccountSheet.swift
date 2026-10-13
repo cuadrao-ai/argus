@@ -42,7 +42,13 @@ private struct ConnectedAccountCreateSheet: View {
         let lines = [model.errorKey.map { NSLocalizedString($0, comment: "") },
                      model.createIsFrozen ? NSLocalizedString("accounts.create.retry", comment: "") : nil,
                      model.busy ? NSLocalizedString("accounts.saving", comment: "") : nil].compactMap { $0 }
-        return lines.isEmpty ? nil : lines.joined(separator: " ")
+        return lines.isEmpty ? blankNote : lines.joined(separator: " ")
+    }
+
+    /// The field's quiet 0.00 placeholder reads as zero; say when a blank saves as unknown instead.
+    private var blankNote: String? {
+        guard let kind = entry.kind, kind != .cash, entry.amount.isEmpty else { return nil }
+        return spanish ? "Sin monto, el saldo queda desconocido." : "Without an amount, the balance stays unknown."
     }
 }
 

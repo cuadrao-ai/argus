@@ -209,6 +209,36 @@ final class FinancialModelTests: XCTestCase {
         }
     }
 
+    func testBlankCashOpensAtARecordedZeroAndOtherTypesStayUnknown() async throws {
+        let cases: [(CanvasAccountKind, amount: String?)] = [(.cash, "0"), (.checking, nil), (.savings, nil),
+            (.card, nil), (.loan, nil), (.investment, nil)]
+        for (kind, amount) in cases {
+            let fixture = try PresentationFixture()
+            let identity = try await fixture.login()
+            let model = AccountsModel(controller: fixture.client)
+            model.bind(identity)
+            let created = try fixture.account()
+            var sent: [CreateFinancialAccountRequest] = []
+            model.confirmCreate = { request in sent.append(request); return created }
+            model.create()
+            model.draft?.apply(CanvasAccountEntry(kind: kind, name: "Efectivo", amount: "", currency: "DOP"))
+            await model.save(locale: Locale(identifier: "en_US_POSIX"))
+            XCTAssertNil(model.errorKey)
+            let request = try XCTUnwrap(sent.first)
+            XCTAssertEqual(request.amount, amount, "\(kind)")
+            XCTAssertEqual(request.asOf != nil, amount != nil, "A stated balance carries its date; an unknown one carries none")
+        }
+        let reply: [String: Any] = ["id": UUID().uuidString, "type": "cash", "nature": "asset", "currency": "DOP",
+            "currency_fraction_digits": 2, "nickname": "Efectivo", "archived": false, "ownership_share_bps": 10000, "version": 1,
+            "created_at": "2026-10-12T13:00:00Z", "updated_at": "2026-10-12T13:00:00Z", "opening": NSNull(), "asset": NSNull(),
+            "balance": ["state": "known", "amount_minor": 0, "amount": "0.00", "as_of": "2026-10-12T09:00:00-04:00",
+                        "basis": "opening", "activity_since_tracking_minor": 0]]
+        let account = try JSONDecoder().decode(FinancialAccount.self, from: JSONSerialization.data(withJSONObject: reply))
+        let row = ConnectedAccountPresentation.row(account, spanish: true, locale: Locale(identifier: "en_US_POSIX"))
+        XCTAssertEqual(row.amount, "0.00")
+        XCTAssertEqual(row.amountCaption, "DOP")
+    }
+
     func testArchiveReloadAndRestorePreserveBalanceAndListPlacement() async throws {
         for unknown in [false, true] {
             let fixture = try PresentationFixture()

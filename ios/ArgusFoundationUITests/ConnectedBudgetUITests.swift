@@ -7,7 +7,7 @@ extension FinancialLoopUITests {
         let checking = createMoneyAccount("Budget bank " + stamp, type: "checking", amount: "1000")
         budgetExpense(amount: "120", note: "Budget groceries " + stamp)
         let card = createMoneyAccount("Budget card " + stamp, type: "credit_card", amount: "0")
-        let cash = createMoneyAccount("Budget refund cash " + stamp, type: "cash")
+        let unknown = createMoneyAccount("Budget refund account " + stamp, type: "checking")
         let title = "Food " + stamp
         createBudget(title, accounts: [checking, card])
         openBudget(title)
@@ -32,7 +32,7 @@ extension FinancialLoopUITests {
         assertBudget(spent: "180.00", status: "30.00", over: true)
         capture("budget-contributor-correction-propagated")
         app.returnFromDetail("budget.close")
-        openMoneyAccount(cash)
+        openMoneyAccount(unknown)
         recordMoney(kind: "refund", amount: "25", note: "Budget refund " + stamp, purchase: "Card groceries " + stamp)
         assertText("Balance unknown")
         openBudget(title)
