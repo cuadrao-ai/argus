@@ -585,6 +585,27 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-ecf-checks-card-20261012": {
+      "description": "Tier A web card: the record of an electronic invoice lists what the file proved, one line per check with its state, in words that never overreach (content unchanged since signing, never who signed; DGII acceptance and the issuing authority named as not checked); a line to review never blocks approval.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/business-ecf-checks.test.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/ReceiptEcfChecks.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/e2e/business-ecf-checks.spec.ts",
+        "web/lib/business-dossier.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-ecf-hotel-invoice-20261012": {
       "description": "DGII e-CF hotel invoices: XML joins the accepted source types, read inertly as tag-named evidence; a dual-currency invoice records the DOP total, with a recorded projection guard when the read picks another currency; three fake fixtures. No prompt or schema text change.",
       "base_ref": "origin/codex/private-alpha-next",
