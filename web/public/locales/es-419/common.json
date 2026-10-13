@@ -2381,6 +2381,8 @@
       "suggestions_pending_other": "{{count}} sugerencias por confirmar",
       "missing_pending_one": "Falta {{count}} dato",
       "missing_pending_other": "Faltan {{count}} datos",
+      "unresolved_pending_one": "{{count}} dato por resolver",
+      "unresolved_pending_other": "{{count}} datos por resolver",
       "origin": {
         "extracted": "Leído de la fuente · sin verificar",
         "qr_decoded": "Del código QR · sin verificar",

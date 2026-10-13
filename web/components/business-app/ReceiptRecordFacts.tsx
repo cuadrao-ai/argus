@@ -54,7 +54,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
   };
   const rows = recordFactRows(dossier);
   const fiscalRows = fiscalFactRows(dossier.facts);
-  const counts = reviewCounts(rows, dossier);
+  const counts = reviewCounts([...rows, ...fiscalRows]);
 
   const standingText = (standing: FactStanding, origin: string | null, blocked: boolean) => {
     if (standing === "verified") return t("business.dossier.verified", "Verified");
@@ -90,11 +90,12 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
 
   return (
     <div data-testid="receipt-current-facts">
-      {counts.suggestions > 0 || counts.missing > 0 ? (
+      {counts.suggestions > 0 || counts.missing > 0 || counts.unresolved > 0 ? (
         <p role="status" data-testid="receipt-review-counts" className="mb-4 rounded-[14px] bg-[var(--cuadrao-cream)] px-3.5 py-2.5 text-[13px] text-black/75 dark:text-white/80">
           {[
             counts.suggestions > 0 ? t("business.dossier.suggestions_pending", { count: counts.suggestions, defaultValue: "{{count}} suggestions to confirm" }) : null,
             counts.missing > 0 ? t("business.dossier.missing_pending", { count: counts.missing, defaultValue: "{{count}} details missing" }) : null,
+            counts.unresolved > 0 ? t("business.dossier.unresolved_pending", { count: counts.unresolved, defaultValue: "{{count}} details to resolve" }) : null,
           ].filter(Boolean).join(" · ")}
         </p>
       ) : null}

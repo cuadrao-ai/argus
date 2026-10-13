@@ -68,9 +68,10 @@ describe("where each fact stands", () => {
       "category_id:empty",
       "funding:empty:blocked",
     ]);
-    // Counts come from the backend's blockers, by field; a blocker with no field is the guidance card's.
+    // The numbers are the rows' own: a blocker with no field is the guidance card's; amount has a value
+    // (a blocked suggestion) and receipt_state has an open question, so they are "to resolve", not missing.
     assert.deepEqual([...blockedFields(dossier)].sort(), ["amount", "funding"]);
-    assert.deepEqual(reviewCounts(rows, dossier), { suggestions: 2, missing: 2 });
+    assert.deepEqual(reviewCounts(rows), { suggestions: 2, missing: 1, unresolved: 2 });
   });
 });
 
@@ -111,11 +112,28 @@ describe("the counts line agrees with 'Antes de aprobar'", () => {
     } as unknown as BusinessDossier;
     const rows = fiscalFactRows(dossier.facts);
     assert.deepEqual(rows.map((row) => `${row.key}:${row.standing}`), ["ecf:person", "rnc:qr", "ncf:empty", "itbis:empty"]);
-    assert.deepEqual(reviewCounts([...recordFactRows(dossier), ...rows], dossier), { suggestions: 0, missing: 0 });
+    assert.deepEqual(reviewCounts([...recordFactRows(dossier), ...rows]), { suggestions: 0, missing: 0, unresolved: 0 });
     const { html } = await render(dossier);
     assert.ok(!html.includes('data-testid="receipt-review-counts"'));
     assert.ok(!html.includes(">Falta<") && !html.includes("Faltan"));
     assert.ok(html.includes('data-fact="ncf" data-standing="empty"') && html.includes(">Sin dato<"));
+  });
+
+  test("a blocked field that has a value is 'por resolver', never 'Falta': the line equals the chips (amount is a blocked suggestion)", async () => {
+    const base = await fixture();
+    const dossier = {
+      ...base,
+      facts: { ...base.facts, amount: known("extracted"), funding: ownerUnknown, currency: known("owner_stated") },
+      blockers: [{ code: "invalid_amount", field: "amount" }, { code: "unknown_funding", field: "funding" }, { code: "currency_mismatch", field: "currency" }],
+      questions: [],
+    } as unknown as BusinessDossier;
+    const { html } = await render(dossier);
+    assert.ok(html.includes(">1 sugerencia por confirmar · 3 datos por resolver<"));
+    assert.ok(!html.includes("Falta"));
+    assert.ok(html.includes('data-fact="amount" data-standing="suggestion" data-blocked="true"'));
+    assert.ok(html.includes('data-fact="funding" data-standing="owner_unknown" data-blocked="true"'));
+    assert.ok(html.includes('data-fact="currency" data-standing="person" data-blocked="true"'));
+    assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 3);
   });
 
   test("one suggestion and one missing field: '1 sugerencia por confirmar · Falta 1 dato'", async () => {

@@ -71,11 +71,18 @@ export function factRows<K extends BusinessFactField | BusinessFiscalField>(
 
 export const RECORD_FIELDS: readonly BusinessFactField[] = ["kind", "counterparty", "occurred_on", "amount", "currency", "category_id", "funding", "business_share", "receipt_state"];
 
-/** What the page says about completeness: suggestions waiting on a person, and the fields the backend's blockers name as missing. */
-export function reviewCounts(rows: readonly FactRow<string>[], dossier: Pick<BusinessDossier, "blockers">): { suggestions: number; missing: number } {
+/**
+ * What the page says about completeness, in the same numbers the rows show:
+ * suggestions waiting on a person; "missing" is every row with no value that
+ * a blocker names (each reads Falta); "unresolved" is every other row that a
+ * blocker or an open question names while it has a value or an owner's
+ * "doesn't know" (each carries the decision marker).
+ */
+export function reviewCounts(rows: readonly FactRow<string>[]): { suggestions: number; missing: number; unresolved: number } {
   return {
     suggestions: rows.filter((row) => row.standing === "suggestion").length,
-    missing: blockedFields(dossier).size,
+    missing: rows.filter((row) => row.standing === "empty" && row.blocked).length,
+    unresolved: rows.filter((row) => (row.blocked || row.asked) && row.standing !== "empty").length,
   };
 }
 
