@@ -735,6 +735,21 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-email-log-names-20261012": {
+      "description": "The two email-intake startup warnings carry the missing condition names in the message text itself (hosted log viewers show the message and drop structured fields), so staging logs say which condition keeps the Resend webhook at 404. Tests only assert the text; no behavior change.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/api/email_intake.py",
+        "tests/test_email_intake_startup.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-expense-detail-20261012": {
       "description": "Every saved expense opens something: its receipt, else the bridge draft that recorded it (named by the API as draft_id), else its own plain detail (GET /business/expenses/{id}) that says no receipt is attached, with when it was recorded and its revision; another Business's expense stays closed and an accountant opens the dossier read-only.",
       "base_ref": "origin/codex/private-alpha-next",
