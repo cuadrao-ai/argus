@@ -123,6 +123,26 @@ final class SessionControllerTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(stillSignedIn.phase, .authenticated)
     }
 
+    func testAStoredSessionTheServerCannotConfirmStaysStoredAndSignedOutDoesNot() async throws {
+        let fixture = try SessionFixture()
+        let fresh = try fixture.controller()
+        let noSession = await fresh.hasStoredSession()
+        XCTAssertFalse(noSession)
+        _ = try await fixture.login(fresh)
+        await fixture.server.configure(meStatuses: [503])
+        let relaunched = try fixture.controller()
+        do { _ = try await relaunched.restore(); XCTFail("Expected the unavailable server to fail the restore") }
+        catch {}
+        let phase = await relaunched.snapshot().phase
+        let stored = await relaunched.hasStoredSession()
+        XCTAssertNotEqual(phase, .authenticated)
+        XCTAssertTrue(stored, "the keychain still holds the session, so launch must not show sign-in")
+        let signedOut = try fixture.controller()
+        _ = try await signedOut.signOut()
+        let afterSignOut = await signedOut.hasStoredSession()
+        XCTAssertFalse(afterSignOut)
+    }
+
     func testSecond401EndsUsableSession() async throws {
         let fixture = try SessionFixture()
         let client = try fixture.controller()

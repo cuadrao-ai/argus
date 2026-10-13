@@ -6,9 +6,11 @@ final class ProfileAuthModel: ObservableObject {
     enum State { case accountDeletionUncertain, accountDeletionPending, disabled, configurationInvalid, signedOut, authenticated, pendingSignOut, unsupportedAnonymous, credentialValidationRequired, reauthenticationRequired }
     @Published private(set) var state: State = .disabled
     @Published private(set) var busy = false
-    /// True once a restore has run to the end, so a host can wait for it before choosing what to show. A call that
-    /// finds another restore in flight returns early and leaves this to that restore.
-    @Published private(set) var hasRestored = false
+    @Published private var progress = RestoreProgress()
+    /// True once the session is known, so a host can wait for it before choosing what to show.
+    var hasRestored: Bool { progress.known }
+    /// After a restore ends signed out while the keychain still holds a session: offline or the server did not answer.
+    @Published private(set) var storedSessionUnconfirmed = false
     @Published private(set) var profile: SessionProfile?
     @Published private(set) var confirmationRequired = false
     @Published private(set) var errorKey: String?
@@ -113,7 +115,7 @@ final class ProfileAuthModel: ObservableObject {
     }
 
     func restore() async {
-        guard let controller else { hasRestored = true; return }
+        guard let controller else { progress.noSession(); return }
         #if DEBUG
         // UI tests stand in for a slow hosted /me with `-cuadraoRestoreDelayMs`.
         let delay = UserDefaults.standard.integer(forKey: "cuadraoRestoreDelayMs")
@@ -126,7 +128,7 @@ final class ProfileAuthModel: ObservableObject {
             errorKey = Self.messageKey(error)
         }
         revalidationRequested = true
-        guard !busy else { return }
+        guard progress.enter(busy: busy) else { return }
         busy = true
         defer { busy = false }
         repeat {
@@ -139,7 +141,8 @@ final class ProfileAuthModel: ObservableObject {
                 errorKey = Self.messageKey(error)
             }
         } while revalidationRequested
-        hasRestored = true
+        storedSessionUnconfirmed = state == .signedOut ? await controller.hasStoredSession() : false
+        progress.finishLoop()
     }
 
     private func finishOperation() {
