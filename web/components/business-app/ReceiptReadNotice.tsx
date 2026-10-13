@@ -6,10 +6,11 @@ import { cardClass } from "./business-ui";
 
 /**
  * What is happening to a saved receipt, from backend state only: "Leyendo tu
- * recibo" while a read is pending; a neutral line while nothing will read it
- * and a person may fill it in by hand; nothing otherwise.
+ * recibo" while a read is pending; a neutral line while nothing will read it,
+ * naming only what the person can do now (fill it in by hand, ask for an AI
+ * read, both, or neither); nothing otherwise.
  */
-export default function ReceiptReadNotice({ status, readPending }: { status: ReceiptStatus; readPending: boolean }) {
+export default function ReceiptReadNotice({ status, readPending, enterable, preparable }: { status: ReceiptStatus; readPending: boolean; enterable: boolean; preparable: boolean }) {
   const { t } = useTranslation();
   if (readPending) {
     return (
@@ -18,12 +19,18 @@ export default function ReceiptReadNotice({ status, readPending }: { status: Rec
       </div>
     );
   }
-  if (status === "saved") {
-    return (
-      <p data-testid="receipt-read-notice" data-state="waiting" className="text-[14px] text-black/65 dark:text-white/65">
-        {t("business.review.saved_by_hand", "Saved. Nothing is reading it: fill in the details by hand whenever you like, or ask for an AI read.")}
-      </p>
-    );
-  }
-  return null;
+  if (status !== "saved") return null;
+  const line =
+    enterable && preparable
+      ? t("business.review.saved_by_hand", "Saved. Nothing is reading it: fill in the details by hand whenever you like, or ask for an AI read.")
+      : enterable
+        ? t("business.review.saved_by_hand_only", "Saved. Nothing is reading it: fill in the details by hand whenever you like.")
+        : preparable
+          ? t("business.review.saved_prepare_only", "Saved. Nothing is reading it: ask for an AI read whenever you like.")
+          : t("business.review.saved_waiting", "Saved. Nothing is reading it.");
+  return (
+    <p data-testid="receipt-read-notice" data-state="waiting" className="text-[14px] text-black/65 dark:text-white/65">
+      {line}
+    </p>
+  );
 }

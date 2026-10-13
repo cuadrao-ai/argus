@@ -9,12 +9,12 @@ import spanish from "@/public/locales/es-419/common.json";
 import ReceiptReadNotice from "../components/business-app/ReceiptReadNotice";
 import type { ReceiptStatus } from "../lib/business-api";
 
-async function render(status: ReceiptStatus, readPending: boolean, lng: "es-419" | "en") {
+async function render(status: ReceiptStatus, readPending: boolean, lng: "es-419" | "en", can: { enterable: boolean; preparable: boolean } = { enterable: true, preparable: true }) {
   const i18n = i18next.createInstance();
   await i18n.init({ lng, resources: { "es-419": { translation: spanish }, en: { translation: english } } });
   return renderToStaticMarkup(
     <I18nextProvider i18n={i18n}>
-      <ReceiptReadNotice status={status} readPending={readPending} />
+      <ReceiptReadNotice status={status} readPending={readPending} enterable={can.enterable} preparable={can.preparable} />
     </I18nextProvider>,
   );
 }
@@ -34,6 +34,20 @@ describe("what a saved receipt says is happening to it", () => {
     assert.ok(!es.includes("Leyendo tu recibo"));
     const en = await render("saved", false, "en");
     assert.ok(en.includes("Saved. Nothing is reading it: fill in the details by hand whenever you like, or ask for an AI read."));
+  });
+
+  test("the saved line names only what the person can do now", async () => {
+    const byHand = await render("saved", false, "es-419", { enterable: true, preparable: false });
+    assert.ok(byHand.includes("Guardado. Nadie lo está leyendo: completa los datos a mano cuando quieras."));
+    assert.ok(!byHand.includes("lectura con IA"));
+    const aiOnly = await render("saved", false, "es-419", { enterable: false, preparable: true });
+    assert.ok(aiOnly.includes("Guardado. Nadie lo está leyendo: pide la lectura con IA cuando quieras."));
+    assert.ok(!aiOnly.includes("a mano"));
+    const neither = await render("saved", false, "es-419", { enterable: false, preparable: false });
+    assert.ok(neither.includes("Guardado. Nadie lo está leyendo."));
+    assert.ok(!neither.includes("a mano") && !neither.includes("lectura con IA"));
+    const en = await render("saved", false, "en", { enterable: false, preparable: true });
+    assert.ok(en.includes("Saved. Nothing is reading it: ask for an AI read whenever you like."));
   });
 
   test("any other state says nothing", async () => {
