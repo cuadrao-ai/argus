@@ -38,10 +38,17 @@ export default function BusinessExpensesPanel() {
   const record = actions.create.find((action) => action.id === "record_expense");
   // Coming back from one expense's panel: focus its row once the list has
   // rendered, so keyboard focus returns where it left. A row outside the
-  // period is not in the list; the panel itself takes focus then.
+  // period is not in the list; the panel itself takes focus then. Once per
+  // arrival: a background reload re-renders the list but never takes focus
+  // back from wherever the person moved it.
   const section = useRef<HTMLElement>(null);
+  const focusedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!found || items === null) return;
+    if (!found) focusedFor.current = null;
+  }, [found]);
+  useEffect(() => {
+    if (!found || items === null || focusedFor.current === found) return;
+    focusedFor.current = found;
     const row = section.current?.querySelector<HTMLButtonElement>(`[data-expense-id="${CSS.escape(found)}"] button`);
     (row ?? section.current)?.focus();
   }, [found, items]);

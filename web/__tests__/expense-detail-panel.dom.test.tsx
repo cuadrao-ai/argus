@@ -35,16 +35,19 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const opened: BusinessPanelState[] = [];
   let setPanelOutside: (next: BusinessPanelState) => void = () => undefined;
+  let reloadOutside: () => void = () => undefined;
   function Workspace() {
     const [panel, setPanel] = useState<BusinessPanelState>({ kind: "expense", expenseId: "exp-gas" });
+    const [revision, setRevision] = useState(0);
     setPanelOutside = setPanel;
+    reloadOutside = () => setRevision((value) => value + 1);
     const value = {
       source: {
         expense: typeof options.detail === "function" ? options.detail : async () => options.detail as BusinessExpenseDetail,
         expenses: async () => options.list ?? LIST,
       },
       records: { workspace: { accounts: [{ id: "acct-ops", nickname: "Operating account", type: "bank", currency: "DOP" }] }, overview: null },
-      revision: 0,
+      revision,
       period: { key: "this_month", from: "2026-10-01", to: null },
       setPeriod: () => undefined,
       panel,
@@ -65,7 +68,7 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
   await act(async () => { root.render(<Workspace />); });
   const settle = () => act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
   await settle();
-  return { act, root, host, opened, settle, setPanel: (next: BusinessPanelState) => act(async () => setPanelOutside(next)) };
+  return { act, root, host, opened, settle, setPanel: (next: BusinessPanelState) => act(async () => setPanelOutside(next)), reload: () => act(async () => reloadOutside()) };
 }
 
 describe("the expense detail panel", () => {
@@ -90,6 +93,27 @@ describe("the expense detail panel", () => {
     const row = page.host.querySelector('[data-expense-id="exp-gas"] button');
     assert.ok(row, "the Expenses list rendered the row");
     assert.equal(document.activeElement, row);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("focus returns to the row once per arrival: a background reload re-renders the list without taking focus back", async () => {
+    const page = await mountWorkspace({ detail: expense({}) });
+    const back = page.host.querySelector('[data-testid="business-expense-detail"] button')!;
+    await page.act(async () => { (back as HTMLButtonElement).click(); });
+    await page.settle();
+    const row = page.host.querySelector('[data-expense-id="exp-gas"] button') as HTMLButtonElement;
+    assert.equal(document.activeElement, row);
+    // The person moves on to another row.
+    const other = page.host.querySelector('[data-expense-id="exp-hosting"] button') as HTMLButtonElement;
+    await page.act(async () => { other.focus(); });
+    assert.equal(document.activeElement, other);
+    // Two background reloads re-fetch and re-render the list; focus stays where the person put it.
+    await page.reload();
+    await page.settle();
+    await page.reload();
+    await page.settle();
+    assert.equal(document.activeElement, other);
+    assert.ok(page.host.querySelector('[data-expense-id="exp-gas"] button'), "the list is still there");
     await page.act(async () => page.root.unmount());
   });
 
