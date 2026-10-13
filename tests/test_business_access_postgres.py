@@ -200,3 +200,60 @@ def test_clients_cannot_read_invites(pool, users) -> None:  # noqa: ANN001
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             with db.transaction():
                 db.execute("select count(*) from public.business_access_invites")
+
+
+def test_re_inviting_an_expired_email_makes_a_fresh_live_invite(pool, users) -> None:  # noqa: ANN001
+    """The unique index ignores expiry, so the insert used to do nothing against
+    an expired pending row and the owner saw nothing. Live stays, expired is
+    re-issued with a new window and a receipt, revoked and accepted no longer
+    hold the slot."""
+
+    spaces, access = PostgresSpaceStore(pool), PostgresAccessStore(pool)
+    space, _ = spaces.create(users["owner"], "Colmado")
+    email = "contadora@example.test"
+    created, listed = access.give(space.id, users["owner"], email)
+    assert created and [i.email for i in listed.invites] == [email]
+    first_id, first_expiry = listed.invites[0].id, listed.invites[0].expires_at
+    # Live: nothing changes.
+    assert access.give(space.id, users["owner"], email) == (False, listed)
+    # Expired: the owner sees no invite, and re-inviting makes a fresh live one with a new window.
+    with psycopg.connect(shared.DSN) as db:
+        db.execute(
+            "update public.business_access_invites set created_at=now() - interval '15 days',"
+            " expires_at=now() - interval '1 day' where id=%s",
+            (first_id,),
+        )
+        db.commit()
+    assert access.list(space.id, users["owner"]).invites == ()
+    created, listed = access.give(space.id, users["owner"], email)
+    assert created and [i.email for i in listed.invites] == [email]
+    assert listed.invites[0].expires_at > first_expiry
+    with psycopg.connect(shared.DSN) as db:
+        rows = db.execute(
+            "select count(*) from public.business_access_invites"
+            " where space_id=%s and email=%s and revoked_at is null and accepted_at is null",
+            (space.id, email),
+        ).fetchone()
+        assert rows == (1,)
+        assert _ledger(db, space.id) == ["owner_grant", "invite_access", "invite_access"]
+    # Revoked: a new invite is born beside the revoked row.
+    assert access.revoke_invite(space.id, users["owner"], listed.invites[0].id) is True
+    assert access.list(space.id, users["owner"]).invites == ()
+    created, listed = access.give(space.id, users["owner"], email)
+    assert created and [i.email for i in listed.invites] == [email]
+    with psycopg.connect(shared.DSN) as db:
+        assert db.execute(
+            "select count(*) from public.business_access_invites where space_id=%s and email=%s",
+            (space.id, email),
+        ).fetchone() == (2,)
+    # Accepted: the confirmed account holds the grant; re-inviting it creates nothing.
+    with psycopg.connect(shared.DSN) as db:
+        other = db.execute(
+            "select lower(email) from auth.users where id=%s", (users["other"],)
+        ).fetchone()[0]
+        _confirm(db, users["other"])
+        db.commit()
+    created, _ = access.give(space.id, users["owner"], other)
+    assert created
+    created, after = access.give(space.id, users["owner"], other)
+    assert not created and other not in [i.email for i in after.invites]
