@@ -13,6 +13,7 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
     @FocusState private var nameFocused: Bool
     @FocusState private var rateFocused: Bool
     @State private var rateText = ""
+    @State private var rateProblem: PercentInput.Problem?
     @Environment(\.dismiss) private var dismiss
     private var editing: Bool { host.editing }
     private var ids: CuadraoPlanEditorIdentifiers { host.identifiers }
@@ -24,7 +25,7 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
         && (!host.showsTarget || (draft.target.isFinite && (0.01...CanvasMoney.maximumValue).contains(draft.target)))
         && draft.recorded.isFinite && (0...CanvasMoney.maximumValue).contains(draft.recorded)
         && (draft.kind == .budget || (draft.monthly.isFinite && ((host.monthlyRequired ? 0.01 : 0)...CanvasMoney.maximumValue).contains(draft.monthly)))
-        && draft.annualRate.isFinite && (0...100).contains(draft.annualRate)
+        && draft.annualRate.isFinite && (0...100).contains(draft.annualRate) && rateProblem == nil
         && (draft.kind != .debt || !host.showsTarget || draft.recorded <= draft.target)
         && host.spaces.contains { $0.id == draft.spaceID }
         && host.canSave(draft)
@@ -86,11 +87,23 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                                     amountRow(draft.kind.recordedTitle(spanish), value: $draft.recorded, id: "plan-recorded")
                                 }
                                 if draft.kind == .debt && host.showsRate {
-                                    HStack {
-                                        Text(spanish ? "Interés anual (%)" : "Annual interest (%)")
-                                        TextField("0", text: $rateText).keyboardType(.decimalPad).focused($rateFocused).multilineTextAlignment(.trailing)
-                                            .accessibilityIdentifier(ids.rate)
-                                            .onChange(of: rateText) { _, text in draft.annualRate = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0 }
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack {
+                                            Text(spanish ? "Interés anual" : "Annual interest")
+                                            TextField("0", text: $rateText).keyboardType(.decimalPad).focused($rateFocused).multilineTextAlignment(.trailing)
+                                                .accessibilityIdentifier(ids.rate)
+                                                .onChange(of: rateText) { _, text in
+                                                    switch PercentInput.parse(text, .interest) {
+                                                    case .success(let value): rateProblem = nil; draft.annualRate = NSDecimalNumber(decimal: value ?? 0).doubleValue
+                                                    case .failure(let problem): rateProblem = problem
+                                                    }
+                                                }
+                                            Text(verbatim: "%").foregroundStyle(.secondary)
+                                        }
+                                        if let rateProblem {
+                                            Text(PercentInput.message(rateProblem, .interest, spanish: spanish))
+                                                .font(CuadraoTypography.caption).foregroundStyle(.red).accessibilityIdentifier(ids.rate + ".error")
+                                        }
                                     }.padding(18)
                                     .onAppear { if draft.annualRate != 0 && rateText.isEmpty { rateText = draft.annualRate.formatted(.number.grouping(.never)) } }
                                     Text(spanish ? "La estimación supone una tasa fija, pagos mensuales, sin compras nuevas ni comisiones." : "The estimate assumes a fixed rate, monthly payments, no new purchases or fees.")
@@ -114,7 +127,8 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                         }
                     }
                     if !valid {
-                        Text(host.missing(draft) ?? (spanish ? "Añade un nombre y revisa los montos." : "Add a name and check the amounts."))
+                        Text((rateProblem != nil ? (spanish ? "Revisa el interés anual." : "Check the annual interest.") : nil)
+                             ?? host.missing(draft) ?? (spanish ? "Añade un nombre y revisa los montos." : "Add a name and check the amounts."))
                             .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("plan.missing")
                     }
                     footer()
