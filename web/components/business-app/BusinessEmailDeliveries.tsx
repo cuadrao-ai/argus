@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
 import { businessReceivingAddress, emailDeliveriesNeedRefresh } from "@/lib/business-email";
 import { useBusiness } from "./BusinessWorkspace";
+import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatRelativeTime } from "./business-format";
 import { cardClass, secondaryButtonClass } from "./business-ui";
 
@@ -52,6 +53,12 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
+  const { records } = useBusiness();
+  // The receipt behind a captured part, when the Inbox has it: saved and unread until a person acts.
+  const savedReceipt = (documentId: string) => {
+    const receipt = records.inbox?.find((item) => item.id === documentId);
+    return receipt && savedUnread(receipt) ? receipt : null;
+  };
   const [body, setBody] = useState<Load<BusinessEmailDetail> | null>(null);
   const [retry, setRetry] = useState<"idle" | "sending" | "accepted" | "error">("idle");
   useEffect(() => { setRetry("idle"); }, [delivery.updated_at]);
@@ -90,6 +97,7 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
                 <span className="min-w-0 flex-1 break-words text-[14px] text-black dark:text-white">{part.filename || t("business.email.no_filename", "Unnamed attachment")}</span>
                 <span className="text-[12px] text-black/50 dark:text-white/50">{t(`business.email.part_state.${part.state}`, part.state)}</span>
                 {part.repeat_of_delivery_id || part.repeat_of_upload ? <span data-testid="email-part-repeat" className="text-[12px] font-medium text-black/70 dark:text-white/70">{part.repeat_of_delivery_id ? t("business.email.repeat", "You already received this file") : t("business.email.repeat_upload", "You already saved this file")}</span> : null}
+                {part.state === "captured" && part.document_id && savedReceipt(part.document_id) ? <span data-testid="email-part-saved-unread" className="basis-full text-[12px] text-black/65 dark:text-white/65">{savedUnreadLine(t, { enterable: savedReceipt(part.document_id)!.enterable, preparable: savedReceipt(part.document_id)!.preparable })}</span> : null}
                 {part.state === "captured" && part.document_id ? <button type="button" className={secondaryButtonClass} onClick={() => openReceipt(part.document_id!)}>{t("business.email.open_receipt", "Open receipt")}</button> : null}
               </li>
             ))}

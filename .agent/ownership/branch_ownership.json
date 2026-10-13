@@ -1477,6 +1477,27 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-saved-unread-20261013": {
+      "description": "Founder caveat after the email forward test: a receipt saved without a read never looks stuck. One sentence owned by ReceiptReadNotice (Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea, o complétalo tú.) shown on the receipt page, under the Inbox row and under the captured attachment in Correos recibidos; the status pill reads Guardado, sin leer. The per-receipt button stays the consent; copy only, no API change.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/__tests__/receipt-read-notice.test.tsx",
+        "web/__tests__/saved-unread-hint.dom.test.tsx",
+        "web/components/business-app/BusinessEmailDeliveries.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ReceiptReadNotice.tsx",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-settings-names-20261012": {
       "description": "Cuadrao setting names: CUADRAO_* read first, ARGUS_* as a fallback, for the Business pilot and chat, ingestion, document extraction and jobs, vision model, financial accounts, email intake, app origin and the web NEXT_PUBLIC_* names. Setting names only; no package, database or WhatsApp change. The example env files are documentation here; real env files stay denied.",
       "base_ref": "origin/codex/private-alpha-next",
