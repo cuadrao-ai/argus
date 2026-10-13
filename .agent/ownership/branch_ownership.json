@@ -791,6 +791,7 @@
         "src/argus/domain/ingestion/email_intake/service.py",
         "src/argus/domain/ingestion/email_intake/store.py",
         "supabase/migrations/20261014090000_business_email_receipt_reading_consent.sql",
+        "supabase/migrations/20261014120000_business_ai_consents.sql",
         "tests/business/test_business_email_api.py",
         "tests/ingestion/test_business_whatsapp_wiring.py",
         "tests/ingestion/test_email_auto_read.py",
