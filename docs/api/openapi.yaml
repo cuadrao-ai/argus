@@ -12730,6 +12730,11 @@ components:
           - type: string
             maxLength: 40
           - type: 'null'
+          description: Starting balance as typed, dot-decimal; a liability is the positive
+            amount owed. Omitted or blank on a Personal cash, checking, savings, investment,
+            credit card or other debt account records an opening of 0 at as_of. Property,
+            vehicle and other asset values, and Business accounts, stay unknown when omitted.
+            as_of defaults to now.
         as_of:
           anyOf:
           - type: string

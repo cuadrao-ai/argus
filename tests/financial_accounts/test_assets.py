@@ -184,6 +184,7 @@ def test_estimate_replay_after_newer_write_and_opening_correction(assets):
         )
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_unknown_cross_currency_link_archive_restore_and_unlink_history(assets):
     from argus.domain.recording.schemas import EditFinancialAccountRequest
 

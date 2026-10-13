@@ -663,6 +663,17 @@ on the iPhone. Nothing about a guest goes to the server and no model reads a
 guest receipt. Book data, including receipts, still does not move into an account
 at sign-in. This authorizes no hosted service, deployment or release.
 
+## October 12, 2026: blank opening balance = recorded zero
+
+From the founder's phone walk: adding an account without typing 0 must not show
+"Balance unknown". The coordinator decided that a Personal money account (cash,
+checking, savings, investment, credit card, other debt) saved without an opening
+amount starts at a recorded 0.00. The server records the opening; the client sends
+nothing and never invents it. Home and Plan totals read that zero. This replaces
+the "blank balance is unknown" rule for those accounts. Unknown stays for accounts
+that genuinely have no recorded balance: accounts saved before this rule, a blank
+property, vehicle or other asset value, and Business accounts.
+
 ## October 10, 2026: Business agent direction
 
 The founder approved these points after two audits of the Business core flows:

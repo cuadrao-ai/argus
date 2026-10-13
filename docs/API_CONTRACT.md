@@ -6828,7 +6828,10 @@ the user; another user's identical key is a different reservation.
 }
 ```
 
-- `amount` is optional; omitting it leaves the balance unknown. More fraction
+- `amount` is optional. Omitting it on a Personal money account records an
+  opening of 0 at `as_of`, so the balance reads 0.00. Property, vehicle and
+  other assets, and Business accounts, keep an omitted value unknown. Accounts
+  saved without an opening before this rule keep their unknown balance. More fraction
   digits than the currency allows is `422 amount_precision`; anything but
   digits with one optional dot and leading minus is `422 amount_invalid`; a
   value whose minor units exceed what storage holds (signed 64-bit) is

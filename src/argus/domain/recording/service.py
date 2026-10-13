@@ -13,8 +13,9 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from argus.domain.backtest_admission import canonical_hash
-from argus.domain.owner_scope import OwnerScope
+from argus.domain.owner_scope import OwnerScope, Personal
 from argus.domain.recording.accounts import (
+    OPTIONAL_ASSET_TYPES,
     UNSET,
     AccountEdit,
     normalize_nickname,
@@ -46,6 +47,13 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def blank_opening(scope: OwnerScope, account_type: str) -> str | None:
+    """A Personal money account saved without a starting amount starts at a recorded 0."""
+    if isinstance(scope, Personal) and account_type not in OPTIONAL_ASSET_TYPES:
+        return "0"
+    return None
+
+
 class FinancialAccountService:
     def __init__(
         self,
@@ -72,12 +80,14 @@ class FinancialAccountService:
             nickname=normalize_nickname(request.nickname),
             ownership_share_bps=validate_share(request.ownership_share_bps),
         )
+        typed = (request.amount or "").strip() or None
+        amount = typed or blank_opening(scope, account.type)
         opening = None
-        if request.amount is not None and request.amount.strip():
+        if amount is not None:
             opening = plan_opening_write(
                 account_type=account.type,
                 currency=account.currency,
-                amount=request.amount,
+                amount=amount,
                 as_of=request.as_of,
                 time_zone=request.time_zone,
                 reason=None,
@@ -90,8 +100,10 @@ class FinancialAccountService:
                 "currency": account.currency,
                 "nickname": account.nickname,
                 "ownership_share_bps": account.ownership_share_bps,
+                # A blank stays blank in the identity, so a retry of a blank create
+                # sent before the recorded-zero rule replays instead of conflicting.
                 "opening": None
-                if opening is None
+                if typed is None or opening is None
                 else {
                     "amount_minor": opening.amount_minor,
                     # The default balance date is the creation instant, which a

@@ -72,6 +72,7 @@ def test_canonical_http_preview_confirm_reopen_identity_and_home(client, kind):
     assert len(home["recent_activity"]) == 1
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_legacy_wrong_account_correction_cannot_move_hidden_source(client):
     headers = {"Authorization": f"Bearer {ALICE}"}
     ids = []
