@@ -385,3 +385,124 @@ def test_a_grant_ends_when_its_issuer_loses_owner_access(
     assert store.ensure_owner_grant(alice.scope().owner.space_id, alice.person) is True
     assert get_as(bob, "/receipts", grant).status_code == 200
     assert [s["role"] for s in _listed(bob)] == ["owner", "accountant"]
+
+
+def test_the_listing_never_reports_approve_for_a_grantee_and_nothing_is_in_scope_without_a_business(
+    alice: Owner,  # noqa: F811
+    bob: Owner,  # noqa: F811
+) -> None:
+    grant = _grant(alice, bob)
+    store = business_access()
+    assert store is not None
+    # A row that carries approve for a grantee (hand-written) is reported without it.
+    row = next(g for g in store._grants if g["id"] == grant)
+    row["capabilities"] = ("read", "prepare", "approve")
+    assert [s["capabilities"] for s in _listed(bob) if s["role"] == "accountant"] == [
+        ["read", "prepare"]
+    ]
+    assert get_as(bob, f"/receipts/{uuid4()}", grant).status_code == 404
+    # A person with no own Business and no chosen grant has nothing in scope, record ids included.
+    uploaded = alice.upload(consent=False)
+    receipt_id = uploaded.json()["id"]
+    assert bob.get(f"/receipts/{receipt_id}").status_code == 404
+    assert get_as(bob, f"/receipts/{receipt_id}", grant).status_code == 200
+
+
+def test_the_chat_routes_and_the_email_retry_refuse_a_chosen_grant(
+    chat_client: TestClient,  # noqa: F811
+) -> None:
+    from argus.api.business_spaces import business_access, configure_business_access
+    from argus.domain.business.access import InMemoryAccessStore
+
+    from tests.test_conversation_surfaces import _as as as_person
+    from tests.test_conversation_surfaces import _create, _start_space
+
+    client = chat_client
+    space_a = _start_space(ALICE)
+    _start_space(BOB)
+    previous = business_access()
+    store = InMemoryAccessStore()
+    configure_business_access(store)
+    try:
+        store.confirm(BOB, "bob@example.test")
+        store.give(space_a, ALICE, "bob@example.test")
+        [grant] = [s.grant_id for s in store.spaces_for(BOB) if s.role == "accountant"]
+        own = _create(client, BOB, "Mi chat", surface="business")
+        with_grant = {**as_person(BOB), GRANT: grant}
+        # Every chat route that takes a conversation id refuses the chosen grant,
+        # so nothing is read or sent in Bob's own Business under Alice's name.
+        calls = (
+            client.get(f"/api/v1/conversations/{own}/messages", headers=with_grant),
+            client.patch(
+                f"/api/v1/conversations/{own}", json={"title": "x"}, headers=with_grant
+            ),
+            client.delete(f"/api/v1/conversations/{own}", headers=with_grant),
+            client.post(
+                "/api/v1/chat/stream",
+                json={"conversation_id": own, "message": "hola"},
+                headers=with_grant,
+            ),
+            client.post(
+                "/api/v1/backtests/run",
+                json={"conversation_id": own, "symbols": ["SPY"]},
+                headers=with_grant,
+            ),
+            client.post(
+                f"/api/v1/conversations/{own}/messages/{uuid4()}/continue",
+                headers=with_grant,
+            ),
+            client.post(
+                f"/api/v1/conversations/{own}/messages/{uuid4()}/computation/refresh",
+                headers=with_grant,
+            ),
+            client.post(
+                f"/api/v1/conversations/{own}/tool-results/{uuid4()}/recompute",
+                json={
+                    "message_id": str(uuid4()),
+                    "input_revision": 0,
+                    "arguments": {"a": 1},
+                },
+                headers=with_grant,
+            ),
+            client.post(
+                f"/api/v1/conversations/{own}/confirmations/{uuid4()}/peer-assets",
+                json={"symbols": ["SPY"]},
+                headers=with_grant,
+            ),
+            client.post(
+                f"/api/v1/conversations/{own}/confirmations/{uuid4()}/direct-edit",
+                json={"capital": "100"},
+                headers=with_grant,
+            ),
+        )
+        assert [(r.status_code, r.json().get("code")) for r in calls] == [
+            (403, "business_permission_denied")
+        ] * len(calls)
+        # Without the header Bob's own chat is his.
+        assert (
+            client.get(
+                f"/api/v1/conversations/{own}/messages", headers=as_person(BOB)
+            ).status_code
+            == 200
+        )
+    finally:
+        configure_business_access(previous)
+
+
+def test_a_grantee_cannot_rerun_an_email_delivery(
+    alice: Owner,  # noqa: F811
+    bob: Owner,  # noqa: F811
+    runtime,  # noqa: ANN001, F811
+) -> None:
+    grant = _grant(alice, bob)
+    refused = bob.post(
+        f"/email/deliveries/{uuid4()}/retry", key=str(uuid4()), **{GRANT: grant}
+    )
+    assert (refused.status_code, refused.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
+    # The owner reaches the route itself (a delivery that does not exist is simply not found).
+    assert alice.post(
+        f"/email/deliveries/{uuid4()}/retry", key=str(uuid4())
+    ).status_code in (404, 409)

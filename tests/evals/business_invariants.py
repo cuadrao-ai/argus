@@ -125,7 +125,7 @@ def _variety_digest() -> str:
 async def _judge_steps(
     case: dict[str, Any], capture: Any, judge_model: str
 ) -> tuple[list[dict[str, Any]], list[JudgeVerdict | None], list[dict[str, Any]]]:
-    owner_steps = [(i, s) for i, s in enumerate(case["steps"]) if s["actor"] == "owner_a"]
+    owner_steps = [(i, s) for i, s in enumerate(case["steps"]) if "message" in s]
     evidence: list[dict[str, Any]] = []
     verdicts: list[JudgeVerdict | None] = []
     receipts: list[dict[str, Any]] = []

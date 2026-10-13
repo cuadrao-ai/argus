@@ -689,7 +689,7 @@ def _provision(
         grant = db.execute(
             "insert into public.business_client_grants"
             " (space_id,grantee_id,issuer_id,capabilities)"
-            " values (%s,%s,%s,ARRAY['read','prepare','approve']) returning id",
+            " values (%s,%s,%s,ARRAY['read','prepare']) returning id",
             (primary, accountant, owner),
         ).fetchone()[0]
         bindings["grant_a"] = str(grant)

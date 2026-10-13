@@ -40,7 +40,16 @@ class ExportRoute(APIRoute):
         return no_store
 
 
-router = APIRouter(prefix="/business/exports", tags=["business"], route_class=ExportRoute)
+router = APIRouter(
+    prefix="/business/exports",
+    tags=["business"],
+    route_class=ExportRoute,
+    responses={
+        403: {
+            "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
+        }
+    },
+)
 
 
 def _calendar_date(value):

@@ -45,13 +45,13 @@ def test_step_receipts_bind_to_fresh_turn_and_replay() -> None:
     )
     expected = [
         [_receipt("BusinessInterpretation", model), _receipt("BusinessReply", model)]
-        if step["actor"] == "owner_a" and not step.get("replay")
+        if "message" in step and not step.get("replay")
         else []
         for step in case["steps"]
     ]
     capture = SimpleNamespace(
         step_route_receipts=deepcopy(expected),
-        graph_run_ids=["run" for step in case["steps"] if step["actor"] == "owner_a"],
+        graph_run_ids=["run" for step in case["steps"] if "message" in step],
     )
     assert acceptance._step_receipt_failures(case, capture, model) == []
     replay = next(index for index, step in enumerate(case["steps"]) if step.get("replay"))

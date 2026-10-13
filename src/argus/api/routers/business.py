@@ -117,6 +117,11 @@ router = APIRouter(
     prefix="/business",
     tags=["business"],
     dependencies=[Depends(require_business_surface), Depends(_no_store)],
+    responses={
+        403: {
+            "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
+        }
+    },
 )
 _CONFLICTS = frozenset(
     {
@@ -446,7 +451,11 @@ def get_workspace(
     store = business_access()
     if store is not None and context.scope.acting_as_owner:
         store.ensure_owner_grant(context.scope.owner.space_id, context.scope.person_id)
-    return context.service.workspace(context.scope)
+    workspace = context.service.workspace(context.scope)
+    if not context.scope.acting_as_owner:
+        # Business chat is the owner's: the client's shell shows no composer.
+        workspace = {**workspace, "chat_available": False}
+    return workspace
 
 
 @router.post("/accounts", response_model=BusinessAccount, status_code=201)

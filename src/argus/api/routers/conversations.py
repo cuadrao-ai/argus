@@ -9,6 +9,7 @@ from loguru import logger
 from argus.api import state as api_state
 from argus.api.artifact_message_reads import owned_result_message_facts
 from argus.api.artifact_presentation import reader_payload
+from argus.api.business import own_business_only
 from argus.api.chat.confirmation import (
     DeadConfirmationCardError,
     public_confirmation_projection,
@@ -445,6 +446,8 @@ def patch_conversation(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ConversationResponse:
+    # Chat is the owner's: a chosen client grant is refused on every chat route.
+    own_business_only(request, user.id)
     require_account_capability(
         request,
         "can_manage_conversation",
@@ -503,6 +506,8 @@ def delete_conversation(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> SuccessResponse:
+    # Chat is the owner's: a chosen client grant is refused on every chat route.
+    own_business_only(request, user.id)
     require_account_capability(
         request,
         "can_manage_conversation",
@@ -692,6 +697,8 @@ def list_messages(
     anchor_message_id: str | None = Query(None),
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedMessages:
+    # Chat is the owner's: a chosen client grant is refused on every chat route.
+    own_business_only(request, user.id)
     if cursor is not None and anchor_message_id is not None:
         raise problem(
             request,
@@ -892,6 +899,8 @@ def add_confirmation_peer_assets(
     card is updated in place; motion, chips, and inline period disclosure
     carry the change, never a narration banner.
     """
+    # Chat is the owner's: a chosen client grant is refused on every chat route.
+    own_business_only(request, user.id)
     from argus.agent_runtime.research_basket import (
         confirmation_symbols_restoration,
         peer_add_rows,
@@ -1135,6 +1144,8 @@ def direct_edit_confirmation(
     in the transcript. Only turn-based edits supersede; failures persist
     nothing.
     """
+    # Chat is the owner's: a chosen client grant is refused on every chat route.
+    own_business_only(request, user.id)
     from argus.agent_runtime.confirmation_direct_edit import (
         direct_edit_confirmation_preparation,
     )

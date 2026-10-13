@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
+from argus.api.business import own_business_only
 from argus.api.chat.tool_results import tool_cards_from_metadata
 from argus.api.conversation_surface import require_open_business_chat
 from argus.api.dependencies import current_user, problem
@@ -66,6 +67,8 @@ async def recompute_tool_result(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ToolResultRecomputeResponse:
+    # Chat is the owner's: a chosen client grant is refused on every chat route.
+    own_business_only(request, user.id)
     conversation = str(conversation_id)
     artifact = str(artifact_id)
     source = owned_conversation_message(

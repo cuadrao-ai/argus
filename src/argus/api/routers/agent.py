@@ -26,6 +26,7 @@ from argus.agent_runtime.turn_execution import (
 )
 from argus.api import state as api_state
 from argus.api.artifact_presentation import reader_chat_result
+from argus.api.business import own_business_only
 from argus.api.chat import confirmation as chat_confirmation
 from argus.api.chat import retry as chat_retry
 from argus.api.chat.actions import (
@@ -270,6 +271,8 @@ async def chat_stream(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     user: User = Depends(current_user),  # noqa: B008
 ) -> StreamingResponse:
+    # Chat is the owner's: a chosen client grant is refused on every chat route.
+    own_business_only(request, user.id)
     bind_refusal_request(request, payload=payload, user_id=user.id)
     turn_account = account_context(request)
     # One turn, one subject: allowance read, job row and settlement agree.

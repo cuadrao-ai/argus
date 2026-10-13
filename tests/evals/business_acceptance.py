@@ -200,16 +200,14 @@ def _step_receipt_failures(
     if capture is None or len(capture.step_route_receipts) != len(case["steps"]):
         return ["step_route_receipts_missing"]
     failures = []
-    if len(capture.graph_run_ids) != sum(
-        step["actor"] == "owner_a" for step in case["steps"]
-    ):
+    if len(capture.graph_run_ids) != sum("message" in step for step in case["steps"]):
         failures.append("graph_run_count")
     for index, (step, receipts) in enumerate(
         zip(case["steps"], capture.step_route_receipts, strict=True)
     ):
         expected = (
             ("BusinessInterpretation", "BusinessReply")
-            if step["actor"] == "owner_a" and not step.get("replay")
+            if "message" in step and not step.get("replay")
             else ()
         )
         if len(receipts) != len(expected) or any(
@@ -352,7 +350,7 @@ async def run_business_acceptance(
             owner_steps = [
                 (index, step)
                 for index, step in enumerate(case["steps"])
-                if step["actor"] == "owner_a"
+                if "message" in step
             ]
             reply_evidence = []
             judge_receipts: list[dict[str, Any]] = []

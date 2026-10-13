@@ -71,6 +71,14 @@ class GrantedSpace:
 
     grantee_id: str = ""
 
+    def __post_init__(self) -> None:
+        # What the grant lets this person do: approve is the owner's alone,
+        # whatever a row says, so the listing never reports it for anyone else.
+        if self.role != "owner" and "approve" in self.capabilities:
+            object.__setattr__(
+                self, "capabilities", tuple(c for c in self.capabilities if c != "approve")
+            )
+
 
 @dataclass(frozen=True)
 class AccessGrant:

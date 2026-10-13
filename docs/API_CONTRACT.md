@@ -9211,13 +9211,23 @@ person starts their space, every route below except POST `/space` answers 404
     a grant row says (`approve` is dropped for anyone but the Business owner
     on every route: approve, settle, confirm). Business conversations stay
     the owner's: a stored conversation belongs to its space's creator
-    (`conversations_owner_space_fkey`), so every conversation route with
-    `surface=business` refuses a chosen grant with 403
-    `business_permission_denied` rather than run in the caller's own Business.
+    (`conversations_owner_space_fkey`), so a chosen grant is refused with 403
+    `business_permission_denied` on every chat route, whatever the surface:
+    `POST` and `GET /conversations` with `surface=business`, `PATCH` and
+    `DELETE /conversations/{id}`, `GET /conversations/{id}/messages`,
+    `POST /chat/stream`, `POST /backtests/run`, the `continue`,
+    `computation/refresh`, `tool-results/{id}/recompute`,
+    `confirmations/{id}/peer-assets` and `confirmations/{id}/direct-edit`
+    routes. A client's `GET /business/workspace` reports
+    `chat_available: false`. With no header and no own Business nothing is
+    in scope: the Business routes answer 404 `business_space_missing`, record
+    ids included. `GET /business/spaces` reports effective capabilities:
+    `approve` never appears on a grant that is not the owner's own.
     The own Business's routes refuse a chosen grant with 403
-    `business_permission_denied`: GET and PATCH `/business/space`, creating or
-    stopping the receiving email address (`POST` and `DELETE
-    /business/email`; a grantee reads it), and every WhatsApp link route
+    `business_permission_denied`: GET and PATCH `/business/space`, creating,
+    stopping or re-running the receiving email address and its deliveries
+    (`POST` and `DELETE /business/email`, `POST
+    /business/email/deliveries/{id}/retry`; a grantee reads them), and every WhatsApp link route
     (WhatsApp is the owner's channel; ending one's own sender link is never
     gated). GET `/business/workspace` under a grant reads the client's
     Business as it is and never heals an owner grant. A grant is live only

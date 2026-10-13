@@ -130,7 +130,7 @@ describe("switching Business inside one signed-in account", () => {
       // The moment of the switch: nothing of the old Business is on the page.
       assert.equal(page.text("probe-panel"), "overview", `switch ${index}: the open record closed`);
       assert.equal(page.text("probe-inbox"), "blank", `switch ${index}: the lists are blank while the new Business loads`);
-      assert.ok(!window.location.search.includes("receipt=") && !window.location.search.includes("expense="), `switch ${index}: ${window.location.search}`);
+      assert.ok(!/receipt=|expense=|draft=/.test(window.location.search), `switch ${index}: ${window.location.search}`);
       await page.settle();
       assert.equal(page.text("probe-chosen"), target?.name ?? "Ferretería Luna", `switch ${index}`);
       assert.ok(page.reads.length > before, `switch ${index}: the new Business was read`);

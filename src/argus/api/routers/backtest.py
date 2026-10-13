@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from loguru import logger
 
 from argus.api import state as api_state
+from argus.api.business import own_business_only
 from argus.api.chat.backtest_jobs import (
     fail_job_without_task_run,
     should_fail_stale_job_without_task_run,
@@ -67,6 +68,8 @@ def run_backtest(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     user: User = Depends(current_user),  # noqa: B008
 ) -> BacktestRunResponse:
+    # Chat is the owner's: a chosen client grant is refused on every chat route.
+    own_business_only(request, user.id)
     endpoint = "/api/v1/backtests/run"
     clean_idempotency_key = _clean_required_idempotency_key(
         request=request,

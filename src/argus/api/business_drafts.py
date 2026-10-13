@@ -113,11 +113,14 @@ def require_drafts(
     ):
         raise unavailable_problem(request)
     scope = working_scope(request, spaces, ingestion.user_id)
+    if scope is None:
+        # No chosen grant and no own Business: nothing is in scope, by id either.
+        raise space_missing_problem(request)
     return DraftContext(
         BusinessActions(pool, ingestion.hub.sink),
         UUID(ingestion.user_id),
-        scope.owner.space_id if scope else None,
-        UUID(scope.grant_id) if scope and scope.grant_id else None,
+        scope.owner.space_id,
+        UUID(scope.grant_id) if scope.grant_id else None,
     )
 
 

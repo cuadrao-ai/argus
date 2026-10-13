@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 
 from argus.api.business_spaces import (
     business_access,
@@ -46,7 +46,19 @@ def unavailable_problem(request: Request) -> HTTPException:
     )
 
 
-def require_business_surface(request: Request) -> None:
+def require_business_surface(
+    request: Request,
+    grant: Annotated[
+        str | None,
+        Header(
+            alias=GRANT_HEADER,
+            description="The caller's own live grant on the Business to work in; absent for the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.",
+        ),
+    ] = None,
+) -> None:
+    # The header is read where the scope is resolved (chosen_scope); declared
+    # here so every Business route documents it.
+    del grant
     if not business_pilot_enabled():
         raise unavailable_problem(request)
 
@@ -164,11 +176,10 @@ def _context(
         or documents.hub is not hub
     ):
         raise unavailable_problem(request)
+    # With no header the own Business is the only one in scope: a person with no
+    # own Business and no chosen grant has nothing in scope, record ids included.
     scope = working_scope(request, spaces, user_id)
-    if scope is None and not (
-        request.path_params.get("receipt_id")
-        and getattr(request.app.state, "financial_accounts_pool", None)
-    ):
+    if scope is None:
         raise space_missing_problem(request)
     from argus.api.business_drafts import scoped_legacy
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
 
+from argus.api.business import own_business_only
 from argus.api.chat.computed_answers import (
     ComputationSelectionError,
     ComputationUnsupportedError,
@@ -91,6 +92,8 @@ def continue_computed_answer_route(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ContinuedResultResponse:
+    # Chat is the owner's: a chosen client grant is refused on every chat route.
+    own_business_only(request, user.id)
     require_account_capability(
         request,
         "can_create_additional_conversation",
@@ -117,6 +120,8 @@ async def refresh_computed_answer_route(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ComputationRefreshResponse:
+    # Chat is the owner's: a chosen client grant is refused on every chat route.
+    own_business_only(request, user.id)
     from argus.api.chat.research_evidence import guest_research_visitor_key
     from argus.api.guest_access import account_context, client_identity
 

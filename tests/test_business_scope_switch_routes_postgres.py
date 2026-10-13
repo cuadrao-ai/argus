@@ -98,9 +98,9 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
         ):
             people = {
                 label: _person(client, gateway, label, created)
-                for label in ("alice", "bob", "carol")
+                for label in ("alice", "bob", "carol", "dave")
             }
-            for person in people.values():
+            for person in (people["alice"], people["bob"], people["carol"]):
                 started = client.post(
                     f"{API}/business/space", json={}, headers=person.headers
                 )
@@ -109,6 +109,8 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
             world = SimpleNamespace(client=client, **people)
             world.grant_a = _grant(world, world.alice, world.bob)
             world.grant_c = _grant(world, world.carol, world.bob)
+            # Dave has no Business of his own, only a grant on A.
+            world.grant_d = _grant(world, world.alice, world.dave)
             yield world
     finally:
         with Connection.connect(shared.DSN) as db:
@@ -372,6 +374,48 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
     ) == (403, "business_permission_denied")
     assert client.get(f"{API}/business/space", headers=bob.headers).status_code == 200
 
+    # With no header and no own Business nothing is in scope, record ids included.
+    dave = web.dave
+    for path in (
+        "/business/receipts",
+        f"/business/receipts/{receipt_a}",
+        f"/business/drafts/{draft_a}/dossier",
+        "/business/captures",
+        "/business/workspace",
+    ):
+        assert _code(client.get(f"{API}{path}", headers=dave.headers)) == (
+            404,
+            "business_space_missing",
+        ), path
+    assert (
+        client.get(
+            f"{API}/business/receipts/{receipt_a}", headers=_as(dave, web.grant_d)
+        ).status_code
+        == 200
+    )
+    assert (
+        client.get(
+            f"{API}/business/drafts/{draft_a}/dossier", headers=_as(dave, web.grant_d)
+        ).json()["space_id"]
+        == alice.space_id
+    )
+    # The listing reports effective capabilities and the retry is the owner's.
+    listed = client.get(f"{API}/business/spaces", headers=_as(bob)).json()["spaces"]
+    assert all(
+        "approve" not in s["capabilities"] for s in listed if s["role"] == "accountant"
+    )
+    assert _code(
+        client.post(
+            f"{API}/business/email/deliveries/{uuid4()}/retry",
+            headers={**_as(bob, web.grant_a), "Idempotency-Key": str(uuid4())},
+        )
+    ) == (403, "business_permission_denied")
+    assert (
+        client.get(f"{API}/business/workspace", headers=_as(bob, web.grant_a)).json()[
+            "chat_available"
+        ]
+        is False
+    )
     # Business chat is the owner's: a stored conversation belongs to its space's
     # creator, so under a chosen grant the chat routes refuse, never Bob's own Business.
     for response in (
@@ -395,6 +439,27 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
     }
     assert conversation_a.json()["conversation"]["id"] in chats(alice.headers)
     assert conversation_a.json()["conversation"]["id"] not in chats(bob.headers)
+    own_chat = client.post(
+        f"{API}/conversations", json={"surface": "business"}, headers=bob.headers
+    ).json()["conversation"]["id"]
+    for method, path in (
+        ("GET", f"/conversations/{own_chat}/messages"),
+        ("PATCH", f"/conversations/{own_chat}"),
+        ("DELETE", f"/conversations/{own_chat}"),
+    ):
+        answer = client.request(
+            method,
+            f"{API}{path}",
+            json={"title": "x"} if method == "PATCH" else None,
+            headers=_as(bob, web.grant_a),
+        )
+        assert _code(answer) == (403, "business_permission_denied"), (path, answer.text)
+    assert (
+        client.get(
+            f"{API}/conversations/{own_chat}/messages", headers=bob.headers
+        ).status_code
+        == 200
+    )
 
 
 def test_a_revoked_expired_or_issuer_lost_grant_stops_every_route_at_once(web) -> None:  # noqa: ANN001

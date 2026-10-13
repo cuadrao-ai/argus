@@ -12,7 +12,15 @@ from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.contracts.actions import CaptureNote, OutcomeUnknown, Refused
 from argus.domain.business.contracts.dossier import BusinessDossier
 
-router = APIRouter(prefix="/business/captures", tags=["business"])
+router = APIRouter(
+    prefix="/business/captures",
+    tags=["business"],
+    responses={
+        403: {
+            "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
+        }
+    },
+)
 
 
 def _owner(
