@@ -28,9 +28,12 @@ test.describe("Upload with consent lands on review", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test("one PNG with AI consent reaches the review panel without a client crash", async ({ page }) => {
-    // Only page errors are collected, and they are what the test asserts on.
+    // Page errors and console errors are both collected, and both must be empty.
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}\n${error.stack ?? ""}`));
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(`console: ${message.text()}`);
+    });
     const detailFetches: string[] = [];
     page.on("request", (request) => {
       if (/\/business\/receipts\/[0-9a-f-]{36}$/.test(request.url()) && request.method() === "GET") detailFetches.push(request.url());

@@ -293,15 +293,20 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
   });
 }
 
-test("landing on a record, the person can still open the overview, inbox and expenses", async ({ page }) => {
+test("landing on a record, then opening inbox, expenses and overview, each loads from the Business-scoped source", async ({ page }) => {
+  // The workspace derives its data source from the latch and the panel kind: the
+  // first fetch after leaving the record is already scoped, so every panel loads.
   await openRecord(page, dossierFixtureIds.ready);
   const nav = page.getByTestId("business-sidebar-nav");
   const panel = page.getByTestId("workspace-panel-region");
   await nav.getByRole("button", { name: /^Inbox/ }).click();
   await expect(panel.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
-  await expect(panel.getByRole("button", { name: /Ferretería La Esquina/ }).first()).toBeVisible();
+  await expect(panel.getByRole("button", { name: /Ferretería La Esquina.*Ready to review/ })).toBeVisible();
+  await expect(panel).not.toContainText("couldn't load");
   await nav.getByRole("button", { name: /^Expenses/ }).click();
   await expect(panel.getByRole("heading", { name: "Expenses", exact: true })).toBeVisible();
+  await expect(panel.getByRole("listitem").filter({ hasText: "Nube Hosting" })).toBeVisible();
+  await expect(panel).not.toContainText("couldn't load");
   await nav.getByRole("button", { name: /^Overview|^Home/ }).click();
   // The home is scoped to the Business from the first fetch: its cards carry real counts.
   const inboxCard = panel.getByRole("button", { name: /In your inbox/ });
