@@ -970,8 +970,9 @@ Home, Plan, Search and Profile views rather than a second set.
 - An amount keeps the currency's exact digits and is never rounded; the currency
   choice lists only currencies the server accepts. Each account fixes its digits
   when it is created, so a yen has none and a dinar has three.
-- Accounts use the shared account form and rows. A blank balance is unknown, never
-  zero; a stated balance starts tracking at that moment. The currency and type are
+- Accounts use the shared account form and rows. A money account saved with a blank
+  balance starts at a recorded 0.00; a blank value on a property, vehicle or other
+  asset is unknown, never zero. A stated balance starts tracking at that moment. The currency and type are
   kept once a balance is stated. Archive keeps the account and its place, with Undo
   and a Restore list; the order set by dragging is part of the book.
 - Movements are expense, income and same-currency transfer, recorded in the shared

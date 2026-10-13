@@ -49,6 +49,7 @@ def save(scene, **values):
 
 
 @pytest.mark.parametrize("kind", ["income", "refund"])
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_incoming_preserves_unknown_and_credits_card(scene, kind):
     aid = account(scene, "cash", amount=None)
     receipt = save(scene, kind=kind, account_id=aid, amount="25")

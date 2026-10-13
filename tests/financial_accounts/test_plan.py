@@ -239,6 +239,7 @@ def test_prepaid_future_occurrence_survives_edits_and_safe_recurrence_cutover(sc
     assert all(r["amount_minor"] == 7500 for r in rows if r["status"] == "planned")
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_overdue_and_unknown_currencies_and_explicit_empty_selection(scene):
     planner, aid, _, occurrence = setup_plan(scene, due=NOW.date() - timedelta(days=3))
     unknown = account(scene, amount=None)
@@ -324,6 +325,7 @@ def test_archiving_restoring_and_reloading_keep_identity(scene):
     assert reopened["selection"]["account_ids"] == [aid]
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_changed_empty_account_is_explicitly_excluded(scene):
     from argus.domain.recording.schemas import EditFinancialAccountRequest
 

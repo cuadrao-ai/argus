@@ -86,6 +86,7 @@ def write(scene, *, identifier=None, **values):
     )["activity"]
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_connected_acceptance_actuals_contributors_and_cash_independence(scene):
     checking, card = account(scene, "checking"), account(scene, "credit_card")
     unknown, dollar, other = (
@@ -359,6 +360,7 @@ def test_month_half_open_dst_and_date_correction(scene, zone, month, start, end)
         ({"currency": "USD"}, "currency_mismatch"),
     ],
 )
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_archive_survives_account_scope_change_but_restore_revalidates(
     scene, changes, error_code
 ):

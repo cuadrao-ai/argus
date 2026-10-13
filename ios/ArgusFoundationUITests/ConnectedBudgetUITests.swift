@@ -34,7 +34,7 @@ extension FinancialLoopUITests {
         app.returnFromDetail("budget.close")
         openMoneyAccount(cash)
         recordMoney(kind: "refund", amount: "25", note: "Budget refund " + stamp, purchase: "Card groceries " + stamp)
-        assertText("Balance unknown")
+        assertText("DOP 25.00")
         openBudget(title)
         assertBudget(spent: "155.00", status: "5.00", over: true)
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'budget.activity.'")).count, 3)
