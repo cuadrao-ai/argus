@@ -32,11 +32,12 @@ from experience prose.
 
 ## Current Business assignment
 
-Read the [October 10 hosted Business assignment](docs/specs/argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+Read the board's [current state](docs/specs/argus-execution-board.md#current-state-october-13-2026)
+first. The grant it rests on is the [October 10 hosted Business assignment](docs/specs/argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
 and [decision](docs/specs/argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant).
 The [Business execution spec](docs/specs/lanes/cuadrao-business-agent-execution-spec.md)
 owns C0-first order and J1 to J3. The [Business handoff](docs/handoffs/cuadrao-business-lane.md)
-records integration and preserved exclusions. Tracker #942 owns the larger flows.
+is superseded history of integration and preserved exclusions. Tracker #942 owns the larger flows.
 
 The bounded grant is an invite-only internet Business build on integration and
 staging. It does not authorize main or production, public signup, marketing
