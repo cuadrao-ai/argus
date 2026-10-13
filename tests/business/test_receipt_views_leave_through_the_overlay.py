@@ -1,9 +1,9 @@
 """Structural guard: a receipt view leaves the API only through the draft
 overlay in ``argus.api.business_drafts``. A router that called
 ``receipt.summary()``, ``service.search``, ``service.updates``,
-``service.overview`` or ``service.inbox`` on its own would show a receipt's
-legacy state although a bridge draft is linked, which is what the inbox did
-on staging."""
+``service.overview``, ``service.inbox`` or ``service.expenses`` on its own
+would show a receipt's legacy state although a bridge draft is linked, which
+is what the inbox did on staging, or a saved expense with no receipt to open."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ BYPASSES = (
     r"service\.overview\(",
     r"service\.inbox\(",
     r"service\.receipts\(",
+    r"service\.expenses\(",
 )
 
 
@@ -51,5 +52,6 @@ def test_the_overlay_module_owns_every_helper_the_routers_use():
         "def search_with_drafts(",
         "def updates_with_drafts(",
         "def overview_with_drafts(",
+        "def expenses_with_receipts(",
     ):
         assert helper in source

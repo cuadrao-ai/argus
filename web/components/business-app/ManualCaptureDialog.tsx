@@ -19,9 +19,11 @@ export function captureOutcomeUnknown(status: number | undefined, code: string |
 
 type Phase = "idle" | "saving" | "uncertain" | "refused";
 
-export default function ManualCaptureDialog({ isOpen, target, onClose, onSaved, onPending, onRetained, onUnavailable }: {
+export default function ManualCaptureDialog({ isOpen, target, revision, onClose, onSaved, onPending, onRetained, onUnavailable }: {
   isOpen: boolean;
   target?: BusinessCaptureInput["draft"];
+  /** The facts revision the note is added to, as the record's history lists it; `target.version` is what the API checks. */
+  revision?: number;
   onClose: () => void;
   onSaved: (dossier: BusinessDossier) => void;
   onPending?: (pending: boolean) => void;
@@ -83,7 +85,7 @@ export default function ManualCaptureDialog({ isOpen, target, onClose, onSaved, 
   return <AdaptivePanel title={t(target ? "business.capture.append" : "business.capture.write", target ? "Add a note to this record" : "Save a note")} closeLabel={t("common.close", "Close")} onClose={() => { if (!saving) onClose(); }} width="md">
     <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="space-y-4 p-5">
       <p className="text-[14px] leading-relaxed text-black/65 dark:text-white/65">{t("business.capture.help", "Save your original words for review. This creates no assistant reply and records no money movement.")}</p>
-      {displayedTarget ? <p className="text-[13px] text-black/60 dark:text-white/60">{t("business.capture.target_revision", "Record revision {{version}}", { version: displayedTarget.version })}</p> : null}
+      {displayedTarget && revision !== undefined ? <p className="text-[13px] text-black/60 dark:text-white/60">{t("business.capture.target_revision", "Record revision {{version}}", { version: revision })}</p> : null}
       <label htmlFor={textId} className="block text-[13px] font-medium text-black/65 dark:text-white/65">{t("business.capture.text", "Original note")}</label><textarea id={textId} value={text} onChange={(event) => { setText(event.target.value); onRetained?.(event.target.value.length > 0); }} readOnly={phase !== "idle"} required autoFocus rows={7} className="mt-2 block w-full rounded-[16px] border border-black/15 bg-transparent p-3 text-[16px] font-normal leading-relaxed text-black outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:border-white/20 dark:text-white" />
       {problem ? <p role="alert" className="text-[14px] leading-relaxed text-black/75 dark:text-white/75">{problem}</p> : null}
       <div className="flex flex-wrap gap-3">

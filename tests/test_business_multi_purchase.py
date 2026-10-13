@@ -259,3 +259,53 @@ def test_an_unreadable_read_is_still_refused_to_the_document_layer(
     batch = ExtractionBatch(complete=True, readable=False, candidates=(), receipt=None)
     with pytest.raises(ActionError, match="receipt_requires_review"):
         _prepared(checked, monkeypatch, batch)
+
+
+def test_a_single_read_with_an_uncertain_amount_is_not_labelled_no_purchase_found(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    from argus.api.business_drafts import read_attention
+    from argus.domain.ingestion.reconcile.model import ImportEvent
+
+    _, _, _, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    batch = _batch(
+        draft, [_row("250.50", "Colmado", "2026-10-11", uncertain=["amount"])], "250.50"
+    )
+    assert len(batch.candidates) == 1
+    _, resolution, _ = _prepared(checked, monkeypatch, batch)
+    # One purchase whose amount the read could not settle: no total is kept, the
+    # amount is left to a person, and the receipt is not told nothing was read.
+    assert (resolution.read_purchases, resolution.read_total) == ((), None)
+    assert resolution.facts.amount.state == "unknown"
+    event = Mock(
+        spec=ImportEvent,
+        state="open",
+        resolution={"business": resolution.model_dump(mode="json")},
+    )
+    assert read_attention(event) == {}
+
+
+def test_the_observation_reader_skips_what_the_projection_skips(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    _, _, _, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    rows = [
+        _row("245.00", "Colmado", "2026-10-11"),
+        _row("95.00", "Colmado", "2026-10-11"),
+        {**_row("12,50", "Colmado", "2026-10-11"), "row": 3},  # not plain decimal text
+    ]
+    batch = _batch(draft, rows, "340.00")
+    repeated = batch.model_copy(
+        update={
+            "observations": (*batch.observations, batch.observations[0])
+        }  # same (page, row) twice
+    )
+    _, resolution, _ = _prepared(checked, monkeypatch, repeated)
+    assert [(p.index, Decimal(p.amount)) for p in resolution.read_purchases] == [
+        (1, Decimal("245")),
+        (2, Decimal("95")),
+    ]

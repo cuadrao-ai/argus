@@ -636,6 +636,25 @@
         "web/.env.*"
       ]
     },
+    "codex/cuadrao-expense-opens-dossier-20261012": {
+      "description": "A saved expense opens the record it was recorded from: the API names the receipt a linked bridge draft recorded an expense from (the legacy lookup reads observations a bridge draft never has), in the expenses list and in search, and the whole Expenses row is the control that opens it.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "src/argus/api/business_drafts.py",
+        "src/argus/api/routers/business.py",
+        "tests/business/test_receipt_views_leave_through_the_overlay.py",
+        "tests/test_business_expense_receipts_postgres.py",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
+        "web/e2e/business-expense-opens-dossier.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-expense-period-20261012": {
       "description": "Expenses and the home take a period of this month, last month, last 30 days, all, or a typed range; a saved expense the period leaves out is named with its date and a way to show it, never left to look vanished.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -984,6 +1003,28 @@
         "web/.env.local"
       ]
     },
+    "codex/cuadrao-receipt-notes-20261012": {
+      "description": "Review notes on #996 and #997: a repeat mark never overwrites a bank-match warning; the observation reader skips rows the projection skips; the settle route declares its refusals; direct tests for the duplicate skip rule, the legacy duplicate pass, the zero-purchase label and the settle refusals.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/routers/business_drafts.py",
+        "src/argus/domain/business/actions/mutations.py",
+        "src/argus/domain/business/duplicates.py",
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "tests/business/test_business_duplicates_direct.py",
+        "tests/test_business_multi_purchase.py",
+        "tests/test_business_multi_purchase_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/cuadrao-refresh-after-actions-20261012": {
       "description": "Founder rule: after approve, review, upload or rebind the affected lists, counts and cards refresh on their own; proven by an e2e that approves from the inbox and sees the home card and inbox count change without a reload.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -992,6 +1033,34 @@
         "web/e2e/business-record-review.spec.ts",
         "web/components/business-app/ReceiptDossierReview.tsx",
         "web/components/business-app/BusinessWorkspace.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
+    "codex/cuadrao-revision-labels-20261012": {
+      "description": "Every revision label a person sees names a facts revision the history lists: the dossier's latest revision on the review panel and the note dialog, and each saved note's own revision in the inbox and in search, carried by the captures API as revision beside the draft's current version.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/business_manual_schemas.py",
+        "src/argus/domain/business/actions/captures.py",
+        "tests/business/test_actions_capture_api.py",
+        "tests/test_business_manual_capture_postgres.py",
+        "web/__tests__/business-inbox-notes.test.tsx",
+        "web/__tests__/business-search.test.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/BusinessSearchDossier.tsx",
+        "web/components/business-app/ManualCaptureDialog.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/components/business-app/useBusinessSearch.ts",
+        "web/lib/business-api.ts"
       ],
       "deny": [
         ".env",

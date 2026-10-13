@@ -107,7 +107,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         approval_available: previous?.approval_available ?? false, approval_result: null,
       };
       dossiers.set(id, next);
-      captures.push({ draft_id: id, version, source_id: noteSourceId, text: request.text, received_at: receivedAt, review_state: "open" });
+      captures.push({ draft_id: id, version, revision: version, source_id: noteSourceId, text: request.text, received_at: receivedAt, review_state: "open" });
       captureReceipts.set(key, { input, draftId: id });
       return get(id);
     },
