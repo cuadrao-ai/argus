@@ -849,3 +849,5 @@
 "auth.deletion.apple" = "Para eliminar tu cuenta, vuelve a confirmar con Apple.";
 "auth.deletion.support.requested" = "Solicitud enviada. Soporte eliminará tu cuenta y te escribirá por correo electrónico.";
 "auth.deletion.support.unavailable" = "Todavía no se puede eliminar desde la app aquí. Soporte puede eliminar tu cuenta por ti.";
+"launch.unreachable" = "No pudimos abrir tu cuenta. Revisa tu conexión y vuelve a intentar.";
+"launch.retry" = "Reintentar";

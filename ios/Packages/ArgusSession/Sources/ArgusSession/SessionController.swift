@@ -28,6 +28,9 @@ public actor SessionController {
     }
     public func snapshot() -> SessionSnapshot { state }
 
+    /// Whether the keychain still holds a session, read without the network.
+    public func hasStoredSession() -> Bool { (try? vault.session()) != nil }
+
     public func requestCredentialRevalidation() throws -> SessionSnapshot {
         credentialValidationGeneration &+= 1
         do {
