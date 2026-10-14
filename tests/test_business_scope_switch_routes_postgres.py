@@ -465,6 +465,23 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
         ).status_code
         == 200
     )
+    # Bob's Personal chat is his whatever Business is chosen.
+    personal = client.post(f"{API}/conversations", json={}, headers=bob.headers).json()[
+        "conversation"
+    ]["id"]
+    for method, path in (
+        ("GET", f"/conversations/{personal}/messages"),
+        ("GET", f"/conversations/{personal}/activity"),
+        ("PATCH", f"/conversations/{personal}"),
+        ("DELETE", f"/conversations/{personal}"),
+    ):
+        answer = client.request(
+            method,
+            f"{API}{path}",
+            json={"title": "x"} if method == "PATCH" else None,
+            headers=_as(bob, web.grant_a),
+        )
+        assert answer.status_code == 200, (path, answer.text)
 
 
 def test_a_revoked_expired_or_issuer_lost_grant_stops_every_route_at_once(web) -> None:  # noqa: ANN001

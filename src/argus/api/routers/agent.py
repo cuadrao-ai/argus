@@ -26,7 +26,6 @@ from argus.agent_runtime.turn_execution import (
 )
 from argus.api import state as api_state
 from argus.api.artifact_presentation import reader_chat_result
-from argus.api.business import own_business_only
 from argus.api.chat import confirmation as chat_confirmation
 from argus.api.chat import retry as chat_retry
 from argus.api.chat.actions import (
@@ -122,7 +121,11 @@ from argus.api.chat.tool_results import (
 )
 from argus.api.chat.turn_metering import settle_metered_turn
 from argus.api.chat.visible_reply import ReplyRewrites, rewrite_visible_reply
-from argus.api.conversation_surface import conversation_not_found, refuse_closed_chat
+from argus.api.conversation_surface import (
+    conversation_not_found,
+    refuse_business_under_grant,
+    refuse_closed_chat,
+)
 from argus.api.dependencies import current_user, dev_memory_fallback_enabled, problem
 from argus.api.guest_access import account_context, client_identity
 from argus.api.message_store import (
@@ -271,8 +274,10 @@ async def chat_stream(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     user: User = Depends(current_user),  # noqa: B008
 ) -> StreamingResponse:
-    # Chat is the owner's: a chosen client grant is refused on every chat route.
-    own_business_only(request, user.id)
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(
+        request, user_id=user.id, conversation_id=payload.conversation_id
+    )
     bind_refusal_request(request, payload=payload, user_id=user.id)
     turn_account = account_context(request)
     # One turn, one subject: allowance read, job row and settlement agree.

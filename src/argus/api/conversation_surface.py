@@ -31,7 +31,12 @@ if TYPE_CHECKING:
 from fastapi import Depends, HTTPException, Request
 
 from argus.api import state as api_state
-from argus.api.business import own_business_only, unavailable_problem
+from argus.api.business import (
+    chosen_scope,
+    own_business_only,
+    owner_required_problem,
+    unavailable_problem,
+)
 from argus.api.business_spaces import business_spaces, space_missing_problem
 from argus.api.dependencies import current_user, problem
 from argus.api.schemas import ConversationSurface, User
@@ -104,6 +109,19 @@ def is_business_conversation(*, user_id: str, conversation_id: str | None) -> bo
         return False
     scope = conversation_scope(user_id=user_id, conversation_id=conversation_id)
     return scope is not None and scope != PERSONAL
+
+
+def refuse_business_under_grant(
+    request: Request, *, user_id: str, conversation_id: str | None
+) -> None:
+    """A chosen client grant refuses a Business conversation (chat is the
+    owner's); the person's own Personal chat is theirs whatever is chosen."""
+
+    scope = chosen_scope(request, user_id)
+    if scope is None or scope.acting_as_owner:
+        return
+    if is_business_conversation(user_id=user_id, conversation_id=conversation_id):
+        raise owner_required_problem(request)
 
 
 def conversation_not_found(request: Request) -> HTTPException:

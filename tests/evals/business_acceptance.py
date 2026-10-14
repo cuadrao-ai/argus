@@ -42,7 +42,7 @@ CASE_IDS = (
     "en_replay_stale_and_current_grant",
     "en_revoked_accountant_read",
 )
-CASE_STEP_COUNTS = (4, 3, 2, 1, 1, 6, 3)
+CASE_STEP_COUNTS = (5, 3, 2, 1, 1, 6, 3)
 HUMAN_ONLY_CASE = "en_revoked_accountant_read"
 
 

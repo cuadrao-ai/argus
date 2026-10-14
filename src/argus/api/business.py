@@ -97,7 +97,7 @@ def chosen_scope(request: Request, user_id: str) -> BusinessScope | None:
     )
 
 
-def _owner_required(request: Request) -> HTTPException:
+def owner_required_problem(request: Request) -> HTTPException:
     return problem(
         request,
         status_code=403,
@@ -112,7 +112,7 @@ def owner_only(request: Request, context: BusinessContext) -> None:
     """A route that only the Business owner may call; a grantee is told so."""
 
     if not context.scope.acting_as_owner:
-        raise _owner_required(request)
+        raise owner_required_problem(request)
 
 
 def own_business_only(request: Request, user_id: str) -> None:
@@ -121,7 +121,7 @@ def own_business_only(request: Request, user_id: str) -> None:
 
     scope = chosen_scope(request, user_id)
     if scope is not None and not scope.acting_as_owner:
-        raise _owner_required(request)
+        raise owner_required_problem(request)
 
 
 def working_scope(

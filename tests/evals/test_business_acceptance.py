@@ -25,7 +25,7 @@ def test_case_manifest_rejects_redistributed_missing_and_duplicate_steps() -> No
     acceptance._validate_case_manifest(cases)
     redistributed = deepcopy(cases)
     redistributed[1]["steps"].append(redistributed[0]["steps"].pop())
-    assert sum(len(case["steps"]) for case in redistributed) == 20
+    assert sum(len(case["steps"]) for case in redistributed) == 21
     with pytest.raises(ValueError, match="step manifest"):
         acceptance._validate_case_manifest(redistributed)
     omitted = deepcopy(cases)
