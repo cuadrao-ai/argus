@@ -394,3 +394,17 @@ def test_the_earliest_save_of_a_file_is_the_business_s_not_one_person_s():
         space_id=other_space, sha256=digest
     ) == first + timedelta(seconds=120)
     assert documents.store.earliest_saved(space_id=space, sha256="0" * 64) is None
+
+
+@pytest.mark.asyncio
+async def test_aggregate_pixel_overflow_rejects_before_any_document_capture(monkeypatch):
+    from argus.domain.ingestion.documents import preparation
+
+    monkeypatch.setattr(preparation, "MAX_PIXELS", 2 * 32 * 32 - 1)
+    world = rig(message(("one.png", "image/png", png()), ("two.png", "image/png", png())))
+    delivery = world.enqueue()
+    assert await world.runtime.next()
+    saved = world.store.get(delivery.id, world.route.space_id)
+    assert (saved.state, saved.error_code) == ("rejected", "document_email_limit")
+    assert not world.drafts()
+    assert not world.store.parts(delivery.id)

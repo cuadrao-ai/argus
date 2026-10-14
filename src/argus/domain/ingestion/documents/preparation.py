@@ -12,6 +12,7 @@ import sys
 import tempfile
 import time
 import warnings
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -58,16 +59,41 @@ class PreparedDocument:
     dgii_qr: DgiiQr | None = None
 
 
-def _image(content: bytes, media_type: str) -> bytes:
+def image_pixels(content: bytes, media_type: str) -> int:
+    """Read dimensions before any full image decode or pixel allocation."""
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(content)) as source:
                 expected = {"image/png": "PNG", "image/jpeg": "JPEG"}[media_type]
-                if source.format != expected or source.width * source.height > MAX_PIXELS:
+                pixels = source.width * source.height
+                if source.format != expected or pixels > MAX_PIXELS:
                     raise DocumentExtractionError("invalid_document")
                 if getattr(source, "n_frames", 1) != 1:
                     raise DocumentExtractionError("unsupported_image_frames")
+                return pixels
+    except DocumentExtractionError:
+        raise
+    except Exception:
+        raise DocumentExtractionError("invalid_document") from None
+
+
+def email_image_budget(parts: Iterable[tuple[bytes, str]]) -> None:
+    """All image attachments together share the existing single-image cap."""
+    total = 0
+    for content, media_type in parts:
+        if media_type in ("image/png", "image/jpeg"):
+            total += image_pixels(content, media_type)
+            if total > MAX_PIXELS:
+                raise DocumentExtractionError("document_email_limit")
+
+
+def _image(content: bytes, media_type: str) -> bytes:
+    image_pixels(content, media_type)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(content)) as source:
                 source.load()
                 oriented = ImageOps.exif_transpose(source).convert("RGBA")
                 background = Image.new("RGBA", oriented.size, "white")
@@ -219,6 +245,7 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
     from argus.domain.ingestion.documents.email_source import parse_email
 
     parsed = parse_email(content)
+    email_image_budget((part.content, part.media_type) for part in parsed.attachments)
     if not parsed.readable:
         raise DocumentExtractionError(
             "unsupported_email_attachment" if parsed.skipped else "empty_document"
@@ -277,6 +304,7 @@ def validate_source(content: bytes, media_type: str) -> None:
         from argus.domain.ingestion.documents.email_source import parse_email
 
         parsed = parse_email(content)
+        email_image_budget((part.content, part.media_type) for part in parsed.attachments)
         if not parsed.readable:
             raise DocumentExtractionError(
                 "unsupported_email_attachment" if parsed.skipped else "empty_document"
