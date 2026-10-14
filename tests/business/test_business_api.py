@@ -56,9 +56,15 @@ class Owner:
         return self.client.get(BASE + path, params=params, headers=self.auth)
 
     def post(self, path: str, body: object = None, key: str | None = None, **headers):
+        if path == "/receipt-reading" and key is None:
+            key = str(uuid4())
         if key is not None:
             headers["Idempotency-Key"] = key
         return self.client.post(BASE + path, json=body, headers={**self.auth, **headers})
+
+    def reading(self, enabled: bool):
+        shown = self.get("/receipt-reading").json()
+        return self.post("/receipt-reading", {"enabled": enabled, "scope_version": 1, "disclosure_token": shown["disclosure_token"]})
 
     def account(self, currency: str = "DOP", nickname: str = "Operating") -> str:
         created = self.post(
@@ -82,7 +88,20 @@ class Owner:
             "Idempotency-Key": str(uuid4()),
             "X-Document-Filename": quote(name),
         }
+        shown = self.get("/receipt-reading").json()
+        if not consent and shown["enabled"]:
+            assert self.post("/receipt-reading", {"enabled": False, "scope_version": 1}).status_code == 200
         if consent:
+            if not shown["enabled"]:
+                enabled = self.post(
+                    "/receipt-reading",
+                    {
+                        "enabled": True,
+                        "scope_version": shown["scope_version"],
+                        "disclosure_token": shown["disclosure_token"],
+                    },
+                )
+                assert enabled.status_code == 200, enabled.text
             headers["X-Extraction-Consent"] = "true"
         return self.client.post(BASE + "/receipts", content=content, headers=headers)
 
@@ -417,10 +436,17 @@ def test_saved_receipt_prepares_only_with_consent(
         "document_extraction_consent_required",
     )
     assert stub.calls == []
-    queued = alice.post(
-        f"/receipts/{uploaded['id']}/prepare", **{"X-Extraction-Consent": "true"}
+    shown = alice.get("/receipt-reading").json()
+    enabled = alice.post(
+        "/receipt-reading",
+        {
+            "enabled": True,
+            "scope_version": shown["scope_version"],
+            "disclosure_token": shown["disclosure_token"],
+        },
     )
-    assert (queued.status_code, queued.json()["status"]) == (200, "queued")
+    assert enabled.status_code == 200, enabled.text
+    assert alice.detail(uploaded["id"])["status"] == "review_ready"
     assert alice.detail(uploaded["id"])["status"] == "review_ready"
     assert stub.calls == [uploaded["id"]]
 
@@ -517,7 +543,10 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
             }
         ]
     }
-    assert alice.get("/receipts", view="inbox").json() == {"items": []}
+    assert alice.get("/receipts", view="inbox").json() == {
+        "items": [],
+        "activity": {"reading_count": 0, "unread_count": 0, "presentation": "none"},
+    }
     [saved] = alice.get("/receipts", view="all").json()["items"]
     assert (saved["status"], saved["expense_id"]) == ("confirmed", expense_id)
 
@@ -571,6 +600,7 @@ def test_overview_totals_each_currency_and_counts_the_inbox(alice: Owner) -> Non
             key=str(uuid4()),
         )
     prepared(alice)
+    alice.post("/receipt-reading", {"enabled": False, "scope_version": 1})
     alice.upload(content=RECEIPT + b"\0", consent=False)
     overview = alice.get("/overview", **{"from": "2026-10-01", "to": "2026-10-31"}).json()
     assert {
@@ -646,7 +676,10 @@ def test_source_returns_the_uploaded_bytes_only_to_the_owner(
     assert [(r.status_code, r.json()["code"]) for r in calls] == [
         (404, "receipt_not_found")
     ] * 5
-    assert bob.get("/receipts", view="all").json() == {"items": []}
+    assert bob.get("/receipts", view="all").json() == {
+        "items": [],
+        "activity": {"reading_count": 0, "unread_count": 0, "presentation": "none"},
+    }
     window = {"from": "2026-10-01", "to": "2026-10-31"}
     assert bob.get("/expenses", **window).json() == {"items": []}
     assert [e["id"] for e in alice.get("/expenses", **window).json()["items"]] == [
@@ -685,3 +718,88 @@ def test_a_multi_row_csv_waits_for_attention_with_every_row_kept(
     assert alice.get(
         "/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}
     ).json() == {"items": []}
+
+
+def test_upload_header_does_not_enable_business_reading(alice, stub):
+    response = alice.client.post(
+        BASE + "/receipts",
+        content=RECEIPT,
+        headers={
+            **alice.auth,
+            "Content-Type": "image/png",
+            "Idempotency-Key": str(uuid4()),
+            "X-Extraction-Consent": "true",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["activity"]["state"] == "saved_unread"
+    assert stub.calls == []
+    assert alice.get("/receipt-reading").json()["enabled"] is False
+
+
+def test_owner_enabling_reads_backlog_once_and_disabling_stops_new_reads(alice, stub):
+    saved = alice.upload(consent=False).json()
+    assert alice.get("/receipt-activity").json()["unread_count"] == 1
+    shown = alice.get("/receipt-reading").json()
+    body = {
+        "enabled": True,
+        "scope_version": 1,
+        "disclosure_token": shown["disclosure_token"],
+    }
+    assert alice.post("/receipt-reading", body).status_code == 200
+    assert alice.detail(saved["id"])["activity"]["state"] == "ready"
+    assert len(stub.calls) == 1
+    assert alice.post("/receipt-reading", body).status_code == 200
+    assert len(stub.calls) == 1
+    assert (
+        alice.post("/receipt-reading", {"enabled": False, "scope_version": 1}).status_code
+        == 200
+    )
+    second = alice.upload(content=RECEIPT + b"another", consent=False).json()
+    assert second["activity"]["state"] == "saved_unread"
+    assert len(stub.calls) == 1
+
+
+def test_receipt_list_and_detail_share_cursor_and_ack_does_not_record_money(alice):
+    rid = prepared(alice)
+    detail = alice.detail(rid)
+    listed = next(
+        row for row in alice.get("/receipts").json()["items"] if row["id"] == rid
+    )
+    assert (
+        listed["activity"]["completion_cursor"] == detail["activity"]["completion_cursor"]
+    )
+    before = alice.get("/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}).json()
+    ack = alice.post(
+        f"/receipts/{rid}/read",
+        {"completion_cursor": detail["activity"]["completion_cursor"]},
+    )
+    assert ack.status_code == 200, ack.text
+    assert ack.json()["unread"] is False
+    assert (
+        alice.get("/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}).json()
+        == before
+    )
+
+
+def test_missing_source_does_not_strand_other_unread_receipts(alice, stub):
+    first = alice.upload(consent=False).json()
+    second = alice.upload(content=RECEIPT + b"second", consent=False).json()
+    documents = documents_service()
+    draft = documents.store.draft(
+        user_id=alice.scope().person_id, connection_id=first["id"]
+    )
+    documents._update(alice.scope().person_id, draft, source_available=False)
+    shown = alice.get("/receipt-reading").json()
+    enabled = alice.post(
+        "/receipt-reading",
+        {
+            "enabled": True,
+            "scope_version": 1,
+            "disclosure_token": shown["disclosure_token"],
+        },
+    )
+    assert enabled.status_code == 200, enabled.text
+    assert alice.detail(second["id"])["activity"]["state"] in ("ready", "read_failed")
+    assert len(stub.calls) == 1
+    assert alice.detail(first["id"])["activity"]["state"] == "saved_unread"

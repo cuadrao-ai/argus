@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowLeft, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
+import ReceiptReadingControl from "./ReceiptReadingControl";
 import ReceiptDossierReview from "./ReceiptDossierReview";
 import ReceiptReadNotice from "./ReceiptReadNotice";
 import { rebindAndPrepare } from "./receipt-rebind";
@@ -47,7 +49,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
   const attentionLabel = useAttentionLabel();
-  const { source, reload, openPanel } = useBusiness();
+  const { source, reload, openPanel, revision } = useBusiness();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [failed, setFailed] = useState(false);
@@ -61,8 +63,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const retainReceipt = useCallback(() => setUnprepared(true), []);
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     source
-      .receipt(receiptId)
+      .receipt(receiptId, controller.signal)
       .then((next) => {
         if (cancelled) return;
         setDetail(next);
@@ -71,8 +74,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [receiptId, source]);
+  }, [receiptId, source, revision]);
 
   const { accounts, canPrepare, canApprove } = detail ? receiptReviewAccess(detail) : { accounts: [], canPrepare: false, canApprove: false };
   const currencies = [...new Set(accounts.map((account) => account.currency))];
@@ -115,7 +119,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     );
   }
   if (!detail || !draft) return <LoadingRows rows={4} />;
-  if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} />;
+  if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
+  if (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading") return <section><ReceiptSourcePreview detail={detail} /><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></section>;
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
   const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
 
@@ -298,15 +303,6 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 </>
               ) : null}
             </div>
-          ) : detail.preparable && canPrepare ? (
-            <div className={cardClass}>
-              <p className="text-[14px] text-black/75 dark:text-white/75">
-                {t("business.review.consent", "Cuadrao can read this receipt with AI and fill in the details for you to check. The receipt is sent to our AI provider only if you choose this. You can also fill in the details yourself.")}
-              </p>
-              <button type="button" disabled={busy !== null} onClick={() => void prepare()} className={`${secondaryButtonClass} mt-3`}>
-                {t("business.review.prepare", "Prepare with AI")}
-              </button>
-            </div>
           ) : null}
           <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={detail.enterable && canPrepare && !locked} preparable={detail.preparable && canPrepare} />
           {waitingForAi && readStalled ? (
@@ -440,6 +436,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           ) : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
         </div>
       </div>
+      <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
     </section>
   );
 }

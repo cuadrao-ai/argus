@@ -27,6 +27,7 @@ import {
   type BusinessWorkspaceInfo,
   type GrantedSpace,
   type ReceiptSummary,
+  type ReceiptActivityCounts,
 } from "@/lib/business-api";
 import { getChosenGrant, grantNotLive, setChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
@@ -43,6 +44,7 @@ import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
 import RecordExpenseDialog from "./RecordExpenseDialog";
 import ManualCaptureDialog from "./ManualCaptureDialog";
+import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 
 export type BusinessPanelState =
@@ -59,6 +61,7 @@ type Records = {
   workspace: BusinessWorkspaceInfo | null;
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
+  receiptActivity?: ReceiptActivityCounts | null;
   /** Saved notes, newest first; null until loaded. A notes outage never hides receipts. */
   notes: BusinessCapture[] | null;
   notesError: boolean;
@@ -125,6 +128,7 @@ const EMPTY_RECORDS: Records = {
   workspace: null,
   overview: null,
   inbox: null,
+  receiptActivity: null,
   notes: null,
   notesError: false,
   notesTruncated: false,
@@ -285,10 +289,10 @@ export function BusinessWorkspaceProvider({
     Promise.all([
       source.workspace(),
       source.overview(period.from, period.to),
-      source.receipts("inbox"),
+      source.receiptPage?.("inbox") ?? source.receipts("inbox").then((items) => ({ items, activity: null })),
     ])
-      .then(([workspace, overview, inbox]) => {
-        if (!cancelled) setRecords((current) => ({ ...current, workspace, overview, inbox, error: false }));
+      .then(([workspace, overview, page]) => {
+        if (!cancelled) setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false }));
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -305,6 +309,14 @@ export function BusinessWorkspaceProvider({
       cancelled = true;
     };
   }, [onRecord, period.from, period.to, revision, source]);
+
+  useReceiptInboxRefresh({
+    source,
+    active: !onRecord && panel.kind === "inbox" && bridge?.currentView !== "chat",
+    reading: !onRecord && (records.receiptActivity?.reading_count ?? 0) > 0,
+    businessKey: chosenGrant,
+    onRefresh: (page) => { if (!onRecord) setRecords((value) => ({ ...value, inbox: page.items, receiptActivity: page.activity })); },
+  });
 
   useEffect(() => {
     let cancelled = false;

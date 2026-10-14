@@ -146,6 +146,8 @@ class Receipt:
 
     @property
     def status(self) -> ReceiptStatus:
+        if self.review.status == "saved" and self.draft.error_code is not None:
+            return "needs_attention"
         # Prepared, yet with no single purchase to confirm: the owner must look.
         if self.review.status == "review_ready" and self.review.blocker is not None:
             return "needs_attention"

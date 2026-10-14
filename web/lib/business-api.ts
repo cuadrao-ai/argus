@@ -47,8 +47,30 @@ export type ReceiptReviewFields = {
   account_id: string | null;
 };
 
+export type ReceiptActivity = {
+  state: "saved_unread" | "reading" | "ready" | "read_failed" | "blocked" | "inactive";
+  unread: boolean;
+  completion_cursor: string | null;
+};
+export type ReceiptActivityCounts = { reading_count: number; unread_count: number; presentation: "working" | "unread" | "none" };
+export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
+
+export function getReceiptActivity(signal?: AbortSignal): Promise<ReceiptActivityCounts> {
+  return apiFetch("/business/receipt-activity", { signal });
+}
+export function getReceiptReading(language: ArgusLanguage, signal?: AbortSignal): Promise<ReceiptReading> {
+  return apiFetch(`/business/receipt-reading?language=${encodeURIComponent(language)}`, { signal });
+}
+export function setReceiptReading(reading: ReceiptReading, enabled: boolean, language: ArgusLanguage, signal?: AbortSignal): Promise<ReceiptReading> {
+  return apiFetch("/business/receipt-reading", { method: "POST", signal, headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ enabled, scope_version: reading.scope_version, disclosure_token: reading.disclosure_token, language }) });
+}
+export function markReceiptRead(id: string, completionCursor: string): Promise<ReceiptActivity> {
+  return apiFetch(`/business/receipts/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({ completion_cursor: completionCursor }) });
+}
+
 export type ReceiptSummary = ReceiptReviewFields & {
   id: string;
+  activity?: ReceiptActivity | null;
   channel: ReceiptChannel;
   filename: string | null;
   /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
@@ -338,6 +360,10 @@ export async function getBusinessOverview(
   return apiFetch(`/business/overview?${query}`);
 }
 
+export function getBusinessReceiptPage(view: "inbox" | "all", signal?: AbortSignal): Promise<{ items: ReceiptSummary[]; activity: ReceiptActivityCounts }> {
+  return apiFetch(`/business/receipts?view=${view}`, { signal });
+}
+
 export async function listBusinessReceipts(
   view: "inbox" | "all",
 ): Promise<ReceiptSummary[]> {
@@ -347,8 +373,8 @@ export async function listBusinessReceipts(
   return page.items;
 }
 
-export async function getBusinessReceipt(id: string): Promise<ReceiptDetail> {
-  return apiFetch(`/business/receipts/${encodeURIComponent(id)}`);
+export async function getBusinessReceipt(id: string, signal?: AbortSignal): Promise<ReceiptDetail> {
+  return apiFetch(`/business/receipts/${encodeURIComponent(id)}`, { signal });
 }
 
 export async function listBusinessUpdates(): Promise<BusinessUpdate[]> {

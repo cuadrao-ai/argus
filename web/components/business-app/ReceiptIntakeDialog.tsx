@@ -1,5 +1,7 @@
 "use client";
 
+import ReceiptReadingControl from "./ReceiptReadingControl";
+
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Camera, ClipboardPaste, FileUp, ReceiptText, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -49,7 +51,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const replacingRef = useRef<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const entries = useSyncExternalStore(queue.subscribe, queue.snapshot, queue.snapshot).filter((item) => item.target === target);
-  const [consent, setConsent] = useState(false);
+  const consent = false;
   const [dragging, setDragging] = useState(false);
   const [clipboardEmpty, setClipboardEmpty] = useState(false);
   const uploading = queue.uploading;
@@ -263,18 +265,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           <p className="text-xs text-black/60 dark:text-white/60">{t("business.intake.retry_consent", "Retries keep the AI choice from the first attempt.")}</p>
         ) : null}
 
-        <label data-testid="receipt-ai-consent" className="flex items-start gap-3 rounded-[14px] bg-black/[0.03] p-3 text-[14px] text-black/75 dark:bg-white/[0.04] dark:text-white/75">
-          <input
-            type="checkbox"
-            checked={consent}
-            disabled={uploading}
-            onChange={(event) => setConsent(event.target.checked)}
-            className="mt-0.5 h-5 w-5 shrink-0 accent-black dark:accent-white"
-          />
-          <span>
-            {t("business.intake.consent", "Prepare it with AI after saving. The receipt is sent to our AI provider to fill in the details for your review. Leave this off to fill them in yourself.")}
-          </span>
-        </label>
+        <ReceiptReadingControl />
         {unfinished ? (
           <p className="text-xs text-black/60 dark:text-white/60">
             {t("business.intake.keep_open", "You can close this panel and come back to your uploads. Keep this page open until every file is saved.")}

@@ -171,6 +171,9 @@ Every uuid column whose name marks a person or a membership, or that has a forei
 | `business_email_routes.granted_by` | no | `auth.users` CASCADE |
 | `business_email_routes.principal_id` | no | `auth.users` CASCADE |
 | `business_client_grants.issuer_id` | no | `auth.users` CASCADE |
+| `business_receipt_consent_commands.owner_id` | no | `auth.users` CASCADE |
+| `business_receipt_read_states.person_id` | no | `auth.users` CASCADE |
+| `business_receipt_reading_consents.owner_id` | no | `auth.users` CASCADE |
 | `business_turns.actor_id` | no | `auth.users` CASCADE |
 | `chat_turn_lifecycles.user_id` | no | `profiles` CASCADE |
 | `collection_strategies.user_id` | no | `profiles` CASCADE |
@@ -428,6 +431,13 @@ The October 10 C0 catalog adds sixteen foreign keys, all nondeferrable `ON DELET
 | `business_draft_sources` | `source_id, space_id` | `business_sources` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with its source during step 2 or space deletion at step 7. |
 | `business_questions` | `answer_source_id, space_id` | `business_sources` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Delete the answered question with its source at step 2; never null or rewrite answered provenance. |
 | `business_questions` | `draft_id, space_id` | `financial_import_events` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with its canonical import event; no orphaned question. |
+| `business_receipt_consent_commands` | `owner_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | The consent command goes with its actual owner at step 7; do not substitute a placeholder. |
+| `business_receipt_consent_commands` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
+| `business_receipt_read_states` | `connection_id` | `financial_source_connections` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | Goes with its receipt source when that source is deleted. |
+| `business_receipt_read_states` | `person_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | The personal read boundary goes with its actual viewer at step 7; do not transfer it to another person. |
+| `business_receipt_read_states` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
+| `business_receipt_reading_consents` | `owner_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | The consent generation goes with its actual owner at step 7; do not transfer consent to a placeholder. |
+| `business_receipt_reading_consents` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
 | `business_sender_leases` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove worker ownership with the Business space at step 7. |
 | `business_sources` | `connection_id, space_id` | `financial_source_connections` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Existing step 2 source-connection deletion cascades attachments and answered questions before import events. Direct source deletion remains denied. |
 | `business_sources` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Delete message, web-action and other original evidence with its Business space at step 7; no retention exception. |

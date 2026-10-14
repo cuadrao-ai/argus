@@ -238,7 +238,9 @@ def test_the_overlay_leaves_a_receipt_without_a_draft_alone(actions):  # noqa: A
     service, context, _ = actions
     web = _web(service, context)
     summary = {"id": str(UUID(int=7)), "status": "saved", "attention": None}
-    assert bridged(web, [summary]) == [summary]
+    result = bridged(web, [summary])[0]
+    assert {key: result[key] for key in summary} == summary
+    assert result["activity"]["state"] == "saved_unread"
 
 
 def test_a_repeat_receipt_shows_as_a_duplicate_of_its_original_in_every_view(actions):  # noqa: ANN001

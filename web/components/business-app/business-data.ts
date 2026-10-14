@@ -34,9 +34,14 @@ export type BusinessDataSource = Readonly<{
   /** The person dismissed the one-time access line for one of their grants. */
   markAccessSeen: (grantId: string) => Promise<void>;
   workspace: () => Promise<BusinessWorkspaceInfo>;
+  receiptActivity?: typeof api.getReceiptActivity;
+  receiptPage?: typeof api.getBusinessReceiptPage;
+  receiptReading?: typeof api.getReceiptReading;
+  setReceiptReading?: typeof api.setReceiptReading;
+  markReceiptRead?: typeof api.markReceiptRead;
   overview: (from: string, to: string | null) => Promise<BusinessOverview>;
   receipts: (view: "inbox" | "all") => Promise<ReceiptSummary[]>;
-  receipt: (id: string) => Promise<ReceiptDetail>;
+  receipt: (id: string, signal?: AbortSignal) => Promise<ReceiptDetail>;
   dossier: (id: string) => Promise<BusinessDossier>;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
   approveDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
@@ -77,6 +82,11 @@ export const liveBusinessDataSource: BusinessDataSource = {
   mode: "live",
   ensureSpace: api.startBusinessSpace,
   workspace: api.getBusinessWorkspace,
+  receiptActivity: api.getReceiptActivity,
+  receiptPage: api.getBusinessReceiptPage,
+  receiptReading: api.getReceiptReading,
+  setReceiptReading: api.setReceiptReading,
+  markReceiptRead: api.markReceiptRead,
   overview: api.getBusinessOverview,
   receipts: api.listBusinessReceipts,
   receipt: api.getBusinessReceipt,
@@ -143,6 +153,11 @@ export function withBusinessSpace(
     mode: source.mode,
     ensureSpace: ready,
     workspace: after(source.workspace),
+    receiptActivity: source.receiptActivity ? after(source.receiptActivity) : undefined,
+    receiptPage: source.receiptPage ? after(source.receiptPage) : undefined,
+    receiptReading: source.receiptReading ? after(source.receiptReading) : undefined,
+    setReceiptReading: source.setReceiptReading,
+    markReceiptRead: source.markReceiptRead,
     overview: after(source.overview),
     receipts: after(source.receipts),
     receipt: source.receipt,

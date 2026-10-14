@@ -69,6 +69,8 @@ def test_modal_request_saves_a_4_mib_jpeg_and_replays_without_duplication(
 ) -> None:
     owner = Owner(biz, ALICE)
     assert owner.start().status_code == 201
+    if consent:
+        assert owner.reading(True).status_code == 200
     image = io.BytesIO()
     Image.new("RGB", (16, 16), "white").save(image, format="JPEG")
     # Valid JPEG with trailing padding: match the reported file size without

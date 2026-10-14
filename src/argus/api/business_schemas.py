@@ -113,8 +113,34 @@ class CreateBusinessAccount(_Wire):
     currency: str = Field(min_length=3, max_length=3)
 
 
+class ReceiptActivity(_Wire):
+    state: Literal[
+        "saved_unread", "reading", "ready", "read_failed", "blocked", "inactive"
+    ]
+    unread: bool
+    completion_cursor: str | None
+
+
+class ReceiptActivityCounts(_Wire):
+    reading_count: int
+    unread_count: int
+    presentation: Literal["working", "unread", "none"]
+
+
+class ReceiptReadingBody(_Wire):
+    enabled: bool = Field(strict=True)
+    scope_version: int = Field(strict=True, ge=1, le=1)
+    disclosure_token: str | None = Field(default=None, min_length=64, max_length=64)
+    language: Literal["en", "es-419"] = "en"
+
+
+class ReceiptReadBody(_Wire):
+    completion_cursor: str = Field(min_length=64, max_length=64, pattern="^[a-f0-9]{64}$")
+
+
 class ReceiptSummary(_Wire):
     id: str
+    activity: ReceiptActivity | None = None
     # ``email`` is decided at the API boundary from the email queue.
     channel: Literal["web", "whatsapp", "email"]
     filename: str | None
@@ -183,6 +209,7 @@ class ReceiptDetail(ReceiptSummary):
 
 class ReceiptPage(_Wire):
     items: list[ReceiptSummary]
+    activity: ReceiptActivityCounts | None = None
 
 
 class ReceiptReviewBody(_Wire):

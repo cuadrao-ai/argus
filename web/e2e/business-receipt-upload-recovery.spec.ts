@@ -7,7 +7,7 @@ async function openIntake(page: Page) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
-  const attempts: { key: string; consent: string; bytes: Buffer }[] = [];
+  const attempts: { key: string; consent: string | undefined; bytes: Buffer }[] = [];
   const state = { status: 422 };
   await page.route("**/api/v1/business/**", async (route) => {
     const request = route.request();
@@ -20,9 +20,10 @@ async function openIntake(page: Page) {
       attempts.push({ key: request.headers()["idempotency-key"], consent: request.headers()["x-extraction-consent"], bytes: request.postDataBuffer() ?? Buffer.alloc(0) });
       return route.fulfill({ status: state.status, json: { code: state.status === 415 ? "document_media_type_unsupported" : "invalid_document", detail: "PRIVATE_VALIDATION_DETAIL" } });
     }
+    if (path === "receipt-reading") return route.fulfill({ json: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Permiso explícito del negocio para correo, WhatsApp y archivos.", disclosure_token: "a".repeat(64), route: { gateway: "synthetic", interpretation: [{ model: "fixture-reader" }], reply: [] }, consented_at: null, revoked_at: null } });
     if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Negocio de prueba" } });
     if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
-    if (path === "receipts" || path === "captures" || path === "updates") return route.fulfill({ json: { items: [] } });
+    if (path === "receipts" || path === "captures" || path === "updates") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });
     if (path === "spaces") return route.fulfill({ json: { spaces: [] } });
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
@@ -37,28 +38,27 @@ async function openIntake(page: Page) {
 for (const width of [1280, 390]) {
   test.describe(`Receipt upload recovery ${width}px`, () => {
     test.use({ viewport: { width, height: 844 } });
-    test("failed upload stays inline, retries the same file and consent, and offers replacement for an unsupported file", async ({ page }, testInfo) => {
+    test("failed upload stays inline, retries the same file and idempotency key, and offers replacement for an unsupported file", async ({ page }, testInfo) => {
       const { dialog, attempts, state } = await openIntake(page);
       const picker = dialog.locator('input[type="file"]').first();
       const content = Buffer.alloc(Math.round(4.1 * 1024 * 1024), 1);
       await picker.setInputFiles({ name: "synthetic.jpg", mimeType: "image/jpeg", buffer: content });
-      const consent = dialog.getByTestId("receipt-ai-consent");
-      await consent.scrollIntoViewIfNeeded();
-      await consent.getByRole("checkbox").check();
-      const consentBounds = await consent.boundingBox();
+      await expect(dialog.getByTestId("receipt-ai-consent")).toHaveCount(0);
+      const reading = dialog.getByTestId("receipt-reading-control");
+      await reading.scrollIntoViewIfNeeded();
+      const readingBounds = await reading.boundingBox();
       const footerBounds = await dialog.getByTestId("receipt-intake-footer").boundingBox();
-      if (!consentBounds || !footerBounds) throw new Error("Consent and footer must render");
-      expect(consentBounds.y).toBeGreaterThanOrEqual(0);
-      expect(consentBounds.y + consentBounds.height).toBeLessThanOrEqual(footerBounds.y);
+      if (!readingBounds || !footerBounds) throw new Error("Reading setting and footer must render");
+      expect(readingBounds.y).toBeGreaterThanOrEqual(0);
+      expect(readingBounds.y + readingBounds.height).toBeLessThanOrEqual(footerBounds.y);
       expect(footerBounds.y + footerBounds.height).toBeLessThanOrEqual(844);
-      await page.screenshot({ path: testInfo.outputPath(`receipt-upload-consent-${width}.png`) });
+      await page.screenshot({ path: testInfo.outputPath(`receipt-upload-reading-${width}.png`) });
       await dialog.getByRole("button", { name: "Guardar los archivos pendientes", exact: true }).click();
       await expect(dialog.getByRole("alert")).toHaveText("No pudimos leer el recibo. Inténtalo de nuevo.");
       await expect(dialog).not.toContainText("PRIVATE_VALIDATION_DETAIL");
       await expect(dialog).not.toContainText("422");
       await expect(dialog).not.toContainText("XML, XML");
-      // Changing the checkbox cannot change the first attempt's consent.
-      await consent.getByRole("checkbox").uncheck();
+      expect(attempts[0].consent).toBeUndefined();
       state.status = 415;
       await dialog.getByRole("button", { name: "Reintentar", exact: true }).click();
       await expect(dialog.getByRole("alert")).toContainText("Este archivo no es compatible. Prueba con");

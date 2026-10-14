@@ -2206,6 +2206,18 @@
     }
   },
   "business": {
+    "activity": {
+      "all_channels": "Receipt reading is managed for your Business across email, WhatsApp and uploads.",
+      "error": "Receipt reading could not be updated. Try again.",
+      "mark_read": "Mark as read",
+      "open_settings": "Open receipt reading settings",
+      "owner_only": "The Business owner can turn receipt reading on.",
+      "reading_on": "Receipt reading is on.",
+      "saved_prompt": "Your receipts are saved unread. Turn on receipt reading to prepare them for review.",
+      "saved_row": "Saved unread. Waiting for receipt reading.",
+      "turn_off": "Turn reading off",
+      "turn_on": "Turn receipt reading on"
+    },
     "export": {
       "title": "Export Business records",
       "scope": "{{name}} · CSV, Excel and retained originals in one ZIP.",

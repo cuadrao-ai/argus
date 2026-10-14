@@ -173,6 +173,7 @@ class DocumentDraft(_Frozen):
     source_available: bool = True
     status: DraftStatus = "saved"
     consent: bool = False
+    business_reading_consent_id: str | None = None
     version: int = 1
     created_at: datetime
     updated_at: datetime

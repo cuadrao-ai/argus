@@ -408,3 +408,26 @@ async def test_aggregate_pixel_overflow_rejects_before_any_document_capture(monk
     assert (saved.state, saved.error_code) == ("rejected", "document_email_limit")
     assert not world.drafts()
     assert not world.store.parts(delivery.id)
+
+
+@pytest.mark.asyncio
+async def test_ai_dispatch_happens_after_capture_settles_and_failure_keeps_original():
+    world = rig(message(("receipt.png", "image/png", png())))
+    delivery = world.enqueue()
+    seen = []
+
+    async def read(route, connection_id):
+        captured = world.store.get(delivery.id, route.space_id)
+        assert captured.state == "captured"
+        assert captured.lease_token is None
+        seen.append(connection_id)
+        raise DocumentServiceError("document_reading_not_allowed")
+
+    world.runtime.read_receipt = read
+    assert await world.runtime.next()
+    captured = world.store.get(delivery.id, world.route.space_id)
+    assert captured.state == "captured"
+    assert captured.original_document_id is not None
+    assert len(seen) == 1
+    assert seen[0] != captured.original_document_id
+    assert len(world.drafts()) == 2

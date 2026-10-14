@@ -2206,6 +2206,18 @@
     }
   },
   "business": {
+    "activity": {
+      "all_channels": "La lectura de recibos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
+      "error": "No se pudo actualizar la lectura de recibos. Inténtalo de nuevo.",
+      "mark_read": "Marcar como leído",
+      "open_settings": "Abrir configuración de lectura",
+      "owner_only": "El dueño del negocio puede activar la lectura de recibos.",
+      "reading_on": "La lectura de recibos está activada.",
+      "saved_prompt": "Tus recibos están guardados sin leer. Activa la lectura para prepararlos para revisión.",
+      "saved_row": "Guardado sin leer. En espera de la lectura de comprobantes.",
+      "turn_off": "Desactivar lectura",
+      "turn_on": "Activar lectura de recibos"
+    },
     "export": {
       "title": "Exportar registros del negocio",
       "scope": "{{name}} · CSV, Excel y originales conservados en un ZIP.",

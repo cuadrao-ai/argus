@@ -1,5 +1,8 @@
 "use client";
 
+import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
+import type { ReceiptDetail } from "@/lib/business-api";
+
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Download, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -136,7 +139,7 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
   </section>;
 }
 
-export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftId: string; onUnprepared?: () => void }) {
+export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }: { draftId: string; onUnprepared?: () => void; receipt?: ReceiptDetail }) {
   const { t, i18n } = useTranslation();
   const { source, openPanel, reload } = useBusiness();
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
@@ -305,6 +308,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared }: { draftI
           </div>
         </div>
       </div>
+      {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
     </section>{captureDialog}</>
   );
 }

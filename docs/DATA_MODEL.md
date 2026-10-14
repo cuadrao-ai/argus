@@ -3410,6 +3410,12 @@ boundary proposal is approved.
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
 
+### Business receipt reading consent and attention
+
+`20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version 1, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.
+
+`business_receipt_read_states` stores `(space_id,person_id,connection_id)` and the exact server completion cursor. It stores no money, review facts or source text. An acknowledgement under the live read grant locks and rechecks the canonical record before changing only that person's boundary. `business_receipt_activity_baseline` records the migration time. Completions established before it start read without changing receipt content. New completions on old receipts remain unread. Tables have RLS with no direct client grants; only the existing service-role backend mutates them.
+
 ### Business WhatsApp AI permission
 
 `business_whatsapp_ai_consents` is server-only, with RLS and no client grants.
