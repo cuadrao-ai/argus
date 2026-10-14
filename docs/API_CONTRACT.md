@@ -8541,6 +8541,14 @@ no preparation job starts and no model can be called. Without financial
 accounts every route answers 404 `financial_connections_unavailable`. Plaid,
 Gmail, Shortcuts and `GET /api/v1/financial-connections` keep their own gates.
 
+Capture validation and source persistence run in a worker thread, with one
+active capture per app-owned document service. Request cancellation waits for
+an active capture to settle before releasing that slot. EML upload, preparation
+and received-message intake share the existing 20,000,000-pixel image cap across
+all image attachments in one email. Dimensions are checked before full decoding;
+an aggregate overflow is `document_email_limit`, before any source is saved.
+Existing per-image, byte, MIME depth/part and preparation page limits still apply.
+
 Capture responds with `{connection_id,status,replayed,candidate_count}`. Every
 upload answer, success or problem, is `Cache-Control: no-store`. The stored
 filename drops control and format characters (bidi overrides included) and is

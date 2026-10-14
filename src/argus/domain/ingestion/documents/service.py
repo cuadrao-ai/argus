@@ -130,6 +130,8 @@ class DocumentsService:
         business_preparation_required: bool = False,
     ) -> None:
         self.hub, self.store, self.extractor = hub, store, extractor
+        # One bounded decode/capture at a time on this app-owned service.
+        self._capture_slot = asyncio.Semaphore(1)
         self.business_actions = business_actions
         # Asked at the moment of a read, so a permission withdrawn after the
         # draft was queued stops a read that has not started.
@@ -281,6 +283,58 @@ class DocumentsService:
         source_text: str | None = None,
         scope: OwnerScope,
         on_capture: CaptureHook | None = None,
+    ) -> DocumentOutcome:
+        def capture() -> DocumentOutcome | BaseException:
+            try:
+                return self._upload(
+                    user_id=user_id,
+                    content=content,
+                    filename=filename,
+                    media_type=media_type,
+                    consent=consent,
+                    proposal=proposal,
+                    source_text=source_text,
+                    scope=scope,
+                    on_capture=on_capture,
+                )
+            except BaseException as error:
+                # SystemExit/KeyboardInterrupt must travel as data: raising
+                # either inside the worker Task stops the caller's event loop.
+                return error
+
+        async with self._capture_slot:
+            worker = asyncio.create_task(asyncio.to_thread(capture))
+            try:
+                result = await asyncio.shield(worker)
+            except asyncio.CancelledError:
+                # A thread cannot be cancelled. Keep its slot and caller alive
+                # until the write settles, even if cancellation repeats.
+                while not worker.done():
+                    try:
+                        await asyncio.shield(worker)
+                    except asyncio.CancelledError:
+                        continue
+                    except Exception:
+                        break
+                if not worker.cancelled():
+                    worker.exception()
+                raise
+            if isinstance(result, BaseException):
+                raise result
+            return result
+
+    def _upload(
+        self,
+        *,
+        user_id: str,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        consent: bool,
+        proposal: DraftProposal | None,
+        source_text: str | None,
+        scope: OwnerScope,
+        on_capture: CaptureHook | None,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
         digest = hashlib.sha256(content).hexdigest()

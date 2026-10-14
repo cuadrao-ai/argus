@@ -194,3 +194,69 @@ def test_an_xml_attachment_that_is_not_an_ecf_names_no_currency():
     prepared = prepare_document(content, "message/rfc822")
     assert prepared.pages == 2 and prepared.document_currency is None
     assert "r/total: 150" in prepared.text
+
+
+@pytest.mark.parametrize("entry", ["validate", "prepare", "envelope"])
+@pytest.mark.parametrize("nested", [False, True])
+def test_email_pixel_budget_precedes_image_decode(monkeypatch, entry, nested):
+    from argus.domain.ingestion.documents import preparation
+    from argus.domain.ingestion.email_intake.envelope import parse_envelope
+
+    monkeypatch.setattr(preparation, "MAX_PIXELS", 2 * 40 * 40 - 1)
+    msg = EmailMessage()
+    msg["From"] = "sender@example.test"
+    msg.set_content("Receipt attached")
+    msg.add_attachment(png(), maintype="image", subtype="png", filename="first.png")
+    msg.add_attachment(png(), maintype="image", subtype="png", filename="second.png")
+    if nested:
+        outer = EmailMessage()
+        outer["From"] = "sender@example.test"
+        outer.make_mixed()
+        outer.attach(msg)
+        msg = outer
+    decode = []
+    original = preparation._image
+
+    def track(*args):
+        decode.append(True)
+        return original(*args)
+
+    monkeypatch.setattr(preparation, "_image", track)
+    reader = {
+        "validate": lambda raw: validate_source(raw, "message/rfc822"),
+        "prepare": lambda raw: prepare_document(raw, "message/rfc822"),
+        "envelope": parse_envelope,
+    }[entry]
+    with pytest.raises(DocumentExtractionError, match="document_email_limit"):
+        reader(msg.as_bytes())
+    assert not decode
+
+
+@pytest.mark.parametrize("entry", ["validate", "prepare", "envelope"])
+def test_email_pixel_budget_accepts_exact_boundary(monkeypatch, entry):
+    from argus.domain.ingestion.documents import preparation
+    from argus.domain.ingestion.email_intake.envelope import parse_envelope
+
+    monkeypatch.setattr(preparation, "MAX_PIXELS", 2 * 40 * 40)
+    raw = message((png(), "image", "png", "one.png"), (png(), "image", "png", "two.png"))
+    reader = {
+        "validate": lambda raw: validate_source(raw, "message/rfc822"),
+        "prepare": lambda raw: prepare_document(raw, "message/rfc822"),
+        "envelope": parse_envelope,
+    }[entry]
+    reader(raw)
+
+
+def test_email_inline_image_also_uses_received_message_budget(monkeypatch):
+    from argus.domain.ingestion.documents import preparation
+    from argus.domain.ingestion.email_intake.envelope import parse_envelope
+
+    monkeypatch.setattr(preparation, "MAX_PIXELS", 2 * 40 * 40 - 1)
+    msg = EmailMessage()
+    msg["From"] = "sender@example.test"
+    msg.set_content("Receipt attached")
+    for name in ("receipt.png", "inline.png"):
+        msg.add_attachment(png(), maintype="image", subtype="png", filename=name)
+    msg.get_payload()[-1].replace_header("Content-Disposition", "inline")
+    with pytest.raises(DocumentExtractionError, match="document_email_limit"):
+        parse_envelope(msg.as_bytes())
