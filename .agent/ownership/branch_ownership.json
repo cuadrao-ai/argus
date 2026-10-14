@@ -2349,6 +2349,7 @@
         "render.yaml",
         "scripts/ops/staging_env_manifest.json",
         "tests/test_environment_scripts.py",
+        "tests/test_staging_auth_email_config.py",
         "web/.env.local.example",
         "web/__tests__/auth-email-hook.test.ts",
         "web/__tests__/auth-email-transport.test.ts",

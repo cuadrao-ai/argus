@@ -422,15 +422,6 @@ def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
     entries = manifest["services"]["web"]["entries"]
     held = {entry["name"] for entry in manifest["services"]["web"]["hold"]}
-    assert {"CUADRAO_AUTH_EMAIL_HOOK_SECRET", "CUADRAO_AUTH_EMAIL_RESEND_API_KEY"} <= held
-    assert (
-        next(
-            entry["value"]
-            for entry in entries
-            if entry["name"] == "CUADRAO_AUTH_EMAIL_HOOK_ENABLED"
-        )
-        == "false"
-    )
     assert set(stage) == {entry["name"] for entry in entries} | held | {
         "NEXT_PUBLIC_APP_ENV",
         "NEXT_PUBLIC_MOCK_AUTH",
