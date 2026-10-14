@@ -103,6 +103,21 @@ cases:
           plan_references:
             - {action_index: 0, existing_draft: draft_a, version: 2}
           visible_sources: [message_a1, message_a2, message_a3]
+      - actor: accountant_a
+        channel: web
+        command_key: approval_a0_refused
+        command: {action: approve_expense, draft: draft_a, version: current_dossier}
+        expect:
+          submitted_reviewed_version: 3
+          draft_count: 0
+          draft_versions: {}
+          draft_sources: {}
+          draft_facts: {}
+          questions: []
+          money: {record_count: 0, bank_balance_delta: '0', personal_balance_delta: '0', bank_versions_unchanged: true, personal_versions_unchanged: true, bank_record_count: 0, personal_record_count: 0}
+          actions: []
+          transport: {status: 403, code: business_permission_denied}
+          visible_sources: [message_a1, message_a2, message_a3]
       - actor: owner_a
         channel: web
         command_key: approval_a1

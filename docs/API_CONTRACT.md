@@ -9212,13 +9212,19 @@ person starts their space, every route below except POST `/space` answers 404
     on every route: approve, settle, confirm). Business conversations stay
     the owner's: a stored conversation belongs to its space's creator
     (`conversations_owner_space_fkey`), so a chosen grant is refused with 403
-    `business_permission_denied` on every chat route, whatever the surface:
-    `POST` and `GET /conversations` with `surface=business`, `PATCH` and
-    `DELETE /conversations/{id}`, `GET /conversations/{id}/messages`,
-    `POST /chat/stream`, `POST /backtests/run`, the `continue`,
-    `computation/refresh`, `tool-results/{id}/recompute`,
+    `business_permission_denied` wherever the chat is a Business one: `POST`
+    and `GET /conversations` with `surface=business`, and on a Business
+    conversation `PATCH` and `DELETE /conversations/{id}`, `GET
+    /conversations/{id}/messages`, `GET` and `PATCH
+    /conversations/{id}/activity`, `GET /conversations/{id}/run-dossiers`,
+    `POST /chat/stream`, `POST /backtests/run`, `GET /backtests/{run_id}`,
+    the `continue`, `computation/refresh`, `tool-results/{id}/recompute`,
     `confirmations/{id}/peer-assets` and `confirmations/{id}/direct-edit`
-    routes. A client's `GET /business/workspace` reports
+    routes. The person's own Personal chat is theirs whatever Business is
+    chosen: those routes answer as before on a Personal conversation. The
+    web client sends `X-Business-Grant` only on `/business` calls and on
+    `/conversations` with `surface=business`, never on Personal chat. A
+    client's `GET /business/workspace` reports
     `chat_available: false`. With no header and no own Business nothing is
     in scope: the Business routes answer 404 `business_space_missing`, record
     ids included. `GET /business/spaces` reports effective capabilities:

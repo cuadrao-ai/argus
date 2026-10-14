@@ -428,11 +428,41 @@ def test_the_chat_routes_and_the_email_retry_refuse_a_chosen_grant(
         store.give(space_a, ALICE, "bob@example.test")
         [grant] = [s.grant_id for s in store.spaces_for(BOB) if s.role == "accountant"]
         own = _create(client, BOB, "Mi chat", surface="business")
+        personal = _create(client, BOB, "Mi chat personal")
         with_grant = {**as_person(BOB), GRANT: grant}
+        # Bob's own Personal chat is his whatever Business is chosen: the header changes nothing there.
+        assert (
+            client.get(
+                f"/api/v1/conversations/{personal}/messages", headers=with_grant
+            ).status_code
+            == 200
+        )
+        assert (
+            client.get(
+                f"/api/v1/conversations/{personal}/activity", headers=with_grant
+            ).status_code
+            == 200
+        )
+        assert (
+            client.patch(
+                f"/api/v1/conversations/{personal}",
+                json={"title": "Personal"},
+                headers=with_grant,
+            ).status_code
+            == 200
+        )
+        assert (
+            client.delete(
+                f"/api/v1/conversations/{personal}", headers=with_grant
+            ).status_code
+            == 200
+        )
         # Every chat route that takes a conversation id refuses the chosen grant,
         # so nothing is read or sent in Bob's own Business under Alice's name.
         calls = (
             client.get(f"/api/v1/conversations/{own}/messages", headers=with_grant),
+            client.get(f"/api/v1/conversations/{own}/activity", headers=with_grant),
+            client.get(f"/api/v1/conversations/{own}/run-dossiers", headers=with_grant),
             client.patch(
                 f"/api/v1/conversations/{own}", json={"title": "x"}, headers=with_grant
             ),

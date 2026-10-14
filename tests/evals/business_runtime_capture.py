@@ -1028,7 +1028,17 @@ async def capture_case(
                                 ),
                                 key,
                             )
-                            actions = _command_receipt(pool, key, outcome, bindings)
+                            if getattr(outcome, "outcome", None) == "permission_denied":
+                                # A live grant without approve: refused before any
+                                # row is written, answered as the route would.
+                                transport = {"status": 403, "code": outcome.code}
+                                actions = []
+                                if _scope_counts(pool, bindings["pilot_a"]) != before:
+                                    raise ValueError(
+                                        "Denied human command changed Business rows"
+                                    )
+                            else:
+                                actions = _command_receipt(pool, key, outcome, bindings)
                     step_receipts = [
                         receipt.as_dict()
                         for receipt in end_openrouter_route_receipt_capture(receipt_token)

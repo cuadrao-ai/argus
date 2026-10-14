@@ -19,9 +19,22 @@ export const ARGUS_CLIENT_CAPABILITIES = [
   "dossier_decision_conversion_v1",
 ] as const;
 
+/**
+ * Whether a request is a Business call: the chosen grant rides only on these.
+ * Personal chat and every other route never see the grant, so choosing a
+ * client's Business leaves the person's own chats as they were. With no path
+ * the caller is a Business fetch (receipt sources, exports) and carries it.
+ */
+export function carriesChosenGrant(path?: string): boolean {
+  if (path === undefined) return true;
+  if (path.startsWith("/business")) return true;
+  return path.startsWith("/conversations") && /[?&]surface=business(?:&|$)/.test(path);
+}
+
 export function argusApiRequestHeaders(
   optionsHeaders?: HeadersInit,
   authHeaders: Record<string, string> = {},
+  path?: string,
 ): Headers {
   const headers = new Headers({
     "Content-Type": "application/json",
@@ -33,8 +46,11 @@ export function argusApiRequestHeaders(
     ARGUS_CLIENT_CAPABILITIES.join(","),
   );
   // The Business the person chose to work in, as the grant that admits them;
-  // the server proves it on every request. Absent for the own Business.
-  for (const [key, value] of Object.entries(chosenGrantHeader())) headers.set(key, value);
+  // the server proves it on every Business request. Absent for the own
+  // Business, and never on Personal chat.
+  if (carriesChosenGrant(path)) {
+    for (const [key, value] of Object.entries(chosenGrantHeader())) headers.set(key, value);
+  }
   return headers;
 }
 
@@ -49,7 +65,7 @@ export async function apiFetch<T>(
   const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, {
     ...requestOptions,
     credentials: expectedUserId === undefined ? "include" : "omit",
-    headers: argusApiRequestHeaders(requestOptions.headers, authHeaders),
+    headers: argusApiRequestHeaders(requestOptions.headers, authHeaders, path),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));

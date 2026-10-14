@@ -183,7 +183,7 @@
         "judge_model": "anthropic/claude-sonnet-5.5",
         "rubric_version": "cuadrao-business-reply-v2",
         "calibration_fixture_sha256": "dc0850207a6e8d325e73bb2ec9452088da1f5a44773f10bffe2b81d7dfba33c6",
-        "frozen_fixture_sha256": "4ad38b5432c465d57ebd8995a54839301317beb12c5f32d2b89c1c4174026152",
+        "frozen_fixture_sha256": "65e047e805dfa378e1d13484e3d858ee3e08c644c15a94adcb11b55e3a0767b0",
         "variety_fixture_sha256": "7fcc3e1246b4289981131541ceb954ceed8b887fe7647f182709c5ce64224874",
         "passed": 31,
         "failed": 0,

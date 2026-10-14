@@ -1208,7 +1208,7 @@
     "full run",
     "single-case rerun of es_owner_funds_no_receipt"
   ],
-  "frozen_fixture_sha256": "4ad38b5432c465d57ebd8995a54839301317beb12c5f32d2b89c1c4174026152",
+  "frozen_fixture_sha256": "65e047e805dfa378e1d13484e3d858ee3e08c644c15a94adcb11b55e3a0767b0",
   "judge_model": "anthropic/claude-sonnet-5.5",
   "measurement_kind": "invariant_measurement",
   "runtime_model": "anthropic/claude-haiku-5.5",

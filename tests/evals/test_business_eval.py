@@ -33,7 +33,7 @@ def _receipts(runtime_model: str, judge_model: str) -> list[dict]:
 def test_corpus_has_distinct_asserted_steps_and_preserved_evidence() -> None:
     cases = evaluation.load_cases()
     assert len(cases) == 7
-    assert sum(len(case["steps"]) for case in cases) == 20
+    assert sum(len(case["steps"]) for case in cases) == 21
     assert {case["id"] for case in cases} == {
         "es_owner_funds_no_receipt",
         "en_funding_correction",
@@ -56,12 +56,17 @@ def test_corpus_has_distinct_asserted_steps_and_preserved_evidence() -> None:
     assert j1["steps"][0]["expect"]["plan_references"] == [
         {"action_index": 1, "from_action": 0, "resolved_draft": "draft_a", "version": 1}
     ]
-    assert j1["steps"][3]["command_key"] == "approval_a1"
-    assert j1["steps"][3]["expect"]["actions"][0]["receipt_key"] == "approval_a1"
-    assert j1["steps"][3]["expect"]["draft_versions"]["draft_a"] == 5
-    assert j1["steps"][3]["expect"]["approval"]["reviewed_version"] == 3
-    assert j1["steps"][3]["command"]["version"] == "current_dossier"
-    assert j1["steps"][3]["expect"]["submitted_reviewed_version"] == 3
+    assert j1["steps"][3]["command_key"] == "approval_a0_refused"
+    assert j1["steps"][3]["expect"]["transport"] == {
+        "status": 403,
+        "code": "business_permission_denied",
+    }
+    assert j1["steps"][4]["command_key"] == "approval_a1"
+    assert j1["steps"][4]["expect"]["actions"][0]["receipt_key"] == "approval_a1"
+    assert j1["steps"][4]["expect"]["draft_versions"]["draft_a"] == 5
+    assert j1["steps"][4]["expect"]["approval"]["reviewed_version"] == 3
+    assert j1["steps"][4]["command"]["version"] == "current_dossier"
+    assert j1["steps"][4]["expect"]["submitted_reviewed_version"] == 3
     assert j1["steps"][1]["expect"]["draft_facts"]["draft_a"]["occurred_on"] == {
         "state": "unknown",
         "value": None,
@@ -90,13 +95,13 @@ def test_hidden_state_checks_reject_missing_money_source_revision_and_authority(
         "value": "2026-10-09",
         "origin": "default",
     }
-    observed[3]["money"]["bank_balance_delta"] = "-850"
-    observed[3]["money"]["bank_versions_unchanged"] = False
-    observed[3]["actions"][0]["issuer"] = "accountant_a"
-    observed[3]["actions"][0]["receipt_key"] = "invented_approval"
-    observed[3]["approval"]["actor"] = "accountant_a"
-    observed[3]["recorded_activity"]["amount"] = "851"
-    observed[3]["history"][2]["sources"] = ["message_a2"]
+    observed[4]["money"]["bank_balance_delta"] = "-850"
+    observed[4]["money"]["bank_versions_unchanged"] = False
+    observed[4]["actions"][0]["issuer"] = "accountant_a"
+    observed[4]["actions"][0]["receipt_key"] = "invented_approval"
+    observed[4]["approval"]["actor"] = "accountant_a"
+    observed[4]["recorded_activity"]["amount"] = "851"
+    observed[4]["history"][2]["sources"] = ["message_a2"]
     assert evaluation.check_case(case, observed) == [
         "step_0.draft_facts.draft_a.funding",
         "step_1.draft_facts.draft_a.occurred_on",
@@ -104,11 +109,11 @@ def test_hidden_state_checks_reject_missing_money_source_revision_and_authority(
         "step_1.draft_sources",
         "step_1.fact_sources.draft_a.funding",
         "step_1.plan_references",
-        "step_3.money",
-        "step_3.actions",
-        "step_3.approval",
-        "step_3.recorded_activity",
-        "step_3.history",
+        "step_4.money",
+        "step_4.actions",
+        "step_4.approval",
+        "step_4.recorded_activity",
+        "step_4.history",
     ]
 
 
@@ -225,7 +230,7 @@ def test_clear_business_purpose_and_authored_human_versions_remain_explicit() ->
         2,
         2,
     ]
-    expected = cases["es_owner_funds_no_receipt"]["steps"][3]["expect"]
+    expected = cases["es_owner_funds_no_receipt"]["steps"][4]["expect"]
     observed = deepcopy(expected)
     observed["submitted_reviewed_version"] = 4
     assert evaluation.check_step(expected, observed) == ["submitted_reviewed_version"]
