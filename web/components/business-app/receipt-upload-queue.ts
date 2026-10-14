@@ -115,8 +115,12 @@ export class ReceiptUploadQueue {
         let receipt: ReceiptSummary;
         try {
           receipt = await this.upload(item.file, chosenConsent, item.key);
-        } catch {
-          this.replace({ ...attempt, status: "failed" });
+        } catch (error: unknown) {
+          if (error instanceof Error && "status" in error && error.status === 415) {
+            this.replace({ ...item, status: "rejected", reason: "unsupported" });
+          } else {
+            this.replace({ ...attempt, status: "failed" });
+          }
           continue;
         }
         this.replace({ ...attempt, status: "saved", receipt });

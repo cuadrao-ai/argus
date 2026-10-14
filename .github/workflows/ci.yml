@@ -205,7 +205,18 @@ jobs:
         run: cd web && bunx playwright install --with-deps chromium
 
       - name: Verify browser storage matches the privacy disclosure
-        run: cd web && bunx playwright test e2e/browser-storage-disclosure.spec.ts
+        run: |
+          cd web
+          bunx playwright test e2e/browser-storage-disclosure.spec.ts
+          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3101 bunx playwright test e2e/business-receipt-upload-recovery.spec.ts
+
+      - name: Retain receipt upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: receipt-upload-browser-evidence
+          path: web/temp/playwright-results/**/receipt-upload-*.png
+          if-no-files-found: warn
 
   marketing-checks:
     runs-on: ubuntu-latest

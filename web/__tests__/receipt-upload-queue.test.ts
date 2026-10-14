@@ -123,8 +123,8 @@ test("untyped files take their type from the extension only when the server acce
 
 test("an XML e-invoice is offered by the picker and typed from its extension when the server accepts XML", () => {
   const server = { max_bytes: 20, media_types: ["application/pdf", "text/xml", "application/xml"] };
-  expect(receiptFormatLabels(server)).toEqual(["PDF", "XML", "XML"]);
-  expect(receiptFileAccept(server)).toBe("application/pdf,.pdf,text/xml,.xml,application/xml,.xml");
+  expect(receiptFormatLabels(server)).toEqual(["PDF", "XML"]);
+  expect(receiptFileAccept(server)).toBe("application/pdf,.pdf,text/xml,.xml,application/xml");
   expect(receiptFileWithType(file("factura-E320000001234.xml", ""), server).type).toBe("text/xml");
   const withoutXml = { max_bytes: 20, media_types: ["application/pdf"] };
   expect(receiptFileWithType(file("factura.xml", ""), withoutXml).type).toBe("");
@@ -163,4 +163,17 @@ test("closing forgets saved and rejected rows and keeps unfinished ones", async 
   fail = false;
   await queue.save("inbox", false);
   expect(queue.unfinished).toBe(false);
+});
+
+test("a server type rejection asks for another file rather than resending it", async () => {
+  let calls = 0;
+  const queue = new ReceiptUploadQueue(async () => {
+    calls++;
+    throw Object.assign(new Error("private detail must never render"), { status: 415 });
+  }, () => undefined);
+  queue.add([file("receipt.txt")], limits, "inbox");
+  await queue.save("inbox", true);
+  expect(queue.snapshot()[0]).toMatchObject({ status: "rejected", reason: "unsupported" });
+  await queue.save("inbox", true);
+  expect(calls).toBe(1);
 });

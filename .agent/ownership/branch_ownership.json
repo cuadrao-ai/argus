@@ -2003,6 +2003,59 @@
         "web/.env.local"
       ]
     },
+    "codex/receipt-event-loop": {
+      "description": "Bound receipt validation and source capture outside the async event loop; shared per-email aggregate image pixel budget and cancellation/concurrency regression tests. No hosted, provider, migration, iOS or frontend changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "src/argus/domain/ingestion/documents/preparation.py",
+        "src/argus/domain/ingestion/documents/service.py",
+        "src/argus/domain/ingestion/email_intake/envelope.py",
+        "tests/ingestion/test_document_service.py",
+        "tests/ingestion/test_email_source.py",
+        "tests/ingestion/test_email_intake_service.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*",
+        "ios/**",
+        "supabase/migrations/**",
+        "web/**",
+        ".github/workflows/ci.yml",
+        "render.yaml"
+      ]
+    },
+    "codex/receipts-upload-fix": {
+      "description": "Receipt upload HTTP boundary regression, safe inline retry and file rejection, server-derived format labels and consent spacing. No provider, hosted, migration or iOS changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        ".github/workflows/ci.yml",
+        "docs/API_CONTRACT.md",
+        "src/argus/api/app_setup.py",
+        "src/argus/api/routers/business.py",
+        "tests/business/test_receipt_web_transport.py",
+        "web/__tests__/fixtures/receipt-web-request.ts",
+        "web/__tests__/receipt-upload-queue.test.ts",
+        "web/components/business-app/ReceiptIntakeDialog.tsx",
+        "web/components/business-app/receipt-file.ts",
+        "web/components/business-app/receipt-upload-queue.ts",
+        "web/e2e/business-receipt-upload-recovery.spec.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*",
+        "ios/**",
+        "supabase/migrations/**"
+      ]
+    },
     "codex/section-3-backtest-engine": {
       "description": "Section 3 scope: real engine + market data + performance tests",
       "allow": [

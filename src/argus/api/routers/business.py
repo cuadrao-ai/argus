@@ -530,7 +530,26 @@ async def upload_receipt(
                 scope=context.scope.owner,
             )
     except Exception as error:
-        raise _problem(request, error) from None
+        failure = _problem(request, error)
+        # Match the existing receipt-source log path: the hosted sink keeps
+        # message text. Domain codes are safe; never log source or error text.
+        logger.warning(
+            "receipt_upload_failed status={} code={} failure_mode={}",
+            failure.status_code,
+            error.code
+            if isinstance(
+                error,
+                (
+                    DocumentServiceError,
+                    DocumentExtractionError,
+                    BusinessError,
+                    ReconcileError,
+                ),
+            )
+            else "unknown",
+            type(error).__name__,
+        )
+        raise failure from None
     return receipt_summary(context, receipt)
 
 
