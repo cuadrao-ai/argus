@@ -42,20 +42,3 @@ struct GuestOpenLine: View {
         .accessibilityIdentifier("cuadrao.login.guestLine")
     }
 }
-
-/// Always at the top of the book, so it is never mistaken for the account.
-struct GuestModeBanner: View {
-    let spanish: Bool
-
-    var body: some View {
-        Text(spanish ? "Modo invitado · solo en este iPhone" : "Guest mode · only on this iPhone")
-            .font(.footnote.weight(.medium))
-            .dynamicTypeSize(...DynamicTypeSize.large)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .foregroundStyle(WelcomePalette.ink)
-            .frame(maxWidth: .infinity, minHeight: 28)
-            .background(WelcomePalette.brandPaper)
-            .accessibilityIdentifier("guest.banner")
-    }
-}

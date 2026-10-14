@@ -67,6 +67,7 @@ struct SavedReceiptsScreen: View {
                     .accessibilityAction(named: Text(copy.delete)) { deleting = document }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) { deleting = document } label: { Label(copy.delete, systemImage: "trash") }
+                            .tint(.red)
                     }
                     .contextMenu {
                         Button { open(document) } label: { Label(copy.view, systemImage: "doc.text.magnifyingglass") }

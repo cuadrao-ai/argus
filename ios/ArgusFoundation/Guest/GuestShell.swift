@@ -20,7 +20,6 @@ struct GuestRoot: View {
             WelcomePalette.brandPaper.ignoresSafeArea()
         case .ready:
             GuestShell(model: model, appearance: $appearance, webURL: webURL, leave: leave, deleteData: deleteData)
-                .safeAreaInset(edge: .top, spacing: 0) { GuestModeBanner(spanish: spanish) }
                 .preferredColorScheme(appearance.colorScheme)
         case .newerVersion:
             notice(title: spanish ? "Actualiza Cuadrao para abrir este libro." : "Update Cuadrao to open this book.",
@@ -98,6 +97,9 @@ struct GuestShell: View {
     @State private var capturing: ReceiptSourceChoice?
     @State private var captured: [(data: Data, name: String, pdf: Bool)]?
     @State private var receiptFailed = false
+    @State private var toast: CuadraoToastMessage?
+    @State private var firstSavePending = false
+    @State private var showFirstSave = false
     @Environment(\.guestReceipts) private var receipts
     @State private var chat = CuadraoChatPreview(spanish: Locale.current.language.languageCode?.identifier == "es", includeExamples: false)
 
@@ -114,7 +116,21 @@ struct GuestShell: View {
             }
         }
         .environment(\.cuadraoCurrencyRules, GuestCurrencyRules.rules)
+        .environment(\.guestAddReceipt) { capture($0) }
+        .cuadraoToast($toast, spanish: spanish)
+        .onAppear { announceFirstOpen() }
+        .onChange(of: expenseCount) { old, new in
+            guard old == 0, new >= 1, !GuestNotice.firstSave.seen else { return }
+            GuestNotice.firstSave.markSeen()
+            firstSavePending = true
+            presentFirstSaveWhenFree()
+        }
+        .onChange(of: sheet?.id) { _, id in if id == nil { presentFirstSaveWhenFree() } }
         .sheet(item: $sheet) { sheetContent($0) }
+        .sheet(isPresented: $showFirstSave) {
+            GuestFirstSaveSheet(spanish: spanish, createAccount: { showFirstSave = false; leave() }, dismiss: { showFirstSave = false })
+                .preferredColorScheme(appearance.colorScheme)
+        }
         .fullScreenCover(item: $capturing, onDismiss: {
             if let files = captured { captured = nil; keep(files) }
         }) { source in
@@ -129,6 +145,26 @@ struct GuestShell: View {
         .tint(WelcomePalette.pine)
         .foregroundStyle(WelcomePalette.ink)
         .background(WelcomePalette.background.ignoresSafeArea())
+    }
+
+    private var expenseCount: Int { model.book.liveMovements().filter { $0.kind == .expense }.count }
+
+    /// On the first open of the book only, one line at the bottom for five seconds.
+    private func announceFirstOpen() {
+        guard !GuestNotice.firstOpen.seen else { return }
+        GuestNotice.firstOpen.markSeen()
+        toast = CuadraoToastMessage(text: GuestNoticeCopy(spanish: spanish).modeLine)
+    }
+
+    /// After the save's own sheet has closed, so the save is never covered or delayed.
+    private func presentFirstSaveWhenFree() {
+        guard firstSavePending, sheet == nil, capturing == nil else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard firstSavePending, sheet == nil, capturing == nil else { return }
+            firstSavePending = false
+            showFirstSave = true
+        }
     }
 
     private var showsNavigation: Bool {
