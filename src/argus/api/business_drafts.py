@@ -161,6 +161,15 @@ def bind_to_grant(documents, hub, actions, context, capability, action=None, key
     return scoped_documents, imports
 
 
+def _receipt_read_request(request) -> bool:
+    receipt_id = request.path_params.get("receipt_id")
+    return bool(
+        receipt_id
+        and request.method == "POST"
+        and request.url.path == f"/api/v1/business/receipts/{receipt_id}/read"
+    )
+
+
 def scoped_legacy(request, documents, hub, user_id, scope):
     pool = getattr(request.app.state, "financial_accounts_pool", None)
     if pool is None:
@@ -178,7 +187,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
             if not scope.acting_as_owner:
                 needed = (
                     "read"
-                    if request.method == "GET"
+                    if request.method == "GET" or _receipt_read_request(request)
                     else (
                         "approve" if request.url.path.endswith("/confirm") else "prepare"
                     )
@@ -232,7 +241,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         record = actions.record_context(context)
         capability = (
             "read"
-            if request.method == "GET"
+            if request.method == "GET" or _receipt_read_request(request)
             else ("approve" if request.url.path.endswith("/confirm") else "prepare")
         )
         if capability not in record.capabilities:
@@ -339,7 +348,7 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
     if not connection_ids:
         return {}
     rows = tx.rows(
-        "select distinct s.connection_id, e.id, e.state, e.version, e.attention,"
+        "select distinct s.connection_id, e.id, e.state, e.version, e.updated_at, e.attention,"
         " e.activity_id, e.resolution, o.connection_id as duplicate_receipt_id"
         " from public.business_sources s"
         " join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id"
@@ -433,14 +442,9 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
     """Every receipt view the API returns passes here: with the hosted bridge,
     a linked draft owns the receipt's state."""
 
-    store = context.service.imports.store
-    if not isinstance(store, GrantImportStore) or not summaries:
-        return summaries
-    with transaction(store.authority, store.context) as tx:
-        drafts = linked_drafts(tx, [summary["id"] for summary in summaries])
-        return [
-            draft_overlay(summary, drafts.get(summary["id"], [])) for summary in summaries
-        ]
+    from argus.api.business_receipt_activity import project
+
+    return project(context, summaries) if summaries else summaries
 
 
 def receipt_summaries(context: BusinessContext, view: str) -> list[dict]:

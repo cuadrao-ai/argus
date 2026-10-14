@@ -69,6 +69,7 @@ class EmailCapture:
         provider: ReceivingProvider | None,
         enabled: Callable[[], bool],
         receiving_enabled: Callable[[], bool] | None = None,
+        read_receipt=None,
     ) -> None:
         self.store, self.documents, self.provider, self.enabled = (
             store,
@@ -77,6 +78,7 @@ class EmailCapture:
             enabled,
         )
         self.route_authority = route_authority
+        self.read_receipt = read_receipt
         self.receiving_enabled = receiving_enabled or (lambda: self.provider is not None)
 
     def check_route(self, route: RecipientRoute) -> None:
@@ -183,7 +185,7 @@ class EmailCapture:
                 raw = received.raw
             # The fetch took time; the grant is read once more before any write.
             await asyncio.to_thread(self.check_route, route)
-            await self._capture(delivery, raw)
+            await self._capture(delivery, raw, route)
         except LeaseLost:
             return
         except ActionError as error:
@@ -207,7 +209,9 @@ class EmailCapture:
     ) -> None:
         await asyncio.to_thread(self.store.finish, delivery, state, error_code)
 
-    async def _capture(self, delivery: EmailDelivery, raw: bytes) -> None:
+    async def _capture(
+        self, delivery: EmailDelivery, raw: bytes, route: RecipientRoute
+    ) -> None:
         run = asyncio.to_thread
         await run(self.store.renew, delivery)
         scope = BusinessSpace(delivery.space_id)
@@ -232,6 +236,7 @@ class EmailCapture:
                     filename=ORIGINAL_FILENAME,
                     media_type="message/rfc822",
                     consent=False,
+                    context_only=bool(envelope.parts),
                 )
                 await run(
                     self.store.update,
@@ -290,3 +295,23 @@ class EmailCapture:
             if rejected
             else None,
         )
+        if self.read_receipt is not None:
+            captured = await run(self.store.parts, delivery.id)
+            connection_ids = {
+                part.document_id
+                for part in captured
+                if part.state == "captured" and part.document_id
+            }
+            if not envelope.parts and delivery.original_document_id:
+                connection_ids.add(delivery.original_document_id)
+            for connection_id in connection_ids:
+                try:
+                    await run(self.check_route, route)
+                    await self.read_receipt(route, connection_id)
+                except Exception as error:
+                    logger.warning(
+                        "email_receipt_dispatch_failed",
+                        delivery_id=delivery.id,
+                        connection_id=connection_id,
+                        failure_mode=type(error).__name__,
+                    )

@@ -95,6 +95,59 @@ _RUNTIME_CONDITIONS = (
 )
 
 
+def _queued_email_reader(route, connection_id: str):
+    from uuid import UUID
+
+    from argus.api.business_drafts import bind_to_grant
+    from argus.domain.business.contracts.authority import TrustedActor
+    from argus.domain.owner_scope import BusinessSpace
+
+    documents = documents_service()
+    scope = BusinessSpace(route.space_id)
+    current = documents.get(
+        user_id=route.principal_id, connection_id=connection_id, scope=scope
+    )
+    if current.status != "queued":
+        return None
+    actions = documents.business_actions
+    context = actions.resolve_actor(
+        TrustedActor(
+            actor_id=UUID(route.granted_by),
+            actor_kind="member",
+            space_id=UUID(route.space_id),
+        ),
+        grant_id=UUID(route.grant_id),
+    )
+    service, _ = bind_to_grant(documents, documents.hub, actions, context, "prepare")
+    return service, scope
+
+
+async def _read_receipt(route, connection_id: str) -> None:
+    from fastapi import BackgroundTasks
+
+    from argus.api.documents import dispatch_preparation
+
+    reader = await asyncio.to_thread(_queued_email_reader, route, connection_id)
+    if reader is None:
+        return
+    service, scope = reader
+    tasks = BackgroundTasks()
+    try:
+        await dispatch_preparation(
+            service, route.principal_id, connection_id, tasks, scope=scope
+        )
+    except Exception as error:
+        await asyncio.to_thread(
+            service.release_queued,
+            user_id=route.principal_id,
+            connection_id=connection_id,
+            scope=scope,
+            code=getattr(error, "code", "document_delivery_failed"),
+        )
+        raise
+    await tasks()
+
+
 def start_email_intake(app) -> None:  # noqa: ANN001
     configure_email_intake(None)
     conditions = intake_conditions(app)
@@ -134,6 +187,7 @@ def start_email_intake(app) -> None:  # noqa: ANN001
             provider,
             capture_enabled,
             webhook_enabled,
+            _read_receipt,
         )
     )
     app.state.email_intake_client = client

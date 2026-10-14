@@ -366,12 +366,17 @@ def build_whatsapp(
     if pool is not None:
         from argus.domain.ingestion.whatsapp.receipt_consent import (
             receipt_consent_store,
-            receipt_reading_enabled,
         )
 
         receipts = receipt_consent_store(pool)
-        reading = lambda owner: receipt_reading_enabled(receipts, owner)  # noqa: E731
-        documents.read_gate = _whatsapp_read_gate(store, reading)
+
+        def reading(owner):
+            scope = resolve_business_scope(spaces, owner)
+            permission = documents.business_receipt_consent
+            return bool(
+                scope and permission and permission.enabled(scope.owner.space_id, owner)
+            )
+
     if pool is not None and documents.hub.box is not None:
         from argus.api.whatsapp_worker import build_worker
         from argus.domain.business.actions import BusinessActions

@@ -64,8 +64,12 @@ from argus.api.business_schemas import (
     ExpenseInput,
     ExpensePage,
     GiveBusinessAccess,
+    ReceiptActivity,
+    ReceiptActivityCounts,
     ReceiptDetail,
     ReceiptPage,
+    ReceiptReadBody,
+    ReceiptReadingBody,
     ReceiptReviewBody,
     ReceiptSummary,
     RenameBusinessSpace,
@@ -553,6 +557,128 @@ async def upload_receipt(
     return receipt_summary(context, receipt)
 
 
+@router.get("/receipt-reading")
+def receipt_reading(
+    request: Request,
+    language: Literal["en", "es-419"] = "en",
+    context: Annotated[BusinessContext, Depends(require_business)] = None,
+) -> dict:
+    permission = context.service.documents.business_receipt_consent
+    if permission is None:
+        raise _problem(request, DocumentServiceError("business_preparation_unavailable"))
+    return {
+        **permission.status(
+            context.scope.owner.space_id, context.scope.person_id, language
+        ),
+        "can_change": context.scope.acting_as_owner,
+    }
+
+
+def _unread_backlog(context: BusinessContext) -> list[str]:
+    documents = context.service.documents
+    receipts = _email_flagged(context, context.service.receipts(context.scope))
+    ids = []
+    for receipt in receipts:
+        if (
+            receipt.email_original
+            or receipt.draft.status != "saved"
+            or receipt.draft.error_code is not None
+            or not receipt.draft.source_available
+        ):
+            continue
+        if (
+            documents.store.get(user_id=context.scope.person_id, connection_id=receipt.id)
+            is not None
+        ):
+            continue
+        ids.append(receipt.id)
+    return ids
+
+
+@router.post("/receipt-reading")
+async def set_receipt_reading(
+    request: Request,
+    body: ReceiptReadingBody,
+    background_tasks: BackgroundTasks,
+    context: Annotated[BusinessContext, Depends(require_business_document_write)] = None,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    owner_only(request, context)
+    key = _required_idempotency_key(request, idempotency_key)
+    permission = context.service.documents.business_receipt_consent
+    if permission is None:
+        raise _problem(request, DocumentServiceError("business_preparation_unavailable"))
+    try:
+        state = await run_in_threadpool(
+            permission.set,
+            context.scope.owner.space_id,
+            context.scope.person_id,
+            enabled=body.enabled,
+            version=body.scope_version,
+            disclosure_token=body.disclosure_token,
+            language=body.language,
+            idempotency_key=key,
+        )
+        if body.enabled and state["enabled"]:
+            failure = None
+            for receipt_id in await run_in_threadpool(_unread_backlog, context):
+                try:
+                    await run_in_threadpool(
+                        context.service.queue, context.scope, receipt_id
+                    )
+                    await dispatch_preparation(
+                        context.service.documents,
+                        context.scope.person_id,
+                        receipt_id,
+                        background_tasks,
+                        scope=context.scope.owner,
+                    )
+                except DocumentServiceError as error:
+                    await run_in_threadpool(
+                        context.service.documents.release_queued,
+                        user_id=context.scope.person_id,
+                        connection_id=receipt_id,
+                        scope=context.scope.owner,
+                        code=error.code,
+                    )
+                    if error.retryable:
+                        failure = error
+            if failure is not None:
+                raise failure
+        return {**state, "can_change": True}
+    except Exception as error:
+        raise _problem(request, error) from None
+
+
+@router.get("/receipt-activity", response_model=ReceiptActivityCounts)
+def receipt_activity_counts(
+    context: Annotated[BusinessContext, Depends(require_business)],
+) -> dict:
+    from argus.api.business_receipt_activity import counts
+
+    return counts(receipt_summaries(context, "all"))
+
+
+@router.post("/receipts/{receipt_id}/read", response_model=ReceiptActivity)
+def mark_receipt_read(
+    request: Request,
+    receipt_id: str,
+    body: ReceiptReadBody,
+    context: Annotated[BusinessContext, Depends(require_business)] = None,
+) -> dict:
+    from argus.api.business_receipt_activity import project
+
+    try:
+        receipt = receipt_detail(
+            context, context.service.receipt(context.scope, receipt_id)
+        )
+        return project(
+            context, [receipt], acknowledge_id=receipt_id, cursor=body.completion_cursor
+        )[0]["activity"]
+    except Exception as error:
+        raise _problem(request, error) from None
+
+
 @router.get("/receipts", response_model=ReceiptPage)
 def list_receipts(
     request: Request,
@@ -560,7 +686,10 @@ def list_receipts(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        return {"items": receipt_summaries(context, view)}
+        from argus.api.business_receipt_activity import counts
+
+        items = receipt_summaries(context, view)
+        return {"items": items, "activity": counts(items)}
     except Exception as error:
         raise _problem(request, error) from None
 

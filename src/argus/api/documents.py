@@ -125,7 +125,7 @@ def _service_over(
         if pool is not None and isinstance(hub.sink, ReconciliationService)
         else None
     )
-    return DocumentsService(
+    service = DocumentsService(
         hub,
         store,
         extractor,
@@ -133,6 +133,10 @@ def _service_over(
         business_actions=actions,
         business_preparation_required=pool is not None,
     )
+    from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
+
+    service.business_receipt_consent = BusinessReceiptConsentStore(pool)
+    return service
 
 
 def require_saved_documents(request: Request) -> DocumentsService:
@@ -290,7 +294,8 @@ async def dispatch_preparation(
         imports = getattr(service.hub.sink, "store", None)
         if service.business_actions is None or not isinstance(imports, GrantImportStore):
             raise DocumentServiceError("business_preparation_unavailable")
-        service.business_actions.capture_attachment_preparation(
+        await asyncio.to_thread(
+            service.business_actions.capture_attachment_preparation,
             imports.context,
             UUID(connection_id),
             target=None,

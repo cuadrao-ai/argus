@@ -133,6 +133,7 @@ class DocumentsService:
         # One bounded decode/capture at a time on this app-owned service.
         self._capture_slot = asyncio.Semaphore(1)
         self.business_actions = business_actions
+        self.business_receipt_consent = None
         # Asked at the moment of a read, so a permission withdrawn after the
         # draft was queued stops a read that has not started.
         self.read_gate: Callable[[str, str], bool] | None = None
@@ -283,7 +284,16 @@ class DocumentsService:
         source_text: str | None = None,
         scope: OwnerScope,
         on_capture: CaptureHook | None = None,
+        context_only: bool = False,
     ) -> DocumentOutcome:
+        consent_id = None
+        if space_id(scope) is not None and self.business_receipt_consent is not None:
+            permission = await asyncio.to_thread(
+                self.business_receipt_consent.status, space_id(scope), user_id
+            )
+            consent = permission["enabled"] and not context_only
+            consent_id = permission["consent_id"] if consent else None
+
         def capture() -> DocumentOutcome | BaseException:
             try:
                 return self._upload(
@@ -296,6 +306,7 @@ class DocumentsService:
                     source_text=source_text,
                     scope=scope,
                     on_capture=on_capture,
+                    consent_id=consent_id,
                 )
             except BaseException as error:
                 # SystemExit/KeyboardInterrupt must travel as data: raising
@@ -335,6 +346,7 @@ class DocumentsService:
         source_text: str | None,
         scope: OwnerScope,
         on_capture: CaptureHook | None,
+        consent_id: str | None = None,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
         digest = hashlib.sha256(content).hexdigest()
@@ -362,6 +374,7 @@ class DocumentsService:
             sha256=digest,
             size_bytes=len(content),
             consent=consent,
+            business_reading_consent_id=consent_id,
             source_text=source_text,
             status="queued" if consent else "saved",
             created_at=self.hub.clock(),
@@ -400,6 +413,20 @@ class DocumentsService:
             self._update(user_id, draft, status="saved", consent=False, error_code=code)
 
     def _reading_allowed(self, user_id: str, connection_id: str) -> bool:
+        if self.business_receipt_consent is not None:
+            row = self.hub.connections.get_any_scope(
+                user_id=user_id, connection_id=connection_id
+            )
+            business = space_id(row.scope)
+            if business is not None:
+                draft = self.store.draft(user_id=user_id, connection_id=connection_id)
+                return bool(
+                    draft
+                    and draft.business_reading_consent_id
+                    and self.business_receipt_consent.enabled(
+                        business, user_id, draft.business_reading_consent_id
+                    )
+                )
         return self.read_gate is None or self.read_gate(user_id, connection_id)
 
     def read_pending(
@@ -432,6 +459,15 @@ class DocumentsService:
                 raise DocumentServiceError("document_extraction_consent_required")
             if not draft.source_available:
                 raise DocumentServiceError("document_source_unavailable")
+            if space_id(scope) is not None and self.business_receipt_consent is not None:
+                permission = self.business_receipt_consent.status(
+                    space_id(scope), user_id
+                )
+                if not permission["enabled"]:
+                    raise DocumentServiceError("business_receipt_reading_off")
+                draft = self._update(
+                    user_id, draft, business_reading_consent_id=permission["consent_id"]
+                )
             if not self._reading_allowed(user_id, connection_id):
                 # A click is a fresh action: it is told why nothing was queued.
                 raise DocumentServiceError("whatsapp_receipt_reading_off")
@@ -617,6 +653,8 @@ class DocumentsService:
                 ):
                     raise DocumentServiceError("document_lease_lost", retryable=True)
             self._validate(batch, connection_id)
+            if not self._reading_allowed(user_id, connection_id):
+                raise DocumentServiceError("document_reading_not_allowed")
             if not repo.renew(
                 connection_id=connection_id, holder=holder, now=self.hub.clock()
             ):

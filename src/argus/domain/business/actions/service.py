@@ -552,6 +552,22 @@ class BusinessActions:
     ) -> tuple[dict, DocumentDraft]:
         row = self._attachment_row(tx, binding.connection_id)
         draft = DocumentDraft.model_validate(row["draft"])
+        if draft.business_reading_consent_id is not None:
+            permission = tx.rows(
+                "select id,route from public.business_receipt_reading_consents where id=%s"
+                " and space_id=%s and owner_id=%s and scope_version=1 and revoked_at is null for share",
+                (
+                    draft.business_reading_consent_id,
+                    tx.context.actor.space_id,
+                    tx.context.owner_id,
+                ),
+            )
+            from argus.domain.ingestion.whatsapp.receipt_consent import (
+                receipt_provider_route,
+            )
+
+            if not permission or permission[0]["route"] != receipt_provider_route():
+                raise ActionError("permission_denied", "document_reading_not_allowed")
         if row["preparation_binding"] != binding.model_dump(
             mode="json"
         ) or not plans.same_authority(tx, binding.actor):
