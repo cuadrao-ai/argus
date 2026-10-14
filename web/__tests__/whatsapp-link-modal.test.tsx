@@ -112,44 +112,28 @@ const consent = {
 };
 
 describe("WhatsApp AI permission", () => {
-  test("one row shows the server disclosure and models beside a switch that is off", () => {
+  test("linked numbers point to the one all-channel Business setting", () => {
     const html = render({ status: linked, consent });
-    expect(html).toContain("Read my receipts with AI");
-    expect(html).toContain("Cuadrao sends your message text to an AI provider");
-    expect(html).toContain("anthropic/claude-haiku-5.5");
-    expect(html).toMatch(/role="switch"[^>]*aria-checked="false"/);
-    expect(html).not.toMatch(/role="switch"[^>]*\sdisabled=""/);
-    expect(html).toContain("You always approve money records yourself");
-    expect(html).not.toContain('type="checkbox"');
+    expect(html).toContain("email, WhatsApp and uploads");
+    expect(html).toContain('href="/biz?view=inbox"');
+    expect(html).not.toContain('role="switch"');
+    expect(html).not.toContain("Cuadrao sends your message text");
   });
 
-  test("an enabled permission shows the switch on, one tap from off", () => {
+  test("an old enabled permission never appears as the new reading switch", () => {
     const html = render({ status: linked, consent: { ...consent, enabled: true } });
-    expect(html).toMatch(/role="switch"[^>]*aria-checked="true"/);
-    expect(html).toContain("On. You can turn it off at any time.");
-    expect(html).not.toMatch(/role="switch"[^>]*\sdisabled=""/);
+    expect(html).toContain("Open receipt reading settings");
+    expect(html).not.toContain('role="switch"');
   });
 
-  test("an unavailable permission says why and the switch cannot be turned on", () => {
-    const html = render({ status: linked, consent: { ...consent, available: false, reason: "business_unavailable", disclosure_token: null } });
-    expect(html).toContain("Create your business space first.");
-    expect(html).toMatch(/role="switch"[^>]*\sdisabled=""/);
+  test("an unlinked number does not show receipt reading controls", () => {
+    expect(render({ consent })).not.toContain("Open receipt reading settings");
   });
 
-  test("the receipt switch shows whether or not the agent is on", () => {
-    const html = render({ status: linked, consent });
-    expect(html).toContain("Read my receipts with AI");
-    expect(html).toContain("Unlink number");
-  });
-
-  test("an unlinked owner sees no AI row", () => {
-    expect(render({ consent })).not.toContain("Read my receipts with AI");
-  });
-
-  test("Spanish first copy renders", () => {
+  test("the new setting link is localized in Spanish", () => {
     const html = render({ status: linked, consent }, "es-419");
-    expect(html).toContain("Leer mis recibos con IA");
-    expect(html).toContain("Desactivado. Los recibos que envíes esperan en tu bandeja para que los llenes tú.");
+    expect(html).toContain("correo, WhatsApp y archivos subidos");
+    expect(html).toContain("Abrir configuración de lectura");
   });
 
   test("only a signed 64 character disclosure token can enable", async () => {

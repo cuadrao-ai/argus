@@ -23,12 +23,15 @@ def test_a_queued_receipt_is_pending_only_while_a_read_will_happen(
     draft = documents.get(
         user_id=alice.person, connection_id=receipt_id, scope=alice.scope().owner
     )
-    documents._update(alice.person, draft, status="queued", consent=True)
+    consent = documents.business_receipt_consent
+    shown = consent.status(alice.scope().owner.space_id, alice.person)
+    accepted = consent.set(alice.scope().owner.space_id, alice.person, enabled=True, version=1, disclosure_token=shown["disclosure_token"])
+    documents._update(alice.person, draft, status="queued", consent=True, business_reading_consent_id=accepted["consent_id"])
     queued = alice.detail(receipt_id)
     assert (queued["status"], queued["read_pending"]) == ("queued", True)
     assert (queued["preparable"], queued["enterable"]) == (False, False)
     # The owner's reading switch is off now: no read will come.
-    monkeypatch.setattr(documents, "read_gate", lambda user_id, connection_id: False)
+    consent.set(alice.scope().owner.space_id, alice.person, enabled=False, version=1)
     waiting = alice.detail(receipt_id)
     assert (waiting["status"], waiting["read_pending"]) == ("saved", False)
     assert (waiting["preparable"], waiting["enterable"]) == (True, True)
@@ -37,7 +40,9 @@ def test_a_queued_receipt_is_pending_only_while_a_read_will_happen(
     ]
     assert (listed["status"], listed["read_pending"]) == ("saved", False)
     # Switched back on: the same receipt is pending again, nothing was rewritten.
-    monkeypatch.setattr(documents, "read_gate", lambda user_id, connection_id: True)
+    consent.set(alice.scope().owner.space_id, alice.person, enabled=True, version=1, disclosure_token=shown["disclosure_token"])
+    assert alice.detail(receipt_id)["read_pending"] is False
+    documents.queue(user_id=alice.person, connection_id=receipt_id, consent=True, scope=alice.scope().owner)
     again = alice.detail(receipt_id)
     assert (again["status"], again["read_pending"]) == ("queued", True)
 

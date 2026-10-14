@@ -653,7 +653,7 @@ class DocumentsService:
                 ):
                     raise DocumentServiceError("document_lease_lost", retryable=True)
             self._validate(batch, connection_id)
-            if not self._reading_allowed(user_id, connection_id):
+            if not entered_by_owner(batch) and not self._reading_allowed(user_id, connection_id):
                 raise DocumentServiceError("document_reading_not_allowed")
             if not repo.renew(
                 connection_id=connection_id, holder=holder, now=self.hub.clock()

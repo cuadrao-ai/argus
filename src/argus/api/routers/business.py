@@ -46,6 +46,7 @@ from argus.api.business_drafts import (
     receipt_summary,
     require_legacy_receipt_write,
     search_with_drafts,
+    unread_backlog,
     updates_with_drafts,
     upload_recorder,
 )
@@ -574,27 +575,6 @@ def receipt_reading(
     }
 
 
-def _unread_backlog(context: BusinessContext) -> list[str]:
-    documents = context.service.documents
-    receipts = _email_flagged(context, context.service.receipts(context.scope))
-    ids = []
-    for receipt in receipts:
-        if (
-            receipt.email_original
-            or receipt.draft.status != "saved"
-            or receipt.draft.error_code is not None
-            or not receipt.draft.source_available
-        ):
-            continue
-        if (
-            documents.store.get(user_id=context.scope.person_id, connection_id=receipt.id)
-            is not None
-        ):
-            continue
-        ids.append(receipt.id)
-    return ids
-
-
 @router.post("/receipt-reading")
 async def set_receipt_reading(
     request: Request,
@@ -621,7 +601,7 @@ async def set_receipt_reading(
         )
         if body.enabled and state["enabled"]:
             failure = None
-            for receipt_id in await run_in_threadpool(_unread_backlog, context):
+            for receipt_id in await run_in_threadpool(unread_backlog, context):
                 try:
                     await run_in_threadpool(
                         context.service.queue, context.scope, receipt_id

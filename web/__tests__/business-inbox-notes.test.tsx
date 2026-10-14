@@ -76,13 +76,13 @@ describe("notes awaiting review in the Inbox", () => {
 
 describe("the inbox count on the Overview card and the sidebar badge", () => {
   const receipt = (id: string, email_original = false) => ({ id, email_original } as unknown as ReceiptSummary);
-  test("counts what the Inbox list shows: receipts without the email itself, plus drafts with an open note", () => {
+  test("uses server receipt attention count and preserves drafts with an open note", () => {
     const inbox = [receipt("r1"), receipt("r2"), receipt("mail", true)];
     // Three open drafts among CAPTURES (a, b, e); accepted and dismissed notes leave the Inbox.
-    assert.equal(inboxCount({ inbox, notes: CAPTURES }), 2 + 3);
-    assert.equal(inboxCount({ inbox: [], notes: CAPTURES }), 3);
-    assert.equal(inboxCount({ inbox, notes: [] }), 2);
-    assert.equal(inboxCount({ inbox, notes: null }), 2);
+    assert.equal(inboxCount({ inbox, receiptActivity: { unread_count: 2, reading_count: 0, presentation: "unread" }, notes: CAPTURES }), 2 + 3);
+    assert.equal(inboxCount({ inbox: [], receiptActivity: { unread_count: 0, reading_count: 0, presentation: "none" }, notes: CAPTURES }), 3);
+    assert.equal(inboxCount({ inbox, receiptActivity: { unread_count: 2, reading_count: 0, presentation: "unread" }, notes: [] }), 2);
+    assert.equal(inboxCount({ inbox, receiptActivity: { unread_count: 2, reading_count: 0, presentation: "unread" }, notes: null }), 2);
     assert.equal(inboxCount({ inbox: null, notes: null }), 0);
   });
 });

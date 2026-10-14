@@ -62,6 +62,10 @@ class Owner:
             headers["Idempotency-Key"] = key
         return self.client.post(BASE + path, json=body, headers={**self.auth, **headers})
 
+    def reading(self, enabled: bool):
+        shown = self.get("/receipt-reading").json()
+        return self.post("/receipt-reading", {"enabled": enabled, "scope_version": 1, "disclosure_token": shown["disclosure_token"]})
+
     def account(self, currency: str = "DOP", nickname: str = "Operating") -> str:
         created = self.post(
             "/accounts",
@@ -84,8 +88,10 @@ class Owner:
             "Idempotency-Key": str(uuid4()),
             "X-Document-Filename": quote(name),
         }
+        shown = self.get("/receipt-reading").json()
+        if not consent and shown["enabled"]:
+            assert self.post("/receipt-reading", {"enabled": False, "scope_version": 1}).status_code == 200
         if consent:
-            shown = self.get("/receipt-reading").json()
             if not shown["enabled"]:
                 enabled = self.post(
                     "/receipt-reading",

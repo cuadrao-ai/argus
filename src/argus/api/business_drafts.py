@@ -622,3 +622,26 @@ def with_email_sources(dossier, space_id: str):  # noqa: ANN001, ANN201
         for source in dossier.sources
     )
     return dossier.model_copy(update={"sources": sources})
+
+
+def unread_backlog(context: BusinessContext) -> list[str]:
+    from argus.api.routers.business import _email_flagged
+
+    documents = context.service.documents
+    receipts = _email_flagged(context, context.service.receipts(context.scope))
+    ids = []
+    for receipt in receipts:
+        if (
+            receipt.email_original
+            or receipt.draft.status != "saved"
+            or receipt.draft.error_code is not None
+            or not receipt.draft.source_available
+        ):
+            continue
+        if (
+            documents.store.get(user_id=context.scope.person_id, connection_id=receipt.id)
+            is not None
+        ):
+            continue
+        ids.append(receipt.id)
+    return ids
