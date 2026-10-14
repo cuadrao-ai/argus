@@ -163,7 +163,9 @@ async def validation_exception_handler(  # type: ignore[no-untyped-def]
         }
         for error in exc.errors():
             location = ".".join(
-                part if isinstance(part, str) and part in fields else "unknown"
+                part.lower()
+                if isinstance(part, str) and part.lower() in fields
+                else "unknown"
                 for part in error.get("loc", ())
             )
             error_type = error.get("type")

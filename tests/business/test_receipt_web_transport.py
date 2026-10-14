@@ -132,7 +132,7 @@ async def test_receipt_validation_logs_only_declared_fields_and_error_types(
     error = RequestValidationError(
         [
             {
-                "loc": ("header", "idempotency-key"),
+                "loc": ("header", "Idempotency-Key"),
                 "type": "missing",
                 "input": canary,
                 "msg": canary,
