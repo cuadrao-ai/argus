@@ -27,6 +27,8 @@ public struct GuestClaimPlan: Equatable, Sendable {
         public let kind: MovementKind
         public let accountID: UUID
         public let counterpartID: UUID?
+        /// What the receiving account is, so a payment to a card can be sent the way the server takes it.
+        public let counterpartKind: AccountKind?
         public let amountText: String
         public let occurredAt: Date
         public let timeZone: String
@@ -72,7 +74,8 @@ public struct GuestClaimPlan: Equatable, Sendable {
             .map { movement -> Movement in
                 let digits = book.account(movement.accountID)?.digits ?? 2
                 return Movement(id: movement.id, kind: movement.kind, accountID: movement.accountID,
-                                counterpartID: movement.counterpartID, amountText: MoneyFormatter.plain(movement.amountMinor, digits: digits),
+                                counterpartID: movement.counterpartID,
+                                counterpartKind: movement.counterpartID.flatMap { book.account($0)?.kind }, amountText: MoneyFormatter.plain(movement.amountMinor, digits: digits),
                                 occurredAt: movement.occurredAt, timeZone: movement.timeZone, note: movement.note,
                                 category: movement.category)
             }

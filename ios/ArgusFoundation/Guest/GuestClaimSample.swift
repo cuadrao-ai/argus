@@ -70,6 +70,10 @@ actor SampleGuestClaimServer: GuestClaimServer {
 
     func preview(_ command: FinancialActivityCommand) async throws -> FinancialActivityPreview {
         try await pause()
+        // The real server answers 422 to a plain transfer into a credit card: it is a card payment.
+        if command.kind == .transfer, let to = command.destinationAccountId, accountsByID[to]?["type"] as? String == "credit_card" {
+            throw SessionFailure.rejected(status: 422, code: "card_payment_required")
+        }
         let ready = !(command.note.map(script.refuseNotes.contains) ?? false)
         let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
         let reviewed = try JSONSerialization.jsonObject(with: encoder.encode(command))
