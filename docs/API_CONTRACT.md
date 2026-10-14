@@ -9333,6 +9333,20 @@ accept path recorded.
     delivery row; the worker fetches the message later. An address with no
     active route, two routes or a revoked grant is recorded as rejected and
     never fetched.
+  - Daily receiving allowances are server-owned per immutable receipt address and UTC
+    day. `CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT` defaults to 100;
+    `CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT` defaults to 104857600 bytes.
+    Enqueue admits each new message once; exact webhook replays consume nothing.
+    A download retry consumes another message allowance. Metadata and raw content
+    share one message allowance per worker attempt, but each HTTP fetch reserves
+    the canonical 10 MiB source maximum before any request. Completed fetches settle
+    actual response-body bytes. Interrupted or failed fetches retain their full
+    reservation when the transferred count is uncertain. Headers are not counted.
+    A saved-source retry needs no provider allowance. An exhausted allowance keeps
+    the durable delivery `received`, with `email_daily_message_budget` or
+    `email_daily_byte_budget`, until the next UTC midnight. It does not reject or
+    drop mail, fetch it, spin, or consume the worker retry-attempt limit. Work
+    spanning midnight must obtain the new day's allowance before its next fetch.
   - GET `/api/v1/business/email` returns `{enabled, receiving_address}`:
     configuration readiness for the caller's Business, not provider health.
   - POST `/api/v1/business/email` (prepare capability) mints one address per

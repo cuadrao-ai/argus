@@ -55,10 +55,13 @@ class Provider:
         self.raw, self.recipients, self.calls = raw, recipients, 0
         self.failure: EmailProviderError | None = None
 
-    async def raw_message(self, email_id: str) -> ReceivedEmail:
+    async def raw_message(self, email_id: str, *, budget=None) -> ReceivedEmail:
+        reservation = await budget.reserve() if budget else None
         self.calls += 1
         if self.failure is not None:
             raise self.failure
+        if budget:
+            await budget.settle(reservation, len(self.raw))
         return ReceivedEmail(self.raw, self.recipients)
 
 
@@ -287,8 +290,10 @@ async def test_transient_storage_failure_keeps_the_delivery_retryable_and_resume
         ("later.png", "pending"),
     ]
     assert not await world.runtime.next()  # backoff holds it
+    charged = {key: tuple(value) for key, value in world.store._usage.items()}
     world.clock.advance(11)
     assert await world.runtime.next()
+    assert {key: tuple(value) for key, value in world.store._usage.items()} == charged
     assert world.store.get(delivery.id, world.route.space_id).state == "captured"
     assert uploads == ["forwarded.eml", "first.png", "later.png", "later.png"]
     assert (

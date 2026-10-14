@@ -3416,6 +3416,25 @@ Proven by `tests/test_whatsapp_intake_postgres.py`.
 
 `business_receipt_read_states` stores `(space_id,person_id,connection_id)` and the exact server completion cursor. It stores no money, review facts or source text. An acknowledgement under the live read grant locks and rechecks the canonical record before changing only that person's boundary. `business_receipt_activity_baseline` records the migration time. Completions established before it start read without changing receipt content. New completions on old receipts remain unread. Tables have RLS with no direct client grants; only the existing service-role backend mutates them.
 
+### Business email daily receiving allowance
+
+`business_email_daily_usage` is server-only, with RLS and no client grants.
+Its primary key is `(route_id, day)`, where `day` is UTC and the immutable,
+unique route owns the receiving address. `messages` counts admitted messages
+and later download retries. `bytes_used` includes completed response-body bytes,
+outstanding 10 MiB fetch reservations, and conservative charges for interrupted
+fetches. A route deletion cascades its usage rows, including account/space deletion.
+Migration `20261014133457_business_email_daily_budget.sql` adds this table and
+internal delivery budget day, message-lease and fetch-token columns. The delivery
+and daily counter changes share short transactions. New-row admission deduplicates
+before charging; a quota wait is durable pending work due next UTC midnight.
+Each fetch checks the live delivery lease; settlement consumes its exact fetch
+token once. A reclaimed or expired worker cannot refund a later attempt. Crashed
+reservations remain charged for their original day. No automatic release of an
+uncertain reservation grants additional download capacity. Byte reservations on
+subsequent days charge that day's counter. Policy comes from receiving settings;
+it is not copied into a client or route row.
+
 ### Business WhatsApp AI permission
 
 `business_whatsapp_ai_consents` is server-only, with RLS and no client grants.

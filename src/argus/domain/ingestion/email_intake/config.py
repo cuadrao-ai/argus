@@ -7,7 +7,8 @@ from typing import Annotated
 from pydantic import BeforeValidator, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from argus.domain.ingestion.documents.config import enabled_flag
+from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES, enabled_flag
+from argus.domain.ingestion.email_intake.budget import DailyEmailBudget
 from argus.settings_names import setting_aliases
 
 
@@ -29,6 +30,19 @@ class EmailIntakeSettings(BaseSettings):
     receiving_domain: str = Field(
         default="", validation_alias=setting_aliases("BUSINESS_EMAIL_DOMAIN")
     )
+
+    daily_message_limit: int = Field(
+        default=100, ge=1, validation_alias="CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT"
+    )
+    daily_byte_limit: int = Field(
+        default=100 * 1024 * 1024,
+        ge=SOURCE_MAX_BYTES,
+        validation_alias="CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT",
+    )
+
+    @property
+    def daily_budget(self) -> DailyEmailBudget:
+        return DailyEmailBudget(self.daily_message_limit, self.daily_byte_limit)
 
     @field_validator("api_key", "webhook_secret", mode="before")
     @classmethod

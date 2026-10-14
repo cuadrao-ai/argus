@@ -2076,6 +2076,35 @@
         "render.yaml"
       ]
     },
+    "codex/receipt-email-daily-budget": {
+      "description": "Daily receiving-address budgets keep mail pending at the UTC-day cap. Atomic admission, per-HTTP 10 MiB reservations, actual byte settlement, lease fencing and configurable limits. Server only; no hosted change or prompt edits.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        ".env.example",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/specs/lanes/account-deletion-fk-census.md",
+        "src/argus/domain/ingestion/email_intake/budget.py",
+        "src/argus/domain/ingestion/email_intake/config.py",
+        "src/argus/domain/ingestion/email_intake/provider.py",
+        "src/argus/domain/ingestion/email_intake/service.py",
+        "src/argus/domain/ingestion/email_intake/store.py",
+        "supabase/migrations/20261014133457_business_email_daily_budget.sql",
+        "tests/ingestion/test_email_daily_budget.py",
+        "tests/ingestion/test_email_intake_service.py",
+        "tests/test_business_email_intake_postgres.py",
+        "tests/test_client_grants_postgres.py",
+        "tests/test_email_daily_budget_postgres.py",
+        "tests/test_email_intake_settings.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "apps/ios/**",
+        "web/**"
+      ]
+    },
     "codex/receipt-event-loop": {
       "description": "Bound receipt validation and source capture outside the async event loop; shared per-email aggregate image pixel budget and cancellation/concurrency regression tests. No hosted, provider, migration, iOS or frontend changes.",
       "base_ref": "origin/codex/private-alpha-next",
