@@ -16,6 +16,9 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from argus.api.app_setup import validation_exception_handler
+from fastapi import Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from loguru import logger
 from PIL import Image
@@ -32,14 +35,16 @@ def web_request(content: bytes, media_type: str, consent: bool) -> dict:
     result = subprocess.run(
         [bun, "run", "__tests__/fixtures/receipt-web-request.ts"],
         cwd=ROOT / "web",
-        input=json.dumps({
-            "content": base64.b64encode(content).decode(),
-            "media_type": media_type,
-            "filename": "recibo café.jpg",
-            "consent": consent,
-            "token": ALICE,
-            "key": str(uuid4()),
-        }),
+        input=json.dumps(
+            {
+                "content": base64.b64encode(content).decode(),
+                "media_type": media_type,
+                "filename": "recibo café.jpg",
+                "consent": consent,
+                "token": ALICE,
+                "key": str(uuid4()),
+            }
+        ),
         text=True,
         capture_output=True,
         timeout=30,
@@ -50,14 +55,17 @@ def web_request(content: bytes, media_type: str, consent: bool) -> dict:
 
 def send(client: TestClient, request: dict):
     return client.request(
-        request["method"], request["path"], headers=request["headers"],
+        request["method"],
+        request["path"],
+        headers=request["headers"],
         content=base64.b64decode(request["content"]),
     )
 
 
 @pytest.mark.parametrize("consent", [False, True])
 def test_modal_request_saves_a_4_mib_jpeg_and_replays_without_duplication(
-    biz: TestClient, consent: bool,
+    biz: TestClient,
+    consent: bool,
 ) -> None:
     owner = Owner(biz, ALICE)
     assert owner.start().status_code == 201
@@ -83,12 +91,18 @@ def test_modal_request_saves_a_4_mib_jpeg_and_replays_without_duplication(
     assert len(owner.get("/receipts").json()["items"]) == 1
 
 
-@pytest.mark.parametrize("media_type,status,code", [
-    ("image/jpeg", 422, "invalid_document"),
-    ("application/octet-stream", 415, "document_media_type_unsupported"),
-])
+@pytest.mark.parametrize(
+    "media_type,status,code",
+    [
+        ("image/jpeg", 422, "invalid_document"),
+        ("application/octet-stream", 415, "document_media_type_unsupported"),
+    ],
+)
 def test_modal_request_exposes_precise_safe_failure_without_saving(
-    biz: TestClient, media_type: str, status: int, code: str,
+    biz: TestClient,
+    media_type: str,
+    status: int,
+    code: str,
 ) -> None:
     owner = Owner(biz, ALICE)
     assert owner.start().status_code == 201
@@ -106,3 +120,43 @@ def test_modal_request_exposes_precise_safe_failure_without_saving(
         assert "not an image" not in logged
         assert "recibo café" not in logged
     assert owner.get("/receipts").json()["items"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", ["/api/v1/business/receipts", "/api/v1/business/other"])
+async def test_receipt_validation_logs_only_declared_fields_and_error_types(
+    path: str,
+) -> None:
+    canary = "PRIVATE_REQUEST_CANARY"
+    request = Request({"type": "http", "method": "POST", "path": path, "headers": []})
+    error = RequestValidationError(
+        [
+            {
+                "loc": ("header", "idempotency-key"),
+                "type": "missing",
+                "input": canary,
+                "msg": canary,
+            },
+            {
+                "loc": ("query", canary),
+                "type": canary,
+                "input": canary,
+                "msg": canary,
+                "ctx": {"private": canary},
+            },
+        ]
+    )
+    messages: list[str] = []
+    sink = logger.add(lambda message: messages.append(str(message)))
+    try:
+        response = await validation_exception_handler(request, error)
+    finally:
+        logger.remove(sink)
+    assert response.status_code == 422
+    logged = "\n".join(messages)
+    assert canary not in logged
+    if path.endswith("/receipts"):
+        assert "field=header.idempotency-key type=missing" in logged
+        assert "field=query.unknown type=unknown" in logged
+    else:
+        assert "receipt_upload_validation_failed" not in logged

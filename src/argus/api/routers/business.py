@@ -539,7 +539,12 @@ async def upload_receipt(
             error.code
             if isinstance(
                 error,
-                (DocumentServiceError, DocumentExtractionError, BusinessError, ReconcileError),
+                (
+                    DocumentServiceError,
+                    DocumentExtractionError,
+                    BusinessError,
+                    ReconcileError,
+                ),
             )
             else "unknown",
             type(error).__name__,

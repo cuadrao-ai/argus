@@ -61,9 +61,9 @@ for (const width of [1280, 390]) {
       await consent.getByRole("checkbox").uncheck();
       state.status = 415;
       await dialog.getByRole("button", { name: "Reintentar", exact: true }).click();
+      await expect(dialog.getByRole("alert")).toContainText("Este archivo no es compatible. Prueba con");
       expect(attempts).toHaveLength(2);
       expect(attempts[1]).toEqual(attempts[0]);
-      await expect(dialog.getByRole("alert")).toContainText("Este archivo no es compatible. Prueba con");
       await expect(dialog.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath(`receipt-upload-unsupported-${width}.png`) });
       await dialog.getByRole("button", { name: "Elegir otro archivo", exact: true }).click();

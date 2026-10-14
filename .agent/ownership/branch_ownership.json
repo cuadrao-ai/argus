@@ -2010,6 +2010,7 @@
         ".agent/ownership/branch_ownership.json",
         ".github/workflows/ci.yml",
         "docs/API_CONTRACT.md",
+        "src/argus/api/app_setup.py",
         "src/argus/api/routers/business.py",
         "tests/business/test_receipt_web_transport.py",
         "web/__tests__/fixtures/receipt-web-request.ts",
