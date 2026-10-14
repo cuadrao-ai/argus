@@ -9,6 +9,8 @@ struct ConnectedCuadraoProfile: View {
     @Environment(\.locale) private var locale
     @State private var editing = false
     @State private var confirmingSignOut = false
+    @State private var claim: GuestClaimModel?
+    @Environment(\.cuadraoGuestClaim) private var guestClaim
     @State private var settingsExamples = CuadraoProfileSettingsDraft()
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
     private var displayName: String { auth.profile?.displayName ?? (spanish ? "Tu perfil" : "Your profile") }
@@ -19,6 +21,7 @@ struct ConnectedCuadraoProfile: View {
                 identity: .init(name: displayName, emailAddress: auth.profile?.email, avatar: avatar),
                 bottomSpace: bottomSpace, editProfile: { editing = true }) {
                 if let invitations = auth.invitations { ConnectedProfileInvitationsRow(model: invitations) }
+                if let guestClaim { GuestClaimRow(spanish: spanish) { openClaim(guestClaim) } }
             } accountActions: {
                 signOut
             }
@@ -42,6 +45,9 @@ struct ConnectedCuadraoProfile: View {
                         saveNames: { await auth.setNames(displayName: $0, preferredName: $1) })
                 }.tint(WelcomePalette.pine).preferredColorScheme(appearance.colorScheme)
             }
+            .sheet(item: $claim) { model in
+                GuestClaimSheet(model: model, close: { claim = nil }).preferredColorScheme(appearance.colorScheme)
+            }
             .alert(spanish ? "¿Cerrar sesión?" : "Sign out?", isPresented: $confirmingSignOut) {
                 Button(spanish ? "Cancelar" : "Cancel", role: .cancel) {}
                 Button(spanish ? "Cerrar sesión" : "Sign out", role: .destructive) { Task { await auth.signOut() } }
@@ -55,6 +61,13 @@ struct ConnectedCuadraoProfile: View {
             settingsExamples = CuadraoProfileSettingsDraft()
             editing = false
             confirmingSignOut = false
+        }
+    }
+
+    private func openClaim(_ entry: GuestClaimEntry) {
+        Task {
+            guard let server = await auth.guestClaimServer() else { return }
+            claim = GuestClaimModel(directory: entry.directory, server: server, spanish: spanish, discard: entry.discard)
         }
     }
 

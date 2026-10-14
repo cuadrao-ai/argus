@@ -53,11 +53,17 @@ private struct GuestModeHost<Content: View>: View {
                                        restored: auth.hasRestored && bookReady, auth: phase)
     }
 
+    /// The profile offers the claim only while it is switched on, an account is signed in and a book is on the iPhone.
+    private var claimEntry: GuestClaimEntry? {
+        guard CuadraoFirstRelease.guestClaim, auth.state == .authenticated, controller.hasStoredBook else { return nil }
+        return GuestClaimEntry(directory: controller.bookDirectory, discard: { await controller.discardStoredBook() })
+    }
+
     var body: some View {
         Group {
             switch route {
             case .connected:
-                content.environment(\.cuadraoGuestWelcome, GuestWelcomeContext(
+                content.environment(\.cuadraoGuestClaim, claimEntry).environment(\.cuadraoGuestWelcome, GuestWelcomeContext(
                     shape: GuestAccessPolicy.welcome(doorOpen: true, accountSignedInBefore: controller.accountSignedInBefore,
                                                      hasGuestData: controller.hasStoredBook),
                     open: { controller.enter() }))

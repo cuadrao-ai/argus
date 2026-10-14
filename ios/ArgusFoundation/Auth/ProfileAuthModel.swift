@@ -52,6 +52,12 @@ final class ProfileAuthModel: ObservableObject {
                   providers: loadedController == nil ? .off : NativeProviderConfiguration.load(), initialState: initialState)
     }
 
+    /// The real server for moving the on-device book into this account, bound to the session that is open now.
+    func guestClaimServer() async -> (any GuestClaimServer)? {
+        guard let controller else { return nil }
+        return SessionGuestClaimServer(controller: controller, identity: await controller.snapshot())
+    }
+
     init(configuration loadedConfiguration: NativeAuthConfiguration?, controller loadedController: SessionController?,
          providers: NativeProviderConfiguration = .off, initialState: State = .signedOut) {
         configuration = loadedConfiguration

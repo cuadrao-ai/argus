@@ -36,6 +36,8 @@ struct ArgusFoundationApp: App {
             AppleSessionHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--cuadrao-release-ui") {
             ReleaseUIReview()
+        } else if ProcessInfo.processInfo.arguments.contains("--guest-claim-harness") {
+            GuestClaimHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--invitations-harness") {
             InvitationsHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--captcha-harness") {
