@@ -23,7 +23,7 @@ const LIST: BusinessExpense[] = [
 ];
 
 async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => Promise<BusinessExpenseDetail>); list?: BusinessExpense[] }) {
-  const { act, useState } = await import("react");
+  const { act, useRef, useState } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
@@ -41,11 +41,14 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
     const [revision, setRevision] = useState(0);
     setPanelOutside = setPanel;
     reloadOutside = () => setRevision((value) => value + 1);
+    // The source is one object for the life of the workspace, as the app's is; openPanel is built inline, so
+    // every re-render hands the panels a fresh one (the hazard the detail panel must shrug off).
+    const source = useRef({
+      expense: typeof options.detail === "function" ? options.detail : async () => options.detail as BusinessExpenseDetail,
+      expenses: async () => options.list ?? LIST,
+    }).current;
     const value = {
-      source: {
-        expense: typeof options.detail === "function" ? options.detail : async () => options.detail as BusinessExpenseDetail,
-        expenses: async () => options.list ?? LIST,
-      },
+      source,
       records: { workspace: { accounts: [{ id: "acct-ops", nickname: "Operating account", type: "bank", currency: "DOP" }] }, overview: null },
       revision,
       period: { key: "this_month", from: "2026-10-01", to: null },
@@ -137,6 +140,20 @@ describe("the expense detail panel", () => {
     await page.act(async () => { retry.click(); });
     await page.settle();
     assert.equal(calls, 2);
+    assert.equal(page.host.querySelector("#expense-detail-title")?.textContent, "Estación Ruta 3");
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("a workspace re-render that hands out a new openPanel does not fetch the expense again", async () => {
+    let calls = 0;
+    const page = await mountWorkspace({ detail: async () => { calls += 1; return expense({}); } });
+    assert.equal(calls, 1);
+    // Each reload re-renders the provider with a fresh openPanel (as this harness builds it inline).
+    await page.reload();
+    await page.settle();
+    await page.reload();
+    await page.settle();
+    assert.equal(calls, 1, "the record was asked for once");
     assert.equal(page.host.querySelector("#expense-detail-title")?.textContent, "Estación Ruta 3");
     await page.act(async () => page.root.unmount());
   });

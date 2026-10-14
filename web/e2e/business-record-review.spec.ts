@@ -277,6 +277,31 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Predeterminada · sin verificar");
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Fecha de actividad");
   });
+
+  test("Confirmar on a suggestion saves that one value as the reviewer's at a new revision; the chip says so", async ({ page }) => {
+    await openRecord(page, dossierFixtureIds.fiscal);
+    const facts = page.getByTestId("receipt-current-facts");
+    const merchant = facts.locator('[data-fact="counterparty"]');
+    await expect(merchant).toHaveAttribute("data-standing", "suggestion");
+    await expect(merchant).toContainText("Read from the source · suggestion, not verified");
+    await expect(page.getByTestId("receipt-review-counts")).toHaveText("1 suggestion to confirm");
+    await expect(page.getByText("Revision 2", { exact: true })).toBeVisible();
+
+    await page.getByTestId("confirm-counterparty").click();
+
+    await expect(page.getByText("Revision 3", { exact: true })).toBeVisible();
+    await expect(merchant).toHaveAttribute("data-standing", "person");
+    await expect(merchant).toContainText("Ferretería La Esquina");
+    await expect(merchant).toContainText("Set by reviewer · not verified");
+    await expect(page.getByTestId("confirm-counterparty")).toHaveCount(0);
+    await expect(page.getByTestId("receipt-review-counts")).toHaveCount(0);
+    // The request that was sent: the one key, the value as read, against the revision that was open.
+    const actions = page.getByRole("region", { name: "Web review actions" });
+    await actions.locator("summary").click();
+    await expect(actions.locator("pre")).toHaveText(JSON.stringify({ version: 2, facts: { counterparty: { state: "known", value: "Ferretería La Esquina" } } }));
+    await page.getByTestId("receipt-history").locator("summary").click();
+    await expect(page.getByTestId("receipt-history").locator("li").first()).toContainText("Ana Peña · Revision 3");
+  });
 });
 
 for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {

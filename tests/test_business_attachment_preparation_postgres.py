@@ -337,6 +337,7 @@ def test_nonexistent_target_refuses_binding(prepared):
         bind(prepared, ExistingDraft(draft_id=uuid4(), version=1))
 
 
+@pytest.mark.owner_acts
 def test_accepted_target_refuses_completion(prepared):
     service, context, _, _, _, _ = prepared
     from argus.domain.business.contracts.actions import ApproveExpense

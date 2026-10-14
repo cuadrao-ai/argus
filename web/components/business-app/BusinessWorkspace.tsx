@@ -47,7 +47,7 @@ import { useBusinessSearch } from "./useBusinessSearch";
 
 export type BusinessPanelState =
   | { kind: "overview" }
-  | { kind: "inbox" }
+  | { kind: "inbox"; emailId?: string }
   | { kind: "expenses"; expenseId?: string }
   | { kind: "expense"; expenseId: string }
   | { kind: "updates" }
@@ -121,6 +121,16 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   return { kind: "overview" };
 }
 
+const EMPTY_RECORDS: Records = {
+  workspace: null,
+  overview: null,
+  inbox: null,
+  notes: null,
+  notesError: false,
+  notesTruncated: false,
+  error: false,
+};
+
 function shellViewFromSearch(params: URLSearchParams): ChatShellView {
   return params.has("conversation") || params.get("view") === "chat" ? "chat" : "workspace";
 }
@@ -181,15 +191,7 @@ export function BusinessWorkspaceProvider({
   }, [directRecord, panel.kind]);
   const [period, setPeriodState] = useState<Period>(() => periodRange("this_month"));
   const setPeriod = useCallback((next: PeriodKey | Period) => setPeriodState(typeof next === "string" ? periodRange(next) : next), []);
-  const [records, setRecords] = useState<Records>({
-    workspace: null,
-    overview: null,
-    inbox: null,
-    notes: null,
-    notesError: false,
-    notesTruncated: false,
-    error: false,
-  });
+  const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
   const [revision, setRevision] = useState(0);
   // The chosen Business: a grant id the client remembers, proven by the server on every request.
   const chosenGrant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
@@ -199,11 +201,6 @@ export function BusinessWorkspaceProvider({
     () => spaces?.find((space) => (chosenGrant ? space.grant_id === chosenGrant : space.role === "owner")) ?? null,
     [spaces, chosenGrant],
   );
-  const chooseBusiness = useCallback((grantId: string | null) => {
-    setLostAccess(false);
-    setChosenGrant(grantId);
-    setRevision((value) => value + 1);
-  }, []);
   // The listing is the server's; a remembered choice it no longer holds falls back to the own Business.
   useEffect(() => {
     let cancelled = false;
@@ -231,6 +228,23 @@ export function BusinessWorkspaceProvider({
   const [recordExpenseOpen, setRecordExpenseOpen] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [attachedReceipt, setAttachedReceipt] = useState<ReceiptSummary | null>(null);
+  // Switching Business closes whatever was open in the old one before the new
+  // one loads: the open record and its address, the dialogs and their typed
+  // text, the attached receipt, and every list. Nothing of A shows under B.
+  const chooseBusiness = useCallback((grantId: string | null) => {
+    if (grantId === getChosenGrant()) return;
+    setLostAccess(false);
+    setChosenGrant(grantId);
+    setPanel({ kind: "overview" });
+    writePanelToUrl("workspace", { kind: "overview" });
+    setDirectRecord(false);
+    setIntakeTarget(null);
+    setRecordExpenseOpen(false);
+    setCaptureOpen(false);
+    setAttachedReceipt(null);
+    setRecords(EMPTY_RECORDS);
+    setRevision((value) => value + 1);
+  }, []);
   const drafts = useRef(new Map<string, string>());
   const [draftRevision, setDraftRevision] = useState(0);
 

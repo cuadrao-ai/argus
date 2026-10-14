@@ -103,7 +103,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
         {rows.map(({ key, standing, blocked, asked }) => {
           const fact = dossier.facts[key];
           const value = presentBusinessFact(key, dossier.facts, accounts, locale, labels);
-          const confirm = confirmable && onConfirm && standing === "suggestion" ? () => onConfirm(key) : undefined;
+          // A suggestion a blocker names cannot be confirmed as it is: the same value would be refused.
+          const confirm = confirmable && onConfirm && standing === "suggestion" && !blocked ? () => onConfirm(key) : undefined;
           return row(key, t(`business.dossier.field.${key}`, key), value, standing, fact.state === "known" ? fact.origin : null, blocked, asked, confirm);
         })}
       </dl>

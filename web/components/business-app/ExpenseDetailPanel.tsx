@@ -27,6 +27,12 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
   const [state, setState] = useState<{ status: "loading" } | { status: "ready"; expense: BusinessExpenseDetail } | { status: "failed" }>({ status: "loading" });
   const panel = useRef<HTMLElement>(null);
   const [attempt, setAttempt] = useState(0);
+  // The fetch keys on the expense, not on the navigation callback: a workspace
+  // re-render that hands out a new openPanel must not ask for the record again.
+  const open = useRef(openPanel);
+  useEffect(() => {
+    open.current = openPanel;
+  }, [openPanel]);
   useEffect(() => {
     panel.current?.focus();
   }, []);
@@ -38,14 +44,14 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
         if (!active) return;
         const target = expensePanel(expense);
         if (target.kind === "expense") setState({ status: "ready", expense });
-        else openPanel(target);
+        else open.current(target);
       },
       () => active && setState({ status: "failed" }),
     );
     return () => {
       active = false;
     };
-  }, [expenseId, source, openPanel, attempt]);
+  }, [expenseId, source, attempt]);
   const accounts = new Map((records.workspace?.accounts ?? []).map((account) => [account.id, account]));
   const title = state.status === "ready" ? (state.expense.merchant ?? t("business.expenses.no_merchant", "Expense")) : t("business.expenses.detail_title", "Saved expense");
   return (

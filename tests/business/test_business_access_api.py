@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
@@ -135,3 +136,47 @@ def test_the_profile_read_never_fails_because_of_the_invite_hook(
     assert _accept_business_invites(str(uuid4())) is None
     monkeypatch.setattr("argus.api.business_spaces._access", None)
     assert _accept_business_invites(str(uuid4())) is None
+
+
+def test_re_inviting_an_expired_email_makes_a_fresh_live_invite(
+    alice: Owner,  # noqa: F811
+    bob: Owner,  # noqa: F811
+) -> None:  # noqa: F811
+    """The in-memory store follows the Postgres rule: live stays, expired is
+    re-issued with a new window and a receipt, revoked and accepted no longer
+    hold the slot, and the owner sees the result."""
+
+    store = business_access()
+    assert store is not None
+    first = alice.post("/access", {"email": "contadora@example.test"})
+    assert first.status_code == 201, first.text
+    [invite] = first.json()["invites"]
+    # Live: a replay changes nothing.
+    assert alice.post("/access", {"email": "contadora@example.test"}).status_code == 200
+    # Expired: the owner sees no invite; re-inviting makes a fresh live one with a new window.
+    pending = next(i for i in store._invites if i["id"] == invite["id"])
+    pending["expires_at"] = store._now() - timedelta(days=1)
+    assert alice.get("/access").json()["invites"] == []
+    again = alice.post("/access", {"email": "contadora@example.test"})
+    assert again.status_code == 201, again.text
+    [fresh] = again.json()["invites"]
+    assert (
+        fresh["email"] == "contadora@example.test"
+        and fresh["expires_at"] > invite["expires_at"]
+    )
+    assert [c.action for c in store.ledger].count("invite_access") == 2
+    assert len([i for i in store._invites if i["email"] == "contadora@example.test"]) == 1
+    # Revoked: a new invite is born beside the revoked row.
+    gone = alice.client.delete(
+        f"/api/v1/business/access/invites/{fresh['id']}", headers=alice.auth
+    )
+    assert gone.status_code == 204
+    reborn = alice.post("/access", {"email": "contadora@example.test"})
+    assert reborn.status_code == 201 and len(reborn.json()["invites"]) == 1
+    assert len([i for i in store._invites if i["email"] == "contadora@example.test"]) == 2
+    # Accepted: the confirmed account holds the grant; re-inviting it creates nothing.
+    store.confirm(bob.person, "bob@example.test")
+    assert alice.post("/access", {"email": "bob@example.test"}).status_code == 201
+    replay = alice.post("/access", {"email": "bob@example.test"})
+    assert replay.status_code == 200
+    assert "bob@example.test" not in [i["email"] for i in replay.json()["invites"]]

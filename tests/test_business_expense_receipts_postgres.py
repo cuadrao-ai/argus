@@ -33,6 +33,7 @@ users = bridge.users
 pytestmark = bridge.pytestmark
 
 
+@pytest.mark.owner_acts
 def test_an_expense_approved_from_a_draft_names_its_receipt(actions):  # noqa: ANN001
     saved = single._saved(actions, "expense")
     service, context, _, cid, _, _ = saved
@@ -123,6 +124,7 @@ def test_an_expense_of_another_business_is_not_found(actions):  # noqa: ANN001
     assert refused.value.result.code == "expense_not_found"
 
 
+@pytest.mark.owner_acts
 def test_an_expense_recorded_from_a_note_names_its_draft_and_no_receipt(actions):  # noqa: ANN001
     """The left join in linked_records: a draft with no receipt still links the
     expense to the draft, and names no receipt. The web shows "Sin recibo

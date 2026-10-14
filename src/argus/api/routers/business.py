@@ -23,10 +23,12 @@ from fastapi import (
     Response,
 )
 from fastapi.concurrency import run_in_threadpool
+from loguru import logger
 
 from argus.api.business import (
     BusinessContext,
     BusinessPerson,
+    own_business_only,
     owner_only,
     require_business,
     require_business_document_write,
@@ -42,10 +44,10 @@ from argus.api.business_drafts import (
     receipt_detail,
     receipt_summaries,
     receipt_summary,
-    record_upload,
     require_legacy_receipt_write,
     search_with_drafts,
     updates_with_drafts,
+    upload_recorder,
 )
 from argus.api.business_schemas import (
     BusinessAccess,
@@ -79,7 +81,7 @@ from argus.api.documents import (
     document_problem,
     read_document_upload,
 )
-from argus.api.email_intake import email_receipt_flags
+from argus.api.email_intake import arrived_by_email, email_receipt_flags
 from argus.api.financial_accounts import domain_problem
 from argus.api.ingestion import ingestion_hub
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
@@ -115,6 +117,11 @@ router = APIRouter(
     prefix="/business",
     tags=["business"],
     dependencies=[Depends(require_business_surface), Depends(_no_store)],
+    responses={
+        403: {
+            "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
+        }
+    },
 )
 _CONFLICTS = frozenset(
     {
@@ -137,7 +144,9 @@ def _email_flagged(context: BusinessContext, receipts: list) -> list:  # noqa: A
     return [
         replace(
             receipt,
-            channel="email",
+            channel="email"
+            if arrived_by_email(receipt.draft.created_at, flags[receipt.id][2])
+            else receipt.channel,
             email_delivery_ids=flags[receipt.id][0],
             email_original=flags[receipt.id][1],
         )
@@ -212,6 +221,8 @@ def get_space(
     request: Request,
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
+    # The own Business only: a client's name comes from the listing.
+    own_business_only(request, person.person_id)
     space = person.spaces.open_space(person.person_id)
     if space is None:
         raise space_missing_problem(request)
@@ -426,6 +437,7 @@ def rename_space(
     body: RenameBusinessSpace,
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
+    own_business_only(request, person.person_id)
     space = person.spaces.rename(person.person_id, body.name)
     if space is None:
         raise space_missing_problem(request)
@@ -436,12 +448,16 @@ def rename_space(
 def get_workspace(
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
-    # The workspace is only ever the owner's own space; an old space without
-    # the owner's grant gets it here, once, with one ledger row.
+    # An old own space without the owner's grant gets it here, once, with one
+    # ledger row; a client's Business is read as it is.
     store = business_access()
-    if store is not None:
+    if store is not None and context.scope.acting_as_owner:
         store.ensure_owner_grant(context.scope.owner.space_id, context.scope.person_id)
-    return context.service.workspace(context.scope)
+    workspace = context.service.workspace(context.scope)
+    if not context.scope.acting_as_owner:
+        # Business chat is the owner's: the client's shell shows no composer.
+        workspace = {**workspace, "chat_available": False}
+    return workspace
 
 
 @router.post("/accounts", response_model=BusinessAccount, status_code=201)
@@ -503,8 +519,8 @@ async def upload_receipt(
             filename=document_filename(filename),
             media_type=media_type,
             consent=consent == "true",
+            on_capture=upload_recorder(context, request),
         )
-        record_upload(context, receipt.id)
         if receipt.status == "queued":
             await dispatch_preparation(
                 context.service.documents,
@@ -554,7 +570,21 @@ def get_receipt_source(
     try:
         media_type, content = context.service.source(context.scope, receipt_id)
     except Exception as error:
-        raise _problem(request, error) from None
+        # The fields live in the message text: the hosted log sink keeps the
+        # default format and drops keyword fields. Names and codes only, never
+        # a URL, a token or a filename.
+        failure = _problem(request, error)
+        detail = failure.detail
+        code = detail.get("code") if isinstance(detail, dict) else None
+        logger.warning(
+            f"receipt_source_failed receipt_id={receipt_id}"
+            f" code={code or type(error).__name__} status={failure.status_code}"
+        )
+        raise failure from None
+    logger.info(
+        f"receipt_source_served receipt_id={receipt_id} media_type={media_type}"
+        f" size_bytes={len(content)}"
+    )
     return Response(
         content,
         media_type=media_type,
@@ -757,7 +787,8 @@ def search(
     flags = email_receipt_flags(context.scope.owner.space_id)
     for item in found["receipts"]:
         if item["id"] in flags:
-            item["channel"] = "email"
+            if arrived_by_email(item["received_at"], flags[item["id"]][2]):
+                item["channel"] = "email"
             item["email_delivery_ids"] = list(flags[item["id"]][0])
             item["email_original"] = flags[item["id"]][1]
     return found

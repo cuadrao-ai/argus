@@ -29,7 +29,7 @@ from argus.domain.ingestion.documents.models import (
 )
 from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
 from argus.domain.ingestion.documents.preparation import validate_source
-from argus.domain.ingestion.documents.store import DocumentStore
+from argus.domain.ingestion.documents.store import CaptureHook, DocumentStore
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.owner_scope import OwnerScope, space_id
 
@@ -280,6 +280,7 @@ class DocumentsService:
         proposal: DraftProposal | None = None,
         source_text: str | None = None,
         scope: OwnerScope,
+        on_capture: CaptureHook | None = None,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
         digest = hashlib.sha256(content).hexdigest()
@@ -313,7 +314,9 @@ class DocumentsService:
             updated_at=self.hub.clock(),
         )
         try:
-            captured = self.store.capture(user_id=user_id, draft=draft, content=content)
+            captured = self.store.capture(
+                user_id=user_id, draft=draft, content=content, on_capture=on_capture
+            )
         except SourceStorageUnavailable:
             raise DocumentServiceError(
                 "document_storage_unavailable", retryable=True

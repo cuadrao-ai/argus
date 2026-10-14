@@ -119,13 +119,21 @@ def test_the_grant_binds_the_accountant_to_that_business_without_approve(
             ),
             grant_id=UUID(world["grant"]),
         )
-    # A legacy write under the grant leaves a row naming the grant and the issuer.
+    # A legacy write under the grant leaves a row naming the grant and the issuer;
+    # a replay (same request key) repeats its row, a second write gets its own.
     with transaction(authority, context, "prepare") as tx:
-        record_legacy_action(tx.connection, tx.authorization, "receipt_review", ["ev-1"])
-        record_legacy_action(tx.connection, tx.authorization, "receipt_review", ["ev-1"])
+        record_legacy_action(
+            tx.connection, tx.authorization, "receipt_review", ["ev-1"], "k1"
+        )
+        record_legacy_action(
+            tx.connection, tx.authorization, "receipt_review", ["ev-1"], "k1"
+        )
+        record_legacy_action(
+            tx.connection, tx.authorization, "receipt_review", ["ev-1"], "k2"
+        )
     assert [
         r for r in _ledger(world["pool"], world["a"]) if r[0] == "receipt_review"
-    ] == [("receipt_review", world["grant"], users["owner"])]
+    ] == [("receipt_review", world["grant"], users["owner"])] * 2
 
 
 def test_a_revoked_or_expired_grant_answers_nothing_at_once(world, users) -> None:  # noqa: ANN001

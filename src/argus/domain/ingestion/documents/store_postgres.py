@@ -25,6 +25,7 @@ from argus.domain.ingestion.documents.objects import (
     connection_prefix,
     source_path,
 )
+from argus.domain.ingestion.documents.store import CaptureHook
 
 
 class PostgresDocumentStore:
@@ -54,6 +55,19 @@ class PostgresDocumentStore:
             ExtractionBatch.model_validate(row[0]) if row and row[0] is not None else None
         )
 
+    def earliest_saved(self, *, space_id: str, sha256: str) -> datetime | None:
+        """When these bytes were first saved in this Business, by anyone, or None."""
+
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                "select min(d.created_at) from public.financial_document_extractions d "
+                "join public.financial_source_connections c on c.id=d.connection_id "
+                "where c.owner_space_id=%s and d.source_sha256=%s and d.draft is not null "
+                "and c.source='statement' and c.status <> 'disconnected'",
+                (space_id, sha256),
+            ).fetchone()
+            return row[0] if row else None
+
     def draft(self, *, user_id: str, connection_id: str) -> DocumentDraft | None:
         row = self._read(user_id, connection_id, "draft")
         return (
@@ -69,7 +83,14 @@ class PostgresDocumentStore:
             return self.objects.get(path)
         return bytes(legacy) if legacy is not None else None
 
-    def capture(self, *, user_id: str, draft: DocumentDraft, content: bytes) -> bool:
+    def capture(
+        self,
+        *,
+        user_id: str,
+        draft: DocumentDraft,
+        content: bytes,
+        on_capture: CaptureHook | None = None,
+    ) -> bool:
         """Rewrites the object unless the row holds legacy bytes: the path names
         its content, so a repeat makes no second object and repairs a lost one.
         Refused, and the object removed, once the connection is gone or an
@@ -105,6 +126,8 @@ class PostgresDocumentStore:
                         draft.created_at,
                     ),
                 )
+            if live is not None and on_capture is not None:
+                on_capture(connection, connection_id)
             if live is not None and not legacy:
                 connection.execute(
                     "update public.financial_document_extractions set "

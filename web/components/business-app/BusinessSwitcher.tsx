@@ -127,7 +127,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
           aria-label={t("business.switcher.choose", "Choose a Business")}
           aria-activedescendant={options[active] ? `${listId}-${options[active].grant_id}` : undefined}
           onKeyDown={onListKey}
-          className="absolute left-0 top-full z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-[16px] border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[#1b1c1f]"
+          className="absolute left-0 top-full z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-[16px] border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
         >
           {options.map((space, index) => {
             const selected = space.grant_id === current.grant_id;

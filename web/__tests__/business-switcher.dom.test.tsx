@@ -183,6 +183,12 @@ describe("the chosen grant rides on every API call", () => {
     assert.equal(getChosenGrant(), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
     assert.deepEqual(chosenGrantHeader(), { [GRANT_HEADER]: "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b" });
     assert.equal(argusApiRequestHeaders({ "Idempotency-Key": "k" }, {}).get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    // Only Business calls carry it: Personal chat and the rest never see the chosen grant.
+    assert.equal(argusApiRequestHeaders(undefined, {}, "/business/receipts?view=inbox").get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    assert.equal(argusApiRequestHeaders(undefined, {}, "/conversations?surface=business").get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    for (const path of ["/conversations/c1/messages", "/conversations?surface=personal", "/conversations", "/chat/stream", "/backtests/run", "/me"]) {
+      assert.equal(argusApiRequestHeaders(undefined, {}, path).get(GRANT_HEADER), null, path);
+    }
     setChosenGrant(null);
     assert.equal(argusApiRequestHeaders(undefined, {}).get(GRANT_HEADER), null);
   });

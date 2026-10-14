@@ -24,7 +24,15 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.dossier import BusinessDossier
 
-router = APIRouter(prefix="/business/drafts", tags=["business"])
+router = APIRouter(
+    prefix="/business/drafts",
+    tags=["business"],
+    responses={
+        403: {
+            "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
+        }
+    },
+)
 
 
 def _key(request: Request, value: str | None) -> str:
@@ -36,7 +44,7 @@ def _key(request: Request, value: str | None) -> str:
 def _run(request, response, context, draft_id, command=None, key=None):
     response.headers.update(NO_STORE)
     try:
-        actor = context.service.context_for_draft(context.actor_id, draft_id)
+        actor = context.for_draft(draft_id)
         if command is not None:
             if isinstance(command, ReviewDraft):
                 method = context.service.review

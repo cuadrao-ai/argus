@@ -69,11 +69,29 @@ class BusinessActions:
     ) -> ActionContext:
         return self.authority.resolve_actor(actor, grant_id=grant_id)
 
-    def context_for_draft(self, actor_id: UUID, draft_id: UUID) -> ActionContext:
-        return self.authority.for_record(actor_id, draft_id, receipt=False)
+    def context_for_draft(
+        self,
+        actor_id: UUID,
+        draft_id: UUID,
+        *,
+        space_id: UUID | str | None = None,
+        grant_id: UUID | None = None,
+    ) -> ActionContext:
+        return self.authority.for_record(
+            actor_id, draft_id, receipt=False, space_id=space_id, grant_id=grant_id
+        )
 
-    def context_for_receipt(self, actor_id: UUID, connection_id: UUID) -> ActionContext:
-        return self.authority.for_record(actor_id, connection_id, receipt=True)
+    def context_for_receipt(
+        self,
+        actor_id: UUID,
+        connection_id: UUID,
+        *,
+        space_id: UUID | str | None = None,
+        grant_id: UUID | None = None,
+    ) -> ActionContext:
+        return self.authority.for_record(
+            actor_id, connection_id, receipt=True, space_id=space_id, grant_id=grant_id
+        )
 
     def record_source(
         self, context: ActionContext, source_key: str, evidence: SourceEvidence

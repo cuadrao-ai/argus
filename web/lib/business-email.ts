@@ -11,6 +11,8 @@ export type BusinessEmailPart = {
   error_code: string | null;
   /** The earlier delivery that brought the same file; this part added no receipt. */
   repeat_of_delivery_id?: string | null;
+  /** The file was already saved another way (a web upload) before this email arrived. */
+  repeat_of_upload?: boolean;
 };
 
 export type BusinessEmailDelivery = {

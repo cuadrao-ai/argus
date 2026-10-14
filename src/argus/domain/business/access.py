@@ -50,6 +50,9 @@ class AccessCommand(Contract):
     grant_id: UUID | None = None
     invite_id: UUID | None = None
     email: str | None = None
+    # An invite re-issued after expiry keeps its row and gets a new window: the
+    # window makes the re-issue its own ledger row.
+    expires_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,14 @@ class GrantedSpace:
         return "owner" if self.owner_id == self.grantee_id else "accountant"
 
     grantee_id: str = ""
+
+    def __post_init__(self) -> None:
+        # What the grant lets this person do: approve is the owner's alone,
+        # whatever a row says, so the listing never reports it for anyone else.
+        if self.role != "owner" and "approve" in self.capabilities:
+            object.__setattr__(
+                self, "capabilities", tuple(c for c in self.capabilities if c != "approve")
+            )
 
 
 @dataclass(frozen=True)
@@ -195,6 +206,8 @@ def _record(
         issuer_display_name=labels[issuer_id],
     )
     subject = command.grant_id or command.invite_id
+    if command.expires_at is not None:
+        subject = f"{subject}:{command.expires_at.timestamp():.6f}"
     connection.execute(
         "insert into public.business_action_receipts"
         " (space_id, actor_id, actor, idempotency_key, input_hash, command, outcome)"
@@ -328,12 +341,26 @@ class PostgresAccessStore:
                 raise LookupError("business_space_missing")
             return self._list(connection, space_id, owner_id)
 
+    # Live means: not revoked or expired, the Business open, the person not
+    # anonymous, and the issuer still holding owner access: an issuer whose own
+    # owner grant was revoked, with no live one since, ends every grant they gave.
     _GRANTED = (
         "select g.id::text, g.space_id::text, s.name, s.created_by::text, g.capabilities"
         " from public.business_client_grants g join public.spaces s on s.id=g.space_id"
+        " join auth.users u on u.id=g.grantee_id"
         " where g.grantee_id=%s and g.revoked_at is null"
         " and (g.expires_at is null or g.expires_at > clock_timestamp())"
         " and 'read'=any(g.capabilities) and s.kind='business' and s.closed_at is null"
+        " and coalesce(u.is_anonymous,false)=false"
+        " and not exists (select 1 from public.business_client_grants lost"
+        "   where lost.space_id=g.space_id and lost.grantee_id=g.issuer_id"
+        "   and lost.issuer_id=lost.grantee_id"
+        "   and (lost.revoked_at is not null"
+        "     or (lost.expires_at is not null and lost.expires_at <= clock_timestamp()))"
+        "   and not exists (select 1 from public.business_client_grants own"
+        "     where own.space_id=lost.space_id and own.grantee_id=lost.grantee_id"
+        "     and own.issuer_id=own.grantee_id and own.revoked_at is null"
+        "     and (own.expires_at is null or own.expires_at > clock_timestamp())))"
     )
 
     def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
@@ -441,11 +468,18 @@ class PostgresAccessStore:
                     )
                     created = True
             else:
+                # One pending row per Business and email. A live one stays as it
+                # is; an expired one is re-issued in place with a fresh window
+                # and its own receipt; a revoked or accepted one no longer holds
+                # the slot, so a new row is born.
                 invite = connection.execute(
                     "insert into public.business_access_invites (space_id, issuer_id, email, expires_at)"
                     " values (%s, %s, %s, now() + %s)"
                     " on conflict (space_id, email) where revoked_at is null and accepted_at is null"
-                    " do nothing returning id::text",
+                    " do update set issuer_id=excluded.issuer_id, created_at=now(),"
+                    " expires_at=excluded.expires_at"
+                    " where public.business_access_invites.expires_at <= now()"
+                    " returning id::text, expires_at",
                     (space_id, owner_id, email, INVITE_LIFETIME),
                 ).fetchone()
                 if invite is not None:
@@ -456,7 +490,10 @@ class PostgresAccessStore:
                         grant_id=owner_grant,
                         issuer_id=owner_id,
                         command=AccessCommand(
-                            action="invite_access", invite_id=UUID(invite[0]), email=email
+                            action="invite_access",
+                            invite_id=UUID(invite[0]),
+                            email=email,
+                            expires_at=invite[1],
                         ),
                     )
                     created = True
@@ -649,6 +686,19 @@ class InMemoryAccessStore:
             grant["grantee_id"],
         )
 
+    def _issuer_live(self, grant: dict) -> bool:
+        """The issuer still holds owner access: an issuer whose own owner grant
+        was revoked, with no live one since, has ended every grant they gave."""
+
+        own = [
+            g
+            for g in self._grants
+            if g["space_id"] == grant["space_id"]
+            and g["grantee_id"] == grant["issuer_id"]
+            and g["issuer_id"] == g["grantee_id"]
+        ]
+        return not own or any(g["revoked_at"] is None for g in own)
+
     def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
         with self._lock:
             rows = [
@@ -657,6 +707,7 @@ class InMemoryAccessStore:
                 if g["grantee_id"] == person_id
                 and g["revoked_at"] is None
                 and "read" in g["capabilities"]
+                and self._issuer_live(g)
             ]
         rows.sort(key=lambda g: (g["issuer_id"] != g["grantee_id"], g["created_at"]))
         return tuple(self._granted(g) for g in rows)
@@ -671,6 +722,7 @@ class InMemoryAccessStore:
                     and g["grantee_id"] == person_id
                     and g["revoked_at"] is None
                     and "read" in g["capabilities"]
+                    and self._issuer_live(g)
                 ),
                 None,
             )
@@ -768,7 +820,10 @@ class InMemoryAccessStore:
                     )
                     created = True
             else:
-                live = next(
+                # The same rule as Postgres: one pending row per Business and
+                # email; live stays, expired is re-issued in place, revoked or
+                # accepted no longer holds the slot.
+                pending = next(
                     (
                         i
                         for i in self._invites
@@ -776,11 +831,17 @@ class InMemoryAccessStore:
                         and i["email"] == email
                         and i["revoked_at"] is None
                         and i["accepted_at"] is None
-                        and i["expires_at"] > self._now()
                     ),
                     None,
                 )
-                if live is None:
+                if pending is not None and pending["expires_at"] > self._now():
+                    invite = None
+                elif pending is not None:
+                    pending["issuer_id"] = owner_id
+                    pending["created_at"] = self._now()
+                    pending["expires_at"] = self._now() + INVITE_LIFETIME
+                    invite = pending
+                else:
                     invite = {
                         "id": str(uuid4()),
                         "space_id": space_id,
@@ -792,11 +853,13 @@ class InMemoryAccessStore:
                         "revoked_at": None,
                     }
                     self._invites.append(invite)
+                if invite is not None:
                     self.ledger.append(
                         AccessCommand(
                             action="invite_access",
                             invite_id=UUID(invite["id"]),
                             email=email,
+                            expires_at=invite["expires_at"],
                         )
                     )
                     created = True

@@ -48,6 +48,31 @@ const panelHeading = (page: Page, name: string) =>
 test.describe("Business preview", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
+  test("switching Business twelve times with a receipt open and a draft typed never shows the account-changed screen; the record and its address close on each switch", async ({ page }) => {
+    test.setTimeout(180_000);
+    const switchTo = async (name: string) => {
+      await page.getByTestId("business-switcher").getByRole("button").click();
+      await page.getByRole("option", { name: new RegExp(name) }).click();
+      await expect(page.getByTestId("business-current-name")).toHaveText(name);
+      await expect(page.getByText("Your account changed", { exact: false })).toHaveCount(0);
+    };
+    await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
+    for (let round = 0; round < 6; round += 1) {
+      // Each round: a receipt open in the own Business, a switch to the client, a draft typed, a switch back.
+      if (round > 0) await page.goto(`${PREVIEW}?receipt=rcpt-ferreteria`);
+      await expect(panelHeading(page, "Review receipt")).toBeVisible();
+      await switchTo("Colmado Peña");
+      await expect(page).not.toHaveURL(/receipt=|expense=|draft=/);
+      await expect(panelHeading(page, "Review receipt")).toHaveCount(0);
+      await expect(page.getByTestId("business-client-cue")).toHaveText("Client: Colmado Peña");
+      await page.getByTestId("chat-input").fill(`Pagué 850 en pintura ${round}`);
+      await switchTo("Mi negocio");
+      await expect(page.getByTestId("business-client-cue")).toHaveCount(0);
+      // The typed draft is kept: a switch is a change of scope, not a navigation.
+      await expect(page.getByTestId("chat-input")).toHaveText(`Pagué 850 en pintura ${round}`);
+    }
+  });
+
   test("an Overview draft survives a visit to the Inbox", async ({ page }) => {
     await openPreview(page);
     await expect(panelHeading(page, "Your business")).toBeVisible();
@@ -501,6 +526,17 @@ test.describe("A conversation opens in the shell of its own surface", () => {
     expect(loads.filter((url) => url.includes("notice=conversation_unavailable")).length).toBe(1);
     expect(seen.length).toBeLessThanOrEqual(1);
     await expect(page).toHaveURL(/\/dev\/business-preview\?notice=conversation_unavailable$/);
+  });
+
+  test("a chat on its own surface stays and renders", async ({ page }) => {
+    test.skip(BUSINESS_BUILD, "consumer build only: /chat hops to /biz on a Business build");
+    const seen: string[] = [];
+    await openPreview(page, "/chat", { emptyChat: false });
+    await serveSurface(page, "personal", seen);
+    await page.goto("/chat?conversation=conversation-alpha");
+
+    await expect(page.getByText("Lunch with the supplier").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/chat\?conversation=conversation-alpha$/);
   });
 
   test("a Business chat opened on /chat moves to /biz with its id", async ({ page }) => {

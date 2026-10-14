@@ -9201,6 +9201,50 @@ person starts their space, every route below except POST `/space` answers 404
     Every legacy write under a grant leaves a `business_action_receipts` row
     (`receipt_upload`, `receipt_review`, `receipt_confirm`) naming the grant
     and its issuer.
+  - The chosen grant binds every Business route, including the draft, note,
+    export, chat and legacy receipt routes: a record (receipt, draft, source,
+    export anchor) of any other Business is 404 `business_record_not_found`
+    under it, whatever other grants the caller holds, and with no header the
+    own Business is the only one in scope. Notes (`/business/captures`) and
+    exports (`/business/exports`) run in the chosen Business under the
+    grantee's own `read` and `prepare`; approval is the owner's alone whatever
+    a grant row says (`approve` is dropped for anyone but the Business owner
+    on every route: approve, settle, confirm). Business conversations stay
+    the owner's: a stored conversation belongs to its space's creator
+    (`conversations_owner_space_fkey`), so a chosen grant is refused with 403
+    `business_permission_denied` wherever the chat is a Business one: `POST`
+    and `GET /conversations` with `surface=business`, and on a Business
+    conversation `PATCH` and `DELETE /conversations/{id}`, `GET
+    /conversations/{id}/messages`, `GET` and `PATCH
+    /conversations/{id}/activity`, `GET /conversations/{id}/run-dossiers`,
+    `POST /chat/stream`, `POST /backtests/run`, `GET /backtests/{run_id}`,
+    the `continue`, `computation/refresh`, `tool-results/{id}/recompute`,
+    `confirmations/{id}/peer-assets` and `confirmations/{id}/direct-edit`
+    routes. The person's own Personal chat is theirs whatever Business is
+    chosen: those routes answer as before on a Personal conversation. The
+    web client sends `X-Business-Grant` only on `/business` calls and on
+    `/conversations` with `surface=business`, never on Personal chat. A
+    client's `GET /business/workspace` reports
+    `chat_available: false`. With no header and no own Business nothing is
+    in scope: the Business routes answer 404 `business_space_missing`, record
+    ids included. `GET /business/spaces` reports effective capabilities:
+    `approve` never appears on a grant that is not the owner's own.
+    The own Business's routes refuse a chosen grant with 403
+    `business_permission_denied`: GET and PATCH `/business/space`, creating,
+    stopping or re-running the receiving email address and its deliveries
+    (`POST` and `DELETE /business/email`, `POST
+    /business/email/deliveries/{id}/retry`; a grantee reads them), and every WhatsApp link route
+    (WhatsApp is the owner's channel; ending one's own sender link is never
+    gated). GET `/business/workspace` under a grant reads the client's
+    Business as it is and never heals an owner grant. A grant is live only
+    while the owner who issued it keeps owner access: once the issuer's own
+    owner grant is revoked with no live one since, every grant they gave
+    answers 403 `business_grant_not_live`, and comes back when owner access is
+    restored. Each grantee write on the legacy receipt surface (upload, review,
+    confirm) leaves one `business_action_receipts` row naming the grant,
+    keyed by the record and the request's `Idempotency-Key` (a replay repeats
+    its row, a second review gets its own); the upload row is written in the
+    transaction that saves the receipt.
   - Personal receipts and the 606. A receipt is personal when its
     `business_share` is `none` and the owner stated it: POST
     `/api/v1/business/drafts/{id}/personal` (`Idempotency-Key`, body
@@ -9237,7 +9281,11 @@ person starts their space, every route below except POST `/space` answers 404
     becomes the same grant the first time that confirmed email signs in (on
     GET `/me`). The reply is the access list in both cases, 201 when something
     new was created and 200 on a replay, so an unknown email reveals nothing.
-    422 `invalid_email` without one address.
+    422 `invalid_email` without one address. An expired pending invite is
+    re-issued in place by a new POST with the same email: the same invite id,
+    a fresh 14-day `expires_at` and its own ledger receipt (201); a live one is
+    left as it is (200), and a revoked or accepted one no longer holds the
+    slot, so a new invite is born beside it.
   - DELETE `/api/v1/business/access/grants/{id}` revokes a grant at once; 409
     `owner_grant_required` for the owner's own grant; 404
     `business_access_not_found` otherwise. DELETE
@@ -9293,10 +9341,12 @@ accept path recorded.
   - GET `/api/v1/business/email/deliveries` and `/{id}` list the Business's
     deliveries with state, error code, subject, sender, `retryable` and one
     `parts[]` row per attachment (`pending|captured|rejected`, `document_id`,
-    `repeat_of_delivery_id`: the earlier delivery of this Business that brought
-    the same bytes, by arrival, when this part replayed that document and added
-    no receipt; null otherwise). POST `/{id}/retry` (prepare capability)
-    re-queues a `partial` delivery.
+    `repeat_of_delivery_id`: the earliest delivery of this Business that brought
+    the same bytes, when this part replayed that document and added no receipt;
+    null otherwise; `repeat_of_upload`: true when the document was saved another
+    way, a web upload, before this email arrived). Each Business sees only its
+    own deliveries; the same bytes in two Businesses never mark each other.
+    POST `/{id}/retry` (prepare capability) re-queues a `partial` delivery.
   - Every captured part is an ordinary saved document with `consent=false`; AI
     preparation still waits for the owner's choice. The grant is checked again
     before each fetch, and the provider's recipients must equal the signed
@@ -9432,11 +9482,13 @@ accept path recorded.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake
-  captured for the scope's destination, `email` for a document that arrived in
-  an email delivery of the Business (decided at the API boundary from the email
-  queue; the stored draft knows only web or whatsapp), else `web`. The same rule
-  marks a dossier's attachment sources: `channel: "email"` and their
-  `email_delivery_ids`.
+  captured for the scope's destination, `email` for a document whose earliest
+  email delivery arrived before the document was saved (decided at the API
+  boundary from the email queue; the stored draft knows only web or whatsapp),
+  else `web`: a file uploaded on the web first keeps `web` even when an email
+  brings the same bytes later. `email_delivery_ids` lists the deliveries
+  earliest first. The same rule marks a dossier's attachment sources:
+  `channel: "email"` and their `email_delivery_ids`.
 - GET `/api/v1/business/receipts/{id}` returns a `ReceiptDetail`. `version` is
   the import event's version, and `0` while there is no purchase to review.
   `evidence` is what the receipt says, and corrections never change it.

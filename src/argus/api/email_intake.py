@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
+from datetime import datetime
 
 import httpx
 from loguru import logger
@@ -153,13 +154,28 @@ async def stop_email_intake(app) -> None:  # noqa: ANN001
     configure_email_intake(None)
 
 
-def email_receipt_flags(space_id: str) -> dict[str, tuple[tuple[str, ...], bool]]:
-    """Per document: the deliveries it arrived in, and whether it is a grouped
-    email original. Empty when email receiving is off."""
+def email_receipt_flags(
+    space_id: str,
+) -> dict[str, tuple[tuple[str, ...], bool, datetime | None]]:
+    """Per document: the deliveries it arrived in, earliest first; whether it is
+    a grouped email original; and when the earliest delivery arrived. Empty
+    when email receiving is off."""
 
     if _runtime is None:
         return {}
     return {
-        document: (tuple(sorted(relation["delivery_ids"])), relation["grouped"])
+        document: (
+            tuple(relation["delivery_ids"]),
+            relation["grouped"],
+            relation["first_received_at"],
+        )
         for document, relation in _runtime.store.membership(space_id).items()
     }
+
+
+def arrived_by_email(saved_at: datetime, first_received_at: datetime | None) -> bool:
+    """A document whose earliest email arrived before it was saved was saved by
+    that email. One saved before any email came by another way (a web upload),
+    and the email that brought the same bytes later is a repeat of it."""
+
+    return first_received_at is not None and first_received_at <= saved_at

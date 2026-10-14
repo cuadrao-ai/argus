@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from argus.api.business import (
     BusinessContext,
+    owner_only,
     require_business,
     require_business_document_write,
 )
@@ -34,7 +35,15 @@ from argus.domain.ingestion.email_intake.signatures import (
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 
 webhook_router = APIRouter(prefix="/webhooks/resend", tags=["business-email"])
-router = APIRouter(prefix="/business/email", tags=["business-email"])
+router = APIRouter(
+    prefix="/business/email",
+    tags=["business-email"],
+    responses={
+        403: {
+            "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
+        }
+    },
+)
 MAX_WEBHOOK_BYTES = 64 * 1024
 
 
@@ -171,6 +180,8 @@ def create_receiving_address(
     the caller's own live grant is the authority checked before each capture.
     A replay or a concurrent create returns the one live address."""
 
+    # The address is the owner's to create or stop; a grantee only sees it.
+    owner_only(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     space_id = context.scope.owner.space_id
@@ -224,21 +235,9 @@ def stop_receiving(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_document_write)],
 ) -> Response:
+    owner_only(request, context)
     _runtime(request).store.deactivate_routes(context.scope.owner.space_id)
     return Response(status_code=204, headers=NO_STORE)
-
-
-def _first_deliveries(runtime: EmailCapture, space_id: str) -> dict[str, str]:
-    """Document id to the delivery that brought it first, by arrival, within the
-    deliveries this Business lists. A later delivery of the same bytes names
-    that first one instead of pretending to add a receipt."""
-
-    first: dict[str, str] = {}
-    for item in sorted(runtime.store.list(space_id), key=lambda d: d.received_at):
-        for part in runtime.store.parts(item.id):
-            if part.document_id and part.document_id not in first:
-                first[part.document_id] = item.id
-    return first
 
 
 def _group(
@@ -246,8 +245,13 @@ def _group(
     delivery,  # noqa: ANN001
     *,
     detail: bool = False,
-    first: dict[str, str] | None = None,
+    relations: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """One delivery with its parts. A part whose document an earlier delivery
+    already brought names that delivery; a part whose document was saved before
+    this email arrived (a web upload) is a repeat of that receipt. The answer
+    reads this Business's email relations once, never other deliveries' parts."""
+
     result = asdict(delivery)
     for key in (
         "provider",
@@ -263,18 +267,36 @@ def _group(
     if not detail:
         result.pop("text_body")
     result["retryable"] = runtime.retryable(delivery)
-    earlier = (
-        first if first is not None else _first_deliveries(runtime, delivery.space_id)
+    known = (
+        relations
+        if relations is not None
+        else runtime.store.membership(delivery.space_id)
     )
     result["parts"] = []
     for part in runtime.store.parts(delivery.id):
-        origin = earlier.get(part.document_id or "")
+        earlier = known.get(part.document_id or "", {}).get("delivery_ids") or []
+        first = earlier[0] if earlier else None
+        repeat_of_delivery = first if first and first != delivery.id else None
+        repeat_of_upload = False
+        if part.document_id and repeat_of_delivery is None:
+            # The Business, not the person, is the unit: a file anyone saved in
+            # this Business before the email came makes the email the repeat.
+            draft = runtime.documents.store.draft(
+                user_id=delivery.principal_id, connection_id=part.document_id
+            )
+            earliest = (
+                runtime.documents.store.earliest_saved(
+                    space_id=delivery.space_id, sha256=draft.sha256
+                )
+                if draft is not None
+                else None
+            )
+            repeat_of_upload = earliest is not None and earliest < delivery.received_at
         result["parts"].append(
             {
                 **asdict(part),
-                "repeat_of_delivery_id": origin
-                if origin and origin != delivery.id
-                else None,
+                "repeat_of_delivery_id": repeat_of_delivery,
+                "repeat_of_upload": repeat_of_upload,
             }
         )
     return result
@@ -289,10 +311,11 @@ def deliveries(
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     space_id = context.scope.owner.space_id
-    first = _first_deliveries(runtime, space_id)
+    relations = runtime.store.membership(space_id)
     return {
         "items": [
-            _group(runtime, item, first=first) for item in runtime.store.list(space_id)
+            _group(runtime, item, relations=relations)
+            for item in runtime.store.list(space_id)
         ]
     }
 
@@ -321,6 +344,8 @@ def retry(
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business_document_write)],
 ) -> dict[str, Any]:
+    # Re-running a delivery runs under the owner's grant: the owner's call alone.
+    owner_only(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     if not runtime.enabled():
