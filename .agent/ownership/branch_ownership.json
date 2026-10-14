@@ -2168,6 +2168,33 @@
         ".env.*",
         "web/.env.*"
       ]
+    },
+    "codex/session-recovery": {
+      "description": "Browser auth renewal across access expiry and restart, with isolated Supabase refresh and bounded staging recovery configuration.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "render.yaml",
+        "scripts/ops/staging_env_manifest.json",
+        "src/argus/api/browser_session.py",
+        "src/argus/api/dependencies.py",
+        "src/argus/domain/supabase_guest_accounts.py",
+        "tests/test_auth_client_isolation.py",
+        "tests/test_browser_session_renewal.py",
+        "tests/test_environment_scripts.py",
+        "tests/test_staging_web_blueprint.py",
+        "web/__tests__/browser-session-renewal.test.ts",
+        "web/__tests__/fixtures/browser-session-renewal/transport.ts"
+      ],
+      "deny": [
+        "ios/**",
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*",
+        "supabase/migrations/**"
+      ]
     }
   }
 }
