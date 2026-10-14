@@ -19,9 +19,12 @@ struct GuestRoot: View {
         case .loading:
             WelcomePalette.brandPaper.ignoresSafeArea()
         case .ready:
-            GuestShell(model: model, appearance: $appearance, webURL: webURL, leave: leave, deleteData: deleteData)
-                .safeAreaInset(edge: .top, spacing: 0) { GuestModeBanner(spanish: spanish) }
-                .preferredColorScheme(appearance.colorScheme)
+            // The banner is its own row above the shell, so nothing the shell draws can sit under it.
+            VStack(spacing: 0) {
+                GuestModeBanner(spanish: spanish)
+                GuestShell(model: model, appearance: $appearance, webURL: webURL, leave: leave, deleteData: deleteData)
+            }
+            .preferredColorScheme(appearance.colorScheme)
         case .newerVersion:
             notice(title: spanish ? "Actualiza Cuadrao para abrir este libro." : "Update Cuadrao to open this book.",
                    detail: spanish ? "Este libro se guardó con una versión más nueva de la app. No se cambió nada. Actualiza Cuadrao e inténtalo de nuevo."
@@ -114,6 +117,7 @@ struct GuestShell: View {
             }
         }
         .environment(\.cuadraoCurrencyRules, GuestCurrencyRules.rules)
+        .environment(\.guestAddReceipt) { capture($0) }
         .sheet(item: $sheet) { sheetContent($0) }
         .fullScreenCover(item: $capturing, onDismiss: {
             if let files = captured { captured = nil; keep(files) }

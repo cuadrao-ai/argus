@@ -55,7 +55,7 @@ struct GuestModeBanner: View {
             .minimumScaleFactor(0.8)
             .foregroundStyle(WelcomePalette.ink)
             .frame(maxWidth: .infinity, minHeight: 28)
-            .background(WelcomePalette.brandPaper)
+            .background { WelcomePalette.brandPaper.ignoresSafeArea(edges: .top) }
             .accessibilityIdentifier("guest.banner")
     }
 }

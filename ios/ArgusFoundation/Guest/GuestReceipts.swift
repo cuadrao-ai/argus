@@ -29,6 +29,15 @@ struct GuestReceiptCopy {
     var deleteMessage: String {
         spanish ? "Se borra de este iPhone. Tus movimientos no cambian." : "It is deleted from this iPhone. Your activity does not change."
     }
+    var emptyTitle: String { spanish ? "Aún no hay recibos." : "No receipts yet." }
+    var emptyDetail: String {
+        spanish ? "Guarda la foto o el archivo de un recibo y únelo a un gasto. Se queda solo en este iPhone."
+                : "Save a receipt's photo or file and attach it to an expense. It stays only on this iPhone."
+    }
+    var add: String { spanish ? "Añadir un recibo" : "Add a receipt" }
+    var scan: String { spanish ? "Escanear con la cámara" : "Scan with the camera" }
+    var choosePhoto: String { spanish ? "Elegir una foto" : "Choose a photo" }
+    var chooseFile: String { spanish ? "Elegir un archivo" : "Choose a file" }
     var couldNotSave: String { spanish ? "No pudimos guardar el recibo en este iPhone." : "We could not save the receipt on this iPhone." }
 }
 
@@ -36,7 +45,17 @@ private struct GuestReceiptsKey: EnvironmentKey {
     static let defaultValue: GuestReceiptStore? = nil
 }
 
+private struct GuestAddReceiptKey: EnvironmentKey {
+    static let defaultValue: ((ReceiptSourceChoice) -> Void)? = nil
+}
+
 extension EnvironmentValues {
+    /// Starts saving a receipt from the chosen source, set by the guest shell.
+    var guestAddReceipt: ((ReceiptSourceChoice) -> Void)? {
+        get { self[GuestAddReceiptKey.self] }
+        set { self[GuestAddReceiptKey.self] = newValue }
+    }
+
     /// The book's receipts, set by the guest shell.
     var guestReceipts: GuestReceiptStore? {
         get { self[GuestReceiptsKey.self] }
@@ -105,6 +124,7 @@ struct GuestAttachReceiptSheet: View {
                                 .accessibilityIdentifier("guest.receipt.choice." + receipt.id.uuidString)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     Button(role: .destructive) { try? store.delete(receipt.id) } label: { Label(copy.delete, systemImage: "trash") }
+                                        .tint(.red)
                                 }
                         }
                     }.listStyle(.plain)
@@ -215,15 +235,24 @@ struct GuestReceiptsList: View {
     @State private var viewing: ViewedReceipt?
     @State private var attaching: GuestReceipt?
     @State private var deleting: GuestReceipt?
+    @State private var choosingSource = false
+    @Environment(\.guestAddReceipt) private var addReceipt
 
     private var copy: GuestReceiptCopy { GuestReceiptCopy(spanish: spanish) }
 
     var body: some View {
         Group {
             if store.receipts.isEmpty {
-                Text(copy.listEmpty).font(CuadraoTypography.body).padding(24)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .accessibilityIdentifier("guest.receipts.empty")
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 28) {
+                        CuadraoChartState(title: copy.emptyTitle, detail: copy.emptyDetail)
+                        if addReceipt != nil {
+                            RegistrationButton(title: copy.add) { choosingSource = true }
+                                .accessibilityIdentifier("guest.receipts.add")
+                        }
+                    }.padding(.horizontal, 24).padding(.top, 16).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .accessibilityIdentifier("guest.receipts.empty")
             } else {
                 List {
                     ForEach(store.receipts) { receipt in
@@ -240,6 +269,7 @@ struct GuestReceiptsList: View {
                         .accessibilityIdentifier("guest.receipts.row." + receipt.id.uuidString)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) { deleting = receipt } label: { Label(copy.delete, systemImage: "trash") }
+                                .tint(.red)
                         }
                         .contextMenu {
                             Button { view(receipt) } label: { Label(copy.view, systemImage: "doc.text.magnifyingglass") }
@@ -271,6 +301,12 @@ struct GuestReceiptsList: View {
                 .navigationTitle(copy.attachTo).navigationBarTitleDisplayMode(.inline)
                 .toolbar { CuadraoCancelToolbar(title: copy.cancel, identifier: "guest.receipts.attach.cancel") { attaching = nil } }
             }.tint(WelcomePalette.pine)
+        }
+        .confirmationDialog(copy.add, isPresented: $choosingSource, titleVisibility: .visible) {
+            Button(copy.scan) { addReceipt?(.scan) }.accessibilityIdentifier("guest.receipts.add.scan")
+            Button(copy.choosePhoto) { addReceipt?(.photos) }.accessibilityIdentifier("guest.receipts.add.photos")
+            Button(copy.chooseFile) { addReceipt?(.file) }.accessibilityIdentifier("guest.receipts.add.file")
+            Button(copy.cancel, role: .cancel) {}
         }
         .confirmationDialog(copy.deleteTitle, isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
                             titleVisibility: .visible, presenting: deleting) { receipt in
