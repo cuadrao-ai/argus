@@ -56,6 +56,27 @@ final class MovementAccountChoiceTests: XCTestCase {
         XCTAssertEqual(payload["amount"] as? String, "300.00")
         XCTAssertTrue(payload["account_id"] is NSNull)
     }
+
+    func testPickingCashAfterTheCardSwitchesBackToTransfer() async throws {
+        let fixture = try MovementFixture(); let editor = try await fixture.editor()
+        editor.setKind(.transfer)
+        editor.amount = "100.00"
+        editor.destinationAccountId = MovementServer.card
+        XCTAssertEqual(editor.kind, .cardPayment)
+        XCTAssertTrue(editor.destinationChoices.map(\.id).contains(MovementServer.cash), "To still lists cash after the switch")
+        editor.destinationAccountId = MovementServer.cash
+        XCTAssertEqual(editor.kind, .transfer)
+        XCTAssertEqual(editor.sourceAccountId, MovementServer.bank)
+        XCTAssertEqual(editor.destinationAccountId, MovementServer.cash)
+        XCTAssertEqual(editor.amount, "100.00")
+        XCTAssertTrue(editor.destinationChoices.map(\.id).contains(MovementServer.card))
+    }
+
+    func testAChosenCardPaymentDoesNotOfferCashOrSwitchBack() async throws {
+        let fixture = try MovementFixture(); let editor = try await fixture.editor()
+        editor.setKind(.cardPayment)
+        XCTAssertFalse(editor.destinationChoices.map(\.id).contains(MovementServer.cash))
+    }
 }
 
 private struct MovementFixture {

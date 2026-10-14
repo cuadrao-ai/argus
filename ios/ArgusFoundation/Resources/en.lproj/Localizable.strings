@@ -850,3 +850,5 @@
 "auth.deletion.apple" = "To delete your account, confirm with Apple again.";
 "auth.deletion.support.requested" = "Request sent. Support will delete your account and follow up by email.";
 "auth.deletion.support.unavailable" = "Deleting in the app isn't available here yet. Support can delete your account for you.";
+"launch.unreachable" = "We couldn't open your account. Check your connection and try again.";
+"launch.retry" = "Try again";

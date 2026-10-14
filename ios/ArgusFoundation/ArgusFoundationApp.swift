@@ -57,10 +57,13 @@ struct ArgusFoundationApp: App {
                 CuadraoCanvas()
                     .preferredColorScheme(previewAppearance.colorScheme)
             } else {
-                GuestModeRouter(appearance: $appearance) { ConnectedCuadraoRoot(appearance: $appearance) }
-                    .environmentObject(auth)
-                    .modifier(SessionLifecycle(model: auth))
-                    .preferredColorScheme(appearance.colorScheme)
+                // The launch screen follows the system appearance like the static one; the saved preference applies with the app.
+                LaunchGateHost {
+                    GuestModeRouter(appearance: $appearance) { ConnectedCuadraoRoot(appearance: $appearance) }
+                        .preferredColorScheme(appearance.colorScheme)
+                }
+                .environmentObject(auth)
+                .modifier(SessionLifecycle(model: auth))
             }
         }.background(KeyboardTapAway())
     }

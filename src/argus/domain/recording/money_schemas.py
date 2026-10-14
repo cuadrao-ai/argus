@@ -80,7 +80,7 @@ class MoneyRequest(BaseModel):
     expected_versions: dict[str, int] = Field(default_factory=dict)
     coverage: list[MoneyCoverage] = Field(default_factory=list, max_length=1000)
     preview_token: str | None = Field(default=None, max_length=128)
-    # Set by the preview: the day the person entered the activity, carried to confirm.
+    # Echoed from the preview for older clients; the server ignores it and uses its own day.
     entered_on: date | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
