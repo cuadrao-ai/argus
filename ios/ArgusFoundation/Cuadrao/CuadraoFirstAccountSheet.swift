@@ -11,7 +11,10 @@ struct CanvasAccountEntry: Equatable {
     var sharingCustom = false
 
     var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-    var sharePercent: Int { sharingCustom ? (Int(customShare) ?? 100) : share }
+    var sharePercent: Int {
+        guard sharingCustom, case .success(let value?) = PercentInput.parse(customShare, .wholeShare) else { return share }
+        return NSDecimalNumber(decimal: value).intValue
+    }
 }
 
 /// The canvas keeps its own identifiers; the connected app keeps the ones its UI tests drive.
@@ -84,7 +87,7 @@ struct CuadraoAccountEntryForm: View {
     private static let amountAnchor = "account-entry-amount"
 
     private var hint: String? {
-        if entry.kind?.isAsset == true && entry.sharingCustom && !(1...100).contains(Int(entry.customShare) ?? 0) {
+        if entry.kind?.isAsset == true && entry.sharingCustom && PercentInput.problem(entry.customShare, .wholeShare) != nil {
             return spanish ? "Introduce tu parte, de 1 a 100%." : "Enter your share, from 1 to 100%."
         }
         if entry.kind == nil { return spanish ? "Elige un tipo de cuenta" : "Choose an account type" }
@@ -136,8 +139,8 @@ struct CuadraoAccountEntryForm: View {
                                 }.accessibilityIdentifier(ids.share)
                             }
                             if entry.sharingCustom {
-                                TextField(spanish ? "Porcentaje" : "Percentage", text: $entry.customShare)
-                                    .keyboardType(.numberPad).modifier(RegistrationField())
+                                PercentField(title: spanish ? "Porcentaje" : "Percentage", text: $entry.customShare, bounds: .wholeShare,
+                                             spanish: spanish, identifier: ids.share + ".percent")
                             }
                         }
                     }
