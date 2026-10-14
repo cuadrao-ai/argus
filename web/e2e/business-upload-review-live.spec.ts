@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Against the live Business app with mock auth and a local in-memory API: one
-// image upload with AI consent must land on the review panel, never on the
-// app-level error page, whatever the read found.
+// Requires a local API with ReceiptStub and no paid provider calls.
+// Reading-on review also requires the canonical Business database and Actions.
+// Saved owner reading permission governs the real modal upload request.
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
@@ -21,13 +21,13 @@ async function openBusiness(page: Page) {
   await page.goto("/biz");
 }
 
-test.describe("Upload with consent lands on review", () => {
-  // Needs the live app against a local in-memory API with the receipt stub (see the PR
-  // body for the launcher); the fixture-only e2e job has no API and skips it.
+test.describe("Owner upload reaches its saved receipt", () => {
+  // Reading-on review requires canonical local Business database and Actions
+  // services with ReceiptStub. The memory API supports the saved-unread case only.
   test.skip(!process.env.CUADRAO_E2E_LIVE_API, "set CUADRAO_E2E_LIVE_API=1 with a local API behind the web");
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test("one PNG with AI consent reaches the review panel without a client crash", async ({ page }) => {
+  test("one PNG with saved owner reading permission reaches review without a client crash", async ({ page }) => {
     // Page errors and console errors are both collected, and both must be empty.
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}\n${error.stack ?? ""}`));
@@ -42,23 +42,77 @@ test.describe("Upload with consent lands on review", () => {
     await openBusiness(page);
     await page.getByTestId("business-create").click();
     await page.getByRole("menuitem", { name: "Upload receipt" }).click();
-    const dialog = page.getByRole("dialog", { name: "Upload receipt" });
+    const dialog = page.getByRole("dialog", { name: "Upload receipts", exact: true });
     await page.locator('input[type="file"]').first().setInputFiles({ name: "image.png", mimeType: "image/png", buffer: PNG });
     await expect(dialog).toContainText("image.png");
-    await dialog.getByRole("checkbox").check();
-    await dialog.getByRole("button", { name: /Save/ }).click();
+    await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+    const turnOn = dialog.getByRole("button", { name: "Turn receipt reading on", exact: true });
+    await expect(turnOn.or(dialog.getByRole("button", { name: "Turn reading off", exact: true }))).toBeVisible();
+    if (await turnOn.isVisible()) await turnOn.click();
+    await expect(dialog.getByTestId("receipt-reading-control")).toContainText("Receipt reading is on.");
+    const uploaded = page.waitForResponse((response) =>
+      new URL(response.url()).pathname.endsWith("/business/receipts") && response.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: "Save remaining files", exact: true }).click();
+    const response = await uploaded;
+    expect(response.status()).toBe(200);
+    expect(response.request().headers()["x-extraction-consent"]).toBeUndefined();
     const review = dialog.getByRole("button", { name: "Review saved receipts" });
     await expect(review).toBeVisible({ timeout: 15000 });
     await review.click();
 
-    // The outcome is one of two states; wait for either, then judge.
-    await expect(page.getByRole("heading", { name: "Review receipt", exact: true }).or(page.getByText(/couldn't load/))).toBeVisible({ timeout: 15000 });
+    const reviewEntry = page.getByTestId("business-record-review");
+    await expect(reviewEntry).toBeVisible({ timeout: 15000 });
     test.info().annotations.push({ type: "errors", description: errors.join("\n---\n") || "none" });
     test.info().annotations.push({ type: "detail-fetches", description: String(detailFetches.length) });
     expect(await page.locator("body").innerText()).not.toContain("couldn't load");
     // Dev mode runs effects twice; a stable data source means no further refetch of the record.
     expect(detailFetches.length).toBeLessThanOrEqual(2);
-    await expect(page.getByRole("heading", { name: "Review receipt", exact: true })).toBeVisible();
+    await expect(reviewEntry).toContainText("image.png");
     expect(errors).toEqual([]);
   });
+
+  test("reading off saves the original unread and reopens its source after reload", async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    await openBusiness(page);
+    await page.getByTestId("business-create").click();
+    await page.getByRole("menuitem", { name: "Upload receipt", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Upload receipts", exact: true });
+    const turnOff = dialog.getByRole("button", { name: "Turn reading off", exact: true });
+    await expect(turnOff.or(dialog.getByRole("button", { name: "Turn receipt reading on", exact: true }))).toBeVisible();
+    if (await turnOff.isVisible()) await turnOff.click();
+    await expect(dialog.getByTestId("receipt-reading-control")).toContainText("Your receipts are saved unread.");
+    const content = Buffer.from("Receipt\nMerchant: Synthetic shop\nTotal: DOP 850.00\n");
+    await dialog.locator('input[type="file"]').first().setInputFiles({ name: "unread.txt", mimeType: "text/plain", buffer: content });
+    const uploaded = page.waitForResponse((response) =>
+      new URL(response.url()).pathname.endsWith("/business/receipts") && response.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: "Save remaining files", exact: true }).click();
+    const response = await uploaded;
+    expect(response.status()).toBe(200);
+    expect(response.request().headers()["x-extraction-consent"]).toBeUndefined();
+    const saved = await response.json();
+    expect(saved.status).toBe("saved");
+    expect(saved.expense_id).toBeNull();
+    const detailUrl = `${response.url()}/${saved.id}`;
+    const source = await page.request.get(`${detailUrl}/source`);
+    expect(source.status()).toBe(200);
+    expect(await source.body()).toEqual(content);
+    await dialog.getByRole("button", { name: "Review saved receipts", exact: true }).click();
+    await expect(page.getByRole("figure", { name: /unread.txt/ })).toBeVisible();
+    await expect(page.getByText("Saved, unread.", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("figure", { name: /unread.txt/ })).toBeVisible();
+    await expect(page.getByText("Saved, unread.", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("receipt-reading-control")).toContainText("Your receipts are saved unread.");
+    const detail = await page.request.get(detailUrl);
+    expect(detail.status()).toBe(200);
+    const reopened = await detail.json();
+    expect(reopened.id).toBe(saved.id);
+    expect(reopened.status).toBe("saved");
+    expect(reopened.expense_id).toBeNull();
+    expect(pageErrors).toEqual([]);
+  });
+
 });

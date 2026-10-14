@@ -29,7 +29,9 @@ from tests.business.test_business_api import Owner
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def web_request(content: bytes, media_type: str, consent: bool) -> dict:
+def web_request(
+    content: bytes, media_type: str, consent: bool, filename: str = "recibo café.jpg"
+) -> dict:
     bun = shutil.which("bun")
     assert bun is not None, "Business transport proof requires Bun, as configured in CI"
     result = subprocess.run(
@@ -39,7 +41,7 @@ def web_request(content: bytes, media_type: str, consent: bool) -> dict:
             {
                 "content": base64.b64encode(content).decode(),
                 "media_type": media_type,
-                "filename": "recibo café.jpg",
+                "filename": filename,
                 "consent": consent,
                 "token": ALICE,
                 "key": str(uuid4()),
@@ -62,35 +64,51 @@ def send(client: TestClient, request: dict):
     )
 
 
-@pytest.mark.parametrize("consent", [False, True])
-def test_modal_request_saves_a_4_mib_jpeg_and_replays_without_duplication(
+@pytest.mark.parametrize("reading", [False, True])
+@pytest.mark.parametrize("upload_consent", [False, True])
+@pytest.mark.parametrize("media_type", ["image/jpeg", "application/pdf"])
+def test_web_request_uses_saved_owner_reading_permission_and_replays_once(
     biz: TestClient,
-    consent: bool,
+    reading: bool,
+    upload_consent: bool,
+    media_type: str,
 ) -> None:
     owner = Owner(biz, ALICE)
-    assert owner.start().status_code == 201
-    if consent:
+    started = owner.start()
+    assert started.status_code == 201
+    if reading:
         assert owner.reading(True).status_code == 200
-    image = io.BytesIO()
-    Image.new("RGB", (16, 16), "white").save(image, format="JPEG")
-    # Valid JPEG with trailing padding: match the reported file size without
-    # creating a huge image or committing any real receipt content.
-    content = image.getvalue().ljust(round(4.1 * 1024 * 1024), b"\0")
-    request = web_request(content, "image/jpeg", consent)
+    source_bytes = io.BytesIO()
+    image = Image.new("RGB", (16, 16), "white")
+    image.save(source_bytes, format="JPEG" if media_type == "image/jpeg" else "PDF")
+    content = source_bytes.getvalue()
+    if media_type == "image/jpeg":
+        content = content.ljust(round(4.1 * 1024 * 1024), b"\0")
+    filename = "recibo café.jpg" if media_type == "image/jpeg" else "recibo café.pdf"
+    request = web_request(content, media_type, upload_consent, filename)
+    assert request["headers"].get("x-extraction-consent") == (
+        "true" if upload_consent else None
+    )
     response = send(biz, request)
     assert response.status_code == 200, response.text
     saved = response.json()
-    assert saved["filename"] == "recibo café.jpg"
+    assert saved["filename"] == filename
     assert saved["size_bytes"] == len(content)
-    assert saved["media_type"] == "image/jpeg"
-    assert saved["status"] == ("queued" if consent else "saved")
-    source = owner.get(f"/receipts/{saved['id']}/source")
-    assert source.content == content
+    assert saved["media_type"] == media_type
+    assert saved["status"] == ("queued" if reading else "saved")
+    assert saved["expense_id"] is None
+    detail = owner.get(f"/receipts/{saved['id']}").json()
+    assert detail["status"] == ("review_ready" if reading else "saved")
+    assert detail["record_context"]["space_id"] == started.json()["id"]
+    assert detail["expense_id"] is None
+    assert owner.get(f"/receipts/{saved['id']}/source").content == content
     again = send(biz, request)
     assert again.status_code == 200
     assert again.json()["id"] == saved["id"]
     assert again.json()["replayed"] is True
-    assert len(owner.get("/receipts").json()["items"]) == 1
+    listed = owner.get("/receipts").json()["items"]
+    assert [receipt["id"] for receipt in listed] == [saved["id"]]
+    assert owner.get("/receipt-reading").json()["enabled"] is reading
 
 
 @pytest.mark.parametrize(
@@ -108,7 +126,7 @@ def test_modal_request_exposes_precise_safe_failure_without_saving(
 ) -> None:
     owner = Owner(biz, ALICE)
     assert owner.start().status_code == 201
-    request = web_request(b"not an image", media_type, True)
+    request = web_request(b"not an image", media_type, False)
     messages: list[str] = []
     sink = logger.add(lambda message: messages.append(str(message)))
     try:

@@ -1,6 +1,23 @@
 {
   "default_base_ref": "codex/alpha-functional",
   "branches": {
+    "codex/business-owner-receipt-upload": {
+      "description": "Issue #1112 owner Inbox upload acceptance coverage for saved reading permission, exact web request, JPEG/PDF source persistence and review entry. No runtime, provider, hosted, migration or iOS changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "tests/business/test_receipt_web_transport.py",
+        "web/e2e/business-upload-review-live.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*",
+        "ios/**",
+        "supabase/migrations/**"
+      ]
+    },
     "codex/capped-mail-waiting-label": {
       "description": "Show the server-owned waiting state and UTC resume time for daily-capped Business email, without reading polls or immediate retry. Issue #1106 waiting-label scope only.",
       "base_ref": "origin/codex/private-alpha-next",
