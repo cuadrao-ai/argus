@@ -1,18 +1,19 @@
 "use client";
 
-import { Bell, Inbox, LayoutGrid, ReceiptText } from "lucide-react";
+import { Bell, Inbox, LayoutGrid, ReceiptText, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
+import { inboxCount as countInbox } from "./BusinessInboxPanel";
 
 export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }) {
   const { t } = useTranslation();
   const { panel, openPanel, records } = useBusiness();
-  const inboxCount = records.inbox?.length ?? 0;
+  const inboxCount = countInbox(records);
   const isActive = (kind: BusinessPanelState["kind"]) =>
     shell.currentView === "workspace" &&
-    (panel.kind === kind || (kind === "inbox" && panel.kind === "receipt"));
+    (panel.kind === kind || (kind === "inbox" && panel.kind === "receipt") || (kind === "expenses" && panel.kind === "expense"));
   const count = (value: number) =>
     value > 0 && !shell.sidebarCollapsed ? (
       <span className="rounded-full bg-black/5 px-2 py-0.5 text-[12px] tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60">
@@ -41,6 +42,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "inbox" })}
         trailing={count(inboxCount)}
+        activityPresentation={records.receiptActivity?.presentation === "working" ? "working" : records.receiptActivity?.presentation === "unread" ? "new_activity" : "none"}
         iconSize={20}
       />
       <SidebarNavButton
@@ -57,6 +59,14 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         active={isActive("updates")}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "updates" })}
+        iconSize={20}
+      />
+      <SidebarNavButton
+        icon={Users}
+        label={t("business_access.nav", "Access")}
+        active={isActive("access")}
+        collapsed={shell.sidebarCollapsed}
+        onClick={() => openPanel({ kind: "access" })}
         iconSize={20}
       />
     </nav>

@@ -1,6 +1,13 @@
 import type { BusinessLocale } from "./content";
 
 const es = {
+  useCases: [
+    "Hasta el gasto en efectivo.",
+    "Hasta la compra sin factura.",
+    "Hasta lo que te deben.",
+    "Hasta lo personal, aparte.",
+    "Hasta lo que ve tu contador.",
+  ],
   eyebrow: "PARA NEGOCIOS EN REPÚBLICA DOMINICANA",
   description:
     "Estamos construyendo Cuadrao para reunir los gastos y documentos de tu negocio. Desde el recibo que llega hasta el registro que revisas y apruebas.",
@@ -35,7 +42,7 @@ const es = {
     },
   ],
   truth:
-    "Recorrido ilustrativo con datos de ejemplo. Cuadrao para negocios está en desarrollo.",
+    "Recorrido ilustrativo con datos de ejemplo.",
   principlesLabel: "MENOS TRABAJO REPETIDO. MÁS CLARIDAD.",
   principlesTitle: "Cada dato, con su respaldo.",
   principlesBody:
@@ -57,6 +64,13 @@ const es = {
     "Para negocios en República Dominicana que necesitan mantener sus gastos y documentos al día, y para las personas que los ayudan a revisar sus cuentas. Estamos aprendiendo de sus procesos antes de ampliar el producto.",
 };
 const en: typeof es = {
+  useCases: [
+    "Even the cash expenses.",
+    "Even purchases with no invoice.",
+    "Even what you are owed.",
+    "Even personal costs, set apart.",
+    "Even what your accountant sees.",
+  ],
   eyebrow: "FOR BUSINESSES IN THE DOMINICAN REPUBLIC",
   description:
     "We’re building Cuadrao to bring your business expenses and documents together. From the receipt that arrives to the record you review and approve.",
@@ -91,7 +105,7 @@ const en: typeof es = {
     },
   ],
   truth:
-    "Illustrative journey with sample data. Cuadrao for business is in development.",
+    "Illustrative journey with sample data.",
   principlesLabel: "LESS REPEATED WORK. MORE CLARITY.",
   principlesTitle: "Every detail, with its source.",
   principlesBody:

@@ -10,6 +10,9 @@ from argus.domain.business.contracts.facts import Contract
 class ManualCapture(Contract):
     draft_id: UUID
     version: int = Field(ge=1)
+    # The revision this note created: the number the draft's history lists.
+    # ``version`` is the draft's current version, which also counts later actions.
+    revision: int = Field(ge=1)
     source_id: UUID
     text: str = Field(min_length=1, max_length=20000)
     received_at: datetime

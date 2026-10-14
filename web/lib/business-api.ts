@@ -1,3 +1,4 @@
+import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, ARGUS_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
@@ -20,7 +21,7 @@ export type ReceiptStatus =
   | "confirmed"
   | "dismissed";
 
-export type ReceiptChannel = "web" | "whatsapp";
+export type ReceiptChannel = "web" | "whatsapp" | "email";
 
 /** Why a `needs_attention` receipt needs the owner. The backend decides it. */
 export const RECEIPT_ATTENTIONS = [
@@ -32,6 +33,7 @@ export const RECEIPT_ATTENTIONS = [
   "several_purchases",
   "source_unavailable",
   "check_details",
+  "duplicate",
   "other",
 ] as const;
 export type ReceiptAttention = (typeof RECEIPT_ATTENTIONS)[number];
@@ -45,20 +47,54 @@ export type ReceiptReviewFields = {
   account_id: string | null;
 };
 
+export type ReceiptActivity = {
+  state: "saved_unread" | "reading" | "ready" | "read_failed" | "blocked" | "inactive";
+  unread: boolean;
+  completion_cursor: string | null;
+};
+export type ReceiptActivityCounts = { reading_count: number; unread_count: number; presentation: "working" | "unread" | "none" };
+export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
+
+export function getReceiptActivity(signal?: AbortSignal): Promise<ReceiptActivityCounts> {
+  return apiFetch("/business/receipt-activity", { signal });
+}
+export function getReceiptReading(language: ArgusLanguage, signal?: AbortSignal): Promise<ReceiptReading> {
+  return apiFetch(`/business/receipt-reading?language=${encodeURIComponent(language)}`, { signal });
+}
+export function setReceiptReading(reading: ReceiptReading, enabled: boolean, language: ArgusLanguage, signal?: AbortSignal): Promise<ReceiptReading> {
+  return apiFetch("/business/receipt-reading", { method: "POST", signal, headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ enabled, scope_version: reading.scope_version, disclosure_token: reading.disclosure_token, language }) });
+}
+export function markReceiptRead(id: string, completionCursor: string): Promise<ReceiptActivity> {
+  return apiFetch(`/business/receipts/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({ completion_cursor: completionCursor }) });
+}
+
 export type ReceiptSummary = ReceiptReviewFields & {
   id: string;
+  activity?: ReceiptActivity | null;
   channel: ReceiptChannel;
   filename: string | null;
+  /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
+  source_text?: string | null;
   media_type: string;
   size_bytes: number;
   received_at: string;
   status: ReceiptStatus;
   error_code: string | null;
   attention: ReceiptAttention | null;
+  /** With attention `duplicate`: the receipt this one may repeat. */
+  duplicate_of?: string | null;
+  /** The upload found the same bytes already saved; this is that receipt. */
+  replayed?: boolean;
   /** The owner may ask for a consented AI read now. */
   preparable: boolean;
+  /** A read is in flight or will start; a queued receipt nothing will read says false and reads as saved. */
+  read_pending?: boolean;
   /** The owner may fill in the one purchase by hand from version 0. */
   enterable: boolean;
+  /** Email deliveries this document arrived in, if any. */
+  email_delivery_ids?: string[];
+  /** The email itself, whose attachment is already a receipt; never prepared or approved. */
+  email_original?: boolean;
   expense_id: string | null;
 };
 
@@ -67,7 +103,9 @@ export type ReceiptEvidenceLine = {
   amount: DecimalString | null;
 };
 
-export type ReceiptDetail = ReceiptSummary & BusinessRecordContext & {
+export type ReceiptDetail = ReceiptSummary & {
+  /** The Business this receipt belongs to and what the caller may do there; null when the API cannot say. */
+  record_context: BusinessRecordContext | null;
   draft_id: string | null;
   version: number;
   evidence: {
@@ -82,6 +120,34 @@ export type ReceiptDetail = ReceiptSummary & BusinessRecordContext & {
   } | null;
   missing_fields: (keyof ReceiptReviewFields)[];
 };
+
+export function businessExportPeriodValid(start: string, end: string): boolean {
+  const date = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000-")) return NaN;
+    const parsed = Date.parse(`${value}T00:00:00Z`);
+    return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === value ? parsed : NaN;
+  };
+  const days = (date(end) - date(start)) / 86_400_000;
+  return days >= 0 && days <= 365;
+}
+
+export async function fetchBusinessExport(draftId: string, start: string, end: string, signal?: AbortSignal): Promise<Blob> {
+  const authHeaders = await authenticatedRequestHeaders();
+  signal?.throwIfAborted();
+  const query = new URLSearchParams({ start, end, draft_id: draftId });
+  const response = await fetch(`${ARGUS_API_BASE_URL}/business/exports?${query}`, {
+    headers: argusApiRequestHeaders(undefined, authHeaders), credentials: "include", cache: "no-store", signal,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const error = new Error("Business export unavailable") as Error & { status: number; code: string };
+    error.status = response.status;
+    error.code = body?.detail?.code ?? body?.code ?? "unknown";
+    throw error;
+  }
+  if (response.headers.get("Content-Type")?.split(";")[0].trim() !== "application/zip") throw new Error("Invalid Business export response");
+  return response.blob();
+}
 
 export async function getBusinessDossier(draftId: string): Promise<BusinessDossier> {
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/dossier`);
@@ -100,6 +166,14 @@ export async function approveBusinessDraft(draftId: string, version: number, ide
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, action: "record_expense" }),
+  });
+}
+
+export async function settleBusinessRemainder(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/remainder/settle`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version }),
   });
 }
 
@@ -144,15 +218,25 @@ export type BusinessExpense = {
   funding?: "owner_funds";
   occurred_on: string;
   receipt_id: string | null;
+  /** The bridge draft that recorded it, when one did: the record to open when no single receipt is named. Absent for a hand-entered expense. */
+  draft_id?: string | null;
 };
+
+/** One saved expense with when it was recorded and its revision; both null when the money read does not say. */
+export type BusinessExpenseDetail = BusinessExpense & { recorded_at: string | null; revision: number | null };
 
 export type BusinessOverview = {
   from: string;
   to: string;
+  /** The server's day in the Business time zone: the one clock for "today". */
+  today: string;
   totals: { currency: CurrencyCode; amount: DecimalString; count: number }[];
   needs_attention: number;
   last_received_at: string | null;
   last_confirmed_at: string | null;
+  /** Saved expenses the chosen period leaves out, so none looks vanished. */
+  outside_period_count: number;
+  outside_period_latest_on: string | null;
 };
 
 export type BusinessUpdate = {
@@ -179,7 +263,10 @@ export type BusinessSearchResult = {
 export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number } };
 export type BusinessCapture = {
   draft_id: string;
+  /** The draft's current version, which also counts approvals and settlements. */
   version: number;
+  /** The revision this note created: the number the draft's history lists, the one a person sees. */
+  revision: number;
   source_id: string;
   text: string;
   received_at: string;
@@ -233,16 +320,48 @@ export async function startBusinessSpace(language: ArgusLanguage): Promise<Busin
   });
 }
 
+/** One Business the person may enter, through one live grant of theirs; the server's answer, names included. */
+export type GrantedSpace = {
+  space_id: string;
+  name: string;
+  grant_id: string;
+  role: "owner" | "accountant";
+  capabilities: ("read" | "prepare" | "approve")[];
+  /** Whether the one-time "you now have access" line was dismissed; always true for the own Business. */
+  access_seen: boolean;
+};
+
+/** Every Business the person may enter, their own first. */
+export async function getBusinessSpaces(): Promise<GrantedSpace[]> {
+  const answer = await apiFetch<{ spaces: GrantedSpace[] }>("/business/spaces");
+  return answer.spaces;
+}
+
+/** The person dismissed the one-time access line for one of their grants; remembered server side. */
+export async function markBusinessAccessSeen(grantId: string): Promise<void> {
+  const authHeaders = await authenticatedRequestHeaders();
+  const response = await fetch(`${ARGUS_API_BASE_URL}/business/spaces/${encodeURIComponent(grantId)}/seen`, {
+    method: "POST",
+    credentials: "include",
+    headers: argusApiRequestHeaders(undefined, authHeaders),
+  });
+  if (!response.ok) throw new Error(`API error ${response.status}`);
+}
+
 export async function getBusinessWorkspace(): Promise<BusinessWorkspaceInfo> {
   return apiFetch("/business/workspace");
 }
 
 export async function getBusinessOverview(
   from: string,
-  to: string,
+  to: string | null,
 ): Promise<BusinessOverview> {
-  const query = new URLSearchParams({ from, to });
+  const query = new URLSearchParams(to === null ? { from } : { from, to });
   return apiFetch(`/business/overview?${query}`);
+}
+
+export function getBusinessReceiptPage(view: "inbox" | "all", signal?: AbortSignal): Promise<{ items: ReceiptSummary[]; activity: ReceiptActivityCounts }> {
+  return apiFetch(`/business/receipts?view=${view}`, { signal });
 }
 
 export async function listBusinessReceipts(
@@ -254,8 +373,8 @@ export async function listBusinessReceipts(
   return page.items;
 }
 
-export async function getBusinessReceipt(id: string): Promise<ReceiptDetail> {
-  return apiFetch(`/business/receipts/${encodeURIComponent(id)}`);
+export async function getBusinessReceipt(id: string, signal?: AbortSignal): Promise<ReceiptDetail> {
+  return apiFetch(`/business/receipts/${encodeURIComponent(id)}`, { signal });
 }
 
 export async function listBusinessUpdates(): Promise<BusinessUpdate[]> {
@@ -268,11 +387,15 @@ export async function searchBusiness(q: string, limit = 5): Promise<BusinessSear
   return apiFetch(`/business/search?${query}`);
 }
 
+export async function getBusinessExpense(expenseId: string): Promise<BusinessExpenseDetail> {
+  return apiFetch<BusinessExpenseDetail>(`/business/expenses/${encodeURIComponent(expenseId)}`);
+}
+
 export async function listBusinessExpenses(
   from: string,
-  to: string,
+  to: string | null,
 ): Promise<BusinessExpense[]> {
-  const query = new URLSearchParams({ from, to });
+  const query = new URLSearchParams(to === null ? { from } : { from, to });
   const page = await apiFetch<{ items: BusinessExpense[] }>(
     `/business/expenses?${query}`,
   );
@@ -313,11 +436,14 @@ export async function uploadBusinessReceipt(
   return response.json() as Promise<ReceiptSummary>;
 }
 
-export async function fetchBusinessReceiptSource(id: string): Promise<Blob> {
+/** A source fetch that never answers ends here, so the preview can say so and offer a retry instead of loading forever. */
+export const RECEIPT_SOURCE_TIMEOUT_MS = 30_000;
+
+export async function fetchBusinessReceiptSource(id: string, options: { timeoutMs?: number } = {}): Promise<Blob> {
   const authHeaders = await authenticatedRequestHeaders();
   const response = await fetch(
     `${ARGUS_API_BASE_URL}/business/receipts/${encodeURIComponent(id)}/source`,
-    { credentials: "include", headers: authHeaders },
+    { credentials: "include", headers: argusApiRequestHeaders(undefined, authHeaders), signal: AbortSignal.timeout(options.timeoutMs ?? RECEIPT_SOURCE_TIMEOUT_MS) },
   );
   if (!response.ok) throw new Error(`API error ${response.status}`);
   return response.blob();
@@ -373,4 +499,64 @@ export async function createBusinessAccount(
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(input),
   });
+}
+
+export async function getBusinessEmailIntake(): Promise<BusinessEmailIntake> {
+  return apiFetch("/business/email");
+}
+
+export async function createBusinessEmailAddress(): Promise<BusinessEmailIntake> {
+  return apiFetch("/business/email", { method: "POST" });
+}
+
+export async function listBusinessEmailDeliveries(): Promise<BusinessEmailDelivery[]> {
+  const page = await apiFetch<{ items: BusinessEmailDelivery[] }>("/business/email/deliveries");
+  return page.items;
+}
+
+export async function getBusinessEmailDelivery(id: string): Promise<BusinessEmailDetail> {
+  return apiFetch(`/business/email/deliveries/${encodeURIComponent(id)}`);
+}
+
+export async function retryBusinessEmailDelivery(id: string): Promise<{ id: string }> {
+  return apiFetch(`/business/email/deliveries/${encodeURIComponent(id)}/retry`, { method: "POST" });
+}
+
+/** Who may act in the owner's Business. The grant is the only authority. */
+export type BusinessAccessCapability = "read" | "prepare" | "approve";
+export type BusinessAccessGrant = {
+  id: string;
+  email: string | null;
+  display_name: string;
+  capabilities: BusinessAccessCapability[];
+  created_at: string;
+  owner: boolean;
+};
+export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string };
+export type BusinessAccess = { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] };
+
+export async function getBusinessAccess(): Promise<BusinessAccess> {
+  return apiFetch("/business/access");
+}
+
+/** A read and prepare grant for a confirmed account, else a pending invite; the server answers with the whole list either way. */
+export async function giveBusinessAccess(email: string): Promise<BusinessAccess> {
+  return apiFetch("/business/access", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function revokeBusinessAccessGrant(id: string): Promise<void> {
+  await apiFetch(`/business/access/grants/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function revokeBusinessAccessInvite(id: string): Promise<void> {
+  await apiFetch(`/business/access/invites/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/** Owner action: bind a receipt whose preparation grant is no longer live to the owner's current grant. */
+export async function rebindBusinessReceipt(id: string): Promise<ReceiptDetail> {
+  return apiFetch(`/business/receipts/${encodeURIComponent(id)}/rebind`, { method: "POST" });
 }

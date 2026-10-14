@@ -134,7 +134,7 @@ const PROOF = {
   terms: /Acceptable use|Uso aceptable/i,
   login: /Forgot password|Olvidaste tu contraseña/i,
   signup: /At least 8 characters|Al menos 8 caracteres/i,
-  requestAccess: /Request access to Argus|Solicitar acceso a Argus/i,
+  requestAccess: /Request access to Cuadrao|Solicita acceso a Cuadrao/i,
   forgotPassword: /Recover your account|Recupera tu cuenta/i,
   recovery: /Choose a new password|Elige una nueva contraseña/i,
 } as const;

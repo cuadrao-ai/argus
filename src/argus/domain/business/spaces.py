@@ -15,6 +15,8 @@ from typing import Protocol
 
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.access import ensure_owner_grant
+
 # Founder-approved October 8: the name a space starts with until renamed.
 DEFAULT_SPACE_NAMES = {"es": "Mi negocio", "en": "My business"}
 MAX_NAME_LENGTH = 80
@@ -34,6 +36,10 @@ def default_space_name(language: str | None) -> str:
 
 class SpaceStore(Protocol):
     def open_space(self, person_id: str) -> Space | None: ...
+
+    def get(self, space_id: str) -> Space | None:
+        """An open Business space by id, for a grant that names it."""
+        ...
 
     def create(self, person_id: str, name: str) -> tuple[Space, bool]:
         """The person's open space, created with ``name`` when there is none.
@@ -58,8 +64,17 @@ class PostgresSpaceStore:
             ).fetchone()
         return Space(*row) if row else None
 
-    def create(self, person_id: str, name: str) -> tuple[Space, bool]:
+    def get(self, space_id: str) -> Space | None:
         with self._pool.connection() as connection:
+            row = connection.execute(
+                "select id::text, name from public.spaces"
+                " where id = %s and kind = 'business' and closed_at is null",
+                (space_id,),
+            ).fetchone()
+        return Space(*row) if row else None
+
+    def create(self, person_id: str, name: str) -> tuple[Space, bool]:
+        with self._pool.connection() as connection, connection.transaction():
             created = connection.execute(
                 "insert into public.spaces (kind, name, created_by)"
                 " values ('business', %s, %s)"
@@ -67,6 +82,9 @@ class PostgresSpaceStore:
                 " do nothing returning id::text, name",
                 (name, person_id),
             ).fetchone()
+            if created is not None:
+                # The owner's grant is born with the space, in the same transaction.
+                ensure_owner_grant(connection, created[0], person_id)
         if created is not None:
             return Space(*created), True
         existing = self.open_space(person_id)
@@ -92,6 +110,10 @@ class InMemorySpaceStore:
     def open_space(self, person_id: str) -> Space | None:
         with self._lock:
             return self._spaces.get(person_id)
+
+    def get(self, space_id: str) -> Space | None:
+        with self._lock:
+            return next((s for s in self._spaces.values() if s.id == space_id), None)
 
     def create(self, person_id: str, name: str) -> tuple[Space, bool]:
         with self._lock:

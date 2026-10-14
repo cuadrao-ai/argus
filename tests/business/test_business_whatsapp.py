@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from unittest.mock import patch
 
@@ -40,8 +41,13 @@ from tests.ingestion.whatsapp_support import (
 def wa_biz(
     business_env, gateway, monkeypatch
 ) -> Iterator[tuple[TestClient, ReceiptStub]]:  # noqa: ANN001
+    for name in tuple(os.environ):
+        if name.startswith("CUADRAO_WHATSAPP_"):
+            monkeypatch.delenv(name, raising=False)
     for name, value in ENV.items():
         monkeypatch.setenv(name, value)
+        if name.startswith("ARGUS_"):
+            monkeypatch.delenv(name.replace("ARGUS_", "CUADRAO_", 1), raising=False)
     graph = FakeGraph({"700000000000001": Media(RECEIPT_PNG, "image/png")})
     with (
         patch.object(api_state, "supabase_gateway", gateway),
@@ -62,6 +68,7 @@ def wa_biz(
         )
         stub = ReceiptStub()
         monkeypatch.setattr(documents_service(), "extractor", stub)
+        documents_service().business_receipt_consent.route_resolver = lambda: {"gateway":"synthetic","interpretation":[{"model":"receipt-fixture"}],"reply":[]}
         test_client.graph = graph
         yield test_client, stub
 
@@ -119,6 +126,7 @@ def test_whatsapp_receipt_is_reviewed_and_confirmed_like_an_upload(wa_biz) -> No
     assert [r["id"] for r in alice.get("/receipts", view="all").json()["items"]] == [
         receipt_id
     ]
+    assert alice.reading(True).status_code == 200
     prepared = alice.post(
         f"/receipts/{receipt_id}/prepare", **{"X-Extraction-Consent": "true"}
     )

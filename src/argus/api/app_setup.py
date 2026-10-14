@@ -3,12 +3,14 @@ from __future__ import annotations
 import functools
 import os
 from contextlib import asynccontextmanager
+from typing import get_args
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pydantic_core import ErrorType
 
 from argus.api import state as api_state
 from argus.api.apple_sign_in import AppleCaptureFlagGateMiddleware
@@ -86,6 +88,12 @@ async def lifespan(app: FastAPI):
     from argus.api.ingestion import start_ingestion, stop_ingestion
 
     start_ingestion(app)
+    from argus.api.email_intake import start_email_intake, stop_email_intake
+
+    start_email_intake(app)
+    from argus.api.whatsapp_worker import start_worker, stop_worker
+
+    start_worker(app)
     from argus.api.households import start_households, stop_households
 
     start_households(app)
@@ -105,6 +113,11 @@ async def lifespan(app: FastAPI):
         stop_personalization_memory(app)
         stop_households(app)
         stop_apple_sign_in(app)
+        await stop_email_intake(app)
+        from argus.api.whatsapp import drain_whatsapp
+
+        await drain_whatsapp()
+        await stop_worker(app)
         stop_ingestion(app)
         stop_financial_accounts(app)
         if checkpointer_cm is not None:
@@ -137,6 +150,30 @@ async def validation_exception_handler(  # type: ignore[no-untyped-def]
     request: Request,
     exc: RequestValidationError,
 ):
+    if request.method == "POST" and request.url.path == "/api/v1/business/receipts":
+        fields = {
+            "header",
+            "query",
+            "body",
+            "path",
+            "x-document-filename",
+            "x-extraction-consent",
+            "idempotency-key",
+            "x-business-grant",
+        }
+        for error in exc.errors():
+            location = ".".join(
+                part.lower()
+                if isinstance(part, str) and part.lower() in fields
+                else "unknown"
+                for part in error.get("loc", ())
+            )
+            error_type = error.get("type")
+            logger.warning(
+                "receipt_upload_validation_failed field={} type={}",
+                location or "unknown",
+                error_type if error_type in get_args(ErrorType) else "unknown",
+            )
     body = validation_problem_body(
         getattr(request.state, "request_id", api_state.store.new_id()),
         exc.errors(),

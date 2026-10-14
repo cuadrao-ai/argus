@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { signedInHomePath } from "@/lib/landing-intent";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -100,7 +101,7 @@ export default function AccountSecurityPage() {
         ),
         t(
           "account_security.password.revocation_warning",
-          "Password changed, but Argus could not confirm every session was signed out. Retry Sign out all sessions.",
+          "Password changed, but Cuadrao could not confirm every session was signed out. Retry Sign out all sessions.",
         ),
       );
       setCurrentPassword("");
@@ -145,7 +146,7 @@ export default function AccountSecurityPage() {
             ),
         t(
           "account_security.sessions.revocation_warning",
-          "Argus could not confirm the selected sessions were signed out. Try the session action again.",
+          "Cuadrao could not confirm the selected sessions were signed out. Try the session action again.",
         ),
       );
     } catch {
@@ -170,7 +171,7 @@ export default function AccountSecurityPage() {
             <p role="alert">
               {t(
                 "account_security.session_check_unavailable",
-                "Argus couldn’t verify your session right now. Try again.",
+                "Cuadrao couldn’t verify your session right now. Try again.",
               )}
             </p>
             <button
@@ -189,8 +190,8 @@ export default function AccountSecurityPage() {
   return (
     <main className="min-h-[100dvh] px-6 py-10 md:px-12">
       <div className="mx-auto w-full max-w-2xl">
-        <Link href="/chat" className="text-sm font-medium text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white">
-          {t("account_security.back", "Back to Argus")}
+        <Link href={signedInHomePath()} className="text-sm font-medium text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white">
+          {t("account_security.back", "Back to Cuadrao")}
         </Link>
         <h1 className="mt-6 font-display text-4xl font-medium tracking-tight text-black dark:text-white">
           {t("account_security.title", "Account security")}

@@ -31,6 +31,7 @@ class _Media(_Loose):
     id: str = Field(min_length=1, max_length=64)
     mime_type: str = Field(default="", max_length=128)
     filename: str | None = Field(default=None, max_length=512)
+    caption: str | None = Field(default=None, max_length=1024)
 
 
 class _Message(_Loose):
@@ -83,9 +84,24 @@ class MediaMessage:
     media_id: str
     mime_type: str
     filename: str
+    caption: str | None = None
 
 
-InboundMessage = TextMessage | MediaMessage
+@dataclass(frozen=True)
+class UnsupportedMessage:
+    """A message kind intake does not read yet: the sender is told so."""
+
+    id: str
+    sender: str
+    sent_at: datetime
+    kind: str
+
+
+InboundMessage = TextMessage | MediaMessage | UnsupportedMessage
+
+# Meta's message type names for kinds the owner may send but intake cannot read
+# yet. Reactions, system and unknown types stay ignored: they need no answer.
+UNSUPPORTED_KINDS = frozenset({"audio", "sticker", "video"})
 
 
 @dataclass(frozen=True)
@@ -107,6 +123,8 @@ def _project(message: _Message) -> InboundMessage | None:
     sent_at = datetime.fromtimestamp(int(message.timestamp), timezone.utc)
     if message.type == "text" and message.text is not None:
         return TextMessage(message.id, message.sender, sent_at, message.text.body)
+    if message.type in UNSUPPORTED_KINDS:
+        return UnsupportedMessage(message.id, message.sender, sent_at, message.type)
     media = {"image": message.image, "document": message.document}.get(message.type)
     if media is None:
         return None
@@ -117,6 +135,7 @@ def _project(message: _Message) -> InboundMessage | None:
         media_id=media.id,
         mime_type=media.mime_type.split(";", 1)[0].strip().lower(),
         filename=(media.filename or _DEFAULT_NAMES[message.type])[:80],
+        caption=(media.caption or "").strip() or None,
     )
 
 

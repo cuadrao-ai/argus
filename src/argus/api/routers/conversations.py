@@ -25,6 +25,7 @@ from argus.api.conversation_activity import conversation_activity_service
 from argus.api.conversation_previews import conversation_previews
 from argus.api.conversation_surface import (
     memory_conversation_in_scope,
+    refuse_business_under_grant,
     refuse_closed_chat,
     require_open_business_chat,
     surface_scope,
@@ -445,6 +446,8 @@ def patch_conversation(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ConversationResponse:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     require_account_capability(
         request,
         "can_manage_conversation",
@@ -503,6 +506,8 @@ def delete_conversation(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> SuccessResponse:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     require_account_capability(
         request,
         "can_manage_conversation",
@@ -574,6 +579,8 @@ def list_run_dossiers(
     cursor: str | None = Query(None),
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedRunDossiers:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     context = account_context(request)
     decision_action_availability = dossier_decision_action_availability(
         can_save_decision=context.capabilities.can_save_decision,
@@ -692,6 +699,8 @@ def list_messages(
     anchor_message_id: str | None = Query(None),
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedMessages:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     if cursor is not None and anchor_message_id is not None:
         raise problem(
             request,
@@ -892,6 +901,8 @@ def add_confirmation_peer_assets(
     card is updated in place; motion, chips, and inline period disclosure
     carry the change, never a narration banner.
     """
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     from argus.agent_runtime.research_basket import (
         confirmation_symbols_restoration,
         peer_add_rows,
@@ -1135,6 +1146,8 @@ def direct_edit_confirmation(
     in the transcript. Only turn-based edits supersede; failures persist
     nothing.
     """
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     from argus.agent_runtime.confirmation_direct_edit import (
         direct_edit_confirmation_preparation,
     )

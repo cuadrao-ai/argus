@@ -97,7 +97,7 @@ export function useActiveConversationTitle({
   const headerConversationTitleSource = activeTitleRecord?.title_source ?? null;
 
   useEffect(() => {
-    document.title = conversationTabTitle(activeTitleRecord, isChatViewActive, surface);
+    document.title = conversationTabTitle(activeTitleRecord, isChatViewActive);
   }, [isChatViewActive, activeTitleRecord, surface]);
 
   return {

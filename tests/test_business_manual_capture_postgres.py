@@ -122,6 +122,11 @@ def test_append_preserves_facts_and_uses_exact_revision_source(actions):
         after.sources[-1].id,
     }
     assert {row["version"] for row in entries} == {3}
+    # Each note names the revision it created, the number the history lists.
+    assert {(row["source_id"], row["revision"]) for row in entries} == {
+        (after.sources[0].id, 1),
+        (after.sources[-1].id, 3),
+    }
     assert counts(service, context)[-1] == 0
 
 
@@ -186,6 +191,7 @@ def test_foreign_candidate_is_not_found_and_leaves_no_source(actions, users):
     assert len(service.captures(foreign)) == 1
 
 
+@pytest.mark.owner_acts
 def test_original_note_search_is_literal_and_survives_record_state(actions):
     service, context, _ = actions
     first = note(service, context, "Compra 100%_ ORIGINAL", "literal")

@@ -50,6 +50,9 @@ psycopg = {extras = ["binary", "pool"], version = "^3.3.4"}
 babel = "^2.17.0"
 mem0ai = "^2.0.17"
 number-parser = "0.3.2"
+xlsxwriter = ">=3.2.9,<4"
+lxml = "6.0.2"
+zxing-cpp = "2.3.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -57,6 +60,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.0,<9.0"
+segno = "1.6.6"
 pytest-mock = ">=3.15.1,<4.0.0"
 pytest-cov = ">=4.0.0"
 pytest-asyncio = "^1.4.0"
@@ -109,6 +113,7 @@ filterwarnings = [
 ]
 markers = [
     "slow: marks tests as slow (performance benchmarks requiring large datasets)",
+    "owner_acts: the shared Business actions fixture acts as the owner (approval is the owner's alone)",
 ]
 
 [tool.ruff]

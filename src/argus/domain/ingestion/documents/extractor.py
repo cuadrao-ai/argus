@@ -9,9 +9,12 @@ import re
 from datetime import datetime
 from decimal import Decimal
 from typing import get_args
+from uuid import UUID
 
 from pydantic import ValidationError
 
+from argus.domain.business.contracts.checks import DgiiQr
+from argus.domain.business.contracts.facts import FiscalFacts
 from argus.domain.ingestion.contract import (
     AccountHint,
     Attachment,
@@ -23,12 +26,16 @@ from argus.domain.ingestion.documents.config import (
     DocumentExtractionSettings,
     load_document_extraction_settings,
 )
+from argus.domain.ingestion.documents.dgii_qr import with_qr
+from argus.domain.ingestion.documents.ecf_checks import EcfDocument, safe_ecf_checks
 from argus.domain.ingestion.documents.models import (
+    RECEIPT_CURRENCY_CONFLICT,
     RECEIPT_PURCHASE_AMBIGUOUS,
     DocumentExtractionError,
     ExtractionBatch,
     ExtractionResult,
     ProjectionIssue,
+    ReceiptDetails,
 )
 from argus.domain.ingestion.documents.preparation import prepare_document
 from argus.llm.openrouter import (
@@ -51,18 +58,63 @@ uncertain fields must be listed. A currency symbol $ alone does not identify a c
 Use positive decimal amounts (no thousands separators) and separate inflow/outflow.
 Bank debits are outflows and credits inflows; use the statement's account perspective.
 Opening, closing, available and running balances are balance evidence, never transactions.
-A receipt is one purchase at its final paid total, not one transaction per item, tax,
-subtotal or tender line. Card payment notices are not proof of a new purchase. Preserve
+A readable receipt that supports a purchase must
+include exactly one purchase in observations alongside receipt details.
+Use its printed final paid total and only source-supported date, currency and direction.
+Receipt details supplement this observation; they do not replace it. Never create separate
+transactions for items, tax, subtotal, tender or change. If the source does not support a
+purchase, do not invent an observation. Copy printed item amounts with their fractional
+digits intact; absent, unreadable or conflicting item values are null.
+Do not round or adjust item amounts to reconcile the receipt total.
+Card payment notices are not proof of a new purchase. Preserve
 statement periods separately. Do not infer a transaction from a change in balances.
 For each observation set page to its 1-based source page and row to its unique 1-based
 observation position on that page, in reading order. Include page numbers in pages_read.
 Only include account hints explicitly present in the source. Do not repeat complete
 account numbers, addresses, personal identifiers or document prose in descriptions.
 Descriptions and merchants should be short factual labels. Do not copy document text.
+For a receipt, read RNC, NCF, e-CF and the ITBIS monetary amount only when explicitly
+labeled in the source. These are unverified extracted evidence, never fiscal validation,
+issuance or a tax-treatment decision. Preserve printed identifiers in their own fields;
+do not infer NCF from e-CF or e-CF from NCF. If a fiscal value is absent, unreadable or
+conflicting, return null. Do not calculate ITBIS from a rate, subtotal or total, and do
+not substitute a generic tax line for ITBIS. Never invent fiscal defaults.
 """
 
 
-def _plain_amount(value: str | None) -> bool:
+def fiscal_facts_from_receipt(receipt: ReceiptDetails, *, source_id: UUID) -> FiscalFacts:
+    facts = {}
+    for name in FiscalFacts.model_fields:
+        value = getattr(receipt, name)
+        fact = {
+            "state": "unknown" if value is None else "known",
+            "value": value,
+            "origin": "extracted",
+            "verified": False,
+            "source_ids": (source_id,),
+        }
+        try:
+            FiscalFacts.model_validate({name: fact})
+        except ValidationError as error:
+            # A printed value the contract cannot hold stays raw in the saved
+            # batch; the fact is unknown. Any other defect still raises.
+            if any(detail["loc"][-1] != "value" for detail in error.errors()):
+                raise
+            fact = {**fact, "state": "unknown", "value": None}
+        facts[name] = fact
+    return FiscalFacts.model_validate(facts)
+
+
+def _currency(value: str) -> str | None:
+    try:
+        return AccountHint(currency=value).currency
+    except ValidationError:
+        return None
+
+
+def plain_amount(value: str | None) -> bool:
+    """The projection's amount rule: plain decimal text, read by every reader of a row."""
+
     return (
         value is not None
         and re.fullmatch(r"[0-9]{1,18}(?:\.[0-9]{1,8})?", value) is not None
@@ -75,6 +127,10 @@ def batch_from_result(
     connection_id: str,
     observed_at: datetime,
     pages: int,
+    *,
+    document_currency: str | None = None,
+    ecf: EcfDocument | None = None,
+    dgii_qr: DgiiQr | None = None,
 ) -> ExtractionBatch:
     issues = []
     if not result.readable:
@@ -91,9 +147,9 @@ def batch_from_result(
         and result.receipt.total is not None
     ):
         total, amount = result.receipt.total, receipt_rows[0].amount
-        receipt_ambiguous = not (
-            _plain_amount(total) and _plain_amount(amount)
-        ) or Decimal(total) != Decimal(amount)
+        receipt_ambiguous = not (plain_amount(total) and plain_amount(amount)) or Decimal(
+            total
+        ) != Decimal(amount)
     if result.receipt is not None and len(receipt_rows) == 1:
         receipt, purchase = result.receipt, receipt_rows[0]
         if receipt.currency is not None and purchase.currency is not None:
@@ -111,8 +167,22 @@ def batch_from_result(
             and receipt.occurred_on != purchase.occurred_on
         ):
             receipt_ambiguous = True
+    conflict = (
+        document_currency is not None
+        and result.receipt is not None
+        and result.receipt.currency is not None
+        and _currency(result.receipt.currency) != document_currency
+    )
+    if conflict:
+        # The source names its own currency (a DGII e-CF is paid in DOP) and the
+        # read chose another: a person settles it, the rows stay as evidence.
+        receipt_ambiguous = True
     if receipt_ambiguous:
         issues.append(ProjectionIssue(code=RECEIPT_PURCHASE_AMBIGUOUS))
+    if conflict:
+        issues.append(
+            ProjectionIssue(code=RECEIPT_CURRENCY_CONFLICT, fields=("currency",))
+        )
     seen = set()
     candidates = []
     for row in result.observations:
@@ -125,7 +195,7 @@ def batch_from_result(
             )
             continue
         seen.add(identity)
-        if row.amount is not None and not _plain_amount(row.amount):
+        if row.amount is not None and not plain_amount(row.amount):
             issues.append(
                 ProjectionIssue(
                     page=row.page,
@@ -191,6 +261,13 @@ def batch_from_result(
         observations=result.observations,
         receipt=result.receipt,
         issues=tuple(issues),
+        ecf_checks=with_qr(
+            safe_ecf_checks(ecf, result.receipt, observed_at),
+            dgii_qr,
+            result.receipt,
+            observed_at,
+        ),
+        dgii_qr=dgii_qr,
     )
 
 
@@ -252,7 +329,12 @@ class DocumentExtractor:
             blocks.append(
                 {
                     "type": "text",
-                    "text": "Supplemental local PDF text (untrusted):\n" + prepared.text,
+                    "text": (
+                        "Supplemental local PDF text (untrusted):\n"
+                        if media_type == "application/pdf"
+                        else "Local document text (untrusted):\n"
+                    )
+                    + prepared.text,
                 }
             )
         token = begin_openrouter_route_receipt_capture()
@@ -277,6 +359,7 @@ class DocumentExtractor:
         metadata: dict[str, object] = {
             "pages": prepared.pages,
             "media_type": media_type,
+            "document_currency": prepared.document_currency,
             "sha256": hashlib.sha256(content).hexdigest(),
             "model": model,
             "route_receipts": [receipt.as_dict() for receipt in receipts],
@@ -289,7 +372,14 @@ class DocumentExtractor:
             raise failure from None
         assert result is not None
         batch = batch_from_result(
-            result, str(metadata["sha256"]), connection_id, observed_at, prepared.pages
+            result,
+            str(metadata["sha256"]),
+            connection_id,
+            observed_at,
+            prepared.pages,
+            document_currency=prepared.document_currency,
+            ecf=prepared.ecf,
+            dgii_qr=prepared.dgii_qr,
         )
         attachment = Attachment(
             external_id=str(metadata["sha256"]),

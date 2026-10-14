@@ -52,6 +52,10 @@ export function BusinessHeader({
         "--scroll",
         String(Math.min(1, Math.max(0, window.scrollY / 160))),
       );
+      header.current?.setAttribute(
+        "data-condensed",
+        window.scrollY > 0 ? "true" : "false",
+      );
       frame = 0;
     };
     const scroll = () => {
@@ -92,7 +96,11 @@ export function BusinessHeader({
       <a className={styles.skip} href="#business-main">
         {copy.skip}
       </a>
-      <header ref={header} className={`${styles.header} ${shell.header}`}>
+      <header
+        ref={header}
+        data-condensed="false"
+        className={`${styles.header} ${shell.header}`}
+      >
         <a
           className={styles.wordmark}
           href={personal ? businessPath(locale, "personal") : home}

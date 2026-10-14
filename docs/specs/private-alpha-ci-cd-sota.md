@@ -684,6 +684,17 @@ does not touch `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`, which the founder
 authorized separately on 2026-08-12; closing public registration again is its
 own founder decision. A local Block 4 pass is not “public ready.”
 
+## CI triggers and tooling (October 13, 2026)
+
+- **Trigger rules (#1040).** In `.github/workflows/ci.yml`, the `push` trigger runs
+  only for `main`, `codex/private-alpha-next` and
+  `codex/private-alpha-next-jules-intake`. A feature branch with a PR runs CI once
+  per push, through `pull_request` against those three base branches. A push to a
+  feature branch without a PR runs no CI.
+- **PDF tools (#1042).** The `docs-checks` job installs `poppler-utils`, so the
+  docs-reading backend tests have `pdftotext`. The `backend-checks` job installs
+  it too.
+
 ## Non-Goals
 
 - Do not add new product surfaces unrelated to release hygiene.

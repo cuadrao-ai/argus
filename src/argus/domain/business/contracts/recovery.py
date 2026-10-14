@@ -6,7 +6,14 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from .actions import ActionOutcome, CaptureCommand, Command, TurnPlan
+from .actions import (
+    ActionOutcome,
+    CaptureCommand,
+    Command,
+    IncomeApprovalCommand,
+    PrepareAttachmentCommand,
+    TurnPlan,
+)
 from .authority import ActorProvenance
 from .facts import Contract
 
@@ -79,10 +86,34 @@ class ActionReceipt(Contract):
             self.turn_key is not None or self.actor.actor_kind != "member"
         ):
             raise ValueError("capture requires a human command without a turn")
+        if isinstance(self.command, IncomeApprovalCommand) and (
+            self.turn_key is not None or self.actor.actor_kind != "member"
+        ):
+            raise ValueError("income approval requires a human command without a turn")
+        if isinstance(self.command, PrepareAttachmentCommand):
+            binding = self.command.binding
+            if (
+                self.turn_key is not None
+                or self.actor != binding.actor
+                or self.space_id != binding.space_id
+            ):
+                raise ValueError(
+                    "attachment receipt requires its original binding without a turn"
+                )
         if self.turn_key is None and self.command.action not in {
             "review_draft",
             "approve_expense",
+            "approve_income",
             "capture_note",
+            "prepare_attachment",
         }:
             raise ValueError("agent action receipts require their persisted turn plan")
         return self
+
+
+class BusinessModelOutputInvalid(RuntimeError):
+    """The model answered, but not with a valid interpretation. No plan exists
+    and nothing was written, so the owner can safely be asked to send it again."""
+
+    def __init__(self, code: str = "business_model_output_invalid") -> None:
+        super().__init__(code)

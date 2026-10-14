@@ -23,7 +23,11 @@ from argus.api.computation_contract import (
     ComputedAnswerList,
     ContinuedResultResponse,
 )
-from argus.api.conversation_surface import require_open_business_chat, surface_scope
+from argus.api.conversation_surface import (
+    refuse_business_under_grant,
+    require_open_business_chat,
+    surface_scope,
+)
 from argus.api.dependencies import current_user, problem, require_account_capability
 from argus.api.schemas import ConversationSurface, User
 
@@ -91,6 +95,10 @@ def continue_computed_answer_route(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ContinuedResultResponse:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(
+        request, user_id=user.id, conversation_id=str(conversation_id)
+    )
     require_account_capability(
         request,
         "can_create_additional_conversation",
@@ -117,6 +125,10 @@ async def refresh_computed_answer_route(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ComputationRefreshResponse:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(
+        request, user_id=user.id, conversation_id=str(conversation_id)
+    )
     from argus.api.chat.research_evidence import guest_research_visitor_key
     from argus.api.guest_access import account_context, client_identity
 

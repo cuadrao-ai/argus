@@ -1268,9 +1268,18 @@ because opening the gate grants no role. That third flag is the one that fails
 closed when unset, so it must be set explicitly on every service that reads it;
 omitting it denies registration rather than opening it.
 
+Staging uses Cloudflare Turnstile test keys: the always-pass site key in
+`NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY` (the Cuadrao name; the Argus name
+`NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY` is only a fallback in `web/lib/public-env.ts`)
+and Supabase's staging CAPTCHA test secret. Production must refuse them. Before a
+production promotion, confirm the site key does not start with `1x0000` and the
+CAPTCHA secret does not start with `1x0000` or `2x0000`. Those are Cloudflare's
+published test patterns. A search of `web`, `src` and `scripts` found no code that
+rejects them, so this is a manual release check, recorded in the release manifest.
+
 Hosted Supabase prerequisites are external operations and must be recorded in
 the release manifest: anonymous Auth enabled, approved CAPTCHA configuration,
-`NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY` present in the web build, provider
+`NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY` present in the web build, provider
 anonymous-sign-in limits, Argus origin enforcement and per-IP attempt limits,
 no direct anonymous-role access to product tables, migrations applied through
 `20260727230000_add_visitor_usage_counters.sql`, and a founder-approved

@@ -32,6 +32,22 @@ class BusinessSpaceInfo(_Wire):
     name: str
 
 
+class GrantedSpaceInfo(_Wire):
+    """One Business the caller may enter through one live grant of theirs."""
+
+    space_id: str
+    name: str
+    grant_id: str
+    role: Literal["owner", "accountant"]
+    capabilities: list[Literal["read", "prepare", "approve"]]
+    #: Whether the one-time "you now have access" line was dismissed; always true for the own Business.
+    access_seen: bool
+
+
+class BusinessSpaces(_Wire):
+    spaces: list[GrantedSpaceInfo]
+
+
 class StartBusinessSpace(_Wire):
     """No name starts the space with the default name in ``language``."""
 
@@ -63,16 +79,73 @@ class BusinessWorkspace(_Wire):
     receipt_limits: ReceiptLimits
 
 
+class BusinessAccessGrant(_Wire):
+    id: str
+    email: str | None
+    display_name: str
+    capabilities: list[Literal["read", "prepare", "approve"]]
+    created_at: datetime
+    #: The owner's own grant; it cannot be revoked here.
+    owner: bool
+
+
+class BusinessAccessInvite(_Wire):
+    id: str
+    email: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class BusinessAccess(_Wire):
+    grants: list[BusinessAccessGrant]
+    invites: list[BusinessAccessInvite]
+
+
+class GiveBusinessAccess(_Wire):
+    email: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=3, max_length=254)
+    ]
+
+
 class CreateBusinessAccount(_Wire):
     nickname: str = Field(min_length=1, max_length=200)
     type: ExpenseAccountType
     currency: str = Field(min_length=3, max_length=3)
 
 
+class ReceiptActivity(_Wire):
+    state: Literal[
+        "saved_unread", "reading", "ready", "read_failed", "blocked", "inactive"
+    ]
+    unread: bool
+    completion_cursor: str | None
+
+
+class ReceiptActivityCounts(_Wire):
+    reading_count: int
+    unread_count: int
+    presentation: Literal["working", "unread", "none"]
+
+
+class ReceiptReadingBody(_Wire):
+    enabled: bool = Field(strict=True)
+    scope_version: int = Field(strict=True, ge=1, le=1)
+    disclosure_token: str | None = Field(default=None, min_length=64, max_length=64)
+    language: Literal["en", "es-419"] = "en"
+
+
+class ReceiptReadBody(_Wire):
+    completion_cursor: str = Field(min_length=64, max_length=64, pattern="^[a-f0-9]{64}$")
+
+
 class ReceiptSummary(_Wire):
     id: str
-    channel: Literal["web", "whatsapp"]
+    activity: ReceiptActivity | None = None
+    # ``email`` is decided at the API boundary from the email queue.
+    channel: Literal["web", "whatsapp", "email"]
     filename: str | None
+    # The sender's own words sent with the file (a WhatsApp caption), verbatim.
+    source_text: str | None = None
     media_type: str
     size_bytes: int
     received_at: datetime
@@ -80,10 +153,22 @@ class ReceiptSummary(_Wire):
     error_code: str | None
     # Why a needs_attention receipt needs the owner; null otherwise.
     attention: Attention | None
+    # With attention ``duplicate``: the receipt this one may repeat.
+    duplicate_of: str | None = None
+    # The upload found the same bytes already saved; this is that receipt.
+    replayed: bool = False
+    # A read is in flight or will start: queued with consent and the owner's
+    # reading allowed now. False for a queued receipt nothing will read.
+    read_pending: bool = False
     # The owner may ask for a consented AI read now.
     preparable: bool
     # The owner may fill in the one purchase by hand from version 0.
     enterable: bool
+    # Email deliveries this document arrived in, if any.
+    email_delivery_ids: list[str] = Field(default_factory=list)
+    # The whole message of an email whose attachment is already a receipt. It
+    # cannot be prepared or approved; its attachment is the receipt.
+    email_original: bool = False
     expense_id: str | None
     merchant: str | None
     occurred_on: str | None
@@ -124,6 +209,7 @@ class ReceiptDetail(ReceiptSummary):
 
 class ReceiptPage(_Wire):
     items: list[ReceiptSummary]
+    activity: ReceiptActivityCounts | None = None
 
 
 class ReceiptReviewBody(_Wire):
@@ -147,6 +233,16 @@ class BusinessExpense(_Wire):
     )
     occurred_on: date
     receipt_id: str | None
+    # The bridge draft that recorded it, when one did: the record to open when
+    # the expense names no single receipt.
+    draft_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class ExpenseDetail(BusinessExpense):
+    # When the activity was recorded and its current revision; null when the
+    # money read does not say.
+    recorded_at: datetime | None = None
+    revision: int | None = None
 
 
 class ExpensePage(_Wire):
@@ -171,11 +267,16 @@ class BusinessOverview(_Wire):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     from_: date = Field(alias="from")
     to: date
+    # The server's day in the recording time zone: the one clock for "today".
+    today: date
     totals: list[CurrencyTotal]
     awaiting_review: int
     needs_attention: int
     last_received_at: datetime | None
     last_confirmed_at: datetime | None
+    # Saved expenses the chosen period leaves out, so none looks vanished.
+    outside_period_count: int = 0
+    outside_period_latest_on: date | None = None
 
 
 class BusinessUpdate(_Wire):

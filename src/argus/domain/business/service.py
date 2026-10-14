@@ -9,19 +9,20 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from argus.domain import financial_search
 from argus.domain.business import ledger
+from argus.domain.business.authority import ActionError
 from argus.domain.business.config import business_chat_enabled
 from argus.domain.business.receipts import (
     AWAITING_REVIEW,
     CLOSED,
     Receipt,
     compose,
-    review_fields,
     updates,
 )
 from argus.domain.business.scope import BusinessScope
@@ -33,6 +34,7 @@ from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
+from argus.domain.ingestion.documents.store import CaptureHook
 from argus.domain.ingestion.receipt_review import RECEIPT_EVENT_STATES, receipt_ids
 from argus.domain.ingestion.reconcile.model import ReconcileError, StaleEvent
 from argus.domain.ingestion.reconcile.recording import DEFAULT_ZONE
@@ -161,13 +163,15 @@ class BusinessService:
         whatsapp: frozenset[str],
     ) -> Receipt:
         person = scope.person_id
+        draft = self.documents.get(
+            user_id=person, connection_id=receipt_id, scope=scope.owner
+        )
         return compose(
-            self.documents.get(
-                user_id=person, connection_id=receipt_id, scope=scope.owner
-            ),
+            draft,
             self.documents.store.get(user_id=person, connection_id=receipt_id),
             events,
             "whatsapp" if receipt_id in whatsapp else "web",
+            read_pending=self.documents.read_pending(person, receipt_id, draft),
         )
 
     async def upload(
@@ -178,6 +182,7 @@ class BusinessService:
         filename: str,
         media_type: str,
         consent: bool,
+        on_capture: CaptureHook | None = None,
     ) -> Receipt:
         outcome = await self.documents.upload(
             user_id=scope.person_id,
@@ -186,8 +191,12 @@ class BusinessService:
             media_type=media_type,
             consent=consent,
             scope=scope.owner,
+            on_capture=on_capture,
         )
-        return self.receipt(scope, outcome.connection_id)
+        # The same bytes saved before come back as that receipt, said so.
+        return replace(
+            self.receipt(scope, outcome.connection_id), replayed=outcome.replayed
+        )
 
     def queue(self, scope: BusinessScope, receipt_id: str) -> None:
         """The owner chose AI preparation for a saved receipt."""
@@ -287,7 +296,11 @@ class BusinessService:
     ) -> Receipt:
         """Corrections become the import's resolution; the evidence is untouched."""
 
-        event_id = _event_id(self.receipt(scope, receipt_id))
+        current = self.receipt(scope, receipt_id)
+        if current.review.blocker == "possible_duplicate":
+            # A possible repeat is settled by a person, never edited into a second expense.
+            raise BusinessError("possible_duplicate")
+        event_id = _event_id(current)
         try:
             self.imports.resolve(
                 user_id=scope.person_id,
@@ -312,6 +325,8 @@ class BusinessService:
         self._set_aside(scope, current)
         if current.status == "confirmed":
             return current
+        if current.review.blocker == "possible_duplicate":
+            raise BusinessError("possible_duplicate")
         if current.version == version and current.missing_fields:
             raise BusinessError("missing_fields")
         try:
@@ -330,9 +345,24 @@ class BusinessService:
 
     # --- Expenses ---------------------------------------------------------
     def expenses(
-        self, scope: BusinessScope, start: date, end: date
+        self, scope: BusinessScope, start: date, end: date | None = None
     ) -> list[dict[str, Any]]:
+        end = end if end is not None else ledger.today()
         return self._expenses(scope, self._activities(scope), start, end)
+
+    def expense(self, scope: BusinessScope, expense_id: str) -> dict[str, Any]:
+        """One saved expense of this Business, with when it was recorded and its
+        revision; any other id, including another Business's, is not found."""
+
+        for activity in ledger.expense_activities(self._activities(scope)):
+            if activity["activity_id"] == expense_id:
+                [item] = self._expenses(scope, [activity], date.min, date.max)
+                return {
+                    **item,
+                    "recorded_at": activity.get("recorded_at"),
+                    "revision": activity.get("revision"),
+                }
+        raise ActionError("not_found", "expense_not_found")
 
     def _expenses(
         self,
@@ -348,11 +378,20 @@ class BusinessService:
             _wire(item) for item in ledger.expenses(activities, receipt_of, start, end)
         ]
 
-    def search(self, scope: BusinessScope, q: str, limit: int) -> dict[str, Any]:
+    def search(
+        self,
+        scope: BusinessScope,
+        q: str,
+        limit: int,
+        views: Mapping[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Expenses and accounts through the canonical financial search, plus
         receipts matched by the same rule on merchant, filename and amount.
 
-        A receipt whose expense is already a hit is left out: the expense opens it.
+        ``views`` are the receipt summaries as the API shows them (a linked draft
+        owns merchant, amount and expense), so the match sees what the person
+        sees. A receipt whose expense is already a hit is left out: the expense
+        opens it.
         """
 
         query = financial_search.query_text(q)
@@ -366,11 +405,13 @@ class BusinessService:
         ]
         expenses = self._expenses(scope, activities, date.min, date.max)[:limit]
         listed = {expense["id"] for expense in expenses}
+        shown = views or {}
         receipts = [
-            receipt.summary()
+            summary
             for receipt in self.receipts(scope)
-            if receipt.review.expense_id not in listed
-            and financial_search.matches(query, _receipt_text(receipt))
+            for summary in [shown.get(receipt.id) or receipt.summary()]
+            if summary["expense_id"] not in listed
+            and financial_search.matches(query, _summary_text(summary))
         ]
         accounts = [
             {
@@ -423,22 +464,40 @@ class BusinessService:
             raise IdempotencyConflict()
         return _wire(recorded[0])
 
-    def overview(self, scope: BusinessScope, start: date, end: date) -> dict[str, Any]:
+    def overview(
+        self, scope: BusinessScope, start: date, end: date | None = None
+    ) -> dict[str, Any]:
+        today = ledger.today()
+        end = end if end is not None else today
         receipts = self.receipts(scope)
         activities = self._activities(scope)
         recorded = ledger.recorded_at(activities)
+        outside = [
+            item
+            for item in ledger.expenses(activities, {}, date.min, date.max)
+            if not start <= item["occurred_on"] <= end
+        ]
         return {
             "from": start,
             "to": end,
+            "today": today,
             "totals": ledger.totals(ledger.expenses(activities, {}, start, end)),
+            "outside_period_count": len(outside),
+            "outside_period_latest_on": max(
+                (item["occurred_on"] for item in outside), default=None
+            ),
             "awaiting_review": sum(r.status in AWAITING_REVIEW for r in receipts),
             "needs_attention": sum(r.status == "needs_attention" for r in receipts),
             "last_received_at": max((r.draft.created_at for r in receipts), default=None),
             "last_confirmed_at": max(recorded.values(), default=None),
         }
 
-    def updates(self, scope: BusinessScope) -> list[dict[str, Any]]:
-        return updates(self.receipts(scope), ledger.recorded_at(self._activities(scope)))
+    def updates(
+        self, scope: BusinessScope, views: Mapping[str, dict[str, Any]] | None = None
+    ) -> list[dict[str, Any]]:
+        return updates(
+            self.receipts(scope), ledger.recorded_at(self._activities(scope)), views
+        )
 
     def inbox(self, scope: BusinessScope) -> list[Receipt]:
         return [r for r in self.receipts(scope) if r.status not in CLOSED]
@@ -449,10 +508,9 @@ class BusinessService:
         )
 
 
-def _receipt_text(receipt: Receipt) -> str:
-    fields = review_fields(receipt.review)
+def _summary_text(summary: Mapping[str, Any]) -> str:
     return " ".join(
-        filter(None, [fields["merchant"], receipt.draft.filename, fields["amount"]])
+        filter(None, [summary["merchant"], summary["filename"], summary["amount"]])
     )
 
 

@@ -34,6 +34,15 @@ Owns the two public form endpoints of the independent `marketing/` package: Busi
   "website": "" }
 ```
 
+The route accepts these fields only. The page composes `description` from the visitor's
+optional answers and note, so the contract is unchanged: a Spanish block first (role,
+preferred channel and a validated WhatsApp number, how they found Cuadrao, pilot interest),
+then the visitor's own text of at most 700 characters. The block never exceeds 300
+characters, so the total stays within the 1000 limit; `marketing/__tests__/inquiry-summary.test.ts`
+checks the worst case. Nothing is stored beyond the email in the inquiry mailbox. The page
+asks for no new required field, and the privacy notice and the line under the form say a
+WhatsApp number may be shared.
+
 | Status | Body | Meaning |
 | --- | --- | --- |
 | 202 | `{"status":"accepted"}` | Resend accepted the message for delivery to the configured inquiry mailbox, with the visitor as `Reply-To`. "Accepted" is not "delivered to a mailbox". |
@@ -112,6 +121,7 @@ None at launch. Durable signup does not depend on a second message. The cost is 
 | `SUPABASE_URL` | Signups, operator tool | No |
 | `SUPABASE_SERVICE_ROLE_KEY` | Signups, operator tool | Yes |
 | `CUADRAO_SITE_INDEXING` | `public` on the approved public host only | No |
+| `CUADRAO_SOCIAL_PREVIEW` | `1` shows the planned social icons as placeholders in the footer. Leave unset in production; an icon appears once its account link is set in `marketing/lib/social.ts`. Read when the pages are built | No |
 | `CUADRAO_TRUSTED_CLIENT_IP_HEADER` | Only if a trusted proxy sits in front, for example `CF-Connecting-IP`; unset on the Render address | No |
 | `RESEND_API_URL` | Defaults to `https://api.resend.com`; tests point it at a mock | No |
 | `CUADRAO_NOTICE_FROM` | Operator notice tool only, never set on Render | No |

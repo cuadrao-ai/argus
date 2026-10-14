@@ -1,0 +1,470 @@
+{
+  "scope": "document_extraction",
+  "status": "passed",
+  "candidate_sha": "d06b9c794bad02770b8b3f44e615f38042065be7",
+  "candidate_tree": "df50e60d7ac16016014f3cc97ca664461c9be1c4",
+  "candidate_src_tree": "ac667796d758fe8e6e553628ff443ebaffcdeb54",
+  "model": "google/gemini-3.8-flash",
+  "surface": {
+    "src/argus/domain/ingestion/documents/extractor.py": {
+      "entries": 1,
+      "chars": 2483,
+      "sha256": "bc5b228a95f461ec0a30c5d0de024e1b10140f895f10c0e7d98a65f42316ad48"
+    },
+    "src/argus/domain/ingestion/documents/models.py": {
+      "entries": 6,
+      "chars": 1050,
+      "sha256": "fa58ab0410ff52f56cd1e3b895a674795599f1e160c4dfa2fbdce5866e59590a"
+    }
+  },
+  "totals": {
+    "passed": 2,
+    "failed": 0,
+    "unavailable": 0
+  },
+  "checks": {
+    "passed": 18,
+    "failed": 0,
+    "unavailable": 0
+  },
+  "recorded_at_utc": "2026-10-11T21:16:01.360438+00:00",
+  "method": "Two approved original synthetic fixtures, actual committed DocumentExtractor path; guard only validates exact native payload, no rewrite or grader",
+  "profile": {
+    "max_tokens": 12000,
+    "timeout_seconds": 90,
+    "max_retries": 0
+  },
+  "privacy": {
+    "require_parameters": true,
+    "data_collection": "deny",
+    "zdr": true,
+    "allow_fallbacks": false
+  },
+  "known_actual_cost_usd": "0.01072725",
+  "earlier_unknown_reserved_usd": "1.512",
+  "model_default_changed": false,
+  "money_writes": 0,
+  "hosted_changes": false,
+  "limitations": [
+    "Two synthetic images only; does not establish broader model capacity or unpaid-invoice/payment accuracy",
+    "Business/Consumer adapter normal UI acceptance and consent wiring remain separate",
+    "Legacy interpreter measurement70passed/3failed remains untouched",
+    "No production/default model switch"
+  ],
+  "cases": [
+    {
+      "fixture": "receipt-dop",
+      "fixture_sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3",
+      "status": "passed",
+      "checks": {
+        "readable": true,
+        "complete": true,
+        "one_purchase_candidate": true,
+        "merchant": true,
+        "date": true,
+        "currency": true,
+        "total": true,
+        "missing_fiscal_unknown": true,
+        "unprinted_components_unknown": true,
+        "printed_items_exact": true,
+        "unprinted_item_units_unknown": true,
+        "purchase_amount_exact": true
+      },
+      "check_count": 12,
+      "request_sha256": "97eeaf8566b51589208f0a0e1d686aa6a7cddd5c599e984035731b2b1b0fcdf2",
+      "request": {
+        "task": "document_extraction",
+        "model": "google/gemini-3.8-flash",
+        "provider": {
+          "require_parameters": true,
+          "data_collection": "deny",
+          "zdr": true,
+          "allow_fallbacks": false
+        },
+        "canonical_payload_sha256": "97eeaf8566b51589208f0a0e1d686aa6a7cddd5c599e984035731b2b1b0fcdf2",
+        "actual_payload_sha256": "97eeaf8566b51589208f0a0e1d686aa6a7cddd5c599e984035731b2b1b0fcdf2",
+        "canonical_payload_unchanged": true,
+        "guard_removed_optional_parameters": [],
+        "schema_wire_projection": "canonical_product_document_wire_schema",
+        "canonical_schema_sha256": "e0a8e22cdc2d223cf51a521f5b206e0634aa7a57d4c2fb2d231fd383066ca525",
+        "schema_sha256": "e0a8e22cdc2d223cf51a521f5b206e0634aa7a57d4c2fb2d231fd383066ca525",
+        "messages_sha256": "cebd4343ff1dfc63adbc0b5ed45c8441c4b4ce6e422179b61ecbd22de0990d18",
+        "output_bound": {
+          "max_tokens": 12000
+        },
+        "payload_bytes": 79506,
+        "started_at": "2026-10-11T21:14:36.907500+00:00"
+      },
+      "provider_response_id": "gen-1791753277-UKSTMNb6LExhwcy2YRdt",
+      "provider": "Google",
+      "provider_raw_response": {
+        "id": "gen-1791753277-UKSTMNb6LExhwcy2YRdt",
+        "object": "chat.completion",
+        "created": 1791753277,
+        "model": "google/gemini-3.8-flash",
+        "provider": "Google",
+        "system_fingerprint": null,
+        "service_tier": "provisioned",
+        "choices": [
+          {
+            "index": 0,
+            "logprobs": null,
+            "finish_reason": "stop",
+            "native_finish_reason": "STOP",
+            "message": {
+              "role": "assistant",
+              "content": "{\"complete\":true,\"readable\":true,\"pages_read\":[1],\"observations\":[{\"page\":1,\"row\":1,\"evidence\":\"transaction\",\"status\":\"posted\",\"account\":{\"external_account_id\":null,\"institution\":null,\"name\":null,\"mask\":null,\"currency\":null,\"type_hint\":\"unknown\"},\"occurred_on\":\"2026-09-10\",\"posted_on\":null,\"amount\":\"250.50\",\"currency\":\"DOP\",\"direction\":\"outflow\",\"kind_hint\":\"expense\",\"merchant\":\"Colmado Nube de Papel\",\"description\":\"Colmado Nube de Papel\",\"balance_scope\":null,\"due_on\":null,\"period_start\":null,\"period_end\":null,\"uncertain\":[]}],\"receipt\":{\"suggested_category\":null,\"merchant\":\"Colmado Nube de Papel\",\"occurred_on\":\"2026-09-10\",\"currency\":\"DOP\",\"items\":[{\"id\":\"item_1\",\"description\":\"Arroz\",\"quantity\":null,\"unit_price\":null,\"total\":\"150.00\",\"suggested_category\":null},{\"id\":\"item_2\",\"description\":\"Leche\",\"quantity\":null,\"unit_price\":null,\"total\":\"100.50\",\"suggested_category\":null}],\"subtotal\":null,\"tax\":null,\"service\":null,\"tip\":null,\"total\":\"250.50\",\"rnc\":null,\"ncf\":null,\"ecf\":null,\"itbis\":null}}",
+              "refusal": null,
+              "reasoning": "**Extracting Financial Details**\n\nI'm processing the receipt image. My focus is on identifying and extracting specific financial figures. I've noted the items, their costs, and the total, all in DOP.\n\n**Analyzing Receipt Data**\n\nI've successfully parsed the receipt, capturing the merchant, date, and currency as DOP. The itemized list includes rice and milk, with their respective costs, summing up to a total of 250.50 DOP.\n\n",
+              "reasoning_details": [
+                {
+                  "type": "reasoning.text",
+                  "text": "**Extracting Financial Details**\n\nI'm processing the receipt image. My focus is on identifying and extracting specific financial figures. I've noted the items, their costs, and the total, all in DOP.\n\n**Analyzing Receipt Data**\n\nI've successfully parsed the receipt, capturing the merchant, date, and currency as DOP. The itemized list includes rice and milk, with their respective costs, summing up to a total of 250.50 DOP.\n\n",
+                  "format": "google-gemini-v1",
+                  "index": 0
+                }
+              ]
+            }
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 4249,
+          "completion_tokens": 942,
+          "total_tokens": 5191,
+          "cost": 0.00671925,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.00671925,
+            "upstream_inference_prompt_cost": 0.00318675,
+            "upstream_inference_completions_cost": 0.0035325
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 615,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        }
+      },
+      "typed_batch": {
+        "complete": true,
+        "readable": true,
+        "pages_read": [
+          1
+        ],
+        "candidates": [
+          {
+            "source": {
+              "source": "statement",
+              "connection_id": "synthetic-receipt-smoke",
+              "external_id": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3:p1:r1",
+              "revision": null,
+              "replaces_external_id": null,
+              "observed_at": "2026-10-11T21:14:36.575063Z"
+            },
+            "evidence": "transaction",
+            "status": "posted",
+            "account": {
+              "external_account_id": null,
+              "institution": null,
+              "name": null,
+              "mask": null,
+              "currency": null,
+              "type_hint": "unknown"
+            },
+            "occurred_on": "2026-09-10",
+            "occurred_at": null,
+            "posted_on": null,
+            "amount": "250.5",
+            "currency": "DOP",
+            "direction": "outflow",
+            "kind_hint": "expense",
+            "merchant": "Colmado Nube de Papel",
+            "description": "Colmado Nube de Papel",
+            "balance_scope": null,
+            "due_on": null,
+            "period_start": null,
+            "period_end": null,
+            "excerpt": null,
+            "attachments": [
+              {
+                "external_id": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3",
+                "media_type": "image/png",
+                "size_bytes": 5904,
+                "sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3",
+                "filename": "receipt-dop.png"
+              }
+            ],
+            "uncertain": []
+          }
+        ],
+        "metadata": {
+          "pages": 1,
+          "media_type": "image/png",
+          "sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3",
+          "model": "google/gemini-3.8-flash",
+          "route_receipts": [
+            {
+              "task": "document_extraction",
+              "tier": "vision",
+              "model": "google/gemini-3.8-flash",
+              "fallback_model": "",
+              "mode": "json_schema",
+              "schema_name": "document_observations",
+              "latency_ms": 7894,
+              "outcome": "succeeded",
+              "failure_mode": null,
+              "fallback_used": false,
+              "token_usage": {
+                "prompt_tokens": 4249,
+                "completion_tokens": 942,
+                "total_tokens": 5191,
+                "cached_tokens": 0,
+                "cache_write_tokens": 0
+              },
+              "usage_cost_usd": 0.00671925,
+              "context_packet_ids": [],
+              "created_at": "2026-10-11T21:14:44.478314+00:00"
+            }
+          ]
+        },
+        "observations": [
+          {
+            "page": 1,
+            "row": 1,
+            "evidence": "transaction",
+            "status": "posted",
+            "account": {
+              "external_account_id": null,
+              "institution": null,
+              "name": null,
+              "mask": null,
+              "currency": null,
+              "type_hint": "unknown"
+            },
+            "occurred_on": "2026-09-10",
+            "posted_on": null,
+            "amount": "250.50",
+            "currency": "DOP",
+            "direction": "outflow",
+            "kind_hint": "expense",
+            "merchant": "Colmado Nube de Papel",
+            "description": "Colmado Nube de Papel",
+            "balance_scope": null,
+            "due_on": null,
+            "period_start": null,
+            "period_end": null,
+            "uncertain": []
+          }
+        ],
+        "receipt": {
+          "suggested_category": null,
+          "merchant": "Colmado Nube de Papel",
+          "occurred_on": "2026-09-10",
+          "currency": "DOP",
+          "items": [
+            {
+              "id": "item_1",
+              "description": "Arroz",
+              "quantity": null,
+              "unit_price": null,
+              "total": "150.00",
+              "suggested_category": null
+            },
+            {
+              "id": "item_2",
+              "description": "Leche",
+              "quantity": null,
+              "unit_price": null,
+              "total": "100.50",
+              "suggested_category": null
+            }
+          ],
+          "subtotal": null,
+          "tax": null,
+          "service": null,
+          "tip": null,
+          "total": "250.50",
+          "rnc": null,
+          "ncf": null,
+          "ecf": null,
+          "itbis": null
+        },
+        "issues": []
+      },
+      "submitted_at_utc": "2026-10-11T21:14:36.908215+00:00",
+      "latency_ms": 7569,
+      "actual_cost_usd": "0.00671925",
+      "evidence_sha256": {
+        "cuadrao-canonical-d06b9c-receipt-gemini38-native-v4-smoke-20261011.json": "10c50d934adfa3e535e1dd36782330f98e3ec6155b90eaaafc13481b1984577b",
+        "cuadrao-canonical-d06b9c-receipt-gemini38-native-v4-budget-20261011.json": "bddf69b670254003af1a1ce7f07d2fde759b7aab77519eb4a249409ce20623bb"
+      }
+    },
+    {
+      "fixture": "unreadable",
+      "fixture_sha256": "b822720e186af2390eea6b1c221536267b7c3ee96b2239e16719020759b59307",
+      "status": "passed",
+      "checks": {
+        "marked_unreadable": true,
+        "zero_candidates": true,
+        "no_invented_receipt_values": true,
+        "no_invented_items": true,
+        "no_invented_observations": true,
+        "no_invented_observation_values": true
+      },
+      "check_count": 6,
+      "request_sha256": "7f0cd3ea18fb4592e4638b0407e477e438c053c7d344264e0a415da09f3a861b",
+      "request": {
+        "task": "document_extraction",
+        "model": "google/gemini-3.8-flash",
+        "provider": {
+          "require_parameters": true,
+          "data_collection": "deny",
+          "zdr": true,
+          "allow_fallbacks": false
+        },
+        "canonical_payload_sha256": "7f0cd3ea18fb4592e4638b0407e477e438c053c7d344264e0a415da09f3a861b",
+        "actual_payload_sha256": "7f0cd3ea18fb4592e4638b0407e477e438c053c7d344264e0a415da09f3a861b",
+        "canonical_payload_unchanged": true,
+        "guard_removed_optional_parameters": [],
+        "schema_wire_projection": "canonical_product_document_wire_schema",
+        "canonical_schema_sha256": "e0a8e22cdc2d223cf51a521f5b206e0634aa7a57d4c2fb2d231fd383066ca525",
+        "schema_sha256": "e0a8e22cdc2d223cf51a521f5b206e0634aa7a57d4c2fb2d231fd383066ca525",
+        "messages_sha256": "1023b841257adb36e390511c8d92881417eadca7222c4ad7d642ec9ab4baa67c",
+        "output_bound": {
+          "max_tokens": 12000
+        },
+        "payload_bytes": 49294,
+        "started_at": "2026-10-11T21:14:59.002009+00:00"
+      },
+      "provider_response_id": "gen-1791753299-ngh5edx7baZzJrmwI7A5",
+      "provider": "Google",
+      "provider_raw_response": {
+        "id": "gen-1791753299-ngh5edx7baZzJrmwI7A5",
+        "object": "chat.completion",
+        "created": 1791753299,
+        "model": "google/gemini-3.8-flash",
+        "provider": "Google",
+        "system_fingerprint": null,
+        "service_tier": "provisioned",
+        "choices": [
+          {
+            "index": 0,
+            "logprobs": null,
+            "finish_reason": "stop",
+            "native_finish_reason": "STOP",
+            "message": {
+              "role": "assistant",
+              "content": "{\"complete\":false,\"readable\":false,\"pages_read\":[1],\"observations\":[],\"receipt\":null}",
+              "refusal": null,
+              "reasoning": "**Detecting Illegibility**\n\nI've identified that the provided image indicates a \"FICTICIO / SYNTHETIC\" and \"Documento ilegible.\" This strongly suggests the document is not readable, so I'll be marking it as `readable=false` as per the guidelines.\n\n",
+              "reasoning_details": [
+                {
+                  "type": "reasoning.text",
+                  "text": "**Detecting Illegibility**\n\nI've identified that the provided image indicates a \"FICTICIO / SYNTHETIC\" and \"Documento ilegible.\" This strongly suggests the document is not readable, so I'll be marking it as `readable=false` as per the guidelines.\n\n",
+                  "format": "google-gemini-v1",
+                  "index": 0
+                }
+              ]
+            }
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 4249,
+          "completion_tokens": 219,
+          "total_tokens": 4468,
+          "cost": 0.004008,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.004008,
+            "upstream_inference_prompt_cost": 0.00318675,
+            "upstream_inference_completions_cost": 0.00082125
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 197,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        }
+      },
+      "typed_batch": {
+        "complete": false,
+        "readable": false,
+        "pages_read": [
+          1
+        ],
+        "candidates": [],
+        "metadata": {
+          "pages": 1,
+          "media_type": "image/png",
+          "sha256": "b822720e186af2390eea6b1c221536267b7c3ee96b2239e16719020759b59307",
+          "model": "google/gemini-3.8-flash",
+          "route_receipts": [
+            {
+              "task": "document_extraction",
+              "tier": "vision",
+              "model": "google/gemini-3.8-flash",
+              "fallback_model": "",
+              "mode": "json_schema",
+              "schema_name": "document_observations",
+              "latency_ms": 3749,
+              "outcome": "succeeded",
+              "failure_mode": null,
+              "fallback_used": false,
+              "token_usage": {
+                "prompt_tokens": 4249,
+                "completion_tokens": 219,
+                "total_tokens": 4468,
+                "cached_tokens": 0,
+                "cache_write_tokens": 0
+              },
+              "usage_cost_usd": 0.004008,
+              "context_packet_ids": [],
+              "created_at": "2026-10-11T21:15:02.543271+00:00"
+            }
+          ]
+        },
+        "observations": [],
+        "receipt": null,
+        "issues": [
+          {
+            "page": null,
+            "row": null,
+            "code": "unreadable_document",
+            "fields": []
+          },
+          {
+            "page": null,
+            "row": null,
+            "code": "incomplete_extraction",
+            "fields": []
+          },
+          {
+            "page": null,
+            "row": null,
+            "code": "no_financial_observations",
+            "fields": []
+          }
+        ]
+      },
+      "submitted_at_utc": "2026-10-11T21:14:59.002601+00:00",
+      "latency_ms": 3540,
+      "actual_cost_usd": "0.004008",
+      "evidence_sha256": {
+        "cuadrao-canonical-d06b9c-unreadable-gemini38-native-v4-smoke-20261011.json": "de2f61837d158e5d3c930a3802ca04965099346db1636116d7f950d08e05c531",
+        "cuadrao-canonical-d06b9c-unreadable-gemini38-native-v4-budget-20261011.json": "5124f1df29c8b557c361e8751a04074918ca26644887dbb6589e294d9ec2fed4"
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 """Exposure gate and process wiring for connected-source ingestion.
 
-Default-off behind ``ARGUS_INGESTION_ENABLED`` and nested inside the financial
+Default-off behind ``CUADRAO_INGESTION_ENABLED`` (or the older ``ARGUS_`` name) and nested inside the financial
 accounts surface: imports only ever feed that canonical ledger, so ingestion
 cannot be on while it is off. Durable mode reuses the financial accounts pool
 rather than opening a second one. Connector packages register their adapters
@@ -9,7 +9,6 @@ with the hub at startup; reconciliation provides the candidate sink.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -30,14 +29,15 @@ from argus.domain.ingestion.connections import (
 )
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.secrets import SecretBox, SecretBoxUnavailable
+from argus.settings_names import setting_value
 
-FLAG = "ARGUS_INGESTION_ENABLED"
+FLAG = "CUADRAO_INGESTION_ENABLED"
 
 _hub: IngestionHub | None = None
 
 
 def ingestion_enabled() -> bool:
-    return os.getenv(FLAG, "").strip().lower() in TRUE_VALUES
+    return (setting_value("INGESTION_ENABLED") or "").strip().lower() in TRUE_VALUES
 
 
 def ingestion_hub() -> IngestionHub | None:
@@ -168,9 +168,13 @@ def stop_ingestion(app) -> None:  # noqa: ANN001
     from argus.api.whatsapp import configure_whatsapp
 
     configure_whatsapp(None)
-    from argus.api.business_spaces import configure_business_spaces
+    from argus.api.business_spaces import (
+        configure_business_access,
+        configure_business_spaces,
+    )
 
     configure_business_spaces(None)
+    configure_business_access(None)
     from argus.api.documents import configure_documents
 
     configure_documents(None)

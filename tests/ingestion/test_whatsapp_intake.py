@@ -9,12 +9,13 @@ from argus.domain.ingestion.connections import InMemoryConnectionRepository
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store import InMemoryDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
-from argus.domain.ingestion.whatsapp.identity import link_code_in, signature_matches
+from argus.domain.ingestion.whatsapp.identity import code_candidates, signature_matches
 from argus.domain.ingestion.whatsapp.media import trusted_download_url
 from argus.domain.ingestion.whatsapp.payload import (
     MediaMessage,
     PayloadInvalid,
     TextMessage,
+    UnsupportedMessage,
     parse_delivery,
 )
 from argus.domain.ingestion.whatsapp.replies import (
@@ -87,6 +88,7 @@ def test_payload_projects_handled_types_and_ignores_the_rest() -> None:
             media_id="700000000000001",
             mime_type="image/png",
             filename="whatsapp-image",
+            caption="Recibo",
         ),
     )
     text = parse_delivery(
@@ -96,9 +98,17 @@ def test_payload_projects_handled_types_and_ignores_the_rest() -> None:
         TextMessage("wamid.SYNTHETIC0003", "15550101234", recorded, "CUADRAO ABCD2345"),
     )
     audio = parse_delivery(
-        encode(fixture("audio_message.json")), phone_number_id=PHONE_NUMBER_ID
+        (FIXTURES / "audio_message.json").read_bytes(), phone_number_id=PHONE_NUMBER_ID
     )
-    assert (audio.messages, audio.ignored_messages) == ((), 1)
+    assert audio.ignored_messages == 0
+    assert audio.messages == (
+        UnsupportedMessage("wamid.SYNTHETIC0005", "15550101234", recorded, "audio"),
+    )
+    reaction = parse_delivery(
+        encode(fixture("audio_message.json", type="reaction")),
+        phone_number_id=PHONE_NUMBER_ID,
+    )
+    assert (reaction.messages, reaction.ignored_messages) == ((), 1)
     status = parse_delivery(
         encode(fixture("status_delivered.json")), phone_number_id=PHONE_NUMBER_ID
     )
@@ -118,13 +128,14 @@ def test_payload_projects_handled_types_and_ignores_the_rest() -> None:
         )
 
 
-def test_link_token_is_an_exact_protocol_word_and_code() -> None:
-    assert link_code_in("CUADRAO ABCD2345") == "ABCD2345"
-    assert link_code_in("  cuadrao   abcd2345 ") == "ABCD2345"
-    assert link_code_in("Hola CUADRAO ABCD2345") is None
-    assert link_code_in("CUADRAO ABCD2345 gracias") is None
-    assert link_code_in("CUADRAO ABCD234O") is None
-    assert link_code_in("CUADRAO 15550101234") is None
+def test_code_candidates_are_structure_only() -> None:
+    assert code_candidates("CUADRAO ABCD2345") == ("ABCD2345",)
+    assert code_candidates("  cuadrao   abcd2345 ") == ("ABCD2345",)
+    assert code_candidates("hola, este es mi código abcd2345 gracias") == ("ABCD2345",)
+    assert code_candidates("Cuadrao, le metí 850 a los materiales") == ()
+    assert code_candidates("ABCD234O") == ()
+    assert code_candidates("15550101234") == ()
+    assert code_candidates("ABCD2345 abcd2345 EFGH6789") == ("ABCD2345", "EFGH6789")
 
 
 def test_every_outcome_code_has_a_reply_without_long_dashes() -> None:
@@ -135,6 +146,9 @@ def test_every_outcome_code_has_a_reply_without_long_dashes() -> None:
         "whatsapp_link_code_invalid",
         "whatsapp_sender_not_linked",
         "whatsapp_receipt_missing",
+        "whatsapp_message_unsupported",
+        "whatsapp_ai_consent_missing",
+        "whatsapp_agent_unavailable",
         "whatsapp_media_unsupported",
         "whatsapp_media_too_large",
         "whatsapp_media_invalid",
@@ -154,15 +168,11 @@ def test_every_outcome_code_has_a_reply_without_long_dashes() -> None:
 
 def test_reply_uses_one_language_spanish_unless_the_owner_is_english() -> None:
     url = "https://app.test/biz?receipt=abc"
-    spanish = (
-        "Recibimos tu recibo y lo guardamos en tu bandeja. "
-        "Revísalo y confírmalo en Cuadrao: https://app.test/biz?receipt=abc"
-    )
+    spanish = "Recibido. Revísalo aquí: https://app.test/biz?receipt=abc"
     assert compose_reply("captured", language="es-419", link=url) == spanish
     assert compose_reply("captured", language=None, link=url) == spanish
     assert compose_reply("captured", language="en", link=url) == (
-        "We got your receipt and saved it to your inbox. "
-        "Review and confirm it in Cuadrao: https://app.test/biz?receipt=abc"
+        "Received. Review it here: https://app.test/biz?receipt=abc"
     )
     assert compose_reply("whatsapp_media_too_large", language="en") == (
         "The file is larger than 10 MB. Send a smaller photo or PDF."
@@ -191,3 +201,36 @@ def test_trusted_download_url_is_https_on_a_meta_cdn_host_only() -> None:
         "https://user@lookaside.fbsbx.com/a",
     ):
         assert not trusted_download_url(url), url
+
+
+def test_a_reply_that_ends_in_a_link_ends_as_a_sentence_without_one() -> None:
+    assert compose_reply("whatsapp_receipt_missing", language="es-419") == (
+        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao."
+    )
+    assert (
+        compose_reply(
+            "whatsapp_receipt_missing", language="en", link="https://app.test/biz"
+        )
+        == "We only take receipts here. For everything else use Cuadrao: https://app.test/biz"
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "le metí 850 a los materiales",
+        "Cuadrao, cuánto llevo gastado este mes?",
+        "hola",
+        "I paid 400 for paint, as sorry typo",
+        "mil pesos de la luz",
+    ],
+)
+@pytest.mark.asyncio
+async def test_any_text_from_a_linked_owner_gets_the_same_one_reply(text: str) -> None:
+    world = _world()
+    await world.link(world.alice, cases.ALICE_PHONE)
+    await world.deliver(fixture("text_message.json", id="wamid.ANY", text=text))
+    assert world.record("wamid.ANY").error_code == "whatsapp_receipt_missing"
+    assert world.transport.bodies()[-1] == (
+        f"Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {cases.ORIGIN}/biz"
+    )

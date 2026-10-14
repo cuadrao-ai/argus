@@ -89,6 +89,18 @@ Timezone: UTC server-side
 
 ---
 
+## Browser session renewal
+
+Supabase owns session validity. Browser sign-in writes an HttpOnly access cookie
+for the access token lifetime and an HttpOnly refresh cookie for 30 days.
+A cookie-authenticated request with no access cookie or an expired access token
+renews through Supabase using its refresh cookie. Both cookies are replaced;
+the refresh cookie receives a new 30-day lifetime. The renewed access token
+still passes the existing live-session, guest-workspace and account-access
+checks. Invalid, revoked or mismatched refresh credentials fail closed.
+Bearer requests keep their existing behavior and never use browser refresh
+cookies. The API retains no per-user Supabase session between requests.
+
 # 3. General Conventions
 
 ## Pagination
@@ -2509,6 +2521,37 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   fallback. The existing web IP validation remains unchanged; this does not
   adopt the API visitor key normalization policy. Rate-limit responses remain
   enumeration-safe.
+
+**Staging Auth email delivery (#1117):**
+- `POST /api/auth/send-email` is a server-only Supabase Send Email Hook, disabled
+  by default. It accepts a bounded (65,536 bytes) signed raw JSON body only for
+  staging project `skedzwocnmrhfigiwyzi`, the exact signed staging web origin
+  and built-in Render service ID `srv-db5ihr7lot8c73f3b3h0`. Internal Next
+  request URLs and forwarded headers are not deployment identity checks.
+  Standard Webhooks signature and timestamp validation happen before parsing.
+  Invalid signatures return generic `401`; invalid payloads or unsupported
+  actions return `400`; oversized bodies return `413`; disabled returns `404`;
+  configuration or delivery failure returns generic `503`. Success returns
+  `{}` only after every recipient's provider request is accepted.
+- Supabase still creates and verifies tokens. Verification links preserve PKCE
+  prefixes, action types and empty redirect defaults. Nonempty redirects stay
+  inside the staging web origin; nonempty recovery redirects use `/auth/recovery`.
+  The existing recovery request, CAPTCHA, limits, generic `202`, PKCE exchange
+  and session revocation contracts above do not change.
+- Explicit renderers preserve captured subjects and bodies for confirmation,
+  invitation, magic link, secure email change and reauthentication. Secure email
+  change sends both addresses with the provider's hash mapping. Unknown actions,
+  including currently disabled notifications, are refused rather than dropped.
+- Recovery uses the approved Spanish React Email template and preview. Its
+  HTML and plain text come from one tree. Sender is
+  `Cuadrao <hola@mail.cuadrao.ai>` and Reply-To is `hola@cuadrao.ai`.
+  Each recipient has a stable provider idempotency key; transport has one
+  four-second total budget and no automatic retry or payload logging.
+- Activation requires explicit staging approval, secrets, verified sender
+  identity, current Supabase expiry `3600`, matching compatibility templates
+  and all seven notification flags still disabled. The expiry setting and
+  fixed approved copy must change together. See
+  [activation and rollback](reports/2026-10-14-staging-reset-email.md).
 
 **Password and session controls:**
 - Normal password changes require the current password. Recovery-mode password
@@ -8527,8 +8570,8 @@ grant. The same connection ID reopens the draft from Chat or Plan. These are
 backend contracts under implementation in the default-off lane, not hosted or
 native availability claims.
 
-`POST /api/v1/financial-documents` accepts bounded PDF, JPEG or PNG bytes and an
-optional `X-Document-Filename`, percent-encoded UTF-8 (`encodeURIComponent`);
+`POST /api/v1/financial-documents` accepts bounded PDF, JPEG, PNG, TXT, CSV, XLSX, XML
+or EML bytes and an optional `X-Document-Filename`, percent-encoded UTF-8 (`encodeURIComponent`);
 raw UTF-8 is also accepted and undecodable bytes become replacement characters.
 Optional `X-Document-Proposal` is a bounded
 (8192-character) JSON `DraftProposal`, saved atomically with the source so a known
@@ -8556,6 +8599,14 @@ saved stays theirs: list, `GET /financial-documents/{connection_id}`, its
 no preparation job starts and no model can be called. Without financial
 accounts every route answers 404 `financial_connections_unavailable`. Plaid,
 Gmail, Shortcuts and `GET /api/v1/financial-connections` keep their own gates.
+
+Capture validation and source persistence run in a worker thread, with one
+active capture per app-owned document service. Request cancellation waits for
+an active capture to settle before releasing that slot. EML upload, preparation
+and received-message intake share the existing 20,000,000-pixel image cap across
+all image attachments in one email. Dimensions are checked before full decoding;
+an aggregate overflow is `document_email_limit`, before any source is saved.
+Existing per-image, byte, MIME depth/part and preparation page limits still apply.
 
 Capture responds with `{connection_id,status,replayed,candidate_count}`. Every
 upload answer, success or problem, is `Cache-Control: no-store`. The stored
@@ -8788,7 +8839,8 @@ uncertain fields, and more than 18 digits leaves the amount unresolved.
 
 ### WhatsApp receipt intake (default-off)
 
-Off unless `ARGUS_WHATSAPP_INTAKE_ENABLED` is true, its credentials are set and
+Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` (or the older `ARGUS_WHATSAPP_INTAKE_ENABLED`; the
+Cuadrao name wins when both are set; every WhatsApp setting follows this rule) is true, its credentials are set and
 the document surface above is on. While off, every route below except
 `DELETE /api/v1/whatsapp/link` answers 404 `whatsapp_unavailable`. A WhatsApp receipt becomes a document draft with
 `consent: false` and `status: saved`; AI preparation still waits for the
@@ -8798,8 +8850,9 @@ owner's consent on the web. Spec and activation:
 Owners send or forward receipts from their own WhatsApp number to the one
 receiving number, and only those owner-initiated messages are processed. A
 forwarded message (`context.forwarded` or `context.frequently_forwarded`) or
-one with a caption is captured exactly like a direct send. Captions are never
-read. The adapter makes two kinds of request to Meta. It GETs the delivered
+one with a caption is captured exactly like a direct send. A caption is kept
+verbatim (at most 1024 characters) as the document's `source_text`, returned on
+the receipt summary. It is never read as an instruction and never chooses an owner. The adapter makes two kinds of request to Meta. It GETs the delivered
 media id from Graph, then the download URL Graph returns. Outbound replies are
 a third kind, and they are off by default. It never reads message history,
 contacts or profiles.
@@ -8811,6 +8864,14 @@ appears in Personal documents or imports. Link codes and link status answer
 sender link ended before it settled is recorded `rejected` with
 `sender_link_revoked`, keeps no connection, and gets the not-linked reply.
 
+Linking is decided by the sender's link state, not by a word. A sender with an
+active link is never treated as linking: its text, whatever it says, is not
+looked up as a code, and the link changes only through `DELETE /api/v1/whatsapp/link`.
+A sender with no active link can only link: each token in its text shaped like
+a code (eight characters from the code alphabet) is looked up by digest, up to
+four. A failed lookup answers the expired-code reply; text with no such token
+answers the not-linked reply.
+
 - GET `/api/v1/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…`
   answers 200 `text/plain` with the challenge when the verify token matches,
   else 403 `whatsapp_webhook_verification_failed`.
@@ -8820,9 +8881,17 @@ sender link ended before it settled is recorded `rejected` with
   over 512 KiB is 413 `whatsapp_webhook_too_large`; a signed body that is not
   a WhatsApp `messages` change is 400 `whatsapp_webhook_invalid`. 200
   `{received: true}` means every image, document and text message in it has a
-  settled delivery record; other message types and statuses are ignored. A
-  failure or timeout after the record commits, or a redelivery while another
-  worker still holds an unsettled message, answers 503
+  committed delivery record with a live claim. A voice note, audio, sticker or
+  video from a linked sender is settled `rejected` (`whatsapp_message_unsupported`)
+  and gets one short reply saying it is not supported yet; from an unlinked
+  sender it gets the not-linked reply. Other message types and statuses are
+  ignored. The media download, saving and reply run after the answer, in
+  order, and settle the record. A work failure behind the answer settles the
+  record `failed` and the sender gets the "send it again" reply. Shutdown waits
+  up to 20 seconds for this work; a process killed sooner leaves the record
+  unsettled until its claim expires, and the sender must send the file again.
+  A failure to commit a claim, or a redelivery while another worker still holds
+  an unsettled message, answers 503
   `whatsapp_webhook_retry`, and Meta's redelivery resumes that record. A
   replayed message never captures twice or replies twice. The webhook query
   string is redacted from uvicorn access logs.
@@ -8833,7 +8902,7 @@ sender link ended before it settled is recorded `rejected` with
   that language for every WhatsApp reply. The code is single use, lives
   10 minutes and replaces any unused code for the same destination.
   `message_text` is `CUADRAO <code>`; `wa_me_url` is null until
-  `ARGUS_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
+  `CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER` is set. Five codes per 10 minutes, then
   429 `whatsapp_link_code_rate_limited`.
 - GET `/api/v1/whatsapp/link` returns `{linked, last4, linked_at, reply_language}`.
 - DELETE `/api/v1/whatsapp/link` revokes the signed-in person's active link and
@@ -8844,12 +8913,105 @@ sender link ended before it settled is recorded `rejected` with
   only when Postgres cannot be reached; in memory mode without intake nothing
   holds a link and it answers 204. Unauthenticated calls answer 401.
 
-Replies are sent only when `ARGUS_WHATSAPP_OUTBOUND_ENABLED` is true, always as
+The Business agent over WhatsApp has its own switch,
+`CUADRAO_WHATSAPP_AGENT_ENABLED` (older `ARGUS_WHATSAPP_AGENT_ENABLED`), off by
+default. Off: text from a linked owner never reaches the agent and gets the
+ordinary reply, and the worker does nothing. The receipt reading permission
+(`/api/v1/whatsapp/ai-consent`, below) does not depend on this switch, and
+`DELETE` stays reachable so an owner can always revoke.
+
+Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
 a free-form answer to the person's own message, in one language: the sender
 link's `reply_language`, or Spanish for a sender with no active link. A new message
 whose bytes the owner's inbox already holds gets the duplicate reply. A message whose WhatsApp
 timestamp is more than 24 hours old is still captured but gets no reply, so
 nothing is sent outside the service window.
+
+#### Linked-number receipt reading permission
+
+This channel-specific permission remains historical compatibility state. The new Business receipt-reading opt-in above governs Business automatic reading across every channel. It does not inherit this permission. The web now links to the Business setting rather than presenting the old switch as effective reading authority.
+
+The one WhatsApp AI switch (`/api/v1/whatsapp/ai-consent`) is the owner's
+permission to read the receipts they send by WhatsApp: scope version 2, purpose
+`business_whatsapp_receipt_reading`, route `document_extraction`. `GET` takes an
+optional `language`; a Spanish language returns the Spanish disclosure text for
+display. The stored and hashed disclosure is the text shown. One active
+permission exists per linked number: turning receipt reading on replaces an
+agent permission (scope 1) and the reverse, never a second row. The read also
+returns `active_scope_version`, the scope of any active permission, so a screen
+can say another permission is on. `POST` takes an optional `language`; the text
+shown in that language is the one stored and hashed, and the token binds it.
+Changing the words an owner was shown asks for consent again. With the
+permission off, a received receipt is saved unread, and
+`POST /api/v1/business/receipts/{id}/prepare` on a WhatsApp receipt returns 409
+`whatsapp_receipt_reading_off` instead of queueing it. With it on, the receipt is
+read after the acknowledgement. The permission is checked again just before the
+provider call, whoever asks for the read, against the owner who received the
+receipt; the only window left is the commit and the request start. One
+follow-up message tells the sender what was read, only inside the 24 hour
+window. It names the merchant, amount and currency only when the read found one
+clear purchase with nothing marked uncertain and a merchant of letters, digits,
+spaces and & ' - . only (no domain-like text); otherwise it says only that the
+receipt is read. With document jobs on, the job reads the receipt later and no follow-up
+is sent; the acknowledgement link stands.
+
+#### Linked-number Business AI permission
+
+The owner must explicitly opt in before WhatsApp text and necessary authorized
+Business draft context can be sent to AI providers. Phone linking, document
+consent and a prepare grant do not imply this permission. Recording remains a
+separate exact-version human approval.
+
+`GET /api/v1/whatsapp/ai-consent` is an authenticated registered-account read,
+independent of pilot, intake and provider availability flags. It returns
+`linked`, `available`, `reason`, `last4`, `scope_version`, `purpose`,
+`disclosure`, `route`, `disclosure_token`, `enabled`, `consented_at` and
+`revoked_at`. The server derives the current link, owner, Business and effective
+provider routes. `route` contains the gateway and interpretation/reply route
+lists, each with the actual model and provider-routing payload; a null provider
+means automatic routing, not a promised fixed vendor. The owner is always the
+authenticated caller; accountant grants cannot select another owner's link.
+No link is explicit (`linked=false`, `reason="whatsapp_link_required"`), while
+unreachable storage returns 503. `last4`, `route` and `disclosure_token` may be
+null. A token exists only when `available=true`: the current owner, Business,
+prepare grant, link, route and runtime are eligible. Unavailable reasons are
+`whatsapp_unavailable`, `whatsapp_ai_route_unavailable`, `business_unavailable`
+or `business_permission_denied`. `enabled` reflects valid original consent,
+independently of temporary intake availability. This read creates nothing.
+
+`POST /api/v1/whatsapp/ai-consent` takes an `Idempotency-Key` of 1–80 characters
+and `{action: "enable", disclosure_token}`. Extra identity or route fields are
+rejected. The current registered Business owner needs live read/prepare access
+and an active linked sender. The token binds the displayed scope, route and
+link generation. A stale disclosure, changed idempotent input or already-active
+consent returns 409. Replay preserves the original consent and never clears its
+revocation. A new affirmative action after revocation requires a new key and
+current disclosure. Enable requires the existing WhatsApp surface.
+
+`DELETE /api/v1/whatsapp/ai-consent` revokes the authenticated owner's permissions
+idempotently and returns 204. It remains reachable with intake/pilot/provider
+flags off and does not unlink the phone or erase canonical sources. Unavailable
+permission storage returns 503; it never acts as implicit consent.
+
+New encrypted captures bind the consent in effect at capture. Old/unconsented
+captures never adopt later permission. Every provider attempt, resumed/retried
+call and agent reply send rechecks that original consent, link, route, grant,
+issuer and lease. Revocation blocks subsequent dispatches; it cannot retract an
+HTTP request already sent. Model/composition/send unknown outcomes retain the
+existing no-blind-retry rule. Business checkpoint persistence remains disabled
+pending proof of its authorization and deletion lifecycle.
+
+### Business receipt automatic reading and attention
+
+A Business owner explicitly enables scope version 1 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
+
+`GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. `POST /business/receipt-reading` takes `{enabled,scope_version:1,disclosure_token,language}` and `Idempotency-Key` from the owner. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
+
+Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count` and `presentation:working|unread|none`. Saved unread and unread ready receipts count; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
+
+`POST /business/receipts/{receipt_id}/read` takes `{completion_cursor}` and returns current activity under the caller's live read grant. Only the current server cursor advances that person's boundary. A stale cursor leaves newer content unread. Seeing is separate for each person and Business. GET, opening a panel and seen mutations never change financial records or list ordering. Automatic web acknowledgement requires hydrated canonical ready content intersecting the visible, focused record viewport. Explicit mark read is also supported.
+
+The web discovers arrivals every 15 seconds while Inbox is visible and polls every 5 seconds while reading is known. Hidden and unmounted views stop polling. Requests are scoped to the selected Business. One row marker shows a reading ring or an unread dot. The sidebar badge and collapsed icon share the server projection.
 
 ### Business pilot (default-off)
 
@@ -8871,8 +9033,36 @@ projection. Only currency may default, to DOP with `origin: default` and
 `verified: false`. There is no default activity date, account, kind or fiscal
 treatment. Exact money values cross the wire as decimal strings.
 
-The first recording flow supports expense approval. Income remains a distinct
-draft kind and is never coerced to expense. Other kinds remain draft proposals.
+The existing recording flow supports expense approval. The M1 income extension
+adds the human-only `ApproveIncome` request `{version, action: "record_income"}`
+and server `IncomeApprovalCommand` `{action: "approve_income", draft_id, request}`.
+Its version is an exact positive JSON integer; booleans, strings and floats are
+rejected. It belongs only to the human command union, never `BusinessAction` or
+`TurnPlan`. Both commands use the same existing
+`POST /business/drafts/{draft_id}/approve`, with an `action`-discriminated
+`ApproveExpense | ApproveIncome` body (`record_expense` or `record_income`).
+Handler, readiness and MoneyService adoption are separate Actions work until
+verified. `record_expense` retains its existing wire behavior
+and cannot approve an income draft; `record_income` cannot approve an expense.
+Income is never coerced to expense. Other kinds remain draft proposals.
+
+Income approval uses the current canonical facts, original sources and exact
+reviewed revision, with the same live named `approve` grant and human provenance.
+Readiness requires known income kind, positive amount, currency, activity date,
+and an explicit eligible receiving Business account belonging to that client.
+Unknown account or other material facts remain blockers; no account, category,
+income source, receipt or allocation is invented. Existing Business allocation
+and unresolved-question checks still apply. `owner_funds` cannot fund income.
+An expense category is not silently relabeled as an income source; the sole
+MoneyService validates applicable fields and receiving-account eligibility.
+The command contains no replacement facts, account or caller authority.
+
+Income receipts preserve the existing scoped key/hash/result contract. Replay
+uses the same original actor/grant/issuer, target and revision; drift conflicts,
+revocation denies, and a concurrent edit remains stale. The permission/version
+check and acceptance claim commit before the canonical MoneyService effect;
+recovery uses the persisted request/key, with no second ledger or blind retry
+of an unknown effect. Recorded-income amendment remains unsupported.
 `funding={kind: owner_funds}` records one expense only after human approval. It
 must not debit a Business bank account or decide whether capital or debt is owed.
 Post-recording corrections are refused with `recorded_correction_unsupported`;
@@ -8931,14 +9121,35 @@ and issuer labels with grant provenance, time and before/after facts. A failed
 history read is an error, never an empty successful history.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
-and `Idempotency-Key`. `POST /business/drafts/{draft_id}/approve` takes
-`{version, action: "record_expense"}` and `Idempotency-Key`. Both return the
-authoritative dossier. Human review and approval are separate from model actions.
+and `Idempotency-Key`. The same existing
+`POST /business/drafts/{draft_id}/approve` takes the action-discriminated union
+`ApproveExpense | ApproveIncome`: `{version, action: "record_expense"}` or
+`{version, action: "record_income"}`, with the existing required
+`Idempotency-Key`. The route resolves the actual actor and live named grant from
+the canonical draft, then dispatches to the matching human command; the caller
+supplies no actor, space or grant. Both approval variants and unchanged human
+review return the authoritative `BusinessDossier` with `Cache-Control: no-store`.
+The same no-store problem responses and refusal mapping apply to both variants.
+Human review and approval remain separate from model actions. This contract
+extension does not claim delivery of the pending income handler.
 The existing `/source` route applies the same live read grant. Foreign resource
 IDs return 404 without revealing existence; a readable in-scope record with a
 missing write capability returns 403. Stale versions and same-key/different-input
 requests return 409; invalid facts or unresolved approval blockers return 422.
 An uncertain financial effect is `outcome_unknown`, not success or safe retry.
+
+`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, retained `originals/` and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named read grant; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Original-source reads and final response release recheck the same grant, with existing grant/Business/source locks; authorization failure aborts the response. Missing retained originals and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission.
+
+**Business attachment preparation.** The existing consented Business upload and preparation routes use the shared document extractor, then the canonical Business Actions finalizer. No new HTTP route, caller-supplied actor/grant, or approval endpoint is added. Server dispatch captures the original preparing member's exact grant and issuer, Business owner, source connection/hash, consent and explicit target. Current web upload dispatch uses `target: null` for a new draft. An internal existing-draft target requires its exact open version; it must not fall back to creating a different draft.
+
+The finalizer reads and locks the saved extraction batch and original binding. It rejects a caller checkpoint digest that differs from the canonical saved-batch digest. A supported single receipt purchase becomes an unverified canonical draft linked to its original attachment. Absent extraction values preserve existing facts; unassigned or extracted unknowns can be filled. Human or matched uncertainty remains unchanged. Equal values preserve existing provenance; different attributed known values require review. Extracted currency may replace the existing unsourced DOP default. Fiscal values remain unverified and missing fiscal fields are not invented. This operation neither approves the draft nor changes Money balances or converts a legacy import.
+
+Original access, issuer, current source/consent and document lease are checked before extraction and again in the completion transaction. A new grant cannot substitute for the captured grant. Exact replay requires current access and returns the original settled result without another revision. Source, draft revision/link and action receipt commit together; a failed completion check rolls them back.
+
+Existing `ARGUS_BUSINESS_PILOT_ENABLED`, `ARGUS_INGESTION_ENABLED` and `ARGUS_DOCUMENT_EXTRACTION_ENABLED` gates remain the rollout controls and default off. This candidate adds no separate bridge switch: enabling those gates makes a consented Business upload use the bridge. The extraction setting blocks new model calls; a direct resume of an already-saved batch can still reach completion. Integration delivery keeps the existing gates off. Enabling, connected UI acceptance and model-quality acceptance remain separate decisions.
+
+**Evidence limit.** An invoice amount due is not proof that payment occurred. This candidate's unverified extraction and draft creation do not establish payment, fiscal validity or accounting acceptance. The current receipt/invoice interpretation quality gate remains open; these contract paragraphs do not claim it is solved.
+
 
 **Human note capture contract.** `POST /business/captures` takes
 `{text, draft?: {draft_id, version}}` and `Idempotency-Key`, returning the existing
@@ -8971,8 +9182,10 @@ stale targets, foreign targets and missing capabilities use the errors above.
 existing Business and live read grant; it does not infer an accountant's client.
 `q` defaults to empty, is at most 200 characters, rejects U+0000 (NUL), and
 matches a literal case-insensitive substring of original text (`%` and `_` are literal).
-`limit` is 1–50, default 20. Items contain `draft_id`, current `version` and
-`review_state`, plus original `source_id`, `text` and `received_at`. Selection
+`limit` is 1–50, default 20. Items contain `draft_id`, current `version`, the
+`revision` the note created (the number the draft's history lists; the web shows
+it as the note's revision) and `review_state`, plus original `source_id`, `text`
+and `received_at`. Selection
 follows successful capture receipts through their exact immutable revision and
 source, ordered by source receipt time descending, then source ID descending.
 Each item represents a note; multiple notes may name the same draft. Reviewing
@@ -9036,6 +9249,104 @@ person starts their space, every route below except POST `/space` answers 404
   `business_space_missing` before the space is started.
 - PATCH `/api/v1/business/space` takes `{name}` and returns the renamed space,
   or 404 `business_space_missing` before the space is started.
+- Access (owner only, the grant in `business_client_grants` is the only
+  authority). Starting a space creates the owner's own grant (read, prepare,
+  approve) in the same transaction; POST `/business/space` and GET
+  `/business/workspace` give an older space that grant once, with one ledger
+  row, never a duplicate.
+  - A person who holds a grant on another Business works inside it by naming
+    that grant: `X-Business-Grant: <grant_id>` on any Business call. The
+    server loads that grant row, requires it to be the caller's and live
+    (not revoked, not expired, with `read`), and takes the Business from the
+    row; the client never names a space. No header means the caller's own
+    Business. A grant that is missing, someone else's, revoked or expired
+    answers 403 `business_grant_not_live` on every route, so a revocation
+    stops a session mid-way and the header reveals nothing about any Business.
+    GET `/api/v1/business/spaces` lists every Business the caller may enter
+    through a live grant, their own first: `{spaces: [{space_id, name,
+    grant_id, role: owner|accountant, capabilities, access_seen}]}`; names
+    come from the spaces. `access_seen` is the server's memory of the one-time
+    "you now have access" line, per grant: POST
+    `/api/v1/business/spaces/{grant_id}/seen` (204, idempotent, one
+    `access_seen` ledger row by the person) records it; it is always true
+    for the own Business, and a new grant shows the line again. Through a
+    grant the accountant reads (`workspace`, `overview`, `receipts`,
+    `expenses`, `search`, `updates`, `captures`, `exports`, email deliveries)
+    and prepares (upload without consent, review by hand) that Business
+    only; a record of another Business is 404, as today. Owner-only on
+    purpose, 403 `business_permission_denied` for a grantee: `/space`,
+    `/access*`, POST `/accounts`, POST `/expenses`, email address creation
+    and stop, WhatsApp, Business chat, every approve (`approve`, `settle
+    remainder`, legacy `confirm`), and sending a document to the AI
+    provider (`X-Extraction-Consent` on upload, and `/receipts/{id}/prepare`).
+    Every legacy write under a grant leaves a `business_action_receipts` row
+    (`receipt_upload`, `receipt_review`, `receipt_confirm`) naming the grant
+    and its issuer.
+  - The chosen grant binds every Business route, including the draft, note,
+    export, chat and legacy receipt routes: a record (receipt, draft, source,
+    export anchor) of any other Business is 404 `business_record_not_found`
+    under it, whatever other grants the caller holds, and with no header the
+    own Business is the only one in scope. Notes (`/business/captures`) and
+    exports (`/business/exports`) run in the chosen Business under the
+    grantee's own `read` and `prepare`; approval is the owner's alone whatever
+    a grant row says (`approve` is dropped for anyone but the Business owner
+    on every route: approve, settle, confirm). Business conversations stay
+    the owner's: a stored conversation belongs to its space's creator
+    (`conversations_owner_space_fkey`), so a chosen grant is refused with 403
+    `business_permission_denied` wherever the chat is a Business one: `POST`
+    and `GET /conversations` with `surface=business`, and on a Business
+    conversation `PATCH` and `DELETE /conversations/{id}`, `GET
+    /conversations/{id}/messages`, `GET` and `PATCH
+    /conversations/{id}/activity`, `GET /conversations/{id}/run-dossiers`,
+    `POST /chat/stream`, `POST /backtests/run`, `GET /backtests/{run_id}`,
+    the `continue`, `computation/refresh`, `tool-results/{id}/recompute`,
+    `confirmations/{id}/peer-assets` and `confirmations/{id}/direct-edit`
+    routes. The person's own Personal chat is theirs whatever Business is
+    chosen: those routes answer as before on a Personal conversation. The
+    web client sends `X-Business-Grant` only on `/business` calls and on
+    `/conversations` with `surface=business`, never on Personal chat. A
+    client's `GET /business/workspace` reports
+    `chat_available: false`. With no header and no own Business nothing is
+    in scope: the Business routes answer 404 `business_space_missing`, record
+    ids included. `GET /business/spaces` reports effective capabilities:
+    `approve` never appears on a grant that is not the owner's own.
+    The own Business's routes refuse a chosen grant with 403
+    `business_permission_denied`: GET and PATCH `/business/space`, creating,
+    stopping or re-running the receiving email address and its deliveries
+    (`POST` and `DELETE /business/email`, `POST
+    /business/email/deliveries/{id}/retry`; a grantee reads them), and every WhatsApp link route
+    (WhatsApp is the owner's channel; ending one's own sender link is never
+    gated). GET `/business/workspace` under a grant reads the client's
+    Business as it is and never heals an owner grant. A grant is live only
+    while the owner who issued it keeps owner access: once the issuer's own
+    owner grant is revoked with no live one since, every grant they gave
+    answers 403 `business_grant_not_live`, and comes back when owner access is
+    restored. Each grantee write on the legacy receipt surface (upload, review,
+    confirm) leaves one `business_action_receipts` row naming the grant,
+    keyed by the record and the request's `Idempotency-Key` (a replay repeats
+    its row, a second review gets its own); the upload row is written in the
+    transaction that saves the receipt.
+  - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
+    capabilities, created_at, owner}], invites: [{id, email, created_at,
+    expires_at}]}`: live grants, the owner first, and pending invites.
+  - POST `/api/v1/business/access` takes `{email}`. A confirmed account with
+    that email (case-insensitive) gets a read and prepare grant, never
+    approve; any other email gets a pending invite that lasts 14 days and
+    becomes the same grant the first time that confirmed email signs in (on
+    GET `/me`). The reply is the access list in both cases, 201 when something
+    new was created and 200 on a replay, so an unknown email reveals nothing.
+    422 `invalid_email` without one address. An expired pending invite is
+    re-issued in place by a new POST with the same email: the same invite id,
+    a fresh 14-day `expires_at` and its own ledger receipt (201); a live one is
+    left as it is (200), and a revoked or accepted one no longer holds the
+    slot, so a new invite is born beside it.
+  - DELETE `/api/v1/business/access/grants/{id}` revokes a grant at once; 409
+    `owner_grant_required` for the owner's own grant; 404
+    `business_access_not_found` otherwise. DELETE
+    `/api/v1/business/access/invites/{id}` revokes a pending invite.
+  - Every change writes one `business_action_receipts` row (`owner_grant`,
+    `grant_access`, `invite_access`, `accept_invite`, `revoke_grant`,
+    `revoke_invite`). No firm, role or many-client feature exists.
 
 Each fact keeps its owner. A receipt is a document draft (`id` is its
 connection id). Its review is the import event its purchase created, composed
@@ -9058,10 +9369,210 @@ accept path recorded.
   `X-Document-Filename` is URL-encoded. A receipt's identity is its bytes, so
   a retry returns the same receipt. It answers a `ReceiptSummary` that is
   `queued` with consent and `saved` without it.
+- Business email receiving (default off; `CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`,
+  `CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED`, `CUADRAO_BUSINESS_EMAIL_DOMAIN`,
+  `RESEND_BUSINESS_API_KEY`, `CUADRAO_RESEND_WEBHOOK_SECRET`; the older
+  `ARGUS_` names still work as a fallback). The Business is
+  chosen only by the receiving address; message headers choose nothing.
+  - POST `/api/v1/webhooks/resend` takes Resend's `email.received` event with
+    Svix headers over the unchanged bytes (401 otherwise, 404 while receiving is
+    off, 413 above 64 KB, 204 for other event types). 202 means a durable
+    delivery row; the worker fetches the message later. An address with no
+    active route, two routes or a revoked grant is recorded as rejected and
+    never fetched.
+  - Daily receiving allowances are server-owned per immutable receipt address and UTC
+    day. `CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT` defaults to 100;
+    `CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT` defaults to 104857600 bytes.
+    Enqueue admits each new message once; exact webhook replays consume nothing.
+    A download retry consumes another message allowance. Metadata and raw content
+    share one message allowance per worker attempt, but each HTTP fetch reserves
+    the canonical 10 MiB source maximum before any request. Completed fetches settle
+    actual response-body bytes. Interrupted or failed fetches retain their full
+    reservation when the transferred count is uncertain. Headers are not counted.
+    A saved-source retry needs no provider allowance. An exhausted allowance keeps
+    the durable delivery `received`, with `email_daily_message_budget` or
+    `email_daily_byte_budget`, until the next UTC midnight. It does not reject or
+    drop mail, fetch it, spin, or consume the worker retry-attempt limit. Work
+    spanning midnight must obtain the new day's allowance before its next fetch.
+  - GET `/api/v1/business/email` returns `{enabled, receiving_address}`:
+    configuration readiness for the caller's Business, not provider health.
+  - POST `/api/v1/business/email` (prepare capability) mints one address per
+    Business, `recibos-<8 hex>@<domain>`. The route names the Business owner
+    as the captured documents' owner and the caller's own live grant as the
+    authority checked before each capture. A replay, or a concurrent create,
+    returns the one live address with 200. 409 `email_route_revoked` when that
+    address's grant is no longer live and 409 `email_route_unavailable` while
+    capture is off: stop receiving, then create a new address. 503
+    `email_receiving_unconfigured` without a domain or Postgres.
+  - DELETE `/api/v1/business/email` switches the address off. A route can be
+    switched off, never pointed at another Business or person.
+  - GET `/api/v1/business/email/deliveries` and `/{id}` list the Business's
+    deliveries with state, error code, subject, sender, `retryable` and one
+    `parts[]` row per attachment (`pending|captured|rejected`, `document_id`,
+    `repeat_of_delivery_id`: the earliest delivery of this Business that brought
+    the same bytes, when this part replayed that document and added no receipt;
+    null otherwise; `repeat_of_upload`: true when the document was saved another
+    way, a web upload, before this email arrived). Each Business sees only its
+    own deliveries; the same bytes in two Businesses never mark each other.
+    `waiting` is an additive nullable object. While a `received` delivery is
+    deferred by either daily allowance and its durable `available_at` is still
+    in the future, it is `{reason: "daily_budget", retry_at: <UTC timestamp>}`
+    and `retryable` is false. Otherwise it is null. Budget reasons are not
+    exposed as failed-save errors, including while due mail awaits a worker.
+    The API owns this decision. The web uses it for the waiting label and automatic resume explanation,
+    without short reading polls, a missing-body warning or an immediate retry.
+    `retry_at` comes from the queue, not the browser clock. Refresh after the
+    allowance resets returns normal received/processing state.
+    POST `/{id}/retry` (prepare capability) re-queues a `partial` delivery.
+  - Every captured part is an ordinary saved document with `consent=false`; AI
+    preparation still waits for the owner's choice. The grant is checked again
+    before each fetch, and the provider's recipients must equal the signed
+    event's recipients. Retries back off and stop after eight attempts until an
+    explicit retry.
+- Each `ReceiptSummary` carries `email_delivery_ids` and `email_original`.
+  A grouped email original (the message itself, once an attachment is a
+  saved receipt) is never `preparable` or `enterable`; prepare, review and
+  confirm answer 409 `email_original_not_a_receipt`. Its attachment is the
+  receipt.
+- Duplicates never record money twice. Uploading the same bytes again, from
+  any entry point, answers with the receipt already saved and `replayed:
+  true`; nothing new is stored. A second document whose read merchant, date,
+  amount and currency equal another draft or expense of the Business is set
+  aside with `status: needs_attention`, `attention: "duplicate"` and
+  `duplicate_of` (the receipt it may repeat); what was read stays visible,
+  `enterable` and `preparable` are false, and review or confirm answer 409
+  `possible_duplicate`. The mark is the import event's own
+  `possible_duplicate` attention; the hosted bridge sets it when it prepares
+  the attachment, the local app's import pass sets it the same way.
+- XML is an accepted receipt source (`application/xml`, `text/xml`), alone or
+  as an email attachment, read inertly like a spreadsheet: no entities, no
+  DOCTYPE, no external fetch; every element becomes one `path: value` line of
+  evidence. A DGII e-CF (root `ECF` with `MontoTotal`) is summarised first:
+  invoice currency DOP, the DOP total paid, any other-currency total marked
+  informational, the e-NCF, issuer RNC, issue date, ITBIS and propina legal.
+  The read's e-NCF, RNC and ITBIS land on the draft's fiscal facts as before.
+  When the source names its own currency and the read chose another, the
+  projection records `receipt_currency_conflict` (field `currency`) beside
+  `receipt_purchase_ambiguous`, keeps the rows as evidence and holds the read
+  for a person; a source that names no currency never fires it. The batch
+  metadata records `document_currency`.
+- A read that was saved but never became a record (the hosted hand-off refused
+  or failed after the extractor answered) is `needs_attention` with attention
+  `interrupted`, `preparable: true` and the real cause in `error_code`; "Try
+  again with AI" replays the saved read without a new provider call and runs
+  the hand-off again. It is never reported as `no_purchase_found`, which stays
+  for a read that found nothing.
+- A read that shows several purchases, or one it cannot settle, still becomes
+  one open draft on the hosted bridge: the facts every read purchase shares are
+  known, the amount stays unknown for a person to set, and each read purchase
+  is kept on the draft as `read_purchases` (index, amount, currency, date,
+  merchant), returned on the dossier with `read_total` (the receipt total the
+  read showed) and `unrecorded_purchases` (the read purchases the draft's
+  amount does not cover). The receipt shows `needs_attention` with attention
+  `several_purchases` until a person completes and approves it; a read with a
+  total and no purchase shows `no_purchase_found`. One approval records exactly
+  one purchase. After approval the receipt keeps attention `several_purchases`
+  (error code `purchases_unrecorded`) while `unrecorded_purchases` is above 0.
+  `POST /api/v1/business/drafts/{draft_id}/remainder/settle` with `{version}`
+  and an `Idempotency-Key` lets a person with `approve` permission settle the
+  rest (ledger action `settle_remainder`); the dossier then reports 0. 403
+  `business_permission_denied` without approve permission; 409
+  `stale_version`; 422 `business_draft_not_recorded` before approval and
+  `business_remainder_none` when nothing is left. An
+  unreadable read is still refused to the document layer, which keeps the
+  receipt enterable by hand.
+- A draft prepared from a DGII e-CF XML (alone or attached to an email)
+  carries `ecf_checks` on the dossier: `encf`, `tipo_ecf` (shown neutrally,
+  never a blocker), `checked_at` and `checks`, each `{name, state, code,
+  detail}` with state `verified|failed|not_checked`. The checks are local and
+  read the file only: `signature_integrity` (the content has not changed since
+  it was signed with the key the file carries; it does not name who signed),
+  `totals_arithmetic`, `read_matches_xml` (the model's read against the XML,
+  field by field), `certificate_validity` (two facts, at the declared
+  `FechaHoraFirma`, read as Dominican time, and today; verified carries code
+  `revocation_not_checked`, failed `certificate_expired` or
+  `certificate_not_yet_valid`),
+  `certificate_issuer` (always `not_checked`, `issuer_not_on_trust_list`: no
+  authority is trusted by name), `dgii_accepted` (always `not_checked`,
+  `network_not_in_tier_a`: nothing proves DGII accepted the invoice),
+  `security_code` (the expected code, the first six characters of the
+  signature value, kept in `detail` for a person; `no_printed_code` since the
+  read carries none) and `subject_rnc`. Caps on certificate, signature and
+  SignedInfo size, one signature and one enveloped reference are read before
+  any canonicalization; RSA with SHA-256 only, so SHA-1 and any other key or
+  algorithm are `not_checked`, never trusted. Nesting past 32 levels, a
+  non-finite or oversized number, an over-long field or any failure while
+  reading means no checks or an unreadable check, never a blocked capture. A
+  later document beside the e-CF keeps its verification. A failed
+  check never blocks capture, review or approval. Later revisions keep the
+  verification; a PDF render or any other source has `ecf_checks: null`.
+- A receipt whose page images carry a DGII QR (an uploaded image, a rendered
+  PDF page, an image or PDF inside an email) carries `dgii_qr` on the dossier:
+  `url`, `host` (exactly `fc.dgii.gov.do` or `ecf.dgii.gov.do`, `https`, any
+  other link is dropped and the capture goes on), `rnc_emisor`, `encf`,
+  `monto_total`, `codigo_seguridad`, and `fecha_emision`, `fecha_firma`,
+  `rnc_comprador` when the link names them. The QR is decoded by a plain
+  decoder from the page images after preparation, never by the model and
+  never as a gate before it; Cuadrao never fetches the link, the person opens
+  it. The link is refused when it has userinfo (`user:password@`), a port, a
+  backslash, or any scheme other than `https`; the host must be exactly
+  `fc.dgii.gov.do` or `ecf.dgii.gov.do` (a trailing dot, a punycode host or a
+  look-alike suffix is another host); text that does not split as a URL is not
+  a link and never fails the capture. The same rule applies again when a stored
+  value is read back, and the web renders the link only after checking the
+  same rule itself. The decoder scans at most 8 page images per capture
+  (`MAX_PAGES_SCANNED`), and the page images it sees were prepared under a cap of
+  20,000,000 pixels per image (`MAX_PIXELS` in `documents/preparation.py`); an
+  image over the cap is an invalid document, not a QR miss. The decoded text is
+  capped at 2048 characters and each query value at 64. Two rows join
+  `ecf_checks.checks`: `qr_present` (verified when a DGII QR
+  was decoded, else `not_checked` `no_qr`) and `qr_matches_read` (issuer RNC,
+  e-NCF and total from the QR against what the read found, field by field and
+  only where both exist; `read_vs_qr` carries each compared field as
+  `{read, qr}`, typed, so no reader parses a string; `failed` `qr_differs`
+  carries only the differing fields there; `not_checked` `no_read` when nothing
+  is comparable). A receipt
+  with a QR and no XML gets a verification of its own with those rows and
+  `dgii_accepted` `network_not_in_tier_a`. The typed merge step after decode
+  and read fills only what the read left unknown (issuer RNC, e-NCF, total,
+  issue date) with origin `qr_decoded` and the attachment as source; a value
+  the read found stays, equal or not; the amount is filled only for a read
+  with at most one purchase and stays a draft value a person approves. A
+  later document or a person's revision keeps `dgii_qr` and the origins.
+- POST `/api/v1/business/receipts/{id}/rebind` (owner only) binds a receipt
+  whose preparation grant was revoked to the owner's current grant, writes one
+  `business_action_receipts` row (`rebind_attachment`, previous binding and
+  grant kept in the command) and returns the receipt; the owner then prepares
+  it again. Refused while the old grant is still live
+  (`business_preparation_binding_live`), without a binding
+  (`business_preparation_binding_missing`), or for anyone but the owner
+  (`business_owner_required`).
+- GET `/api/v1/business/overview?from&to` also returns `outside_period_count`
+  (saved expenses whose date falls outside `[from, to]`) and
+  `outside_period_latest_on` (the latest such date, or null), so a saved
+  expense never looks vanished behind a period filter; the web offers this
+  month, last month, last 30 days, all (from 2000-01-01) and a typed range.
+  The server is the one clock: the overview returns `today` (the Business day
+  in America/Santo_Domingo), and `/overview` and `/expenses` accept an omitted
+  `to`, which means that day; the web sends no `to` for this month, last 30
+  days and all. A `from` after `to` answers 422 `period_reversed`.
+- Web receipt upload failures stay in the selected file's row. A failed
+  save keeps that file, its idempotency key and its AI choice for a manual
+  retry. Unsupported files offer another file instead of retrying. The format
+  line and rejection copy derive from `workspace.receipt_limits.media_types`,
+  with duplicate display labels removed. API error details never render here.
+  Upload domain failures log only HTTP status, domain code and exception type;
+  source bytes, filenames, identifiers and exception messages are excluded.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake
-  captured for the scope's destination, else `web`.
+  captured for the scope's destination, `email` for a document whose earliest
+  email delivery arrived before the document was saved (decided at the API
+  boundary from the email queue; the stored draft knows only web or whatsapp),
+  else `web`: a file uploaded on the web first keeps `web` even when an email
+  brings the same bytes later. `email_delivery_ids` lists the deliveries
+  earliest first. The same rule marks a dossier's attachment sources:
+  `channel: "email"` and their `email_delivery_ids`.
 - GET `/api/v1/business/receipts/{id}` returns a `ReceiptDetail`. `version` is
   the import event's version, and `0` while there is no purchase to review.
   `evidence` is what the receipt says, and corrections never change it.
@@ -9070,6 +9581,11 @@ accept path recorded.
   receipt with no single purchase is `needs_attention`, with the blocker as
   `error_code`.
 - Every `ReceiptSummary` and `ReceiptDetail` carries the owner's next step,
+  `read_pending` is true only while a read is in flight or will start (queued
+  with consent and the owner's reading allowed now); a queued receipt whose
+  owner switched reading off is reported `saved`, waits for a person, and is
+  `preparable` and `enterable` again. The web shows "Leyendo tu recibo" only
+  on `read_pending`.
   decided by the backend. `preparable` is true when nothing was read or
   entered, the source is stored, nothing is reading it, and another read could
   succeed; the client then offers the consented `/prepare`. `enterable` is true
@@ -9125,7 +9641,14 @@ accept path recorded.
   finish is finished first, and one expense is recorded.
 - GET `/api/v1/business/expenses?from&to` returns `{items: BusinessExpense[]}`.
   These are expense activities whose local date falls in `[from, to]`, newest
-  first. `receipt_id` names the receipt when the expense came from exactly one.
+  first. `receipt_id` names the receipt when the expense came from exactly one;
+  `draft_id` names the bridge draft that recorded it, so an expense whose
+  draft is linked to several receipts or to none still opens its record.
+- GET `/api/v1/business/expenses/{expense_id}` returns that expense with
+  `recorded_at` and `revision` from the money read; 404 `expense_not_found`
+  for any other id, including another Business's. An expense entered by hand
+  has `receipt_id` and `draft_id` null: the web shows a plain detail that says
+  no receipt is attached, with when it was recorded and its revision.
 - POST `/api/v1/business/expenses` (`Idempotency-Key` required) takes
   `{account_id, amount, occurred_on, merchant, category_id}` and records one
   expense through `MoneyService`, in the account's currency. A retry with the
