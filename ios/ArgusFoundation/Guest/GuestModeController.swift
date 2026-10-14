@@ -7,8 +7,11 @@ import CuadraoBook
 @MainActor
 final class GuestModeController: ObservableObject {
     static let activeKey = "cuadrao.guest.active"
+    /// Set the first time an account is signed in on this iPhone and never cleared: from then on the book is not offered as a way in.
+    static let accountKey = "cuadrao.account.signedIn"
 
     @Published private(set) var active: Bool
+    @Published private(set) var accountSignedInBefore: Bool
     @Published private(set) var model: GuestBookModel? {
         didSet { follow(model) }
     }
@@ -23,10 +26,15 @@ final class GuestModeController: ObservableObject {
         if CuadraoGuestLaunch.resets {
             try? FileManager.default.removeItem(at: directory)
             UserDefaults.standard.removeObject(forKey: Self.activeKey)
+            UserDefaults.standard.removeObject(forKey: Self.accountKey)
         }
         #endif
         self.directory = directory
         active = UserDefaults.standard.bool(forKey: Self.activeKey)
+        #if DEBUG
+        if CuadraoGuestLaunch.accountSignedInBefore { UserDefaults.standard.set(true, forKey: Self.accountKey) }
+        #endif
+        accountSignedInBefore = UserDefaults.standard.bool(forKey: Self.accountKey)
         if active { open() }
         follow(model)
     }
@@ -42,6 +50,17 @@ final class GuestModeController: ObservableObject {
         #endif
         return (try? BookStore.defaultDirectory())
             ?? FileManager.default.temporaryDirectory.appendingPathComponent("CuadraoDeviceBook", isDirectory: true)
+    }
+
+    func noteAccountSignedIn() {
+        guard !accountSignedInBefore else { return }
+        accountSignedInBefore = true
+        UserDefaults.standard.set(true, forKey: Self.accountKey)
+    }
+
+    /// Whether this iPhone still holds a book, even one the person has not opened in this launch.
+    var hasStoredBook: Bool {
+        (try? FileManager.default.contentsOfDirectory(atPath: directory.path))?.isEmpty == false
     }
 
     /// Opens the book, creating it on the first save. Nothing is sent anywhere.

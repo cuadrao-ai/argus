@@ -1,14 +1,20 @@
 import SwiftUI
 
-private struct GuestEntryKey: EnvironmentKey {
-    static let defaultValue: (() -> Void)? = nil
+/// What the signed-out screen shows about the book, and how to open it.
+struct GuestWelcomeContext {
+    let shape: GuestAccessPolicy.Welcome
+    let open: () -> Void
+}
+
+private struct GuestWelcomeKey: EnvironmentKey {
+    static let defaultValue: GuestWelcomeContext? = nil
 }
 
 extension EnvironmentValues {
-    /// Set only while the guest door is open; the welcome screen shows "Probar sin cuenta" when it is non-nil.
-    var cuadraoGuestEntry: (() -> Void)? {
-        get { self[GuestEntryKey.self] }
-        set { self[GuestEntryKey.self] = newValue }
+    /// Set only while the guest door is open; nil means the welcome screen has the two native actions and nothing else.
+    var cuadraoGuestWelcome: GuestWelcomeContext? {
+        get { self[GuestWelcomeKey.self] }
+        set { self[GuestWelcomeKey.self] = newValue }
     }
 }
 
@@ -51,7 +57,10 @@ private struct GuestModeHost<Content: View>: View {
         Group {
             switch route {
             case .connected:
-                content.environment(\.cuadraoGuestEntry, { controller.enter() })
+                content.environment(\.cuadraoGuestWelcome, GuestWelcomeContext(
+                    shape: GuestAccessPolicy.welcome(doorOpen: true, accountSignedInBefore: controller.accountSignedInBefore,
+                                                     hasGuestData: controller.hasStoredBook),
+                    open: { controller.enter() }))
             case .launching:
                 WelcomePalette.brandPaper.ignoresSafeArea().accessibilityIdentifier("guest.launching")
             case .guest:
@@ -64,7 +73,9 @@ private struct GuestModeHost<Content: View>: View {
         }
         // Signing in always wins: the book stays on the device and the signed-in app opens.
         .onChange(of: auth.state) { _, state in
+            if state == .authenticated { controller.noteAccountSignedIn() }
             if state == .authenticated, controller.active { controller.leave() }
         }
+        .onAppear { if auth.state == .authenticated { controller.noteAccountSignedIn() } }
     }
 }

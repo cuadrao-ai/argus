@@ -26,8 +26,23 @@ extension FinancialLoopUITests {
             app.buttons["header.profile"].tap()
             tapVisible(app.buttons["auth.signOut"])
             app.confirmSignOutIfAsked()
-            XCTAssertTrue(app.buttons["cuadrao.welcome.signin"].waitForExistence(timeout: 20), "signed out to the welcome screen")
+            // Once an account has signed in on this iPhone the signed-out screen is only the login, so relaunch
+            // with the reset argument to get the first-run welcome these journeys start from.
+            XCTAssertTrue(app.buttons["cuadrao.signin.emailChoice"].waitForExistence(timeout: 20), "signed out to the login")
+            app.terminate()
+            app.launch()
+            XCTAssertTrue(app.buttons["cuadrao.welcome.signin"].waitForExistence(timeout: 20), "the first-run welcome after the reset")
         }
+    }
+
+    /// Once an account has signed in on this iPhone, signed out is only the login: no guest door, and no
+    /// guest line when the iPhone holds no guest data.
+    func testSignedOutAfterAnAccountShowsOnlyTheLogin() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-account-signed-in-before"])
+        XCTAssertTrue(app.buttons["cuadrao.signin.emailChoice"].waitForExistence(timeout: 10), "the login form is the screen")
+        XCTAssertFalse(app.buttons["cuadrao.welcome.guest"].exists, "the guest door is gone")
+        XCTAssertFalse(app.buttons["cuadrao.welcome.signup"].exists, "no first-run welcome")
+        XCTAssertFalse(app.buttons["cuadrao.login.guestLine"].exists, "no guest data, so no guest line")
     }
 
     func enterGuestBook() {
