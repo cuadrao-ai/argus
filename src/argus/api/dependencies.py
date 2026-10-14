@@ -331,6 +331,8 @@ def require_account_capability(
 def auth_response(request: Request, payload: dict[str, Any]) -> JSONResponse:
     response = JSONResponse(payload)
     _apply_auth_session_cookies(request, response, payload)
+    # Conversion/sign-in owns the final session, after any source renewal.
+    request.state.renewed_browser_session = None
     return response
 
 

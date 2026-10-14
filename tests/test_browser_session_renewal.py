@@ -188,3 +188,28 @@ def test_renewed_token_is_available_to_downstream_tools(gateway):
     )
     assert response.status_code == 200
     assert response.json() == {"renewed": True}
+
+
+def test_explicit_auth_response_owns_cookies_after_source_session_renewal(gateway):
+    instance = app()
+
+    @instance.post("/convert")
+    def convert(request: Request, user=Depends(deps.current_user)):  # noqa: B008
+        return deps.auth_response(
+            request,
+            {
+                "session": {
+                    "access_token": token("permanent-user"),
+                    "refresh_token": "permanent-refresh",
+                    "expires_in": 3600,
+                }
+            },
+        )
+
+    response = TestClient(instance).post(
+        "/convert", headers={"Cookie": "sb-refresh-token=refresh-1"}
+    )
+    assert response.status_code == 200
+    assert response.cookies.get("sb-auth-token") == token("permanent-user")
+    assert response.cookies.get("sb-refresh-token") == "permanent-refresh"
+    assert len(response.headers.get_list("set-cookie")) == 2
