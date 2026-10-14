@@ -119,7 +119,7 @@ struct GuestClaimEngine {
         var involved = [from]
         if let to { involved.append(to) }
         let command = FinancialActivityCommand(
-            kind: paired ? .transfer : (movement.kind == .income ? .income : .expense),
+            kind: kind(of: movement),
             accountId: paired ? nil : from, sourceAccountId: paired ? from : nil, destinationAccountId: paired ? to : nil,
             amount: movement.amountText, occurredAt: formatter.string(from: movement.occurredAt), timeZone: movement.timeZone,
             note: movement.note, categoryId: movement.kind == .expense ? movement.category?.rawValue : nil,
@@ -132,6 +132,15 @@ struct GuestClaimEngine {
             ownerId: owner, originAccountId: from, route: "financial-activities", path: "", method: "POST",
             body: try encoder.encode(reviewed), key: GuestClaimKeys.key(owner: owner, kind: "movement", item: movement.id))
         return try await server.confirm(write)
+    }
+
+    /// The server takes money moved into a credit card as a card payment, never as a plain transfer.
+    static func kind(of movement: GuestClaimPlan.Movement) -> FinancialActivityKind {
+        switch movement.kind {
+        case .income: return .income
+        case .expense: return .expense
+        case .transfer: return movement.counterpartKind == .creditCard ? .cardPayment : .transfer
+        }
     }
 
     static func request(_ account: GuestClaimPlan.Account, key: UUID) -> CreateFinancialAccountRequest {

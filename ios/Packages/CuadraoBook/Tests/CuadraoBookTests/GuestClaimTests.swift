@@ -115,6 +115,7 @@ struct GuestClaimTests {
         let item = try #require(GuestClaimPlan.make(book: value, existingNicknames: []).movements.first)
         #expect(item.accountID == a)
         #expect(item.counterpartID == b)
+        #expect(item.counterpartKind == .savings, "the receiving account's type travels with the movement")
         #expect(item.amountText == "2.50")
     }
 

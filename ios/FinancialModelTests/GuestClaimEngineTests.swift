@@ -62,14 +62,38 @@ final class GuestClaimEngineTests: XCTestCase {
         XCTAssertNotNil(byName["Main (invitado)"]?.asOf)
         XCTAssertEqual(byName["Main (invitado)"]?.timeZone, tzName)
         let commands = await server.commands
-        XCTAssertEqual(commands.map(\.kind), [.expense, .income, .transfer], "oldest first")
+        XCTAssertEqual(commands.map(\.kind), [.expense, .income, .cardPayment], "oldest first; money moved into a credit card is a card payment")
         XCTAssertEqual(commands[0].categoryId, "transport")
         XCTAssertNil(commands[1].categoryId)
-        XCTAssertEqual(commands[2].sourceAccountId == nil, false)
-        XCTAssertNil(commands[2].accountId, "a transfer names a source and a destination")
+        XCTAssertNotNil(commands[2].sourceAccountId)
+        XCTAssertNotNil(commands[2].destinationAccountId)
+        XCTAssertNil(commands[2].accountId, "a payment names a source and a destination")
         XCTAssertEqual(commands[0].amount, "20.00")
         XCTAssertEqual(commands[0].timeZone, tzName)
         XCTAssertFalse(commands[0].expectedVersions.isEmpty, "the reviewed account version travels with the write")
+    }
+
+    func testATransferBetweenPlainAccountsStaysATransfer() async throws {
+        let first = UUID(), second = UUID()
+        var book = DeviceBook.empty()
+        book = try book.addingAccount(BookAccountDraft(kind: .checking, currency: "DOP", nickname: "A", amountText: "100"), id: first, now: moment, zone: tzName)
+        book = try book.addingAccount(BookAccountDraft(kind: .savings, currency: "DOP", nickname: "B", amountText: "0"), id: second, now: moment, zone: tzName)
+        book = try book.recordingMovement(MovementDraft(kind: .transfer, accountID: first, counterpartID: second, amountText: "10",
+                                                        occurredAt: moment.addingTimeInterval(60)), now: moment.addingTimeInterval(120), zone: tzName)
+        let server = SampleGuestClaimServer()
+        let (result, _) = await GuestClaimEngine(server: server).run(plan: GuestClaimPlan.make(book: book, existingNicknames: []), progress: GuestClaimProgress())
+        XCTAssertEqual(result.movementsMoved, 1)
+        XCTAssertEqual(result.movementsRefused, 0)
+        let kinds = await server.commands.map(\.kind)
+        XCTAssertEqual(kinds, [.transfer])
+    }
+
+    func testAPaymentIntoACardIsNotRefusedAsATransfer() async throws {
+        let fixture = try Fixture()
+        let server = SampleGuestClaimServer()
+        let (result, _) = await GuestClaimEngine(server: server).run(plan: fixture.plan(), progress: GuestClaimProgress())
+        XCTAssertEqual(result.movementsRefused, 0, "the server rejects a plain transfer into a card with 422; it goes as card_payment")
+        XCTAssertEqual(result.movementsMoved, 3)
     }
 
     func testAnArchivedAccountIsArchivedAfterItIsCreated() async throws {
