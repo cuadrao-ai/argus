@@ -25,13 +25,16 @@ import {
   type BusinessCapture,
   type BusinessOverview,
   type BusinessWorkspaceInfo,
+  type GrantedSpace,
   type ReceiptSummary,
 } from "@/lib/business-api";
+import { getChosenGrant, grantNotLive, setChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
 import BusinessSidebarNav from "./BusinessSidebarNav";
+import BusinessSwitcher from "./BusinessSwitcher";
 import BusinessCreateMenu from "./BusinessCreateMenu";
 import BusinessPanel from "./BusinessPanel";
 import BusinessHome from "./BusinessHome";
@@ -67,6 +70,15 @@ type Records = {
 export type BusinessContextValue = Readonly<{
   source: BusinessDataSource;
   records: Records;
+  /** Every Business the person may enter, the server's list; null until read. */
+  spaces: GrantedSpace[] | null;
+  /** The Business the person is working in: their own unless they chose a client's. */
+  chosen: GrantedSpace | null;
+  chooseBusiness: (grantId: string | null) => void;
+  /** The one-time access line for the chosen client Business was dismissed. */
+  markAccessSeen: () => Promise<void>;
+  /** The chosen grant stopped being live mid-session; the person is back in their own Business. */
+  lostAccess: boolean;
   revision: number;
   reload: () => void;
   period: Period;
@@ -108,6 +120,16 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   }
   return { kind: "overview" };
 }
+
+const EMPTY_RECORDS: Records = {
+  workspace: null,
+  overview: null,
+  inbox: null,
+  notes: null,
+  notesError: false,
+  notesTruncated: false,
+  error: false,
+};
 
 function shellViewFromSearch(params: URLSearchParams): ChatShellView {
   return params.has("conversation") || params.get("view") === "chat" ? "chat" : "workspace";
@@ -169,21 +191,60 @@ export function BusinessWorkspaceProvider({
   }, [directRecord, panel.kind]);
   const [period, setPeriodState] = useState<Period>(() => periodRange("this_month"));
   const setPeriod = useCallback((next: PeriodKey | Period) => setPeriodState(typeof next === "string" ? periodRange(next) : next), []);
-  const [records, setRecords] = useState<Records>({
-    workspace: null,
-    overview: null,
-    inbox: null,
-    notes: null,
-    notesError: false,
-    notesTruncated: false,
-    error: false,
-  });
+  const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
   const [revision, setRevision] = useState(0);
+  // The chosen Business: a grant id the client remembers, proven by the server on every request.
+  const chosenGrant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
+  const [spaces, setSpaces] = useState<GrantedSpace[] | null>(null);
+  const [lostAccess, setLostAccess] = useState(false);
+  const chosen = useMemo(
+    () => spaces?.find((space) => (chosenGrant ? space.grant_id === chosenGrant : space.role === "owner")) ?? null,
+    [spaces, chosenGrant],
+  );
+  // The listing is the server's; a remembered choice it no longer holds falls back to the own Business.
+  useEffect(() => {
+    let cancelled = false;
+    source.spaces().then(
+      (listed) => {
+        if (cancelled) return;
+        setSpaces(listed);
+        const grant = getChosenGrant();
+        if (grant && !listed.some((space) => space.grant_id === grant && space.role !== "owner")) {
+          setChosenGrant(null);
+          setLostAccess(true);
+        }
+      },
+      () => { if (!cancelled) setSpaces((current) => current ?? []); },
+    );
+    return () => { cancelled = true; };
+  }, [source, revision]);
+  const markAccessSeen = useCallback(async () => {
+    if (!chosen || chosen.role === "owner") return;
+    await source.markAccessSeen(chosen.grant_id);
+    setSpaces((current) => current?.map((space) => (space.grant_id === chosen.grant_id ? { ...space, access_seen: true } : space)) ?? current);
+  }, [chosen, source]);
   const [bridge, setBridge] = useState<ChatShellBridge | null>(null);
   const [intakeTarget, setIntakeTarget] = useState<IntakeTarget | null>(null);
   const [recordExpenseOpen, setRecordExpenseOpen] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [attachedReceipt, setAttachedReceipt] = useState<ReceiptSummary | null>(null);
+  // Switching Business closes whatever was open in the old one before the new
+  // one loads: the open record and its address, the dialogs and their typed
+  // text, the attached receipt, and every list. Nothing of A shows under B.
+  const chooseBusiness = useCallback((grantId: string | null) => {
+    if (grantId === getChosenGrant()) return;
+    setLostAccess(false);
+    setChosenGrant(grantId);
+    setPanel({ kind: "overview" });
+    writePanelToUrl("workspace", { kind: "overview" });
+    setDirectRecord(false);
+    setIntakeTarget(null);
+    setRecordExpenseOpen(false);
+    setCaptureOpen(false);
+    setAttachedReceipt(null);
+    setRecords(EMPTY_RECORDS);
+    setRevision((value) => value + 1);
+  }, []);
   const drafts = useRef(new Map<string, string>());
   const [draftRevision, setDraftRevision] = useState(0);
 
@@ -229,8 +290,16 @@ export function BusinessWorkspaceProvider({
       .then(([workspace, overview, inbox]) => {
         if (!cancelled) setRecords((current) => ({ ...current, workspace, overview, inbox, error: false }));
       })
-      .catch(() => {
-        if (!cancelled) setRecords((current) => ({ ...current, error: true }));
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        if (grantNotLive(error) && getChosenGrant()) {
+          // The grant stopped being live mid-session: back to the own Business, said so.
+          setChosenGrant(null);
+          setLostAccess(true);
+          setRevision((value) => value + 1);
+          return;
+        }
+        setRecords((current) => ({ ...current, error: true }));
       });
     return () => {
       cancelled = true;
@@ -281,6 +350,11 @@ export function BusinessWorkspaceProvider({
     () => ({
       source,
       records,
+      spaces,
+      chosen,
+      chooseBusiness,
+      markAccessSeen,
+      lostAccess,
       revision,
       reload,
       period,
@@ -292,7 +366,7 @@ export function BusinessWorkspaceProvider({
       attachedReceipt,
       clearAttachedReceipt: () => setAttachedReceipt(null),
     }),
-    [actions, attachedReceipt, bridge, openPanel, panel, period, records, reload, revision, setPeriod, source],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, lostAccess, markAccessSeen, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace);
@@ -316,6 +390,7 @@ export function BusinessWorkspaceProvider({
       initialView,
       profileInHeader: true,
       panelHasComposer: panel.kind === "overview",
+      sidebarHeader: (shell) => <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} />,
       sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
       sidebarFooter: (shell) => <BusinessCreateMenu shell={shell} />,
       headerActions: (shell) => <>
@@ -347,7 +422,7 @@ export function BusinessWorkspaceProvider({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t]);
+  }, [actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, chosen, chooseBusiness]);
 
   return (
     <BusinessContext.Provider value={value}>

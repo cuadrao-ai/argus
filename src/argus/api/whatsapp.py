@@ -529,8 +529,12 @@ def require_whatsapp_owner(
     runtime: WhatsAppRuntime = Depends(require_whatsapp_surface),  # noqa: B008
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
 ) -> WhatsAppOwnerContext:
-    """Linking needs the person's Business space: captures land there."""
+    """Linking needs the person's Business space: captures land there.
+    WhatsApp is the owner's channel: a chosen client grant is refused."""
 
+    from argus.api.business import own_business_only
+
+    own_business_only(request, context.user_id)
     spaces = business_spaces()
     scope = resolve_business_scope(spaces, context.user_id) if spaces else None
     if scope is None:

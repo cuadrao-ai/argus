@@ -1,8 +1,10 @@
 import * as api from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
+import { getChosenGrant } from "@/lib/business-grant";
 import type { ArgusLanguage } from "@/lib/language-features";
 import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
 import type {
+  GrantedSpace,
   BusinessAccount,
   BusinessCapture,
   BusinessCaptureInput,
@@ -27,6 +29,10 @@ import type {
 export type BusinessDataSource = Readonly<{
   mode: "live" | "fixture";
   ensureSpace: (language: ArgusLanguage) => Promise<BusinessSpace>;
+  /** Every Business the person may enter through a live grant, their own first. */
+  spaces: () => Promise<GrantedSpace[]>;
+  /** The person dismissed the one-time access line for one of their grants. */
+  markAccessSeen: (grantId: string) => Promise<void>;
   workspace: () => Promise<BusinessWorkspaceInfo>;
   overview: (from: string, to: string | null) => Promise<BusinessOverview>;
   receipts: (view: "inbox" | "all") => Promise<ReceiptSummary[]>;
@@ -101,14 +107,26 @@ export const liveBusinessDataSource: BusinessDataSource = {
   giveAccess: api.giveBusinessAccess,
   revokeAccessGrant: api.revokeBusinessAccessGrant,
   revokeAccessInvite: api.revokeBusinessAccessInvite,
+  spaces: api.getBusinessSpaces,
+  markAccessSeen: api.markBusinessAccessSeen,
 };
 
 export function withBusinessSpace(
   source: BusinessDataSource,
   language: () => ArgusLanguage,
 ): BusinessDataSource {
+  // One bootstrap per Business the person works in: the own space is started
+  // once; a client's Business exists already and is never started by its
+  // accountant, so under a chosen grant the calls go straight through.
   let started: Promise<BusinessSpace> | null = null;
+  let startedFor: string | null = null;
   const ready = () => {
+    const grant = getChosenGrant();
+    if (grant) return Promise.resolve({ id: "", name: "" } as BusinessSpace);
+    if (startedFor !== grant) {
+      started = null;
+      startedFor = grant;
+    }
     started ??= source.ensureSpace(language()).catch((error: unknown) => {
       started = null;
       throw error;
@@ -155,5 +173,7 @@ export function withBusinessSpace(
     giveAccess: after(source.giveAccess),
     revokeAccessGrant: source.revokeAccessGrant,
     revokeAccessInvite: source.revokeAccessInvite,
+    spaces: after(source.spaces),
+    markAccessSeen: source.markAccessSeen,
   };
 }

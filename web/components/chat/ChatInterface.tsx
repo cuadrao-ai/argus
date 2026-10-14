@@ -2267,7 +2267,7 @@ export default function ChatInterface() {
         shortcutHintsSuppressed={searchOverlayOpen}
         canManageConversation={canManageConversation}
         showProfileMenu={!isGuest}
-        primaryNav={workspace?.sidebarNav(shellBridge)} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
+        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
         isGuest={guestExperience.isEstablishedGuest}
         guestExpiresAt={account?.guest?.expires_at}
       />

@@ -113,6 +113,7 @@ filterwarnings = [
 ]
 markers = [
     "slow: marks tests as slow (performance benchmarks requiring large datasets)",
+    "owner_acts: the shared Business actions fixture acts as the owner (approval is the owner's alone)",
 ]
 
 [tool.ruff]

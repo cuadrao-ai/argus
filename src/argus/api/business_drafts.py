@@ -13,15 +13,20 @@ from argus.api.business import (
     _captured,
     require_business_surface,
     unavailable_problem,
+    working_scope,
 )
-from argus.api.business_spaces import business_spaces
+from argus.api.business_spaces import (
+    business_access,
+    business_spaces,
+    space_missing_problem,
+)
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.ingestion import IngestionContext, require_ingestion_context
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.actions.dossier import record_context
 from argus.domain.business.actions.receipts import draft_for_receipt
-from argus.domain.business.authority import ActionError
+from argus.domain.business.authority import ActionContext, ActionError, authorize
 from argus.domain.business.contracts.actions import Refused
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.dossier import AccountChoice, RecordContext
@@ -30,9 +35,13 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
     Known,
 )
-from argus.domain.business.scope import BusinessScope
+from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.service import BusinessService
-from argus.domain.business.transactions import GrantImportStore, transaction
+from argus.domain.business.transactions import (
+    GrantImportStore,
+    record_legacy_action,
+    transaction,
+)
 from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
@@ -62,6 +71,32 @@ def action_problem(request: Request, refusal: Refused) -> HTTPException:
 class DraftContext:
     service: BusinessActions
     actor_id: UUID
+    # The Business the caller is working in, proven per request: the chosen
+    # grant's, else their own. A record of any other Business is missing.
+    space_id: str | None = None
+    grant_id: UUID | None = None
+
+    def for_draft(self, draft_id: UUID) -> ActionContext:
+        return self.service.context_for_draft(
+            self.actor_id, draft_id, space_id=self.space_id, grant_id=self.grant_id
+        )
+
+    def for_space(self, request: Request, spaces=None) -> ActionContext:  # noqa: ANN001
+        """The working Business itself, for routes that name no record: the
+        chosen grant's, else the caller's own open space."""
+
+        space_id = self.space_id
+        if space_id is None and spaces is not None:
+            own = resolve_business_scope(spaces, str(self.actor_id))
+            space_id = own.owner.space_id if own else None
+        if space_id is None:
+            raise space_missing_problem(request)
+        return self.service.resolve_actor(
+            TrustedActor(
+                actor_id=self.actor_id, actor_kind="member", space_id=UUID(space_id)
+            ),
+            grant_id=self.grant_id,
+        )
 
 
 def require_drafts(
@@ -70,20 +105,52 @@ def require_drafts(
     ingestion: Annotated[IngestionContext, Depends(require_ingestion_context)],
 ) -> DraftContext:
     pool = getattr(request.app.state, "financial_accounts_pool", None)
-    if pool is None or not isinstance(ingestion.hub.sink, ReconciliationService):
+    spaces = business_spaces()
+    if (
+        pool is None
+        or spaces is None
+        or not isinstance(ingestion.hub.sink, ReconciliationService)
+    ):
         raise unavailable_problem(request)
+    scope = working_scope(request, spaces, ingestion.user_id)
+    if scope is None:
+        # No chosen grant and no own Business: nothing is in scope, by id either.
+        raise space_missing_problem(request)
     return DraftContext(
-        BusinessActions(pool, ingestion.hub.sink), UUID(ingestion.user_id)
+        BusinessActions(pool, ingestion.hub.sink),
+        UUID(ingestion.user_id),
+        scope.owner.space_id,
+        UUID(scope.grant_id) if scope.grant_id else None,
     )
 
 
-def bind_to_grant(documents, hub, actions, context, capability):  # noqa: ANN001, ANN201
+def legacy_action(request) -> str | None:  # noqa: ANN001
+    """The name a legacy receipt write leaves in the ledger, from the route."""
+
+    path = request.url.path
+    if request.method == "PATCH" and path.endswith("/review"):
+        return "receipt_review"
+    if request.method == "POST" and path.endswith("/confirm"):
+        return "receipt_confirm"
+    return None
+
+
+def request_key(request) -> str:  # noqa: ANN001
+    """What names this request in the ledger: its idempotency key, else a
+    one-off, so a replay repeats its row and a plain second write gets its own."""
+
+    from uuid import uuid4
+
+    return (request.headers.get("Idempotency-Key") or "").strip() or uuid4().hex
+
+
+def bind_to_grant(documents, hub, actions, context, capability, action=None, key=None):  # noqa: ANN001, ANN201
     """The one place a documents service is bound to a person's Business grant:
     the same hub with an import sink that acts only as that grant, for a request
     or for a delivery that has none. Returns the bound service and its sink."""
 
     imports = ReconciliationService(
-        GrantImportStore(actions.authority, context, capability),
+        GrantImportStore(actions.authority, context, capability, action, key),
         hub.sink.money,
         hub.sink.clock,
         connections=hub.sink.connections,
@@ -102,10 +169,31 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         account_rows = hub.sink.money.accounts.list_accounts(
             user_id=scope.person_id, scope=scope.owner
         )
-        space = business_spaces().open_space(user_id)
+        space = business_spaces().get(scope.owner.space_id)
+        capabilities = {"read", "prepare"}
+        if scope.actor_id is not None:
+            # A chosen grant: its own capabilities, never approve for a member.
+            held = business_access().capabilities(scope.owner.space_id, scope.actor_id)
+            capabilities = set(held) & {"read", "prepare"}
+            if not scope.acting_as_owner:
+                needed = (
+                    "read"
+                    if request.method == "GET"
+                    else (
+                        "approve" if request.url.path.endswith("/confirm") else "prepare"
+                    )
+                )
+                if needed not in capabilities:
+                    raise action_problem(
+                        request,
+                        Refused(
+                            outcome="permission_denied",
+                            code="business_permission_denied",
+                        ),
+                    )
         record = RecordContext(
             space_id=scope.owner.space_id,
-            space_name=space.name,
+            space_name=space.name if space else "",
             accounts=tuple(
                 AccountChoice(
                     id=row.account.id,
@@ -115,7 +203,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
                 )
                 for row in account_rows
             ),
-            capabilities={"read", "prepare"},
+            capabilities=capabilities,
         )
         return BusinessContext(
             scope, BusinessService(documents, hub.sink, _captured), record
@@ -123,13 +211,22 @@ def scoped_legacy(request, documents, hub, user_id, scope):
     actions = BusinessActions(pool, hub.sink)
     try:
         receipt_id = request.path_params.get("receipt_id")
+        grant_id = UUID(scope.grant_id) if scope and scope.grant_id else None
         context = (
-            actions.context_for_receipt(UUID(user_id), UUID(receipt_id))
+            # Pinned to the Business the caller works in: a receipt of another
+            # Business is missing, whatever other grants the caller holds.
+            actions.context_for_receipt(
+                UUID(user_id),
+                UUID(receipt_id),
+                space_id=scope.owner.space_id if scope else None,
+                grant_id=grant_id,
+            )
             if receipt_id
             else actions.resolve_actor(
                 TrustedActor(
                     actor_id=user_id, actor_kind="member", space_id=scope.owner.space_id
-                )
+                ),
+                grant_id=grant_id,
             )
         )
         record = actions.record_context(context)
@@ -147,13 +244,45 @@ def scoped_legacy(request, documents, hub, user_id, scope):
     except ActionError as error:
         raise action_problem(request, error.result) from None
     scoped_documents, imports = bind_to_grant(
-        documents, hub, actions, context, capability
+        documents,
+        hub,
+        actions,
+        context,
+        capability,
+        legacy_action(request),
+        request_key(request),
     )
     return BusinessContext(
-        BusinessScope(context.owner_id, context.scope),
+        BusinessScope(
+            context.owner_id,
+            context.scope,
+            actor_id=user_id,
+            grant_id=str(context.grant_id),
+            role="owner" if str(context.owner_id) == str(user_id) else "accountant",
+        ),
         BusinessService(scoped_documents, imports, _captured),
         record,
     )
+
+
+def upload_recorder(context: BusinessContext, request):  # noqa: ANN001, ANN201
+    """A saved upload is a write on the legacy surface: one ledger row naming
+    the grant it ran under, written in the transaction that saves the receipt,
+    so no receipt is saved without its row. The in-memory app keeps no ledger."""
+
+    store = context.service.imports.store
+    if not isinstance(store, GrantImportStore):
+        return None
+    key = request_key(request)
+
+    def record(connection, receipt_id: str) -> None:  # noqa: ANN001
+        live = authorize(connection, store.context.actor, store.context.grant_id)
+        if live.context.owner_id != store.context.owner_id:
+            raise ActionError("not_found", "business_record_not_found")
+        live.require("prepare")
+        record_legacy_action(connection, live, "receipt_upload", [receipt_id], key)
+
+    return record
 
 
 def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> None:

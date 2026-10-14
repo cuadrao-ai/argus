@@ -32,6 +32,22 @@ class BusinessSpaceInfo(_Wire):
     name: str
 
 
+class GrantedSpaceInfo(_Wire):
+    """One Business the caller may enter through one live grant of theirs."""
+
+    space_id: str
+    name: str
+    grant_id: str
+    role: Literal["owner", "accountant"]
+    capabilities: list[Literal["read", "prepare", "approve"]]
+    #: Whether the one-time "you now have access" line was dismissed; always true for the own Business.
+    access_seen: bool
+
+
+class BusinessSpaces(_Wire):
+    spaces: list[GrantedSpaceInfo]
+
+
 class StartBusinessSpace(_Wire):
     """No name starts the space with the default name in ``language``."""
 

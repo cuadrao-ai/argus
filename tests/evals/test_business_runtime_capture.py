@@ -24,7 +24,7 @@ def test_every_new_owner_turn_has_an_independent_semantic_interpretation() -> No
         (case["id"], index)
         for case in cases
         for index, step in enumerate(case["steps"])
-        if step["actor"] == "owner_a" and not step.get("replay")
+        if "message" in step and not step.get("replay")
     }
     assert owner_turns == set(SCRIPTED_INTERPRETATIONS)
     assert len(owner_turns) == 12

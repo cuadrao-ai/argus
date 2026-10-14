@@ -2735,6 +2735,19 @@
       "notes": "Original notes",
       "saved_note": "Saved original note",
       "search_failed": "Notes are unavailable. Other record results are shown below."
+    },
+    "switcher": {
+      "label": "Business",
+      "change": "Switch Business",
+      "choose": "Choose a Business",
+      "own": "Your Business",
+      "client": "Client",
+      "client_cue": "Client: {{name}}",
+      "role_owner": "Owner",
+      "role_accountant": "View and prepare",
+      "access_line": "You now have access to {{name}} · View and prepare",
+      "got_it": "Got it",
+      "lost": "You no longer have access to this Business."
     }
   },
   "money": {

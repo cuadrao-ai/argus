@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from argus.api.business import (
     BusinessContext,
+    owner_only,
     require_business,
     require_business_document_write,
 )
@@ -34,7 +35,15 @@ from argus.domain.ingestion.email_intake.signatures import (
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 
 webhook_router = APIRouter(prefix="/webhooks/resend", tags=["business-email"])
-router = APIRouter(prefix="/business/email", tags=["business-email"])
+router = APIRouter(
+    prefix="/business/email",
+    tags=["business-email"],
+    responses={
+        403: {
+            "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
+        }
+    },
+)
 MAX_WEBHOOK_BYTES = 64 * 1024
 
 
@@ -171,6 +180,8 @@ def create_receiving_address(
     the caller's own live grant is the authority checked before each capture.
     A replay or a concurrent create returns the one live address."""
 
+    # The address is the owner's to create or stop; a grantee only sees it.
+    owner_only(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     space_id = context.scope.owner.space_id
@@ -224,6 +235,7 @@ def stop_receiving(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_document_write)],
 ) -> Response:
+    owner_only(request, context)
     _runtime(request).store.deactivate_routes(context.scope.owner.space_id)
     return Response(status_code=204, headers=NO_STORE)
 
@@ -332,6 +344,8 @@ def retry(
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business_document_write)],
 ) -> dict[str, Any]:
+    # Re-running a delivery runs under the owner's grant: the owner's call alone.
+    owner_only(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     if not runtime.enabled():

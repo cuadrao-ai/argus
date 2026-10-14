@@ -689,7 +689,7 @@ def _provision(
         grant = db.execute(
             "insert into public.business_client_grants"
             " (space_id,grantee_id,issuer_id,capabilities)"
-            " values (%s,%s,%s,ARRAY['read','prepare','approve']) returning id",
+            " values (%s,%s,%s,ARRAY['read','prepare']) returning id",
             (primary, accountant, owner),
         ).fetchone()[0]
         bindings["grant_a"] = str(grant)
@@ -765,7 +765,7 @@ async def capture_case(
                 consent = AIConsentStore(
                     pool, lambda: business_provider_route(runtime_model)
                 )
-                if any(step["actor"] == "owner_a" for step in case["steps"]):
+                if any("message" in step for step in case["steps"]):
                     with pool.connection() as connection:
                         link = connection.execute(
                             "insert into public.whatsapp_sender_links"
@@ -865,7 +865,7 @@ async def capture_case(
                     context = None
                     submitted_reviewed_version = None
                     receipt_token = begin_openrouter_route_receipt_capture()
-                    if step["actor"] == "owner_a":
+                    if "message" in step:
                         source_alias = step["source"]
                         if source_alias not in messages:
                             original = TextMessage(
@@ -965,15 +965,23 @@ async def capture_case(
                                 )
                             )
                     else:
+                        # A web command runs as the person the step names, through
+                        # that person's grant: the owner's own, or the accountant's.
+                        who = step["actor"]
                         actor = TrustedActor(
-                            actor_id=UUID(bindings["accountant_a"]),
+                            actor_id=UUID(bindings[who]),
                             actor_kind="member",
                             space_id=UUID(bindings["pilot_a"]),
                         )
                         before = _scope_counts(pool, bindings["pilot_a"])
                         try:
                             context = service.resolve_actor(
-                                actor, grant_id=UUID(bindings["grant_a"])
+                                actor,
+                                grant_id=UUID(
+                                    bindings[
+                                        "owner_grant_a" if who == "owner_a" else "grant_a"
+                                    ]
+                                ),
                             )
                         except ActionError as error:
                             request = Request(
@@ -1020,7 +1028,17 @@ async def capture_case(
                                 ),
                                 key,
                             )
-                            actions = _command_receipt(pool, key, outcome, bindings)
+                            if getattr(outcome, "outcome", None) == "permission_denied":
+                                # A live grant without approve: refused before any
+                                # row is written, answered as the route would.
+                                transport = {"status": 403, "code": outcome.code}
+                                actions = []
+                                if _scope_counts(pool, bindings["pilot_a"]) != before:
+                                    raise ValueError(
+                                        "Denied human command changed Business rows"
+                                    )
+                            else:
+                                actions = _command_receipt(pool, key, outcome, bindings)
                     step_receipts = [
                         receipt.as_dict()
                         for receipt in end_openrouter_route_receipt_capture(receipt_token)

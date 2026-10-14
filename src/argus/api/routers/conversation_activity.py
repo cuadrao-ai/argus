@@ -9,6 +9,7 @@ from argus.api.conversation_activity import (
     ConversationActivityConflict,
     conversation_activity_service,
 )
+from argus.api.conversation_surface import refuse_business_under_grant
 from argus.api.dependencies import current_user, problem
 from argus.api.guest_access import account_context
 from argus.api.schemas import (
@@ -80,6 +81,8 @@ def get_conversation_activity(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ConversationActivity:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     _visible_conversation(request=request, user=user, conversation_id=conversation_id)
     return conversation_activity_service.project(
         user_id=user.id,
@@ -112,6 +115,8 @@ def patch_conversation_activity(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ConversationActivity:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     _visible_conversation(request=request, user=user, conversation_id=conversation_id)
     context = account_context(request)
     if payload.action == "mark_unread" and context.kind == "guest":

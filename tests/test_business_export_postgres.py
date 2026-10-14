@@ -33,6 +33,7 @@ def unpack(content):
         return {name: archive.read(name) for name in archive.namelist()}
 
 
+@pytest.mark.owner_acts
 def test_read_only_export_uses_canonical_owner_funds_and_exact_sources(actions):
     service, context, _ = actions
     draft, version = shared.create(service, context)
