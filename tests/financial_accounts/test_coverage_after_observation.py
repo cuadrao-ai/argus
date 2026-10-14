@@ -12,6 +12,7 @@ from argus.domain.recording.loop import (
     position,
 )
 from argus.domain.recording.loop_schemas import CheckRequest, LoopOpeningRequest
+from argus.domain.recording.money_plan import identity
 from argus.domain.recording.money_schemas import MoneyRequest
 from argus.domain.recording.money_service import MoneyService
 from argus.domain.recording.records import OpeningRecord, OpeningRevision
@@ -98,6 +99,7 @@ def test_movement_dated_after_the_opening_day_is_not_asked(scene):
     assert account["after"]["amount_minor"] == 80000
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_account_without_a_recorded_balance_has_no_question(scene):
     aid = opened(scene, None)
     preview, account = effect(scene, aid, NOW - timedelta(hours=1))
@@ -208,7 +210,7 @@ def test_backdated_at_0001_onto_the_check_day_is_asked_whatever_its_clock_time()
         assert not preview["ready"] and len(account["observations"]) == 1
 
 
-def test_preview_before_midnight_and_confirm_after_keep_the_decided_day():
+def test_a_preview_before_midnight_cannot_be_confirmed_after_it():
     service, user, clock = world(local(12, 23, 59, 50))
     aid = open_at(service, user, local(12, 23, 59))
     money = MoneyService(service)
@@ -218,15 +220,47 @@ def test_preview_before_midnight_and_confirm_after_keep_the_decided_day():
         update={"preview_token": preview["preview_token"]}
     )
     clock.at = local(13, 0, 0, 10)
-    stripped = reviewed.model_copy(update={"entered_on": None})
     with pytest.raises(RecordingInputError):
         money.write(
-            user_id=user, request=stripped, idempotency_key="late", scope=PERSONAL
+            user_id=user, request=reviewed, idempotency_key="late", scope=PERSONAL
         )
-    receipt = money.write(
-        user_id=user, request=reviewed, idempotency_key="decided", scope=PERSONAL
+    assert service.get(user_id=user, account_id=aid, scope=PERSONAL).expenses == ()
+    again, account = preview_at(service, user, aid, local(12, 23, 59, 40))
+    assert not again["ready"] and len(account["observations"]) == 1
+
+
+def test_confirm_with_a_client_chosen_day_and_its_own_token_is_refused():
+    service, user, _ = world(local(13, 0, 30))
+    aid = open_at(service, user, local(12, 23))
+    current = service.get(user_id=user, account_id=aid, scope=PERSONAL)
+    forged = MoneyRequest(
+        kind="expense",
+        account_id=aid,
+        amount="200",
+        occurred_at=local(12, 23, 30),
+        entered_on=date(2026, 10, 12),
+        expected_versions={aid: current.account.version},
     )
-    assert receipt["accounts"][0].balance.amount_minor == 80000
+    forged = forged.model_copy(update={"preview_token": identity(forged, None)})
+    with pytest.raises(RecordingInputError):
+        MoneyService(service).write(
+            user_id=user, request=forged, idempotency_key="forged", scope=PERSONAL
+        )
+    assert service.get(user_id=user, account_id=aid, scope=PERSONAL).expenses == ()
+
+
+def test_the_revision_stores_the_server_entry_day_and_reason():
+    service, user, _ = world(local(12, 23, 59, 50))
+    aid = open_at(service, user, local(12, 23, 59))
+    preview, _ = preview_at(service, user, aid, local(12, 23, 59, 40))
+    MoneyService(service).write(
+        user_id=user,
+        request=MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
+            update={"preview_token": preview["preview_token"]}
+        ),
+        idempotency_key="same-day",
+        scope=PERSONAL,
+    )
     stored = service.get(user_id=user, account_id=aid, scope=PERSONAL)
     revision = stored.expenses[0].current
     assert revision.entered_on == date(2026, 10, 12)
@@ -321,3 +355,22 @@ def test_skip_reason_and_entered_day_are_stored_on_the_revision(scene):
     revision = stored.expenses[0].current
     assert revision.entered_on == NOW.astimezone(SD).date()
     assert revision.coverage_skips == ((stored.opening.id, "entered_after_observation"),)
+
+
+def test_a_client_cannot_choose_its_entry_day_at_preview():
+    service, user, _ = world(local(13, 0, 30))
+    aid = open_at(service, user, local(12, 23))
+    preview = MoneyService(service).preview(
+        user_id=user,
+        request=MoneyRequest(
+            kind="expense",
+            account_id=aid,
+            amount="200",
+            occurred_at=local(12, 23, 30),
+            entered_on=date(2026, 10, 12),
+        ),
+        scope=PERSONAL,
+    )
+    account = preview["affected_accounts"][0]
+    assert not preview["ready"] and len(account["observations"]) == 1
+    assert account["skipped_observations"] == []

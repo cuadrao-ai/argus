@@ -40,9 +40,16 @@ final class FinancialGoalDraft: ObservableObject, Identifiable {
         hasEnd = schedule?.endDate != nil; end = PlanPresentation.date(schedule?.endDate ?? goal.earliestEffectiveDate)
         effective = PlanPresentation.date(goal.earliestEffectiveDate)
     }
-    var ready: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 100 && !target.isEmpty &&
-        (!hasPlan || (destinationID != nil && sourceID != nil && destinationID != sourceID && !amount.isEmpty))
+    var ready: Bool { missing == nil }
+    /// The first thing this goal still needs; the save check and the editor's hint both read it.
+    var missing: ConnectedPlanMissing? {
+        if let problem = ConnectedPlanMissing.name(name) { return problem }
+        if target.isEmpty { return .amount }
+        guard hasPlan else { return nil }
+        if destinationID == nil { return .destination }
+        if sourceID == nil { return .source }
+        if destinationID == sourceID { return .sameAccount }
+        return amount.isEmpty ? .monthly : nil
     }
     func command(locale: Locale) throws -> FinancialGoalCommand {
         guard ready, let exact = try AccountEntry.amount(target, locale: locale) else { throw AccountEntry.Failure.amount }

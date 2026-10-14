@@ -53,7 +53,7 @@ class MoneyActivityResponse(BaseModel):
 
 class SkippedObservation(BaseModel):
     observation_id: str
-    reason: Literal["after_observation_day", "entered_after_observation"]
+    reason: Literal["after_observation_day", "entered_after_observation", "blank_opening"]
 
 
 class MoneyAccountEffect(BaseModel):

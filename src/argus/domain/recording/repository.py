@@ -382,4 +382,5 @@ def _revision(
         recorded_by=user_id,
         recorded_at=now,
         estimate_basis=write.estimate_basis,
+        blank=write.blank,
     )

@@ -9,6 +9,7 @@ changed body conflicts.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -94,6 +95,8 @@ class FinancialAccountService:
                 current=None,
                 now=self._clock(),
             )
+            if typed is None:
+                opening = replace(opening, blank=True)
         identity = canonical_hash(
             {
                 "type": account.type,

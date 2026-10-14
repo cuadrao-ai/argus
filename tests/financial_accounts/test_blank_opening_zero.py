@@ -1,3 +1,4 @@
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
@@ -5,9 +6,12 @@ from argus.domain.owner_scope import PERSONAL, BusinessSpace
 from argus.domain.planning.schemas import SelectionWrite
 from argus.domain.planning.service import PlanService
 from argus.domain.recording.loop_reads import home_response
+from argus.domain.recording.money_schemas import MoneyRequest
+from argus.domain.recording.money_service import MoneyService
 from argus.domain.recording.schemas import CreateFinancialAccountRequest
 
 from tests.financial_accounts import test_loop_commands as shared
+from tests.financial_accounts.test_loop_commands import NOW
 
 scene = shared.scene
 
@@ -115,3 +119,35 @@ def test_blank_create_retried_across_the_rule_change_replays(scene, monkeypatch)
     )
     assert first.created and not retry.created
     assert retry.stored.account.id == first.stored.account.id
+
+
+def _expense(scene, aid, occurred_at):
+    service, user, _ = scene
+    return MoneyService(service).preview(
+        user_id=user,
+        request=MoneyRequest(
+            kind="expense", account_id=aid, amount="200", occurred_at=occurred_at
+        ),
+        scope=PERSONAL,
+    )
+
+
+def test_activity_before_a_blank_opening_is_never_asked_and_counts(scene):
+    service, user, _ = scene
+    stored = create(scene, "cash")
+    assert stored.opening.current.blank
+    preview = _expense(scene, stored.account.id, NOW - timedelta(days=3))
+    account = preview["affected_accounts"][0]
+    assert preview["ready"] and account["observations"] == []
+    assert [s["reason"] for s in account["skipped_observations"]] == ["blank_opening"]
+    assert account["after"]["amount_minor"] == -20000
+    reloaded = service.get(user_id=user, account_id=stored.account.id, scope=PERSONAL)
+    assert reloaded.opening.current.blank
+
+
+def test_activity_before_a_typed_zero_is_still_asked(scene):
+    stored = create(scene, "cash", "0")
+    assert not stored.opening.current.blank
+    preview = _expense(scene, stored.account.id, NOW - timedelta(days=3))
+    assert not preview["ready"]
+    assert len(preview["affected_accounts"][0]["observations"]) == 1

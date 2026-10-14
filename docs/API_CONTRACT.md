@@ -6963,12 +6963,15 @@ entry time: when that time is after the observation, no question is asked. A
 backdated activity on that day has no real time and always asks. Answers stored under
 the earlier same-day rule stand. Each affected account lists
 `skipped_observations: [{observation_id, reason}]` where `reason` is
-`after_observation_day` or `entered_after_observation`, so a skipped question is
-never silent; the same reasons are stored on the activity revision. The preview
-decides the entry day once and returns it as `entered_on` in `reviewed_request`;
-confirm uses that day, so a preview before midnight and a confirm after it cannot
-flip "same day". A confirm without it is planned with the current day and must
-match the previewed token. Balance checks and opening corrections keep the by-day
+`after_observation_day`, `entered_after_observation` or `blank_opening` (an opening
+recorded as 0 because the balance was left blank never covers activity, so all
+activity counts on top of it), so a skipped question is
+never silent; the same reasons are stored on the activity revision. The server
+decides the entry day from its own clock at preview and again at confirm, and returns
+it as `entered_on` in `reviewed_request`; a client value is ignored. A preview made
+before midnight and confirmed after it is refused, because the reviewed request no
+longer matches the previewed token, so a midnight crossing never flips "same day"
+silently. Balance checks and opening corrections keep the by-day
 rule: they include or ask about every activity on or before their day. An included expense remains included in every later eligible
 observation. Contradictory answers are rejected. Expenses after an observation day
 cannot be included in it. Amount equality never establishes inclusion.
