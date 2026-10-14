@@ -11,6 +11,7 @@ const originalFetch = globalThis.fetch;
 const originalNodeEnv = process.env.NODE_ENV;
 const originalLocalToken =
   process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
+const originalCuadraoSiteKey = process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
 const originalTurnstileSiteKey =
   process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
 const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
@@ -27,6 +28,7 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
   delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
+  delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
 });
 
 afterEach(() => {
@@ -36,6 +38,11 @@ afterEach(() => {
     delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
   } else {
     process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN = originalLocalToken;
+  }
+  if (originalCuadraoSiteKey === undefined) {
+    delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
+  } else {
+    process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY = originalCuadraoSiteKey;
   }
   if (originalTurnstileSiteKey === undefined) {
     delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
@@ -272,11 +279,11 @@ describe("password auth CAPTCHA and confirmation contract", () => {
     expect(form).toContain("captcha_unavailable");
     expect(en.auth.signup.confirmation_title).toBe("Check your email");
     expect(en.auth.errors.captcha_unavailable).toBe(
-      "This browser didn’t pass the security check. Open Argus in a regular browser, or reload the page.",
+      "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
     );
     expect(es.auth.signup.confirmation_title).toBe("Revisa tu correo");
     expect(es.auth.errors.captcha_unavailable).toBe(
-      "Este navegador no pasó la verificación de seguridad. Abre Argus en un navegador normal, o actualiza la página.",
+      "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
     );
     expect(en.auth.errors.captcha_unavailable).not.toMatch(/try again/i);
     expect(es.auth.errors.captcha_unavailable).not.toMatch(/int[eé]ntalo de nuevo/i);

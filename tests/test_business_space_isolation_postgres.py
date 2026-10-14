@@ -294,9 +294,12 @@ def test_business_routes_reach_only_their_own_space(world: World) -> None:
                 scope=a.owner,
             )
     for quadrant, original in before.items():
-        assert world.accounts.list_accounts(
-            user_id=world.people[quadrant[0]], scope=world.scope[quadrant]
-        ) == original
+        assert (
+            world.accounts.list_accounts(
+                user_id=world.people[quadrant[0]], scope=world.scope[quadrant]
+            )
+            == original
+        )
     expenses = service.expenses(a, date(2026, 10, 1), date(2026, 10, 31))
     assert [e["id"] for e in expenses] == [world.expense[("a", "business")]]
     assert (

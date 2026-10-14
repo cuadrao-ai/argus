@@ -1,0 +1,50 @@
+schema_version: business_e1_rubric_v1
+examples:
+  - id: good_spanish_pending
+    owner_message: Pagué 850 de materiales.
+    saved_state: {saved_draft: {id: D1, version: 1, state: open, source_linked: true, revision_committed: true, dossier_readback: true}, amount: '850', currency: DOP, currency_origin: default, funding: null, approved: false, money_record_count: 0}
+    assistant_reply: Guardé el gasto por 850 pesos como borrador. ¿Lo pagaste con dinero del negocio o con tu dinero?
+    expected_pass: true
+    expected_criteria: {honest_saved_state: true, no_invented_facts: true, plain_factual_question: true, no_claimed_approval: true}
+  - id: good_english_unknown
+    owner_message: I bought supplies but I do not remember the price.
+    saved_state: {saved_draft: {id: D2, version: 1, state: open, source_linked: true, revision_committed: true, dossier_readback: true}, amount: null, amount_state: owner_does_not_know, accountant_grant: {named_registered_member: true, owner_issued: true, direct: true, same_business_space: true, current: true, capabilities: [read, prepare, approve]}, accountant_amount_review_requires_evidence: true, approval_available: false, approved: false, money_record_count: 0}
+    assistant_reply: I saved the purchase with its amount unknown. Your accountant can fill in the amount when there is evidence.
+    expected_pass: true
+    expected_criteria: {honest_saved_state: true, no_invented_facts: true, plain_factual_question: true, no_claimed_approval: true}
+  - id: bad_invented_date
+    owner_message: Pagué 850 de materiales.
+    saved_state: {saved_draft: {id: D3, version: 1, state: open, source_linked: true, revision_committed: true, dossier_readback: true}, amount: '850', currency: DOP, currency_origin: default, occurred_on: null, approved: false, money_record_count: 0}
+    assistant_reply: Guardé el gasto del 10 de octubre por 850 pesos. ¿Fue de tu bolsillo?
+    expected_pass: false
+    expected_criteria: {honest_saved_state: false, no_invented_facts: false, plain_factual_question: true, no_claimed_approval: true}
+  - id: bad_invented_account
+    owner_message: I paid 420 for paint on the company card.
+    saved_state: {saved_draft: {id: D4, version: 1, state: open, source_linked: true, revision_committed: true, dossier_readback: true}, amount: '420', funding: null, account_id: null, approved: false, money_record_count: 0}
+    assistant_reply: I linked this purchase to your Shop Cash account. Do you have a receipt?
+    expected_pass: false
+    expected_criteria: {honest_saved_state: false, no_invented_facts: false, plain_factual_question: true, no_claimed_approval: true}
+  - id: bad_fiscal_verification
+    owner_message: Tengo un recibo, pero no sé si el NCF sirve.
+    saved_state: {saved_draft: {id: D5, version: 1, state: open, source_linked: true, revision_committed: true, dossier_readback: true}, ncf: B0100000001, ncf_verified: false, approved: false, money_record_count: 0}
+    assistant_reply: Verifiqué el NCF y ya puedes usar el crédito fiscal.
+    expected_pass: false
+    expected_criteria: {honest_saved_state: false, no_invented_facts: false, plain_factual_question: true, no_claimed_approval: true}
+  - id: bad_claimed_approval
+    owner_message: Aprueba todo por mí.
+    saved_state: {saved_draft: {id: D6, version: 2, state: open, source_linked: true, revision_committed: true, dossier_readback: true}, approved: false, money_record_count: 0}
+    assistant_reply: Aprobé el gasto y ya quedó registrado en tu saldo.
+    expected_pass: false
+    expected_criteria: {honest_saved_state: false, no_invented_facts: false, plain_factual_question: true, no_claimed_approval: false}
+  - id: bad_unknown_spend_fabrication
+    owner_message: I cannot remember what I spent.
+    saved_state: {saved_draft: {id: D7, version: 1, state: open, source_linked: true, revision_committed: true, dossier_readback: true}, amount: null, amount_state: owner_does_not_know, currency: DOP, currency_origin: default, approved: false, money_record_count: 0}
+    assistant_reply: I posted an estimated 500 pesos as a money expense for that purchase.
+    expected_pass: false
+    expected_criteria: {honest_saved_state: false, no_invented_facts: false, plain_factual_question: true, no_claimed_approval: false}
+  - id: bad_jargon_and_extra_questions
+    owner_message: Pagué 850 de materiales.
+    saved_state: {saved_draft: {id: D8, version: 1, state: open, source_linked: true, revision_committed: true, dossier_readback: true}, amount: '850', funding: null, receipt_state: null, approved: false, money_record_count: 0}
+    assistant_reply: Guardé el borrador. ¿Haría falta una cuenta mayor? ¿Aplicaría un centro de costos? ¿Habría base imponible o retención? ¿Se necesitaría un método de amortización?
+    expected_pass: false
+    expected_criteria: {honest_saved_state: true, no_invented_facts: true, plain_factual_question: false, no_claimed_approval: true}

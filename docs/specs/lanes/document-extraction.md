@@ -14,7 +14,29 @@ confirmation changes financial records.
 Native design, demos, full Chat actions, payroll, new verticals and a complete
 bill-splitting engine are outside this lane. No additional paid model calls,
 merge, deployment, hosted configuration, privacy relaxation or feature enablement.
-`ARGUS_VISION_MODEL` remains `openai/gpt-6-luna`.
+The tracked integration recommendation is `ARGUS_VISION_MODEL=google/gemini-3.8-flash`.
+This prepares configuration only; live environment files, running processes and hosted
+settings remain unchanged.
+
+## Shared extractor configuration checkpoint — October 11
+
+Consumer document preparation and Business receipts use the same `DocumentsService`
+and `DocumentExtractor`, which resolves the existing single `ARGUS_VISION_MODEL`
+setting. Measured source `d06b9c794bad02770b8b3f44e615f38042065be7` passed the
+[document-scoped measurement](../../reports/evidence/cuadrao-receipt-extraction-20261011/live-measurement.json):
+one synthetic DOP receipt produced the exact total/items and one purchase candidate
+with absent fiscal values unknown; one unreadable image produced no invented values
+or candidates. The two cases contain 18 checks. Measurement commit
+`bebe7fd460fc057a47a575290ec8518da89fca1f` preserves the legacy interpreter
+evidence and both models' historical outcomes, including the earlier Luna failures.
+
+Keep `ARGUS_DOCUMENT_EXTRACTION_ENABLED=false` until separately authorized. Missing
+vision configuration remains unavailable; no runtime default or vision fallback is
+introduced. Existing registered credentials, extraction consent and source permissions
+remain required. Native schema, local typed validation, privacy restrictions and the
+one-attempt bound remain unchanged. This checkpoint does not establish Consumer
+live UI acceptance, Business canonical attachment-bridge completion or unpaid-invoice
+payment accuracy; an amount due alone is not payment evidence.
 
 ## Contract and design decision
 

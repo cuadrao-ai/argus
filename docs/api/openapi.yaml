@@ -567,6 +567,189 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/access:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessAccess'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'A read+prepare grant for a confirmed account, else a pending invite.
+
+
+        The reply is the access list either way, so nothing about an unknown
+
+        email is revealed beyond what the list shows. A replay answers 200.'
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GiveBusinessAccess'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessAccess'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/access/grants/{grant_id}:
+    delete:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: grant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '204':
+          description: Successful Response
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/access/invites/{invite_id}:
+    delete:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: invite_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '204':
+          description: Successful Response
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/accounts:
     post:
       tags:
@@ -580,6 +763,17 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       requestBody:
         required: true
         content:
@@ -593,6 +787,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessAccount'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -629,6 +827,17 @@ paths:
           maximum: 50
           minimum: 1
           default: 20
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -636,6 +845,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ManualCapturePage'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -662,6 +875,17 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       requestBody:
         required: true
         content:
@@ -675,6 +899,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessDossier'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -708,12 +936,30 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ApproveExpense'
+              oneOf:
+              - $ref: '#/components/schemas/ApproveExpense'
+              - $ref: '#/components/schemas/ApproveIncome'
+              discriminator:
+                propertyName: action
+                mapping:
+                  record_expense: '#/components/schemas/ApproveExpense'
+                  record_income: '#/components/schemas/ApproveIncome'
       responses:
         '200':
           description: Successful Response
@@ -721,6 +967,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessDossier'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -747,6 +997,17 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -754,12 +1015,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessDossier'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/remainder/settle:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'A person with approval permission settles the read purchases a recorded
+
+        draft does not cover. The dossier then reports 0 unrecorded purchases.'
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettleRemainder'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDossier'
+        '403':
+          description: '`business_permission_denied` without approve permission; `business_human_command_required`
+            for a non-person actor.'
+        '409':
+          description: '`stale_version` or `idempotency_conflict`.'
+        '422':
+          description: '`business_draft_not_recorded` before approval; `business_remainder_none`
+            when nothing is left.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -787,6 +1114,17 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       requestBody:
         required: true
         content:
@@ -800,6 +1138,278 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessDossier'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/email:
+    get:
+      tags:
+      - financial-accounts
+      - business-email
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - business-email
+      description: 'One address per Business. The Business owner owns the captured documents;
+
+        the caller''s own live grant is the authority checked before each capture.
+
+        A replay or a concurrent create returns the one live address.'
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - financial-accounts
+      - business-email
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '204':
+          description: Successful Response
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/email/deliveries:
+    get:
+      tags:
+      - financial-accounts
+      - business-email
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/email/deliveries/{delivery_id}:
+    get:
+      tags:
+      - financial-accounts
+      - business-email
+      parameters:
+      - name: delivery_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/email/deliveries/{delivery_id}/retry:
+    post:
+      tags:
+      - financial-accounts
+      - business-email
+      parameters:
+      - name: delivery_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -828,10 +1438,23 @@ paths:
           format: date
       - name: to
         in: query
-        required: true
+        required: false
         schema:
-          type: string
-          format: date
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -839,6 +1462,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExpensePage'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -865,6 +1492,17 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       requestBody:
         required: true
         content:
@@ -878,6 +1516,122 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessExpense'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/expenses/{expense_id}:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: expense_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseDetail'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/exports:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: start
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: end
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: draft_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: The live grant does not permit reading this Business.
+        '404':
+          description: The Business or canonical draft anchor is unavailable.
+        '413':
+          description: A bounded export collection, cell or archive limit was exceeded.
         '422':
           description: Validation Error
           content:
@@ -906,10 +1660,23 @@ paths:
           format: date
       - name: to
         in: query
-        required: true
+        required: false
         schema:
-          type: string
-          format: date
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -917,6 +1684,159 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessOverview'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/receipt-activity:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptActivityCounts'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/receipt-reading:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: language
+        in: query
+        required: false
+        schema:
+          enum:
+          - en
+          - es-419
+          type: string
+          default: en
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiptReadingBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -946,6 +1866,17 @@ paths:
           - all
           type: string
           default: inbox
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -953,6 +1884,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReceiptPage'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -994,6 +1929,17 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -1001,6 +1947,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReceiptSummary'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -1030,6 +1980,30 @@ paths:
             schema:
               type: string
               format: binary
+          text/plain:
+            schema:
+              type: string
+              format: binary
+          text/csv:
+            schema:
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema:
+              type: string
+              format: binary
+          application/xml:
+            schema:
+              type: string
+              format: binary
+          text/xml:
+            schema:
+              type: string
+              format: binary
+          message/rfc822:
+            schema:
+              type: string
+              format: binary
   /api/v1/business/receipts/{receipt_id}:
     get:
       tags:
@@ -1041,6 +2015,17 @@ paths:
         required: true
         schema:
           type: string
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -1048,6 +2033,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReceiptDetail'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -1080,6 +2069,17 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       requestBody:
         required: true
         content:
@@ -1093,6 +2093,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReceiptDetail'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -1125,6 +2129,17 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -1132,12 +2147,122 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReceiptSummary'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/receipts/{receipt_id}/read:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiptReadBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptActivity'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/receipts/{receipt_id}/rebind:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'Owner action: bind a receipt whose preparation grant is no longer live
+
+        to the owner''s current grant, with a ledger row. 409 while the old grant
+
+        still works.'
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptDetail'
+        '403':
+          description: '`business_owner_required`: only the owner, as a person, may move a
+            binding; `business_permission_denied` without prepare permission.'
+        '404':
+          description: '`business_record_not_found`: no such receipt in this Business.'
+        '409':
+          description: '`business_action_required`: the hosted bridge is not wired for this
+            request.'
+        '422':
+          description: '`business_preparation_binding_live`: the old grant still works; `business_preparation_binding_missing`:
+            nothing is bound yet.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -1158,6 +2283,17 @@ paths:
         required: true
         schema:
           type: string
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       requestBody:
         required: true
         content:
@@ -1171,6 +2307,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReceiptDetail'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -1196,12 +2336,27 @@ paths:
         required: true
         schema:
           type: string
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema: {}
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -1237,6 +2392,17 @@ paths:
           maximum: 20
           minimum: 1
           default: 5
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -1244,6 +2410,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessSearch'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -1263,6 +2433,18 @@ paths:
       tags:
       - financial-accounts
       - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -1270,6 +2452,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessSpaceInfo'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -1282,13 +2474,30 @@ paths:
       tags:
       - financial-accounts
       - business
-      description: 'Idempotent: an existing space is returned unchanged, with 200.'
+      description: 'Idempotent: an existing space is returned unchanged, with 200.
+
+
+        A new space is born with the owner''s grant. An old space without one gets
+
+        it here, once.'
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/StartBusinessSpace'
-        required: true
       responses:
         '201':
           description: Successful Response
@@ -1296,6 +2505,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessSpaceInfo'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -1314,12 +2527,24 @@ paths:
       tags:
       - financial-accounts
       - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RenameBusinessSpace'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -1327,6 +2552,103 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessSpaceInfo'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/spaces:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      description: 'Every Business the caller may enter through a live grant of theirs,
+
+        their own first. Names come from the spaces; the one-time access line is
+
+        marked seen per grant, server side.'
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessSpaces'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/spaces/{grant_id}/seen:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'The caller dismissed the "you now have access" line for one of their
+
+        grants: one ledger row, once; a grant that is not theirs changes nothing.'
+      parameters:
+      - name: grant_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '204':
+          description: Successful Response
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -1346,6 +2668,18 @@ paths:
       tags:
       - financial-accounts
       - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -1353,6 +2687,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UpdatePage'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -1366,6 +2710,18 @@ paths:
       tags:
       - financial-accounts
       - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
       responses:
         '200':
           description: Successful Response
@@ -1373,6 +2729,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessWorkspace'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -4306,6 +5672,30 @@ paths:
               type: string
               format: binary
           image/png:
+            schema:
+              type: string
+              format: binary
+          text/plain:
+            schema:
+              type: string
+              format: binary
+          text/csv:
+            schema:
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema:
+              type: string
+              format: binary
+          application/xml:
+            schema:
+              type: string
+              format: binary
+          text/xml:
+            schema:
+              type: string
+              format: binary
+          message/rfc822:
             schema:
               type: string
               format: binary
@@ -9215,6 +10605,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/webhooks/resend:
+    post:
+      tags:
+      - financial-accounts
+      - business-email
+      description: 'Signature checked over the raw bytes before parsing. 202 means the event
+
+        is a durable row; the worker fetches the message later.'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/webhooks/whatsapp:
     get:
       tags:
@@ -9285,6 +10697,95 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WebhookAck'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/whatsapp/ai-consent:
+    get:
+      tags:
+      - financial-accounts
+      - whatsapp
+      parameters:
+      - name: language
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 16
+          - type: 'null'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIConsentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - whatsapp
+      parameters:
+      - name: idempotency-key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 80
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnableAIConsent'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIConsentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - financial-accounts
+      - whatsapp
+      responses:
+        '204':
+          description: Successful Response
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -9366,6 +10867,66 @@ paths:
                 $ref: '#/components/schemas/Error'
 components:
   schemas:
+    AIConsentResponse:
+      properties:
+        linked:
+          type: boolean
+        available:
+          type: boolean
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+        last4:
+          anyOf:
+          - type: string
+          - type: 'null'
+        scope_version:
+          type: integer
+        purpose:
+          type: string
+        active_scope_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        disclosure:
+          type: string
+        route:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+        disclosure_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+        enabled:
+          type: boolean
+        consented_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        revoked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - linked
+      - available
+      - reason
+      - last4
+      - scope_version
+      - purpose
+      - disclosure
+      - route
+      - disclosure_token
+      - enabled
+      - consented_at
+      - revoked_at
     AcceptBatchBody:
       properties:
         items:
@@ -9963,6 +11524,19 @@ components:
       required:
       - version
       - action
+    ApproveIncome:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        action:
+          type: string
+          const: record_income
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - action
     AssetChangeResponse:
       properties:
         version:
@@ -10230,6 +11804,7 @@ components:
           enum:
           - web
           - whatsapp
+          - email
         received_at:
           type: string
           format: date-time
@@ -10242,6 +11817,11 @@ components:
           - type: 'null'
         media_type:
           type: string
+        email_delivery_ids:
+          items:
+            type: string
+          type: array
+          default: []
       additionalProperties: false
       type: object
       required:
@@ -11176,6 +12756,72 @@ components:
       required:
       - success
       - deleted_count
+    BusinessAccess:
+      properties:
+        grants:
+          items:
+            $ref: '#/components/schemas/BusinessAccessGrant'
+          type: array
+        invites:
+          items:
+            $ref: '#/components/schemas/BusinessAccessInvite'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - grants
+      - invites
+    BusinessAccessGrant:
+      properties:
+        id:
+          type: string
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+        display_name:
+          type: string
+        capabilities:
+          items:
+            type: string
+            enum:
+            - read
+            - prepare
+            - approve
+          type: array
+        created_at:
+          type: string
+          format: date-time
+        owner:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - email
+      - display_name
+      - capabilities
+      - created_at
+      - owner
+    BusinessAccessInvite:
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - email
+      - created_at
+      - expires_at
     BusinessAccount:
       properties:
         id:
@@ -11283,6 +12929,27 @@ components:
                 outcome_unknown: '#/components/schemas/UnsettledApproval'
                 recorded: '#/components/schemas/RecordedApproval'
           - type: 'null'
+        read_purchases:
+          items:
+            $ref: '#/components/schemas/ReadPurchase'
+          type: array
+          default: []
+        read_total:
+          anyOf:
+          - type: string
+          - type: 'null'
+        unrecorded_purchases:
+          type: integer
+          minimum: 0.0
+          default: 0
+        ecf_checks:
+          anyOf:
+          - $ref: '#/components/schemas/EcfVerification'
+          - type: 'null'
+        dgii_qr:
+          anyOf:
+          - $ref: '#/components/schemas/DgiiQr'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -11328,6 +12995,10 @@ components:
           type: string
           format: date
         receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        draft_id:
           anyOf:
           - type: string
           - type: 'null'
@@ -11435,6 +13106,9 @@ components:
         to:
           type: string
           format: date
+        today:
+          type: string
+          format: date
         totals:
           items:
             $ref: '#/components/schemas/CurrencyTotal'
@@ -11453,11 +13127,20 @@ components:
           - type: string
             format: date-time
           - type: 'null'
+        outside_period_count:
+          type: integer
+          default: 0
+        outside_period_latest_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
       - from
       - to
+      - today
       - totals
       - awaiting_review
       - needs_attention
@@ -11495,6 +13178,16 @@ components:
       required:
       - id
       - name
+    BusinessSpaces:
+      properties:
+        spaces:
+          items:
+            $ref: '#/components/schemas/GrantedSpaceInfo'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - spaces
     BusinessUpdate:
       properties:
         id:
@@ -11532,6 +13225,7 @@ components:
             - several_purchases
             - source_unavailable
             - check_details
+            - duplicate
             - other
           - type: 'null'
         label:
@@ -13578,6 +15272,59 @@ components:
       - connection
       - device_token
       - intake_url
+    DgiiQr:
+      properties:
+        url:
+          type: string
+          maxLength: 2048
+        host:
+          type: string
+          maxLength: 64
+        rnc_emisor:
+          type: string
+          maxLength: 64
+        encf:
+          type: string
+          maxLength: 64
+        monto_total:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+        codigo_seguridad:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+        fecha_emision:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        fecha_firma:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+        rnc_comprador:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - url
+      - host
+      - rnc_emisor
+      - encf
+      description: 'The DGII consultation link a receipt''s QR carries, as typed facts. Only
+
+        DGII''s own hosts are kept; the link is for a person to open, never fetched
+
+        by Cuadrao. The link is checked again every time the model is validated,
+
+        so a persisted value read back is held to the same rule.'
     DisconnectResponse:
       properties:
         connection:
@@ -13749,6 +15496,70 @@ components:
       - after
       - source_ids
       - created_at
+    EcfCheck:
+      properties:
+        name:
+          type: string
+          enum:
+          - signature_integrity
+          - totals_arithmetic
+          - read_matches_xml
+          - certificate_validity
+          - certificate_issuer
+          - dgii_accepted
+          - security_code
+          - subject_rnc
+          - qr_present
+          - qr_matches_read
+        state:
+          type: string
+          enum:
+          - verified
+          - failed
+          - not_checked
+        code:
+          anyOf:
+          - type: string
+            maxLength: 80
+          - type: 'null'
+        detail:
+          additionalProperties:
+            type: string
+          type: object
+        read_vs_qr:
+          additionalProperties:
+            $ref: '#/components/schemas/ReadVsQr'
+          type: object
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - state
+    EcfVerification:
+      properties:
+        encf:
+          anyOf:
+          - type: string
+            maxLength: 40
+          - type: 'null'
+        tipo_ecf:
+          anyOf:
+          - type: string
+            maxLength: 8
+          - type: 'null'
+        checked_at:
+          type: string
+          format: date-time
+        checks:
+          items:
+            $ref: '#/components/schemas/EcfCheck'
+          type: array
+          maxItems: 16
+      additionalProperties: false
+      type: object
+      required:
+      - checked_at
+      - checks
     EditFinancialAccountRequest:
       properties:
         expected_version:
@@ -13821,6 +15632,24 @@ components:
       - membership_id
       - expected_authorization_version
       - expected_plan_version
+    EnableAIConsent:
+      properties:
+        action:
+          type: string
+          const: enable
+        disclosure_token:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        language:
+          anyOf:
+          - type: string
+            maxLength: 16
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      - disclosure_token
     Error:
       type: object
       description: RFC 9457 Problem Details with code and request_id.
@@ -14108,6 +15937,62 @@ components:
       required:
       - expectation
       - replayed
+    ExpenseDetail:
+      properties:
+        id:
+          type: string
+        merchant:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount:
+          type: string
+        currency:
+          type: string
+        category_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        account_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
+          - type: 'null'
+        occurred_on:
+          type: string
+          format: date
+        receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        draft_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        recorded_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - merchant
+      - amount
+      - currency
+      - category_id
+      - account_id
+      - occurred_on
+      - receipt_id
     ExpenseInput:
       properties:
         account_id:
@@ -14635,6 +16520,16 @@ components:
       - replayed
       - activity
       - accounts
+    GiveBusinessAccess:
+      properties:
+        email:
+          type: string
+          maxLength: 254
+          minLength: 3
+      additionalProperties: false
+      type: object
+      required:
+      - email
     GoalAllocation:
       properties:
         account_id:
@@ -15057,6 +16952,39 @@ components:
       required:
       - goal
       - replayed
+    GrantedSpaceInfo:
+      properties:
+        space_id:
+          type: string
+        name:
+          type: string
+        grant_id:
+          type: string
+        role:
+          type: string
+          enum:
+          - owner
+          - accountant
+        capabilities:
+          items:
+            type: string
+            enum:
+            - read
+            - prepare
+            - approve
+          type: array
+        access_seen:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - space_id
+      - name
+      - grant_id
+      - role
+      - capabilities
+      - access_seen
+      description: One Business the caller may enter through one live grant of theirs.
     GroupLinkListResponse:
       properties:
         links:
@@ -16343,6 +18271,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -16381,6 +18310,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -16412,6 +18342,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -16444,6 +18375,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -16485,6 +18417,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -16519,6 +18452,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -16550,6 +18484,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -16580,6 +18515,7 @@ components:
           type: string
           enum:
           - extracted
+          - qr_decoded
           - owner_stated
           - member_set
           - matched
@@ -16801,6 +18737,9 @@ components:
         version:
           type: integer
           minimum: 1.0
+        revision:
+          type: integer
+          minimum: 1.0
         source_id:
           type: string
           format: uuid
@@ -16823,6 +18762,7 @@ components:
       required:
       - draft_id
       - version
+      - revision
       - source_id
       - text
       - received_at
@@ -19877,6 +21817,94 @@ components:
       - id
       - user_id
       - extra
+    ReadPurchase:
+      properties:
+        index:
+          type: integer
+          minimum: 1.0
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+        occurred_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        merchant:
+          anyOf:
+          - type: string
+          - type: 'null'
+        kind_hint:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - index
+      description: 'One purchase a document read showed, kept as evidence on the draft when
+
+        the read found more than one, or none it could settle.'
+    ReadVsQr:
+      properties:
+        read:
+          type: string
+          maxLength: 64
+        qr:
+          type: string
+          maxLength: 64
+      additionalProperties: false
+      type: object
+      required:
+      - read
+      - qr
+      description: One field as the read found it and as the QR states it.
+    ReceiptActivity:
+      properties:
+        state:
+          type: string
+          enum:
+          - saved_unread
+          - reading
+          - ready
+          - read_failed
+          - blocked
+          - inactive
+        unread:
+          type: boolean
+        completion_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - state
+      - unread
+      - completion_cursor
+    ReceiptActivityCounts:
+      properties:
+        reading_count:
+          type: integer
+        unread_count:
+          type: integer
+        presentation:
+          type: string
+          enum:
+          - working
+          - unread
+          - none
+      additionalProperties: false
+      type: object
+      required:
+      - reading_count
+      - unread_count
+      - presentation
     ReceiptCardFacts:
       properties:
         execution_costs:
@@ -19961,12 +21989,21 @@ components:
       properties:
         id:
           type: string
+        activity:
+          anyOf:
+          - $ref: '#/components/schemas/ReceiptActivity'
+          - type: 'null'
         channel:
           type: string
           enum:
           - web
           - whatsapp
+          - email
         filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        source_text:
           anyOf:
           - type: string
           - type: 'null'
@@ -20006,12 +22043,30 @@ components:
             - several_purchases
             - source_unavailable
             - check_details
+            - duplicate
             - other
           - type: 'null'
+        duplicate_of:
+          anyOf:
+          - type: string
+          - type: 'null'
+        replayed:
+          type: boolean
+          default: false
+        read_pending:
+          type: boolean
+          default: false
         preparable:
           type: boolean
         enterable:
           type: boolean
+        email_delivery_ids:
+          items:
+            type: string
+          type: array
+        email_original:
+          type: boolean
+          default: false
         expense_id:
           anyOf:
           - type: string
@@ -20252,6 +22307,10 @@ components:
           items:
             $ref: '#/components/schemas/ReceiptSummary'
           type: array
+        activity:
+          anyOf:
+          - $ref: '#/components/schemas/ReceiptActivityCounts'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -20304,6 +22363,42 @@ components:
           - type: 'null'
       additionalProperties: false
       type: object
+    ReceiptReadBody:
+      properties:
+        completion_cursor:
+          type: string
+          maxLength: 64
+          minLength: 64
+          pattern: ^[a-f0-9]{64}$
+      additionalProperties: false
+      type: object
+      required:
+      - completion_cursor
+    ReceiptReadingBody:
+      properties:
+        enabled:
+          type: boolean
+        scope_version:
+          type: integer
+          maximum: 1.0
+          minimum: 1.0
+        disclosure_token:
+          anyOf:
+          - type: string
+            maxLength: 64
+            minLength: 64
+          - type: 'null'
+        language:
+          type: string
+          enum:
+          - en
+          - es-419
+          default: en
+      additionalProperties: false
+      type: object
+      required:
+      - enabled
+      - scope_version
     ReceiptReviewBody:
       properties:
         version:
@@ -20490,12 +22585,21 @@ components:
       properties:
         id:
           type: string
+        activity:
+          anyOf:
+          - $ref: '#/components/schemas/ReceiptActivity'
+          - type: 'null'
         channel:
           type: string
           enum:
           - web
           - whatsapp
+          - email
         filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        source_text:
           anyOf:
           - type: string
           - type: 'null'
@@ -20535,12 +22639,30 @@ components:
             - several_purchases
             - source_unavailable
             - check_details
+            - duplicate
             - other
           - type: 'null'
+        duplicate_of:
+          anyOf:
+          - type: string
+          - type: 'null'
+        replayed:
+          type: boolean
+          default: false
+        read_pending:
+          type: boolean
+          default: false
         preparable:
           type: boolean
         enterable:
           type: boolean
+        email_delivery_ids:
+          items:
+            type: string
+          type: array
+        email_original:
+          type: boolean
+          default: false
         expense_id:
           anyOf:
           - type: string
@@ -21641,6 +23763,16 @@ components:
       required:
       - quota
       - invitations
+    SettleRemainder:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      description: A person settles the read purchases a recorded draft does not cover.
     SharePlan:
       properties:
         membership_id:

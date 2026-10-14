@@ -1,3 +1,4 @@
+import { WEB_APP_NAME } from "@/lib/app-brand";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import ReceiptFollowup from "@/components/receipt/ReceiptFollowup";
@@ -56,7 +57,7 @@ export async function generateMetadata({
   params,
 }: ReceiptPageProps): Promise<Metadata> {
   if (!evidenceReceiptSharingEnabled) {
-    return { title: "Argus", robots: RECEIPT_ROBOTS };
+    return { title: WEB_APP_NAME, robots: RECEIPT_ROBOTS };
   }
   const { receiptId } = await params;
   const language = await resolveLanguage();
@@ -66,7 +67,7 @@ export async function generateMetadata({
   // no claim at all rather than a permanent-sounding one. Titling an outage "this
   // one is gone" would pin that on a live receipt.
   if (result.kind === "unavailable") {
-    return { title: "Argus", robots: RECEIPT_ROBOTS };
+    return { title: WEB_APP_NAME, robots: RECEIPT_ROBOTS };
   }
   if (result.kind === "revoked") {
     return {
@@ -87,7 +88,7 @@ export async function generateMetadata({
       type: "article",
       title: facts.title,
       description,
-      siteName: "Argus",
+      siteName: WEB_APP_NAME,
     },
     twitter: {
       card: "summary_large_image",

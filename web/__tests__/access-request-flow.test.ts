@@ -65,9 +65,9 @@ describe("public alpha access request client", () => {
     );
 
     expect(en.auth.access_request).toEqual({
-      title: "Request access to Argus",
+      title: "Request access to Cuadrao",
       description:
-        "Argus is in early access. Share your email to request access. If approved, we’ll email you when you can create an account.",
+        "Cuadrao is in early access. Share your email to request access. If approved, we’ll email you when you can create an account.",
       email_label: "Email address",
       submit: "Request access",
       submitting: "Requesting access...",
@@ -82,9 +82,9 @@ describe("public alpha access request client", () => {
         "We couldn’t send your request. Please try again.",
     });
     expect(es.auth.access_request).toEqual({
-      title: "Solicita acceso a Argus",
+      title: "Solicita acceso a Cuadrao",
       description:
-        "Argus está en acceso anticipado. Comparte tu correo para solicitar acceso. Si se aprueba, te enviaremos un correo cuando puedas crear una cuenta.",
+        "Cuadrao está en acceso anticipado. Comparte tu correo para solicitar acceso. Si se aprueba, te enviaremos un correo cuando puedas crear una cuenta.",
       email_label: "Correo electrónico",
       submit: "Solicitar acceso",
       submitting: "Solicitando acceso...",

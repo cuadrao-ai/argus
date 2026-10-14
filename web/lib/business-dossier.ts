@@ -1,8 +1,8 @@
 import type { BusinessAccount } from "./business-api";
 
 export type BusinessFact<T> =
-  | { state: "known"; value: T; origin: "extracted" | "owner_stated" | "member_set" | "matched" | "default"; verified: boolean; source_ids: string[] }
-  | { state: "unknown"; value: null; origin: "extracted" | "owner_stated" | "member_set" | "matched" | null; verified: false; source_ids: string[] }
+  | { state: "known"; value: T; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | "default"; verified: boolean; source_ids: string[] }
+  | { state: "unknown"; value: null; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | null; verified: false; source_ids: string[] }
   | { state: "owner_does_not_know"; value: null; origin: "owner_stated" | "member_set"; verified: false; source_ids: string[] };
 
 export type BusinessFunding = { kind: "business_account"; account_id: string } | { kind: "owner_funds" };
@@ -22,7 +22,7 @@ export type BusinessFacts = {
 export type BusinessSourceEvidence =
   | { id: string; kind: "message" | "agent_proposal"; channel: "web" | "whatsapp"; received_at: string; text: string }
   | { id: string; kind: "web_action"; channel: "web"; received_at: string; text: string }
-  | { id: string; kind: "attachment"; channel: "web" | "whatsapp"; received_at: string; connection_id: string; filename: string | null; media_type: string };
+  | { id: string; kind: "attachment"; channel: "web" | "whatsapp" | "email"; received_at: string; connection_id: string; filename: string | null; media_type: string; email_delivery_ids?: string[] };
 
 export type BusinessFiscalField = keyof NonNullable<BusinessFacts["fiscal"]>;
 export const BUSINESS_FISCAL_FIELDS: BusinessFiscalField[] = ["rnc", "ncf", "ecf", "itbis"];
@@ -63,7 +63,33 @@ export type BusinessRecordContext = {
   capabilities: ("read" | "prepare" | "approve")[];
 };
 
+/** One purchase a document read showed, kept as evidence when the read could not settle on one. */
+export type BusinessReadPurchase = { index: number; amount: string | null; currency: string | null; occurred_on: string | null; merchant: string | null; kind_hint: string | null };
+
+/** The revision number a person sees: the latest revision of the facts, the same number the history lists. The event's own version also counts approvals and settlements. */
+export function factsRevision(dossier: Pick<BusinessDossier, "version" | "history">): number {
+  return dossier.history.length ? Math.max(...dossier.history.map((revision) => revision.version)) : dossier.version;
+}
+
+export type EcfCheckName = "signature_integrity" | "totals_arithmetic" | "read_matches_xml" | "certificate_validity" | "certificate_issuer" | "subject_rnc" | "dgii_accepted" | "security_code" | "qr_present" | "qr_matches_read";
+/** The DGII consultation link a receipt's QR carried; a person opens it, Cuadrao never fetches it. */
+export type DgiiQr = { url: string; host: string; rnc_emisor: string; encf: string; monto_total: string | null; codigo_seguridad: string | null; fecha_emision: string | null; fecha_firma: string | null; rnc_comprador: string | null };
+export type EcfCheckState = "verified" | "failed" | "not_checked";
+/** One fact the e-CF file proved, or the reason it was not checked; never a blocker. */
+/** One compared field as the read found it and as the QR states it; only the qr_matches_read row carries them. */
+export type ReadVsQr = { read: string; qr: string };
+export type EcfCheck = { name: EcfCheckName; state: EcfCheckState; code: string | null; detail: Record<string, string>; read_vs_qr?: Record<string, ReadVsQr> };
+export type EcfVerification = { encf: string | null; tipo_ecf: string | null; checked_at: string; checks: EcfCheck[] };
+
 export type BusinessDossier = BusinessRecordContext & {
+  /** What the e-CF XML proved by itself; null for any other source. */
+  ecf_checks?: EcfVerification | null;
+  /** The DGII QR the receipt carried; null when there was none. */
+  dgii_qr?: DgiiQr | null;
+  read_purchases?: BusinessReadPurchase[];
+  /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
+  read_total?: string | null;
+  unrecorded_purchases?: number;
   draft_id: string;
   version: number;
   review_state: "open" | "accepting" | "accepted" | "dismissed";

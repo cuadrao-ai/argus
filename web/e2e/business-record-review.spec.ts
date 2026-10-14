@@ -277,6 +277,31 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Predeterminada · sin verificar");
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Fecha de actividad");
   });
+
+  test("Confirmar on a suggestion saves that one value as the reviewer's at a new revision; the chip says so", async ({ page }) => {
+    await openRecord(page, dossierFixtureIds.fiscal);
+    const facts = page.getByTestId("receipt-current-facts");
+    const merchant = facts.locator('[data-fact="counterparty"]');
+    await expect(merchant).toHaveAttribute("data-standing", "suggestion");
+    await expect(merchant).toContainText("Read from the source · suggestion, not verified");
+    await expect(page.getByTestId("receipt-review-counts")).toHaveText("1 suggestion to confirm");
+    await expect(page.getByText("Revision 2", { exact: true })).toBeVisible();
+
+    await page.getByTestId("confirm-counterparty").click();
+
+    await expect(page.getByText("Revision 3", { exact: true })).toBeVisible();
+    await expect(merchant).toHaveAttribute("data-standing", "person");
+    await expect(merchant).toContainText("Ferretería La Esquina");
+    await expect(merchant).toContainText("Set by reviewer · not verified");
+    await expect(page.getByTestId("confirm-counterparty")).toHaveCount(0);
+    await expect(page.getByTestId("receipt-review-counts")).toHaveCount(0);
+    // The request that was sent: the one key, the value as read, against the revision that was open.
+    const actions = page.getByRole("region", { name: "Web review actions" });
+    await actions.locator("summary").click();
+    await expect(actions.locator("pre")).toHaveText(JSON.stringify({ version: 2, facts: { counterparty: { state: "known", value: "Ferretería La Esquina" } } }));
+    await page.getByTestId("receipt-history").locator("summary").click();
+    await expect(page.getByTestId("receipt-history").locator("li").first()).toContainText("Ana Peña · Revision 3");
+  });
 });
 
 for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
@@ -292,3 +317,55 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
     await capture(page, `${scenario}-spanish`);
   });
 }
+
+test("landing on a record, then opening inbox, expenses and overview, each loads from the Business-scoped source", async ({ page }) => {
+  // The workspace derives its data source from the latch and the panel kind: the
+  // first fetch after leaving the record is already scoped, so every panel loads.
+  await openRecord(page, dossierFixtureIds.ready);
+  const nav = page.getByTestId("business-sidebar-nav");
+  const panel = page.getByTestId("workspace-panel-region");
+  await nav.getByRole("button", { name: /^Inbox/ }).click();
+  await expect(panel.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: /Ferretería La Esquina.*Ready to review/ })).toBeVisible();
+  await expect(panel).not.toContainText("couldn't load");
+  await nav.getByRole("button", { name: /^Expenses/ }).click();
+  await expect(panel.getByRole("heading", { name: "Expenses", exact: true })).toBeVisible();
+  await expect(panel.getByRole("listitem").filter({ hasText: "Nube Hosting" })).toBeVisible();
+  await expect(panel).not.toContainText("couldn't load");
+  await nav.getByRole("button", { name: /^Overview|^Home/ }).click();
+  // The home is scoped to the Business from the first fetch: its cards carry real counts.
+  const inboxCard = panel.getByRole("button", { name: /In your inbox/ });
+  await expect(inboxCard.getByText(/^\d+$/)).toBeVisible();
+  expect(Number(await inboxCard.getByText(/^\d+$/).innerText())).toBeGreaterThan(0);
+  await expect(panel.getByRole("button", { name: /Saved expenses/ }).getByText(/^\d+ expenses?$/).first()).toBeVisible();
+  await expect(panel).not.toContainText("couldn't load");
+});
+
+test("after approving from the inbox, the home card and the inbox count change without a reload", async ({ page }) => {
+  await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
+  await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: true });
+  await page.goto("/dev/business-preview");
+  const nav = page.getByTestId("business-sidebar-nav");
+  const panel = page.getByTestId("workspace-panel-region");
+  const inboxCard = panel.getByRole("button", { name: /In your inbox/ });
+  await expect(inboxCard).toBeVisible();
+  // Exact counts, read from the elements that carry them, and the read must succeed.
+  const before = Number(await inboxCard.getByText(/^\d+$/).innerText());
+  expect(before).toBeGreaterThan(0);
+  const expensesCard = panel.getByRole("button", { name: /Saved expenses/ });
+  const dopLine = expensesCard.locator("li", { hasText: /RD\$/ });
+  await expect(dopLine).toHaveCount(1);
+  const dopMatch = (await dopLine.innerText()).match(/^(\d+) expenses?$/m);
+  expect(dopMatch, "the DOP line ends with its expense count").not.toBeNull();
+  const dopBefore = Number(dopMatch![1]);
+  await nav.getByRole("button", { name: /^Inbox/ }).click();
+  await panel.getByRole("button", { name: /Ferretería La Esquina/ }).first().click();
+  await page.getByLabel(/Paid from/).selectOption({ label: "Operating account · DOP" });
+  await page.getByRole("button", { name: "Save review details" }).click();
+  await page.getByRole("button", { name: "Approve expense", exact: true }).click();
+  await expect(panel).toContainText("One expense was recorded after approval");
+  // No reload, no navigation beyond the panel switch: the home already knows.
+  await nav.getByRole("button", { name: /^Overview/ }).click();
+  await expect(panel.getByRole("button", { name: /In your inbox/ }).getByText(new RegExp(`^${before - 1}$`))).toBeVisible();
+  await expect(panel.getByRole("button", { name: /Saved expenses/ }).locator("li", { hasText: /RD\$/ }).getByText(new RegExp(`^${dopBefore + 1} expenses?$`))).toBeVisible();
+});

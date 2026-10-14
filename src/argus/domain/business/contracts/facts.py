@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Generic, Literal, TypeVar
 from uuid import UUID
 
@@ -17,6 +18,8 @@ from pydantic import (
 from pydantic.json_schema import SkipJsonSchema
 from typing_extensions import TypeAliasType
 
+from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
+
 T = TypeVar("T")
 
 
@@ -30,7 +33,9 @@ Amount = Annotated[
     AfterValidator(_canonical_amount),
 ]
 Currency = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
-FactOrigin = Literal["extracted", "owner_stated", "member_set", "matched", "default"]
+FactOrigin = Literal[
+    "extracted", "qr_decoded", "owner_stated", "member_set", "matched", "default"
+]
 ActivityKind = Literal[
     "expense",
     "income",
@@ -165,9 +170,56 @@ class BusinessFacts(Contract):
         return self
 
 
+class ReadPurchase(Contract):
+    """One purchase a document read showed, kept as evidence on the draft when
+    the read found more than one, or none it could settle."""
+
+    index: int = Field(ge=1)
+    amount: str | None = None
+    currency: str | None = None
+    occurred_on: date | None = None
+    merchant: str | None = None
+    kind_hint: str | None = None
+
+
 class BusinessResolution(Contract):
     schema_version: Literal[1] = 1
     facts: BusinessFacts
+    #: Empty for a single clean read. Several entries mean the read showed
+    #: several purchases; the facts above hold only what they all share.
+    read_purchases: tuple[ReadPurchase, ...] = ()
+    #: The receipt total the read showed when it could not settle on one purchase.
+    read_total: str | None = None
+    #: What the e-CF file proved when the draft came from one; kept on later revisions.
+    ecf_checks: EcfVerification | None = None
+    #: The DGII QR the receipt carried, kept with the draft for the person to open.
+    dgii_qr: DgiiQr | None = None
+    #: A person settled the read purchases this draft does not record.
+    remainder_settled: bool = False
+
+    def unrecorded_purchases(self) -> int:
+        """Read purchases this draft's amount does not account for. One read
+        purchase with the draft's amount is the one this draft records; the
+        count is 0 once a person settled the rest."""
+
+        if self.remainder_settled:
+            return 0
+        remaining = list(self.read_purchases)
+        amount = self.facts.amount
+        if isinstance(amount, Known):
+            recorded = _decimal(amount.value)
+            for purchase in remaining:
+                if recorded is not None and _decimal(purchase.amount) == recorded:
+                    remaining.remove(purchase)
+                    break
+        return len(remaining)
+
+
+def _decimal(value: str | None) -> Decimal | None:
+    try:
+        return None if value is None else Decimal(value)
+    except InvalidOperation:
+        return None
 
 
 class KnownInput(Contract, Generic[T]):

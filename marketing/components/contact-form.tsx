@@ -1,10 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import { businessPath } from "@/lib/site-routes";
 import { businessContent, type BusinessLocale } from "./content";
 import { newSubmissionId } from "./submission-id";
+import { checkPhone, cleanPhoneInput } from "./phone";
+import {
+  EMPTY_PROFILE,
+  NOTE_MAX,
+  PHONE_MAX,
+  SOURCE_MAX,
+  buildInquiryMessage,
+  type InquiryChannel,
+  type InquiryProfile,
+  type InquiryRole,
+} from "./inquiry-summary";
 import styles from "./business.module.css";
 
 type Field = "name" | "email" | "description";
@@ -30,6 +41,8 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
     serverSnapshot,
   );
   const [values, setValues] = useState<FormValues>(EMPTY_VALUES);
+  const [profile, setProfile] = useState<InquiryProfile>(EMPTY_PROFILE);
+  const [phoneError, setPhoneError] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [state, setState] = useState<SendState>({ status: "idle" });
   const form = useRef<HTMLFormElement>(null);
@@ -64,7 +77,17 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
       return;
     }
 
-    const signature = JSON.stringify(values);
+    const phone = profile.channel === "whatsapp" ? checkPhone(profile.phone) : { status: "empty" as const };
+    if (phone.status === "invalid") {
+      setPhoneError(true);
+      (form.current?.elements.namedItem("phone") as HTMLInputElement | null)?.focus();
+      return;
+    }
+    const message = buildInquiryMessage(
+      { ...profile, phone: phone.status === "valid" ? phone.display : "" },
+      values.description,
+    );
+    const signature = JSON.stringify({ ...values, message });
     if (attempt.current?.signature !== signature) {
       attempt.current = { id: newSubmissionId(), signature };
     }
@@ -79,6 +102,7 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...values,
+          description: message,
           locale,
           submissionId: attempt.current.id,
           website,
@@ -120,6 +144,7 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
             {copy.successTitle}
           </h2>
           <p>{copy.successBody}</p>
+          <p className={styles.nextStep}>{copy.nextStep}</p>
           <dl>
             {([...REQUIRED_FIELDS, "description"] as const).map((field) => (
               <div key={field}>
@@ -142,6 +167,7 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
             <p className={styles.localNotice}>{copy.noScript}</p>
           </noscript>
           <fieldset className={styles.formFields} disabled={!hydrated}>
+            <div className={styles.fieldRow}>
             {REQUIRED_FIELDS.map((field) => (
               <div className={styles.field} key={field}>
                 <label htmlFor={`contact-${field}`}>{copy[field]}</label>
@@ -172,15 +198,34 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
                 )}
               </div>
             ))}
+            </div>
+            <ChoiceGroup label={copy.roleLabel} optional={copy.optional}>
+              {(Object.keys(copy.roleOptions) as InquiryRole[]).map((role) => (
+                <Choice
+                  key={role}
+                  type="radio"
+                  name="role"
+                  checked={profile.role === role}
+                  disabled={sending}
+                  onChange={() => setProfile({ ...profile, role })}
+                >
+                  {copy.roleOptions[role]}
+                </Choice>
+              ))}
+            </ChoiceGroup>
             <div className={styles.field}>
               <label htmlFor="contact-description">
                 {copy.description} <span>{copy.optional}</span>
               </label>
+              <p id="contact-description-hint" className={styles.fieldHint}>
+                {copy.descriptionHint}
+              </p>
               <textarea
                 id="contact-description"
                 name="description"
+                aria-describedby="contact-description-hint"
                 rows={4}
-                maxLength={1000}
+                maxLength={NOTE_MAX}
                 placeholder={copy.descriptionPlaceholder}
                 value={values.description}
                 readOnly={sending}
@@ -188,7 +233,95 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
                   setValues({ ...values, description: event.target.value })
                 }
               />
+              {NOTE_MAX - values.description.length <= 100 && (
+                <p className={styles.fieldHint}>
+                  {copy.charsLeft(NOTE_MAX - values.description.length)}
+                </p>
+              )}
             </div>
+            <ChoiceGroup label={copy.channelLabel} optional={copy.optional}>
+              {(Object.keys(copy.channelOptions) as InquiryChannel[]).map((channel) => (
+                <Choice
+                  key={channel}
+                  type="radio"
+                  name="channel"
+                  checked={profile.channel === channel}
+                  disabled={sending}
+                  onChange={() => {
+                    setProfile({ ...profile, channel });
+                    if (channel !== "whatsapp") setPhoneError(false);
+                  }}
+                >
+                  {copy.channelOptions[channel]}
+                </Choice>
+              ))}
+              {profile.channel === "whatsapp" && (
+                <input
+                  id="contact-phone"
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  maxLength={PHONE_MAX}
+                  aria-label={copy.phone}
+                  placeholder={copy.phonePlaceholder}
+                  value={profile.phone}
+                  aria-invalid={phoneError}
+                  aria-describedby={phoneError ? "contact-phone-error" : undefined}
+                  readOnly={sending}
+                  onChange={(event) => {
+                    setProfile({ ...profile, phone: cleanPhoneInput(event.target.value) });
+                    if (phoneError) setPhoneError(false);
+                  }}
+                  onBlur={() => {
+                    const result = checkPhone(profile.phone);
+                    if (result.status === "valid") {
+                      setProfile({ ...profile, phone: result.display });
+                    } else {
+                      setPhoneError(result.status === "invalid");
+                    }
+                  }}
+                />
+              )}
+            </ChoiceGroup>
+            {phoneError && (
+              <p id="contact-phone-error" className={styles.phoneError} role="alert">
+                {copy.invalidPhone}
+              </p>
+            )}
+            <div className={styles.field}>
+              <label htmlFor="contact-source">
+                {copy.sourceLabel} <span>{copy.optional}</span>
+              </label>
+              <p id="contact-source-hint" className={styles.fieldHint}>
+                {copy.sourceHint}
+              </p>
+              <input
+                id="contact-source"
+                name="source"
+                type="text"
+                maxLength={SOURCE_MAX}
+                aria-describedby="contact-source-hint"
+                placeholder={copy.sourcePlaceholder}
+                value={profile.source}
+                readOnly={sending}
+                onChange={(event) =>
+                  setProfile({ ...profile, source: event.target.value })
+                }
+              />
+            </div>
+            <label className={styles.pilotRow}>
+              <input
+                type="checkbox"
+                name="pilot"
+                checked={profile.pilot}
+                disabled={sending}
+                onChange={(event) =>
+                  setProfile({ ...profile, pilot: event.target.checked })
+                }
+              />
+              <span>{copy.pilot}</span>
+            </label>
             <div className={styles.srOnly} aria-hidden="true">
               <label htmlFor="contact-website">Website</label>
               <input
@@ -219,6 +352,7 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
               {sending ? copy.sending : copy.submit}
               <ArrowRight size={18} aria-hidden="true" />
             </button>
+            <p className={styles.nextStep}>{copy.nextStep}</p>
           </fieldset>
         </form>
       )}
@@ -227,5 +361,54 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
         <a href={businessPath(locale, "privacy")}>{copy.privacyLink}</a>
       </p>
     </div>
+  );
+}
+
+function ChoiceGroup({
+  label,
+  optional,
+  children,
+}: {
+  label: string;
+  optional: string;
+  children: ReactNode;
+}) {
+  const id = useId();
+  return (
+    <div className={styles.choiceGroup} role="group" aria-labelledby={id}>
+      <span id={id} className={styles.choiceLabel}>
+        {label} <span>{optional}</span>
+      </span>
+      <div className={styles.choices}>{children}</div>
+    </div>
+  );
+}
+
+function Choice({
+  type,
+  name,
+  checked,
+  disabled,
+  onChange,
+  children,
+}: {
+  type: "radio" | "checkbox";
+  name: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className={styles.choice}>
+      <input
+        type={type}
+        name={name}
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span>{children}</span>
+    </label>
   );
 }

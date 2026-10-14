@@ -549,6 +549,16 @@ manually juggle backend mode flags for normal work.
 
 ### Local Environment Doctrine
 
+- Cuadrao settings use `CUADRAO_*` names (`CUADRAO_BUSINESS_PILOT_ENABLED`,
+  `CUADRAO_INGESTION_ENABLED`, `CUADRAO_DOCUMENT_EXTRACTION_*`,
+  `CUADRAO_DOCUMENT_JOBS_*`, `CUADRAO_VISION_MODEL`,
+  `CUADRAO_FINANCIAL_ACCOUNTS_ENABLED`, `CUADRAO_BUSINESS_EMAIL_*`,
+  `CUADRAO_RESEND_WEBHOOK_SECRET`, `CUADRAO_APP_ORIGIN`, and the web
+  `NEXT_PUBLIC_CUADRAO_*` names). `argus.settings_names` and
+  `web/lib/public-env.ts` read the Cuadrao name first and the older `ARGUS_`
+  name second, so an older file or dashboard value keeps working until it is
+  renamed. When both are set, the Cuadrao name wins. WhatsApp settings keep
+  their own names.
 - Python is pinned by `.python-version` (`3.10.x`; currently `3.10.20`).
   `.github/setup.sh` enforces the pinned runtime. A green run on Python 3.14 is
   not deployed-runtime evidence.
@@ -1020,3 +1030,47 @@ Never:
 - Hide broken work in a broad checkpoint.
 - Use vague commit messages.
 - Leave large exploratory diffs without explaining rollback risk.
+
+## Parallel workers: file ownership and landing
+
+Several agents, from different vendors, work in this repository at the same time. These rules apply to every agent and need no private files.
+
+- **One owner per file.** No two workers edit the same file. Claims live in `.agent/ownership/branch_ownership.json` (enforced by the ownership gate in CI) and in the owner table of the execution manifest. If a worker needs a file another worker owns, it stops and tells the coordinator.
+- **Builder and polisher work as a pair.** The builder owns logic: data, API calls, state and tests. The polisher owns presentation: layout, spacing, type, color, motion, loading, empty and error states, haptics, and the strings of its own screens. They split by file, never by line. A file that mixes both is split first, in a small PR by the builder, before polish starts.
+- **Shared hot files are append only.** Locale files, `docs/api/openapi.yaml`, the ownership manifest, `docs/API_CONTRACT.md` and `docs/DATA_MODEL.md`. Add one block for your own keys. Never reorder or reformat.
+- **Insert shared-file entries in sorted position, never at the end.** Two PRs that append at the same place conflict on every merge. Put each ownership entry, locale key and contract block where its path or key sorts, so unrelated PRs touch different hunks.
+- **Batch your pushes while CI is backed up.** Every push restarts the full run. Push once after a merge from the integration branch, and again only for a real fix.
+- **One small PR per task, no stacks.** Merge the integration branch into your branch right before the last push. Do not rebase a published branch.
+- **Landing follows the Shipping playbook of the agent tooling in use.** Green checks are not enough. Each PR gets an independent verdict, and the integration branch must be green before the next merge. After a merge, check the integration run before landing another PR.
+- **Model-facing text** needs a committed scorecard and a fingerprint update under Never-Violate Standard 12. The Business scope gate is the invariant measurement recorded in `docs/specs/argus-decision-log.md`.
+- **Settings are named `CUADRAO_*`.** The old `ARGUS_*` name is read only as a fallback. Do not add new `ARGUS_*` names.
+- **Clean up.** Delete every temp file, dev server, build folder and worktree you create. Do not add Markdown notes outside the existing docs.
+
+### Staging Render Environment Tool
+
+`scripts/ops/staging_env.py` makes the two Render staging services
+(`cuadrao-api-staging`, `cuadrao-web-staging`) match
+`scripts/ops/staging_env_manifest.json`, the one owner of their variable names.
+Plain values live in the manifest; secrets never do. Staging only. The two service ids are pinned in the code, and the
+Render name is checked before any read. `apply` writes only with `--confirm`. Output carries
+names, never values. It needs `RENDER_API_KEY` in the shell (not read from `.env`).
+
+Secrets come from `~/.cuadrao/staging-secrets.env` (mode 600, `NAME=value`).
+The two generated names (`CUADRAO_WHATSAPP_VERIFY_TOKEN`,
+`CUADRAO_WHATSAPP_SENDER_KEY`) are created there once and never overwritten.
+
+```bash
+python3 scripts/ops/staging_env.py plan [api|web]        # names only: add, update, ok, delete, hold, extra, MISSING
+python3 scripts/ops/staging_env.py apply [api|web]       # dry run: same as plan plus guards; writes nothing
+python3 scripts/ops/staging_env.py apply --confirm [api|web]  # writes: one Render env update per service, so one deploy
+python3 scripts/ops/staging_env.py check [api|web]       # exit 1 when a manifest name is missing live
+python3 scripts/ops/staging_env.py clipboard api|web     # .env block to the macOS clipboard, for Render "Add from .env"
+python3 scripts/ops/staging_env.py show-verify-token     # copies the verify token for Meta, never prints it
+```
+
+`keep current` entries take their live value in memory; `copy_from` entries copy a
+twin's live value only while the new name is absent; removals wait for their
+replacement; held names are never touched; names outside the manifest are
+preserved and listed as `extra`. `apply` stops before writing if a secret is
+unset or the two OpenRouter keys match. Web needs a redeploy after `apply`
+because `NEXT_PUBLIC_*` values are baked at build time.

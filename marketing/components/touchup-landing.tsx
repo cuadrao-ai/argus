@@ -4,6 +4,7 @@ import { businessPath } from "@/lib/site-routes";
 import { siteCopy } from "./site-copy";
 import { touchupCopy } from "./touchup-copy";
 import { CaptureStory } from "./capture-story";
+import { RotatingUseCase } from "./rotating-use-case";
 import styles from "./touchup.module.css";
 
 export function TouchupLanding({ locale }: { locale: BusinessLocale }) {
@@ -16,12 +17,12 @@ export function TouchupLanding({ locale }: { locale: BusinessLocale }) {
         aria-labelledby="business-title"
       >
         <div className={styles.heroCopy}>
-          <p className={styles.eyebrow}>{c.eyebrow}</p>
           <h1 id="business-title">
             {original.title[0]}
             <br />
             {original.title[1]}
           </h1>
+          <RotatingUseCase phrases={c.useCases} />
           <p className={styles.lead}>{c.description}</p>
           <div className={styles.actions}>
             <a className={styles.cta} href={businessPath(locale, "contact")}>
@@ -33,7 +34,6 @@ export function TouchupLanding({ locale }: { locale: BusinessLocale }) {
               <ArrowDown size={16} aria-hidden="true" />
             </a>
           </div>
-          <p className={styles.caption}>{original.stage}</p>
         </div>
         <div className={styles.scene}>
           <div className={styles.heroCard}>

@@ -7,6 +7,8 @@ const canaryStorageState = process.env.ARGUS_CANARY_BROWSER_STORAGE_STATE;
 const reuseExistingServer =
   process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "true";
 const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH ?? "true";
+// The specs skip by this flag, so the server it starts must be built with the same value.
+const businessPilot = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED ?? "false";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -34,6 +36,7 @@ export default defineConfig({
       NEXT_PUBLIC_ENABLE_SPANISH: "true",
       NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED: "true",
       NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP: "true",
+      NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: businessPilot,
     },
   },
   projects: [

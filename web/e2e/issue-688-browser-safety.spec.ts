@@ -90,7 +90,7 @@ test('private, research and shared Markdown never request remote images', async 
   expect(requests).toEqual([]);
   expect(await page.locator('img[src*="tracking.example.invalid"]').count()).toBe(0);
   await expect(page.getByRole('link', { name: 'Safe link', exact: true })).toHaveCount(3);
-  expect(await page.evaluate(() => new Promise<boolean>(resolve => { const image = new Image(); image.onload = () => resolve(image.naturalWidth > 0); image.onerror = () => resolve(false); image.src = '/icons/argus-192.png'; }))).toBe(true);
+  expect(await page.evaluate(() => new Promise<boolean>(resolve => { const image = new Image(); image.onload = () => resolve(image.naturalWidth > 0); image.onerror = () => resolve(false); image.src = '/icons/cuadrao-192.png'; }))).toBe(true);
   await shot(page, 'markdown-images');
 });
 for (const phase of ['stream', '404', 'create', 'initial-create'] as const) {

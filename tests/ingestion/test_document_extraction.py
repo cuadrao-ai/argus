@@ -75,6 +75,129 @@ def test_model_cannot_choose_connection_or_owner():
         ExtractionResult.model_validate(body)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "amount,currency,occurred_on",
+    [("63.27", "DOP", "2026-09-12"), ("212.05", "USD", None)],
+)
+async def test_receipt_request_requires_one_purchase_and_preserves_printed_evidence(
+    monkeypatch, respx_mock, amount, currency, occurred_on
+):
+    import io
+    import json
+
+    import httpx
+    from argus.domain.ingestion.documents.config import DocumentExtractionSettings
+    from argus.domain.ingestion.documents.extractor import DocumentExtractor
+    from PIL import Image
+
+    monkeypatch.setenv("ARGUS_VISION_MODEL", "openai/gpt-6-luna")
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-test-key")
+    receipt = {
+        "merchant": "Synthetic Corner Store",
+        "total": amount,
+        "currency": currency,
+        "occurred_on": occurred_on,
+        "items": [{"id": "item-a", "description": "Goods", "total": amount}],
+    }
+    parsed = result(
+        receipt=receipt,
+        observations=[
+            {
+                "page": 1,
+                "row": 1,
+                "evidence": "transaction",
+                "direction": "outflow",
+                "amount": amount,
+                "currency": currency,
+                "occurred_on": occurred_on,
+                "merchant": receipt["merchant"],
+            }
+        ],
+    )
+    route = respx_mock.post("https://openrouter.ai/api/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": parsed.model_dump_json()},
+                    }
+                ]
+            },
+        )
+    )
+    image = io.BytesIO()
+    Image.new("RGB", (40, 40), "white").save(image, format="PNG")
+    batch = await DocumentExtractor(DocumentExtractionSettings(enabled=True)).extract(
+        image.getvalue(),
+        "synthetic.png",
+        "image/png",
+        "owned",
+        datetime.now(timezone.utc),
+    )
+    assert route.call_count == 1
+    payload = json.loads(route.calls[0].request.content)
+    instructions = payload["messages"][0]["content"]
+    assert (
+        "include exactly one purchase in observations alongside receipt details"
+        in instructions
+    )
+    assert (
+        "Do not round or adjust item amounts to reconcile the receipt total"
+        in instructions
+    )
+    schema = payload["response_format"]["json_schema"]["schema"]
+    assert (
+        "alongside receipt details" in schema["properties"]["observations"]["description"]
+    )
+    assert (
+        "Printed line total"
+        in schema["$defs"]["ReceiptItem"]["properties"]["total"]["description"]
+    )
+    assert len(batch.candidates) == 1
+    assert not batch.issues
+    assert batch.receipt == parsed.receipt
+    assert batch.observations == parsed.observations
+    purchase = batch.candidates[0]
+    assert str(purchase.amount) == amount
+    assert purchase.currency == currency
+    assert purchase.occurred_on == parsed.receipt.occurred_on
+    assert ("occurred_on" in purchase.uncertain) == (occurred_on is None)
+    assert purchase.source.connection_id == "owned"
+    assert (
+        batch.receipt.rnc
+        is batch.receipt.ncf
+        is batch.receipt.ecf
+        is batch.receipt.itbis
+        is None
+    )
+
+
+@pytest.mark.parametrize("readable", [True, False])
+def test_receipt_details_without_observations_do_not_manufacture_a_purchase(readable):
+    parsed = result(
+        readable=readable,
+        observations=[],
+        receipt={
+            "merchant": "Synthetic Store",
+            "currency": "DOP",
+            "total": "61.25",
+            "items": [{"id": "a", "total": "61.00"}],
+        },
+    )
+    original = parsed.model_dump_json()
+    batch = batch_from_result(parsed, "a" * 64, "owner", datetime.now(timezone.utc), 1)
+    assert not batch.candidates
+    assert any(issue.code == "no_financial_observations" for issue in batch.issues)
+    assert batch.receipt == parsed.receipt
+    assert batch.receipt.items[0].total == "61.00"
+    assert batch.receipt.total == "61.25"
+    assert parsed.model_dump_json() == original
+
+
 def test_unscoped_balance_keeps_draft_and_valid_transaction():
     body = result().model_dump(mode="json")
     body["observations"][1]["balance_scope"] = None

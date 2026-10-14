@@ -7,6 +7,8 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+
+from argus.agent_runtime.business.interpreter import BusinessInterpreterMethods
 from datetime import date
 from functools import partial
 from typing import Any
@@ -464,7 +466,7 @@ def _selected_thread_metadata_context(metadata: dict[str, Any]) -> str:
     return json.dumps(context, sort_keys=True, default=str)
 
 
-class OpenRouterStructuredInterpreter:
+class OpenRouterStructuredInterpreter(BusinessInterpreterMethods):
     def __init__(
         self,
         *,
@@ -482,9 +484,6 @@ class OpenRouterStructuredInterpreter:
     async def ainvoke(
         self, request: InterpretationRequest
     ) -> StructuredInterpretation | None:
-        """
-        Executes the interpretation turn.
-        """
         self.last_failure_kind, self.correction_attempted = None, False
         candidate_models: list[str] | None = None
         if self.model_name is None:

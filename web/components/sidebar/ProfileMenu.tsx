@@ -80,7 +80,7 @@ import {
   normalizeEnabledLanguage,
 } from "@/lib/language-features";
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
-import { evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
+import { businessPilotEnabled, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import { supportEmail } from "@/lib/support-email";
 import { navigateFromOverlay } from "@/lib/overlay-history";
 import { QuickJumpBadge } from "@/components/keyboard/QuickJumpBadge";
@@ -182,6 +182,7 @@ export default function ProfileMenu({
     evidenceReceiptSharingEnabled && accountKind === "registered";
   // A country is a registered-account setting; a guest has nowhere to keep one.
   const homeCountryAvailable = accountKind === "registered";
+  const whatsappLinkAvailable = businessPilotEnabled && accountKind === "registered";
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
@@ -743,6 +744,9 @@ export default function ProfileMenu({
         ...(homeCountryAvailable
           ? [{ id: "country", onSelect: () => openModal("country") }]
           : []),
+        ...(whatsappLinkAvailable
+          ? [{ id: "whatsapp", onSelect: () => openModal("whatsapp") }]
+          : []),
         ...(onOpenSidebarPreference
           ? [
               {
@@ -811,6 +815,7 @@ export default function ProfileMenu({
     handleOpenKeyboardShortcuts,
     handleSubmenuToggle,
     homeCountryAvailable,
+    whatsappLinkAvailable,
     memoryControlsAvailable,
     receiptsAvailable,
     onClose,
@@ -881,12 +886,12 @@ export default function ProfileMenu({
   const supportMailto = `mailto:${supportEmail}?subject=${encodeURIComponent(
     t(
       "settings.profile.request_deletion.email_subject",
-      "Argus account deletion request",
+      "Cuadrao account deletion request",
     ),
   )}&body=${encodeURIComponent(
     t(
       "settings.profile.request_deletion.email_body",
-      "Please help me request deletion for my Argus account{{account_hint}}.",
+      "Please help me request deletion for my Cuadrao account{{account_hint}}.",
       { account_hint: accountHint },
     ),
   )}`;
@@ -1145,7 +1150,7 @@ export default function ProfileMenu({
               <span className="pl-6 text-[11px] leading-snug text-black/35 dark:text-white/35">
                 {t(
                   "settings.profile.delete_account_note",
-                  "Permanently delete your Argus account and your data.",
+                  "Permanently delete your Cuadrao account and your data.",
                 )}
               </span>
             </button>
@@ -1210,6 +1215,18 @@ export default function ProfileMenu({
                   {t("settings.app.home_country", "Country and currency")}
                 </span>
                 <span className="ml-auto flex shrink-0">{quickJumpBadge("country")}</span>
+              </button>
+            )}
+            {whatsappLinkAvailable && (
+              <button
+                onClick={() => openModal("whatsapp")}
+                className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
+              >
+                <MessageCircle className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
+                <span className="whitespace-nowrap">
+                  {t("settings.whatsapp.title", "WhatsApp")}
+                </span>
+                <span className="ml-auto flex shrink-0">{quickJumpBadge("whatsapp")}</span>
               </button>
             )}
             {onOpenSidebarPreference && (

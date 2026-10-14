@@ -70,12 +70,13 @@ def test_actor_and_issuer_labels_use_existing_profile_identity(
 
 
 @pytest.mark.parametrize("named", [False, True])
+@pytest.mark.owner_acts
 def test_profile_rename_preserves_original_approval_and_revision_labels(
     actions, named: bool
 ) -> None:
     service, context, grant = actions
-    actor_name = "Contadora de prueba" if named else None
-    issuer_name = "Dueña de prueba" if named else None
+    # Approval is the owner's alone, so the approving actor is the issuer: one profile.
+    actor_name = issuer_name = "Dueña de prueba" if named else None
     with transaction(service.authority, context) as tx:
         actor = tx.authorization.provenance
     with service.authority.pool.connection() as db:
@@ -101,7 +102,7 @@ def test_profile_rename_preserves_original_approval_and_revision_labels(
     assert saved_actor.grant_id == grant
     assert original.approval_result.reviewed_version == 1
     assert all(revision.actor == saved_actor for revision in original.history)
-    renamed_actor, renamed_issuer = fake.name(), fake.name()
+    renamed_actor = renamed_issuer = fake.name()
     with service.authority.pool.connection() as db:
         db.execute(
             "update public.profiles set display_name=%s where id=%s",

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import threading
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from argus.domain.ingestion.connections import (
     DEFAULT_LEASE,
@@ -26,12 +27,25 @@ from argus.domain.ingestion.documents.objects import (
     source_path,
 )
 
+# Runs inside the transaction that saves a captured document, with that
+# connection and the document id: a ledger row that must not outlive a failed
+# save, or be missing from a successful one, is written through it.
+CaptureHook = Callable[[Any, str], None]
+
 
 class DocumentStore(Protocol):
     def get(self, *, user_id: str, connection_id: str) -> ExtractionBatch | None: ...
     def draft(self, *, user_id: str, connection_id: str) -> DocumentDraft | None: ...
+    def earliest_saved(self, *, space_id: str, sha256: str) -> datetime | None: ...
     def source(self, *, user_id: str, connection_id: str) -> bytes | None: ...
-    def capture(self, *, user_id: str, draft: DocumentDraft, content: bytes) -> bool: ...
+    def capture(
+        self,
+        *,
+        user_id: str,
+        draft: DocumentDraft,
+        content: bytes,
+        on_capture: CaptureHook | None = None,
+    ) -> bool: ...
     def update(
         self,
         *,
@@ -152,6 +166,28 @@ class InMemoryDocumentStore:
             )
             return DocumentDraft.model_validate_json(raw) if raw is not None else None
 
+    def earliest_saved(self, *, space_id: str, sha256: str) -> datetime | None:
+        """When these bytes were first saved in this Business, by anyone, or
+        None: a Business keeps one receipt per person and file, so the same
+        file from two people is two documents that share this answer."""
+
+        from argus.domain.owner_scope import space_id as scope_space
+
+        with self.connections._lock, self._lock:
+            found: datetime | None = None
+            for (user_id, connection_id), raw in self._drafts.items():
+                if not self._live(user_id, connection_id):
+                    continue
+                row = self.connections.get_any_scope(
+                    user_id=user_id, connection_id=connection_id
+                )
+                if scope_space(row.scope) != space_id:
+                    continue
+                draft = DocumentDraft.model_validate_json(raw)
+                if draft.sha256 == sha256 and (found is None or draft.created_at < found):
+                    found = draft.created_at
+            return found
+
     def source(self, *, user_id: str, connection_id: str) -> bytes | None:
         with self.connections._lock, self._lock:
             path = (
@@ -161,7 +197,17 @@ class InMemoryDocumentStore:
             )
             return self.objects.get(path) if path is not None else None
 
-    def capture(self, *, user_id: str, draft: DocumentDraft, content: bytes) -> bool:
+    def capture(
+        self,
+        *,
+        user_id: str,
+        draft: DocumentDraft,
+        content: bytes,
+        on_capture: CaptureHook | None = None,
+    ) -> bool:
+        # The in-memory store keeps no transaction and no ledger: the hook is
+        # the Postgres store's.
+        del on_capture
         with self.connections._lock, self._lock:
             if not self._live(user_id, draft.connection_id):
                 return False

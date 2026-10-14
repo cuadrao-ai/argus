@@ -5,48 +5,27 @@ import { useTranslation } from "react-i18next";
 import StarterActions from "@/components/chat/StarterActions";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useBusiness } from "./BusinessWorkspace";
-import { formatDay, formatMoney, formatRelativeTime, type Period } from "./business-format";
+import { inboxCount } from "./BusinessInboxPanel";
+import { formatDay, formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows } from "./business-ui";
-
-const PERIODS: Period["key"][] = ["this_month", "last_month", "last_30_days"];
+import BusinessPeriodControl, { usePeriodLabel } from "./BusinessPeriodControl";
+import OutsidePeriodNote from "./OutsidePeriodNote";
 
 export default function BusinessOverviewPanel() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const { isBelowTablet } = useResponsiveLayout();
-  const { records, period, setPeriod, openPanel, actions } = useBusiness();
+  const { records, period, setPeriod, openPanel, actions, chosen } = useBusiness();
   const overview = records.overview;
-  const periodLabel = (key: Period["key"]) =>
-    ({
-      this_month: t("business.period.this_month", "This month"),
-      last_month: t("business.period.last_month", "Last month"),
-      last_30_days: t("business.period.last_30_days", "Last 30 days"),
-    })[key];
+  const periodLabel = usePeriodLabel();
 
   return (
     <section aria-labelledby="business-overview-title">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
-          {t("business.overview.title", "Your business")}
+          {chosen && chosen.role !== "owner" ? chosen.name : t("business.overview.title", "Your business")}
         </h2>
-        <div role="radiogroup" aria-label={t("business.period.label", "Period")} className="flex gap-1 rounded-full bg-black/[0.04] p-1 dark:bg-white/[0.06]">
-          {PERIODS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="radio"
-              aria-checked={period.key === key}
-              onClick={() => setPeriod(key)}
-              className={`min-h-9 rounded-full px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 ${
-                period.key === key
-                  ? "bg-white text-black dark:bg-[#2a2d31] dark:text-white"
-                  : "text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white"
-              }`}
-            >
-              {periodLabel(key)}
-            </button>
-          ))}
-        </div>
+        <BusinessPeriodControl period={period} setPeriod={setPeriod} />
       </div>
 
       {records.error ? (
@@ -67,7 +46,7 @@ export default function BusinessOverviewPanel() {
               {t("business.overview.in_inbox", "In your inbox")}
             </span>
             <span className="mt-3 font-display text-[34px] font-medium tabular-nums tracking-tight text-black dark:text-white">
-              {records.inbox?.length ?? 0}
+              {inboxCount(records)}
             </span>
             <span className="mt-auto flex items-center gap-1 pt-3 text-[13px] text-black/55 group-hover:text-black dark:text-white/55 dark:group-hover:text-white">
               {t("business.overview.open_inbox", "Open inbox")}
@@ -105,6 +84,11 @@ export default function BusinessOverviewPanel() {
               {t("business.overview.separate_currencies", "Each currency is totaled on its own. No conversion.")}
             </span>
           </button>
+          {overview.outside_period_count > 0 ? (
+            <div className="tablet:col-span-2">
+              <OutsidePeriodNote count={overview.outside_period_count} latestOn={overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} />
+            </div>
+          ) : null}
 
           {overview.needs_attention > 0 ? (
             <button

@@ -1,5 +1,7 @@
 # Cuadrao Consumer lane handoff
 
+> **Superseded (October 13, 2026): current state lives in [docs/specs/argus-execution-board.md](../specs/argus-execution-board.md).** This handoff is kept as dated history. Do not take next steps, branches or worktrees from it without checking the board.
+
 Updated October 11, 2026. This is the signed-in free-tier checkpoint under
 [#877](https://github.com/lagarcess/argus/issues/877), not full app acceptance.
 The [October 9 handoff](https://github.com/lagarcess/argus/blob/95720e014ee35fedb39bbb44d8c19ea8faece8b7/docs/handoffs/cuadrao-consumer-lane.md)

@@ -24,6 +24,7 @@ from argus.domain.access_approval_email import (
     send_access_welcome_email,
 )
 from argus.domain.market_data import warm_asset_universe
+from argus.settings_names import setting_value
 
 router = APIRouter(tags=["ops"])
 
@@ -198,7 +199,7 @@ async def requested_signup_denial(request: Request) -> dict[str, bool]:
 
 
 def _approval_signup_url() -> str:
-    origin = (os.getenv("ARGUS_APP_ORIGIN") or "").strip().rstrip("/")
+    origin = (setting_value("APP_ORIGIN") or "").strip().rstrip("/")
     if not origin:
         raise RuntimeError("Approval signup origin is unavailable.")
     return f"{origin}/?auth=signup"

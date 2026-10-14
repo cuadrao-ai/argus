@@ -6,9 +6,12 @@ import asyncio
 import hashlib
 import unicodedata
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+from loguru import logger
 
 from argus.domain.ingestion.connections import (
     LIVE,
@@ -26,9 +29,12 @@ from argus.domain.ingestion.documents.models import (
 )
 from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
 from argus.domain.ingestion.documents.preparation import validate_source
-from argus.domain.ingestion.documents.store import DocumentStore
+from argus.domain.ingestion.documents.store import CaptureHook, DocumentStore
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.owner_scope import OwnerScope, space_id
+
+if TYPE_CHECKING:
+    from argus.domain.business.actions import BusinessActions
 
 # Marks a batch the owner entered by hand: one purchase, nothing read.
 ENTERED_BY_OWNER = {"entered_by": "owner"}
@@ -120,8 +126,20 @@ class DocumentsService:
         extractor: Extractor,
         *,
         jobs_recover_interruptions: bool = False,
+        business_actions: BusinessActions | None = None,
+        business_preparation_required: bool = False,
     ) -> None:
         self.hub, self.store, self.extractor = hub, store, extractor
+        # One bounded decode/capture at a time on this app-owned service.
+        self._capture_slot = asyncio.Semaphore(1)
+        self.business_actions = business_actions
+        self.business_receipt_consent = None
+        # Asked at the moment of a read, so a permission withdrawn after the
+        # draft was queued stops a read that has not started.
+        self.read_gate: Callable[[str, str], bool] | None = None
+        # An app with a Postgres pool never falls back to legacy Business
+        # delivery; without a pool there is no canonical wiring to require.
+        self.business_preparation_required = business_preparation_required
         # With preparation jobs on, the job reconciler decides what an expired
         # attempt becomes; a read never settles it.
         self.jobs_recover_interruptions = jobs_recover_interruptions
@@ -263,7 +281,72 @@ class DocumentsService:
         media_type: str,
         consent: bool = False,
         proposal: DraftProposal | None = None,
+        source_text: str | None = None,
         scope: OwnerScope,
+        on_capture: CaptureHook | None = None,
+        context_only: bool = False,
+    ) -> DocumentOutcome:
+        consent_id = None
+        if space_id(scope) is not None and self.business_receipt_consent is not None:
+            permission = await asyncio.to_thread(
+                self.business_receipt_consent.status, space_id(scope), user_id
+            )
+            consent = permission["enabled"] and not context_only
+            consent_id = permission["consent_id"] if consent else None
+
+        def capture() -> DocumentOutcome | BaseException:
+            try:
+                return self._upload(
+                    user_id=user_id,
+                    content=content,
+                    filename=filename,
+                    media_type=media_type,
+                    consent=consent,
+                    proposal=proposal,
+                    source_text=source_text,
+                    scope=scope,
+                    on_capture=on_capture,
+                    consent_id=consent_id,
+                )
+            except BaseException as error:
+                # SystemExit/KeyboardInterrupt must travel as data: raising
+                # either inside the worker Task stops the caller's event loop.
+                return error
+
+        async with self._capture_slot:
+            worker = asyncio.create_task(asyncio.to_thread(capture))
+            try:
+                result = await asyncio.shield(worker)
+            except asyncio.CancelledError:
+                # A thread cannot be cancelled. Keep its slot and caller alive
+                # until the write settles, even if cancellation repeats.
+                while not worker.done():
+                    try:
+                        await asyncio.shield(worker)
+                    except asyncio.CancelledError:
+                        continue
+                    except Exception:
+                        break
+                if not worker.cancelled():
+                    worker.exception()
+                raise
+            if isinstance(result, BaseException):
+                raise result
+            return result
+
+    def _upload(
+        self,
+        *,
+        user_id: str,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        consent: bool,
+        proposal: DraftProposal | None,
+        source_text: str | None,
+        scope: OwnerScope,
+        on_capture: CaptureHook | None,
+        consent_id: str | None = None,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
         digest = hashlib.sha256(content).hexdigest()
@@ -291,12 +374,16 @@ class DocumentsService:
             sha256=digest,
             size_bytes=len(content),
             consent=consent,
+            business_reading_consent_id=consent_id,
+            source_text=source_text,
             status="queued" if consent else "saved",
             created_at=self.hub.clock(),
             updated_at=self.hub.clock(),
         )
         try:
-            captured = self.store.capture(user_id=user_id, draft=draft, content=content)
+            captured = self.store.capture(
+                user_id=user_id, draft=draft, content=content, on_capture=on_capture
+            )
         except SourceStorageUnavailable:
             raise DocumentServiceError(
                 "document_storage_unavailable", retryable=True
@@ -316,6 +403,47 @@ class DocumentsService:
             connection_id, replayed, len(batch.candidates) if batch else 0, draft.status
         )
 
+    def release_queued(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope, code: str
+    ) -> None:
+        """A queued read that could not start waits saved, unread, with its reason."""
+
+        draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if draft.status == "queued":
+            self._update(user_id, draft, status="saved", consent=False, error_code=code)
+
+    def _reading_allowed(self, user_id: str, connection_id: str) -> bool:
+        if self.business_receipt_consent is not None:
+            row = self.hub.connections.get_any_scope(
+                user_id=user_id, connection_id=connection_id
+            )
+            business = space_id(row.scope)
+            if business is not None:
+                draft = self.store.draft(user_id=user_id, connection_id=connection_id)
+                return bool(
+                    draft
+                    and draft.business_reading_consent_id
+                    and self.business_receipt_consent.enabled(
+                        business, user_id, draft.business_reading_consent_id
+                    )
+                )
+        return self.read_gate is None or self.read_gate(user_id, connection_id)
+
+    def read_pending(
+        self, user_id: str, connection_id: str, draft: DocumentDraft
+    ) -> bool:
+        """A read will happen: one is in flight, or the document is queued with
+        consent and the owner's reading is allowed right now. A queued document
+        whose owner switched reading off waits for a person, not for a read."""
+
+        if draft.status == "preparing":
+            return True
+        return (
+            draft.status == "queued"
+            and draft.consent
+            and self._reading_allowed(user_id, connection_id)
+        )
+
     def queue(
         self, *, user_id: str, connection_id: str, consent: bool, scope: OwnerScope
     ) -> DocumentOutcome:
@@ -331,6 +459,18 @@ class DocumentsService:
                 raise DocumentServiceError("document_extraction_consent_required")
             if not draft.source_available:
                 raise DocumentServiceError("document_source_unavailable")
+            if space_id(scope) is not None and self.business_receipt_consent is not None:
+                permission = self.business_receipt_consent.status(
+                    space_id(scope), user_id
+                )
+                if not permission["enabled"]:
+                    raise DocumentServiceError("business_receipt_reading_off")
+                draft = self._update(
+                    user_id, draft, business_reading_consent_id=permission["consent_id"]
+                )
+            if not self._reading_allowed(user_id, connection_id):
+                # A click is a fresh action: it is told why nothing was queued.
+                raise DocumentServiceError("whatsapp_receipt_reading_off")
             self._update(user_id, draft, status="queued", consent=True, error_code=None)
         return self.outcome(
             user_id=user_id,
@@ -427,6 +567,10 @@ class DocumentsService:
             raise DocumentServiceError("document_preparation_not_queued")
         if draft.status == "preparing":
             raise DocumentServiceError("document_busy", retryable=True)
+        if batch is None and not self._reading_allowed(user_id, connection_id):
+            if draft.status == "queued":
+                self._update(user_id, draft, status="saved", consent=False)
+            raise DocumentServiceError("document_reading_not_allowed")
         holder = str(uuid.uuid4())
         repo = self.hub.connections
         if not repo.lease(
@@ -445,6 +589,15 @@ class DocumentsService:
                 raise DocumentServiceError("document_attempt_superseded")
         replayed = batch is not None
         try:
+            business = self._canonical_business(connection_id, scope)
+            if business:
+                self.business_actions.check_attachment_preparation(
+                    user_id=user_id,
+                    connection_id=connection_id,
+                    scope=scope,
+                    holder=holder,
+                    attempt_id=attempt_id,
+                )
             if batch is None:
                 # The claim names the attempt; a flag-off writer names none.
                 draft = self._update(
@@ -458,6 +611,13 @@ class DocumentsService:
                 content = await asyncio.to_thread(
                     self._read_source, user_id, connection_id
                 )
+                if hashlib.sha256(content).hexdigest() != draft.sha256:
+                    raise DocumentServiceError("document_source_changed")
+                # Asked again just before the provider is reached, so a switch
+                # turned off while the source was read still stops this read. The
+                # only window left is the commit below and the request start.
+                if not self._reading_allowed(user_id, connection_id):
+                    raise DocumentServiceError("document_reading_not_allowed")
                 # Committed before the provider can be reached: without it an
                 # attempt provably never called the provider and may be retried.
                 if attempt_id is not None and not self.store.mark_provider_call(
@@ -468,6 +628,14 @@ class DocumentsService:
                     now=self.hub.clock(),
                 ):
                     raise DocumentServiceError("document_lease_lost", retryable=True)
+                if business:
+                    self.business_actions.check_attachment_preparation(
+                        user_id=user_id,
+                        connection_id=connection_id,
+                        scope=scope,
+                        holder=holder,
+                        attempt_id=attempt_id,
+                    )
                 batch = await self.extractor.extract(
                     content=content,
                     filename=draft.filename,
@@ -485,12 +653,27 @@ class DocumentsService:
                 ):
                     raise DocumentServiceError("document_lease_lost", retryable=True)
             self._validate(batch, connection_id)
+            if not entered_by_owner(batch) and not self._reading_allowed(user_id, connection_id):
+                raise DocumentServiceError("document_reading_not_allowed")
             if not repo.renew(
                 connection_id=connection_id, holder=holder, now=self.hub.clock()
             ):
                 raise DocumentServiceError("document_lease_lost", retryable=True)
-            if batch.candidates:
+            if business:
+                from argus.domain.business.contracts.actions import canonical_input_hash
+
+                self.business_actions.prepare_attachment(
+                    expected_batch_sha256=canonical_input_hash(batch),
+                    user_id=user_id,
+                    connection_id=connection_id,
+                    scope=scope,
+                    holder=holder,
+                    attempt_id=attempt_id,
+                )
+            elif batch.candidates:
                 self._deliver(user_id, connection_id, batch.candidates, scope)
+                if space_id(scope) is not None:
+                    self._flag_business_duplicates(user_id, connection_id, scope)
             if draft.source_available:
                 draft = self._update(
                     user_id,
@@ -511,21 +694,27 @@ class DocumentsService:
                 connection_id, replayed, len(batch.candidates), draft.status
             )
         except Exception as error:
+            from argus.domain.business.authority import ActionError
             from argus.domain.ingestion.documents.models import DocumentExtractionError
 
             code = (
                 error.code
-                if isinstance(error, (DocumentServiceError, DocumentExtractionError))
+                if isinstance(
+                    error, (DocumentServiceError, DocumentExtractionError, ActionError)
+                )
                 else "document_extraction_failed"
             )
             try:
+                withdrawn = code == "document_reading_not_allowed"
                 if draft.source_available:
+                    # A withdrawn permission is the owner's choice, not a failure.
                     self._update(
                         user_id,
                         draft,
                         holder=holder,
-                        status="needs_attention",
-                        error_code=code,
+                        status="saved" if withdrawn else "needs_attention",
+                        error_code=None if withdrawn else code,
+                        **({"consent": False} if withdrawn else {}),
                         source_available=code != "document_source_unavailable",
                     )
                 repo.record_failure(
@@ -540,6 +729,25 @@ class DocumentsService:
             raise
         finally:
             repo.release(connection_id=connection_id, holder=holder)
+
+    def _canonical_business(self, connection_id: str, scope: OwnerScope) -> bool:
+        """A Business receipt takes the canonical bridge when it is wired.
+
+        Without a pool, the legacy import path keeps the receipt and the
+        fallback is logged; with a pool, a missing bridge fails closed."""
+
+        if space_id(scope) is None:
+            return False
+        if self.business_actions is not None:
+            return True
+        if self.business_preparation_required:
+            raise DocumentServiceError("business_preparation_unavailable")
+        logger.warning(
+            "business_legacy_delivery",
+            connection_id=connection_id,
+            space_id=space_id(scope),
+        )
+        return False
 
     def _deliver(
         self,
@@ -563,6 +771,25 @@ class DocumentsService:
             ) from None
         if result.ignored:
             raise DocumentServiceError("document_disconnected")
+
+    def _flag_business_duplicates(
+        self, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> None:
+        """A Business receipt delivered without the bridge still gets the
+        duplicate mark on its event, from the same read-facts rule."""
+
+        from argus.domain.business.duplicates import (
+            events_of_connection,
+            flag_receipt_duplicates,
+        )
+        from argus.domain.ingestion.reconcile.service import ReconciliationService
+
+        if not isinstance(self.hub.sink, ReconciliationService):
+            # Only the real import store holds the events to compare.
+            return
+        with self.hub.sink.store.transaction(user_id, scope=scope) as tx:
+            for event in events_of_connection(tx, connection_id):
+                flag_receipt_duplicates(tx, event.id)
 
     @staticmethod
     def _validate(batch: ExtractionBatch, connection_id: str) -> None:

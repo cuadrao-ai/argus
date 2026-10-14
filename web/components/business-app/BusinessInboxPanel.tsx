@@ -1,11 +1,87 @@
 "use client";
 
-import { ChevronRight, FileText, ImageIcon, MessageCircle } from "lucide-react";
+import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { ReceiptSummary } from "@/lib/business-api";
+import type { BusinessCapture, ReceiptSummary, ReceiptActivityCounts } from "@/lib/business-api";
+import ReceiptReadingControl from "./ReceiptReadingControl";
+import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
+import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, StatusPill, useAttentionLabel } from "./business-ui";
+
+export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
+
+/**
+ * One row per draft still awaiting review: its latest note, and how many came
+ * before it. Recorded and dismissed drafts leave the Inbox.
+ */
+export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote[] {
+  const byDraft = new Map<string, OpenNote>();
+  for (const note of captures) {
+    if (note.review_state !== "open" && note.review_state !== "accepting") continue;
+    const current = byDraft.get(note.draft_id);
+    if (!current) {
+      byDraft.set(note.draft_id, { draftId: note.draft_id, text: note.text, receivedAt: note.received_at, revision: note.revision, earlier: 0 });
+    } else if (note.received_at > current.receivedAt) {
+      byDraft.set(note.draft_id, { ...current, text: note.text, receivedAt: note.received_at, revision: Math.max(note.revision, current.revision), earlier: current.earlier + 1 });
+    } else {
+      current.earlier += 1;
+      current.revision = Math.max(note.revision, current.revision);
+    }
+  }
+  return [...byDraft.values()].sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
+}
+
+/**
+ * What the Inbox list shows, as one number for the Overview card and the
+ * sidebar badge: receipts awaiting review (the email itself is not a row,
+ * its attachments are) plus the drafts with an open note. Both lists come
+ * from the backend; the count is never computed from anything else.
+ */
+export function inboxCount(records: { inbox: readonly ReceiptSummary[] | null; notes: readonly BusinessCapture[] | null; receiptActivity?: ReceiptActivityCounts | null }): number {
+  const receipts = records.receiptActivity?.unread_count ?? 0;
+  return receipts + (records.notes ? openNotesByDraft(records.notes).length : 0);
+}
+
+export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }: { notes: OpenNote[]; error: boolean; truncated?: boolean; onOpen: (draftId: string) => void }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? "en";
+  if (!error && notes.length === 0) return null;
+  return (
+    <section aria-label={t("business.inbox.notes_title", "Notes awaiting review")} className="mb-6">
+      <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business.inbox.notes_title", "Notes awaiting review")}</h3>
+      <p className="mb-3 mt-0.5 text-[13px] text-black/55 dark:text-white/55">{t("business.inbox.notes_subtitle", "Saved in your own words. Open one to add facts or a receipt.")}</p>
+      {error ? (
+        <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">{t("business.inbox.notes_error", "We couldn't load your notes. Try again.")}</p>
+      ) : (
+        <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-inbox-notes">
+          {notes.map((note) => (
+            <li key={note.draftId}>
+              <button
+                type="button"
+                onClick={() => onOpen(note.draftId)}
+                className="flex w-full items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
+                  <NotebookPen className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-2 whitespace-pre-line break-words text-[15px] text-black dark:text-white">{note.text.trim()}</span>
+                  <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
+                    {[formatRelativeTime(note.receivedAt, locale), t("business.dossier.revision", "Revision {{version}}", { version: note.revision }), note.earlier ? t("business.inbox.note_more", "{{count}} earlier notes", { count: note.earlier }) : null].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {truncated && !error ? <p className="mt-2 text-[13px] text-black/55 dark:text-white/55">{t("business.inbox.notes_latest", "Showing the latest 50 saved notes. Older open notes are reachable through search.")}</p> : null}
+    </section>
+  );
+}
 
 export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpen: () => void }) {
   const { t, i18n } = useTranslation();
@@ -19,7 +95,8 @@ export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpe
         onClick={onOpen}
         className="flex w-full items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]"
       >
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
+        <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
+          {receipt.activity?.state === "reading" ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[12px] border-2 border-teal-500/50 border-t-transparent motion-safe:animate-spin" /> : receipt.activity?.unread ? <span aria-hidden="true" data-testid="receipt-unread-dot" className="absolute right-0 top-0 h-2 w-2 rounded-full bg-teal-600" /> : null}
           <Icon className="h-5 w-5 text-black/55 dark:text-white/55" />
         </span>
         <span className="min-w-0 flex-1">
@@ -29,10 +106,16 @@ export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpe
           <span className="mt-0.5 flex items-center gap-1.5 truncate text-[13px] text-black/50 dark:text-white/50">
             {receipt.channel === "whatsapp" ? (
               <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-label="WhatsApp" />
+            ) : receipt.channel === "email" ? (
+              <Mail className="h-3.5 w-3.5 shrink-0" data-testid="inbox-channel-email" aria-label={t("business.dossier.email", "Email")} />
             ) : null}
             {receipt.attention
               ? attentionLabel(receipt.attention)
-              : formatRelativeTime(receipt.received_at, locale)}
+              : savedUnread(receipt)
+                ? receipt.activity?.state === "saved_unread"
+                  ? t("business.activity.saved_row", "Saved unread. Waiting for receipt reading.")
+                  : savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
+                : formatRelativeTime(receipt.received_at, locale)}
           </span>
         </span>
         <span className="hidden text-right text-[15px] font-medium tabular-nums text-black dark:text-white mobile:block">
@@ -47,13 +130,17 @@ export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpe
 
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
-  const { records, openPanel, actions } = useBusiness();
-  const items = records.inbox;
+  const { records, openPanel, actions, panel } = useBusiness();
+  // The server marks an email's own ".eml" document once an attachment is a receipt;
+  // it lives inside its email row, never in this list.
+  const items = records.inbox?.filter((receipt) => !receipt.email_original) ?? null;
+  const notes = records.notes === null ? null : openNotesByDraft(records.notes);
 
   const upload = actions.create.find((action) => action.id === "upload_receipt");
 
   return (
     <section>
+      <ReceiptReadingControl />
       <PanelHeading
         title={t("business.inbox.title", "Inbox")}
         subtitle={t("business.inbox.subtitle", "Receipts waiting for you to review. Nothing here is an expense until you confirm it.")}
@@ -65,13 +152,14 @@ export default function BusinessInboxPanel() {
           ) : null
         }
       />
+      <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />
       {records.error ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.inbox.error", "We couldn't load your inbox. Try again.")}
         </p>
-      ) : items === null ? (
+      ) : items === null || notes === null ? (
         <LoadingRows />
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && notes.length === 0 && !records.notesError ? (
         <div className={`${cardClass} text-center`}>
           <p className="font-display text-[18px] font-medium text-black dark:text-white">
             {t("business.inbox.empty_title", "You're all caught up")}
@@ -81,15 +169,20 @@ export default function BusinessInboxPanel() {
           </p>
         </div>
       ) : (
-        <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
-          {items.map((receipt) => (
-            <ReceiptRow
-              key={receipt.id}
-              receipt={receipt}
-              onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
-            />
-          ))}
-        </ul>
+        <>
+          <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
+          {items.length ? (
+            <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
+              {items.map((receipt) => (
+                <ReceiptRow
+                  key={receipt.id}
+                  receipt={receipt}
+                  onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
+                />
+              ))}
+            </ul>
+          ) : null}
+        </>
       )}
     </section>
   );

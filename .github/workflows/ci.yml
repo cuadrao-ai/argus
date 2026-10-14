@@ -1,8 +1,10 @@
 name: CI
 
 "on":
+  # Push runs only for the long-lived branches. A feature branch with a PR runs
+  # CI once per push, from the pull_request event below.
   push:
-    branches: [main, "codex/**", "jules/**"]
+    branches: [main, "codex/private-alpha-next", "codex/private-alpha-next-jules-intake"]
   pull_request:
     branches: [main, "codex/private-alpha-next", "codex/private-alpha-next-jules-intake"]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -89,6 +91,9 @@ jobs:
 
       - name: Install backend dependencies
         run: poetry install --with dev --no-interaction
+
+      - name: Install PDF extraction tools
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
 
       # Helper folders can include backend tests of the shared TypeScript contract.
       - name: Set up Bun for cross-runtime contract tests
@@ -200,7 +205,18 @@ jobs:
         run: cd web && bunx playwright install --with-deps chromium
 
       - name: Verify browser storage matches the privacy disclosure
-        run: cd web && bunx playwright test e2e/browser-storage-disclosure.spec.ts
+        run: |
+          cd web
+          bunx playwright test e2e/browser-storage-disclosure.spec.ts
+          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3101 bunx playwright test e2e/business-receipt-upload-recovery.spec.ts
+
+      - name: Retain receipt upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: receipt-upload-browser-evidence
+          path: web/temp/playwright-results/**/receipt-upload-*.png
+          if-no-files-found: warn
 
   marketing-checks:
     runs-on: ubuntu-latest

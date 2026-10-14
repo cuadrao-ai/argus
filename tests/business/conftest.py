@@ -28,6 +28,11 @@ def business_env(ingestion_env, monkeypatch: pytest.MonkeyPatch) -> None:  # noq
 def stub(business_env, client: TestClient, monkeypatch) -> ReceiptStub:  # noqa: ANN001, F811
     extractor = ReceiptStub()
     monkeypatch.setattr(documents_service(), "extractor", extractor)
+    documents_service().business_receipt_consent.route_resolver = lambda: {
+        "gateway": "synthetic",
+        "interpretation": [{"model": "receipt-fixture"}],
+        "reply": [],
+    }
     return extractor
 
 

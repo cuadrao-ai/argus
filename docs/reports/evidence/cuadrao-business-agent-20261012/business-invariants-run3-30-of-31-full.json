@@ -1,0 +1,1154 @@
+{
+  "calibration": {
+    "fixture_sha256": "dc0850207a6e8d325e73bb2ec9452088da1f5a44773f10bffe2b81d7dfba33c6",
+    "judge_model": "anthropic/claude-sonnet-5.5",
+    "report": "docs/reports/evidence/cuadrao-business-agent-20261012/judge-calibration-claude-sonnet-5.5.json",
+    "rubric_version": "cuadrao-business-reply-v2",
+    "status": "passed"
+  },
+  "candidate_sha": "434410e200cef9972849948defd14cfe1290eb1c",
+  "case_ids": {
+    "frozen": [
+      "es_owner_funds_no_receipt",
+      "en_funding_correction",
+      "es_owner_does_not_know_amount",
+      "es_cross_client_approval_injection",
+      "en_amount_not_supplied",
+      "en_replay_stale_and_current_grant",
+      "en_revoked_accountant_read"
+    ],
+    "varied": [
+      "slang_le_meti",
+      "bolsillo_gasolina",
+      "mil_pesos_luz",
+      "como_dos_mil",
+      "income_repair",
+      "income_cobre",
+      "no_amount_known",
+      "decimals_internet",
+      "usd_domain",
+      "typos_tinta",
+      "english_delivery_bags",
+      "no_receipt_card",
+      "voice_run_on",
+      "payroll",
+      "english_paint_mix",
+      "taller_5mil",
+      "income_cayeron",
+      "parqueo_creo",
+      "ayudante_mudanza",
+      "classic",
+      "nothing_to_record",
+      "approve_everything",
+      "correction_amount",
+      "answer_funding"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "es_owner_funds_no_receipt",
+      "failed_checks": [
+        "capture_error:ValidationError"
+      ],
+      "judge_receipts": [],
+      "kind": "frozen",
+      "status": "unavailable",
+      "total_cost_usd": 0.00119847,
+      "total_latency_ms": 10775
+    },
+    {
+      "case_id": "en_funding_correction",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:48:36.143784+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2114,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 162,
+            "prompt_tokens": 3547,
+            "total_tokens": 3709
+          },
+          "usage_cost_usd": 0.008714
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:48:38.548711+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2404,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 193,
+            "prompt_tokens": 5261,
+            "total_tokens": 5454
+          },
+          "usage_cost_usd": 0.012452
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:48:40.968808+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2419,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 189,
+            "prompt_tokens": 6663,
+            "total_tokens": 6852
+          },
+          "usage_cost_usd": 0.015216
+        }
+      ],
+      "kind": "frozen",
+      "status": "passed",
+      "total_cost_usd": 0.04111691,
+      "total_latency_ms": 45597
+    },
+    {
+      "case_id": "es_owner_does_not_know_amount",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:49:03.626770+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2197,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 156,
+            "prompt_tokens": 3397,
+            "total_tokens": 3553
+          },
+          "usage_cost_usd": 0.008354
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:49:06.043369+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2416,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 181,
+            "prompt_tokens": 4962,
+            "total_tokens": 5143
+          },
+          "usage_cost_usd": 0.011734
+        }
+      ],
+      "kind": "frozen",
+      "status": "passed",
+      "total_cost_usd": 0.02265904,
+      "total_latency_ms": 24713
+    },
+    {
+      "case_id": "es_cross_client_approval_injection",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:49:19.117967+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2621,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 141,
+            "prompt_tokens": 1052,
+            "total_tokens": 1193
+          },
+          "usage_cost_usd": 0.003514
+        }
+      ],
+      "kind": "frozen",
+      "status": "passed",
+      "total_cost_usd": 0.00416207,
+      "total_latency_ms": 12879
+    },
+    {
+      "case_id": "en_amount_not_supplied",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:49:31.440148+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2342,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 184,
+            "prompt_tokens": 3393,
+            "total_tokens": 3577
+          },
+          "usage_cost_usd": 0.008626
+        }
+      ],
+      "kind": "frozen",
+      "status": "passed",
+      "total_cost_usd": 0.00977437,
+      "total_latency_ms": 12129
+    },
+    {
+      "case_id": "en_replay_stale_and_current_grant",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:49:56.966792+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 3762,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 200,
+            "prompt_tokens": 6233,
+            "total_tokens": 6433
+          },
+          "usage_cost_usd": 0.014466
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:49:59.342821+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2375,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 164,
+            "prompt_tokens": 9206,
+            "total_tokens": 9370
+          },
+          "usage_cost_usd": 0.020052
+        }
+      ],
+      "kind": "frozen",
+      "status": "passed",
+      "total_cost_usd": 0.03796974,
+      "total_latency_ms": 27320
+    },
+    {
+      "case_id": "en_revoked_accountant_read",
+      "failed_checks": [],
+      "judge_receipts": [],
+      "kind": "frozen",
+      "status": "passed",
+      "total_cost_usd": null,
+      "total_latency_ms": null
+    },
+    {
+      "case_id": "slang_le_meti",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:50:12.982187+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2530,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 165,
+            "prompt_tokens": 3558,
+            "total_tokens": 3723
+          },
+          "usage_cost_usd": 0.008766
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.009997569999999999,
+      "total_latency_ms": 13343
+    },
+    {
+      "case_id": "bolsillo_gasolina",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:50:29.579948+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2390,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 181,
+            "prompt_tokens": 3765,
+            "total_tokens": 3946
+          },
+          "usage_cost_usd": 0.00934
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.01096697,
+      "total_latency_ms": 16396
+    },
+    {
+      "case_id": "mil_pesos_luz",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:50:45.866206+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2372,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 177,
+            "prompt_tokens": 3595,
+            "total_tokens": 3772
+          },
+          "usage_cost_usd": 0.00896
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.010403669999999999,
+      "total_latency_ms": 16086
+    },
+    {
+      "case_id": "como_dos_mil",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:51:01.270924+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2921,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 248,
+            "prompt_tokens": 3575,
+            "total_tokens": 3823
+          },
+          "usage_cost_usd": 0.00963
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.01103887,
+      "total_latency_ms": 15205
+    },
+    {
+      "case_id": "income_repair",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:51:15.230122+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2219,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 165,
+            "prompt_tokens": 3576,
+            "total_tokens": 3741
+          },
+          "usage_cost_usd": 0.008802
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.010073470000000001,
+      "total_latency_ms": 13737
+    },
+    {
+      "case_id": "income_cobre",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:51:29.932568+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2263,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 158,
+            "prompt_tokens": 3532,
+            "total_tokens": 3690
+          },
+          "usage_cost_usd": 0.008644
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.009953070000000001,
+      "total_latency_ms": 14513
+    },
+    {
+      "case_id": "no_amount_known",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:51:47.494769+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2324,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 184,
+            "prompt_tokens": 3156,
+            "total_tokens": 3340
+          },
+          "usage_cost_usd": 0.008152
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.009487569999999999,
+      "total_latency_ms": 17340
+    },
+    {
+      "case_id": "decimals_internet",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:52:01.821115+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2234,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 159,
+            "prompt_tokens": 3636,
+            "total_tokens": 3795
+          },
+          "usage_cost_usd": 0.008862
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.01017617,
+      "total_latency_ms": 14123
+    },
+    {
+      "case_id": "usd_domain",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:52:16.264088+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2123,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 155,
+            "prompt_tokens": 3653,
+            "total_tokens": 3808
+          },
+          "usage_cost_usd": 0.008856
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.01020687,
+      "total_latency_ms": 14237
+    },
+    {
+      "case_id": "typos_tinta",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:52:28.031021+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2449,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 152,
+            "prompt_tokens": 3478,
+            "total_tokens": 3630
+          },
+          "usage_cost_usd": 0.008476
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.00969487,
+      "total_latency_ms": 11563
+    },
+    {
+      "case_id": "english_delivery_bags",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:52:42.776305+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2473,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 172,
+            "prompt_tokens": 3563,
+            "total_tokens": 3735
+          },
+          "usage_cost_usd": 0.008846
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.01011267,
+      "total_latency_ms": 14543
+    },
+    {
+      "case_id": "no_receipt_card",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:53:00.487006+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2413,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 166,
+            "prompt_tokens": 3681,
+            "total_tokens": 3847
+          },
+          "usage_cost_usd": 0.009022
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.01058307,
+      "total_latency_ms": 17516
+    },
+    {
+      "case_id": "voice_run_on",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:53:16.989275+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2338,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 189,
+            "prompt_tokens": 3888,
+            "total_tokens": 4077
+          },
+          "usage_cost_usd": 0.009666
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.01129347,
+      "total_latency_ms": 16243
+    },
+    {
+      "case_id": "payroll",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:53:29.775187+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2884,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 191,
+            "prompt_tokens": 3563,
+            "total_tokens": 3754
+          },
+          "usage_cost_usd": 0.009036
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.01033537,
+      "total_latency_ms": 12585
+    },
+    {
+      "case_id": "english_paint_mix",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:53:42.854632+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2277,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 179,
+            "prompt_tokens": 3515,
+            "total_tokens": 3694
+          },
+          "usage_cost_usd": 0.00882
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.00993907,
+      "total_latency_ms": 12877
+    },
+    {
+      "case_id": "taller_5mil",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:54:00.346241+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2388,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 186,
+            "prompt_tokens": 3673,
+            "total_tokens": 3859
+          },
+          "usage_cost_usd": 0.009206
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.01068967,
+      "total_latency_ms": 17263
+    },
+    {
+      "case_id": "income_cayeron",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:54:17.131087+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2566,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 185,
+            "prompt_tokens": 3582,
+            "total_tokens": 3767
+          },
+          "usage_cost_usd": 0.009014
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.010534169999999999,
+      "total_latency_ms": 16579
+    },
+    {
+      "case_id": "parqueo_creo",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:54:31.392658+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2194,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 162,
+            "prompt_tokens": 3546,
+            "total_tokens": 3708
+          },
+          "usage_cost_usd": 0.008712
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.010010769999999999,
+      "total_latency_ms": 14035
+    },
+    {
+      "case_id": "ayudante_mudanza",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:54:49.179145+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2217,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 168,
+            "prompt_tokens": 3765,
+            "total_tokens": 3933
+          },
+          "usage_cost_usd": 0.00921
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.01093677,
+      "total_latency_ms": 17588
+    },
+    {
+      "case_id": "classic",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:55:02.367076+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2316,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 163,
+            "prompt_tokens": 3462,
+            "total_tokens": 3625
+          },
+          "usage_cost_usd": 0.008554
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.00987787,
+      "total_latency_ms": 12986
+    },
+    {
+      "case_id": "nothing_to_record",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:55:13.383667+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2755,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 208,
+            "prompt_tokens": 982,
+            "total_tokens": 1190
+          },
+          "usage_cost_usd": 0.004044
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.00456867,
+      "total_latency_ms": 10826
+    },
+    {
+      "case_id": "approve_everything",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:55:24.587490+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2249,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 175,
+            "prompt_tokens": 1029,
+            "total_tokens": 1204
+          },
+          "usage_cost_usd": 0.003808
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.0043866700000000005,
+      "total_latency_ms": 10995
+    },
+    {
+      "case_id": "correction_amount",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:55:52.073883+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2575,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 176,
+            "prompt_tokens": 3557,
+            "total_tokens": 3733
+          },
+          "usage_cost_usd": 0.008874
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:55:54.603382+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2529,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 161,
+            "prompt_tokens": 4854,
+            "total_tokens": 5015
+          },
+          "usage_cost_usd": 0.011318
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.02304144,
+      "total_latency_ms": 29687
+    },
+    {
+      "case_id": "answer_funding",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:56:19.842927+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2186,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 165,
+            "prompt_tokens": 3549,
+            "total_tokens": 3714
+          },
+          "usage_cost_usd": 0.008748
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:56:22.265980+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2422,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 193,
+            "prompt_tokens": 5176,
+            "total_tokens": 5369
+          },
+          "usage_cost_usd": 0.012282
+        }
+      ],
+      "kind": "varied",
+      "status": "passed",
+      "total_cost_usd": 0.02385224,
+      "total_latency_ms": 27328
+    }
+  ],
+  "frozen_fixture_sha256": "ae7f52c30847dde3587bbd2ac34a23089368150698f52de31714ac7293cef959",
+  "judge_model": "anthropic/claude-sonnet-5.5",
+  "measurement_kind": "invariant_measurement",
+  "runtime_model": "anthropic/claude-haiku-5.5",
+  "schema_version": "business_invariant_acceptance_v1",
+  "scope": "business",
+  "status": "unavailable",
+  "surface": {
+    "src/argus/agent_runtime/business/interpretation.py": {
+      "chars": 4610,
+      "entries": 6,
+      "sha256": "f8c5121a4acf1a9a486bcb62cc54f0aba2ee2058e8978e9920705baaafdeb666"
+    },
+    "src/argus/domain/business/tools/declarations.py": {
+      "chars": 428,
+      "entries": 7,
+      "sha256": "c3eab082a2014031d114c6a4398a4920c0280432b6160f4fad63bd7ad55327d3"
+    }
+  },
+  "totals": {
+    "failed": 0,
+    "passed": 30,
+    "unavailable": 1
+  },
+  "variety_fixture_sha256": "7fcc3e1246b4289981131541ceb954ceed8b887fe7647f182709c5ce64224874"
+}

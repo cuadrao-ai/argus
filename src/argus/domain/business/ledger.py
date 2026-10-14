@@ -31,6 +31,19 @@ def expense_activities(
     return [item for item in activities if item["kind"] == "expense"]
 
 
+def today() -> date:
+    """The Business day: the one clock's instant, read in the recording time zone.
+
+    The instant comes from the clock every "today" derives from, so a frozen
+    clock freezes this day too; the calendar is Santo Domingo's, never the
+    host's or the browser's."""
+
+    from argus.domain.market_data.new_york_clock import new_york_now
+    from argus.domain.recording.records import DEFAULT_TIME_ZONE
+
+    return new_york_now().astimezone(ZoneInfo(DEFAULT_TIME_ZONE)).date()
+
+
 def expenses(
     activities: Iterable[Mapping[str, Any]],
     receipt_of: Mapping[str, str],
