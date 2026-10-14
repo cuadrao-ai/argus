@@ -10,9 +10,9 @@ extension CuadraoFirstRelease {
     #endif
 
     /// Claiming the on-device book into an account stays off until it is approved. A development build opens it
-    /// with `--cuadrao-guest-claim`.
+    /// with `--cuadrao-guest-claim`, and so does the founder phone build (Debug only; Release is always off).
     #if DEBUG
-    static let guestClaim = ProcessInfo.processInfo.arguments.contains("--cuadrao-guest-claim")
+    static let guestClaim = founderPhone || ProcessInfo.processInfo.arguments.contains("--cuadrao-guest-claim")
     #else
     static let guestClaim = false
     #endif
