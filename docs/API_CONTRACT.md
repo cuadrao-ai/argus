@@ -9452,6 +9452,13 @@ accept path recorded.
   in America/Santo_Domingo), and `/overview` and `/expenses` accept an omitted
   `to`, which means that day; the web sends no `to` for this month, last 30
   days and all. A `from` after `to` answers 422 `period_reversed`.
+- Web receipt upload failures stay in the selected file's row. A failed
+  save keeps that file, its idempotency key and its AI choice for a manual
+  retry. Unsupported files offer another file instead of retrying. The format
+  line and rejection copy derive from `workspace.receipt_limits.media_types`,
+  with duplicate display labels removed. API error details never render here.
+  Upload domain failures log only HTTP status, domain code and exception type;
+  source bytes, filenames, identifiers and exception messages are excluded.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake

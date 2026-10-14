@@ -2555,11 +2555,12 @@
       "replayed": "Ya estaba guardado. Este es ese recibo.",
       "camera": "Tomar foto",
       "choose": "Elegir archivo",
+      "choose_another": "Elegir otro archivo",
       "consent": "Prepararlo con IA después de guardarlo. El recibo se envía a nuestro proveedor de IA para completar los detalles y que tú los revises. Déjalo desactivado para completarlos tú mismo.",
       "drop": "Suelta un recibo aquí.",
       "paste": "Pegar",
       "clipboard_empty": "No hay una imagen o PDF de recibo para pegar. Copia uno primero o elige un archivo.",
-      "failed": "No pudimos guardar este recibo. Revisa tu conexión y reintenta. No se guardará dos veces.",
+      "failed": "No pudimos leer el recibo. Inténtalo de nuevo.",
       "formats": "{{formats}}, hasta {{size}} MB. El original es privado para ti.",
       "heic": "Esta es una foto HEIC de iPhone. Súbela desde el navegador de tu iPhone, que la convierte, o expórtala como JPG primero.",
       "replace": "Elegir otro",
@@ -2584,7 +2585,7 @@
         "rejected": "No se puede subir"
       },
       "too_large": "Este archivo pesa más de {{size}} MB. Usa una foto o un PDF más pequeño.",
-      "unsupported": "Este tipo de archivo no es compatible. Usa {{formats}}."
+      "unsupported": "Este archivo no es compatible. Prueba con {{formats}}."
     },
     "notice": {
       "conversation_unavailable": "Esta conversación no está disponible en Cuadrao Business.",

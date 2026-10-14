@@ -46,6 +46,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const capabilities = useInputCapabilities();
   const { bridge } = useBusiness();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replacingRef = useRef<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const entries = useSyncExternalStore(queue.subscribe, queue.snapshot, queue.snapshot).filter((item) => item.target === target);
   const [consent, setConsent] = useState(false);
@@ -92,7 +93,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
     new Intl.NumberFormat(i18n.resolvedLanguage ?? "en", { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024);
   const formats = receiptFormatLabels(limits).join(", ");
   const rejectionText: Record<UploadRejection, string> = {
-    unsupported: t("business.intake.unsupported", "This file type isn't supported. Use {{formats}}.", { formats }),
+    unsupported: t("business.intake.unsupported", "This file isn't supported. Try {{formats}}.", { formats }),
     too_large: t("business.intake.too_large", "This file is larger than {{size}} MB. Use a smaller photo or PDF.", { size: sizeLabel(limits.max_bytes) }),
     heic: t("business.intake.heic", "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first."),
   };
@@ -111,7 +112,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       onClose={onClose}
       width="md"
       footer={
-        <div className="flex flex-wrap justify-end gap-2 px-4 pb-4">
+        <div className="flex flex-wrap justify-end gap-2" data-testid="receipt-intake-footer">
           <button type="button" className={secondaryButtonClass} onClick={onClose}>
             {t("common.close", "Close")}
           </button>
@@ -128,7 +129,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
         </div>
       }
     >
-      <div className="space-y-4 px-4 pb-2">
+      <div className="space-y-4 px-4 pb-6">
         <p className="text-[14px] text-black/60 dark:text-white/60">
           {t("business.intake.formats", "{{formats}}, up to {{size}} MB. The original stays private to you.", { formats, size: sizeLabel(limits.max_bytes) })}
         </p>
@@ -156,7 +157,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => fileInputRef.current?.click()}>
+            <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => { replacingRef.current = null; fileInputRef.current?.click(); }}>
               <FileUp className="h-4 w-4" />
               {many ? t("business.intake.choose_multiple", "Choose files") : t("business.intake.choose", "Choose file")}
             </button>
@@ -183,7 +184,10 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             tabIndex={-1}
             aria-hidden="true"
             onChange={(event) => {
-              choose(Array.from(event.target.files ?? []));
+              const files = Array.from(event.target.files ?? []);
+              if (files.length && replacingRef.current) queue.remove(replacingRef.current);
+              replacingRef.current = null;
+              choose(files);
               event.target.value = "";
             }}
           />
@@ -233,11 +237,18 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
                   </button>
                 </div>
                 <p className="text-sm text-black/60 dark:text-white/60">{item.status === "saved" && item.receipt.replayed ? t("business.intake.replayed", "Already saved before. This is that receipt.") : statusText[item.status]}</p>
-                {item.status === "rejected" ? <p role="alert" className="mt-1 text-sm text-[#a8434c] dark:text-[#ec9aa0]">{rejectionText[item.reason]}</p> : null}
+                {item.status === "rejected" ? (
+                  <div className="mt-2 space-y-2">
+                    <p role="alert" className="text-sm text-[#a8434c] dark:text-[#ec9aa0]">{rejectionText[item.reason]}</p>
+                    <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => { replacingRef.current = item.key; fileInputRef.current?.click(); }}>
+                      {t("business.intake.choose_another", "Choose another file")}
+                    </button>
+                  </div>
+                ) : null}
                 {item.status === "failed" ? (
                   <div className="mt-2 space-y-2">
                     <p role="alert" className="text-sm text-[#a8434c] dark:text-[#ec9aa0]">
-                      {t("business.intake.failed", "We couldn't save this receipt. Check your connection and try again. It won't be saved twice.")}
+                      {t("business.intake.failed", "We couldn't read the receipt. Try again.")}
                     </p>
                     <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => void queue.save(target, consent, item.key)}>
                       {t("common.retry", "Retry")}
@@ -252,7 +263,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           <p className="text-xs text-black/60 dark:text-white/60">{t("business.intake.retry_consent", "Retries keep the AI choice from the first attempt.")}</p>
         ) : null}
 
-        <label className="flex items-start gap-3 rounded-[14px] bg-black/[0.03] p-3 text-[14px] text-black/75 dark:bg-white/[0.04] dark:text-white/75">
+        <label data-testid="receipt-ai-consent" className="flex items-start gap-3 rounded-[14px] bg-black/[0.03] p-3 text-[14px] text-black/75 dark:bg-white/[0.04] dark:text-white/75">
           <input
             type="checkbox"
             checked={consent}
