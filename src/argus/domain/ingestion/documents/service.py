@@ -284,10 +284,9 @@ class DocumentsService:
         scope: OwnerScope,
         on_capture: CaptureHook | None = None,
     ) -> DocumentOutcome:
-        async with self._capture_slot:
-            worker = asyncio.create_task(
-                asyncio.to_thread(
-                    self._upload,
+        def capture() -> DocumentOutcome | BaseException:
+            try:
+                return self._upload(
                     user_id=user_id,
                     content=content,
                     filename=filename,
@@ -298,9 +297,15 @@ class DocumentsService:
                     scope=scope,
                     on_capture=on_capture,
                 )
-            )
+            except BaseException as error:
+                # SystemExit/KeyboardInterrupt must travel as data: raising
+                # either inside the worker Task stops the caller's event loop.
+                return error
+
+        async with self._capture_slot:
+            worker = asyncio.create_task(asyncio.to_thread(capture))
             try:
-                return await asyncio.shield(worker)
+                result = await asyncio.shield(worker)
             except asyncio.CancelledError:
                 # A thread cannot be cancelled. Keep its slot and caller alive
                 # until the write settles, even if cancellation repeats.
@@ -314,6 +319,9 @@ class DocumentsService:
                 if not worker.cancelled():
                     worker.exception()
                 raise
+            if isinstance(result, BaseException):
+                raise result
+            return result
 
     def _upload(
         self,

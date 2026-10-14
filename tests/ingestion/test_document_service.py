@@ -374,3 +374,37 @@ async def test_cancelled_capture_settles_before_next_upload_and_replays(rig, mon
     assert replay.replayed
     assert captures == [replay.connection_id, replay.connection_id]
     assert len(hub.connections.list(user_id=user, scope=PERSONAL)) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure_type", [SystemExit, KeyboardInterrupt])
+async def test_capture_transports_process_exception_to_caller(
+    rig, monkeypatch, failure_type
+):
+    service, _, _, _ = rig
+    failure = failure_type("synthetic source-store interruption")
+    original = service.store.capture
+
+    def interrupt(**kwargs):
+        raise failure
+
+    monkeypatch.setattr(service.store, "capture", interrupt)
+    with pytest.raises(failure_type) as caught:
+        await service.upload(
+            user_id=fake.uuid4(),
+            content=b"%PDF-fixture",
+            filename="receipt.pdf",
+            media_type="application/pdf",
+            scope=PERSONAL,
+        )
+    assert caught.value is failure
+    monkeypatch.setattr(service.store, "capture", original)
+    # The exception settles the operation and releases capacity for the next source.
+    outcome = await service.upload(
+        user_id=fake.uuid4(),
+        content=b"%PDF-next",
+        filename="next.pdf",
+        media_type="application/pdf",
+        scope=PERSONAL,
+    )
+    assert outcome.status == "saved"
