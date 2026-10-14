@@ -360,6 +360,7 @@
 "plan.kind.bill" = "Pago";
 "plan.name" = "Nombre";
 "plan.account.unassigned" = "Elegir después";
+"plan.account.required" = "Elegir cuenta";
 "plan.account.hint" = "Necesita una cuenta para incluirse en la proyección o registrarse.";
 "plan.date" = "Comienza";
 "plan.repeat" = "Repetir";

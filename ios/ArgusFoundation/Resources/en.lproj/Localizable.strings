@@ -360,6 +360,7 @@
 "plan.kind.bill" = "Bill";
 "plan.name" = "Name";
 "plan.account.unassigned" = "Choose later";
+"plan.account.required" = "Choose an account";
 "plan.account.hint" = "An account is needed before this affects the forecast or can be recorded.";
 "plan.date" = "Starts";
 "plan.repeat" = "Repeat";
