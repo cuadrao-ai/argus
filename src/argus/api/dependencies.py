@@ -17,6 +17,7 @@ from argus.api.auth_sessions import (
     auth_session_is_active,
 )
 from argus.api.browser_cookies import set_browser_cookie
+from argus.api.browser_session import REFRESH_COOKIE_MAX_AGE, renew_browser_token
 from argus.api.guest_access import (
     guest_account_context,
     permanent_account_access_allowed,
@@ -246,6 +247,9 @@ async def request_id_middleware(request: Request, call_next):  # type: ignore[no
             },
             status_code=500,
         )
+    renewed = getattr(request.state, "renewed_browser_session", None)
+    if renewed is not None and response.status_code < 400:
+        _apply_auth_session_cookies(request, response, renewed)
     response.headers["X-Request-Id"] = request_id
     return response
 
@@ -353,7 +357,12 @@ def _apply_auth_session_cookies(
     if isinstance(access_token, str) and access_token:
         set_browser_cookie(response, "sb-auth-token", access_token, **cookie_kwargs)
     if isinstance(refresh_token, str) and refresh_token:
-        set_browser_cookie(response, "sb-refresh-token", refresh_token, **cookie_kwargs)
+        set_browser_cookie(
+            response,
+            "sb-refresh-token",
+            refresh_token,
+            **{**cookie_kwargs, "max_age": REFRESH_COOKIE_MAX_AGE},
+        )
 
 
 def browser_cookie_policy(request: Request) -> dict[str, Any]:
@@ -392,6 +401,9 @@ def dev_memory_fallback_enabled() -> bool:
 
 def request_access_token(request: Request) -> str | None:
     """The bearer token, or the Supabase session cookie's access token."""
+    renewed_token = getattr(request.state, "access_token", None)
+    if renewed_token:
+        return renewed_token
     auth_header = request.headers.get("Authorization")
     token = None
     if auth_header and auth_header.startswith("Bearer "):
@@ -451,6 +463,16 @@ def current_user(request: Request) -> User:
         )
 
     token = request_access_token(request)
+    try:
+        token = renew_browser_token(request, api_state.supabase_gateway, token)
+    except Exception:
+        raise problem(
+            request,
+            status_code=401,
+            code="unauthorized",
+            title="Unauthorized",
+            detail="Invalid or expired session.",
+        ) from None
 
     if not token:
         raise problem(

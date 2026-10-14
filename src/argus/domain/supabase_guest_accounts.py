@@ -34,6 +34,12 @@ class GuestAccountPersistenceMixin:
             raise RuntimeError("Invalid or missing user in token response.")
         return response.user.model_dump(mode="json")
 
+    def refresh_browser_session(self, refresh_token: str) -> dict[str, Any]:
+        response = self._auth().refresh_session(refresh_token)
+        if not response or not response.session:
+            raise RuntimeError("Session renewal returned no session.")
+        return response.model_dump(mode="json")
+
     def private_alpha_email_disabled(self, email: str) -> bool:
         rows = (
             self.client.table("private_alpha_allowlist")

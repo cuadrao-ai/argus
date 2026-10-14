@@ -77,7 +77,11 @@ def _handler(fake: FakeAuth) -> type[BaseHTTPRequestHandler]:
                 grant_type=parse_qs(url.query).get("grant_type", [""])[0],
                 authorization=self.headers.get("Authorization", ""),
             )
-            payload = {} if url.path.endswith("/resend") else _session(body.get("email"))
+            payload = (
+                {}
+                if url.path.endswith("/resend")
+                else _session(body.get("email") or body.get("refresh_token"))
+            )
             encoded = json.dumps(payload).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -143,7 +147,9 @@ def test_argus_never_refreshes_a_session_it_returned(fake_auth) -> None:
     assert fake.grants("refresh_token") == []
 
 
-def test_concurrent_sign_ins_send_no_user_token_and_return_their_own_identity(fake_auth) -> None:
+def test_concurrent_sign_ins_send_no_user_token_and_return_their_own_identity(
+    fake_auth,
+) -> None:
     fake, gateway = fake_auth
     _login(gateway, "earlier@example.com")
     emails = [f"user-{index}@example.com" for index in range(12)]
@@ -166,3 +172,25 @@ def test_concurrent_sign_ins_send_no_user_token_and_return_their_own_identity(fa
     }
     assert returned == {email: (email, f"access-for-{email}") for email in emails}
     assert {r["authorization"] for r in fake.requests} == {PUBLIC_AUTHORIZATION}
+
+
+def test_explicit_refresh_uses_public_key_and_keeps_no_cross_user_session(
+    fake_auth,
+) -> None:
+    fake, gateway = fake_auth
+    results = [
+        gateway.refresh_browser_session(email)
+        for email in ("alice@example.com", "bob@example.com")
+    ]
+    assert [result["user"]["email"] for result in results] == [
+        "alice@example.com",
+        "bob@example.com",
+    ]
+    assert [request["authorization"] for request in fake.grants("refresh_token")] == [
+        PUBLIC_AUTHORIZATION
+    ] * 2
+    # Refresh must not alter the service client or the next user's auth call.
+    later = _login(gateway, "carol@example.com")
+    assert later["user"]["email"] == "carol@example.com"
+    assert fake.requests[-1]["authorization"] == PUBLIC_AUTHORIZATION
+    assert gateway._auth().get_session() is None

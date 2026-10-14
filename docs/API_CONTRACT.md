@@ -89,6 +89,18 @@ Timezone: UTC server-side
 
 ---
 
+## Browser session renewal
+
+Supabase owns session validity. Browser sign-in writes an HttpOnly access cookie
+for the access token lifetime and an HttpOnly refresh cookie for 30 days.
+A cookie-authenticated request with no access cookie or an expired access token
+renews through Supabase using its refresh cookie. Both cookies are replaced;
+the refresh cookie receives a new 30-day lifetime. The renewed access token
+still passes the existing live-session, guest-workspace and account-access
+checks. Invalid, revoked or mismatched refresh credentials fail closed.
+Bearer requests keep their existing behavior and never use browser refresh
+cookies. The API retains no per-user Supabase session between requests.
+
 # 3. General Conventions
 
 ## Pagination
