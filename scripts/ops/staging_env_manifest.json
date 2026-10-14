@@ -245,6 +245,21 @@
           "value": "https://cuadrao-web-staging.onrender.com"
         },
         {
+          "name": "CUADRAO_AUTH_EMAIL_HOOK_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
+          "name": "CUADRAO_AUTH_EMAIL_OTP_EXP_SECONDS",
+          "kind": "plain",
+          "value": "3600"
+        },
+        {
+          "name": "CUADRAO_AUTH_EMAIL_PROJECT_REF",
+          "kind": "plain",
+          "value": "skedzwocnmrhfigiwyzi"
+        },
+        {
           "name": "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED",
           "kind": "plain",
           "value": "true"
@@ -288,7 +303,10 @@
           "requires": "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY"
         }
       ],
-      "hold": [],
+      "hold": [
+        { "name": "CUADRAO_AUTH_EMAIL_HOOK_SECRET", "reason": "Inject only for reviewed staging hook activation." },
+        { "name": "CUADRAO_AUTH_EMAIL_RESEND_API_KEY", "reason": "Dedicated Auth sending credential; activation only after review." }
+      ],
       "distinct": []
     }
   }

@@ -1,0 +1,22 @@
+{
+  "confirmation": {
+    "subject": "Confirm your email address",
+    "body": "<h2>Confirm your email address</h2>\n\n<p>Follow the link below to confirm this email address and finish signing up.</p>\n<p><a href=\"{{ .ConfirmationURL }}\">Confirm email address</a></p>"
+  },
+  "email_change": {
+    "subject": "Confirm your new email address",
+    "body": "<h2>Confirm your new email address</h2>\n\n<p>Follow the link below to confirm {{ .NewEmail }} as your new email address.</p>\n<p><a href=\"{{ .ConfirmationURL }}\">Confirm new email address</a></p>\n\n<p>If you didn't request this change, you can safely ignore this email.</p>"
+  },
+  "invite": {
+    "subject": "You've been invited",
+    "body": "<h2>You've been invited</h2>\n\n<p>You've been invited to create an account. Follow the link below to accept.</p>\n<p><a href=\"{{ .ConfirmationURL }}\">Accept invitation</a></p>"
+  },
+  "magic_link": {
+    "subject": "Your sign-in link",
+    "body": "<h2>Your sign-in link</h2>\n\n<p>Follow the link below to sign in. This link expires shortly and can only be used once.</p>\n<p><a href=\"{{ .ConfirmationURL }}\">Sign in</a></p>"
+  },
+  "reauthentication": {
+    "subject": "{{ .Token }} is your verification code",
+    "body": "<h2>Your verification code</h2>\n\n<p>Use the code below to verify your identity. It expires shortly.</p>\n\n<p>{{ .Token }}</p>"
+  }
+}

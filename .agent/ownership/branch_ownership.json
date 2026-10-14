@@ -2338,6 +2338,39 @@
         "web/.env.*",
         "supabase/migrations/**"
       ]
+    },
+    "codex/staging-reset-email": {
+      "description": "Issue #1117 shared approved recovery email and disabled signed staging Auth hook with six-action compatibility. No hosted sends/settings, production, iOS or migration changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/reports/2026-10-14-staging-reset-email.md",
+        "render.yaml",
+        "scripts/ops/staging_env_manifest.json",
+        "tests/test_environment_scripts.py",
+        "web/.env.local.example",
+        "web/__tests__/auth-email-hook.test.ts",
+        "web/__tests__/auth-email-transport.test.ts",
+        "web/__tests__/fixtures/auth-email-existing-templates.json",
+        "web/__tests__/reset-password-email.test.tsx",
+        "web/app/api/auth/send-email/route.ts",
+        "web/bun.lock",
+        "web/package.json",
+        "web/server/emails/auth-actions.tsx",
+        "web/server/emails/auth-hook.ts",
+        "web/server/emails/layout.tsx",
+        "web/server/emails/resend.ts",
+        "web/server/emails/reset-password.tsx"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "ios/**",
+        "supabase/migrations/**",
+        "src/**",
+        "marketing/**"
+      ]
     }
   }
 }
