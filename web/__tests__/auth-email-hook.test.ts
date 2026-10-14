@@ -10,6 +10,7 @@ const config = {
   supabaseUrl: "https://skedzwocnmrhfigiwyzi.supabase.co",
   appOrigin: "https://cuadrao-web-staging.onrender.com",
   expirySeconds: 3600,
+  renderServiceId: "srv-db5ihr7lot8c73f3b3h0",
   hookSecret: secret,
 };
 const payload = (action = "recovery") => ({
@@ -48,6 +49,27 @@ describe("staging Auth email hook", () => {
       const response = await handleAuthEmailHook(request(payload()), invalid, async (email) => { sent.push(email); });
       assert.notEqual(response.status, 200);
       assert.equal((sent).length, 0);
+    }
+  });
+
+  test("accepts Next internal URLs only in the pinned Render service, regardless of spoofed forwarding headers", async () => {
+    const signed = request(payload());
+    const body = await signed.text();
+    const headers = new Headers(signed.headers);
+    headers.set("host", "cuadrao-web-staging.onrender.com");
+    headers.set("x-forwarded-host", "cuadrao-web-staging.onrender.com");
+    headers.set("x-forwarded-proto", "https");
+    const sent: AuthDelivery[] = [];
+    const internal = new Request("http://0.0.0.0:10000/api/auth/send-email", { method: "POST", headers, body });
+    assert.equal((await handleAuthEmailHook(internal, config, async (email) => { sent.push(email); })).status, 200);
+    assert.equal(sent.length, 1);
+    for (const renderServiceId of ["", "srv-other-service"]) {
+      for (const url of [internal.url, signed.url]) {
+        const candidate = new Request(url, { method: "POST", headers, body });
+        const rejected: AuthDelivery[] = [];
+        assert.equal((await handleAuthEmailHook(candidate, { ...config, renderServiceId }, async (email) => { rejected.push(email); })).status, 503);
+        assert.equal(rejected.length, 0);
+      }
     }
   });
 

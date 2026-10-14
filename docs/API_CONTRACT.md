@@ -2525,7 +2525,9 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
 **Staging Auth email delivery (#1117):**
 - `POST /api/auth/send-email` is a server-only Supabase Send Email Hook, disabled
   by default. It accepts a bounded (65,536 bytes) signed raw JSON body only for
-  staging project `skedzwocnmrhfigiwyzi` and the exact staging web origin.
+  staging project `skedzwocnmrhfigiwyzi`, the exact signed staging web origin
+  and built-in Render service ID `srv-db5ihr7lot8c73f3b3h0`. Internal Next
+  request URLs and forwarded headers are not deployment identity checks.
   Standard Webhooks signature and timestamp validation happen before parsing.
   Invalid signatures return generic `401`; invalid payloads or unsupported
   actions return `400`; oversized bodies return `413`; disabled returns `404`;

@@ -26,7 +26,12 @@ an error. No email is silently acknowledged or delegated to Supabase SMTP.
 
 Signed payloads are capped at 64 KiB. Standard Webhooks verifies the raw body
 and timestamp before JSON schema parsing. The dedicated secret, project ref,
-Supabase URL, web origin and expiry all bind this route to staging. User metadata
+Supabase URL, signed web origin, expiry and built-in `RENDER_SERVICE_ID`
+`srv-db5ihr7lot8c73f3b3h0` all bind this route to staging. Next can construct
+`Request.url` with an internal server hostname behind Render, so request URLs
+and forwarded headers do not establish deployment identity.
+[Render supplies the service ID automatically](https://render.com/docs/environment-variables#all-runtimes);
+no manually configured environment value is needed. User metadata
 is not authorization. Recipients come only from the signed payload. PKCE token
 prefixes are retained. Empty redirects preserve Supabase's site default;
 nonempty redirects remain in the staging origin. No payload, recipient, token,

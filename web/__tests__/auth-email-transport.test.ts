@@ -56,5 +56,7 @@ describe("Auth email compatibility and delivery", () => {
     await assert.rejects(sender(delivery), new RegExp("Auth email provider unavailable"));
     assert.equal(calls, 0);
     assert.equal(authEmailHookConfig({}).enabled, false);
+    assert.equal(authEmailHookConfig({}).renderServiceId, "");
+    assert.equal(authEmailHookConfig({ RENDER_SERVICE_ID: "srv-db5ihr7lot8c73f3b3h0" }).renderServiceId, "srv-db5ihr7lot8c73f3b3h0");
   });
 });
