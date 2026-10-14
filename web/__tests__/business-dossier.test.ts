@@ -307,6 +307,8 @@ test("the line under approve never tells a person who can approve that someone e
 
 test("the record page mounts no export panel: exports belong to a period surface", () => {
   const source = readFileSync(join(import.meta.dir, "..", "components", "business-app", "ReceiptDossierReview.tsx"), "utf-8");
-  const page = source.slice(source.indexOf("export default function ReceiptDossierReview"));
+  const start = source.indexOf("export default function ReceiptDossierReview");
+  assert.ok(start >= 0, "the page component is where the test looks for it");
+  const page = source.slice(start);
   assert.ok(!page.includes("<ReceiptPeriodExport"));
 });

@@ -29,9 +29,12 @@ FINAL_STATES = ("partial", "captured", "rejected")
 
 class EmailRelation(TypedDict):
     original: bool
-    delivery_ids: set[str]
+    #: Deliveries that brought this document, earliest arrival first.
+    delivery_ids: list[str]
     # An original whose email already has a saved attachment: context, not a receipt.
     grouped: bool
+    #: When the earliest of those deliveries arrived.
+    first_received_at: datetime | None
 
 
 class LeaseLost(RuntimeError):
@@ -369,7 +372,7 @@ class PostgresEmailStore:
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             rows = cursor.execute(
-                "select d.id::text, d.original_document_id::text, p.document_id::text, "
+                "select d.id::text, d.received_at, d.original_document_id::text, p.document_id::text, "
                 "exists(select 1 from public.business_email_parts c where c.delivery_id=d.id and c.state='captured') as captured "
                 "from public.business_email_deliveries d left join public.business_email_parts p "
                 "on p.delivery_id=d.id where d.space_id=%s",
@@ -380,16 +383,27 @@ class PostgresEmailStore:
 
 def _relations(rows: list[dict]) -> dict[str, EmailRelation]:
     found: dict[str, EmailRelation] = {}
+    arrivals: dict[str, dict[str, datetime]] = {}
     for row in rows:
         for key, original in (("original_document_id", True), ("document_id", False)):
             document = row[key]
             if document:
                 entry = found.setdefault(
-                    document, {"original": False, "delivery_ids": set(), "grouped": False}
+                    document,
+                    {
+                        "original": False,
+                        "delivery_ids": [],
+                        "grouped": False,
+                        "first_received_at": None,
+                    },
                 )
                 entry["original"] |= original
                 entry["grouped"] |= original and bool(row.get("captured"))
-                entry["delivery_ids"].add(row["id"])
+                arrivals.setdefault(document, {})[row["id"]] = row["received_at"]
+    for document, entry in found.items():
+        ordered = sorted(arrivals[document].items(), key=lambda item: (item[1], item[0]))
+        entry["delivery_ids"] = [delivery_id for delivery_id, _ in ordered]
+        entry["first_received_at"] = ordered[0][1] if ordered else None
     return found
 
 
@@ -617,6 +631,7 @@ class InMemoryEmailStore:
                 rows.append(
                     {
                         "id": delivery.id,
+                        "received_at": delivery.received_at,
                         "original_document_id": delivery.original_document_id,
                         "document_id": part.document_id if part else None,
                         "captured": captured,

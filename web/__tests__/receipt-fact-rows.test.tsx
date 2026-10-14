@@ -131,6 +131,8 @@ describe("the counts line agrees with 'Antes de aprobar'", () => {
     assert.ok(html.includes(">1 sugerencia por confirmar · 3 datos por resolver<"));
     assert.ok(!html.includes("Falta"));
     assert.ok(html.includes('data-fact="amount" data-standing="suggestion" data-blocked="true"'));
+    // Confirming the value a blocker refuses cannot succeed, so the blocked suggestion offers no Confirmar.
+    assert.ok(!html.includes("confirm-amount"));
     assert.ok(html.includes('data-fact="funding" data-standing="owner_unknown" data-blocked="true"'));
     assert.ok(html.includes('data-fact="currency" data-standing="person" data-blocked="true"'));
     assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 3);

@@ -597,7 +597,7 @@ def with_email_sources(dossier, space_id: str):  # noqa: ANN001, ANN201
     deliveries, from the email queue; the stored source row knows only web or
     whatsapp, so this is decided here and never written back."""
 
-    from argus.api.email_intake import email_receipt_flags
+    from argus.api.email_intake import arrived_by_email, email_receipt_flags
 
     flags = email_receipt_flags(space_id)
     if not flags:
@@ -605,7 +605,11 @@ def with_email_sources(dossier, space_id: str):  # noqa: ANN001, ANN201
     sources = tuple(
         source.model_copy(
             update={
-                "channel": "email",
+                "channel": "email"
+                if arrived_by_email(
+                    source.received_at, flags[str(source.connection_id)][2]
+                )
+                else source.channel,
                 "email_delivery_ids": flags[str(source.connection_id)][0],
             }
         )

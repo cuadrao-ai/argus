@@ -47,7 +47,7 @@ import { useBusinessSearch } from "./useBusinessSearch";
 
 export type BusinessPanelState =
   | { kind: "overview" }
-  | { kind: "inbox" }
+  | { kind: "inbox"; emailId?: string }
   | { kind: "expenses"; expenseId?: string }
   | { kind: "expense"; expenseId: string }
   | { kind: "updates" }

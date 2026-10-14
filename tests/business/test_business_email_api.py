@@ -16,7 +16,7 @@ from argus.api import email_intake as runtime_module
 from argus.domain.ingestion.email_intake.store import InMemoryEmailStore
 from fastapi.testclient import TestClient
 
-from tests.business.test_business_api import Owner, alice  # noqa: F401
+from tests.business.test_business_api import Owner, alice, bob  # noqa: F401
 
 UNREADABLE = (
     Path(__file__).parents[1] / "document_extraction_fixtures/unreadable.png"
@@ -37,8 +37,13 @@ def signed(body: bytes, *, now: int | None = None) -> dict[str, str]:
 @pytest.fixture
 def runtime(monkeypatch):
     monkeypatch.setenv("ARGUS_RESEND_WEBHOOK_SECRET", SECRET)
+    from argus.api.documents import documents_service
+
     fake = Mock()
     fake.store = InMemoryEmailStore()
+    # The real runtime holds the app's documents service; the deliveries view
+    # reads a document's save time through it.
+    fake.documents = documents_service()
     fake.provider = object()
     fake.enabled = lambda: True
     fake.route_usable = lambda route: True
@@ -144,10 +149,6 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
     """The .eml of an email whose attachment is saved can be seen and downloaded,
     never prepared, entered by hand or confirmed."""
 
-    original = alice.upload(consent=False, name="forwarded.eml")
-    attachment = alice.upload(content=UNREADABLE, consent=False, name="recibo.png")
-    assert (original.status_code, attachment.status_code) == (200, 200), attachment.text
-    original_id, attachment_id = original.json()["id"], attachment.json()["id"]
     space_id = alice.scope().owner.space_id
     store = runtime.store
     route = store.create_route(
@@ -166,6 +167,11 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
         principal_id=route.principal_id,
     )
     claimed = store.claim()
+    # Intake saves the documents after the email arrived: the save follows the arrival.
+    original = alice.upload(consent=False, name="forwarded.eml")
+    attachment = alice.upload(content=UNREADABLE, consent=False, name="recibo.png")
+    assert (original.status_code, attachment.status_code) == (200, 200), attachment.text
+    original_id, attachment_id = original.json()["id"], attachment.json()["id"]
     store.update(claimed, original_document_id=original_id, subject="Factura 0041")
     from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
 
@@ -230,10 +236,6 @@ def test_the_same_file_in_a_second_email_names_the_first_delivery_and_adds_no_re
 
     from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
 
-    first_upload = alice.upload(content=UNREADABLE, consent=False, name="recibo.png")
-    again = alice.upload(content=UNREADABLE, consent=False, name="recibo.png")
-    assert again.json()["replayed"] is True
-    document_id = first_upload.json()["id"]
     space_id = alice.scope().owner.space_id
     store = runtime.store
     route = store.create_route(
@@ -244,6 +246,7 @@ def test_the_same_file_in_a_second_email_names_the_first_delivery_and_adds_no_re
         grant_id=str(uuid4()),
     )
     ids = []
+    document_id = None
     for subject in ("Factura 0041", "Fwd: Factura 0041"):
         delivery = store.enqueue(
             "resend",
@@ -255,6 +258,10 @@ def test_the_same_file_in_a_second_email_names_the_first_delivery_and_adds_no_re
         )
         claimed = store.claim()
         store.update(claimed, subject=subject)
+        # Intake saves the part after the email arrived; the second save replays the first.
+        saved = alice.upload(content=UNREADABLE, consent=False, name="recibo.png")
+        assert saved.json()["replayed"] is (document_id is not None)
+        document_id = saved.json()["id"]
         store.put_part(
             claimed,
             EmailDeliveryPart(
@@ -287,37 +294,150 @@ def test_the_same_file_in_a_second_email_names_the_first_delivery_and_adds_no_re
 
 
 def test_dossier_attachment_sources_that_arrived_by_email_say_so(monkeypatch):  # noqa: ANN001
-    from datetime import datetime, timezone
+    from datetime import datetime, timedelta, timezone
 
     from argus.api import business_drafts as api
     from argus.domain.business.contracts.dossier import AttachmentSource, BusinessDossier
 
     now = datetime(2026, 10, 13, 17, 14, tzinfo=timezone.utc)
-    by_email = AttachmentSource(
-        id=uuid4(),
-        channel="web",
-        received_at=now,
-        connection_id=uuid4(),
-        filename="a.pdf",
-        media_type="application/pdf",
+
+    def attachment(name: str) -> AttachmentSource:
+        return AttachmentSource(
+            id=uuid4(),
+            channel="web",
+            received_at=now,
+            connection_id=uuid4(),
+            filename=name,
+            media_type="application/pdf",
+        )
+
+    by_email, web_first, by_web = (
+        attachment("a.pdf"),
+        attachment("c.pdf"),
+        attachment("b.pdf"),
     )
-    by_web = AttachmentSource(
-        id=uuid4(),
-        channel="web",
-        received_at=now,
-        connection_id=uuid4(),
-        filename="b.pdf",
-        media_type="application/pdf",
-    )
-    dossier = BusinessDossier.model_construct(sources=(by_email, by_web))
+    dossier = BusinessDossier.model_construct(sources=(by_email, web_first, by_web))
     monkeypatch.setattr(
         "argus.api.email_intake.email_receipt_flags",
-        lambda space_id: {str(by_email.connection_id): (("d1", "d2"), False)},
+        lambda space_id: {
+            # Arrived by email a minute before it was saved: an email receipt.
+            str(by_email.connection_id): (
+                ("d1", "d2"),
+                False,
+                now - timedelta(minutes=1),
+            ),
+            # Saved on the web an hour before any email brought it: keeps web, lists the email.
+            str(web_first.connection_id): (("d3",), False, now + timedelta(hours=1)),
+        },
     )
     seen = api.with_email_sources(dossier, "space")
     assert [(s.channel, s.email_delivery_ids) for s in seen.sources] == [
         ("email", ("d1", "d2")),
+        ("web", ("d3",)),
         ("web", ()),
     ]
     monkeypatch.setattr("argus.api.email_intake.email_receipt_flags", lambda space_id: {})
     assert api.with_email_sources(dossier, "space") is dossier
+
+
+def _route_for(store, owner: Owner, recipient: str):  # noqa: ANN001, ANN202
+    return store.create_route(
+        recipient=recipient,
+        space_id=owner.scope().owner.space_id,
+        principal_id=owner.scope().person_id,
+        granted_by=owner.scope().person_id,
+        grant_id=str(uuid4()),
+    )
+
+
+def _deliver(store, route, owner: Owner, document, subject: str) -> str:  # noqa: ANN001
+    """An email arrives, then intake saves its part: ``document`` is the saved
+    id, or a callable that saves after the arrival and returns the id."""
+
+    from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
+
+    delivery = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=owner.scope().owner.space_id,
+        principal_id=route.principal_id,
+    )
+    claimed = store.claim()
+    store.update(claimed, subject=subject)
+    document_id = document() if callable(document) else document
+    store.put_part(
+        claimed,
+        EmailDeliveryPart(
+            "1.2", "recibo.png", "image/png", "captured", document_id, None
+        ),
+    )
+    store.finish(claimed, "captured")
+    return delivery.id
+
+
+def _upload(owner: Owner):  # noqa: ANN202
+    return lambda: owner.upload(
+        content=UNREADABLE, consent=False, name="recibo.png"
+    ).json()["id"]
+
+
+def test_the_same_bytes_in_two_businesses_never_mark_each_other(
+    alice: Owner,  # noqa: F811
+    bob: Owner,  # noqa: F811
+    runtime,  # noqa: ANN001
+) -> None:
+    store = runtime.store
+    route_a = _route_for(store, alice, "recibos-00000003@recibos.example.test")
+    route_b = _route_for(store, bob, "recibos-00000004@recibos.example.test")
+    # Each Business receives the file once by email: neither is a repeat of the other's.
+    a1 = _deliver(store, route_a, alice, _upload(alice), "Factura A")
+    b1 = _deliver(store, route_b, bob, _upload(bob), "Factura B")
+    seen_a = {i["id"]: i for i in alice.get("/email/deliveries").json()["items"]}
+    seen_b = {i["id"]: i for i in bob.get("/email/deliveries").json()["items"]}
+    assert set(seen_a) == {a1} and set(seen_b) == {b1}
+    first_a = seen_a[a1]["parts"][0]["document_id"]
+    first_b = seen_b[b1]["parts"][0]["document_id"]
+    assert first_a != first_b
+    for item in (seen_a[a1], seen_b[b1]):
+        assert (
+            item["parts"][0]["repeat_of_delivery_id"],
+            item["parts"][0]["repeat_of_upload"],
+        ) == (None, False)
+    assert alice.detail(first_a)["email_delivery_ids"] == [a1]
+    assert bob.detail(first_b)["email_delivery_ids"] == [b1]
+    assert (alice.detail(first_a)["channel"], bob.detail(first_b)["channel"]) == (
+        "email",
+        "email",
+    )
+
+
+def test_a_file_uploaded_on_the_web_first_keeps_its_label_and_the_email_is_the_repeat(
+    alice: Owner,  # noqa: F811
+    runtime,  # noqa: ANN001
+) -> None:
+    """The web upload came first: the receipt still says web, the email that
+    brought the same bytes later is a repeat of that upload (no earlier email
+    to name), and a second email names the first email."""
+
+    store = runtime.store
+    document_id = _upload(alice)()
+    route = _route_for(store, alice, "recibos-00000005@recibos.example.test")
+    first = _deliver(store, route, alice, _upload(alice), "Factura 0041")
+    second = _deliver(store, route, alice, _upload(alice), "Fwd: Factura 0041")
+    detail = alice.detail(document_id)
+    assert detail["channel"] == "web"
+    # Earliest first, so the receipt page can point at the first email.
+    assert detail["email_delivery_ids"] == [first, second]
+    deliveries = {i["id"]: i for i in alice.get("/email/deliveries").json()["items"]}
+    assert (
+        deliveries[first]["parts"][0]["repeat_of_delivery_id"],
+        deliveries[first]["parts"][0]["repeat_of_upload"],
+    ) == (None, True)
+    assert (
+        deliveries[second]["parts"][0]["repeat_of_delivery_id"],
+        deliveries[second]["parts"][0]["repeat_of_upload"],
+    ) == (first, False)
+    one = alice.get(f"/email/deliveries/{second}").json()
+    assert one["parts"][0]["repeat_of_delivery_id"] == first

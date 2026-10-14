@@ -2,6 +2,7 @@
 
 import { CuadraoLockup } from "@/components/CuadraoLockup";
 import { guestLandingHref } from "@/lib/landing-entry";
+import { postAuthPath } from "@/lib/landing-intent";
 import { businessPilotEnabled } from "@/lib/private-alpha-flags";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -23,10 +24,13 @@ import { inlineFailureTextClass } from "@/lib/failure-treatment";
 
 type ExpiredGuestSessionProps = {
   publicAccountAccessEnabled: boolean;
+  /** Business has no guest mode: no new temporary chat is offered there. */
+  businessBuild?: boolean;
 };
 
 export default function ExpiredGuestSession({
   publicAccountAccessEnabled,
+  businessBuild = businessPilotEnabled,
 }: ExpiredGuestSessionProps) {
   const { t, i18n } = useTranslation();
   const [authMode, setAuthMode] = useState<AuthFormMode | null>(null);
@@ -40,7 +44,7 @@ export default function ExpiredGuestSession({
     setRestartErrorKind(null);
     try {
       await retryGuestSession(i18n.resolvedLanguage ?? i18n.language);
-      window.location.assign(guestLandingHref(businessPilotEnabled));
+      window.location.assign(guestLandingHref(businessBuild));
     } catch (error) {
       const kind = guestEntryErrorKind(error);
       setRestartErrorKind(kind);
@@ -120,7 +124,8 @@ export default function ExpiredGuestSession({
                 } else {
                   await loginWithEmail({ email, password });
                 }
-                window.location.assign(guestLandingHref(businessPilotEnabled));
+                // A signed-in person goes where sign-in goes: a listed return page, else the signed-in home.
+                window.location.assign(postAuthPath(businessBuild));
               }}
             />
             <button
@@ -133,22 +138,28 @@ export default function ExpiredGuestSession({
           </div>
         ) : (
           <div className="mt-7 grid gap-3">
+            {businessBuild ? null : (
+              <button
+                type="button"
+                disabled={isRestarting}
+                onClick={() => void startNewTemporaryChat()}
+                className="min-h-11 rounded-full bg-black px-6 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+              >
+                {isRestarting
+                  ? t("common.loading", "Loading...")
+                  : t(
+                      "guest.expired.start_new",
+                      "Start a new temporary chat",
+                    )}
+              </button>
+            )}
             <button
               type="button"
-              disabled={isRestarting}
-              onClick={() => void startNewTemporaryChat()}
-              className="min-h-11 rounded-full bg-black px-6 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-            >
-              {isRestarting
-                ? t("common.loading", "Loading...")
-                : t(
-                    "guest.expired.start_new",
-                    "Start a new temporary chat",
-                  )}
-            </button>
-            <button
-              type="button"
-              className="min-h-11 rounded-full border border-black/15 px-6 py-3 text-base font-medium dark:border-white/20"
+              className={
+                businessBuild
+                  ? "min-h-11 rounded-full bg-black px-6 py-3 text-base font-medium text-white dark:bg-white dark:text-black"
+                  : "min-h-11 rounded-full border border-black/15 px-6 py-3 text-base font-medium dark:border-white/20"
+              }
               onClick={() => setAuthMode("login")}
             >
               {t("guest.expired.sign_in", "Sign in")}
