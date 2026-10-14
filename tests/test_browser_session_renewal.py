@@ -213,3 +213,22 @@ def test_explicit_auth_response_owns_cookies_after_source_session_renewal(gatewa
     assert response.cookies.get("sb-auth-token") == token("permanent-user")
     assert response.cookies.get("sb-refresh-token") == "permanent-refresh"
     assert len(response.headers.get_list("set-cookie")) == 2
+
+
+@pytest.mark.parametrize("pending", [Mock(), object(), None, 1, ""])
+def test_only_a_nonempty_string_can_replace_the_incoming_access_token(pending):
+    request = SimpleNamespace(
+        state=SimpleNamespace(access_token=pending),
+        headers={"Authorization": "Bearer incoming-token"},
+        cookies={},
+    )
+    assert deps.request_access_token(request) == "incoming-token"
+
+
+def test_request_reader_uses_a_valid_renewed_token():
+    request = SimpleNamespace(
+        state=SimpleNamespace(access_token="renewed-token"),
+        headers={"Authorization": "Bearer incoming-token"},
+        cookies={},
+    )
+    assert deps.request_access_token(request) == "renewed-token"

@@ -404,7 +404,7 @@ def dev_memory_fallback_enabled() -> bool:
 def request_access_token(request: Request) -> str | None:
     """The bearer token, or the Supabase session cookie's access token."""
     renewed_token = getattr(request.state, "access_token", None)
-    if renewed_token:
+    if isinstance(renewed_token, str) and renewed_token:
         return renewed_token
     auth_header = request.headers.get("Authorization")
     token = None
