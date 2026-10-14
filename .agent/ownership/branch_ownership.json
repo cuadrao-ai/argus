@@ -2182,6 +2182,7 @@
         "src/argus/domain/supabase_guest_accounts.py",
         "tests/test_auth_client_isolation.py",
         "tests/test_browser_session_renewal.py",
+        "tests/test_environment_scripts.py",
         "tests/test_staging_web_blueprint.py",
         "web/__tests__/browser-session-renewal.test.ts",
         "web/__tests__/fixtures/browser-session-renewal/transport.ts"
