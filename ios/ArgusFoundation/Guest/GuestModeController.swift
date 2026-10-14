@@ -29,7 +29,9 @@ final class GuestModeController: ObservableObject {
             try? FileManager.default.removeItem(at: directory)
             UserDefaults.standard.removeObject(forKey: Self.activeKey)
             UserDefaults.standard.removeObject(forKey: Self.accountKey)
+            GuestNotice.reset()
         }
+        if CuadraoGuestLaunch.noticesSeen { GuestNotice.allCases.forEach { $0.markSeen() } }
         #endif
         self.directory = directory
         active = UserDefaults.standard.bool(forKey: Self.activeKey)
@@ -86,7 +88,7 @@ final class GuestModeController: ObservableObject {
     /// Deletes the book from this iPhone, then leaves it. False when the files could not be removed.
     func deleteDataAndLeave() async -> Bool {
         let removed = await model?.deleteEverything() ?? true
-        if removed { receipts?.forget(); leave() }
+        if removed { receipts?.forget(); GuestNotice.reset(); leave() }
         return removed
     }
 
@@ -97,6 +99,7 @@ final class GuestModeController: ObservableObject {
         let store = BookStore(directory: directory)
         do { try await store.deleteEverything() } catch { return false }
         GuestReceiptStore(bookDirectory: directory).forget()
+        GuestNotice.reset()
         leave()
         objectWillChange.send()
         return true

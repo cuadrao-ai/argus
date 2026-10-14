@@ -22,6 +22,8 @@ extension CuadraoFirstRelease {
 /// Development switches for the book: clear it at launch, or keep it in a chosen folder.
 enum CuadraoGuestLaunch {
     static let resets = ProcessInfo.processInfo.arguments.contains("--cuadrao-guest-reset")
+    /// Marks the one-time notices as already seen, so journeys that are not about them are not interrupted.
+    static let noticesSeen = ProcessInfo.processInfo.arguments.contains("--cuadrao-guest-notices-seen")
     /// Pretends an account has signed in on this iPhone before, to see the login-only screen.
     static let accountSignedInBefore = ProcessInfo.processInfo.arguments.contains("--cuadrao-account-signed-in-before")
 

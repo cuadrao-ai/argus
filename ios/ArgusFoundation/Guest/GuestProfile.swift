@@ -39,11 +39,9 @@ struct GuestProfile: View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    modeNotice
                     header
                     group(spanish ? "Cuenta" : "Account") {
-                        action(symbol: "person.badge.plus", title: spanish ? "Crear cuenta" : "Create account",
-                               identifier: "guest.profile.signup", perform: leave)
-                        separator
                         action(symbol: "arrow.right.circle", title: spanish ? "Iniciar sesión" : "Sign in",
                                identifier: "guest.profile.signin", perform: leave)
                     }
@@ -75,6 +73,16 @@ struct GuestProfile: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
+    }
+
+    /// The line the book says once on first open, kept here for good, with the way to a real account.
+    private var modeNotice: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(GuestNoticeCopy(spanish: spanish).modeLine).font(.subheadline.weight(.medium))
+                .accessibilityIdentifier("guest.profile.mode")
+            RegistrationButton(title: GuestNoticeCopy(spanish: spanish).createAccount, action: leave)
+                .accessibilityIdentifier("guest.profile.signup")
+        }
     }
 
     private var header: some View {

@@ -20,7 +20,9 @@ extension FinancialLoopUITests {
         app.terminate()
         let locale = language == "es-419" ? ["-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO"]
                                           : ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
-        app.launchArguments = locale + ["-appearancePreference", "light"] + arguments + (reset ? ["--cuadrao-guest-reset"] : [])
+        // The one-time notices are marked seen unless the journey is about them (`--cuadrao-guest-notices`).
+        let notices = arguments.contains("--cuadrao-guest-notices") ? [] : ["--cuadrao-guest-notices-seen"]
+        app.launchArguments = locale + ["-appearancePreference", "light"] + arguments + notices + (reset ? ["--cuadrao-guest-reset"] : [])
         app.launch()
         if !app.buttons["cuadrao.welcome.signin"].waitForExistence(timeout: 8), app.buttons["header.profile"].exists {
             app.buttons["header.profile"].tap()
