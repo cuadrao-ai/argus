@@ -2550,6 +2550,8 @@
       "repeat_upload": "You already saved this file",
       "no_filename": "Unnamed attachment",
       "body_failed": "Could not load the message.",
+      "waiting_label": "Waiting until tomorrow",
+      "waiting_resume": "This email is waiting. Processing resumes automatically from {{time}} UTC. You do not need to send it again.",
       "no_body": "No message text.",
       "reload": "Refresh",
       "address_failed": "Could not load the receiving address.",

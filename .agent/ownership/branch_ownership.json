@@ -1,6 +1,30 @@
 {
   "default_base_ref": "codex/alpha-functional",
   "branches": {
+    "codex/capped-mail-waiting-label": {
+      "description": "Show the server-owned waiting state and UTC resume time for daily-capped Business email, without reading polls or immediate retry. Issue #1106 waiting-label scope only.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "src/argus/api/routers/email_intake.py",
+        "src/argus/domain/ingestion/email_intake/models.py",
+        "src/argus/domain/ingestion/email_intake/store.py",
+        "tests/business/test_business_email_api.py",
+        "web/__tests__/business-email.test.tsx",
+        "web/__tests__/email-delivery-repeat.dom.test.tsx",
+        "web/components/business-app/BusinessEmailDeliveries.tsx",
+        "web/lib/business-email.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "claude/whatsapp-graph-diagnostics": {
       "description": "A failed Graph call logs its step, HTTP status and an allow-listed Graph error code, subcode and type, and a failed reply carries status:code; never a message, id, URL or token.",
       "base_ref": "origin/codex/private-alpha-next",
