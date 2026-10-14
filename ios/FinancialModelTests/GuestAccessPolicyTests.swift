@@ -51,4 +51,17 @@ final class GuestAccessPolicyTests: XCTestCase {
         let offered = GuestAccessPolicy.addActions(activeAccounts: 5, built: [.accounts, .movements, .plans])
         XCTAssertTrue(offered.allSatisfy { !$0.isFileAction && $0 != .group && $0 != .invite }, "no receipts, group or invite row in the book")
     }
+
+    func testAFirstRunWelcomeOffersTheBookOnlyWhileTheDoorIsOpen() {
+        XCTAssertEqual(GuestAccessPolicy.welcome(doorOpen: true, accountSignedInBefore: false, hasGuestData: false), .full(guestEntry: true))
+        XCTAssertEqual(GuestAccessPolicy.welcome(doorOpen: true, accountSignedInBefore: false, hasGuestData: true), .full(guestEntry: true))
+        XCTAssertEqual(GuestAccessPolicy.welcome(doorOpen: false, accountSignedInBefore: false, hasGuestData: true), .full(guestEntry: false))
+    }
+
+    func testAfterAnAccountSignedInOnlyTheLoginShowsAndGuestDataGetsOneQuietLine() {
+        XCTAssertEqual(GuestAccessPolicy.welcome(doorOpen: true, accountSignedInBefore: true, hasGuestData: false), .loginOnly(openGuestLine: false))
+        XCTAssertEqual(GuestAccessPolicy.welcome(doorOpen: true, accountSignedInBefore: true, hasGuestData: true), .loginOnly(openGuestLine: true))
+        XCTAssertEqual(GuestAccessPolicy.welcome(doorOpen: false, accountSignedInBefore: true, hasGuestData: true), .loginOnly(openGuestLine: false),
+                       "a closed door never advertises the book")
+    }
 }

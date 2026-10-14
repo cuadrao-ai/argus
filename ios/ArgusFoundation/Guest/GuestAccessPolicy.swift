@@ -25,6 +25,18 @@ enum GuestAccessPolicy {
         return auth == .signedOut ? .guest : .connected
     }
 
+    /// What the signed-out screen offers. Once an account has signed in on this iPhone the book is no longer a way in:
+    /// only the login form shows, with one quiet line to reach guest data that is still on the device.
+    enum Welcome: Equatable {
+        /// The first-run welcome. `guestEntry` adds "Probar sin cuenta" while the door is open.
+        case full(guestEntry: Bool)
+        case loginOnly(openGuestLine: Bool)
+    }
+
+    static func welcome(doorOpen: Bool, accountSignedInBefore: Bool, hasGuestData: Bool) -> Welcome {
+        accountSignedInBefore ? .loginOnly(openGuestLine: doorOpen && hasGuestData) : .full(guestEntry: doorOpen)
+    }
+
     /// What the book can do with no server. Everything not listed as local is refused here, not hidden ad hoc.
     enum Capability: CaseIterable {
         case accounts, movements, plans, search, calculations, appearance, primaryCurrency, deleteData

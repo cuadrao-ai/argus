@@ -20,6 +20,7 @@ struct GuestRoot: View {
             WelcomePalette.brandPaper.ignoresSafeArea()
         case .ready:
             GuestShell(model: model, appearance: $appearance, webURL: webURL, leave: leave, deleteData: deleteData)
+                .safeAreaInset(edge: .top, spacing: 0) { GuestModeBanner(spanish: spanish) }
                 .preferredColorScheme(appearance.colorScheme)
         case .newerVersion:
             notice(title: spanish ? "Actualiza Cuadrao para abrir este libro." : "Update Cuadrao to open this book.",
