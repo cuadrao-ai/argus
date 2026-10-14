@@ -44,6 +44,7 @@ class EmailDelivery:
     sender: str | None
     sent_at: str | None
     text_body: str | None
+    available_at: datetime | None = None
 
 
 @dataclass(frozen=True)

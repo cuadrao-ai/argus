@@ -9367,6 +9367,15 @@ accept path recorded.
     null otherwise; `repeat_of_upload`: true when the document was saved another
     way, a web upload, before this email arrived). Each Business sees only its
     own deliveries; the same bytes in two Businesses never mark each other.
+    `waiting` is an additive nullable object. While a `received` delivery is
+    deferred by either daily allowance and its durable `available_at` is still
+    in the future, it is `{reason: "daily_budget", retry_at: <UTC timestamp>}`
+    and `retryable` is false. Otherwise it is null. Budget reasons are not
+    exposed as failed-save errors, including while due mail awaits a worker.
+    The API owns this decision. The web uses it for the waiting label and automatic resume explanation,
+    without short reading polls, a missing-body warning or an immediate retry.
+    `retry_at` comes from the queue, not the browser clock. Refresh after the
+    allowance resets returns normal received/processing state.
     POST `/{id}/retry` (prepare capability) re-queues a `partial` delivery.
   - Every captured part is an ordinary saved document with `consent=false`; AI
     preparation still waits for the owner's choice. The grant is checked again

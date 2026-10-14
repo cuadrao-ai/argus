@@ -2532,6 +2532,8 @@
       "repeat_upload": "Ya habías guardado este archivo",
       "no_filename": "Adjunto sin nombre",
       "body_failed": "No se pudo cargar el mensaje.",
+      "waiting_label": "En espera hasta mañana",
+      "waiting_resume": "Este correo está pendiente. Se procesará automáticamente a partir del {{time}} UTC. No tienes que enviarlo otra vez.",
       "no_body": "Sin texto en el mensaje.",
       "reload": "Actualizar",
       "address_failed": "No se pudo cargar la dirección de recepción.",

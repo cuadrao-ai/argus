@@ -88,3 +88,33 @@ describe("the inbox opened from a receipt's first email", () => {
     await act(async () => root.unmount());
   });
 });
+
+
+test("expanded capped mail does not fetch an unread body or offer an immediate retry", async () => {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const { EmailDeliveryRow } = await import("@/components/business-app/BusinessEmailDeliveries");
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  let bodyRequests = 0;
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  const base = { ...delivery("waiting", null), state: "received", parts: [], original_document_id: null, retryable: false,
+    waiting: { reason: "daily_budget", retry_at: "2026-10-15T00:00:00Z" } } satisfies BusinessEmailDelivery;
+  for (const code of ["email_daily_message_budget", "email_daily_byte_budget"]) {
+    const item = { ...base, error_code: code };
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><ul><EmailDeliveryRow delivery={item} expanded onExpanded={() => undefined} loadDetail={async () => { bodyRequests++; return { ...item, text_body: null }; }} openReceipt={() => undefined} retryDelivery={async () => ({ id: item.id })} /></ul></I18nextProvider>));
+    assert.equal(bodyRequests, 0);
+    assert.ok(host.textContent?.includes("En espera hasta mañana"));
+    assert.ok(host.textContent?.includes("Se procesará automáticamente"));
+    assert.ok(!host.textContent?.includes(spanish.business.email.no_body));
+    assert.equal(host.querySelector('[role="alert"]'), null);
+    assert.equal([...host.querySelectorAll("button")].some((b) => b.textContent === spanish.business.email.retry), false);
+  }
+  await act(async () => root.unmount());
+  host.remove();
+});

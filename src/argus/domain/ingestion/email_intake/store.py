@@ -656,6 +656,7 @@ class InMemoryEmailStore:
             else:
                 usage[0] += 1
                 self._message_budget[delivery.id] = (day, None)
+        delivery = replace(delivery, available_at=self._available[delivery.id])
         self._deliveries[delivery.id] = delivery
         return delivery
 
@@ -817,14 +818,20 @@ class InMemoryEmailStore:
 
     @_synchronized
     def list(self, space_id, *, limit=50):
-        rows = [d for d in self._deliveries.values() if d.space_id == space_id]
+        rows = [
+            replace(d, available_at=self._available[d.id])
+            for d in self._deliveries.values()
+            if d.space_id == space_id
+        ]
         return sorted(rows, key=lambda d: (d.received_at, d.id), reverse=True)[:limit]
 
     @_synchronized
     def get(self, delivery_id, space_id):
         delivery = self._deliveries.get(delivery_id)
         return (
-            delivery if delivery is not None and delivery.space_id == space_id else None
+            replace(delivery, available_at=self._available[delivery.id])
+            if delivery is not None and delivery.space_id == space_id
+            else None
         )
 
     @_synchronized

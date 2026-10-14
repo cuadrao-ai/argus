@@ -61,18 +61,21 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
     const receipt = inbox?.find((item) => item.id === documentId);
     return receipt && savedUnread(receipt) ? receipt : null;
   };
+  const waitingRetryAt = delivery.waiting?.retry_at;
   const [body, setBody] = useState<Load<BusinessEmailDetail> | null>(null);
   const [retry, setRetry] = useState<"idle" | "sending" | "accepted" | "error">("idle");
   useEffect(() => { setRetry("idle"); }, [delivery.updated_at]);
   useEffect(() => {
-    if (!expanded) return;
+    if (!expanded || waitingRetryAt) return;
     let current = true;
     setBody({ status: "loading" });
     loadDetail(delivery.id).then((data) => { if (current) setBody({ status: "ready", data }); }).catch(() => { if (current) setBody({ status: "error" }); });
     return () => { current = false; };
-  }, [expanded, delivery.id, delivery.updated_at, loadDetail]);
+  }, [expanded, delivery.id, delivery.updated_at, waitingRetryAt, loadDetail]);
   const captured = delivery.parts.filter((part) => part.state === "captured" && part.document_id);
-  const stateLabel = t(`business.email.state.${delivery.state}`, delivery.state);
+  const waiting = delivery.waiting;
+  const stateLabel = waiting ? t("business.email.waiting_label", "Waiting until tomorrow") : t(`business.email.state.${delivery.state}`, delivery.state);
+  const resumeAt = waiting ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(waiting.retry_at)) : null;
   return (
     <li className="rounded-[16px] border border-black/[0.06] dark:border-white/[0.08]">
       <button type="button" aria-expanded={expanded} onClick={() => onExpanded(!expanded)} className="flex w-full items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30">
@@ -88,10 +91,11 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
       </button>
       {expanded ? (
         <div className="space-y-3 px-3 pb-3">
-          {delivery.error_code ? <p className="text-[13px] text-black/55 dark:text-white/55">{t(`business.email.error.${delivery.error_code}`, t("business.email.error.other", "Part of this email could not be saved."))}</p> : null}
-          {body?.status === "loading" ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("common.loading", "Loading...")}</p> : null}
-          {body?.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.body_failed", "Could not load the message.")}</p> : null}
-          {body?.status === "ready" ? <blockquote className="whitespace-pre-wrap break-words border-l-2 border-black/10 pl-3 text-[14px] leading-relaxed text-black/75 dark:border-white/15 dark:text-white/75">{body.data.text_body || t("business.email.no_body", "No message text.")}</blockquote> : null}
+          {waiting ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.waiting_resume", "This email is waiting. Processing resumes automatically from {{time}} UTC. You do not need to send it again.", { time: resumeAt })}</p> : null}
+          {!waiting && delivery.error_code ? <p className="text-[13px] text-black/55 dark:text-white/55">{t(`business.email.error.${delivery.error_code}`, t("business.email.error.other", "Part of this email could not be saved."))}</p> : null}
+          {!waiting && body?.status === "loading" ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("common.loading", "Loading...")}</p> : null}
+          {!waiting && body?.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.body_failed", "Could not load the message.")}</p> : null}
+          {!waiting && body?.status === "ready" ? <blockquote className="whitespace-pre-wrap break-words border-l-2 border-black/10 pl-3 text-[14px] leading-relaxed text-black/75 dark:border-white/15 dark:text-white/75">{body.data.text_body || t("business.email.no_body", "No message text.")}</blockquote> : null}
           <ul className="space-y-2">
             {delivery.parts.map((part) => (
               <li key={part.id} className="flex flex-wrap items-center gap-2 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
@@ -106,7 +110,7 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
           </ul>
           <div className="flex flex-wrap gap-2">
             {delivery.original_document_id ? <button type="button" className={secondaryButtonClass} onClick={() => openReceipt(delivery.original_document_id!)}>{captured.length ? t("business.email.original", "Open the original email") : t("business.email.open_receipt", "Open receipt")}</button> : null}
-            {delivery.retryable ? <button type="button" className={secondaryButtonClass} disabled={retry !== "idle"} onClick={async () => {
+            {!waiting && delivery.retryable ? <button type="button" className={secondaryButtonClass} disabled={retry !== "idle"} onClick={async () => {
               setRetry("sending");
               try { await retryDelivery(delivery.id); setRetry("accepted"); } catch { setRetry("error"); }
             }}>{retry === "sending" ? t("business.email.retrying", "Requesting…") : t("business.email.retry", "Try again")}</button> : null}

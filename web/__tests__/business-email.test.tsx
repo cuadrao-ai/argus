@@ -4,6 +4,7 @@ import i18next from "i18next";
 import { renderToStaticMarkup } from "react-dom/server";
 import { I18nextProvider } from "react-i18next";
 
+import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 import { EmailDeliveryRow, EmailReceivingAddress } from "../components/business-app/BusinessEmailDeliveries";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
@@ -66,3 +67,34 @@ describe("received emails in the Inbox", () => {
     assert.deepEqual(await source.retryEmailDelivery("email-boletin"), { id: "email-boletin" });
   });
 });
+
+
+for (const [locale, resources, label, resume] of [
+  ["es-419", spanish, "En espera hasta mañana", "Se procesará automáticamente"],
+  ["en", english, "Waiting until tomorrow", "Processing resumes automatically"],
+] as const) {
+  test(`a capped row explains automatic resume in ${locale} without an error or immediate retry`, async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: locale, resources: { [locale]: { translation: resources } } });
+    const waiting = delivery({ state: "received", retryable: true, error_code: "email_daily_message_budget", parts: [], original_document_id: null,
+      waiting: { reason: "daily_budget", retry_at: "2026-10-15T00:00:00Z" } });
+    const render = (item: BusinessEmailDelivery) => renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}><ul><EmailDeliveryRow delivery={item} expanded onExpanded={() => undefined} loadDetail={async () => ({ ...item, text_body: null })} openReceipt={() => undefined} retryDelivery={async () => ({ id: item.id })} /></ul></I18nextProvider>,
+    );
+    for (const code of ["email_daily_message_budget", "email_daily_byte_budget"]) {
+      const item = { ...waiting, error_code: code };
+      const html = render(item);
+      assert.ok(html.includes(label) && html.includes(resume) && html.includes("UTC"));
+      assert.ok(!html.includes(resources.business.email.error.other));
+      assert.ok(!html.includes(resources.business.email.no_body));
+      assert.ok(!html.includes(resources.business.email.retry));
+      assert.equal(emailDeliveriesNeedRefresh([item]), false);
+      assert.equal(emailDeliveriesNeedRefresh([item, delivery({ state: "processing" })]), true);
+    }
+    const legacy = render(delivery({ state: "partial", error_code: "email_capture_incomplete", retryable: true }));
+    assert.ok(legacy.includes(resources.business.email.error.email_capture_incomplete));
+    assert.ok(legacy.includes(resources.business.email.retry));
+    assert.equal(emailDeliveriesNeedRefresh([delivery({ state: "rejected" })]), false);
+    assert.equal(emailDeliveriesNeedRefresh([delivery({ state: "received" })]), true);
+  });
+}
