@@ -69,6 +69,7 @@ begin
   return new;
 end;
 $$;
+revoke execute on function public.check_business_receipt_reading_consent() from public, anon, authenticated;
 create trigger business_receipt_reading_consent_guard before insert or update on public.business_receipt_reading_consents
 for each row execute function public.check_business_receipt_reading_consent();
 
