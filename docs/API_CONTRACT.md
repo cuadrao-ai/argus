@@ -2522,6 +2522,37 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   adopt the API visitor key normalization policy. Rate-limit responses remain
   enumeration-safe.
 
+**Staging Auth email delivery (#1117):**
+- `POST /api/auth/send-email` is a server-only Supabase Send Email Hook, disabled
+  by default. It accepts a bounded (65,536 bytes) signed raw JSON body only for
+  staging project `skedzwocnmrhfigiwyzi`, the exact signed staging web origin
+  and built-in Render service ID `srv-db5ihr7lot8c73f3b3h0`. Internal Next
+  request URLs and forwarded headers are not deployment identity checks.
+  Standard Webhooks signature and timestamp validation happen before parsing.
+  Invalid signatures return generic `401`; invalid payloads or unsupported
+  actions return `400`; oversized bodies return `413`; disabled returns `404`;
+  configuration or delivery failure returns generic `503`. Success returns
+  `{}` only after every recipient's provider request is accepted.
+- Supabase still creates and verifies tokens. Verification links preserve PKCE
+  prefixes, action types and empty redirect defaults. Nonempty redirects stay
+  inside the staging web origin; nonempty recovery redirects use `/auth/recovery`.
+  The existing recovery request, CAPTCHA, limits, generic `202`, PKCE exchange
+  and session revocation contracts above do not change.
+- Explicit renderers preserve captured subjects and bodies for confirmation,
+  invitation, magic link, secure email change and reauthentication. Secure email
+  change sends both addresses with the provider's hash mapping. Unknown actions,
+  including currently disabled notifications, are refused rather than dropped.
+- Recovery uses the approved Spanish React Email template and preview. Its
+  HTML and plain text come from one tree. Sender is
+  `Cuadrao <hola@mail.cuadrao.ai>` and Reply-To is `hola@cuadrao.ai`.
+  Each recipient has a stable provider idempotency key; transport has one
+  four-second total budget and no automatic retry or payload logging.
+- Activation requires explicit staging approval, secrets, verified sender
+  identity, current Supabase expiry `3600`, matching compatibility templates
+  and all seven notification flags still disabled. The expiry setting and
+  fixed approved copy must change together. See
+  [activation and rollback](reports/2026-10-14-staging-reset-email.md).
+
 **Password and session controls:**
 - Normal password changes require the current password. Recovery-mode password
   changes require the one-time recovery code instead. These paths must not be

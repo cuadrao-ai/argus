@@ -258,6 +258,16 @@ services:
     envVars:
       - key: ARGUS_APP_ORIGIN
         value: https://cuadrao-web-staging.onrender.com
+      - key: CUADRAO_AUTH_EMAIL_HOOK_ENABLED
+        value: "false"
+      - key: CUADRAO_AUTH_EMAIL_PROJECT_REF
+        value: skedzwocnmrhfigiwyzi
+      - key: CUADRAO_AUTH_EMAIL_OTP_EXP_SECONDS
+        value: "3600"
+      - key: CUADRAO_AUTH_EMAIL_HOOK_SECRET
+        sync: false
+      - key: CUADRAO_AUTH_EMAIL_RESEND_API_KEY
+        sync: false
       - key: NEXT_PUBLIC_APP_ENV
         value: staging
       - key: NEXT_PUBLIC_SUPABASE_URL

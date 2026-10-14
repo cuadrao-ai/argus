@@ -421,7 +421,8 @@ def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
     stage = _render_env("cuadrao-web-staging")
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
     entries = manifest["services"]["web"]["entries"]
-    assert set(stage) == {entry["name"] for entry in entries} | {
+    held = {entry["name"] for entry in manifest["services"]["web"]["hold"]}
+    assert set(stage) == {entry["name"] for entry in entries} | held | {
         "NEXT_PUBLIC_APP_ENV",
         "NEXT_PUBLIC_MOCK_AUTH",
     }
