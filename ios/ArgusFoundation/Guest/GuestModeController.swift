@@ -18,6 +18,8 @@ final class GuestModeController: ObservableObject {
     /// The book's receipts, kept beside it on this iPhone.
     @Published private(set) var receipts: GuestReceiptStore?
     private let directory: URL
+    /// Where the book lives, for the screen that moves it into an account.
+    var bookDirectory: URL { directory }
     private var phaseObservation: AnyCancellable?
 
     init() {
@@ -86,6 +88,18 @@ final class GuestModeController: ObservableObject {
         let removed = await model?.deleteEverything() ?? true
         if removed { receipts?.forget(); leave() }
         return removed
+    }
+
+    /// Deletes the book from this iPhone even when it is not open, as when an account is signed in. False when the
+    /// files could not be removed.
+    func discardStoredBook() async -> Bool {
+        if model != nil { return await deleteDataAndLeave() }
+        let store = BookStore(directory: directory)
+        do { try await store.deleteEverything() } catch { return false }
+        GuestReceiptStore(bookDirectory: directory).forget()
+        leave()
+        objectWillChange.send()
+        return true
     }
 
     private func set(active next: Bool) {

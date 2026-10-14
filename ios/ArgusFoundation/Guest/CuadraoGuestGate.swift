@@ -9,8 +9,13 @@ extension CuadraoFirstRelease {
     static let guestBook = false
     #endif
 
-    /// Claiming the on-device book into an account is a later slice and stays off until it is approved.
+    /// Claiming the on-device book into an account stays off until it is approved. A development build opens it
+    /// with `--cuadrao-guest-claim`.
+    #if DEBUG
+    static let guestClaim = ProcessInfo.processInfo.arguments.contains("--cuadrao-guest-claim")
+    #else
     static let guestClaim = false
+    #endif
 }
 
 #if DEBUG

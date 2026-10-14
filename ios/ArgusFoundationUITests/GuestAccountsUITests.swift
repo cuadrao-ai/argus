@@ -200,6 +200,8 @@ extension FinancialLoopUITests {
         app.buttons["guest.account.archive"].tap()
         app.buttons["accounts.archive.confirm"].tap()
         XCTAssertTrue(app.buttons["guest.accounts.archived"].waitForExistence(timeout: 10))
+        // The Undo toast can sit over the Archived link; tapping through it would undo the archive.
+        XCTAssertTrue(app.buttons["accounts.archived.undo"].waitForNonExistence(timeout: 20), "the toast is gone")
         app.buttons["guest.accounts.archived"].tap()
         let restore = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.account.restore.'")).firstMatch
         XCTAssertTrue(restore.waitForExistence(timeout: 10))
