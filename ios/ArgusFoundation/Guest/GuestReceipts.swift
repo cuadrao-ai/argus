@@ -1,5 +1,4 @@
 import SwiftUI
-import ArgusSession
 import CuadraoBook
 
 /// The on-device book's receipt words, Spanish first. All are pending the founder's approval.
@@ -166,10 +165,7 @@ struct GuestMovementReceiptActions: View {
 
     private func view(_ receipt: GuestReceipt) {
         guard let data = store.data(receipt) else { return }
-        let stamp = ISO8601DateFormatter().string(from: receipt.createdAt)
-        viewing = ViewedReceipt(document: SavedDocument(connectionID: receipt.id.uuidString, filename: receipt.name,
-            mediaType: receipt.mediaType, sizeBytes: data.count, sourceAvailable: true, status: "saved",
-            createdAt: stamp, updatedAt: stamp), data: data)
+        viewing = ViewedReceipt(id: receipt.id.uuidString, filename: receipt.name, mediaType: receipt.mediaType, data: data)
     }
 }
 
@@ -323,9 +319,6 @@ struct GuestReceiptsList: View {
 
     private func view(_ receipt: GuestReceipt) {
         guard let data = store.data(receipt) else { return }
-        let stamp = ISO8601DateFormatter().string(from: receipt.createdAt)
-        viewing = ViewedReceipt(document: SavedDocument(connectionID: receipt.id.uuidString, filename: receipt.name,
-            mediaType: receipt.mediaType, sizeBytes: data.count, sourceAvailable: true, status: "saved",
-            createdAt: stamp, updatedAt: stamp), data: data)
+        viewing = ViewedReceipt(id: receipt.id.uuidString, filename: receipt.name, mediaType: receipt.mediaType, data: data)
     }
 }

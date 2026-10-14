@@ -115,10 +115,18 @@ struct SavedReceiptsScreen: View {
     }
 }
 
+/// A receipt file opened in the viewer. Plain fields, so the on-device guest book can show its own receipts.
 struct ViewedReceipt: Identifiable {
-    let document: SavedDocument
+    let id: String
+    let filename: String
+    let mediaType: String
     let data: Data
-    var id: String { document.id }
+}
+
+extension ViewedReceipt {
+    init(document: SavedDocument, data: Data) {
+        self.init(id: document.id, filename: document.filename, mediaType: document.mediaType, data: data)
+    }
 }
 
 struct SavedReceiptViewer: View {
@@ -129,15 +137,15 @@ struct SavedReceiptViewer: View {
     var body: some View {
         NavigationStack {
             Group {
-                if receipt.document.mediaType == "application/pdf" {
+                if receipt.mediaType == "application/pdf" {
                     SavedReceiptPDF(data: receipt.data)
                 } else if let image = UIImage(data: receipt.data) {
-                    ScrollView { Image(uiImage: image).resizable().scaledToFit().accessibilityLabel(receipt.document.filename) }
+                    ScrollView { Image(uiImage: image).resizable().scaledToFit().accessibilityLabel(receipt.filename) }
                 } else {
                     Text(copy.couldNotOpen).padding(32)
                 }
             }
-            .navigationTitle(receipt.document.filename).navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(receipt.filename).navigationBarTitleDisplayMode(.inline)
             .toolbar { CuadraoDoneToolbar(title: copy.done) { dismiss() } }
         }
         .tint(WelcomePalette.pine)
