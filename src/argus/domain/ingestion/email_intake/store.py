@@ -7,15 +7,27 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import fields, replace
-from datetime import datetime, timedelta, timezone
-from typing import Callable, Iterator, Protocol, TypedDict
+from datetime import date, datetime, timedelta, timezone
+from functools import wraps
+from threading import RLock
+from typing import Any, Callable, Iterator, Protocol, TypedDict, TypeVar
 from uuid import uuid4
 
+from psycopg import Cursor
 from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
+from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+from argus.domain.ingestion.email_intake.budget import (
+    DailyEmailBudget,
+    EmailBudgetWait,
+    FetchReservation,
+    log_budget_wait,
+    next_utc_day,
+)
+from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
 from argus.domain.ingestion.email_intake.models import (
     EmailDelivery,
     EmailDeliveryPart,
@@ -69,9 +81,16 @@ class EmailStore(Protocol):
         route_id: str | None = None,
         space_id: str | None = None,
         principal_id: str | None = None,
+        reject_code: str | None = None,
     ) -> EmailDelivery: ...
 
-    def reject_unclaimed(self, delivery_id: str, code: str) -> EmailDelivery: ...
+    def reserve_fetch(self, delivery: EmailDelivery) -> FetchReservation: ...
+
+    def settle_fetch(
+        self, delivery: EmailDelivery, reservation: FetchReservation, actual_bytes: int
+    ) -> None: ...
+
+    def defer_budget(self, delivery: EmailDelivery, code: str) -> None: ...
 
     def claim(self, *, delivery_id: str | None = None) -> EmailDelivery | None: ...
 
@@ -126,8 +145,9 @@ def _route(row: dict) -> RecipientRoute:
 
 
 class PostgresEmailStore:
-    def __init__(self, pool: ConnectionPool):
+    def __init__(self, pool: ConnectionPool, budget: DailyEmailBudget | None = None):
         self.pool = pool
+        self.budget = budget or EmailIntakeSettings().daily_budget
 
     def create_route(self, *, recipient, space_id, principal_id, granted_by, grant_id):
         """The Business's live route: the new one, or the one a concurrent create won."""
@@ -204,15 +224,16 @@ class PostgresEmailStore:
         route_id=None,
         space_id=None,
         principal_id=None,
+        reject_code=None,
     ):
         with (
             self.pool.connection() as connection,
+            connection.transaction(),
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             row = cursor.execute(
-                "insert into public.business_email_deliveries(provider,external_id,recipients,route_id,space_id,principal_id) "
-                "values(%s,%s,%s,%s,%s,%s) on conflict(provider,external_id) do update "
-                "set external_id=excluded.external_id returning *",
+                "insert into public.business_email_deliveries(provider,external_id,recipients,route_id,space_id,principal_id,state,error_code) "
+                "values(%s,%s,%s,%s,%s,%s,%s,%s) on conflict(provider,external_id) do nothing returning *",
                 (
                     provider,
                     external_id,
@@ -220,25 +241,131 @@ class PostgresEmailStore:
                     route_id,
                     space_id,
                     principal_id,
+                    "rejected" if reject_code else "received",
+                    reject_code,
                 ),
             ).fetchone()
+            if row is None:
+                return _delivery(
+                    cursor.execute(
+                        "select * from public.business_email_deliveries where provider=%s and external_id=%s",
+                        (provider, external_id),
+                    ).fetchone()
+                )
+            if route_id and not reject_code:
+                now = cursor.execute("select clock_timestamp() as now").fetchone()["now"]
+                usage = self._usage_locked(cursor, route_id, now)
+                code = self.budget.blocked(usage["messages"], usage["bytes_used"], 1)
+                if code:
+                    row = cursor.execute(
+                        "update public.business_email_deliveries set error_code=%s,available_at=%s where id=%s returning *",
+                        (code, next_utc_day(now), row["id"]),
+                    ).fetchone()
+                    log_budget_wait(
+                        route_id, now, code, usage["messages"], usage["bytes_used"]
+                    )
+                else:
+                    cursor.execute(
+                        "update public.business_email_daily_usage set messages=messages+1 where route_id=%s and day=%s",
+                        (route_id, usage["day"]),
+                    )
+                    cursor.execute(
+                        "update public.business_email_deliveries set budget_message_day=%s where id=%s",
+                        (usage["day"], row["id"]),
+                    )
             return _delivery(row)
 
-    def reject_unclaimed(self, delivery_id: str, code: str) -> EmailDelivery:
+    def _usage_locked(
+        self, cursor: Cursor, route_id: str, now: datetime
+    ) -> dict[str, Any]:
+        day = now.astimezone(timezone.utc).date()
+        cursor.execute(
+            "insert into public.business_email_daily_usage(route_id,day) values(%s,%s) on conflict do nothing",
+            (route_id, day),
+        )
+        return cursor.execute(
+            "select * from public.business_email_daily_usage where route_id=%s and day=%s for update",
+            (route_id, day),
+        ).fetchone()
+
+    def reserve_fetch(self, delivery: EmailDelivery) -> FetchReservation:
         with (
             self.pool.connection() as connection,
+            connection.transaction(),
             connection.cursor(row_factory=dict_row) as cursor,
         ):
-            cursor.execute(
-                "update public.business_email_deliveries set state='rejected',error_code=%s,updated_at=now() "
-                "where id=%s and state='received' and lease_token is null and route_id is null",
-                (code, delivery_id),
-            )
             row = cursor.execute(
-                "select * from public.business_email_deliveries where id=%s",
-                (delivery_id,),
+                "select * from public.business_email_deliveries where id=%s and lease_token=%s "
+                "and lease_until>now() and state='processing' for update",
+                (delivery.id, delivery.lease_token),
             ).fetchone()
-            return _delivery(row)
+            if row is None:
+                raise LeaseLost()
+            now = cursor.execute("select clock_timestamp() as now").fetchone()["now"]
+            usage = self._usage_locked(cursor, delivery.route_id, now)
+            previous_lease = (
+                str(row["budget_message_lease"]) if row["budget_message_lease"] else None
+            )
+            new_message = int(
+                row["budget_message_day"] != usage["day"]
+                or previous_lease not in (None, delivery.lease_token)
+            )
+            code = self.budget.blocked(
+                usage["messages"], usage["bytes_used"], new_message
+            )
+            if code:
+                raise EmailBudgetWait(code)
+            reservation = FetchReservation(str(uuid4()), usage["day"], delivery.route_id)
+            cursor.execute(
+                "update public.business_email_daily_usage set messages=messages+%s,bytes_used=bytes_used+%s where route_id=%s and day=%s",
+                (new_message, SOURCE_MAX_BYTES, delivery.route_id, usage["day"]),
+            )
+            cursor.execute(
+                "update public.business_email_deliveries set budget_message_day=%s,budget_message_lease=%s,"
+                "budget_fetch_day=%s,budget_fetch_token=%s,error_code=null where id=%s",
+                (
+                    usage["day"],
+                    delivery.lease_token,
+                    usage["day"],
+                    reservation.token,
+                    delivery.id,
+                ),
+            )
+            return reservation
+
+    def settle_fetch(
+        self, delivery: EmailDelivery, reservation: FetchReservation, actual_bytes: int
+    ) -> None:
+        if not 0 <= actual_bytes <= SOURCE_MAX_BYTES:
+            raise ValueError("invalid_email_fetch_bytes")
+        with self.pool.connection() as connection, connection.transaction():
+            row = connection.execute(
+                "update public.business_email_deliveries set budget_fetch_token=null where id=%s and lease_token=%s "
+                "and state='processing' and lease_until>now() and budget_fetch_token=%s and budget_fetch_day=%s returning route_id",
+                (delivery.id, delivery.lease_token, reservation.token, reservation.day),
+            ).fetchone()
+            if row is None:
+                raise LeaseLost()
+            connection.execute(
+                "update public.business_email_daily_usage set bytes_used=bytes_used-%s where route_id=%s and day=%s",
+                (SOURCE_MAX_BYTES - actual_bytes, row[0], reservation.day),
+            )
+
+    def defer_budget(self, delivery: EmailDelivery, code: str) -> None:
+        with self.pool.connection() as connection:
+            changed = connection.execute(
+                "update public.business_email_deliveries set state='received',error_code=%s,lease_token=null,lease_until=null,"
+                "attempts=greatest(attempts-1,0),available_at=(date_trunc('day',now() at time zone 'UTC') at time zone 'UTC')+interval '1 day',"
+                "updated_at=now() where id=%s and lease_token=%s and lease_until>now() and state='processing'",
+                (code, delivery.id, delivery.lease_token),
+            ).rowcount
+            if changed != 1:
+                raise LeaseLost()
+            usage = connection.execute(
+                "select messages,bytes_used from public.business_email_daily_usage where route_id=%s and day=(now() at time zone 'UTC')::date",
+                (delivery.route_id,),
+            ).fetchone() or (0, 0)
+        log_budget_wait(delivery.route_id, datetime.now(timezone.utc), code, *usage)
 
     def claim(self, *, delivery_id: str | None = None) -> EmailDelivery | None:
         with (
@@ -407,10 +534,31 @@ def _relations(rows: list[dict]) -> dict[str, EmailRelation]:
     return found
 
 
+T = TypeVar("T")
+
+
+def _synchronized(method: Callable[..., T]) -> Callable[..., T]:
+    @wraps(method)
+    def run(self: InMemoryEmailStore, *args: Any, **kwargs: Any) -> T:
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return run
+
+
 class InMemoryEmailStore:
     """The same queue rules in memory, for the offline suite and the local app."""
 
-    def __init__(self, clock: Callable[[], datetime] | None = None) -> None:
+    def __init__(
+        self,
+        clock: Callable[[], datetime] | None = None,
+        budget: DailyEmailBudget | None = None,
+    ) -> None:
+        self.budget = budget or EmailIntakeSettings().daily_budget
+        self._lock = RLock()
+        self._usage: dict[tuple[str, date], list[int]] = {}
+        self._message_budget: dict[str, tuple[date, str | None]] = {}
+        self._fetch_budget: dict[str, FetchReservation] = {}
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self._routes: dict[str, RecipientRoute] = {}
         self._deliveries: dict[str, EmailDelivery] = {}
@@ -418,6 +566,7 @@ class InMemoryEmailStore:
         self._lease_until: dict[str, datetime] = {}
         self._parts: dict[str, dict[str, EmailDeliveryPart]] = {}
 
+    @_synchronized
     def create_route(self, *, recipient, space_id, principal_id, granted_by, grant_id):
         existing = self.route_for_space(space_id)
         if existing is not None:
@@ -430,6 +579,7 @@ class InMemoryEmailStore:
         self._routes[route.id] = route
         return route
 
+    @_synchronized
     def deactivate_routes(self, space_id: str) -> int:
         changed = 0
         for key, route in self._routes.items():
@@ -438,11 +588,13 @@ class InMemoryEmailStore:
                 changed += 1
         return changed
 
+    @_synchronized
     def routes(self, recipients):
         return [
             r for r in self._routes.values() if r.active and r.recipient in recipients
         ]
 
+    @_synchronized
     def route_for_space(self, space_id):
         return next(
             (r for r in self._routes.values() if r.active and r.space_id == space_id),
@@ -453,6 +605,7 @@ class InMemoryEmailStore:
     def locked_route(self, route_id):
         yield self._routes.get(route_id)
 
+    @_synchronized
     def enqueue(
         self,
         provider,
@@ -462,6 +615,7 @@ class InMemoryEmailStore:
         route_id=None,
         space_id=None,
         principal_id=None,
+        reject_code=None,
     ):
         for existing in self._deliveries.values():
             if (existing.provider, existing.external_id) == (provider, external_id):
@@ -475,7 +629,7 @@ class InMemoryEmailStore:
             route_id,
             space_id,
             principal_id,
-            "received",
+            "rejected" if reject_code else "received",
             None,
             now,
             now,
@@ -489,24 +643,84 @@ class InMemoryEmailStore:
         )
         self._deliveries[delivery.id] = delivery
         self._available[delivery.id] = now
+        if reject_code:
+            delivery = replace(delivery, error_code=reject_code)
+        elif route_id:
+            day = now.astimezone(timezone.utc).date()
+            usage = self._usage.setdefault((route_id, day), [0, 0])
+            code = self.budget.blocked(*usage, 1)
+            if code:
+                delivery = replace(delivery, error_code=code)
+                self._available[delivery.id] = next_utc_day(now)
+                log_budget_wait(route_id, now, code, *usage)
+            else:
+                usage[0] += 1
+                self._message_budget[delivery.id] = (day, None)
+        self._deliveries[delivery.id] = delivery
         return delivery
 
-    def reject_unclaimed(self, delivery_id, code):
-        delivery = self._deliveries[delivery_id]
-        if (
-            delivery.state == "received"
-            and delivery.lease_token is None
-            and delivery.route_id is None
-        ):
-            self._deliveries[delivery_id] = replace(
-                delivery, state="rejected", error_code=code, updated_at=self.clock()
-            )
-        return self._deliveries[delivery_id]
+    @_synchronized
+    def reserve_fetch(self, delivery: EmailDelivery) -> FetchReservation:
+        self._held(delivery)
+        day = self.clock().astimezone(timezone.utc).date()
+        usage = self._usage.setdefault((delivery.route_id, day), [0, 0])
+        previous_day, previous_lease = self._message_budget.get(delivery.id, (None, None))
+        new_message = int(
+            previous_day != day or previous_lease not in (None, delivery.lease_token)
+        )
+        code = self.budget.blocked(*usage, new_message)
+        if code:
+            raise EmailBudgetWait(code)
+        usage[0] += new_message
+        usage[1] += SOURCE_MAX_BYTES
+        self._message_budget[delivery.id] = (day, delivery.lease_token)
+        reservation = FetchReservation(str(uuid4()), day, delivery.route_id)
+        self._fetch_budget[delivery.id] = reservation
+        self._deliveries[delivery.id] = replace(
+            self._deliveries[delivery.id], error_code=None
+        )
+        return reservation
+
+    @_synchronized
+    def settle_fetch(
+        self, delivery: EmailDelivery, reservation: FetchReservation, actual_bytes: int
+    ) -> None:
+        if not 0 <= actual_bytes <= SOURCE_MAX_BYTES:
+            raise ValueError("invalid_email_fetch_bytes")
+        self._held(delivery)
+        if self._fetch_budget.get(delivery.id) != reservation:
+            raise LeaseLost()
+        self._fetch_budget.pop(delivery.id)
+        self._usage[(reservation.route_id, reservation.day)][1] -= (
+            SOURCE_MAX_BYTES - actual_bytes
+        )
+
+    @_synchronized
+    def defer_budget(self, delivery: EmailDelivery, code: str) -> None:
+        current = self._held(delivery)
+        self._deliveries[delivery.id] = replace(
+            current,
+            state="received",
+            lease_token=None,
+            attempts=max(current.attempts - 1, 0),
+            error_code=code,
+            updated_at=self.clock(),
+        )
+        self._lease_until.pop(delivery.id, None)
+        self._available[delivery.id] = next_utc_day(self.clock())
+        day = self.clock().astimezone(timezone.utc).date()
+        log_budget_wait(
+            delivery.route_id,
+            self.clock(),
+            code,
+            *self._usage.get((delivery.route_id, day), [0, 0]),
+        )
 
     def _lease_live(self, delivery_id: str) -> bool:
         until = self._lease_until.get(delivery_id)
         return until is not None and until > self.clock()
 
+    @_synchronized
     def claim(self, *, delivery_id=None):
         now = self.clock()
         for key, delivery in list(self._deliveries.items()):
@@ -560,6 +774,7 @@ class InMemoryEmailStore:
             raise LeaseLost()
         return current
 
+    @_synchronized
     def update(self, delivery, **values):
         if not values or set(values) - _UPDATABLE:
             raise ValueError("invalid_email_update")
@@ -569,10 +784,12 @@ class InMemoryEmailStore:
         )
         self._lease_until[delivery.id] = self.clock() + LEASE
 
+    @_synchronized
     def renew(self, delivery):
         self._held(delivery)
         self._lease_until[delivery.id] = self.clock() + LEASE
 
+    @_synchronized
     def finish(self, delivery, state, error_code=None):
         if state not in FINAL_STATES:
             raise ValueError("invalid_email_state")
@@ -586,26 +803,31 @@ class InMemoryEmailStore:
             seconds=min(current.attempts * 10, 300)
         )
 
+    @_synchronized
     def put_part(self, delivery, part):
         self._held(delivery)
         self._parts.setdefault(delivery.id, {})[part.id] = part
 
+    @_synchronized
     def parts(self, delivery_id):
         return [
             self._parts.get(delivery_id, {})[key]
             for key in sorted(self._parts.get(delivery_id, {}))
         ]
 
+    @_synchronized
     def list(self, space_id, *, limit=50):
         rows = [d for d in self._deliveries.values() if d.space_id == space_id]
         return sorted(rows, key=lambda d: (d.received_at, d.id), reverse=True)[:limit]
 
+    @_synchronized
     def get(self, delivery_id, space_id):
         delivery = self._deliveries.get(delivery_id)
         return (
             delivery if delivery is not None and delivery.space_id == space_id else None
         )
 
+    @_synchronized
     def retry(self, delivery_id, space_id):
         delivery = self.get(delivery_id, space_id)
         if (
@@ -620,6 +842,7 @@ class InMemoryEmailStore:
         self._available[delivery_id] = self.clock()
         return True
 
+    @_synchronized
     def membership(self, space_id):
         rows = []
         for delivery in self._deliveries.values():

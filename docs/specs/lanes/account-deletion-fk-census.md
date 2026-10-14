@@ -450,6 +450,7 @@ The October 12 email receiving migration adds ten foreign keys, all nondeferrabl
 
 | Table | Column(s) | References | On delete | On update | Deferrable | Re-key to a placeholder | Plain delete, live probe | Lane 6 must |
 |---|---|---|---|---|---|---|---|---|
+| `business_email_daily_usage` | `route_id` | `business_email_routes` | CASCADE | NO ACTION | no | No owner column. | Local budget probe verifies route deletion removes usage. | None. The daily allowance goes with its immutable receiving route at step 7. |
 | `business_email_deliveries` | `original_document_id` | `financial_source_connections` | SET NULL | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here. | None after step 2: the trigger scrubs subject, sender and text when the source goes. |
 | `business_email_deliveries` | `principal_id` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is nullable, so it can be set to null instead. | Catalog only. The probes had no rows here. | None. The delivery record goes with the Business owner at step 7. |
 | `business_email_deliveries` | `route_id` | `business_email_routes` | CASCADE | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here. | None. Goes with its route at step 7. |

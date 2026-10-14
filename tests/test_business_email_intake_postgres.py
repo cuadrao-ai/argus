@@ -35,8 +35,11 @@ class Provider:
     def __init__(self, raw: bytes, recipients: tuple[str, ...]) -> None:
         self.raw, self.recipients, self.calls = raw, recipients, 0
 
-    async def raw_message(self, email_id: str) -> ReceivedEmail:
+    async def raw_message(self, email_id: str, *, budget=None) -> ReceivedEmail:
+        reservation = await budget.reserve() if budget else None
         self.calls += 1
+        if budget:
+            await budget.settle(reservation, len(self.raw))
         return ReceivedEmail(self.raw, self.recipients)
 
 

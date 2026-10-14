@@ -46,3 +46,25 @@ def test_flags_default_off(monkeypatch):
         False,
         "",
     )
+
+
+def test_daily_budget_defaults_and_explicit_cuadrao_limits(monkeypatch):
+    monkeypatch.delenv("CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT", raising=False)
+    monkeypatch.delenv("CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT", raising=False)
+    assert EmailIntakeSettings().daily_budget.messages == 100
+    assert EmailIntakeSettings().daily_budget.bytes == 104857600
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT", "7")
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT", "20971520")
+    assert EmailIntakeSettings().daily_budget.messages == 7
+    assert EmailIntakeSettings().daily_budget.bytes == 20971520
+
+
+@pytest.mark.parametrize(
+    "name,value", [("MESSAGE", "0"), ("BYTE", "10485759"), ("MESSAGE", "invalid")]
+)
+def test_daily_budget_settings_reject_unusable_limits(monkeypatch, name, value):
+    from pydantic import ValidationError
+
+    monkeypatch.setenv(f"CUADRAO_BUSINESS_EMAIL_DAILY_{name}_LIMIT", value)
+    with pytest.raises(ValidationError):
+        EmailIntakeSettings()
