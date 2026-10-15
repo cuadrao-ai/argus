@@ -2628,6 +2628,38 @@
         "src/**",
         "marketing/**"
       ]
+    },
+    "claude/business-ai-consent-1083": {
+      "description": "Supersedes #1083: the owner's stored Business receipt-reading setting (business_receipt_reading_consents, #1097) is the only consent on every Business read path. A documents service without the setting never reads a Business receipt and the Render Workflow document worker wires it; a grantee's upload consent header is ignored, not refused; the dead WhatsApp read gate is deleted and its tests retargeted to the setting; revoke-in-flight, email and legacy prepare are proven over HTTP on real Postgres. Records the two migrations staging already ran (20261014090000, 20261014120000) byte-identical; no new migration, no web, copy or model-facing change.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/routers/business.py",
+        "src/argus/api/whatsapp.py",
+        "src/argus/domain/ingestion/documents/service.py",
+        "supabase/migrations/20261014090000_business_email_receipt_reading_consent.sql",
+        "supabase/migrations/20261014120000_business_ai_consents.sql",
+        "tests/business/test_business_handoff_retry.py",
+        "tests/business/test_business_reading_setting.py",
+        "tests/business/test_business_switcher_api.py",
+        "tests/ingestion/test_business_document_bridge.py",
+        "tests/ingestion/test_whatsapp_receipt_reading.py",
+        "tests/test_business_reading_setting_postgres.py",
+        "tests/test_document_jobs_postgres.py",
+        "tests/test_whatsapp_receipt_read_postgres.py",
+        "workflows/document_job.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*",
+        "ios/**",
+        "web/**"
+      ]
     }
   }
 }
