@@ -101,6 +101,10 @@ struct CuadraoProfilePage: View {
             } header: { Text(spanish ? "Apariencia" : "Appearance") }
               footer: { Text(spanish ? "Sistema sigue la apariencia de tu iPhone." : "System follows your iPhone’s appearance.") }
             Section {
+                LabeledContent(spanish ? "Idioma" : "Language", value: spanish ? "Español" : "English")
+                    .accessibilityIdentifier("cuadrao.profile.language")
+            }
+            Section {
                 switch connection {
                 case .preview:
                     LabeledContent(spanish ? "Moneda preferida" : "Preferred currency") {

@@ -168,6 +168,11 @@ private struct GuestPreferences: View {
               footer: { Text(spanish ? "Sistema sigue la apariencia de tu iPhone." : "System follows your iPhone’s appearance.") }
                 .listRowBackground(CanvasSettingsStyle.surface)
             Section {
+                LabeledContent(spanish ? "Idioma" : "Language", value: spanish ? "Español" : "English")
+                    .accessibilityIdentifier("guest.profile.language")
+            }
+            .listRowBackground(CanvasSettingsStyle.surface)
+            Section {
                 Button { choosingCurrency = true } label: {
                     HStack {
                         Text(spanish ? "Moneda preferida" : "Preferred currency").foregroundStyle(.primary)
