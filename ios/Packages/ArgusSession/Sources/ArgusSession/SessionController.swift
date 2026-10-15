@@ -621,6 +621,19 @@ public actor SessionController {
               let journal = try vault.deletionJournal(userID: receipt.userID), journal.phase == .completed,
               journal.id == receipt.commandID, journal.userID == receipt.userID,
               journal.initiatingRevision == receipt.initiatingRevision else { throw SessionFailure.staleOperation }
+        try retire(journal, cleanup: cleanup)
+    }
+
+    /// An accepted (202) deletion already retired its session, so its local data goes the same way, keyed by its journal.
+    public func acknowledgeAcceptedAccountDeletion(userID: UUID, cleanup: @Sendable (UUID) throws -> Void) throws {
+        try beginMutation(); defer { mutating = false }
+        guard try vault.session() == nil, try vault.pending() == nil,
+              let journal = try vault.deletionJournal(userID: userID), journal.phase == .pending else { throw SessionFailure.staleOperation }
+        try retire(journal, cleanup: cleanup)
+    }
+
+    /// The journal is the cleanup obligation, so it goes only after the cleanup succeeds.
+    private func retire(_ journal: AccountDeletionJournal, cleanup: @Sendable (UUID) throws -> Void) throws {
         let epoch = vault.epoch()
         try cleanup(journal.userID)
         try vault.removeDeletionJournal(epoch: epoch, userID: journal.userID)
@@ -643,8 +656,6 @@ public actor SessionController {
         endAccountEpoch(as: .signedOut)
         try vault.removeSession()
         try vault.removePending()
-        // Accepted (202) retired the only proof that could observe the run finish, so it ends signed out here.
-        if journal.phase == .pending { try vault.removeDeletionJournal(epoch: vault.epoch(), userID: journal.userID) }
         return true
     }
 
