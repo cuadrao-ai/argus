@@ -827,6 +827,15 @@ paths:
           maximum: 50
           minimum: 1
           default: 20
+      - name: view
+        in: query
+        required: false
+        schema:
+          enum:
+          - inbox
+          - all
+          type: string
+          default: all
       - name: X-Business-Grant
         in: header
         required: false
@@ -22190,12 +22199,18 @@ components:
           - working
           - unread
           - none
+        pending_review_count:
+          type: integer
+        needs_attention_count:
+          type: integer
       additionalProperties: false
       type: object
       required:
       - reading_count
       - unread_count
       - presentation
+      - pending_review_count
+      - needs_attention_count
     ReceiptCardFacts:
       properties:
         execution_costs:

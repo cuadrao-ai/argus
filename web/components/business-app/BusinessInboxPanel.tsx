@@ -35,14 +35,13 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
 }
 
 /**
- * What the Inbox list shows, as one number for the Overview card and the
- * sidebar badge: receipts awaiting review (the email itself is not a row,
- * its attachments are) plus the drafts with an open note. Both lists come
- * from the backend; the count is never computed from anything else.
+ * The Bandeja's number for the Resumen card and the sidebar badge, exactly as
+ * the server counts it: every row the Bandeja lists, receipts awaiting review
+ * and notes no receipt carries. Unread is a different count (the badge's dot).
+ * Null until the server answers, because an unknown count is not zero.
  */
-export function inboxCount(records: { inbox: readonly ReceiptSummary[] | null; notes: readonly BusinessCapture[] | null; receiptActivity?: ReceiptActivityCounts | null }): number {
-  const receipts = records.receiptActivity?.unread_count ?? 0;
-  return receipts + (records.notes ? openNotesByDraft(records.notes).length : 0);
+export function inboxCount(records: { receiptActivity?: ReceiptActivityCounts | null }): number | null {
+  return records.receiptActivity?.pending_review_count ?? null;
 }
 
 export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }: { notes: OpenNote[]; error: boolean; truncated?: boolean; onOpen: (draftId: string) => void }) {
@@ -216,7 +215,7 @@ export default function BusinessInboxPanel() {
         <>
           <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
           {items.length ? (
-            <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
+            <ul data-testid="business-inbox-receipts" className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
               {items.map((receipt) => (
                 <ReceiptRow
                   key={receipt.id}

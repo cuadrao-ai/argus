@@ -105,9 +105,14 @@ class BusinessActions:
         return captures.capture(self, context, request, key)
 
     def captures(
-        self, context: ActionContext, *, query: str = "", limit: int = 20
+        self,
+        context: ActionContext,
+        *,
+        query: str = "",
+        limit: int = 20,
+        view: str = "all",
     ) -> list[dict]:
-        return captures.entries(self, context, query=query, limit=limit)
+        return captures.entries(self, context, query=query, limit=limit, view=view)
 
     def persist_plan(
         self,
