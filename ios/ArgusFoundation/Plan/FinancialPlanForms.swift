@@ -28,7 +28,7 @@ struct FinancialExpectationForm: View {
                     field("plan.name", identifier: "plan.expectation.name", text: $draft.title)
                     if draft.existing == nil {
                         Picker("accounts.currency", selection: $draft.currency) {
-                            ForEach(Array(Set(["DOP", "USD"] + (model.projection?.accounts.map(\.currency) ?? []))).sorted(), id: \.self) {
+                            ForEach(PlanCurrency.supported, id: \.self) {
                                 Text(verbatim: $0).tag($0)
                             }
                         }.accessibilityIdentifier("plan.expectation.currency")

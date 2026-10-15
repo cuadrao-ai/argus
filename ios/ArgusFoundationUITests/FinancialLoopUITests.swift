@@ -93,7 +93,7 @@ final class FinancialLoopUITests: XCTestCase {
         assertHome(baseline + 125)
     }
 
-    func testAccountEntryKeepsUnknownAndSignedBalances() throws {
+    func testAccountEntryStartsBlankAtZeroAndKeepsSignedBalances() throws {
         try signIn()
         app.openAccountsList()
         XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 10))
@@ -104,33 +104,24 @@ final class FinancialLoopUITests: XCTestCase {
         XCTAssertTrue(app.buttons["accounts.type.change"].exists)
         XCTAssertFalse(app.textFields["accounts.share"].exists)
         XCTAssertFalse(app.datePickers["accounts.date"].exists)
-        let nickname = "Unknown account " + UUID().uuidString.prefix(6)
+        let nickname = "Blank account " + UUID().uuidString.prefix(6)
         app.textFields["accounts.nickname"].tap()
         app.textFields["accounts.nickname"].typeText(nickname)
         app.buttons["accounts.save"].tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Balance unknown")).firstMatch.waitForExistence(timeout: 10))
-        capture("unknown-balance")
-        record(amount: "10", note: "Spending before a known balance")
-        assertText("Balance unknown")
-        tapVisible(app.buttons["accounts.opening"])
-        let amount = app.textFields["accounts.amount"]
-        XCTAssertTrue(amount.waitForExistence(timeout: 5))
-        amount.tap(); amount.typeText("25.50")
-        app.buttons["accounts.amount.sign"].tap()
-        XCTAssertEqual(amount.value as? String, "-25.50")
-        app.dismissKeyboard()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "DOP 0.00")).firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Balance unknown")).firstMatch.exists)
+        capture("blank-balance-is-zero")
+        record(amount: "10", note: "Spending from a zero start")
+        assertText("DOP -10.00")
+        let signed = createMoneyAccount("Signed " + UUID().uuidString.prefix(6), type: "checking", amount: "25.50", negative: true)
         capture("signed-balance-entry")
-        app.buttons["accounts.save"].tap()
-        XCTAssertTrue(app.buttons["opening.coverage.yes"].waitForExistence(timeout: 10))
-        capture("unknown-to-known-coverage")
-        tapVisible(app.buttons["opening.coverage.yes"])
-        XCTAssertTrue(app.buttons["loop.edit"].waitForExistence(timeout: 10))
-        app.buttons["accounts.save"].tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "DOP -25.50")).firstMatch.waitForExistence(timeout: 10))
+        assertText("DOP -25.50")
         app.terminate(); app.launch()
+        openMoneyAccount(signed)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "DOP -25.50")).firstMatch.waitForExistence(timeout: 10))
         app.openAccountsList()
         tapVisible(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", nickname)).firstMatch)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "DOP -25.50")).firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "DOP -10.00")).firstMatch.waitForExistence(timeout: 10))
         capture("account-preserved-after-reopen")
     }
 
@@ -377,8 +368,6 @@ final class FinancialLoopUITests: XCTestCase {
             guard !inScroll && control.isHittable else { return edge }
             return min(edge, frame.minY)
         }
-        let start = app.coordinate(withNormalizedOffset: .zero)
-            .withOffset(CGVector(dx: app.frame.width / 2, dy: (top + bottom) / 2 - app.frame.minY))
         var scrolled = false
         for _ in 0..<12 {
             let frame = element.frame
@@ -390,6 +379,9 @@ final class FinancialLoopUITests: XCTestCase {
             let limit = max(0, (bottom - top) / 2)
             guard limit > 0 else { break }
             let movement = max(-limit, min(limit, distance))
+            let startY = top + (bottom - top) * (movement < 0 ? 0.75 : 0.25)
+            let start = app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: app.frame.width / 2, dy: startY - app.frame.minY))
             start.press(forDuration: 0.01, thenDragTo: start.withOffset(CGVector(dx: 0, dy: movement)),
                         withVelocity: .slow, thenHoldForDuration: 0.2)
             scrolled = true
@@ -464,7 +456,8 @@ final class FinancialLoopUITests: XCTestCase {
                 if permission.waitForExistence(timeout: 1) { permission.tap() }
                 UIPasteboard.general.items = []
                 app.buttons["auth.submit"].tap()
-                XCTAssertTrue(app.buttons["header.profile"].waitForExistence(timeout: 30))
+                // A hosted CAPTCHA may need a person to solve it, so the wait is generous; it returns as soon as Home opens.
+                XCTAssertTrue(app.buttons["header.profile"].waitForExistence(timeout: 240))
                 app.buttons["header.profile"].tap()
                 XCTAssertTrue(app.buttons["auth.signOut"].waitForExistence(timeout: 10))
             }

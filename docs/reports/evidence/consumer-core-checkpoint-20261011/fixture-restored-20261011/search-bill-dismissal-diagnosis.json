@@ -1,0 +1,40 @@
+{
+  "source": "search-repair/result.xcresult",
+  "test": "testConnectedSearchOpensActualEditorsAndPreservesOrigin",
+  "date": "2026-10-11",
+  "bill_id": "D2617107-791E-4442-9ECF-8B07369EBBAD",
+  "save_considered_absent_utc": "21:53:00.800",
+  "observations": [
+    {
+      "utc": "21:53:02.187",
+      "editor_controls_present": true,
+      "pending_retry_present": true,
+      "displayed_amount": "30.00",
+      "attachment_uuid": "5CAEE935-D6BA-4E4F-9F4F-46E0DE191D03"
+    },
+    {
+      "utc": "21:53:07.422",
+      "editor_controls_present": true,
+      "pending_retry_present": false,
+      "displayed_amount": "30.00",
+      "attachment_uuid": "87EAC77C-3470-4D0B-B8A9-066268DA9A1F"
+    },
+    {
+      "utc": "21:53:08.192",
+      "editor_controls_present": false,
+      "pending_retry_present": false,
+      "displayed_amount": "30.00",
+      "attachment_uuid": "8A8DA418-D5B2-4DEB-AE6B-10111DA4CB2B"
+    },
+    {
+      "utc": "21:53:11.070",
+      "editor_controls_present": false,
+      "pending_retry_present": false,
+      "displayed_amount": "30.00",
+      "attachment_uuid": "EDDE0010-EE4E-4471-802A-E0EBEF346E57"
+    }
+  ],
+  "finding": "The row amount wait began before the editor dismissed. Save absence is not editor dismissal.",
+  "repair": "Wait for plan.expectation.name nonexistence with the existing 15 second timeout, then retain the existing 10 second amount check.",
+  "boundary": "Metadata diagnosis only. No terminal screenshot is present. Passing repair execution is a separate result."
+}

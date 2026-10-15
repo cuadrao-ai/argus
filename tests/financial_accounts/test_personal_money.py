@@ -23,7 +23,7 @@ def account(scene, kind="cash", currency="DOP", amount="100"):
             type=kind,
             currency=currency,
             amount=amount,
-            as_of=NOW - timedelta(days=10) if amount else None,
+            as_of=NOW - timedelta(days=10),
         ),
         scope=PERSONAL,
     ).stored.account.id
@@ -49,6 +49,7 @@ def save(scene, **values):
 
 
 @pytest.mark.parametrize("kind", ["income", "refund"])
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_incoming_preserves_unknown_and_credits_card(scene, kind):
     aid = account(scene, "cash", amount=None)
     receipt = save(scene, kind=kind, account_id=aid, amount="25")

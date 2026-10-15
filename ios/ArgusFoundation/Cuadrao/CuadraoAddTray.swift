@@ -43,7 +43,7 @@ struct CuadraoAddTray: View {
     let items: [CuadraoAddItem]
     let spanish: Bool
     let layout: Layout
-    /// The room above the bar. At default sizes the rows fit; large text or landscape makes the menu scroll instead of leaving the screen.
+    /// The room above the bar. At default sizes the rows fit; large text makes the menu scroll instead of leaving the screen.
     var maxHeight: CGFloat = .infinity
     let choose: (CuadraoAddItem) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

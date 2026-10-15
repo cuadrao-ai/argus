@@ -5,8 +5,21 @@ import SwiftUI
 struct ConnectedCuadraoAuthFlow: View {
     @EnvironmentObject private var auth: ProfileAuthModel
     @Environment(\.locale) private var locale
+    @Environment(\.cuadraoGuestWelcome) private var guestWelcome
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+
+    /// After an account has signed in here, the signed-out screen is the login form alone.
+    @ViewBuilder private var signedOutRoot: some View {
+        if let guestWelcome, case .loginOnly(let line) = guestWelcome.shape {
+            ConnectedCreateAccount(spanish: spanish, signingIn: true)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if line { GuestOpenLine(spanish: spanish, open: guestWelcome.open) }
+                }
+        } else {
+            welcome.toolbar(.hidden, for: .navigationBar)
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -23,11 +36,10 @@ struct ConnectedCuadraoAuthFlow: View {
                                detail: String(localized: "auth.error.anonymous"))
                 } else if let deletion = auth.deletion {
                     ConnectedDeletionOutcome(model: deletion, unresolved: auth.state == .accountDeletionUncertain) {
-                        welcome.toolbar(.hidden, for: .navigationBar)
+                        signedOutRoot
                     }
                 } else {
-                    welcome
-                        .toolbar(.hidden, for: .navigationBar)
+                    signedOutRoot
                 }
             }
         }
@@ -79,6 +91,7 @@ struct ConnectedCuadraoAuthFlow: View {
                                 .contentShape(Rectangle())
                         }.buttonStyle(.plain)
                         .accessibilityIdentifier("cuadrao.welcome.signin")
+                        GuestWelcomeAction(spanish: spanish)
                     }.padding(.bottom, 28)
                 }
                 .padding(.horizontal, 28)

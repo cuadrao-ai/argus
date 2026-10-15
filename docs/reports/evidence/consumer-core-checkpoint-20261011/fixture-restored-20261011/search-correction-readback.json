@@ -1,0 +1,21 @@
+{
+  "recorded_at_utc": "2026-10-11T21:14:02.112525+00:00",
+  "synthetic_fixture": true,
+  "api": "https://cuadrao-api-staging.onrender.com",
+  "query": "Search income A6D085",
+  "items": [
+    {
+      "kind": "activity",
+      "activity": {
+        "revision": 2,
+        "kind": "income",
+        "amount": "27.00",
+        "amount_minor": 2700,
+        "currency": "DOP",
+        "note": "Search income A6D085",
+        "reason": "Corrected income receipt"
+      }
+    }
+  ],
+  "has_next_cursor": false
+}

@@ -14,6 +14,9 @@ struct CuadraoAppShell<Content: View>: View {
     let profileName: String
     var showProposal: (() -> Void)? = nil
     var addItems: [CuadraoAddItem] = []
+    /// Whether the third slot is the assistant tab or the add action. A host that never has an assistant says so
+    /// here instead of inheriting the build-wide setting.
+    var hasAssistant: Bool = CuadraoFirstRelease.hasAssistant
     @ViewBuilder let content: (Binding<CuadraoTab>) -> Content
     @State private var pendingTab: CuadraoTab?
     @State private var addOpen = false
@@ -31,7 +34,7 @@ struct CuadraoAppShell<Content: View>: View {
                             if chat.voiceMessage.state != .recording {
                                 CuadraoNavigationBar(selection: tabSelection, compact: compact, spanish: spanish,
                                     avatar: avatar, profileName: profileName,
-                                    addOpen: addOpen, add: toggleAdd)
+                                    addOpen: addOpen, hasAssistant: hasAssistant, add: toggleAdd)
                                     .padding(.horizontal, 20)
                                     .frame(height: 64, alignment: .bottom)
                                     .padding(.bottom, 8)
@@ -48,7 +51,7 @@ struct CuadraoAppShell<Content: View>: View {
             .cuadraoSoftScrollEdges()
             .cuadraoVoicePresentation(chat: chat, spanish: spanish, ownsPresentation: chat.voiceContextOwner == nil,
                 keyboard: {
-                    if CuadraoFirstRelease.hasAssistant { selection = .assistant }
+                    if hasAssistant { selection = .assistant }
                     chat.voice.presentation = .keyboard
                 }, showProposal: showProposal.map { show in {
                     show()
@@ -77,7 +80,7 @@ struct CuadraoAppShell<Content: View>: View {
         if addOpen && showsNavigation && !addItems.isEmpty {
             GeometryReader { proxy in
                 let barBottom = proxy.safeAreaInsets.bottom + CuadraoAppShellMetrics.navigationHeight
-                let atRight = compact && CuadraoNavigationSlot.current.contains(.add)
+                let atRight = compact && CuadraoNavigationSlot.slots(hasAssistant: hasAssistant).contains(.add)
                 ZStack(alignment: .bottom) {
                     // The dim covers the whole screen, bar included, so no bright band is left behind the tray.
                     Color.black.opacity(0.16).allowsHitTesting(false).accessibilityHidden(true)
@@ -122,7 +125,7 @@ struct CuadraoAppShell<Content: View>: View {
 
     private var tabSelection: Binding<CuadraoTab> {
         Binding(get: { selection }, set: { next in
-            if next == .assistant && !CuadraoFirstRelease.hasAssistant { return }
+            if next == .assistant && !hasAssistant { return }
             closeAdd()
             if selection == .assistant && next != .assistant && chat.hasTemporaryContent {
                 pendingTab = next

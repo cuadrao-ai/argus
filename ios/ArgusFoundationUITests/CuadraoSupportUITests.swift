@@ -163,6 +163,28 @@ final class CuadraoSupportUITests: XCTestCase {
         shot(app, "search-first-use-saved-chat-es")
     }
 
+    func testPullToRefreshShowsWhenAccountDetailAndUpdatesWereLastLoaded() {
+        let app = launch()
+        let bell = app.buttons["cuadrao.updates.open"]
+        bell.tap()
+        XCTAssertFalse(app.staticTexts["cuadrao.lastUpdated"].exists, "nothing is claimed before a load")
+        let list = app.collectionViews.firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 3))
+        list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)))
+        let updated = app.staticTexts["cuadrao.lastUpdated"]
+        XCTAssertTrue(updated.waitForExistence(timeout: 5), "Updates names the time of the last refresh")
+        XCTAssertEqual(updated.label, "Actualizado ahora")
+        shot(app, "updates-refreshed-es")
+        let account = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "cuadrao.updates.item.account-")).firstMatch
+        account.tap()
+        XCTAssertTrue(app.staticTexts["account-detail-title"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["cuadrao.lastUpdated"].exists)
+        let detail = app.scrollViews.firstMatch
+        detail.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).press(forDuration: 0.1, thenDragTo: detail.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)))
+        XCTAssertTrue(app.staticTexts["cuadrao.lastUpdated"].waitForExistence(timeout: 5), "account detail names the time of the last refresh")
+        shot(app, "account-detail-refreshed-es")
+    }
+
     func testUpdatesReadStateDetailBackAndPreferences() {
         let app = launch()
         let bell = app.buttons["cuadrao.updates.open"]

@@ -1,0 +1,15 @@
+{
+  "command": "bun test __tests__/native-captcha.test.ts",
+  "working_directory": "web",
+  "passed": 4,
+  "failed": 0,
+  "expect_calls": 6,
+  "test_file_sha256": "07b890c2ecc6df7e320ef0ea4d2eb87747819ca22d662f84acea07cce9545d70",
+  "method": "Existing mocked adapter tests; no network or browser",
+  "coverage": [
+    "native callback delivery",
+    "error details withheld",
+    "late success suppressed after cancellation",
+    "late failure suppressed after cancellation"
+  ]
+}

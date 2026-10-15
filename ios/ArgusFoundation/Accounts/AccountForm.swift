@@ -140,7 +140,7 @@ struct AccountForm: View {
     private var currencyControl: some View {
         Menu {
             Picker("accounts.currency", selection: binding(\.currency)) {
-                ForEach(["DOP", "USD"] + Locale.commonISOCurrencyCodes.filter { !["DOP", "USD"].contains($0) }.sorted(), id: \.self) { code in
+                ForEach(PlanCurrency.supported, id: \.self) { code in
                     Text(verbatim: code).tag(code)
                 }
             }
@@ -204,7 +204,8 @@ struct AccountForm: View {
     @ViewBuilder private func savedDetails(_ draft: AccountDraft) -> some View {
         if draft.mode == .metadata && draft.base?.isOptionalAsset != true {
             DisclosureGroup("accounts.ownership") {
-                field("accounts.share", text: binding(\.share), identifier: "accounts.share").keyboardType(.decimalPad)
+                PercentField(title: NSLocalizedString("accounts.share", comment: ""), text: binding(\.share), bounds: .share,
+                             spanish: Locale.current.language.languageCode?.identifier == "es", identifier: "accounts.share")
                 Text("accounts.share.help").font(ArgusStyle.body(12, relativeTo: .caption))
             }.disabled(locked)
         } else if draft.mode == .opening {

@@ -14424,6 +14424,11 @@ components:
           - type: string
             maxLength: 40
           - type: 'null'
+          description: Starting balance as typed, dot-decimal; a liability is the positive
+            amount owed. Omitted or blank on a Personal cash, checking, savings, investment,
+            credit card or other debt account records an opening of 0 at as_of. Property,
+            vehicle and other asset values, and Business accounts, stay unknown when omitted.
+            as_of defaults to now.
         as_of:
           anyOf:
           - type: string
@@ -19414,6 +19419,11 @@ components:
           items:
             $ref: '#/components/schemas/ObservationQuestion'
           type: array
+        skipped_observations:
+          items:
+            $ref: '#/components/schemas/SkippedObservation'
+          type: array
+          default: []
         unexplained_before:
           additionalProperties:
             anyOf:
@@ -19800,6 +19810,11 @@ components:
           anyOf:
           - type: string
             maxLength: 128
+          - type: 'null'
+        entered_on:
+          anyOf:
+          - type: string
+            format: date
           - type: 'null'
       additionalProperties: false
       type: object
@@ -24210,6 +24225,20 @@ components:
       - email
       - password
       - captcha_token
+    SkippedObservation:
+      properties:
+        observation_id:
+          type: string
+        reason:
+          type: string
+          enum:
+          - after_observation_day
+          - entered_after_observation
+          - blank_opening
+      type: object
+      required:
+      - observation_id
+      - reason
     Snapshot:
       properties:
         household_id:

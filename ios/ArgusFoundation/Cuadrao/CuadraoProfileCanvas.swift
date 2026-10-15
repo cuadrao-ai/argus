@@ -86,8 +86,14 @@ enum CuadraoFirstRelease {
         // The free tier has no AI chats and no stored files yet, so these pages would only say "Nothing saved".
         .files, .conversations
     ]
+    #if CUADRAO_FOUNDER_PHONE
+    /// The founder's phone build: the release layout with receipts and the guest door on, without launch arguments.
+    static let founderPhone = true
+    #else
+    static let founderPhone = false
+    #endif
     #if DEBUG
-    static let hidesUnfinished = ProcessInfo.processInfo.arguments.contains("--cuadrao-release-gates")
+    static let hidesUnfinished = founderPhone || ProcessInfo.processInfo.arguments.contains("--cuadrao-release-gates")
     #else
     static let hidesUnfinished = true
     #endif
@@ -104,7 +110,7 @@ enum CuadraoFirstRelease {
     static var showsReceiptCapture: Bool { !hidesUnfinished || CuadraoDesignPreview.isActive }
     /// Saved receipts are built and tested but stay off until receipt access is enabled (a separate founder approval).
     #if DEBUG
-    static let savedReceipts = ProcessInfo.processInfo.arguments.contains("--cuadrao-saved-receipts") || savedReceiptsSample
+    static let savedReceipts = founderPhone || ProcessInfo.processInfo.arguments.contains("--cuadrao-saved-receipts") || savedReceiptsSample
     /// Sample data and no system pickers, so the screens can be driven without a server.
     static let savedReceiptsSample = ProcessInfo.processInfo.arguments.contains("--cuadrao-saved-receipts-sample")
     #else

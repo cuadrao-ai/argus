@@ -43,6 +43,20 @@ Home's Upcoming reads its own rolling 30-day projection. A row opens review;
 a due date never records a payment. Simulator evidence and physical-phone
 acceptance remain distinct.
 
+### Confirmed value motion — approved October 11, 2026
+
+Show saved balances and progress immediately when opening a tab or resuming the
+app. Use a brief numeric transition only when a confirmed action changes the
+value. Do not replay that transition on tab switches, refresh or resume. Reduce
+Motion presents the confirmed value without decorative movement.
+
+Lucas locked this rule with “yep agree lock iit” in decision
+`Sentinel_b1d14016cb048191ae4d6781671ba461`, relayed by the coordinator in
+`01a126db-9d2e-7492-89bb-478f5ead4086`. Apply it within assigned UI changes;
+it does not authorize a broad animation sweep. Repeated-use feel and haptic
+acceptance on a physical phone remain **PENDING**. Simulator images do not prove
+either result.
+
 ## 1. Character and surface purpose
 
 Cuadrao is warm, clear and personal. Home offers a calm first glance; Plan makes
@@ -725,6 +739,15 @@ a receipt tray underneath it. After the original is saved, close capture before
 opening the review sheet. Cancel before acquisition returns to the originating
 screen without a receipt. An unfinished expense keeps its edits on return.
 
+AI reading is asked once per account, in a half sheet beside the receipt's thumbnail: a
+short question, two lines naming Google Gemini, then **Leer / Read** and **Solo guardar /
+Save only**. After a yes, each receipt shows only those two buttons. The long explanation
+lives under the **Leer recibos con IA / Read receipts with AI** toggle in Datos y
+privacidad; turning it off brings the question back. Waiting and failures keep the
+thumbnail with a short title and one plain line ([Lovi](https://mobbin.com/screens/378bedf0-ea07-4fcd-b005-985f0f1bd0a1),
+[Claude settings](https://mobbin.com/screens/1c9fbd84-3e16-410b-ac22-0b8a50a401dd),
+[Alan](https://mobbin.com/screens/714b9f3a-e212-4295-8ca5-85ca0452a47f)).
+
 Capture saves a draft and opens a compact review. **Después / Later** lets the person
 leave immediately; leaving never confirms an expense. A personal import can remain
 without a currency until review. Choose its currency once before editing amounts
@@ -904,7 +927,9 @@ history rules. Account deletion must not silently redefine them.
 
 ### Welcome screen
 
-One main brand composition and the two native actions; nothing else.
+One main brand composition and the two native actions; nothing else. The one
+exception is the quiet third action below, which exists only while the on-device
+guest book's door is open ([October 9 decision](../../../docs/specs/argus-decision-log.md#october-9-2026-iphone-on-device-guest-book-probar-sin-cuenta)).
 
 - The lockup is the only brand element: no repeated header lockup, no tagline.
   Marketing's lockup SVG, at most 268 pt wide, narrowing on small screens instead of
@@ -917,6 +942,58 @@ One main brand composition and the two native actions; nothing else.
   follows Dynamic Type. The screen scrolls at large text sizes; nothing is clipped.
 - Accessibility: the lockup is one element labelled `cuadrao`. Identifiers:
   `cuadrao.welcome.lockup`, `cuadrao.welcome.signup`, `cuadrao.welcome.signin`.
+- **Probar sin cuenta / Try without an account** is a third action under Sign in,
+  shown only while `CuadraoFirstRelease.guestBook` is on (Release is off). It is
+  plain text in the pine accent, with no fill or outline so it never competes with
+  the two buttons, at least 44 pt high, 12 pt below Sign in. Identifier
+  `cuadrao.welcome.guest`.
+
+### On-device guest book
+
+**Probar sin cuenta / Try without an account** opens a book that lives only on the
+iPhone: accounts, movements, budgets, goals, search and plan what-ifs typed by hand.
+It is a mode above authentication, not a sign-in state, and it shares the approved
+Home, Plan, Search and Profile views rather than a second set.
+
+- No network call, account, invitation code, assistant, voice, files, household,
+  Updates bell or avatar photo. Dictation is the system keyboard's.
+- Receipts stay on this iPhone ([October 11 amendment](../../../docs/specs/argus-decision-log.md#october-11-2026-guest-receipts-stay-on-the-iphone)).
+  The + tray's camera, photo and file rows keep the file in the book's folder and
+  say *Recibo guardado en este iPhone*. The person may attach it to a recent
+  movement then, or later from the movement, which can view or remove it. No model
+  reads it and nothing is sent. Deleting this iPhone's data deletes the receipts.
+- Empty Home offers one first-account invitation, as signed-in Home does. Profile
+  offers Create account and Sign in, appearance, preferred currency, Terms and
+  Privacy, and **Eliminar los datos de este iPhone / Delete this iPhone's data**,
+  which asks once and removes the book.
+- Signing up or in leaves the book untouched and says so: *Tu libro de este iPhone
+  sigue aquí; no se subió.* / *Your book on this iPhone is still here; it was not
+  uploaded.* Nothing is claimed into the account.
+- A book written by a newer version of the app opens read-only with an update
+  message; the app never rewrites what it cannot read.
+- An amount keeps the currency's exact digits and is never rounded; the currency
+  choice lists only currencies the server accepts. Each account fixes its digits
+  when it is created, so a yen has none and a dinar has three.
+- Accounts use the shared account form and rows. A money account saved with a blank
+  balance starts at a recorded 0.00; a blank value on a property, vehicle or other
+  asset is unknown, never zero. A stated balance starts tracking at that moment. The currency and type are
+  kept once a balance is stated. Archive keeps the account and its place, with Undo
+  and a Restore list; the order set by dragging is part of the book.
+- Movements are expense, income and same-currency transfer, recorded in the shared
+  transaction sheet in one Save. The date cannot be in the future or before the
+  account's tracking began, an archived account takes no new ones, and a delete
+  offers Undo. An account's balance is its stated balance plus the movements since,
+  so a movement on an unknown balance leaves it unknown. Home shows the net balance
+  of one currency with the shared chart over daily balances the book derived, and
+  the expanded view pages by month. Spending never claims a month the book has no
+  coverage for: it shows No data, and a month that coverage begins inside says
+  from which day it counts.
+- Plan holds two kinds in the shared plan page and editor: a goal, whose progress is
+  the contributions the person records by hand, and a budget, a monthly limit over
+  some or all of one currency's accounts and categories, spent being this month's
+  expenses in that scope. The picker offers no debt plan. The currency is fixed when
+  a plan is made and chosen only among the currencies of the book's accounts. A plan
+  moves no money, and it says so.
 
 ### Authentication and invitation purpose
 
@@ -1086,6 +1163,7 @@ favors permission requests in context.
 | Choice labels and add shortcuts | [CuadraoChoiceControls.swift](../../../ios/ArgusFoundation/Cuadrao/CuadraoChoiceControls.swift) | Shared value/caret, native single-selection menu, fixed code and section plus. |
 | Balance period and account changes | [CuadraoBalancePeriod.swift](../../../ios/ArgusFoundation/Cuadrao/CuadraoBalancePeriod.swift) | One observed opening/closing pair, signed contributions and matching allocation; reuses `CanvasBalanceHistory`. |
 | Empty and loading treatment | [CuadraoChartState.swift](../../../ios/ArgusFoundation/Cuadrao/CuadraoChartState.swift) | Shared decorative forms; `CanvasSpendingStory` classifies financial states. Loading is a gallery specimen until a real operation needs it. |
+| Skeleton, toast and haptics | [CuadraoSkeleton.swift](../../../ios/ArgusFoundation/Cuadrao/CuadraoSkeleton.swift), [CuadraoToast.swift](../../../ios/ArgusFoundation/Cuadrao/CuadraoToast.swift), [CuadraoHaptics.swift](../../../ios/ArgusFoundation/Cuadrao/CuadraoHaptics.swift) | Grey blocks in the real footprint while a request runs, frozen for Reduce Motion, never on a settled empty state. One bottom notice: one line, one action, 5 seconds (10 with VoiceOver), announced to VoiceOver. Haptics: success on a save, warning on an error, selection on a choice, impact on a confirmed delete. The gallery shows all three. |
 | Expanded chart controls | [CuadraoChartControls.swift](../../../ios/ArgusFoundation/Cuadrao/CuadraoChartControls.swift) | Icon view choice and localized period choice, including selected accessibility state. |
 | Account management | [CuadraoAccountsCollection.swift](../../../ios/ArgusFoundation/Cuadrao/CuadraoAccountsCollection.swift), on integration since #786 (design PR 3), design preview only | Native ordering and archive recovery over the existing shared account model. |
 | Reference gallery | [CuadraoDesignGallery.swift](../../../ios/ArgusFoundation/Cuadrao/CuadraoDesignGallery.swift), on integration since #786 (design PR 3) | Uses real shared components. Preview-only. It opens from a hold on Home's greeting → Guía visual / Visual guide, or with `--design-gallery`. That routing came to integration with #786. |

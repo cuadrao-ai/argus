@@ -6871,7 +6871,10 @@ the user; another user's identical key is a different reservation.
 }
 ```
 
-- `amount` is optional; omitting it leaves the balance unknown. More fraction
+- `amount` is optional. Omitting it on a Personal money account records an
+  opening of 0 at `as_of`, so the balance reads 0.00. Property, vehicle and
+  other assets, and Business accounts, keep an omitted value unknown. Accounts
+  saved without an opening before this rule keep their unknown balance. More fraction
   digits than the currency allows is `422 amount_precision`; anything but
   digits with one optional dot and leading minus is `422 amount_invalid`; a
   value whose minor units exceed what storage holds (signed 64-bit) is
@@ -6997,9 +7000,22 @@ The stored IANA zone is retained independently of the server zone.
 
 `coverage` is a list of `{observation_id, included}` answers. An opening and a
 balance check are both observations. For an activity on or before an observation's
-local calendar day, the preview asks whether it was already included. Same-day
-activity always asks; the API does not infer inclusion from a time supplied by a
-date-only control. An included expense remains included in every later eligible
+local calendar day, the preview asks whether it was already included. On the
+observation's own day, an activity dated the day it was recorded carries its real
+entry time: when that time is after the observation, no question is asked. A
+backdated activity on that day has no real time and always asks. Answers stored under
+the earlier same-day rule stand. Each affected account lists
+`skipped_observations: [{observation_id, reason}]` where `reason` is
+`after_observation_day`, `entered_after_observation` or `blank_opening` (an opening
+recorded as 0 because the balance was left blank never covers activity, so all
+activity counts on top of it), so a skipped question is
+never silent; the same reasons are stored on the activity revision. The server
+decides the entry day from its own clock at preview and again at confirm, and returns
+it as `entered_on` in `reviewed_request`; a client value is ignored. A preview made
+before midnight and confirmed after it is refused, because the reviewed request no
+longer matches the previewed token, so a midnight crossing never flips "same day"
+silently. Balance checks and opening corrections keep the by-day
+rule: they include or ask about every activity on or before their day. An included expense remains included in every later eligible
 observation. Contradictory answers are rejected. Expenses after an observation day
 cannot be included in it. Amount equality never establishes inclusion.
 
@@ -7317,7 +7333,7 @@ Expected_versions maps UUID to account version. Coverage is
 
 Preview is `{ready,expected_versions,affected_accounts,reviewed_request,preview_token}`.
 Each affected account is `{account_id,currency,currency_fraction_digits,before,after,
-observations,unexplained_before,unexplained_after}`. Before/after use BalanceResponse;
+observations,skipped_observations,unexplained_before,unexplained_after}`. Before/after use BalanceResponse;
 after/unexplained_after are null until ready. Unexplained maps check UUID to nullable
 signed minor units. Observations use existing ObservationQuestion. Include all old/new
 leg accounts and old/new linked purchase accounts, even unchanged dependencies.

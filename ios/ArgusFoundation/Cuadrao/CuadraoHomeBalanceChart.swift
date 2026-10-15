@@ -55,6 +55,7 @@ private struct CuadraoHomeBalanceChartContent: View {
     let partialOverride: Bool?
     let amountIdentifier: String
     @Environment(\.dynamicTypeSize) var typeSize
+    @Environment(\.cuadraoCurrencyRules) var rules
     @State var compactRange: CanvasHomeRange = .month
     @Binding var range: CanvasHistoryRange
     @Binding var periodOffset: Int
@@ -159,7 +160,7 @@ private struct CuadraoHomeBalanceChartContent: View {
             .sensoryFeedback(.selection, trigger: periodOffset)
     }
     private func amountRow(_ shown: CanvasBalancePoint?) -> some View {
-        CuadraoBalanceAmount(amount: shown.map { CanvasMoney.format($0.balance, currency: currency) } ?? "—",
+        CuadraoBalanceAmount(amount: shown.map { rules.format($0.balance, currency) } ?? "—",
             currency: currency, currencies: currencies, spanish: spanish, expanded: expanded, amountIdentifier: amountIdentifier,
             chooseCurrency: { selectedDate = nil; chooseCurrency($0) }, expand: expand)
     }
@@ -186,7 +187,7 @@ private struct CuadraoHomeBalanceChartContent: View {
         }
         let change = point.balance - baseline.balance
         if change == 0 { return spanish ? "Tu balance sigue igual desde el \(dateLabel(baseline.date))." : "Your balance is unchanged since \(dateLabel(baseline.date))." }
-        let amount = currency + " " + CanvasMoney.format(abs(change), currency: currency)
+        let amount = currency + " " + rules.format(abs(change), currency)
         if spanish { return "\(amount) \(change > 0 ? "más" : "menos") desde el \(dateLabel(baseline.date))." }
         return "\(amount) \(change > 0 ? "more" : "less") since \(dateLabel(baseline.date))."
     }
@@ -200,7 +201,7 @@ private struct CuadraoHomeBalanceChartContent: View {
                     .accessibilityHidden(true)
                 LineMark(x: .value(spanish ? "Fecha" : "Date", point.date), y: .value(spanish ? "Balance" : "Balance", point.value))
                     .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)).foregroundStyle(WelcomePalette.pine)
-                    .accessibilityLabel(dateLabel(point.date)).accessibilityValue(currency + " " + CanvasMoney.format(point.balance, currency: currency))
+                    .accessibilityLabel(dateLabel(point.date)).accessibilityValue(currency + " " + rules.format(point.balance, currency))
             }
             if let point = shown {
                 if selected != nil {

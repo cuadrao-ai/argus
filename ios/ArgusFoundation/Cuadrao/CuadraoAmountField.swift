@@ -10,9 +10,37 @@ struct CuadraoAmountField: View {
     var currencySelectable = true
     var identifier = "cuadrao-amount"
     var currencyIdentifier = "account-edit-currency"
+    /// Amount-first layout: a centered, unboxed number under the currency code.
+    var hero = false
+    var autofocus = false
     @State private var choosingCurrency = false
+    @Environment(\.cuadraoCurrencyRules) private var rules
 
     var body: some View {
+        if hero { heroBody } else { boxedBody }
+    }
+
+    private var heroBody: some View {
+        VStack(spacing: 4) {
+            if currencySelectable {
+                Button { choosingCurrency = true } label: { CuadraoChoiceLabel(title: currency) }
+                    .buttonStyle(.plain).accessibilityIdentifier(currencyIdentifier)
+                    .accessibilityLabel(spanish ? "Moneda, \(currency)" : "Currency, \(currency)")
+            } else {
+                Text(currency).font(CuadraoTypography.supporting).foregroundStyle(WelcomePalette.ink.opacity(0.6))
+                    .accessibilityLabel(spanish ? "Moneda fija: \(currency)" : "Fixed currency: \(currency)")
+            }
+            CanvasDecimalInput(raw: $raw, error: $error, currency: currency, spanish: spanish, allowNegative: allowNegative,
+                               identifier: identifier, alignment: .center, autofocus: autofocus)
+                .frame(minHeight: 64)
+            if !error.isEmpty { Text(error).font(.footnote).foregroundStyle(.red).accessibilityIdentifier("amount-error") }
+        }
+        .frame(maxWidth: .infinity)
+        .sheet(isPresented: $choosingCurrency) { CanvasCurrencyPicker(currency: $currency, spanish: spanish) }
+        .onChange(of: currency) { _, _ in recheckDecimals() }
+    }
+
+    private var boxedBody: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 if currencySelectable {
@@ -36,11 +64,13 @@ struct CuadraoAmountField: View {
         .sheet(isPresented: $choosingCurrency) {
             CanvasCurrencyPicker(currency: $currency, spanish: spanish)
         }
-        .onChange(of: currency) { _, _ in
-            let fraction = raw.split(separator: ".", omittingEmptySubsequences: false).dropFirst().first?.count ?? 0
-            error = fraction > CanvasMoney.digits(currency)
-                ? (spanish ? "Revisa los decimales para \(currency)." : "Check decimal places for \(currency).") : ""
-        }
+        .onChange(of: currency) { _, _ in recheckDecimals() }
+    }
+
+    private func recheckDecimals() {
+        let fraction = raw.split(separator: ".", omittingEmptySubsequences: false).dropFirst().first?.count ?? 0
+        error = fraction > rules.digits(currency)
+            ? (spanish ? "Revisa los decimales para \(currency)." : "Check decimal places for \(currency).") : ""
     }
 }
 
@@ -49,9 +79,9 @@ private struct CanvasCurrencyPicker: View {
     let spanish: Bool
     @State private var query = ""
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.cuadraoCurrencyRules) private var rules
     private var codes: [String] {
-        let priority = ["DOP", "USD", "EUR"]
-        let all = priority + Locale.commonISOCurrencyCodes.filter { !priority.contains($0) }.sorted()
+        let all = rules.pickerCodes?() ?? PlanCurrency.supported
         return all.filter { query.isEmpty || $0.localizedCaseInsensitiveContains(query) || name($0).localizedCaseInsensitiveContains(query) }
     }
     private func name(_ code: String) -> String {

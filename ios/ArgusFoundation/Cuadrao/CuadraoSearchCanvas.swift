@@ -75,6 +75,11 @@ struct CuadraoSearchCanvas: View {
         + references.filter { kind == .all || kind == $0.kind }.count
         + (kind == .all || kind == .plans ? matchingPlans.count + matchingGroups.count : 0)
     }
+    private var start: CuadraoSearchStart {
+        CuadraoSearchStart(suggestions: CuadraoSearchStart.suggestions(
+            frequent: data.activity.filter { !$0.income }.map { $0.category.title(spanish) },
+            names: data.accounts.filter { !$0.archived }.map { $0.displayName(spanish) }))
+    }
     private var filterCount: Int { (scope == .all ? 0 : 1) + (currency.isEmpty ? 0 : 1) }
 
     var body: some View {
@@ -82,7 +87,7 @@ struct CuadraoSearchCanvas: View {
             CuadraoSearchContent(query: $query, kind: $kind, kinds: kinds, spanish: spanish,
                 filterCount: filterCount,
                 filterSummary: [scope == .all ? nil : scopeTitle(scope), currency.isEmpty ? nil : currency].compactMap { $0 }.joined(separator: " · "),
-                clearFilters: { scope = .all; currency = "" }, focused: $focused) {
+                clearFilters: { scope = .all; currency = "" }, focused: $focused, start: start) {
                 if count == 0 {
                     CuadraoSearchEmptyState(query: $query, kind: $kind, spanish: spanish,
                         filterCount: filterCount, clearFilters: { scope = .all; currency = "" })

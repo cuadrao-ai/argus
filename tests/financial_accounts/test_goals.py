@@ -158,6 +158,7 @@ def test_included_transfer_correction_uses_current_amount(scene, corrected, expe
 @pytest.mark.parametrize(
     "amount,code", [(None, "goal_backing_unknown"), ("0", "goal_backing_shortfall")]
 )
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_unknown_and_known_zero_do_not_fund_positive_claims(scene, amount, code):
     aid = account(scene, "savings", amount=amount)
     service, _, g = setup_goal(scene, aid)

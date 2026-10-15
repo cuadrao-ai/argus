@@ -643,6 +643,71 @@ This entry does not authorize implementation, a model-instruction change, a paid
 provider run, hosted activation or deployment. The #826 contract still precedes
 #827.
 
+## October 9, 2026: iPhone on-device guest book ("Probar sin cuenta")
+
+The founder defined a free guest tier for the iPhone app in chat on October 9:
+an on-device book with manual accounts, movements, budgets, goals, basic search
+and calculations, and the iPhone keyboard's dictation. No login, no AI, no server
+jobs, no uploads and no shared access. It is an additional entry that does not
+replace or change the connected app. The build plan, recorded by the build lane
+(`codex/cuadrao-guest-book`), amends two earlier statements and nothing else:
+
+1. **September 28, 2026 guest lock.** "No durable guest financial records are
+   authorized" ([MVEE guest access](argus-minimum-viable-ecosystem-experience.md#guest-access-and-registration))
+   now reads as: no durable guest financial record on the *server*. The iPhone
+   may keep a book on the device itself. Server enforcement, the web and Android
+   guest boundary and the existing guest-chat limits are unchanged.
+2. **Welcome screen.** "One main brand composition and the two native actions;
+   nothing else" ([DESIGN welcome screen](../../.agent/designs/cuadrao/DESIGN.md#welcome-screen))
+   gains a third, quiet text action, `Probar sin cuenta` / `Try without an
+   account`, under Sign in. It is hidden unless the guest door is open.
+
+What the plan fixes, so a later slice does not reopen it:
+
+- The book is an app mode above authentication, not an auth state. It creates no
+  Supabase anonymous session, makes no network call and takes no invite code.
+  Server "guest" means an anonymous workspace; code and data call this the
+  `DeviceBook`, and only the interface says "Probar sin cuenta".
+- Signing up or signing in leaves the on-device book separate and untouched.
+  Claiming a book into an account is a separate default-off flag (`guestClaim`)
+  and is not built. The interface says "Tu libro de este iPhone sigue aquí; no
+  se subió." / "Your book on this iPhone is still here; it was not uploaded."
+- Version 1 covers accounts, same-currency movements (expense, income, transfer),
+  budgets and goals, search, plan what-ifs and per-currency totals. It has no
+  debts, recurring bills, forecast, balance checks, refunds, households, groups,
+  invitations, receipts, files, assistant, voice, updates bell or avatar photos.
+  Dictation is the system keyboard only.
+- Money is whole minor units with the currency's digits fixed per account when
+  it is created; parsing never rounds. The currency set, digits, share rounding
+  and category ids are the server's, checked by shared test vectors.
+- Device backup stays on; there is no app-level encryption and no Keychain item.
+
+The door is closed: `CuadraoFirstRelease.guestBook` is false in Release and a
+development build opens it with `--cuadrao-guest-book`. Opening it for users,
+the physical-device checks and a privacy answer review are separate founder
+approvals. This entry authorizes no hosted service, deployment or release.
+
+## October 11, 2026: guest receipts stay on the iPhone
+
+The founder decided, relayed by the coordinator on October 11, that guest and
+signed-in Free are one tier and that the receipt journey is the same for Free and
+Full. For the on-device book this amends the October 9 entry's "no receipts,
+files" only for receipts: a guest captures, saves and attaches a receipt by hand
+on the iPhone. Nothing about a guest goes to the server and no model reads a
+guest receipt. Book data, including receipts, still does not move into an account
+at sign-in. This authorizes no hosted service, deployment or release.
+
+## October 12, 2026: blank opening balance = recorded zero
+
+From the founder's phone walk: adding an account without typing 0 must not show
+"Balance unknown". The coordinator decided that a Personal money account (cash,
+checking, savings, investment, credit card, other debt) saved without an opening
+amount starts at a recorded 0.00. The server records the opening; the client sends
+nothing and never invents it. Home and Plan totals read that zero. This replaces
+the "blank balance is unknown" rule for those accounts. Unknown stays for accounts
+that genuinely have no recorded balance: accounts saved before this rule, a blank
+property, vehicle or other asset value, and Business accounts.
+
 ## October 10, 2026: Business agent direction
 
 The founder approved these points after two audits of the Business core flows:

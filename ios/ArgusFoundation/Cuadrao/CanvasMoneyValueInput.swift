@@ -12,6 +12,7 @@ struct CanvasMoneyValueInput: View {
     var alignment: NSTextAlignment = .left
     var onFocus: (Bool) -> Void = { _ in }
     @State private var raw = ""
+    @Environment(\.cuadraoCurrencyRules) private var rules
 
     var body: some View {
         CanvasDecimalInput(raw: $raw, error: $error, currency: currency, spanish: spanish,
@@ -24,7 +25,7 @@ struct CanvasMoneyValueInput: View {
     }
     private var numericValue: Double { NSDecimalNumber(decimal: Decimal(string: raw) ?? 0).doubleValue }
     private func syncValue() {
-        raw = value.isFinite && value != 0 ? CanvasMoney.format(Decimal(string: String(value)) ?? 0, currency: currency).replacingOccurrences(of: ",", with: "") : ""
+        raw = value.isFinite && value != 0 ? rules.format(Decimal(string: String(value)) ?? 0, currency).replacingOccurrences(of: ",", with: "") : ""
     }
 }
 

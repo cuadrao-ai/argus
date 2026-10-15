@@ -234,6 +234,7 @@ struct CuadraoGroupDetail: View {
     }
     private func removeAction(_ member: PlanMember) -> some View {
         Button(spanish ? "Quitar" : "Remove", systemImage: "person.crop.circle.badge.minus", role: .destructive) { sheet = .remove(member) }
+            .tint(.red)
             .accessibilityLabel((spanish ? "Quitar a " : "Remove ") + member.name)
             .accessibilityIdentifier("group-remove-" + member.name)
     }
