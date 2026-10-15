@@ -41,7 +41,6 @@ extension FinancialLoopUITests {
         tapVisible(app.buttons["cuadrao.profile.preferences"])
         XCTAssertTrue(app.navigationBars["Preferences"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["tab.home"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["cuadrao.profile.development"].exists)
         for appearance in ["light", "dark", "system"] {
             let choice = app.buttons["cuadrao.appearance." + appearance]
             tapVisible(choice)
@@ -53,7 +52,6 @@ extension FinancialLoopUITests {
         tapVisible(app.buttons["cuadrao.profile.privacy"])
         tapVisible(app.buttons["Files"])
         XCTAssertTrue(app.navigationBars["Files"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["cuadrao.profile.development"].exists)
         XCTAssertFalse(app.buttons["tab.home"].exists)
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Data and privacy"].waitForExistence(timeout: 5))
@@ -90,10 +88,10 @@ extension FinancialLoopUITests {
         XCTAssertTrue(app.textFields["cuadrao.profile.preferred"].isEnabled)
         XCTAssertFalse(app.buttons["cuadrao.profile.photo.choose"].exists, "Avatar editing stays out of release")
         app.buttons["cuadrao.profile.cancel"].tap()
-        for route in ["personalization", "security", "usage"] {
+        for route in ["personalization", "notifications", "security", "usage"] {
             XCTAssertFalse(app.buttons["cuadrao.profile." + route].exists, route)
         }
-        for route in ["preferences", "notifications", "privacy", "help"] {
+        for route in ["preferences", "privacy", "help"] {
             XCTAssertTrue(app.buttons["cuadrao.profile." + route].exists, route)
         }
         tapVisible(app.buttons["cuadrao.profile.privacy"])

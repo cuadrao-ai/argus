@@ -84,7 +84,9 @@ enum CuadraoFirstRelease {
     static let unfinishedProfileRoutes: Set<CanvasProfileRoute> = [
         .personalization, .security, .shared, .removed, .memory, .usage, .advanced,
         // The free tier has no AI chats and no stored files yet, so these pages would only say "Nothing saved".
-        .files, .conversations
+        .files, .conversations,
+        // Notificaciones toggles request no permission and send nothing; Comentarios only keeps a draft on the iPhone.
+        .notifications, .feedback
     ]
     #if CUADRAO_FOUNDER_PHONE
     /// The founder's phone build: the release layout with receipts and the guest door on, without launch arguments.
