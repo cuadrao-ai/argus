@@ -141,6 +141,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.beta_invite_quota_grants",
         "public.business_access_invites",
         "public.business_action_receipts",
+        "public.business_ai_consents",
         "public.business_client_grants",
         "public.business_draft_revisions",
         "public.business_draft_sources",
