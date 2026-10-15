@@ -1265,7 +1265,7 @@ test("@guest-shell capability chrome stays visible and opens typed conversion", 
   ).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "Expand", exact: true }).click();
+  await page.getByRole("button", { name: "Expandir", exact: true }).click();
   await expect(page.getByRole("button", { name: "Buscar" })).toBeVisible();
   await expect(page.getByTestId("guest-temporary-notice")).toHaveCount(1);
   await expect(page.locator("aside").getByText(/Chat temporal/)).toHaveCount(0);
@@ -1280,7 +1280,7 @@ test("@guest-shell capability chrome stays visible and opens typed conversion", 
   await expect(
     page.getByRole("button", { name: "Cerrar búsqueda" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Collapse", exact: true }).click();
+  await page.getByRole("button", { name: "Contraer", exact: true }).click();
   await expect(page.getByTestId("guest-temporary-notice")).toHaveCount(1);
 
   await page.getByTestId("chat-input").fill("Compara Apple con SPY");
