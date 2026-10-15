@@ -34,7 +34,8 @@ struct CuadraoIdentityAvatar: View {
         Group {
             switch selection {
             case .none:
-                if presentation == .profile {
+                // The camera invites a photo, so it shows only where avatar editing exists.
+                if presentation == .profile, CuadraoFirstRelease.editsAvatar {
                     Image(systemName: "camera.fill")
                         .font(.system(size: size * 0.32, weight: .medium))
                         .overlay(alignment: .topTrailing) {

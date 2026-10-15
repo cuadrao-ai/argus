@@ -31,7 +31,6 @@ struct CuadraoProfilePage: View {
                 CuadraoFeedbackPage(saved: $settings.feedback, spanish: spanish)
             } else {
                 Form {
-                    developmentNotice
                     content.listRowBackground(CanvasSettingsStyle.surface)
                 }
             }
@@ -49,34 +48,6 @@ struct CuadraoProfilePage: View {
                 Text(spanish ? "Esta acción aún no está conectada en la vista previa. No se cambia ni se envía información de tu cuenta."
                      : "This action is not connected in the preview. No account information is changed or sent.")
             }
-    }
-
-    @ViewBuilder private var developmentNotice: some View {
-        if case .connected = connection {
-            Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(spanish ? "Vista de desarrollo" : "Development preview").font(.subheadline.weight(.medium))
-                    Text(developmentDetail).font(.footnote).foregroundStyle(.secondary)
-                }.accessibilityElement(children: .combine).accessibilityIdentifier("cuadrao.profile.development")
-            }.listRowBackground(Color.clear)
-        }
-    }
-
-    private var developmentDetail: String {
-        switch route {
-        case .preferences:
-            spanish ? "La apariencia funciona en este dispositivo y la moneda preferida se guarda en tu cuenta. Las demás opciones son ejemplos."
-                : "Appearance works on this device and preferred currency is saved to your account. The other options are examples."
-        case .privacy:
-            spanish ? "Eliminar cuenta usa tu cuenta real. Las demás opciones son ejemplos."
-                : "Delete account uses your real account. The other options are examples."
-        case .help:
-            spanish ? "Ayuda y comentarios son ejemplos de desarrollo. Los enlaces legales abren el sitio de Cuadrao."
-                : "Help and feedback are development examples. Legal links open Cuadrao's website."
-        default:
-            spanish ? "Estos ejemplos y controles no leen ni cambian tu cuenta. Los cambios duran solo esta sesión."
-                : "These examples and controls do not read or change your account. Changes last only for this session."
-        }
     }
 
     @ViewBuilder private var content: some View {
@@ -130,10 +101,6 @@ struct CuadraoProfilePage: View {
             } header: { Text(spanish ? "Apariencia" : "Appearance") }
               footer: { Text(spanish ? "Sistema sigue la apariencia de tu iPhone." : "System follows your iPhone’s appearance.") }
             Section {
-                LabeledContent(spanish ? "Idioma" : "Language", value: spanish ? "Español" : "English")
-            } header: { Text(spanish ? "Pantalla" : "Display") }
-            Section {
-                LabeledContent(spanish ? "Región" : "Region", value: spanish ? "República Dominicana" : "Dominican Republic")
                 switch connection {
                 case .preview:
                     LabeledContent(spanish ? "Moneda preferida" : "Preferred currency") {
@@ -144,7 +111,7 @@ struct CuadraoProfilePage: View {
                 case .connected(_, let profile):
                     ConnectedProfileCurrencyRow(model: profile, spanish: spanish)
                 }
-            } header: { Text(spanish ? "Región y moneda" : "Region and currency") }
+            } header: { Text(spanish ? "Moneda" : "Currency") }
               footer: { Text(spanish ? "Elegir una moneda no convierte ni combina tus balances." : "Choosing a currency does not convert or combine your balances.") }
             if CuadraoFirstRelease.shows(.voice) || CuadraoFirstRelease.shows(.advanced) {
                 Section { link(.voice); link(.advanced) }
@@ -237,6 +204,7 @@ struct CuadraoProfilePage: View {
                         notice = spanish ? "Eliminar cuenta" : "Delete account"
                     }
                 }
+                .foregroundStyle(.red)
                 .accessibilityIdentifier("cuadrao.profile.deleteAccount")
             } footer: {
                 if CuadraoFirstRelease.shows(.memory) {
@@ -287,7 +255,6 @@ struct CuadraoProfilePage: View {
     private var help: some View {
         Group {
             Section {
-                previewAction(spanish ? "Centro de ayuda" : "Help center")
                 link(.feedback)
             }
             Section {

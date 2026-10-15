@@ -194,7 +194,7 @@ public struct ReleaseDeleteAccountView: View {
                 Section {
                     Button(role: .destructive) { showingVerification = true } label: {
                         Text(text("Continuar", "Continue")).font(CuadraoTypography.action).frame(minHeight: 44)
-                    }.accessibilityIdentifier("identity.delete.continue")
+                    }.foregroundStyle(.red).accessibilityIdentifier("identity.delete.continue")
                 }
             }
         }

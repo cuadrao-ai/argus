@@ -209,7 +209,7 @@ private struct GuestPrivacy: View {
             }.listRowBackground(Color.clear)
             Section {
                 Button(spanish ? "Eliminar los datos de este iPhone" : "Delete this iPhone's data", role: .destructive) { confirmingDelete = true }
-                    .frame(minHeight: 44).accessibilityIdentifier("guest.profile.delete")
+                    .foregroundStyle(.red).frame(minHeight: 44).accessibilityIdentifier("guest.profile.delete")
             } footer: {
                 Text(spanish ? "Quita tu libro de este iPhone. Si luego creas una cuenta, esto no la toca."
                      : "Removes your book from this iPhone. If you create an account later, this doesn't touch it.")
