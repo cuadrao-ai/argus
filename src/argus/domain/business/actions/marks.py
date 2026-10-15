@@ -13,8 +13,9 @@ from argus.domain.business.contracts.facts import (
     is_personal,
 )
 
-# The person behind the latest revision that changed business_share: who
-# marked or unmarked Personal. Joined beside an import event aliased ``e``.
+# The people behind the latest revision that changed business_share (who
+# marked or unmarked Personal) and the latest that changed fiscal.include_606
+# (who answered the 606). Joined beside an import event aliased ``e``.
 MARKER_JOIN = (
     " left join lateral ("
     "   select r.actor->>'actor_id' as marker_id, r.actor->>'display_name' as marker_name"
@@ -23,24 +24,38 @@ MARKER_JOIN = (
     "   and (r.before_facts->'business_share') is distinct from (r.after_facts->'business_share')"
     "   order by r.version desc limit 1"
     " ) m on true"
+    " left join lateral ("
+    "   select r.actor->>'display_name' as answer_name"
+    "   from public.business_draft_revisions r"
+    "   where r.space_id=e.owner_space_id and r.draft_id=e.id"
+    "   and (r.before_facts->'fiscal'->'include_606')"
+    "   is distinct from (r.after_facts->'fiscal'->'include_606')"
+    "   order by r.version desc limit 1"
+    " ) a on true"
 )
-MARKER_COLUMNS = " m.marker_id, m.marker_name"
+MARKER_COLUMNS = " m.marker_id, m.marker_name, a.answer_name"
 
 
 def record_marks(facts: BusinessFacts, row: dict[str, Any], owner_id: str) -> dict:
     """The wire marks of one record from its facts and its MARKER_JOIN columns.
     ``personal_marked_by`` names whoever last changed the mark only while the
-    record is Personal and that person is not the Business owner."""
+    record is Personal and that person is not the Business owner;
+    ``include_606_by`` names whoever gave the 606 answer while it applies.
+    ``fiscal_known`` says the record's facts exist, so an empty
+    ``fiscal_value`` means no fiscal number rather than nothing read yet."""
 
     personal = is_personal(facts)
     marker = row.get("marker_id")
+    answer = fiscal_inclusion(facts)
     return {
+        "fiscal_known": True,
         "personal": personal,
         "personal_marked_by": row.get("marker_name")
         if personal and marker and marker != str(owner_id)
         else None,
         "fiscal_value": fiscal_value(facts),
-        "include_606": fiscal_inclusion(facts),
+        "include_606": answer,
+        "include_606_by": row.get("answer_name") if answer is not None else None,
     }
 
 

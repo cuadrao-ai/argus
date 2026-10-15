@@ -214,3 +214,32 @@ def test_a_refused_mark_answers_403_business_permission_denied():
         Refused(outcome="permission_denied", code="business_permission_denied"),
     )
     assert problem.status_code == 403
+
+
+def test_a_receipt_says_no_fiscal_number_only_once_its_facts_exist():
+    """fiscal_known comes from the server: a receipt one draft owns has read
+    facts, so no NCF or e-CF means none; one nobody read yet says nothing."""
+
+    from argus.api.business_drafts import draft_overlay
+    from argus.domain.business.actions.marks import record_marks
+
+    summary = {
+        "id": str(uuid4()),
+        "status": "needs_attention",
+        "attention": "unreadable",
+        "error_code": "receipt_unreadable",
+        "merchant": None,
+    }
+    assert "fiscal_known" not in draft_overlay(summary, [])
+    read = facts()
+    row = {
+        "id": uuid4(),
+        "state": "open",
+        "version": 2,
+        "activity_id": None,
+        "attention": None,
+        "resolution": {"business": {"facts": read.model_dump(mode="json")}},
+        "marks": record_marks(read, {}, str(uuid4())),
+    }
+    overlaid = draft_overlay({**summary, "status": "review_ready"}, [row])
+    assert overlaid["fiscal_known"] is True and overlaid["fiscal_value"] is None

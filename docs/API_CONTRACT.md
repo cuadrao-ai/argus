@@ -9352,8 +9352,14 @@ person starts their space, every route below except POST `/space` answers 404
     `fiscal_value` (`ncf`, `ecf` or null) and `include_606` (true, false or
     null when not applicable or unanswered), present only when set, and
     `personal_marked_by`, the display name of whoever last changed the mark
-    when that was not the owner (absent otherwise), all read by one server
-    function so a list row and its record always agree; receipt summaries add
+    when that was not the owner (absent otherwise), `include_606_by`, the
+    display name of whoever last changed the 606 answer while one applies,
+    and `fiscal_known`, true once the record's facts exist (a draft owns the
+    receipt and the dossier; a saved expense's standing is always settled,
+    the same split the overview's totals make) so an absent `fiscal_value`
+    means no fiscal number rather than nothing read yet; all read by one
+    server function so a list row and its record always agree; receipt
+    summaries add
     `personal_editable` for anyone with prepare on a receipt that has a
     draft. The overview's `totals` are "Gastos reales" (approved
     expenses that are not personal), `fiscal_totals` are those with fiscal

@@ -411,3 +411,56 @@ def test_the_list_row_and_the_record_read_the_same_marks(actions, users):  # noq
     assert remarked.outcome == "applied", remarked
     own = both()
     assert (own.personal, own.personal_marked_by) == (True, None)
+
+
+def test_the_606_answer_names_the_accountant_after_the_owner_edits_something_else(
+    actions, users
+):  # noqa: ANN001
+    from argus.domain.business.contracts.actions import ReviewDraft
+    from argus.domain.business.contracts.facts import BusinessFactPatch
+
+    service, accountant, _ = actions
+    owner = _owner(service, accountant, users)
+    draft = ready(service, accountant)
+    version = service.dossier(owner, draft).version
+    assert (
+        service.mark_personal(
+            owner, draft, MarkPersonal(version=version, personal=True), "mark"
+        ).outcome
+        == "applied"
+    )
+    _with_ncf(service, draft)
+    view = service.dossier(owner, draft)
+    assert view.fiscal_known is True and view.include_606_by is None
+    decided = service.decide_606(
+        accountant,
+        draft,
+        DecideFiscalInclusion(version=view.version, include=True),
+        "acct",
+    )
+    assert decided.outcome == "applied", decided
+    edited = service.review(
+        owner,
+        draft,
+        ReviewDraft(
+            version=service.dossier(owner, draft).version,
+            facts=BusinessFactPatch(category_id={"state": "known", "value": "transport"}),
+        ),
+        "own-edit",
+    )
+    assert edited.outcome == "applied", edited
+    after = service.dossier(owner, draft)
+    assert after.history[-1].actor.actor_id == owner.actor.actor_id
+    accountant_name = next(
+        revision.actor.display_name
+        for revision in after.history
+        if revision.actor.actor_id == accountant.actor.actor_id
+        and revision.after.fiscal is not None
+        and revision.after.fiscal.include_606
+        != (
+            revision.before.fiscal.include_606
+            if revision.before and revision.before.fiscal
+            else None
+        )
+    )
+    assert (after.include_606, after.include_606_by) == (True, accountant_name)

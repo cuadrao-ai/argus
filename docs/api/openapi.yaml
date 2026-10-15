@@ -13085,6 +13085,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        fiscal_known:
+          type: boolean
+          default: false
         fiscal_value:
           anyOf:
           - type: string
@@ -13095,6 +13098,10 @@ components:
         include_606:
           anyOf:
           - type: boolean
+          - type: 'null'
+        include_606_by:
+          anyOf:
+          - type: string
           - type: 'null'
       additionalProperties: false
       type: object
@@ -13165,6 +13172,10 @@ components:
         include_606:
           anyOf:
           - type: boolean
+          - type: 'null'
+        include_606_by:
+          anyOf:
+          - type: string
           - type: 'null'
       additionalProperties: false
       type: object
@@ -16177,6 +16188,10 @@ components:
         include_606:
           anyOf:
           - type: boolean
+          - type: 'null'
+        include_606_by:
+          anyOf:
+          - type: string
           - type: 'null'
         recorded_at:
           anyOf:
@@ -22372,6 +22387,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        fiscal_known:
+          type: boolean
+          default: false
         fiscal_value:
           anyOf:
           - type: string
@@ -22382,6 +22400,10 @@ components:
         include_606:
           anyOf:
           - type: boolean
+          - type: 'null'
+        include_606_by:
+          anyOf:
+          - type: string
           - type: 'null'
         personal_editable:
           type: boolean
@@ -22989,6 +23011,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        fiscal_known:
+          type: boolean
+          default: false
         fiscal_value:
           anyOf:
           - type: string
@@ -22999,6 +23024,10 @@ components:
         include_606:
           anyOf:
           - type: boolean
+          - type: 'null'
+        include_606_by:
+          anyOf:
+          - type: string
           - type: 'null'
         personal_editable:
           type: boolean

@@ -182,12 +182,19 @@ class ReceiptSummary(_Wire):
     personal_marked_by: str | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    # The receipt's facts exist (a draft owns it), so an absent fiscal_value
+    # means no fiscal number; absent while nothing is read yet.
+    fiscal_known: bool = Field(default=False, exclude_if=lambda value: value is False)
     # The fiscal number the draft carries today (NCF or e-CF), absent without one or before a read.
     fiscal_value: Literal["ncf", "ecf"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     # The accountant's 606 answer for a personal receipt with a fiscal number; absent until given or not applicable.
     include_606: bool | None = Field(default=None, exclude_if=lambda value: value is None)
+    # Who gave that answer; absent while there is none.
+    include_606_by: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     # Whether the caller may mark or unmark it: anyone holding prepare.
     personal_editable: bool = Field(
         default=False, exclude_if=lambda value: value is False
@@ -260,6 +267,9 @@ class BusinessExpense(_Wire):
         default=None, exclude_if=lambda value: value is None
     )
     include_606: bool | None = Field(default=None, exclude_if=lambda value: value is None)
+    include_606_by: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ExpenseDetail(BusinessExpense):
