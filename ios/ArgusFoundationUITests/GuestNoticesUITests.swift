@@ -34,13 +34,15 @@ extension FinancialLoopUITests {
         app.launch()
     }
 
-    private var modeLine: XCUIElement { app.staticTexts["Guest mode · only on this iPhone"].firstMatch }
+    private var modeLine: XCUIElement { app.staticTexts["Guest mode · only on this iPhone. It doesn't sync or join any account."].firstMatch }
+    private var artSlot: XCUIElement { app.descendants(matching: .any)["guest.firstsave.art"] }
     private var firstSaveTitle: XCUIElement { app.staticTexts["guest.firstsave.title"] }
 
     func testTheModeLineShowsOnTheFirstOpenOnlyAndDoesNotStay() throws {
         launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-guest-notices"])
         enterGuestBook()
         XCTAssertTrue(modeLine.waitForExistence(timeout: 5), "said once on the first open")
+        XCTAssertEqual(modeLine.label, "Guest mode · only on this iPhone. It doesn't sync or join any account.")
         XCTAssertTrue(modeLine.waitForNonExistence(timeout: 12), "it goes away by itself, nothing stays on screen")
         XCTAssertTrue(app.buttons["header.profile"].isHittable, "the tab bar is usable once the line is gone")
         app.buttons["header.profile"].tap()
@@ -84,6 +86,7 @@ extension FinancialLoopUITests {
         XCTAssertGreaterThanOrEqual(later.frame.height, 44)
         XCTAssertGreaterThan(firstSaveTitle.frame.minY, app.frame.height * 0.4, "the sheet is half height: its title sits in the lower half")
         XCTAssertTrue(app.buttons["Sheet Grabber"].exists, "a grabber")
+        assertArtSlotAndButtonsFit()
         capture("guest-first-save-sheet")
         // Pull the sheet down to the bottom edge, as a person does. A swipe scoped to the title is too short to dismiss reliably.
         firstSaveTitle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
@@ -97,6 +100,21 @@ extension FinancialLoopUITests {
         relaunchGuestWithoutReset()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.movement.row.'")).firstMatch.waitForExistence(timeout: 20))
         XCTAssertFalse(firstSaveTitle.exists, "never again after a relaunch")
+    }
+
+    /// The empty art slot sits inside the sheet above the title, and nothing below it is pushed past the sheet or the screen.
+    private func assertArtSlotAndButtonsFit() {
+        let create = app.buttons["guest.firstsave.create"], later = app.buttons["guest.firstsave.later"]
+        XCTAssertTrue(artSlot.exists, "the empty art slot is in the sheet")
+        XCTAssertGreaterThan(artSlot.frame.minY, app.frame.height * 0.4, "the slot is inside the half-height sheet, not behind it")
+        XCTAssertLessThanOrEqual(artSlot.frame.maxY, firstSaveTitle.frame.minY, "the slot sits above the title")
+        XCTAssertGreaterThan(artSlot.frame.height, 0, "the slot keeps room for the art")
+        for button in [create, later] {
+            XCTAssertGreaterThanOrEqual(button.frame.height, 44, "a 44 pt target")
+            XCTAssertLessThanOrEqual(button.frame.maxY, app.frame.maxY, "inside the screen")
+            XCTAssertTrue(button.isHittable, "reachable, never pushed off the sheet")
+        }
+        XCTAssertLessThan(create.frame.minY, later.frame.minY, "Create account first, Not now second")
     }
 
     func testNotNowClosesTheFirstSaveSheetAndCreateAccountLeavesForTheWelcome() throws {
@@ -122,12 +140,16 @@ extension FinancialLoopUITests {
     func testTheGuestNoticesInSpanish() throws {
         launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-guest-notices"], language: "es-419")
         enterGuestBook()
-        let line = app.staticTexts["Modo invitado · solo en este iPhone"].firstMatch
+        let line = app.staticTexts["Modo invitado · solo en este iPhone. No se sincroniza ni se une a ninguna cuenta."].firstMatch
         XCTAssertTrue(line.waitForExistence(timeout: 5))
+        XCTAssertEqual(line.label, "Modo invitado · solo en este iPhone. No se sincroniza ni se une a ninguna cuenta.")
         capture("guest-notice-first-open-es")
         app.buttons["header.profile"].tap()
         XCTAssertTrue(app.staticTexts["guest.profile.mode"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["guest.profile.mode"].label, "Modo invitado · solo en este iPhone", "Perfil keeps the locked label")
         XCTAssertTrue(app.buttons["guest.profile.signup"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] 'Pasar tus datos'")).firstMatch.exists,
+                       "moving the book to an account stays hidden in guest Perfil")
         XCTAssertEqual(app.buttons["guest.profile.signup"].label, "Crear cuenta")
         capture("guest-perfil-notice-es")
         app.buttons["tab.home"].tap()
@@ -136,6 +158,8 @@ extension FinancialLoopUITests {
         XCTAssertTrue(firstSaveTitle.waitForExistence(timeout: 10))
         XCTAssertEqual(firstSaveTitle.label, "Tus gastos solo están en este iPhone")
         XCTAssertEqual(app.buttons["guest.firstsave.later"].label, "Ahora no")
+        XCTAssertEqual(app.buttons["guest.firstsave.create"].label, "Crear cuenta")
+        assertArtSlotAndButtonsFit()
         capture("guest-first-save-sheet-es")
     }
 }
