@@ -12,7 +12,9 @@ import { fiscalFactRows, recordFactRows, reviewCounts, type FactStanding } from 
  * The record's facts, led by what is settled. Each row says where its value
  * stands: verified, stated by a person, decoded from the DGII QR, linked to a
  * source, read from the source as a suggestion nobody confirmed, a default,
- * or without a value. A suggestion can be confirmed in place by a person who
+ * or without a value. What was read from the source and nobody confirmed is
+ * said once, in the card's banner, not under each field; those rows keep their
+ * marker and their Confirm. A suggestion can be confirmed in place by a person who
  * can prepare; the record then holds it as that person's statement, in the
  * history. Whether a gap blocks approval is the backend's word: a field a
  * blocker names reads "Falta" and carries the decision marker, as does a
@@ -74,20 +76,22 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
 
   const row = (key: string, label: string, value: string, standing: FactStanding, origin: string | null, blocked: boolean, asked: boolean, confirm?: () => void) => {
     const { Icon, className, chip } = blocked && standing === "empty" ? BLOCKED : STYLE[standing];
+    // The banner says "read from the source, not verified" once for every such row.
+    const showChip = standing !== "suggestion";
     return (
       <div key={key} data-fact={key} data-standing={standing} data-blocked={blocked || asked ? "true" : undefined} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
         <Icon className={`mt-1 h-4 w-4 shrink-0 ${className}`} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <dt className="text-[12px] font-medium text-black/55 dark:text-white/55">{label}</dt>
           <dd className="mt-0.5 break-words text-[15px] text-black/85 dark:text-white/85">{value}</dd>
-          <p className="mt-1.5 flex flex-wrap items-center gap-2">
-            <span className={`inline-flex min-h-6 items-center rounded-full border px-2 text-[11px] font-medium ${chip}`}>{standingText(standing, origin, blocked)}</span>
+          {showChip || confirm ? <p className="mt-1.5 flex flex-wrap items-center gap-2">
+            {showChip ? <span className={`inline-flex min-h-6 items-center rounded-full border px-2 text-[11px] font-medium ${chip}`}>{standingText(standing, origin, blocked)}</span> : null}
             {confirm ? (
               <button type="button" data-testid={`confirm-${key}`} onClick={confirm} className="inline-flex min-h-8 items-center rounded-full bg-[var(--cuadrao-green)] px-3 text-[12px] font-medium text-[var(--cuadrao-cream)] transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40">
                 {t("business.dossier.confirm_value", "Confirm")}
               </button>
             ) : null}
-          </p>
+          </p> : null}
           {blocked || asked ? <p className="mt-1 text-[12px] font-medium text-[var(--rui-color-danger)]">{t("business.dossier.needs_resolution", "Needs a decision before approval")}</p> : null}
         </div>
       </div>
@@ -97,13 +101,21 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
   return (
     <div data-testid="receipt-current-facts">
       {counts.suggestions > 0 || counts.missing > 0 || counts.unresolved > 0 ? (
-        <p role="status" data-testid="receipt-review-counts" className="mb-4 rounded-[14px] bg-[var(--cuadrao-cream)] px-3.5 py-2.5 text-[13px] text-black/75 dark:text-white/80">
-          {[
-            counts.suggestions > 0 ? t("business.dossier.suggestions_pending", { count: counts.suggestions, defaultValue: "{{count}} suggestions to confirm" }) : null,
-            counts.missing > 0 ? t("business.dossier.missing_pending", { count: counts.missing, defaultValue: "{{count}} details missing" }) : null,
-            counts.unresolved > 0 ? t("business.dossier.unresolved_pending", { count: counts.unresolved, defaultValue: "{{count}} details to resolve" }) : null,
-          ].filter(Boolean).join(" · ")}
-        </p>
+        <div role="status" data-testid="receipt-review-counts" className="mb-4 rounded-[14px] bg-[var(--cuadrao-cream)] px-3.5 py-2.5 text-[13px] text-black/75 dark:text-white/80">
+          {counts.suggestions > 0 ? (
+            <p data-testid="receipt-read-banner" className="flex items-center gap-2 font-medium text-black/85 dark:text-white/90">
+              <Sparkles className="h-4 w-4 shrink-0 text-[var(--rui-color-warning)]" aria-hidden="true" />
+              {t("business.dossier.origin.extracted", "Read from source · not verified")}
+            </p>
+          ) : null}
+          <p className={counts.suggestions > 0 ? "mt-1" : undefined}>
+            {[
+              counts.suggestions > 0 ? t("business.dossier.suggestions_pending", { count: counts.suggestions, defaultValue: "{{count}} suggestions to confirm" }) : null,
+              counts.missing > 0 ? t("business.dossier.missing_pending", { count: counts.missing, defaultValue: "{{count}} details missing" }) : null,
+              counts.unresolved > 0 ? t("business.dossier.unresolved_pending", { count: counts.unresolved, defaultValue: "{{count}} details to resolve" }) : null,
+            ].filter(Boolean).join(" · ")}
+          </p>
+        </div>
       ) : null}
       <dl className="divide-y divide-black/[0.05] dark:divide-white/[0.05]">
         {rows.map(({ key, standing, blocked, asked }) => {
@@ -129,7 +141,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
             ) : null}
             {shownFiscalRows.map(({ key, standing }) => {
               const fact = fiscal?.[key];
-              const value = presentFiscalFact(key, dossier.facts, locale, { ...labels, notRecorded: t("business.dossier.not_recorded", "Not recorded") });
+              const value = presentFiscalFact(key, dossier.facts, locale, { ...labels, notRecorded: t("business.dossier.not_recorded", "Not recorded"), rncUnknown: t("business.dossier.rnc_unknown", "Unknown RNC") });
               // NCF and e-CF are alternatives and no blocker names a fiscal field: an empty one is "Sin dato", never "Falta".
               return row(key, t(`business.dossier.field.${key}`, key), value, standing, fact?.state === "known" ? fact.origin : null, false, false);
             })}

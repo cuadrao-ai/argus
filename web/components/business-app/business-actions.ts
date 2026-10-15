@@ -15,9 +15,11 @@ import {
   businessChatAvailable,
   type BusinessOverview,
   type BusinessWorkspaceInfo,
+  type ReceiptActivityCounts,
   type ReceiptSummary,
 } from "@/lib/business-api";
 import type { BusinessPanelState } from "./BusinessWorkspace";
+import { inboxCount } from "./inbox-count";
 import type { IntakeTarget } from "./ReceiptIntakeDialog";
 
 export type BusinessActionId =
@@ -51,6 +53,7 @@ type ActionInput = {
     workspace: BusinessWorkspaceInfo | null;
     overview: BusinessOverview | null;
     inbox: ReceiptSummary[] | null;
+    receiptActivity?: ReceiptActivityCounts | null;
     error?: boolean;
   };
   bridge: ChatShellBridge | null;
@@ -73,7 +76,8 @@ export function useBusinessActions({
   openPanel,
 }: ActionInput): BusinessActions {
   const { t } = useTranslation();
-  const awaiting = records.inbox?.length ?? 0;
+  // The Bandeja's own number, the same one its badge and the Resumen show.
+  const awaiting = inboxCount(records) ?? 0;
   const canAsk =
     businessChatAvailable(records.workspace) &&
     Boolean(records.workspace?.assistant_available) &&

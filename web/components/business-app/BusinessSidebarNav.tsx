@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
-import { inboxCount as countInbox } from "./BusinessInboxPanel";
+import { inboxCount as countInbox } from "./inbox-count";
 
 export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }) {
   const { t } = useTranslation();
@@ -14,9 +14,9 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   const isActive = (kind: BusinessPanelState["kind"]) =>
     shell.currentView === "workspace" &&
     (panel.kind === kind || (kind === "inbox" && panel.kind === "receipt") || (kind === "expenses" && panel.kind === "expense"));
-  const count = (value: number) =>
-    value > 0 && !shell.sidebarCollapsed ? (
-      <span className="rounded-full bg-black/5 px-2 py-0.5 text-[12px] tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60">
+  const count = (value: number | null) =>
+    value !== null && value > 0 && !shell.sidebarCollapsed ? (
+      <span data-testid="business-inbox-count" className="rounded-full bg-black/5 px-2 py-0.5 text-[12px] tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60">
         {value}
       </span>
     ) : null;

@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Generic, Literal, TypeVar
 from uuid import UUID
 
+from loguru import logger
 from pydantic import (
     AfterValidator,
     BaseModel,
@@ -33,6 +34,24 @@ Amount = Annotated[
     AfterValidator(_canonical_amount),
 ]
 Currency = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
+
+
+def rnc_has_number(value: str) -> bool:
+    return any(character in "123456789" for character in value)
+
+
+def _some_nonzero_digit(value: str) -> str:
+    if not rnc_has_number(value):
+        raise ValueError("an RNC has a nonzero digit")
+    return value
+
+
+#: A taxpayer number as a receipt or a person gives it. One with no nonzero
+#: digit (000000000, 000-00000-0) is no number: a person who types it is
+#: refused, and a machine read of it holds no RNC.
+Rnc = TypeAliasType("Rnc", Annotated[str, AfterValidator(_some_nonzero_digit)])
+#: Origins of a value read or decoded by a machine rather than given by a person.
+MACHINE_ORIGINS = frozenset({"extracted", "qr_decoded", "matched"})
 FactOrigin = Literal[
     "extracted", "qr_decoded", "owner_stated", "member_set", "matched", "default"
 ]
@@ -133,13 +152,44 @@ ReceiptState = Literal["fiscal_receipt", "informal_receipt", "no_receipt"]
 
 
 class FiscalFacts(Contract):
-    rnc: Fact[str] = Unknown()
+    rnc: Fact[Rnc] = Unknown()
     ncf: Fact[str] = Unknown()
     ecf: Fact[str] = Unknown()
     itbis: Fact[Amount] = Unknown()
     # The accountant's answer to "¿Incluir en 606?" for a personal receipt that
     # carries a fiscal number; never the app's and never the model's.
     include_606: Fact[bool] = Unknown()
+
+    @model_validator(mode="before")
+    @classmethod
+    def machine_read_without_rnc(cls, data: Any) -> Any:
+        """A machine read whose RNC has no nonzero digit, new or already
+        saved, holds no RNC: the fact is unknown and keeps its sources. A
+        person's all-zero RNC is not rewritten and fails the Rnc type."""
+
+        if not isinstance(data, dict) or not isinstance(data.get("rnc"), dict):
+            return data
+        rnc = data["rnc"]
+        value = rnc.get("value")
+        if (
+            rnc.get("state") != "known"
+            or rnc.get("origin") not in MACHINE_ORIGINS
+            or not isinstance(value, str)
+            or rnc_has_number(value)
+        ):
+            return data
+        logger.info("business_rnc_without_number origin={}", rnc.get("origin"))
+        origin = rnc["origin"] if rnc["origin"] != "qr_decoded" else None
+        return {
+            **data,
+            "rnc": {
+                "state": "unknown",
+                "value": None,
+                "origin": origin,
+                "verified": False,
+                "source_ids": rnc.get("source_ids", ()),
+            },
+        }
 
     @model_validator(mode="after")
     def no_fiscal_defaults(self) -> FiscalFacts:

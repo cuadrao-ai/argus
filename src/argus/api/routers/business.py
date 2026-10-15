@@ -643,7 +643,7 @@ def receipt_activity_counts(
 ) -> dict:
     from argus.api.business_receipt_activity import counts
 
-    return counts(receipt_summaries(context, "all"))
+    return counts(context, receipt_summaries(context, "all"))
 
 
 @router.post("/receipts/{receipt_id}/read", response_model=ReceiptActivity)
@@ -676,7 +676,7 @@ def list_receipts(
         from argus.api.business_receipt_activity import counts
 
         items = receipt_summaries(context, view)
-        return {"items": items, "activity": counts(items)}
+        return {"items": items, "activity": counts(context, items)}
     except Exception as error:
         raise _problem(request, error) from None
 

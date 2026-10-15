@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import StarterActions from "@/components/chat/StarterActions";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useBusiness } from "./BusinessWorkspace";
-import { inboxCount } from "./BusinessInboxPanel";
+import { inboxCount } from "./inbox-count";
 import { formatDay, formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows } from "./business-ui";
 import BusinessPeriodControl, { usePeriodLabel } from "./BusinessPeriodControl";
@@ -18,6 +18,9 @@ export default function BusinessOverviewPanel() {
   const { records, period, setPeriod, openPanel, actions, chosen } = useBusiness();
   const overview = records.overview;
   const periodLabel = usePeriodLabel();
+  // The Bandeja's own counts, from the same server answer as the sidebar badge.
+  const inbox = inboxCount(records);
+  const attention = records.receiptActivity?.needs_attention_count ?? null;
 
   return (
     <section aria-labelledby="business-overview-title">
@@ -101,6 +104,7 @@ export default function BusinessOverviewPanel() {
           </button>
           <button
             type="button"
+            data-testid="overview-inbox"
             onClick={() => openPanel({ kind: "inbox" })}
             className={`${cardClass} group flex flex-col text-left transition-colors hover:border-black/15 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:border-white/15`}
           >
@@ -108,9 +112,11 @@ export default function BusinessOverviewPanel() {
               <Inbox className="h-4 w-4" />
               {t("business.overview.in_inbox", "In your inbox")}
             </span>
-            <span className="mt-3 font-display text-[34px] font-medium tabular-nums tracking-tight text-black dark:text-white">
-              {inboxCount(records)}
-            </span>
+            {inbox === null ? null : (
+              <span data-testid="overview-inbox-count" className="mt-3 font-display text-[34px] font-medium tabular-nums tracking-tight text-black dark:text-white">
+                {inbox}
+              </span>
+            )}
             <span className="mt-auto flex items-center gap-1 pt-3 text-[13px] text-black/55 group-hover:text-black dark:text-white/55 dark:group-hover:text-white">
               {t("business.overview.open_inbox", "Open inbox")}
               <ArrowRight className="h-3.5 w-3.5" />
@@ -123,15 +129,16 @@ export default function BusinessOverviewPanel() {
             </div>
           ) : null}
 
-          {overview.needs_attention > 0 ? (
+          {attention !== null && attention > 0 ? (
             <button
               type="button"
+              data-testid="overview-attention"
               onClick={() => openPanel({ kind: "inbox" })}
               className={`${cardClass} flex items-center gap-3 text-left tablet:col-span-2 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25`}
             >
               <AlertCircle className="h-5 w-5 shrink-0 text-[#d66d75]" />
               <span className="flex-1 text-[14px] text-black/75 dark:text-white/75">
-                {t("business.overview.attention", "{{count}} receipts need your attention", { count: overview.needs_attention })}
+                {t("business.overview.attention", "{{count}} receipts need your attention", { count: attention })}
               </span>
               <ArrowRight className="h-4 w-4 text-black/40 dark:text-white/40" />
             </button>

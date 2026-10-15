@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 
@@ -74,10 +74,11 @@ def list_captures(
     person: Annotated[BusinessPerson, Depends(require_business_person)],
     q: Annotated[str, Query(max_length=200, pattern=r"^[^\x00]*$")] = "",
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    view: Literal["inbox", "all"] = "all",
 ):
     response.headers.update(NO_STORE)
     try:
         actor = _owner(request, context, person)
-        return {"items": context.service.captures(actor, query=q, limit=limit)}
+        return {"items": context.service.captures(actor, query=q, limit=limit, view=view)}
     except ActionError as error:
         raise action_problem(request, error.result) from None

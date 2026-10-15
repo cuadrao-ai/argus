@@ -2247,6 +2247,7 @@
       "settle_failed": "The rest could not be marked as handled. Check the current record before trying again.",
       "title": "Review record",
       "unknown": "Unknown",
+      "rnc_unknown": "Unknown RNC",
       "owner_unknown": "Owner doesn't know",
       "owner_funds": "Owner's money",
       "business_account": "Business account",

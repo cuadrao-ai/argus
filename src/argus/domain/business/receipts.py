@@ -30,9 +30,6 @@ REVIEW_FIELDS = (
     "category_id",
     "account_id",
 )
-AWAITING_REVIEW: frozenset[ReceiptStatus] = frozenset(
-    {"saved", "queued", "preparing", "review_ready"}
-)
 CLOSED: frozenset[ReceiptStatus] = frozenset({"confirmed", "dismissed"})
 # What a receipt nobody has read needs before the owner can save it by hand.
 UNREAD_NEEDS = ("account_id", "amount", "currency", "occurred_on")

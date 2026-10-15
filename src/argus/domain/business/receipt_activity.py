@@ -1,4 +1,8 @@
-"""Receipt attention after canonical draft projection. Seen state is per person."""
+"""Receipt attention after canonical draft projection. Seen state is per person.
+
+Two counts with different meanings come from here and nowhere else: ``unread``
+is new activity this person has not opened; ``pending_review`` is every row the
+Bandeja lists, opened or not. The Bandeja and the Resumen both read them."""
 
 from __future__ import annotations
 
@@ -6,6 +10,8 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Iterable, Literal, Mapping
+
+from argus.domain.business.receipts import CLOSED
 
 
 @dataclass(frozen=True)
@@ -75,6 +81,27 @@ def acknowledge(
     ):
         return cursor
     return seen
+
+
+def awaiting_owner(view: Mapping[str, Any]) -> bool:
+    """A receipt row the Bandeja lists: neither closed nor the email itself,
+    which is context for its attachment and never a second receipt."""
+
+    return not view.get("email_original") and view["status"] not in CLOSED
+
+
+def inbox_counts(views: Iterable[Mapping[str, Any]], notes: int = 0) -> dict[str, int]:
+    """What waits for a person in the Bandeja: every receipt row it lists plus
+    ``notes``, the saved notes awaiting review that no receipt carries, and
+    how many of those receipts need attention."""
+
+    pending = [view for view in views if awaiting_owner(view)]
+    return {
+        "pending_review_count": len(pending) + notes,
+        "needs_attention_count": sum(
+            view["status"] == "needs_attention" for view in pending
+        ),
+    }
 
 
 def aggregate_activity(items: Iterable[ReceiptActivity]) -> dict[str, Any]:
