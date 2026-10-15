@@ -55,8 +55,8 @@ def _allow(email: str) -> None:
         )
 
 
-def _confirmed(world, label: str) -> Account:  # noqa: ANN001
-    """A confirmed Auth account made by the admin API: no email is sent."""
+def _credentials(world, label: str) -> Account:  # noqa: ANN001
+    """A fresh email and password; nothing exists in Auth until ``_create``."""
 
     account = Account(
         f"acct-{label}-{secrets.token_hex(4)}@example.test",
@@ -67,6 +67,8 @@ def _confirmed(world, label: str) -> Account:  # noqa: ANN001
 
 
 def _create(world, account: Account) -> None:  # noqa: ANN001
+    """A confirmed account made by the Auth admin API, so no email is sent."""
+
     user = world.gateway.client.auth.admin.create_user(
         {"email": account.email, "password": account.password, "email_confirm": True}
     )
@@ -184,7 +186,7 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
             TestClient(app, base_url="http://localhost:3000") as client,
         ):
             found.client = client
-            found.owner = _confirmed(found, "owner")
+            found.owner = _credentials(found, "owner")
             _allow(found.owner.email)
             _create(found, found.owner)
             _signed_in(found, found.owner)
@@ -219,7 +221,7 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
     world,  # noqa: ANN001
 ) -> None:
     client, owner = world.client, world.owner
-    accountant = _confirmed(world, "contadora")
+    accountant = _credentials(world, "contadora")
     _invite(world, accountant.email)
 
     # Off the allowlist the invite admits nobody: signup, login and requests are refused.
@@ -367,7 +369,7 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
 
 
 def test_a_first_profile_read_also_turns_the_invite_into_the_grant(world) -> None:  # noqa: ANN001
-    accountant = _confirmed(world, "perfil")
+    accountant = _credentials(world, "perfil")
     _invite(world, accountant.email)
     _allow(accountant.email)
     _create(world, accountant)
