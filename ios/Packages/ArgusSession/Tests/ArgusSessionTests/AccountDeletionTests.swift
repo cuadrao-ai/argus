@@ -69,6 +69,12 @@ private struct DeletionCleanupFiles: Sendable {
         try Data("synthetic draft".utf8).write(to: owner.appendingPathComponent("draft.txt"))
     }
     func contains(_ userID: UUID) -> Bool { FileManager.default.fileExists(atPath: directory(userID).appendingPathComponent("draft.txt").path) }
+    private var guestBook: URL { root.appendingPathComponent("CuadraoDeviceBook", isDirectory: true).appendingPathComponent("book.json") }
+    func createGuestBook() throws {
+        try FileManager.default.createDirectory(at: guestBook.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("synthetic guest book".utf8).write(to: guestBook)
+    }
+    var guestBookText: String? { (try? Data(contentsOf: guestBook)).map { String(decoding: $0, as: UTF8.self) } }
     func remove(_ userID: UUID) throws {
         do { try FileManager.default.removeItem(at: directory(userID)) }
         catch let error as CocoaError where error.code == .fileNoSuchFile { }
@@ -117,14 +123,28 @@ final class AccountDeletionTests: XCTestCase {
     func testAcceptedDeletionRelaunchesSignedOutWithNothingStoredAfterTheServerFinishes() async throws {
         let fixture = DeletionFixture(); let controller = try fixture.controller()
         let identity = try await fixture.login(controller)
+        let alice = try XCTUnwrap(UUID(uuidString: identity.profile!.id))
+        let files = try DeletionCleanupFiles(); defer { try? files.removeAll() }
+        let otherAccount = UUID()
+        try files.create(alice); try files.create(otherAccount); try files.createGuestBook()
         await fixture.server.configure(202, ["status": "in_progress", "pending": ["analytics"]])
         let result = try await controller.deleteAccount(expectedIdentity: identity)
-        XCTAssertEqual(result, .pending(userID: UUID(uuidString: identity.profile!.id)!))
+        XCTAssertEqual(result, .pending(userID: alice))
         let accepted = await controller.snapshot(); XCTAssertEqual(accepted.phase, .accountDeletionPending)
         XCTAssertEqual(try fixture.journal()?.phase, .pending)
 
         await fixture.server.auth.configure(meStatuses: [401, 401, 401], refreshStatus: 400, refreshErrorCode: "user_not_found")
         let requestsBefore = await fixture.server.auth.captured().count
+        let interrupted = try fixture.controller()
+        let afterCrash = try await interrupted.restore()
+        XCTAssertEqual(afterCrash.phase, .signedOut, "relaunch after an accepted deletion lands signed out")
+        let owed = try await interrupted.accountDeletionStatuses()
+        XCTAssertEqual(owed, [.pending(userID: alice)], "the journal stays as the cleanup the 202 launch never ran")
+        XCTAssertTrue(files.contains(alice))
+        try await interrupted.acknowledgeAcceptedAccountDeletion(userID: alice) { try files.remove($0) }
+        XCTAssertFalse(files.contains(alice), "the deleted account's drafts are gone")
+        XCTAssertTrue(files.contains(otherAccount), "another account's drafts stay")
+        XCTAssertEqual(files.guestBookText, "synthetic guest book")
         for _ in 0..<2 {
             let relaunched = try fixture.controller()
             let snapshot = try await relaunched.restore()
@@ -138,6 +158,110 @@ final class AccountDeletionTests: XCTestCase {
         let requestsAfter = await fixture.server.auth.captured().count
         XCTAssertEqual(requestsAfter, requestsBefore, "the signed-out relaunch needs no network")
         let commands = await fixture.server.captured(); XCTAssertEqual(commands.count, 1)
+    }
+
+    func testAcceptedDeletionCleansThatAccountsDraftsInTheSameLaunchAndStaysPending() async throws {
+        let fixture = DeletionFixture(); let controller = try fixture.controller()
+        let identity = try await fixture.login(controller)
+        let alice = try XCTUnwrap(UUID(uuidString: identity.profile!.id))
+        let files = try DeletionCleanupFiles(); defer { try? files.removeAll() }
+        let otherAccount = UUID()
+        try files.create(alice); try files.create(otherAccount); try files.createGuestBook()
+        await fixture.server.configure(202, ["status": "in_progress", "pending": ["apple"]])
+        _ = try await controller.deleteAccount(expectedIdentity: identity)
+        try await controller.acknowledgeAcceptedAccountDeletion(userID: alice) { try files.remove($0) }
+        XCTAssertFalse(files.contains(alice))
+        XCTAssertTrue(files.contains(otherAccount))
+        XCTAssertEqual(files.guestBookText, "synthetic guest book")
+        XCTAssertNil(try fixture.journal())
+        let launch = await controller.snapshot()
+        XCTAssertEqual(launch.phase, .accountDeletionPending, "the accepting launch still shows the honest pending state")
+        let relaunched = try fixture.controller(); let snapshot = try await relaunched.restore()
+        XCTAssertEqual(snapshot.phase, .signedOut)
+        let statuses = try await relaunched.accountDeletionStatuses(); XCTAssertEqual(statuses, [])
+        let commands = await fixture.server.captured(); XCTAssertEqual(commands.count, 1)
+    }
+
+    func testAcceptedCleanupInterruptedBeforeOrAfterTheFilesConvergesOnRelaunch() async throws {
+        for interruption in ["cleanup", "journal"] {
+            let fixture = DeletionFixture(); let controller = try fixture.controller()
+            let identity = try await fixture.login(controller)
+            let alice = try XCTUnwrap(UUID(uuidString: identity.profile!.id))
+            let files = try DeletionCleanupFiles(); defer { try? files.removeAll() }
+            let otherAccount = UUID()
+            try files.create(alice); try files.create(otherAccount); try files.createGuestBook()
+            await fixture.server.configure(202, ["status": "in_progress", "pending": []])
+            _ = try await controller.deleteAccount(expectedIdentity: identity)
+            if interruption == "journal" { fixture.storage.failRemoves = true }
+            do {
+                try await controller.acknowledgeAcceptedAccountDeletion(userID: alice) {
+                    if interruption == "cleanup" { throw DeletionCleanupTestFailure.callbackFailed }
+                    try files.remove($0)
+                }
+                XCTFail("\(interruption) was interrupted")
+            } catch {}
+            XCTAssertEqual(files.contains(alice), interruption == "cleanup", interruption)
+            XCTAssertEqual(try fixture.journal()?.phase, .pending, "\(interruption): the journal still owes the cleanup")
+            fixture.storage.failRemoves = false
+
+            let relaunched = try fixture.controller(); let snapshot = try await relaunched.restore()
+            XCTAssertEqual(snapshot.phase, .signedOut, interruption)
+            let owed = try await relaunched.accountDeletionStatuses()
+            XCTAssertEqual(owed, [.pending(userID: alice)], interruption)
+            try await relaunched.acknowledgeAcceptedAccountDeletion(userID: alice) { try files.remove($0) }
+            XCTAssertFalse(files.contains(alice), interruption)
+            XCTAssertTrue(files.contains(otherAccount), interruption)
+            XCTAssertEqual(files.guestBookText, "synthetic guest book", interruption)
+            XCTAssertNil(try fixture.journal(), interruption)
+            let commands = await fixture.server.captured(); XCTAssertEqual(commands.count, 1, interruption)
+        }
+    }
+
+    func testOnlyAnAcceptedJournalWithNoSignedInAccountAuthorizesAcceptedCleanup() async throws {
+        for situation in ["uncertain", "completed", "signedOut", "anotherAccount"] {
+            let fixture = DeletionFixture(); let controller = try fixture.controller()
+            let identity = try await fixture.login(controller)
+            let alice = try XCTUnwrap(UUID(uuidString: identity.profile!.id))
+            let files = try DeletionCleanupFiles(); defer { try? files.removeAll() }
+            try files.create(alice)
+            switch situation {
+            case "uncertain":
+                await fixture.server.configure(202, ["status": "in_progress", "pending": []], lose: true)
+                _ = try await controller.deleteAccount(expectedIdentity: identity)
+            case "completed":
+                _ = try await controller.deleteAccount(expectedIdentity: identity)
+            case "signedOut":
+                _ = try await controller.signOut()
+            default:
+                await fixture.server.configure(202, ["status": "in_progress", "pending": []])
+                _ = try await controller.deleteAccount(expectedIdentity: identity)
+                _ = try await controller.login(email: "bob@example.test", password: "synthetic-password", captchaToken: "synthetic-captcha")
+            }
+            let journal = try fixture.journal()
+            let session = try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".session")
+            do {
+                try await controller.acknowledgeAcceptedAccountDeletion(userID: alice) { try files.remove($0) }
+                XCTFail("\(situation) cannot authorize accepted cleanup")
+            } catch { XCTAssertEqual(error as? SessionFailure, .staleOperation, situation) }
+            XCTAssertTrue(files.contains(alice), situation)
+            XCTAssertEqual(try fixture.journal(), journal, situation)
+            XCTAssertEqual(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".session"), session, situation)
+        }
+    }
+
+    func testLostResponseKeepsDraftsJournalAndSessionAcrossRelaunch() async throws {
+        let fixture = DeletionFixture(); let controller = try fixture.controller()
+        let identity = try await fixture.login(controller)
+        let alice = try XCTUnwrap(UUID(uuidString: identity.profile!.id))
+        let files = try DeletionCleanupFiles(); defer { try? files.removeAll() }
+        try files.create(alice)
+        await fixture.server.configure(202, ["status": "in_progress", "pending": []], lose: true)
+        _ = try await controller.deleteAccount(expectedIdentity: identity)
+        let relaunched = try fixture.controller(); let snapshot = try await relaunched.restore()
+        XCTAssertEqual(snapshot.phase, .accountDeletionUncertain)
+        XCTAssertTrue(files.contains(alice), "an unanswered command never cleans")
+        XCTAssertEqual(try fixture.journal()?.phase, .uncertain)
+        XCTAssertNotNil(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".session"))
     }
 
     func testTransientNetworkErrorKeepsDeletionStateAndSessionAcrossRelaunch() async throws {
