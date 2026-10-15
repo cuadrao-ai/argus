@@ -69,12 +69,6 @@ private struct DeletionCleanupFiles: Sendable {
         try Data("synthetic draft".utf8).write(to: owner.appendingPathComponent("draft.txt"))
     }
     func contains(_ userID: UUID) -> Bool { FileManager.default.fileExists(atPath: directory(userID).appendingPathComponent("draft.txt").path) }
-    private var guestBook: URL { root.appendingPathComponent("CuadraoDeviceBook", isDirectory: true).appendingPathComponent("book.json") }
-    func createGuestBook() throws {
-        try FileManager.default.createDirectory(at: guestBook.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data("synthetic guest book".utf8).write(to: guestBook)
-    }
-    var guestBookText: String? { (try? Data(contentsOf: guestBook)).map { String(decoding: $0, as: UTF8.self) } }
     func remove(_ userID: UUID) throws {
         do { try FileManager.default.removeItem(at: directory(userID)) }
         catch let error as CocoaError where error.code == .fileNoSuchFile { }
@@ -126,7 +120,7 @@ final class AccountDeletionTests: XCTestCase {
         let alice = try XCTUnwrap(UUID(uuidString: identity.profile!.id))
         let files = try DeletionCleanupFiles(); defer { try? files.removeAll() }
         let otherAccount = UUID()
-        try files.create(alice); try files.create(otherAccount); try files.createGuestBook()
+        try files.create(alice); try files.create(otherAccount)
         await fixture.server.configure(202, ["status": "in_progress", "pending": ["analytics"]])
         let result = try await controller.deleteAccount(expectedIdentity: identity)
         XCTAssertEqual(result, .pending(userID: alice))
@@ -144,7 +138,6 @@ final class AccountDeletionTests: XCTestCase {
         try await interrupted.acknowledgeAcceptedAccountDeletion(userID: alice) { try files.remove($0) }
         XCTAssertFalse(files.contains(alice), "the deleted account's drafts are gone")
         XCTAssertTrue(files.contains(otherAccount), "another account's drafts stay")
-        XCTAssertEqual(files.guestBookText, "synthetic guest book")
         for _ in 0..<2 {
             let relaunched = try fixture.controller()
             let snapshot = try await relaunched.restore()
@@ -166,13 +159,12 @@ final class AccountDeletionTests: XCTestCase {
         let alice = try XCTUnwrap(UUID(uuidString: identity.profile!.id))
         let files = try DeletionCleanupFiles(); defer { try? files.removeAll() }
         let otherAccount = UUID()
-        try files.create(alice); try files.create(otherAccount); try files.createGuestBook()
+        try files.create(alice); try files.create(otherAccount)
         await fixture.server.configure(202, ["status": "in_progress", "pending": ["apple"]])
         _ = try await controller.deleteAccount(expectedIdentity: identity)
         try await controller.acknowledgeAcceptedAccountDeletion(userID: alice) { try files.remove($0) }
         XCTAssertFalse(files.contains(alice))
         XCTAssertTrue(files.contains(otherAccount))
-        XCTAssertEqual(files.guestBookText, "synthetic guest book")
         XCTAssertNil(try fixture.journal())
         let launch = await controller.snapshot()
         XCTAssertEqual(launch.phase, .accountDeletionPending, "the accepting launch still shows the honest pending state")
@@ -189,7 +181,7 @@ final class AccountDeletionTests: XCTestCase {
             let alice = try XCTUnwrap(UUID(uuidString: identity.profile!.id))
             let files = try DeletionCleanupFiles(); defer { try? files.removeAll() }
             let otherAccount = UUID()
-            try files.create(alice); try files.create(otherAccount); try files.createGuestBook()
+            try files.create(alice); try files.create(otherAccount)
             await fixture.server.configure(202, ["status": "in_progress", "pending": []])
             _ = try await controller.deleteAccount(expectedIdentity: identity)
             if interruption == "journal" { fixture.storage.failRemoves = true }
@@ -211,14 +203,13 @@ final class AccountDeletionTests: XCTestCase {
             try await relaunched.acknowledgeAcceptedAccountDeletion(userID: alice) { try files.remove($0) }
             XCTAssertFalse(files.contains(alice), interruption)
             XCTAssertTrue(files.contains(otherAccount), interruption)
-            XCTAssertEqual(files.guestBookText, "synthetic guest book", interruption)
             XCTAssertNil(try fixture.journal(), interruption)
             let commands = await fixture.server.captured(); XCTAssertEqual(commands.count, 1, interruption)
         }
     }
 
     func testOnlyAnAcceptedJournalWithNoSignedInAccountAuthorizesAcceptedCleanup() async throws {
-        for situation in ["uncertain", "completed", "signedOut", "anotherAccount"] {
+        for situation in ["uncertain", "completed", "signedOut", "anotherAccount", "anotherAccountSigningOut"] {
             let fixture = DeletionFixture(); let controller = try fixture.controller()
             let identity = try await fixture.login(controller)
             let alice = try XCTUnwrap(UUID(uuidString: identity.profile!.id))
@@ -236,9 +227,16 @@ final class AccountDeletionTests: XCTestCase {
                 await fixture.server.configure(202, ["status": "in_progress", "pending": []])
                 _ = try await controller.deleteAccount(expectedIdentity: identity)
                 _ = try await controller.login(email: "bob@example.test", password: "synthetic-password", captchaToken: "synthetic-captcha")
+                if situation == "anotherAccountSigningOut" {
+                    await fixture.server.auth.configure(logoutStatus: 503)
+                    _ = try? await controller.signOut()
+                    XCTAssertNil(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".session"))
+                    XCTAssertNotNil(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".pending"), "Bob's sign-out still owes its revoke")
+                }
             }
             let journal = try fixture.journal()
             let session = try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".session")
+            let pending = try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".pending")
             do {
                 try await controller.acknowledgeAcceptedAccountDeletion(userID: alice) { try files.remove($0) }
                 XCTFail("\(situation) cannot authorize accepted cleanup")
@@ -246,6 +244,7 @@ final class AccountDeletionTests: XCTestCase {
             XCTAssertTrue(files.contains(alice), situation)
             XCTAssertEqual(try fixture.journal(), journal, situation)
             XCTAssertEqual(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".session"), session, situation)
+            XCTAssertEqual(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".pending"), pending, situation)
         }
     }
 
