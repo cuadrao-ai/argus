@@ -134,3 +134,6 @@ UI test fails before setUp and launches no app. Each failure names
 the tests: Xcode, `xcodebuild`, `scripts/verify.sh` or `scripts/auth/run-ui.py`.
 A run that passes `ARGUS_AUTH_ENABLED=false` on the command line stops the same
 way. To fix a stopped run, create the file and run build-for-testing again.
+
+A deliberate offline run, such as the auth-disabled design pass, sets
+`TEST_RUNNER_ARGUS_UI_TESTS_ALLOW_PREVIEW_BUILD=true`. The default stays strict.
