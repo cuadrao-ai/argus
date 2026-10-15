@@ -163,8 +163,9 @@ class SettleRemainderCommand(Contract):
 
 
 class MarkPersonal(Contract):
-    """The owner marks a receipt as personal (no part of it is the Business's)
-    or takes the mark back. Reversible, a new revision each way."""
+    """The owner or a prepare-holder marks a receipt as personal (no part of
+    it is the Business's) or takes the mark back. Reversible, a new revision
+    each way."""
 
     version: int = Field(ge=1)
     personal: bool

@@ -317,15 +317,15 @@ def fiscal_value(facts: BusinessFacts) -> FiscalValue | None:
 
 
 def is_personal(facts: BusinessFacts) -> bool:
-    """Marked by the owner as no part of the Business: business_share is none
-    and the owner stated it. A none of any other origin (a model's reading, a
-    default) is not a mark and excludes nothing."""
+    """Marked by a person as no part of the Business: business_share is none
+    and the owner or a prepare-holder stated it. A none of any other origin (a
+    model's reading, a match, a default) is not a mark and excludes nothing."""
 
     share = facts.business_share
     return (
         isinstance(share, Known)
         and share.value.kind == "none"
-        and share.origin == "owner_stated"
+        and share.origin in ("owner_stated", "member_set")
     )
 
 

@@ -386,22 +386,28 @@ class BusinessActions:
         request: MarkPersonal,
         key: str,
     ) -> ActionOutcome:
-        """The owner alone marks a receipt as personal (business_share none,
-        stated by the owner) or takes the mark back; on an open or an approved
-        draft, a new revision each way, one ledger row naming the grant."""
+        """The owner or anyone holding prepare through a live grant marks a
+        receipt as personal (business_share none) or takes the mark back; on an
+        open or an approved draft, a new revision each way and one ledger row
+        naming the actor, the grant used and its issuer. The owner's mark is
+        owner_stated, anyone else's member_set, so the record says who."""
 
-        from argus.domain.business.contracts.facts import Known, WholeBusinessShare
+        from argus.domain.business.contracts.facts import (
+            BusinessShare,
+            Known,
+            WholeBusinessShare,
+        )
 
         command = MarkPersonalCommand(draft_id=draft_id, request=request)
 
-        def change(facts, source_id):  # noqa: ANN001, ANN202
+        def change(facts, source_id, acting_owner):  # noqa: ANN001, ANN202
             return facts.model_copy(
                 update={
-                    "business_share": Known(
+                    "business_share": Known[BusinessShare](
                         value=WholeBusinessShare(
                             kind="none" if request.personal else "all"
                         ),
-                        origin="owner_stated",
+                        origin="owner_stated" if acting_owner else "member_set",
                         verified=True,
                         source_ids=(source_id,),
                     )
@@ -409,7 +415,7 @@ class BusinessActions:
             )
 
         return self._mark(
-            context, draft_id, request.version, key, command, change, owner=True
+            context, draft_id, request.version, key, command, change, owner=None
         )
 
     def decide_606(
@@ -432,7 +438,7 @@ class BusinessActions:
 
         command = DecideFiscalInclusionCommand(draft_id=draft_id, request=request)
 
-        def change(facts, source_id):  # noqa: ANN001, ANN202
+        def change(facts, source_id, acting_owner):  # noqa: ANN001, ANN202
             if not is_personal(facts) or fiscal_value(facts) is None:
                 raise ActionError("invalid_input", "business_606_not_applicable")
             fiscal = facts.fiscal or FiscalFacts()
@@ -440,7 +446,7 @@ class BusinessActions:
                 update={
                     "fiscal": fiscal.model_copy(
                         update={
-                            "include_606": Known(
+                            "include_606": Known[bool](
                                 value=request.include,
                                 origin="member_set",
                                 verified=True,
@@ -464,10 +470,12 @@ class BusinessActions:
         command,  # noqa: ANN001
         change,  # noqa: ANN001
         *,
-        owner: bool,
+        owner: bool | None,
     ) -> ActionOutcome:
         """One person's fact on a draft, open or approved: a revision row that
-        says who, through which grant, and a ledger row for the command."""
+        says who, through which grant, and a ledger row for the command.
+        ``owner`` True admits only the owner, False only someone else, None
+        anyone; every one of them needs prepare."""
 
         from dataclasses import replace
 
@@ -490,7 +498,7 @@ class BusinessActions:
                         acting_owner = str(context.actor.actor_id) == str(
                             context.owner_id
                         )
-                        if acting_owner != owner:
+                        if owner is not None and acting_owner != owner:
                             raise ActionError(
                                 "permission_denied", "business_permission_denied"
                             )
@@ -518,7 +526,7 @@ class BusinessActions:
                             tx, f"web:{context.actor.actor_id}:{key}", evidence
                         )
                         before = facts_of(event)
-                        after = change(before, source_id)
+                        after = change(before, source_id, acting_owner)
                         event = replace(
                             event,
                             version=event.version + 1,

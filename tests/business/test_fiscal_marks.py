@@ -1,6 +1,7 @@
 """The readings every view shares: what is personal, what carries a fiscal
 number, what the accountant answered; approval admits a personal receipt and
-still refuses a partial share; the export's words for the marks."""
+still refuses a partial share; the export's words for the marks; a read-only
+grant's refusal is a 403."""
 
 from __future__ import annotations
 
@@ -45,11 +46,20 @@ def facts(**over) -> BusinessFacts:  # noqa: ANN003
     )
 
 
-def test_personal_is_the_owners_none_and_nothing_else():
+def test_personal_is_a_persons_none_and_nothing_else():
     assert (
         is_personal(facts(business_share=known(WholeBusinessShare(kind="none")))) is True
     )
-    # A none the model read, a default, or a member's edit is not the owner's mark.
+    # The owner's mark and a prepare-holder's mark are both a person's statement.
+    assert (
+        is_personal(
+            facts(
+                business_share=known(WholeBusinessShare(kind="none"), origin="member_set")
+            )
+        )
+        is True
+    )
+    # A none the model read or matched is not a mark.
     assert (
         is_personal(
             facts(
@@ -63,7 +73,9 @@ def test_personal_is_the_owners_none_and_nothing_else():
     assert (
         is_personal(
             facts(
-                business_share=known(WholeBusinessShare(kind="none"), origin="member_set")
+                business_share=known(
+                    WholeBusinessShare(kind="none"), origin="matched", verified=False
+                )
             )
         )
         is False
@@ -188,3 +200,17 @@ def test_the_export_says_the_marks_in_its_own_words_and_never_drops_a_personal_r
         "fiscal_value": "ecf",
         "include_606": "",
     }
+
+
+def test_a_refused_mark_answers_403_business_permission_denied():
+    from argus.api.business_drafts import action_problem
+    from argus.domain.business.contracts.actions import Refused
+    from starlette.requests import Request
+
+    request = Request({"type": "http", "method": "POST", "path": "/", "headers": []})
+    request.state.request_id = "req"
+    problem = action_problem(
+        request,
+        Refused(outcome="permission_denied", code="business_permission_denied"),
+    )
+    assert problem.status_code == 403

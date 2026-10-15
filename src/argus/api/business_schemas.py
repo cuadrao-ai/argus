@@ -176,15 +176,19 @@ class ReceiptSummary(_Wire):
     currency: str | None
     category_id: str | None
     account_id: str | None
-    # Marked by the owner as no part of the Business: left out of the totals, kept visible.
+    # Marked by a person as no part of the Business: left out of the totals, kept visible.
     personal: bool = Field(default=False, exclude_if=lambda value: value is False)
+    # Who marked it, when that was someone other than the owner; absent otherwise.
+    personal_marked_by: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     # The fiscal number the draft carries today (NCF or e-CF), absent without one or before a read.
     fiscal_value: Literal["ncf", "ecf"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     # The accountant's 606 answer for a personal receipt with a fiscal number; absent until given or not applicable.
     include_606: bool | None = Field(default=None, exclude_if=lambda value: value is None)
-    # Whether the caller may mark or unmark it: the owner, with prepare.
+    # Whether the caller may mark or unmark it: anyone holding prepare.
     personal_editable: bool = Field(
         default=False, exclude_if=lambda value: value is False
     )
@@ -249,6 +253,9 @@ class BusinessExpense(_Wire):
     # the expense names no single receipt.
     draft_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
     personal: bool = Field(default=False, exclude_if=lambda value: value is False)
+    personal_marked_by: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     fiscal_value: Literal["ncf", "ecf"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )

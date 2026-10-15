@@ -345,6 +345,29 @@ _BRIDGE_STATUS = {
 }
 
 
+_MARKER = (
+    # The person behind the latest revision that changed business_share: who
+    # marked or unmarked Personal, named on the record for the owner to see.
+    " left join lateral ("
+    "   select r.actor->>'actor_id' as marker_id, r.actor->>'display_name' as marker_name"
+    "   from public.business_draft_revisions r"
+    "   where r.space_id=e.owner_space_id and r.draft_id=e.id"
+    "   and (r.before_facts->'business_share') is distinct from (r.after_facts->'business_share')"
+    "   order by r.version desc limit 1"
+    " ) m on true"
+)
+
+
+def marked_by(tx, row: dict) -> str | None:  # noqa: ANN001
+    """The name of whoever last changed the Personal mark when that was not the
+    Business owner; None when the owner did it or nobody has."""
+
+    marker = row.get("marker_id")
+    if not marker or marker == str(tx.context.owner_id):
+        return None
+    return row.get("marker_name")
+
+
 def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # noqa: ANN001
     """The bridge drafts each receipt is linked to, one query for all of them."""
 
@@ -352,7 +375,8 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
         return {}
     rows = tx.rows(
         "select distinct s.connection_id, e.id, e.state, e.version, e.updated_at, e.attention,"
-        " e.activity_id, e.resolution, o.connection_id as duplicate_receipt_id"
+        " e.activity_id, e.resolution, o.connection_id as duplicate_receipt_id,"
+        " m.marker_id, m.marker_name"
         " from public.business_sources s"
         " join public.business_draft_sources l on l.source_id=s.id and l.space_id=s.space_id"
         " join public.financial_import_events e on e.id=l.draft_id and e.owner_space_id=l.space_id"
@@ -362,7 +386,8 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
         "   where l2.space_id=e.owner_space_id and l2.draft_id=(e.possible_duplicates)[1]"
         "   and s2.connection_id is not null limit 1"
         " ) o on true"
-        " where s.space_id=%s and s.connection_id = any(%s) and e.user_id=%s"
+        + _MARKER
+        + " where s.space_id=%s and s.connection_id = any(%s) and e.user_id=%s"
         " and e.resolution ? 'business' order by e.id",
         (
             tx.context.actor.space_id,
@@ -372,6 +397,7 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
     )
     found: dict[str, list[dict]] = {}
     for row in rows:
+        row["personal_marked_by"] = marked_by(tx, row)
         found.setdefault(str(row["connection_id"]), []).append(row)
     return found
 
@@ -424,6 +450,9 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         if isinstance(funding, BusinessAccountFunding)
         else None,
         "personal": is_personal(facts),
+        "personal_marked_by": row.get("personal_marked_by")
+        if is_personal(facts)
+        else None,
         "fiscal_value": fiscal_value(facts),
         "include_606": fiscal_inclusion(facts),
     }
@@ -455,8 +484,8 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
     views = project(context, summaries)
     if not isinstance(context.service.imports.store, GrantImportStore):
         return views
-    # Only the owner marks a receipt as personal; a grantee reads the mark.
-    editable = context.scope.acting_as_owner and "prepare" in (
+    # Anyone who may prepare marks or unmarks Personal; a read-only grant reads it.
+    editable = "prepare" in (
         context.record_context.capabilities if context.record_context else ()
     )
     # The overlay names "personal" only for a receipt one draft owns: nothing else to mark.
@@ -520,13 +549,15 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
     if not activity_ids:
         return {}
     rows = tx.rows(
-        "select e.activity_id, e.id as draft_id, s.connection_id, e.resolution"
+        "select e.activity_id, e.id as draft_id, s.connection_id, e.resolution,"
+        " m.marker_id, m.marker_name"
         " from public.financial_import_events e"
         " left join public.business_draft_sources l on l.draft_id=e.id"
         " and l.space_id=e.owner_space_id"
         " left join public.business_sources s on s.id=l.source_id"
         " and s.space_id=l.space_id and s.connection_id is not null"
-        " where e.owner_space_id=%s and e.user_id=%s and e.activity_id = any(%s)"
+        + _MARKER
+        + " where e.owner_space_id=%s and e.user_id=%s and e.activity_id = any(%s)"
         " and e.resolution ? 'business'",
         (
             tx.context.actor.space_id,
@@ -547,6 +578,7 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
             facts = BusinessResolution.model_validate(typed).facts
             marks[activity] = {
                 "personal": is_personal(facts),
+                "personal_marked_by": marked_by(tx, row) if is_personal(facts) else None,
                 "fiscal_value": fiscal_value(facts),
                 "include_606": fiscal_inclusion(facts),
             }
