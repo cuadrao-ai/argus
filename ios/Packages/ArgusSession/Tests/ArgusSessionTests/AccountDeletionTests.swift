@@ -107,7 +107,7 @@ final class AccountDeletionTests: XCTestCase {
         let result = try await controller.deleteAccount(expectedIdentity: identity)
         XCTAssertEqual(result, .pending(userID: UUID(uuidString: identity.profile!.id)!))
         let restored = try fixture.controller(); let snapshot = try await restored.restore()
-        XCTAssertEqual(snapshot.phase, .accountDeletionPending)
+        XCTAssertEqual(snapshot.phase, .signedOut)
         XCTAssertNil(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".session"))
         do { _ = try await restored.resumePendingAccountDeletion(); XCTFail("Accepted deletion has no interactive proof") }
         catch { XCTAssertEqual(error as? SessionFailure, .staleOperation) }
