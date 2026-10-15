@@ -58,7 +58,7 @@ struct GuestFirstSaveSheet: View {
             }
         }
         .padding(.horizontal, 24).padding(.top, 32)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(WelcomePalette.background.ignoresSafeArea())
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
