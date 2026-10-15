@@ -125,10 +125,6 @@ class WhatsAppStore(Protocol):
         """Documents this destination received through WhatsApp."""
         ...
 
-    def capture_owner(self, *, connection_id: str) -> str | None:
-        """The owner whose WhatsApp delivered this document, whoever asks."""
-        ...
-
 
 @dataclass
 class _Code:
@@ -217,13 +213,6 @@ class InMemoryWhatsAppStore:
 
     def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
         return self._inbound.get(provider_message_key)
-
-    def capture_owner(self, *, connection_id: str) -> str | None:
-        with self._lock:
-            for record in self._inbound.values():
-                if record.status == "captured" and record.connection_id == connection_id:
-                    return record.destination_owner_id
-        return None
 
     def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
         with self._lock:
