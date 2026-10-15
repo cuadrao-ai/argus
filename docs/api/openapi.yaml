@@ -2709,9 +2709,13 @@ paths:
       - business
       description: 'Every Business the caller may enter through a live grant of theirs,
 
-        their own first. Names come from the spaces; the one-time access line is
+        their own first. Pending invites for the caller''s confirmed email become
 
-        marked seen per grant, server side.'
+        grants first, so the read beside the first profile read already lists
+
+        them. Names come from the spaces; the one-time access line is marked seen
+
+        per grant, server side.'
       parameters:
       - name: X-Business-Grant
         in: header

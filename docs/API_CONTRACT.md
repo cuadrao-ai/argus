@@ -9273,7 +9273,10 @@ person starts their space, every route below except POST `/space` answers 404
     GET `/api/v1/business/spaces` lists every Business the caller may enter
     through a live grant, their own first: `{spaces: [{space_id, name,
     grant_id, role: owner|accountant, capabilities, access_seen}]}`; names
-    come from the spaces. `access_seen` is the server's memory of the one-time
+    come from the spaces. Before it lists, the caller's pending invites
+    become grants through the same idempotent accept that GET `/me` runs, so
+    the first listing after sign-in already names an invited client's
+    Business; a failed accept never fails the listing. `access_seen` is the server's memory of the one-time
     "you now have access" line, per grant: POST
     `/api/v1/business/spaces/{grant_id}/seen` (204, idempotent, one
     `access_seen` ledger row by the person) records it; it is always true
@@ -9386,7 +9389,8 @@ person starts their space, every route below except POST `/space` answers 404
     that email (case-insensitive) gets a read and prepare grant, never
     approve; any other email gets a pending invite that lasts 14 days and
     becomes the same grant the first time that confirmed email signs in (on
-    GET `/me`). The reply is the access list in both cases, 201 when something
+    GET `/me`, or on GET `/business/spaces`, whichever the client reads
+    first). The reply is the access list in both cases, 201 when something
     new was created and 200 on a replay, so an unknown email reveals nothing.
     422 `invalid_email` without one address. An expired pending invite is
     re-issued in place by a new POST with the same email: the same invite id,

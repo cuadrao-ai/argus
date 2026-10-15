@@ -77,7 +77,11 @@ from argus.api.business_schemas import (
     StartBusinessSpace,
     UpdatePage,
 )
-from argus.api.business_spaces import business_access, space_missing_problem
+from argus.api.business_spaces import (
+    accept_business_invites,
+    business_access,
+    space_missing_problem,
+)
 from argus.api.dependencies import problem
 from argus.api.documents import (
     NO_STORE,
@@ -241,11 +245,14 @@ def list_spaces(
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
     """Every Business the caller may enter through a live grant of theirs,
-    their own first. Names come from the spaces; the one-time access line is
-    marked seen per grant, server side."""
+    their own first. Pending invites for the caller's confirmed email become
+    grants first, so the read beside the first profile read already lists
+    them. Names come from the spaces; the one-time access line is marked seen
+    per grant, server side."""
 
     _no_store(response)
     access = _access_store(request)
+    accept_business_invites(person.person_id)
     seen = access.seen_grants(person.person_id)
     return {
         "spaces": [
