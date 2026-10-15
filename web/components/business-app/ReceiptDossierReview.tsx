@@ -4,7 +4,7 @@ import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Download, RotateCcw } from "lucide-react";
+import { Check, Download, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, type BusinessDossier, type BusinessFactPatch } from "@/lib/business-dossier";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
@@ -18,6 +18,8 @@ import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptFactEditor from "./ReceiptFactEditor";
 import ReceiptReviewQuestions from "./ReceiptReviewQuestions";
 import ReceiptHistory from "./ReceiptHistory";
+import ReceiptMarksCard from "./ReceiptMarksCard";
+import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { formatMoney } from "./business-format";
 import { cardClass, LoadingRows, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 
@@ -141,7 +143,7 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
 
 export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }: { draftId: string; onUnprepared?: () => void; receipt?: ReceiptDetail }) {
   const { t, i18n } = useTranslation();
-  const { source, openPanel, reload } = useBusiness();
+  const { source, reload } = useBusiness();
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [operation, setOperation] = useState<Operation>({ kind: "idle" });
@@ -271,29 +273,28 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
 
   return (<>
     {captureRecovery}
-    <section aria-labelledby="receipt-review-title" data-testid="business-record-review">
-      <button type="button" onClick={() => openPanel({ kind: recorded ? "expenses" : "inbox" })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/65"><ArrowLeft className="h-4 w-4" aria-hidden="true" />{recorded ? t("business.nav.expenses", "Expenses") : t("business.nav.inbox", "Inbox")}</button>
-      <header className="mb-5">
-        <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{dossier.space_name}</p>
-        <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="receipt-review-title" className="min-w-0 break-words font-display text-[25px] font-medium tracking-tight text-black dark:text-white">{title}</h2><span className="rounded-full bg-black/5 px-3 py-1.5 text-[12px] text-black/70 dark:bg-white/10 dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span></div>
-        <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1"><p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{amount === null ? t("business.dossier.amount_unknown", "Amount unknown") : currency === null ? `${amount} · ${t("business.dossier.currency_unknown", "Currency unknown")}` : formatMoney(amount, currency, i18n.resolvedLanguage ?? "en")}</p><span className="text-[12px] text-black/50 dark:text-white/50">{t("business.dossier.revision", "Revision {{version}}", { version: factsRevision(dossier) })}</span></div>
-      </header>
-      <div className="grid items-start gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="space-y-4">
+    <ReceiptReviewFrame
+      back={recorded ? "expenses" : "inbox"}
+      eyebrow={dossier.space_name}
+      title={title}
+      badge={<span className="rounded-full bg-black/5 px-3 py-1.5 text-[12px] text-black/70 dark:bg-white/10 dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
+      summary={<><p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{amount === null ? t("business.dossier.amount_unknown", "Amount unknown") : currency === null ? `${amount} · ${t("business.dossier.currency_unknown", "Currency unknown")}` : formatMoney(amount, currency, i18n.resolvedLanguage ?? "en")}</p><span className="text-[12px] text-black/50 dark:text-white/50">{t("business.dossier.revision", "Revision {{version}}", { version: factsRevision(dossier) })}</span></>}
+      source={<>
           {attachments.map((attachment) => <ReceiptSourcePreview key={attachment.id} detail={{ id: attachment.connection_id, filename: attachment.filename, media_type: attachment.media_type, received_at: attachment.received_at, channel: attachment.channel, email_delivery_ids: attachment.email_delivery_ids }} />)}
           <ReceiptMessages sources={dossier.sources} />
           {!attachments.length ? <div className={`${cardClass} text-[14px] text-black/65 dark:text-white/65`}>{dossier.facts.receipt_state.state === "known" && dossier.facts.receipt_state.value === "no_receipt" ? t("business.dossier.no_receipt", "No receipt was supplied.") : t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</div> : null}
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
           <ReceiptEcfChecks verification={dossier.ecf_checks ?? null} qr={dossier.dgii_qr ?? null} />
           <ReceiptHistory history={dossier.history} accounts={accounts} />
-        </div>
-        <div className="space-y-4">
+      </>}
+    >
           <div className={cardClass}>
             <div className="mb-5 flex items-center justify-between gap-3"><h3 className="text-[14px] font-medium text-black dark:text-white">{(operation.kind === "uncertain" && operation.action === "save" ? t("business.dossier.pending_details", "Your unconfirmed edits") : t("business.dossier.current_details", "Current details"))}</h3>{canPrepare && mutable && !editing ? <button type="button" onClick={() => setEditing(true)} className="min-h-11 rounded-full px-2 text-[13px] font-medium text-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/65">{t("business.dossier.edit", "Edit details")}</button> : null}</div>
             {editing && canPrepare ? <ReceiptFactEditor key={operation.kind === "uncertain" && operation.action === "save" ? operation.version : dossier.version} facts={dossier.facts} accounts={accounts} currencies={[...new Set([...accounts.map((account) => account.currency), ...(currency ? [currency] : [])])]} disabled={!mutable} onChange={setDirty} onSave={(facts) => void write("save", facts)} onCancel={() => { setEditing(false); setDirty(false); }} /> : <ReceiptRecordFacts dossier={dossier} accounts={accounts} confirmable={canPrepare && mutable && !editing && !dirty} onConfirm={(key) => { const fact = dossier.facts[key]; if (fact.state === "known") void write("save", { [key]: { state: "known", value: fact.value } } as BusinessFactPatch); }} />}
           </div>
           {editing && operation.kind === "uncertain" && operation.action === "save" ? <div className={cardClass}><h3 className="mb-5 text-[14px] font-medium text-black dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
           {canPrepare && mutable && !editing && !dirty ? <button type="button" className={secondaryButtonClass} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
+          <ReceiptMarksCard dossier={dossier} busy={busy} onChanged={setDossier} />
           <ReceiptReviewQuestions questions={dossier.questions} />
           <ReceiptApprovalGuidance dossier={dossier} />
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
@@ -306,9 +307,10 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
             {operation.kind === "uncertain" || dossier.approval_result?.status === "outcome_unknown" || dossier.review_state === "accepting" ? <p role="status" className="mt-3 text-[13px] text-black/70 dark:text-white/70">{t("business.dossier.outcome_unknown", "The action's outcome isn't known yet. Check the saved status before taking another action.")}</p> : null}
             <button type="button" disabled={busy || checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{checking ? t("common.loading", "Loading") : t("business.dossier.refresh", "Check current record")}</button>
           </div>
-        </div>
-      </div>
-      {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
-    </section>{captureDialog}</>
+    </ReceiptReviewFrame>
+    {/* The note dialog keeps the third place in every branch, so a refused save keeps its message. */}
+    {captureDialog}
+    {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
+  </>
   );
 }

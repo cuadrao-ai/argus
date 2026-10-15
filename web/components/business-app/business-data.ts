@@ -46,13 +46,17 @@ export type BusinessDataSource = Readonly<{
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
   approveDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
+  /** The owner marks the receipt as personal or takes the mark back. */
+  markPersonal: (id: string, version: number, personal: boolean, key: string) => Promise<BusinessDossier>;
+  /** The accountant answers whether a personal receipt with a fiscal number goes into the 606. */
+  decideFiscalInclusion: (id: string, version: number, include: boolean, key: string) => Promise<BusinessDossier>;
   receiptSource: (id: string) => Promise<Blob>;
   updates: () => Promise<BusinessUpdate[]>;
   expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
   expense: (id: string) => Promise<BusinessExpenseDetail>;
   search: (query: string) => Promise<BusinessSearchResult>;
   captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
-  captures: (query?: string, limit?: number) => Promise<BusinessCapture[]>;
+  captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapture[]>;
   uploadReceipt: (file: File, consentToPrepare: boolean, key: string) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;
@@ -94,6 +98,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   reviewDraft: api.reviewBusinessDraft,
   approveDraft: api.approveBusinessDraft,
   settleRemainder: api.settleBusinessRemainder,
+  markPersonal: api.markBusinessPersonal,
+  decideFiscalInclusion: api.decideBusinessFiscalInclusion,
   receiptSource: api.fetchBusinessReceiptSource,
   updates: api.listBusinessUpdates,
   expenses: api.listBusinessExpenses,
@@ -166,6 +172,8 @@ export function withBusinessSpace(
     reviewDraft: source.reviewDraft,
     approveDraft: source.approveDraft,
     settleRemainder: source.settleRemainder,
+    markPersonal: source.markPersonal,
+    decideFiscalInclusion: source.decideFiscalInclusion,
     receiptSource: source.receiptSource,
     updates: after(source.updates),
     expenses: after(source.expenses),

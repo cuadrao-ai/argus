@@ -7,7 +7,7 @@ import { I18nextProvider } from "react-i18next";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 import { inboxCount, NotesAwaitingReview, openNotesByDraft } from "../components/business-app/BusinessInboxPanel";
-import type { BusinessCapture, ReceiptSummary } from "../lib/business-api";
+import type { BusinessCapture } from "../lib/business-api";
 
 // The draft's version runs ahead of the note's revision (later actions bump it); rows show the revision.
 const note = (draft_id: string, revision: number, text: string, received_at: string, review_state: BusinessCapture["review_state"] = "open"): BusinessCapture =>
@@ -75,14 +75,14 @@ describe("notes awaiting review in the Inbox", () => {
 });
 
 describe("the inbox count on the Overview card and the sidebar badge", () => {
-  const receipt = (id: string, email_original = false) => ({ id, email_original } as unknown as ReceiptSummary);
-  test("uses server receipt attention count and preserves drafts with an open note", () => {
-    const inbox = [receipt("r1"), receipt("r2"), receipt("mail", true)];
-    // Three open drafts among CAPTURES (a, b, e); accepted and dismissed notes leave the Inbox.
-    assert.equal(inboxCount({ inbox, receiptActivity: { unread_count: 2, reading_count: 0, presentation: "unread" }, notes: CAPTURES }), 2 + 3);
-    assert.equal(inboxCount({ inbox: [], receiptActivity: { unread_count: 0, reading_count: 0, presentation: "none" }, notes: CAPTURES }), 3);
-    assert.equal(inboxCount({ inbox, receiptActivity: { unread_count: 2, reading_count: 0, presentation: "unread" }, notes: [] }), 2);
-    assert.equal(inboxCount({ inbox, receiptActivity: { unread_count: 2, reading_count: 0, presentation: "unread" }, notes: null }), 2);
-    assert.equal(inboxCount({ inbox: null, notes: null }), 0);
+  const activity = (pending: number, unread: number) => ({ reading_count: 0, unread_count: unread, presentation: unread ? "unread" as const : "none" as const, pending_review_count: pending, needs_attention_count: 0 });
+  test("is the server's pending review count, never the unread count and never a client recount", () => {
+    // Five rows wait in the Bandeja and three are unread: the number is five.
+    assert.equal(inboxCount({ receiptActivity: activity(5, 3) }), 5);
+    assert.equal(inboxCount({ receiptActivity: activity(0, 0) }), 0);
+  });
+  test("is unknown, not zero, until the server answers", () => {
+    assert.equal(inboxCount({ receiptActivity: null }), null);
+    assert.equal(inboxCount({}), null);
   });
 });

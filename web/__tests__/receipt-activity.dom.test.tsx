@@ -55,7 +55,7 @@ function context(source: BusinessDataSource, reload: () => void): BusinessContex
 }
 
 async function host() { const element = document.createElement("div"); document.body.appendChild(element); return { element, root: createRoot(element) }; }
-const counts: ReceiptActivityCounts = { reading_count: 0, unread_count: 1, presentation: "unread" };
+const counts: ReceiptActivityCounts = { reading_count: 0, unread_count: 1, presentation: "unread", pending_review_count: 2, needs_attention_count: 0 };
 
 async function receipt(): Promise<ReceiptDetail> { const source = createFixtureBusinessDataSource(); const rows = await source.receipts("inbox"); return { ...await source.receipt(rows[0].id), id: "r1", activity: { state: "ready", unread: true, completion_cursor: "a".repeat(64) } }; }
 
@@ -116,7 +116,7 @@ test("a receipt row has exactly one marker and the badge uses server count", asy
   const ready = render(detail);
   assert.ok(ready.includes("receipt-unread-dot"));
   assert.ok(!ready.includes("receipt-reading-ring"));
-  assert.equal(inboxCount({ inbox: [detail, detail], notes: [], receiptActivity: { ...counts, unread_count: 7 } }), 7);
+  assert.equal(inboxCount({ receiptActivity: { ...counts, unread_count: 7, pending_review_count: 9 } }), 9);
 });
 
 test("opening or old hydration does not mark seen; focused visible hydrated content does", async () => {

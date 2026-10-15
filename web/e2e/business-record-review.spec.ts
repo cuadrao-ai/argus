@@ -278,13 +278,16 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Fecha de actividad");
   });
 
-  test("Confirmar on a suggestion saves that one value as the reviewer's at a new revision; the chip says so", async ({ page }) => {
+  test("Confirmar on a suggestion saves that one value as the reviewer's at a new revision; the banner says so once", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.fiscal);
     const facts = page.getByTestId("receipt-current-facts");
     const merchant = facts.locator('[data-fact="counterparty"]');
     await expect(merchant).toHaveAttribute("data-standing", "suggestion");
-    await expect(merchant).toContainText("Read from the source · suggestion, not verified");
-    await expect(page.getByTestId("receipt-review-counts")).toHaveText("1 suggestion to confirm");
+    // Read from the source and not confirmed: said once in the card's banner, never under the field.
+    await expect(page.getByTestId("receipt-read-banner")).toHaveText("Read from source · not verified");
+    await expect(facts.getByText("Read from source · not verified", { exact: true })).toHaveCount(1);
+    await expect(merchant).not.toContainText("not verified");
+    await expect(page.getByTestId("receipt-review-counts")).toContainText("1 suggestion to confirm");
     await expect(page.getByText("Revision 2", { exact: true })).toBeVisible();
 
     await page.getByTestId("confirm-counterparty").click();

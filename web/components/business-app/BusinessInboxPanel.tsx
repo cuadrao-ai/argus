@@ -1,14 +1,15 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { BusinessCapture, ReceiptSummary, ReceiptActivityCounts } from "@/lib/business-api";
+import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, StatusPill, useAttentionLabel } from "./business-ui";
+import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel } from "./business-ui";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
@@ -33,16 +34,7 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
   return [...byDraft.values()].sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
 }
 
-/**
- * What the Inbox list shows, as one number for the Overview card and the
- * sidebar badge: receipts awaiting review (the email itself is not a row,
- * its attachments are) plus the drafts with an open note. Both lists come
- * from the backend; the count is never computed from anything else.
- */
-export function inboxCount(records: { inbox: readonly ReceiptSummary[] | null; notes: readonly BusinessCapture[] | null; receiptActivity?: ReceiptActivityCounts | null }): number {
-  const receipts = records.receiptActivity?.unread_count ?? 0;
-  return receipts + (records.notes ? openNotesByDraft(records.notes).length : 0);
-}
+export { inboxCount } from "./inbox-count";
 
 export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }: { notes: OpenNote[]; error: boolean; truncated?: boolean; onOpen: (draftId: string) => void }) {
   const { t, i18n } = useTranslation();
@@ -83,17 +75,18 @@ export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }:
   );
 }
 
-export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpen: () => void }) {
+export function ReceiptRow({ receipt, onOpen, onMark }: { receipt: ReceiptSummary; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const attentionLabel = useAttentionLabel();
   const Icon = receipt.media_type === "application/pdf" ? FileText : ImageIcon;
   return (
-    <li>
+    // On a phone the Personal toggle wraps under the row so the merchant keeps its column.
+    <li className="flex flex-wrap items-center gap-1">
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]"
+        className="flex min-w-0 flex-1 basis-80 items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]"
       >
         <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
           {receipt.activity?.state === "reading" ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[12px] border-2 border-teal-500/50 border-t-transparent motion-safe:animate-spin" /> : receipt.activity?.unread ? <span aria-hidden="true" data-testid="receipt-unread-dot" className="absolute right-0 top-0 h-2 w-2 rounded-full bg-teal-600" /> : null}
@@ -117,6 +110,7 @@ export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpe
                   : savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
                 : formatRelativeTime(receipt.received_at, locale)}
           </span>
+          <RecordMarks personal={receipt.personal} fiscalValue={receipt.fiscal_value} known={receipt.fiscal_known === true} markedBy={receipt.personal_marked_by} className="mt-1" />
         </span>
         <span className="hidden text-right text-[15px] font-medium tabular-nums text-black dark:text-white mobile:block">
           {formatMoney(receipt.amount, receipt.currency, locale)}
@@ -124,13 +118,54 @@ export function ReceiptRow({ receipt, onOpen }: { receipt: ReceiptSummary; onOpe
         <StatusPill status={receipt.status} />
         <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" />
       </button>
+      {onMark && receipt.personal_editable ? (
+        <button
+          type="button"
+          data-testid={`mark-personal-${receipt.id}`}
+          aria-pressed={receipt.personal === true}
+          aria-label={receipt.personal ? t("business.marks.unmark_personal_label", "No longer personal") : t("business.marks.mark_personal_label", "Mark as personal")}
+          onClick={() => onMark(receipt)}
+          className={`ml-auto inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 ${receipt.personal ? "border-[var(--cuadrao-green)] bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : "border-black/15 text-black/70 hover:bg-black/[0.04] dark:border-white/20 dark:text-white/75 dark:hover:bg-white/[0.06]"}`}
+        >
+          {t("business.marks.mark_personal", "Personal")}
+        </button>
+      ) : null}
     </li>
   );
+}
+
+/** One tap marks or unmarks; the toast offers the way back for a moment. */
+export function usePersonalMark() {
+  const { t } = useTranslation();
+  const { source, reload } = useBusiness();
+  const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
+  const close = useCallback(() => setToast(null), []);
+  const mark = useCallback(async (receipt: ReceiptSummary) => {
+    try {
+      const detail = await source.receipt(receipt.id);
+      const draftId = detail.draft_id;
+      if (!draftId) return;
+      const next = !receipt.personal;
+      const marked = await source.markPersonal(draftId, detail.version, next, crypto.randomUUID());
+      reload();
+      setToast({
+        text: next ? t("business.marks.marked_personal", "Marked as personal. It does not count in the Business totals.") : t("business.marks.unmarked_personal", "No longer personal. It counts in the totals again."),
+        undo: async () => {
+          setToast(null);
+          try { await source.markPersonal(draftId, marked.version, !next, crypto.randomUUID()); reload(); } catch { setToast({ text: t("business.marks.mark_failed", "We could not save the change. Try again.") }); }
+        },
+      });
+    } catch {
+      setToast({ text: t("business.marks.mark_failed", "We could not save the change. Try again.") });
+    }
+  }, [reload, source, t]);
+  return { mark, toast: toast ? <UndoToast text={toast.text} onUndo={toast.undo} onClose={close} /> : null };
 }
 
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
   const { records, openPanel, actions, panel } = useBusiness();
+  const personal = usePersonalMark();
   // The server marks an email's own ".eml" document once an attachment is a receipt;
   // it lives inside its email row, never in this list.
   const items = records.inbox?.filter((receipt) => !receipt.email_original) ?? null;
@@ -172,18 +207,20 @@ export default function BusinessInboxPanel() {
         <>
           <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
           {items.length ? (
-            <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
+            <ul data-testid="business-inbox-receipts" className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
               {items.map((receipt) => (
                 <ReceiptRow
                   key={receipt.id}
                   receipt={receipt}
                   onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
+                  onMark={personal.mark}
                 />
               ))}
             </ul>
           ) : null}
         </>
       )}
+      {personal.toast}
     </section>
   );
 }

@@ -28,9 +28,13 @@ export function presentBusinessFact(
   return labels.value?.(key, String(fact.value)) ?? String(fact.value);
 }
 
-export function presentFiscalFact(key: BusinessFiscalField, facts: BusinessFacts, locale: string, labels: { unknown: string; ownerUnknown: string; notRecorded: string }): string {
+export function presentFiscalFact(key: BusinessFiscalField, facts: BusinessFacts, locale: string, labels: { unknown: string; ownerUnknown: string; notRecorded: string; rncUnknown?: string; yes?: string; no?: string }): string {
   const fact = facts.fiscal?.[key];
   if (!fact) return labels.notRecorded;
+  // An RNC nobody knows says so by name; it is never shown as a number.
+  if (fact.state === "unknown" && key === "rnc" && labels.rncUnknown) return labels.rncUnknown;
   if (fact.state !== "known") return fact.state === "owner_does_not_know" ? labels.ownerUnknown : labels.unknown;
+  // The 606 answer reads as the Sí or No the accountant chose.
+  if (typeof fact.value === "boolean") return (fact.value ? labels.yes : labels.no) ?? String(fact.value);
   return key === "itbis" && facts.currency.state === "known" ? formatMoney(fact.value, facts.currency.value, locale) : fact.value;
 }

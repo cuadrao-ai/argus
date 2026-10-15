@@ -107,6 +107,8 @@ describe("the counts line agrees with 'Antes de aprobar'", () => {
     const dossier = {
       ...base,
       facts: { ...base.facts, amount: known("owner_stated"), fiscal: { rnc: known("qr_decoded"), ncf: unknown, ecf: known("owner_stated"), itbis: unknown } },
+      // The server's reading of the same facts: an e-CF is known.
+      fiscal_value: "ecf",
       blockers: [],
       questions: [],
     } as unknown as BusinessDossier;
@@ -152,22 +154,44 @@ describe("the record facts on the review page", () => {
     const dossier = {
       ...base,
       facts: { ...base.facts, counterparty: known("extracted"), occurred_on: known("qr_decoded"), category_id: known("matched"), amount: unknown, fiscal: { rnc: known("qr_decoded"), ncf: unknown, ecf: known("extracted"), itbis: unknown } },
+      // The server's reading of the same facts: an e-CF is known.
+      fiscal_value: "ecf",
       blockers: [{ code: "missing_fields", field: "amount" }],
       questions: [],
     } as unknown as BusinessDossier;
     const { html } = await render(dossier);
-    assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"') && html.includes("Leído de la fuente · sugerencia sin verificar"));
+    // What was read and nobody confirmed is said once, as the card's banner, never under each field.
+    assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"'));
+    assert.equal((html.match(/Leído de la fuente · sin verificar/g) ?? []).length, 1);
+    assert.ok(html.includes('data-testid="receipt-read-banner"'));
+    assert.ok(!html.includes("Leído de la fuente · sugerencia sin verificar"));
     assert.ok(html.includes('data-testid="confirm-counterparty"') && html.includes(">Confirmar<"));
     assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && html.includes("Del código QR · sin verificar"));
     assert.ok(html.includes('data-fact="category_id" data-standing="linked"') && html.includes("Vinculado a la fuente · sin verificar"));
     assert.ok(html.includes("Indicado por el dueño · sin verificar"));
-    // Fiscal suggestions show their standing but have no in-place confirm (the review patch carries no fiscal fields).
+    // Fiscal suggestions keep their standing under the same banner and have no in-place confirm (the review patch carries no fiscal fields).
     assert.ok(html.includes('data-fact="ecf" data-standing="suggestion"') && !html.includes("confirm-ecf"));
     // Settled rows come before suggestions, which come before the empty ones; the value cell still reads Desconocido.
     assert.ok(html.indexOf('data-fact="occurred_on"') < html.indexOf('data-fact="counterparty"'));
     assert.ok(html.indexOf('data-fact="counterparty"') < html.indexOf('data-fact="amount"'));
     assert.ok(html.includes("Desconocido"));
     assert.ok(!html.includes("verificada") && !html.includes("—"));
+  });
+
+  test("an RNC nobody knows reads RNC desconocido, never a number", async () => {
+    const base = await fixture();
+    const dossier = { ...base, facts: { ...base.facts, fiscal: { rnc: unknown, ncf: known("extracted"), ecf: unknown, itbis: unknown } }, fiscal_value: "ncf", fiscal_known: true } as unknown as BusinessDossier;
+    const { html } = await render(dossier);
+    assert.ok(/data-fact="rnc"[^]*?RNC desconocido/.test(html));
+    assert.ok(!/0{9}/.test(html));
+    const english = await render(dossier, "en", false);
+    assert.ok(english.html.includes("Unknown RNC"));
+  });
+
+  test("no banner when nothing read from the source waits for a person", async () => {
+    const base = await fixture();
+    const { html } = await render({ ...base, facts: { ...base.facts, counterparty: known("owner_stated") } } as BusinessDossier);
+    assert.ok(!html.includes('data-testid="receipt-read-banner"'));
   });
 
   test("a field the owner does not know still carries the decision marker when a question on it is open", async () => {
@@ -182,7 +206,8 @@ describe("the record facts on the review page", () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, counterparty: known("extracted") } } as BusinessDossier;
     const { html } = await render(dossier, "en", false);
-    assert.ok(html.includes("Read from the source · suggestion, not verified"));
+    assert.equal((html.match(/Read from source · not verified/g) ?? []).length, 1);
+    assert.ok(!html.includes("Read from the source · suggestion, not verified"));
     assert.ok(!html.includes("confirm-counterparty"));
     assert.ok(html.includes("suggestion to confirm") || html.includes("suggestions to confirm"));
   });

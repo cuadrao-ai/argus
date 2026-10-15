@@ -19,7 +19,7 @@ from pydantic import ValidationError
 
 FISCAL_FIELDS = ("rnc", "ncf", "ecf", "itbis")
 SYNTHETIC_FISCAL = {
-    "rnc": "SYNTHETIC-RNC-A",
+    "rnc": "SYNTHETIC-RNC-1",
     "ncf": "SYNTHETIC-NCF-A",
     "ecf": "SYNTHETIC-ECF-A",
     "itbis": "18.00",
@@ -120,13 +120,13 @@ def test_itbis_projection_uses_existing_c0_amount_semantics(
 def test_incompatible_itbis_becomes_unknown_and_stays_raw_in_the_receipt(
     raw: str,
 ) -> None:
-    receipt = ReceiptDetails(rnc="SYNTHETIC-RNC-A", itbis=raw)
+    receipt = ReceiptDetails(rnc="SYNTHETIC-RNC-1", itbis=raw)
     source_id = uuid4()
     projected = extractor.fiscal_facts_from_receipt(receipt, source_id=source_id)
     assert projected.itbis.state == "unknown" and projected.itbis.value is None
     assert projected.itbis.origin == "extracted"
     assert projected.itbis.source_ids == (source_id,)
-    assert projected.rnc.state == "known" and projected.rnc.value == "SYNTHETIC-RNC-A"
+    assert projected.rnc.state == "known" and projected.rnc.value == "SYNTHETIC-RNC-1"
     assert receipt.itbis == raw
 
 

@@ -61,6 +61,8 @@ async function mount() {
   const source = {
     ...fixture,
     spaces: async () => [OWN, A, B],
+    // Read the list through receipts so each read names the grant it ran under.
+    receiptPage: undefined,
     receipts: async (view: "inbox" | "all") => {
       reads.push(getChosenGrant());
       const grant = getChosenGrant();
