@@ -153,7 +153,7 @@ struct GuestShell: View {
     private func announceFirstOpen() {
         guard !GuestNotice.firstOpen.seen else { return }
         GuestNotice.firstOpen.markSeen()
-        toast = CuadraoToastMessage(text: GuestNoticeCopy(spanish: spanish).modeLine)
+        toast = CuadraoToastMessage(text: GuestNoticeCopy(spanish: spanish).firstOpenNote)
     }
 
     /// After the save's own sheet has closed, so the save is never covered or delayed.
