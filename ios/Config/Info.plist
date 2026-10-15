@@ -14,7 +14,7 @@
     <key>LSRequiresIPhoneOS</key><true/>
     <key>UILaunchScreen</key><dict>
         <key>UIColorName</key><string>BrandPaper</string>
-        <key>UIImageName</key><string>CuadraoLockup</string>
+        <key>UIImageName</key><string>CuadraoLaunchLockup</string>
     </dict>
     <key>UIApplicationSceneManifest</key><dict>
         <key>UIApplicationSupportsMultipleScenes</key><false/>

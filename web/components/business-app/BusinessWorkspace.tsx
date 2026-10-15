@@ -321,7 +321,7 @@ export function BusinessWorkspaceProvider({
   useEffect(() => {
     let cancelled = false;
     if (onRecord) return;
-    source.captures("", NOTES_PAGE).then(
+    source.captures("", NOTES_PAGE, "inbox").then(
       (notes) => {
         if (!cancelled) setRecords((current) => ({ ...current, notes, notesError: false, notesTruncated: notes.length >= NOTES_PAGE }));
       },

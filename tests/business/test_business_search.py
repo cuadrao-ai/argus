@@ -84,6 +84,7 @@ def test_finds_the_business_expense_and_never_the_personal_one(alice: Owner) -> 
                 "account_id": account,
                 "occurred_on": "2026-10-06",
                 "receipt_id": receipt_id,
+                "fiscal_known": True,
             }
         ],
         "receipts": [],

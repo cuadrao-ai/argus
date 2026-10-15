@@ -52,7 +52,13 @@ export type ReceiptActivity = {
   unread: boolean;
   completion_cursor: string | null;
 };
-export type ReceiptActivityCounts = { reading_count: number; unread_count: number; presentation: "working" | "unread" | "none" };
+/**
+ * The Bandeja's counts, from the server only. `unread_count` is new activity
+ * this person has not opened; `pending_review_count` is every row the Bandeja
+ * lists (receipts not yet saved or dismissed, and notes no receipt carries);
+ * `needs_attention_count` is how many of those receipts need attention.
+ */
+export type ReceiptActivityCounts = { reading_count: number; unread_count: number; presentation: "working" | "unread" | "none"; pending_review_count: number; needs_attention_count: number };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 
 export function getReceiptActivity(signal?: AbortSignal): Promise<ReceiptActivityCounts> {
@@ -72,6 +78,20 @@ export type ReceiptSummary = ReceiptReviewFields & {
   id: string;
   activity?: ReceiptActivity | null;
   channel: ReceiptChannel;
+  /** Marked by a person as no part of the Business: left out of the totals, kept visible. */
+  personal?: boolean;
+  /** Who marked it, when that was someone other than the owner; absent otherwise. */
+  personal_marked_by?: string | null;
+  /** The server says the receipt's facts exist (a draft owns it), so an empty fiscal_value means no fiscal number; absent before a read. */
+  fiscal_known?: boolean;
+  /** The fiscal number the draft carries (NCF or e-CF); absent without one or before a read. */
+  fiscal_value?: "ncf" | "ecf" | null;
+  /** The accountant's 606 answer for a personal receipt with a fiscal number; absent until given. */
+  include_606?: boolean | null;
+  /** Who gave the 606 answer; absent while there is none. */
+  include_606_by?: string | null;
+  /** The caller may mark or unmark it: anyone holding prepare, on a receipt that has a draft. */
+  personal_editable?: boolean;
   filename: string | null;
   /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
   source_text?: string | null;
@@ -169,6 +189,24 @@ export async function approveBusinessDraft(draftId: string, version: number, ide
   });
 }
 
+/** The owner or a prepare-holder marks a receipt as personal (no part of it is the Business's) or takes the mark back. */
+export async function markBusinessPersonal(draftId: string, version: number, personal: boolean, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/personal`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version, personal }),
+  });
+}
+
+/** The accountant answers whether a personal receipt with a fiscal number goes into the 606. */
+export async function decideBusinessFiscalInclusion(draftId: string, version: number, include: boolean, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/fiscal-inclusion`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version, include }),
+  });
+}
+
 export async function settleBusinessRemainder(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/remainder/settle`, {
     method: "POST",
@@ -220,6 +258,18 @@ export type BusinessExpense = {
   receipt_id: string | null;
   /** The bridge draft that recorded it, when one did: the record to open when no single receipt is named. Absent for a hand-entered expense. */
   draft_id?: string | null;
+  /** Marked by a person as no part of the Business: left out of the totals, kept visible. */
+  personal?: boolean;
+  /** Who marked it, when that was someone other than the owner; absent otherwise. */
+  personal_marked_by?: string | null;
+  /** The server settles a saved expense's fiscal standing: the number it carries, or none. */
+  fiscal_known?: boolean;
+  /** The fiscal number the draft carries (NCF or e-CF); absent without one. */
+  fiscal_value?: "ncf" | "ecf" | null;
+  /** The accountant's 606 answer for a personal expense with a fiscal number; absent until given. */
+  include_606?: boolean | null;
+  /** Who gave the 606 answer; absent while there is none. */
+  include_606_by?: string | null;
 };
 
 /** One saved expense with when it was recorded and its revision; both null when the money read does not say. */
@@ -230,8 +280,12 @@ export type BusinessOverview = {
   to: string;
   /** The server's day in the Business time zone: the one clock for "today". */
   today: string;
+  /** "Gastos reales": every approved expense of the period that is not personal. */
   totals: { currency: CurrencyCode; amount: DecimalString; count: number }[];
-  needs_attention: number;
+  /** "Con valor fiscal": those that carry an NCF or an e-CF. Absent in older payloads. */
+  fiscal_totals?: { currency: CurrencyCode; amount: DecimalString; count: number }[];
+  /** "Sin comprobante fiscal": real minus fiscal, per currency; what does not go into the 606. */
+  without_fiscal_totals?: { currency: CurrencyCode; amount: DecimalString; count: number }[];
   last_received_at: string | null;
   last_confirmed_at: string | null;
   /** Saved expenses the chosen period leaves out, so none looks vanished. */
@@ -290,8 +344,9 @@ export async function captureBusinessNote(input: BusinessCaptureInput, key: stri
   return response.json() as Promise<BusinessDossier>;
 }
 
-export async function listBusinessCaptures(query = "", limit = 20): Promise<BusinessCapture[]> {
-  const params = new URLSearchParams({ q: query, limit: String(limit) });
+/** `inbox` asks for the notes the Bandeja lists: drafts awaiting review that no receipt carries. */
+export async function listBusinessCaptures(query = "", limit = 20, view: "inbox" | "all" = "all"): Promise<BusinessCapture[]> {
+  const params = new URLSearchParams({ q: query, limit: String(limit), view });
   const page = await apiFetch<{ items: BusinessCapture[] }>(`/business/captures?${params}`);
   return page.items;
 }

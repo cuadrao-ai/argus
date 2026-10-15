@@ -44,6 +44,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import PURCHASE, ReceiptStub
+from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_sources_support import LOCAL_STORAGE, source_objects, stored_paths
 
 pytestmark = pytest.mark.skipif(
@@ -99,6 +100,7 @@ def _service(pool: ConnectionPool, objects: SourceObjects) -> BusinessService:
     )
     hub = IngestionHub(connections, box=None, sink=imports, clock=_now)
     documents = DocumentsService(hub, PostgresDocumentStore(pool, objects), ReceiptStub())
+    documents.business_receipt_consent = reading_setting(pool)
     return BusinessService(documents, imports, lambda _: frozenset())
 
 
@@ -111,6 +113,11 @@ def _started(spaces: PostgresSpaceStore, person: str) -> BusinessScope:
 
 def _prepared(rig: dict) -> str:
     service, scope = rig["service"], rig["owner"]
+    turn_reading(
+        service.documents.business_receipt_consent,
+        scope.owner.space_id,
+        scope.person_id,
+    )
     receipt = asyncio.run(
         service.upload(
             scope,

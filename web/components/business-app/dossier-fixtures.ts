@@ -51,6 +51,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     const current: BusinessFacts = { ...facts, category_id: { ...known("other"), origin: "member_set", source_ids: [reviewSourceId] }, funding: ready ? { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "member_set", source_ids: [reviewSourceId] } : unknown(), amount: name === "unknownAmount" ? unknown() : facts.amount, kind: name === "unknownKind" ? unknown() : name === "income" ? known("income") : facts.kind };
     dossiers.set(id, {
       draft_id: id,
+      // The server's reading: every sample record has read facts.
+      fiscal_known: true,
       space_id: "50000000-0000-4000-8000-000000000001",
       space_name: "Taller Lucía · sample business",
       accounts,
@@ -83,7 +85,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     { name: "qr_matches_read", state: "verified", code: null, detail: {}, read_vs_qr: { rnc: { read: "131999888", qr: "131999888" }, ecf: { read: "E310000000777", qr: "E310000000777" } } },
   ] };
   const fiscalQr: BusinessDossier["dgii_qr"] = { url: "https://ecf.dgii.gov.do/ecf/consultatimbre?RncEmisor=131999888&ENCF=E310000000777&MontoTotal=3450.00&CodigoSeguridad=AbC123", host: "ecf.dgii.gov.do", rnc_emisor: "131999888", encf: "E310000000777", monto_total: "3450.00", codigo_seguridad: "AbC123", fecha_emision: "2026-10-09", fecha_firma: null, rnc_comprador: null };
-  dossiers.set(fiscalDossier.draft_id, { ...fiscalDossier, ecf_checks: fiscalChecks, dgii_qr: fiscalQr, facts: fiscalAfter, sources: [{ id: sourceId, kind: "message", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", text: "El RNC es 131999888, el NCF es B0100000099 y el ITBIS es 526.27. No sé el e-CF." }], history: [{ draft_id: fiscalDossier.draft_id, version: 2, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo via Cuadrao" }, before: fiscalBefore, after: fiscalAfter, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }] });
+  dossiers.set(fiscalDossier.draft_id, { ...fiscalDossier, fiscal_value: "ncf", ecf_checks: fiscalChecks, dgii_qr: fiscalQr, facts: fiscalAfter, sources: [{ id: sourceId, kind: "message", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", text: "El RNC es 131999888, el NCF es B0100000099 y el ITBIS es 526.27. No sé el e-CF." }], history: [{ draft_id: fiscalDossier.draft_id, version: 2, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo via Cuadrao" }, before: fiscalBefore, after: fiscalAfter, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }] });
   const proposalDossier = dossiers.get(dossierFixtureIds.proposal)!;
   dossiers.set(proposalDossier.draft_id, { ...proposalDossier, facts: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } }, sources: [{ id: sourceId, kind: "agent_proposal", channel: "web", received_at: "2026-10-10T14:20:00Z", text: "Propuesta: gasto de 3,450 DOP en Ferretería La Esquina para pintura del taller. Revisar antes de aprobar." }], history: [{ ...proposalDossier.history[0], after: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } } }] });
   const reviewReceipts = new Map<string, { input: string; result: BusinessDossier }>();
@@ -125,9 +127,11 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       captureReceipts.set(key, { input, draftId: id });
       return get(id);
     },
-    captures: async (query = "", limit = 20) => {
+    captures: async (query = "", limit = 20, view: "inbox" | "all" = "all") => {
       if (query.includes("\0") || [...query].length > 200 || !Number.isInteger(limit) || limit < 1 || limit > 50) fail(422, "invalid_request");
-      return captures.filter((note) => note.text.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.received_at.localeCompare(a.received_at) || b.source_id.localeCompare(a.source_id)).slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state }; });
+      // The Bandeja's notes, as the API answers them: drafts awaiting review that no receipt carries.
+      const listed = (note: BusinessCapture) => view === "all" || (["open", "accepting"].includes(get(note.draft_id).review_state) && !get(note.draft_id).sources.some((item) => item.kind === "attachment"));
+      return captures.filter((note) => listed(note) && note.text.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.received_at.localeCompare(a.received_at) || b.source_id.localeCompare(a.source_id)).slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state }; });
     },
     createReceiptDraft: (receipt: ReceiptDetail) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;

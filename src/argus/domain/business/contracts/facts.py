@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Generic, Literal, TypeVar
 from uuid import UUID
 
+from loguru import logger
 from pydantic import (
     AfterValidator,
     BaseModel,
@@ -33,6 +34,24 @@ Amount = Annotated[
     AfterValidator(_canonical_amount),
 ]
 Currency = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
+
+
+def rnc_has_number(value: str) -> bool:
+    return any(character in "123456789" for character in value)
+
+
+def _some_nonzero_digit(value: str) -> str:
+    if not rnc_has_number(value):
+        raise ValueError("an RNC has a nonzero digit")
+    return value
+
+
+#: A taxpayer number as a receipt or a person gives it. One with no nonzero
+#: digit (000000000, 000-00000-0) is no number: a person who types it is
+#: refused, and a machine read of it holds no RNC.
+Rnc = TypeAliasType("Rnc", Annotated[str, AfterValidator(_some_nonzero_digit)])
+#: Origins of a value read or decoded by a machine rather than given by a person.
+MACHINE_ORIGINS = frozenset({"extracted", "qr_decoded", "matched"})
 FactOrigin = Literal[
     "extracted", "qr_decoded", "owner_stated", "member_set", "matched", "default"
 ]
@@ -133,10 +152,44 @@ ReceiptState = Literal["fiscal_receipt", "informal_receipt", "no_receipt"]
 
 
 class FiscalFacts(Contract):
-    rnc: Fact[str] = Unknown()
+    rnc: Fact[Rnc] = Unknown()
     ncf: Fact[str] = Unknown()
     ecf: Fact[str] = Unknown()
     itbis: Fact[Amount] = Unknown()
+    # The accountant's answer to "¿Incluir en 606?" for a personal receipt that
+    # carries a fiscal number; never the app's and never the model's.
+    include_606: Fact[bool] = Unknown()
+
+    @model_validator(mode="before")
+    @classmethod
+    def machine_read_without_rnc(cls, data: Any) -> Any:
+        """A machine read whose RNC has no nonzero digit, new or already
+        saved, holds no RNC: the fact is unknown and keeps its sources. A
+        person's all-zero RNC is not rewritten and fails the Rnc type."""
+
+        if not isinstance(data, dict) or not isinstance(data.get("rnc"), dict):
+            return data
+        rnc = data["rnc"]
+        value = rnc.get("value")
+        if (
+            rnc.get("state") != "known"
+            or rnc.get("origin") not in MACHINE_ORIGINS
+            or not isinstance(value, str)
+            or rnc_has_number(value)
+        ):
+            return data
+        logger.info("business_rnc_without_number origin={}", rnc.get("origin"))
+        origin = rnc["origin"] if rnc["origin"] != "qr_decoded" else None
+        return {
+            **data,
+            "rnc": {
+                "state": "unknown",
+                "value": None,
+                "origin": origin,
+                "verified": False,
+                "source_ids": rnc.get("source_ids", ()),
+            },
+        }
 
     @model_validator(mode="after")
     def no_fiscal_defaults(self) -> FiscalFacts:
@@ -295,3 +348,41 @@ def legacy_projection(facts: BusinessFacts) -> dict[str, object]:
         else None
     )
     return projected
+
+
+FiscalValue = Literal["ncf", "ecf"]
+
+
+def fiscal_value(facts: BusinessFacts) -> FiscalValue | None:
+    """Whether the receipt carries a fiscal number today: an NCF or an e-CF the
+    draft knows, of any origin. The e-CF check state comes later."""
+
+    if facts.fiscal is None:
+        return None
+    if isinstance(facts.fiscal.ecf, Known):
+        return "ecf"
+    if isinstance(facts.fiscal.ncf, Known):
+        return "ncf"
+    return None
+
+
+def is_personal(facts: BusinessFacts) -> bool:
+    """Marked by a person as no part of the Business: business_share is none
+    and the owner or a prepare-holder stated it. A none of any other origin (a
+    model's reading, a match, a default) is not a mark and excludes nothing."""
+
+    share = facts.business_share
+    return (
+        isinstance(share, Known)
+        and share.value.kind == "none"
+        and share.origin in ("owner_stated", "member_set")
+    )
+
+
+def fiscal_inclusion(facts: BusinessFacts) -> bool | None:
+    """The accountant's 606 answer when one applies, else None."""
+
+    if not is_personal(facts) or fiscal_value(facts) is None or facts.fiscal is None:
+        return None
+    answer = facts.fiscal.include_606
+    return answer.value if isinstance(answer, Known) else None

@@ -8,6 +8,7 @@ from uuid import UUID
 from argus.domain.business.receipt_activity import (
     ReceiptActivity,
     aggregate_activity,
+    inbox_counts,
     project_activity,
 )
 from argus.domain.business.transactions import GrantImportStore, transaction
@@ -120,5 +121,24 @@ def _project(views, states, baseline, drafts=None):
     return output
 
 
-def counts(views: list[dict]) -> dict:
-    return aggregate_activity(ReceiptActivity(**view["activity"]) for view in views)
+def inbox(context, views: list[dict]) -> dict[str, int]:  # noqa: ANN001
+    """The Bandeja's counts over these receipt views and the Business's saved
+    notes awaiting review; the in-memory app keeps no notes."""
+
+    store = context.service.imports.store
+    notes = 0
+    if isinstance(store, GrantImportStore):
+        from argus.domain.business.actions.captures import awaiting_notes
+
+        with transaction(store.authority, store.context) as tx:
+            notes = awaiting_notes(tx)
+    return inbox_counts(views, notes)
+
+
+def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
+    """One answer for the sidebar badge, the Bandeja and the Resumen."""
+
+    return {
+        **aggregate_activity(ReceiptActivity(**view["activity"]) for view in views),
+        **inbox(context, views),
+    }

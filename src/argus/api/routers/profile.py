@@ -9,6 +9,7 @@ from psycopg import connect
 from pydantic import ValidationError
 
 from argus.api import state as api_state
+from argus.api.business_spaces import accept_business_invites
 from argus.api.chat.research_evidence import grounding_meter
 from argus.api.dependencies import (
     current_user,
@@ -101,24 +102,6 @@ def _apple_identity(request: Request, user_id: str) -> LinkedAppleIdentity | Non
         ) from None
 
 
-def _accept_business_invites(user_id: str) -> None:
-    """Pending Business invites for this person's confirmed email become grants.
-
-    Runs on every profile read, is idempotent, and never blocks the profile."""
-
-    from argus.api.business_spaces import business_access
-
-    store = business_access()
-    if store is None:
-        return
-    try:
-        store.accept_invites(user_id)
-    except Exception as error:  # noqa: BLE001 - the profile answers; the class is logged
-        logger.warning(
-            "business_access_accept_failed", user_id=user_id, error=type(error).__name__
-        )
-
-
 @router.get("/me", response_model=UserResponse)
 def get_me(
     request: Request,
@@ -127,7 +110,7 @@ def get_me(
     context = account_context(request)
     identity = _apple_identity(request, user.id) if context.kind == "registered" else None
     if context.kind == "registered":
-        _accept_business_invites(user.id)
+        accept_business_invites(user.id)
     if api_state.supabase_gateway is not None:
         try:
             profile = api_state.supabase_gateway.get_user(user_id=user.id)

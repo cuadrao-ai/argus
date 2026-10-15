@@ -71,8 +71,10 @@ function seedReceipts(): ReceiptDetail[] {
   return [
     receipt({
       id: "rcpt-ferreteria",
+      fiscal_known: true,
       status: "review_ready",
       channel: "whatsapp",
+      personal_editable: true,
       filename: "IMG_2214.jpg",
       received_at: daysAgo(0),
       merchant: "Ferretería La Esquina",
@@ -97,8 +99,13 @@ function seedReceipts(): ReceiptDetail[] {
     }),
     receipt({
       id: "rcpt-papeleria",
+      fiscal_known: true,
       status: "review_ready",
       draft_id: dossierFixtureIds.unprepared,
+      // The accountant marked it Personal; the owner sees who and can take it back.
+      personal: true,
+      personal_marked_by: "Marta",
+      personal_editable: true,
       enterable: false,
       filename: "papeleria-oct.pdf",
       media_type: "application/pdf",
@@ -183,6 +190,7 @@ function seedReceipts(): ReceiptDetail[] {
     }),
     receipt({
       id: "rcpt-confirmed",
+      fiscal_known: true,
       status: "confirmed",
       filename: "hosting-sep.pdf",
       media_type: "application/pdf",
@@ -194,6 +202,8 @@ function seedReceipts(): ReceiptDetail[] {
       category_id: "other",
       account_id: "acct-card",
       expense_id: "exp-hosting",
+      fiscal_value: "ncf",
+      personal_editable: true,
     }),
   ];
 }
@@ -202,6 +212,7 @@ function seedExpenses(): BusinessExpense[] {
   return [
     {
       id: "exp-hosting",
+      fiscal_known: true,
       merchant: "Nube Hosting",
       amount: "24.00",
       currency: "USD",
@@ -210,9 +221,11 @@ function seedExpenses(): BusinessExpense[] {
       occurred_on: dayOnly(daysAgo(6)),
       receipt_id: "rcpt-confirmed",
       draft_id: null,
+      fiscal_value: "ncf",
     },
     {
       id: "exp-gas",
+      fiscal_known: true,
       merchant: "Estación Ruta 3",
       amount: "2100.00",
       currency: "DOP",
@@ -224,6 +237,7 @@ function seedExpenses(): BusinessExpense[] {
     },
     {
       id: "exp-lunch",
+      fiscal_known: true,
       merchant: "Comedor Doña Ana",
       amount: "1250.00",
       currency: "DOP",
@@ -233,6 +247,8 @@ function seedExpenses(): BusinessExpense[] {
       occurred_on: dayOnly(daysAgo(8)),
       receipt_id: null,
       draft_id: null,
+      personal: true,
+      personal_marked_by: "Marta",
     },
   ];
 }
@@ -329,7 +345,7 @@ export function createFixtureBusinessDataSource(
       if (receipt && dossier.approval_result?.status === "recorded") {
         const facts = dossier.facts;
         if (facts.amount.state === "known" && facts.currency.state === "known" && facts.occurred_on.state === "known" && facts.funding.state === "known" && facts.funding.value.kind === "business_account") {
-          expenses = [{ id: dossier.approval_result.activity_id, merchant: facts.counterparty.value, amount: facts.amount.value, currency: facts.currency.value, category_id: facts.category_id.value, account_id: facts.funding.value.account_id, occurred_on: facts.occurred_on.value, receipt_id: receipt.id, draft_id: id }, ...expenses];
+          expenses = [{ id: dossier.approval_result.activity_id, fiscal_known: true, merchant: facts.counterparty.value, amount: facts.amount.value, currency: facts.currency.value, category_id: facts.category_id.value, account_id: facts.funding.value.account_id, occurred_on: facts.occurred_on.value, receipt_id: receipt.id, draft_id: id }, ...expenses];
           replace({ ...receipt, status: "confirmed", expense_id: dossier.approval_result.activity_id });
         }
       }
@@ -379,16 +395,22 @@ export function createFixtureBusinessDataSource(
           count: current.count + 1,
         });
       }
+      const sum = (items: typeof inPeriod) => {
+        const by = new Map<string, { amount: number; count: number }>();
+        for (const item of items) {
+          const current = by.get(item.currency) ?? { amount: 0, count: 0 };
+          by.set(item.currency, { amount: current.amount + Number(item.amount), count: current.count + 1 });
+        }
+        return [...by.entries()].map(([currency, total]) => ({ currency, amount: total.amount.toFixed(2), count: total.count }));
+      };
+      const real = inPeriod.filter((item) => !item.personal);
       return {
         from,
         to,
         today,
-        totals: [...byCurrency.entries()].map(([currency, total]) => ({
-          currency,
-          amount: total.amount.toFixed(2),
-          count: total.count,
-        })),
-        needs_attention: receipts.filter((item) => item.status === "needs_attention").length,
+        totals: sum(real),
+        fiscal_totals: sum(real.filter((item) => item.fiscal_value)),
+        without_fiscal_totals: sum(real.filter((item) => !item.fiscal_value)),
         outside_period_count: expenses.length - inPeriod.length,
         outside_period_latest_on: expenses.filter((item) => !inPeriod.includes(item)).map((item) => item.occurred_on).sort().at(-1) ?? null,
         last_received_at: receipts[0]?.received_at ?? null,
@@ -401,9 +423,46 @@ export function createFixtureBusinessDataSource(
         ? receipts
         : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
     },
+    // The sample's stand-in for the server's one count projection: every row
+    // the Bandeja lists (never the email itself) plus notes no receipt carries.
+    receiptPage: async (view) => {
+      await delay();
+      const items = view === "all" ? receipts : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
+      const pending = receipts.filter((item) => !item.email_original && item.status !== "confirmed" && item.status !== "dismissed");
+      const notes = new Set((await dossierSource.captures("", 50, "inbox")).map((note) => note.draft_id)).size;
+      const reading = receipts.filter((item) => item.read_pending).length;
+      const unread = receipts.filter((item) => item.activity?.unread).length;
+      return {
+        items,
+        activity: {
+          reading_count: reading,
+          unread_count: unread,
+          presentation: reading ? "working" : unread ? "unread" : "none",
+          pending_review_count: pending.length + notes,
+          needs_attention_count: pending.filter((item) => item.status === "needs_attention").length,
+        },
+      };
+    },
     receipt: async (id) => {
       await delay();
       return find(id);
+    },
+    markPersonal: async (id, version, personal) => {
+      await delay();
+      // The preview acts as the owner: the owner's own mark names nobody else.
+      for (const item of receipts) if (item.id === id || item.draft_id === id) replace({ ...item, personal, personal_marked_by: null });
+      for (const item of expenses) if (item.receipt_id === id || item.draft_id === id) Object.assign(item, { personal, personal_marked_by: null });
+      void version;
+      // The sample receipt behind an unprepared draft has no record to answer with; a ready one stands in.
+      const record = await dossierSource.dossier(id).catch(() => dossierSource.dossier(dossierFixtureIds.ready));
+      return { ...record, personal, personal_marked_by: null };
+    },
+    decideFiscalInclusion: async (id, version, include) => {
+      await delay();
+      for (const item of receipts) if (item.id === id || item.draft_id === id) replace({ ...item, include_606: include });
+      for (const item of expenses) if (item.receipt_id === id || item.draft_id === id) item.include_606 = include;
+      void version;
+      return dossierSource.dossier(id);
     },
     receiptSource: async (id) => {
       await delay(120);
@@ -486,7 +545,7 @@ export function createFixtureBusinessDataSource(
       const injected = injectedWriteError();
       if (injected) throw injected;
       const entered = current.enterable
-        ? { status: "review_ready" as const, error_code: null, attention: null, preparable: false, enterable: false }
+        ? { status: "review_ready" as const, fiscal_known: true, error_code: null, attention: null, preparable: false, enterable: false }
         : {};
       const reviewed: ReceiptDetail = {
         ...merged,

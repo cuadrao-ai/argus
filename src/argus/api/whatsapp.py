@@ -265,21 +265,6 @@ def _as_owner(documents: DocumentsService, owner_id: str, scope):  # noqa: ANN00
     return bind_to_grant(documents, documents.hub, actions, context, "prepare")[0]
 
 
-def _whatsapp_read_gate(store, reading):  # noqa: ANN001, ANN202
-    """A receipt that arrived by WhatsApp is read only while the owner's switch
-    is on at the moment of the read; other uploads carry their own consent."""
-
-    def allowed(user_id: str, connection_id: str) -> bool:
-        # The owner's switch decides, whoever asks for the read.
-        try:
-            owner = store.capture_owner(connection_id=connection_id)
-            return True if owner is None else reading(owner)
-        except Exception:
-            return False
-
-    return allowed
-
-
 class BackgroundWork:
     """Runs the work behind an acknowledged delivery and lets shutdown wait for it."""
 

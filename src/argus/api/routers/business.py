@@ -77,7 +77,11 @@ from argus.api.business_schemas import (
     StartBusinessSpace,
     UpdatePage,
 )
-from argus.api.business_spaces import business_access, space_missing_problem
+from argus.api.business_spaces import (
+    accept_business_invites,
+    business_access,
+    space_missing_problem,
+)
 from argus.api.dependencies import problem
 from argus.api.documents import (
     NO_STORE,
@@ -241,11 +245,14 @@ def list_spaces(
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
     """Every Business the caller may enter through a live grant of theirs,
-    their own first. Names come from the spaces; the one-time access line is
-    marked seen per grant, server side."""
+    their own first. Pending invites for the caller's confirmed email become
+    grants first, so the read beside the first profile read already lists
+    them. Names come from the spaces; the one-time access line is marked seen
+    per grant, server side."""
 
     _no_store(response)
     access = _access_store(request)
+    accept_business_invites(person.person_id)
     seen = access.seen_grants(person.person_id)
     return {
         "spaces": [
@@ -506,16 +513,13 @@ async def upload_receipt(
     request: Request,
     background_tasks: BackgroundTasks,
     filename: str | None = Header(default=None, alias="X-Document-Filename"),
-    consent: str | None = Header(default=None, alias="X-Extraction-Consent"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     context: BusinessContext = Depends(require_business_document_write),  # noqa: B008
 ) -> dict[str, Any]:
-    """The receipt's identity is its bytes, so a retry returns the same receipt."""
+    """The receipt's identity is its bytes, so a retry returns the same receipt.
+    The owner's stored receipt-reading setting decides whether it is read."""
 
     _required_idempotency_key(request, idempotency_key)
-    if consent == "true":
-        # Sending a document to the AI provider is the owner's choice alone.
-        owner_only(request, context)
     media_type, content = await read_document_upload(request)
     try:
         receipt = await context.service.upload(
@@ -523,7 +527,7 @@ async def upload_receipt(
             content=content,
             filename=document_filename(filename),
             media_type=media_type,
-            consent=consent == "true",
+            consent=False,
             on_capture=upload_recorder(context, request),
         )
         if receipt.status == "queued":
@@ -636,7 +640,7 @@ def receipt_activity_counts(
 ) -> dict:
     from argus.api.business_receipt_activity import counts
 
-    return counts(receipt_summaries(context, "all"))
+    return counts(context, receipt_summaries(context, "all"))
 
 
 @router.post("/receipts/{receipt_id}/read", response_model=ReceiptActivity)
@@ -669,7 +673,7 @@ def list_receipts(
         from argus.api.business_receipt_activity import counts
 
         items = receipt_summaries(context, view)
-        return {"items": items, "activity": counts(items)}
+        return {"items": items, "activity": counts(context, items)}
     except Exception as error:
         raise _problem(request, error) from None
 
