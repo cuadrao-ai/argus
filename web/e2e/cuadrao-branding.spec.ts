@@ -13,8 +13,8 @@ async function capture(page: Page, name: string) {
 }
 
 const COPY = {
-  "es-419": { requestAccess: "Solicitar acceso", signIn: "Iniciar sesión", newTo: "¿Nuevo en Cuadrao?", signUp: "Registrarse", inbox: "Bandeja" },
-  en: { requestAccess: "Request access", signIn: "Sign in", newTo: "New to Cuadrao?", signUp: "Sign up", inbox: "Inbox" },
+  "es-419": { requestAccess: "Solicitar acceso", signIn: "Iniciar sesión", newTo: "¿Nuevo en Cuadrao?", signUp: "Registrarse", inbox: "Bandeja", collapse: "Contraer", expand: "Expandir" },
+  en: { requestAccess: "Request access", signIn: "Sign in", newTo: "New to Cuadrao?", signUp: "Sign up", inbox: "Inbox", collapse: "Collapse", expand: "Expand" },
 } as const;
 
 const LANGUAGES: Language[] = ["es-419", "en"];
@@ -49,12 +49,12 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
         await expect(page.getByTestId("sidebar-drawer-logo")).toBeHidden();
       } else {
         await expect(page.getByText("cuadrao", { exact: true })).toBeVisible();
-        await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+        await page.getByRole("button", { name: COPY["es-419"].collapse, exact: true }).click();
         const mark = page.locator('img[src="/brand/cuadrao-mark-light.svg"]');
         await expect(mark).toBeVisible();
         await expect.poll(() => mark.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
         await capture(page, `brand-sidebar-spanish-${viewport.width}`);
-        await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+        await page.getByRole("button", { name: COPY["es-419"].expand, exact: true }).click();
         await expect(page.getByText("cuadrao", { exact: true })).toBeVisible();
       }
       await expect(page).toHaveTitle(/Cuadrao$/);
@@ -121,7 +121,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           await capture(page, `brand-biz-${theme}-${short(language)}-${viewport.width}`);
           if (viewport.width === 1280) {
             // The rail shows the mark only while collapsed.
-            await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+            await page.getByRole("button", { name: copy.collapse, exact: true }).click();
           }
           const mark = page.locator(`img[src="/brand/cuadrao-mark-${theme}.svg"]:visible`).first();
           await expect(mark).toBeVisible();

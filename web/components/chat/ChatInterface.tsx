@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
 import { useProfileUpdates } from "@/components/chat/useProfileUpdates";
@@ -246,6 +246,14 @@ import { useChatShellBridge, WorkspaceMain, workspaceComposerProps } from "./Wor
 type View = ChatShellView;
 
 const JUMP_TO_LATEST_THRESHOLD_PX = 240;
+export function ChatHeaderHeading({ children }: { children: ReactNode }) {
+  if (!children) return null;
+  return (
+    <h1 className="font-display pointer-events-auto min-w-0 flex-1 truncate text-left text-[17px] font-semibold tracking-tight text-black/80 dark:text-white/80 tablet:text-[18px]">
+      {children}
+    </h1>
+  );
+}
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ChatInterface() {
   const { t, i18n } = useTranslation();
@@ -2338,7 +2346,7 @@ export default function ChatInterface() {
               </div>
             )}
             {/* Title (left-aligned; truncates before the action cluster) */}
-            <h1 className="font-display pointer-events-auto min-w-0 flex-1 truncate text-left text-[17px] font-semibold tracking-tight text-black/80 dark:text-white/80 tablet:text-[18px]">
+            <ChatHeaderHeading>
               {currentView === "chat" &&
                 (conversationId !== null || messages.length > 0) &&
                 !showEmptyChatSurface && (
@@ -2348,10 +2356,10 @@ export default function ChatInterface() {
                     titleSource={headerConversationTitleSource}
                   />
                 )}
-            </h1>
+            </ChatHeaderHeading>
 
             {/* Action cluster (guest settings or durable owner menu) */}
-            <div className={`flex shrink-0 justify-end pointer-events-auto${workspace ? " items-center gap-2" : ""}`}>
+            <div className={`ml-auto flex shrink-0 justify-end pointer-events-auto${workspace ? " items-center gap-2" : ""}`}>
               {workspace?.headerActions(shellBridge)}
               {currentView === "chat" && isGuest ? (
                 <GuestHeader
