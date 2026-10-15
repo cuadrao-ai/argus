@@ -2687,6 +2687,19 @@
         "ios/**",
         "web/**"
       ]
+    },
+    "claude/business-shared-shell-polish": {
+      "description": "Business shared-shell polish from locked sprint map line 102: no empty h1 in the chat header, the sidebar toggle label read through the approved common.collapse and common.expand keys, and the Ajustes Controles de datos danger rows in their own separated group with their existing confirm steps. No new copy, locale key or model-facing text.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/components/chat/ChatInterface.tsx",
+        "web/components/sidebar/SidebarHeader.tsx",
+        "web/components/sidebar/ProfileMenu.tsx",
+        "web/__tests__/shared-shell-polish.dom.test.tsx",
+        "docs/reports/evidence/cuadrao-business/shared-shell-20261015/**"
+      ],
+      "deny": []
     }
   }
 }

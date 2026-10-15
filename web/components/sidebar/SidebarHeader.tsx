@@ -56,7 +56,7 @@ export default function SidebarHeader({
         <button
           onClick={onToggle}
           className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5 active:scale-95"
-          aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+          aria-label={isOpen ? t("common.collapse", "Collapse") : t("common.expand", "Expand")}
         >
           {isOpen ? (
             <PanelLeft className="h-5 w-5 text-black/60 dark:text-white/60" />

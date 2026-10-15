@@ -1125,6 +1125,7 @@ export default function ProfileMenu({
               </span>
               <span className="ml-auto flex shrink-0">{quickJumpBadge("usage")}</span>
             </button>
+            <div role="separator" className="my-1 border-t border-black/5 dark:border-white/5" />
             <button
               onClick={handleDeleteAllConversations}
               className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-[#d66d75] transition-colors hover:bg-[#d66d75]/10 dark:hover:bg-[#d66d75]/10"
