@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import TypeAdapter
 
 from argus.domain.business.actions.facts import facts_of
+from argus.domain.business.actions.marks import draft_marks
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
@@ -211,4 +212,5 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         unrecorded_purchases=resolution.unrecorded_purchases(),
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
+        **draft_marks(tx, draft_id, facts),
     )

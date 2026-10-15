@@ -228,6 +228,7 @@ def test_a_prepare_grantee_marks_personal_the_ledger_names_them_and_the_owner_un
         marks = linked_records(tx, [str(approved.activity_id)])
     assert marks[str(approved.activity_id)]["personal"] is True
     assert marks[str(approved.activity_id)]["personal_marked_by"] == marker.display_name
+    assert service.dossier(owner, draft).personal_marked_by == marker.display_name
     # The owner takes the accountant's mark back in one action, the same unmark.
     recorded = service.dossier(owner, draft).version
     back = service.mark_personal(
@@ -353,3 +354,60 @@ def test_the_606_answer_is_the_accountants_only_on_a_personal_receipt_with_a_fis
         == "applied"
     )
     assert fiscal_inclusion(service.dossier(owner, draft).facts) is None
+
+
+def test_the_list_row_and_the_record_read_the_same_marks(actions, users):  # noqa: ANN001
+    """One owner supplies the marks: the expense row and the record agree after
+    a grantee's mark, after the owner's unmark and after the owner's own mark."""
+
+    service, accountant, _ = actions
+    owner = _owner(service, accountant, users)
+    draft = ready(service, accountant)
+    version = service.dossier(owner, draft).version
+    assert (
+        service.mark_personal(
+            accountant, draft, MarkPersonal(version=version, personal=True), "acct"
+        ).outcome
+        == "applied"
+    )
+    approved = service.approve(
+        owner,
+        draft,
+        ApproveExpense(version=version + 1, action="record_expense"),
+        "approve",
+    )
+    assert approved.outcome == "applied", approved
+    activity = str(approved.activity_id)
+
+    def both():  # noqa: ANN202
+        record = service.dossier(owner, draft)
+        with transaction(service.authority, owner) as tx:
+            row = linked_records(tx, [activity])[activity]
+        keys = ("personal", "personal_marked_by", "fiscal_value", "include_606")
+        assert {key: row[key] for key in keys} == {
+            key: getattr(record, key) for key in keys
+        }
+        return record
+
+    grantee = both()
+    assert grantee.personal is True
+    assert grantee.personal_marked_by == next(
+        revision.actor.display_name
+        for revision in reversed(grantee.history)
+        if revision.actor.actor_id == accountant.actor.actor_id
+    )
+    unmarked = service.mark_personal(
+        owner,
+        draft,
+        MarkPersonal(version=grantee.version, personal=False),
+        "unmark",
+    )
+    assert unmarked.outcome == "applied", unmarked
+    after = both()
+    assert (after.personal, after.personal_marked_by) == (False, None)
+    remarked = service.mark_personal(
+        owner, draft, MarkPersonal(version=after.version, personal=True), "mark"
+    )
+    assert remarked.outcome == "applied", remarked
+    own = both()
+    assert (own.personal, own.personal_marked_by) == (True, None)

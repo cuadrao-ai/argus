@@ -9347,11 +9347,13 @@ person starts their space, every route below except POST `/space` answers 404
     owner acting as owner is 403 `business_permission_denied`; otherwise 409
     `business_606_not_applicable`); the answer is the fact
     `fiscal.include_606`, a revision and a `decide_606` ledger row. Receipt
-    summaries and details, expenses and their detail carry `personal`,
+    summaries and details, expenses and their detail, and the draft dossier
+    carry `personal`,
     `fiscal_value` (`ncf`, `ecf` or null) and `include_606` (true, false or
     null when not applicable or unanswered), present only when set, and
     `personal_marked_by`, the display name of whoever last changed the mark
-    when that was not the owner (absent otherwise); receipt summaries add
+    when that was not the owner (absent otherwise), all read by one server
+    function so a list row and its record always agree; receipt summaries add
     `personal_editable` for anyone with prepare on a receipt that has a
     draft. The overview's `totals` are "Gastos reales" (approved
     expenses that are not personal), `fiscal_totals` are those with fiscal

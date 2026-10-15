@@ -13078,6 +13078,24 @@ components:
           anyOf:
           - $ref: '#/components/schemas/DgiiQr'
           - type: 'null'
+        personal:
+          type: boolean
+          default: false
+        personal_marked_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+        fiscal_value:
+          anyOf:
+          - type: string
+            enum:
+            - ncf
+            - ecf
+          - type: 'null'
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
