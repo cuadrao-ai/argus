@@ -25,13 +25,18 @@ from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
+from argus.domain.ingestion.email_intake.budget import (
+    EmailBudgetWait,
+    FetchBudget,
+    FetchReservation,
+)
 from argus.domain.ingestion.email_intake.envelope import parse_envelope
 from argus.domain.ingestion.email_intake.models import (
     EmailDelivery,
     EmailDeliveryPart,
     RecipientRoute,
 )
-from argus.domain.ingestion.email_intake.provider import EmailProviderError
+from argus.domain.ingestion.email_intake.provider import EmailProviderError, ReceivedEmail
 from argus.domain.ingestion.email_intake.store import EmailStore, LeaseLost
 from argus.domain.owner_scope import BusinessSpace
 
@@ -39,7 +44,22 @@ ORIGINAL_FILENAME = "forwarded.eml"
 
 
 class ReceivingProvider(Protocol):
-    async def raw_message(self, email_id: str): ...  # noqa: ANN201
+    async def raw_message(
+        self, email_id: str, *, budget: FetchBudget | None = None
+    ) -> ReceivedEmail: ...
+
+
+class DeliveryFetchBudget:
+    def __init__(self, store: EmailStore, delivery: EmailDelivery) -> None:
+        self.store, self.delivery = store, delivery
+
+    async def reserve(self) -> FetchReservation:
+        return await asyncio.to_thread(self.store.reserve_fetch, self.delivery)
+
+    async def settle(self, reservation: FetchReservation, actual_bytes: int) -> None:
+        await asyncio.to_thread(
+            self.store.settle_fetch, self.delivery, reservation, actual_bytes
+        )
 
 
 RouteAuthority = Callable[[RecipientRoute], None]
@@ -69,6 +89,7 @@ class EmailCapture:
         provider: ReceivingProvider | None,
         enabled: Callable[[], bool],
         receiving_enabled: Callable[[], bool] | None = None,
+        read_receipt=None,
     ) -> None:
         self.store, self.documents, self.provider, self.enabled = (
             store,
@@ -77,6 +98,7 @@ class EmailCapture:
             enabled,
         )
         self.route_authority = route_authority
+        self.read_receipt = read_receipt
         self.receiving_enabled = receiving_enabled or (lambda: self.provider is not None)
 
     def check_route(self, route: RecipientRoute) -> None:
@@ -107,17 +129,21 @@ class EmailCapture:
 
         routes = self.store.routes(recipients)
         if len(routes) != 1:
-            delivery = self.store.enqueue("resend", external_id, recipients)
-            return self.store.reject_unclaimed(
-                delivery.id,
-                "email_route_ambiguous" if routes else "email_route_unavailable",
+            return self.store.enqueue(
+                "resend",
+                external_id,
+                recipients,
+                reject_code="email_route_ambiguous"
+                if routes
+                else "email_route_unavailable",
             )
         route = routes[0]
         try:
             self.check_route(route)
         except ActionError:
-            delivery = self.store.enqueue("resend", external_id, recipients)
-            return self.store.reject_unclaimed(delivery.id, "email_route_revoked")
+            return self.store.enqueue(
+                "resend", external_id, recipients, reject_code="email_route_revoked"
+            )
         # The binding is checked again by the worker before any fetch.
         return self.store.enqueue(
             "resend",
@@ -175,7 +201,9 @@ class EmailCapture:
             else:
                 if self.provider is None:
                     raise EmailProviderError("email_provider_unavailable", retryable=True)
-                received = await self.provider.raw_message(delivery.external_id)
+                received = await self.provider.raw_message(
+                    delivery.external_id, budget=DeliveryFetchBudget(self.store, delivery)
+                )
                 expected = {address.lower() for address in delivery.recipients}
                 actual = {address.lower() for address in received.recipients}
                 if actual != expected:
@@ -183,7 +211,12 @@ class EmailCapture:
                 raw = received.raw
             # The fetch took time; the grant is read once more before any write.
             await asyncio.to_thread(self.check_route, route)
-            await self._capture(delivery, raw)
+            await self._capture(delivery, raw, route)
+        except EmailBudgetWait as error:
+            try:
+                await asyncio.to_thread(self.store.defer_budget, delivery, error.code)
+            except LeaseLost:
+                return
         except LeaseLost:
             return
         except ActionError as error:
@@ -207,7 +240,9 @@ class EmailCapture:
     ) -> None:
         await asyncio.to_thread(self.store.finish, delivery, state, error_code)
 
-    async def _capture(self, delivery: EmailDelivery, raw: bytes) -> None:
+    async def _capture(
+        self, delivery: EmailDelivery, raw: bytes, route: RecipientRoute
+    ) -> None:
         run = asyncio.to_thread
         await run(self.store.renew, delivery)
         scope = BusinessSpace(delivery.space_id)
@@ -232,6 +267,7 @@ class EmailCapture:
                     filename=ORIGINAL_FILENAME,
                     media_type="message/rfc822",
                     consent=False,
+                    context_only=bool(envelope.parts),
                 )
                 await run(
                     self.store.update,
@@ -290,3 +326,23 @@ class EmailCapture:
             if rejected
             else None,
         )
+        if self.read_receipt is not None:
+            captured = await run(self.store.parts, delivery.id)
+            connection_ids = {
+                part.document_id
+                for part in captured
+                if part.state == "captured" and part.document_id
+            }
+            if not envelope.parts and delivery.original_document_id:
+                connection_ids.add(delivery.original_document_id)
+            for connection_id in connection_ids:
+                try:
+                    await run(self.check_route, route)
+                    await self.read_receipt(route, connection_id)
+                except Exception as error:
+                    logger.warning(
+                        "email_receipt_dispatch_failed",
+                        delivery_id=delivery.id,
+                        connection_id=connection_id,
+                        failure_mode=type(error).__name__,
+                    )

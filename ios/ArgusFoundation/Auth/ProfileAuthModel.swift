@@ -6,6 +6,11 @@ final class ProfileAuthModel: ObservableObject {
     enum State { case accountDeletionUncertain, accountDeletionPending, disabled, configurationInvalid, signedOut, authenticated, pendingSignOut, unsupportedAnonymous, credentialValidationRequired, reauthenticationRequired }
     @Published private(set) var state: State = .disabled
     @Published private(set) var busy = false
+    @Published private var progress = RestoreProgress()
+    /// True once the session is known, so a host can wait for it before choosing what to show.
+    var hasRestored: Bool { progress.known }
+    /// After a restore ends signed out while the keychain still holds a session: offline or the server did not answer.
+    @Published private(set) var storedSessionUnconfirmed = false
     @Published private(set) var profile: SessionProfile?
     @Published private(set) var confirmationRequired = false
     @Published private(set) var errorKey: String?
@@ -18,6 +23,7 @@ final class ProfileAuthModel: ObservableObject {
     @Published private(set) var invitations: InvitationsModel?
     @Published private(set) var financialSearch: FinancialSearchModel?
     @Published private(set) var savedReceipts: SavedReceiptsModel?
+    @Published private(set) var receiptJourney: ReceiptJourneyModel?
     @Published private(set) var deletion: AccountDeletionModel?
     let configuration: NativeAuthConfiguration?
     /// Native Apple and Google buttons; `.off` unless email auth is configured too.
@@ -46,6 +52,12 @@ final class ProfileAuthModel: ObservableObject {
                   providers: loadedController == nil ? .off : NativeProviderConfiguration.load(), initialState: initialState)
     }
 
+    /// The real server for moving the on-device book into this account, bound to the session that is open now.
+    func guestClaimServer() async -> (any GuestClaimServer)? {
+        guard let controller else { return nil }
+        return SessionGuestClaimServer(controller: controller, identity: await controller.snapshot())
+    }
+
     init(configuration loadedConfiguration: NativeAuthConfiguration?, controller loadedController: SessionController?,
          providers: NativeProviderConfiguration = .off, initialState: State = .signedOut) {
         configuration = loadedConfiguration
@@ -61,14 +73,23 @@ final class ProfileAuthModel: ObservableObject {
             accounts = AccountsModel(controller: loadedController)
             #if DEBUG
             if CuadraoFirstRelease.savedReceiptsSample {
-                savedReceipts = SavedReceiptsModel(transport: SampleSavedReceiptsTransport(), currentSession: { await loadedController.snapshot() })
+                let files = SampleSavedReceiptsTransport()
+                savedReceipts = SavedReceiptsModel(transport: files, currentSession: { await loadedController.snapshot() })
+                receiptJourney = ReceiptJourneyModel(transport: SampleReceiptJourneyTransport(files: files), currentSession: { await loadedController.snapshot() },
+                                                     pause: { _ in try? await Task.sleep(for: .milliseconds(300)) })
             } else {
                 savedReceipts = SavedReceiptsModel(controller: loadedController)
+                receiptJourney = ReceiptJourneyModel(controller: loadedController)
             }
             #else
             savedReceipts = SavedReceiptsModel(controller: loadedController)
+            receiptJourney = ReceiptJourneyModel(controller: loadedController)
             #endif
             savedReceipts?.sessionChanged = { [weak self] snapshot in self?.accept(snapshot) }
+            savedReceipts?.reading = { id, identity in
+                try? await loadedController.financialDocument(id, expectedIdentity: identity).preparation?.receipt
+            }
+            receiptJourney?.sessionChanged = { [weak self] snapshot in self?.accept(snapshot) }
             accounts?.financialChanged = { [weak self] in self?.financialSearch?.invalidate() }
             accounts?.sessionChanged = { [weak self] snapshot in self?.accept(snapshot) }
             if let accounts, let loadedConfiguration {
@@ -100,7 +121,12 @@ final class ProfileAuthModel: ObservableObject {
     }
 
     func restore() async {
-        guard let controller else { return }
+        guard let controller else { progress.noSession(); return }
+        #if DEBUG
+        // UI tests stand in for a slow hosted /me with `-cuadraoRestoreDelayMs`.
+        let delay = UserDefaults.standard.integer(forKey: "cuadraoRestoreDelayMs")
+        if delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
+        #endif
         do {
             accept(try await controller.requestCredentialRevalidation())
         } catch {
@@ -108,7 +134,7 @@ final class ProfileAuthModel: ObservableObject {
             errorKey = Self.messageKey(error)
         }
         revalidationRequested = true
-        guard !busy else { return }
+        guard progress.enter(busy: busy) else { return }
         busy = true
         defer { busy = false }
         repeat {
@@ -121,6 +147,8 @@ final class ProfileAuthModel: ObservableObject {
                 errorKey = Self.messageKey(error)
             }
         } while revalidationRequested
+        storedSessionUnconfirmed = state == .signedOut ? await controller.hasStoredSession() : false
+        progress.finishLoop()
     }
 
     private func finishOperation() {
@@ -222,6 +250,7 @@ final class ProfileAuthModel: ObservableObject {
         household?.bind(nil)
         financialSearch?.bind(nil)
         savedReceipts?.bind(nil)
+        receiptJourney?.bind(nil)
         accounts?.bind(nil)
         financialLoop?.bind(nil)
         await perform { try await controller.signOut() }
@@ -258,6 +287,7 @@ final class ProfileAuthModel: ObservableObject {
         invitations?.bind(snapshot)
         financialSearch?.bind(snapshot)
         savedReceipts?.bind(snapshot)
+        receiptJourney?.bind(snapshot)
         accounts?.bind(snapshot)
         financialLoop?.bind(snapshot)
         profile = snapshot.profile

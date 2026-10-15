@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+import pytest
+
 from financial_accounts.conftest import ALICE, BOB, GUEST
 
 
@@ -100,6 +102,7 @@ def test_http_financial_loop_home_persistence_isolation_and_replay(client):
     )
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_opening_route_cannot_bypass_review_after_expense(client):
     headers = {"Authorization": f"Bearer {ALICE}"}
     account = client.post(
@@ -128,6 +131,7 @@ def test_opening_route_cannot_bypass_review_after_expense(client):
     assert client.get(path, headers=headers).json()["balance"]["state"] == "unknown"
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_native_uppercase_ids_return_committed_opening_and_activity(client):
     headers = {"Authorization": f"Bearer {ALICE}"}
     account = client.post(

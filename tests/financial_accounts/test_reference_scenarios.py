@@ -139,6 +139,7 @@ def test_clavito_large_opening(scene: ProductionScene) -> None:
     # "totals" needs activity reads; outside this slice.
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_blank_opening_unknown(scene: ProductionScene) -> None:
     wallet = scene.account(None, "cash", "DOP")
     assert wallet["nickname"] is None
@@ -146,6 +147,7 @@ def test_blank_opening_unknown(scene: ProductionScene) -> None:
     # "balance_after", "totals" and "position" need an expense; outside this slice.
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_first_slice_create_reopen_edit(scene: ProductionScene) -> None:
     created = scene.account("Cuenta nomina", "checking", "DOP", "12500.00")
     unnamed = scene.account(None, "cash", "USD")
@@ -236,6 +238,7 @@ def test_duplicate_submission_create_part(scene: ProductionScene) -> None:
     # The confirm rows need activity drafts; outside this slice.
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_account_edit_rules_account_rows(scene: ProductionScene) -> None:
     empty = scene.account("  Clavito  ", "savings", "DOP")
     opened = scene.account("Solo apertura", "checking", "DOP", "100.00")

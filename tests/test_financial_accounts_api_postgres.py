@@ -153,14 +153,28 @@ def test_real_sessions_create_reopen_edit_and_stay_isolated(
                 "idempotency_conflict",
             )
 
-            unknown = client.post(
+            blank_cash = client.post(
                 "/api/v1/financial-accounts",
                 json={"type": "cash", "currency": "USD"},
+                headers={**alice, "Idempotency-Key": str(uuid4())},
+            )
+            assert blank_cash.status_code == 201
+            assert blank_cash.json()["balance"]["state"] == "known"
+            assert blank_cash.json()["balance"]["amount_minor"] == 0
+            assert blank_cash.json()["opening"]["amount_minor"] == 0
+            assert client.get(
+                f"/api/v1/financial-accounts/{blank_cash.json()['id']}", headers=alice
+            ).json() == blank_cash.json()
+
+            unknown = client.post(
+                "/api/v1/financial-accounts",
+                json={"type": "property", "currency": "USD"},
                 headers={**alice, "Idempotency-Key": str(uuid4())},
             )
             assert unknown.status_code == 201
             assert unknown.json()["balance"]["state"] == "unknown"
             assert unknown.json()["balance"]["amount_minor"] is None
+            assert unknown.json()["opening"] is None
 
             # Bob holds a real registered session and still sees nothing of Alice's.
             assert client.get("/api/v1/financial-accounts", headers=bob).json() == {
@@ -233,7 +247,7 @@ def test_real_sessions_create_reopen_edit_and_stay_isolated(
                 "accounts"
             ]
             assert sorted(item["id"] for item in listed) == sorted(
-                [account["id"], unknown.json()["id"]]
+                [account["id"], blank_cash.json()["id"], unknown.json()["id"]]
             )
 
         with psycopg.connect(LOCAL_DATABASE_URL) as connection:
@@ -242,16 +256,17 @@ def test_real_sessions_create_reopen_edit_and_stay_isolated(
                 "select count(*) from public.financial_accounts where user_id = %s",
                 (alice_id,),
             ).fetchone()
-            assert rows == (2,)
+            assert rows == (3,)
             revisions = connection.execute(
-                "select revision, amount_minor, reason, recorded_by::text"
-                " from public.financial_record_revisions where user_id = %s order by revision",
+                "select record_id::text, revision, amount_minor, reason, recorded_by::text"
+                " from public.financial_record_revisions where user_id = %s order by record_id, revision",
                 (alice_id,),
             ).fetchall()
-            assert revisions == [
-                (1, 1_250_000, None, alice_id),
-                (2, 1_200_000, "typo", alice_id),
-            ]
+            assert revisions == sorted([
+                (account["opening"]["record_id"], 1, 1_250_000, None, alice_id),
+                (account["opening"]["record_id"], 2, 1_200_000, "typo", alice_id),
+                (blank_cash.json()["opening"]["record_id"], 1, 0, None, alice_id),
+            ])
             guest_rows = connection.execute(
                 "select count(*) from public.financial_accounts where user_id = %s",
                 (created_users[0],),

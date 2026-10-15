@@ -46,15 +46,21 @@ export function useReceiptReadPoll({
     if (!pending) return;
     let current = true;
     let polls = 0;
+    let request: AbortController | null = null;
     let cancel = () => {};
+    const visible = () => document.visibilityState !== "hidden";
     const ask = async () => {
+      cancel();
+      if (request || !current || !visible()) return;
+      const controller = new AbortController();
+      request = controller;
       let next: ReceiptDetail | null = null;
       try {
-        next = await source.receipt(receiptId);
+        next = await source.receipt(receiptId, controller.signal);
       } catch {
         next = null;
-      }
-      if (!current) return;
+      } finally { if (request === controller) request = null; }
+      if (!current || controller.signal.aborted || !visible()) return;
       if (next && next.read_pending !== true) {
         latest.current.onSettled(next);
         return;
@@ -62,10 +68,20 @@ export function useReceiptReadPoll({
       if (++polls < READ_POLL_LIMIT) cancel = clock(() => void ask(), READ_POLL_MS);
       else latest.current.onStalled();
     };
-    cancel = clock(() => void ask(), READ_POLL_MS);
+    const schedule = () => {
+      cancel();
+      if (visible()) cancel = clock(() => void ask(), READ_POLL_MS);
+    };
+    const wake = () => { if (visible()) void ask(); else { cancel(); request?.abort(); } };
+    window.addEventListener("focus", wake);
+    document.addEventListener("visibilitychange", wake);
+    schedule();
     return () => {
       current = false;
       cancel();
+      request?.abort();
+      window.removeEventListener("focus", wake);
+      document.removeEventListener("visibilitychange", wake);
     };
   }, [source, receiptId, pending, clock]);
 }

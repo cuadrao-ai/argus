@@ -89,6 +89,18 @@ Timezone: UTC server-side
 
 ---
 
+## Browser session renewal
+
+Supabase owns session validity. Browser sign-in writes an HttpOnly access cookie
+for the access token lifetime and an HttpOnly refresh cookie for 30 days.
+A cookie-authenticated request with no access cookie or an expired access token
+renews through Supabase using its refresh cookie. Both cookies are replaced;
+the refresh cookie receives a new 30-day lifetime. The renewed access token
+still passes the existing live-session, guest-workspace and account-access
+checks. Invalid, revoked or mismatched refresh credentials fail closed.
+Bearer requests keep their existing behavior and never use browser refresh
+cookies. The API retains no per-user Supabase session between requests.
+
 # 3. General Conventions
 
 ## Pagination
@@ -2509,6 +2521,37 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   fallback. The existing web IP validation remains unchanged; this does not
   adopt the API visitor key normalization policy. Rate-limit responses remain
   enumeration-safe.
+
+**Staging Auth email delivery (#1117):**
+- `POST /api/auth/send-email` is a server-only Supabase Send Email Hook, disabled
+  by default. It accepts a bounded (65,536 bytes) signed raw JSON body only for
+  staging project `skedzwocnmrhfigiwyzi`, the exact signed staging web origin
+  and built-in Render service ID `srv-db5ihr7lot8c73f3b3h0`. Internal Next
+  request URLs and forwarded headers are not deployment identity checks.
+  Standard Webhooks signature and timestamp validation happen before parsing.
+  Invalid signatures return generic `401`; invalid payloads or unsupported
+  actions return `400`; oversized bodies return `413`; disabled returns `404`;
+  configuration or delivery failure returns generic `503`. Success returns
+  `{}` only after every recipient's provider request is accepted.
+- Supabase still creates and verifies tokens. Verification links preserve PKCE
+  prefixes, action types and empty redirect defaults. Nonempty redirects stay
+  inside the staging web origin; nonempty recovery redirects use `/auth/recovery`.
+  The existing recovery request, CAPTCHA, limits, generic `202`, PKCE exchange
+  and session revocation contracts above do not change.
+- Explicit renderers preserve captured subjects and bodies for confirmation,
+  invitation, magic link, secure email change and reauthentication. Secure email
+  change sends both addresses with the provider's hash mapping. Unknown actions,
+  including currently disabled notifications, are refused rather than dropped.
+- Recovery uses the approved Spanish React Email template and preview. Its
+  HTML and plain text come from one tree. Sender is
+  `Cuadrao <hola@mail.cuadrao.ai>` and Reply-To is `hola@cuadrao.ai`.
+  Each recipient has a stable provider idempotency key; transport has one
+  four-second total budget and no automatic retry or payload logging.
+- Activation requires explicit staging approval, secrets, verified sender
+  identity, current Supabase expiry `3600`, matching compatibility templates
+  and all seven notification flags still disabled. The expiry setting and
+  fixed approved copy must change together. See
+  [activation and rollback](reports/2026-10-14-staging-reset-email.md).
 
 **Password and session controls:**
 - Normal password changes require the current password. Recovery-mode password
@@ -6828,7 +6871,10 @@ the user; another user's identical key is a different reservation.
 }
 ```
 
-- `amount` is optional; omitting it leaves the balance unknown. More fraction
+- `amount` is optional. Omitting it on a Personal money account records an
+  opening of 0 at `as_of`, so the balance reads 0.00. Property, vehicle and
+  other assets, and Business accounts, keep an omitted value unknown. Accounts
+  saved without an opening before this rule keep their unknown balance. More fraction
   digits than the currency allows is `422 amount_precision`; anything but
   digits with one optional dot and leading minus is `422 amount_invalid`; a
   value whose minor units exceed what storage holds (signed 64-bit) is
@@ -6954,9 +7000,22 @@ The stored IANA zone is retained independently of the server zone.
 
 `coverage` is a list of `{observation_id, included}` answers. An opening and a
 balance check are both observations. For an activity on or before an observation's
-local calendar day, the preview asks whether it was already included. Same-day
-activity always asks; the API does not infer inclusion from a time supplied by a
-date-only control. An included expense remains included in every later eligible
+local calendar day, the preview asks whether it was already included. On the
+observation's own day, an activity dated the day it was recorded carries its real
+entry time: when that time is after the observation, no question is asked. A
+backdated activity on that day has no real time and always asks. Answers stored under
+the earlier same-day rule stand. Each affected account lists
+`skipped_observations: [{observation_id, reason}]` where `reason` is
+`after_observation_day`, `entered_after_observation` or `blank_opening` (an opening
+recorded as 0 because the balance was left blank never covers activity, so all
+activity counts on top of it), so a skipped question is
+never silent; the same reasons are stored on the activity revision. The server
+decides the entry day from its own clock at preview and again at confirm, and returns
+it as `entered_on` in `reviewed_request`; a client value is ignored. A preview made
+before midnight and confirmed after it is refused, because the reviewed request no
+longer matches the previewed token, so a midnight crossing never flips "same day"
+silently. Balance checks and opening corrections keep the by-day
+rule: they include or ask about every activity on or before their day. An included expense remains included in every later eligible
 observation. Contradictory answers are rejected. Expenses after an observation day
 cannot be included in it. Amount equality never establishes inclusion.
 
@@ -7274,7 +7333,7 @@ Expected_versions maps UUID to account version. Coverage is
 
 Preview is `{ready,expected_versions,affected_accounts,reviewed_request,preview_token}`.
 Each affected account is `{account_id,currency,currency_fraction_digits,before,after,
-observations,unexplained_before,unexplained_after}`. Before/after use BalanceResponse;
+observations,skipped_observations,unexplained_before,unexplained_after}`. Before/after use BalanceResponse;
 after/unexplained_after are null until ready. Unexplained maps check UUID to nullable
 signed minor units. Observations use existing ObservationQuestion. Include all old/new
 leg accounts and old/new linked purchase accounts, even unchanged dependencies.
@@ -8541,6 +8600,14 @@ no preparation job starts and no model can be called. Without financial
 accounts every route answers 404 `financial_connections_unavailable`. Plaid,
 Gmail, Shortcuts and `GET /api/v1/financial-connections` keep their own gates.
 
+Capture validation and source persistence run in a worker thread, with one
+active capture per app-owned document service. Request cancellation waits for
+an active capture to settle before releasing that slot. EML upload, preparation
+and received-message intake share the existing 20,000,000-pixel image cap across
+all image attachments in one email. Dimensions are checked before full decoding;
+an aggregate overflow is `document_email_limit`, before any source is saved.
+Existing per-image, byte, MIME depth/part and preparation page limits still apply.
+
 Capture responds with `{connection_id,status,replayed,candidate_count}`. Every
 upload answer, success or problem, is `Cache-Control: no-store`. The stored
 filename drops control and format characters (bidi overrides included) and is
@@ -8862,6 +8929,8 @@ nothing is sent outside the service window.
 
 #### Linked-number receipt reading permission
 
+This channel-specific permission remains historical compatibility state. The new Business receipt-reading opt-in above governs Business automatic reading across every channel. It does not inherit this permission. The web now links to the Business setting rather than presenting the old switch as effective reading authority.
+
 The one WhatsApp AI switch (`/api/v1/whatsapp/ai-consent`) is the owner's
 permission to read the receipts they send by WhatsApp: scope version 2, purpose
 `business_whatsapp_receipt_reading`, route `document_extraction`. `GET` takes an
@@ -8931,6 +9000,18 @@ issuer and lease. Revocation blocks subsequent dispatches; it cannot retract an
 HTTP request already sent. Model/composition/send unknown outcomes retain the
 existing no-blind-retry rule. Business checkpoint persistence remains disabled
 pending proof of its authorization and deletion lifecycle.
+
+### Business receipt automatic reading and attention
+
+A Business owner explicitly enables scope version 1 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
+
+`GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. `POST /business/receipt-reading` takes `{enabled,scope_version:1,disclosure_token,language}` and `Idempotency-Key` from the owner. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
+
+Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count` and `presentation:working|unread|none`. Saved unread and unread ready receipts count; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
+
+`POST /business/receipts/{receipt_id}/read` takes `{completion_cursor}` and returns current activity under the caller's live read grant. Only the current server cursor advances that person's boundary. A stale cursor leaves newer content unread. Seeing is separate for each person and Business. GET, opening a panel and seen mutations never change financial records or list ordering. Automatic web acknowledgement requires hydrated canonical ready content intersecting the visible, focused record viewport. Explicit mark read is also supported.
+
+The web discovers arrivals every 15 seconds while Inbox is visible and polls every 5 seconds while reading is known. Hidden and unmounted views stop polling. Requests are scoped to the selected Business. One row marker shows a reading ring or an unread dot. The sidebar badge and collapsed icon share the server projection.
 
 ### Business pilot (default-off)
 
@@ -9326,6 +9407,20 @@ accept path recorded.
     delivery row; the worker fetches the message later. An address with no
     active route, two routes or a revoked grant is recorded as rejected and
     never fetched.
+  - Daily receiving allowances are server-owned per immutable receipt address and UTC
+    day. `CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT` defaults to 100;
+    `CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT` defaults to 104857600 bytes.
+    Enqueue admits each new message once; exact webhook replays consume nothing.
+    A download retry consumes another message allowance. Metadata and raw content
+    share one message allowance per worker attempt, but each HTTP fetch reserves
+    the canonical 10 MiB source maximum before any request. Completed fetches settle
+    actual response-body bytes. Interrupted or failed fetches retain their full
+    reservation when the transferred count is uncertain. Headers are not counted.
+    A saved-source retry needs no provider allowance. An exhausted allowance keeps
+    the durable delivery `received`, with `email_daily_message_budget` or
+    `email_daily_byte_budget`, until the next UTC midnight. It does not reject or
+    drop mail, fetch it, spin, or consume the worker retry-attempt limit. Work
+    spanning midnight must obtain the new day's allowance before its next fetch.
   - GET `/api/v1/business/email` returns `{enabled, receiving_address}`:
     configuration readiness for the caller's Business, not provider health.
   - POST `/api/v1/business/email` (prepare capability) mints one address per
@@ -9346,6 +9441,15 @@ accept path recorded.
     null otherwise; `repeat_of_upload`: true when the document was saved another
     way, a web upload, before this email arrived). Each Business sees only its
     own deliveries; the same bytes in two Businesses never mark each other.
+    `waiting` is an additive nullable object. While a `received` delivery is
+    deferred by either daily allowance and its durable `available_at` is still
+    in the future, it is `{reason: "daily_budget", retry_at: <UTC timestamp>}`
+    and `retryable` is false. Otherwise it is null. Budget reasons are not
+    exposed as failed-save errors, including while due mail awaits a worker.
+    The API owns this decision. The web uses it for the waiting label and automatic resume explanation,
+    without short reading polls, a missing-body warning or an immediate retry.
+    `retry_at` comes from the queue, not the browser clock. Refresh after the
+    allowance resets returns normal received/processing state.
     POST `/{id}/retry` (prepare capability) re-queues a `partial` delivery.
   - Every captured part is an ordinary saved document with `consent=false`; AI
     preparation still waits for the owner's choice. The grant is checked again
@@ -9479,6 +9583,13 @@ accept path recorded.
   in America/Santo_Domingo), and `/overview` and `/expenses` accept an omitted
   `to`, which means that day; the web sends no `to` for this month, last 30
   days and all. A `from` after `to` answers 422 `period_reversed`.
+- Web receipt upload failures stay in the selected file's row. A failed
+  save keeps that file, its idempotency key and its AI choice for a manual
+  retry. Unsupported files offer another file instead of retrying. The format
+  line and rejection copy derive from `workspace.receipt_limits.media_types`,
+  with duplicate display labels removed. API error details never render here.
+  Upload domain failures log only HTTP status, domain code and exception type;
+  source bytes, filenames, identifiers and exception messages are excluded.
 - GET `/api/v1/business/receipts?view=inbox|all` returns `{items:
   ReceiptSummary[]}`, newest first. `inbox` leaves out `confirmed` and
   `dismissed`. `channel` is `whatsapp` for a document that WhatsApp intake

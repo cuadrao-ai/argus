@@ -31,6 +31,8 @@ class OpeningRevision:
     recorded_by: str | None
     recorded_at: datetime
     estimate_basis: str | None = None
+    # Recorded as 0 because the person left the balance blank; it never covers activity.
+    blank: bool = False
 
 
 @dataclass(frozen=True)
@@ -76,6 +78,7 @@ class OpeningWrite:
     time_zone: str
     reason: str | None
     estimate_basis: str | None = None
+    blank: bool = False
 
 
 def plan_opening_write(

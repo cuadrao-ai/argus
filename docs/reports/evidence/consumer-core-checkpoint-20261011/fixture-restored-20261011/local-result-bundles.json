@@ -1,0 +1,37 @@
+[
+  {
+    "check": "account-restored",
+    "local_result_bundle": "/Users/garces/.codex/worktrees/4a54/private-alpha-next/temp/consumer-core-continuation-20261011/account-restored-fixture.xcresult",
+    "exists": true
+  },
+  {
+    "check": "search-original",
+    "local_result_bundle": "/Users/garces/.codex/worktrees/4a54/private-alpha-next/temp/consumer-core-continuation-20261011/search-restored-fixture.xcresult",
+    "exists": true
+  },
+  {
+    "check": "budget-original",
+    "local_result_bundle": "/Users/garces/.codex/worktrees/4a54/private-alpha-next/temp/consumer-core-continuation-20261011/budget-continuation/result.xcresult",
+    "exists": true
+  },
+  {
+    "check": "budget-legacy-home",
+    "local_result_bundle": "/Users/garces/.codex/worktrees/4a54/private-alpha-next/temp/consumer-core-continuation-20261011/budget-retained-repair/result.xcresult",
+    "exists": true
+  },
+  {
+    "check": "budget-repaired",
+    "local_result_bundle": "/Users/garces/.codex/worktrees/4a54/private-alpha-next/temp/consumer-core-continuation-20261011/budget-retained-verified/result.xcresult",
+    "exists": true
+  },
+  {
+    "check": "search-repaired",
+    "local_result_bundle": "/Users/garces/.codex/worktrees/4a54/private-alpha-next/temp/consumer-core-continuation-20261011/search-repair/result.xcresult",
+    "exists": true
+  },
+  {
+    "check": "search-editor-dismissal-repair-auth-failure",
+    "local_result_bundle": "/Users/garces/.codex/worktrees/4a54/private-alpha-next/temp/consumer-core-continuation-20261011/search-dismissal-verified/result.xcresult",
+    "exists": true
+  }
+]

@@ -29,7 +29,10 @@ extension FinancialLoopUITests {
         capture("search-account-edit-removes-old-match")
 
         searchFor(note, kind: "activity")
-        tapVisible(searchRow(note))
+        let activityRow = searchRow(note)
+        XCTAssertTrue(activityRow.waitForExistence(timeout: 10))
+        let activityIdentifier = activityRow.identifier
+        tapVisible(activityRow)
         XCTAssertTrue(searchDetail.waitForExistence(timeout: 10))
         tapVisible(searchDetail.buttons["activity.correct"])
         replaceMoneyField("loop.amount", with: "27")
@@ -37,8 +40,8 @@ extension FinancialLoopUITests {
         dismissMoneyKeyboard(); confirmPlanMoney()
         assertText("DOP 27.00")
         searchBack()
-        XCTAssertTrue(searchRow(note).waitForExistence(timeout: 10))
-        XCTAssertTrue(searchRow(note).label.contains("27.00"))
+        let corrected = NSPredicate(format: "exists == true AND label CONTAINS '27.00'")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: corrected, object: app.buttons[activityIdentifier])], timeout: 10), .completed)
         XCTAssertEqual(app.textFields["search.query"].value as? String, note)
         capture("search-activity-correction-return")
 
@@ -47,7 +50,7 @@ extension FinancialLoopUITests {
         XCTAssertTrue(app.textFields["plan.expectation.name"].waitForExistence(timeout: 10))
         replaceMoneyField("plan.expectation.amount", with: "35")
         dismissMoneyKeyboard(); tapVisible(app.buttons["plan.expectation.save"])
-        XCTAssertTrue(app.buttons["plan.expectation.save"].waitForNonExistence(timeout: 15))
+        XCTAssertTrue(app.textFields["plan.expectation.name"].waitForNonExistence(timeout: 15))
         let updated = NSPredicate(format: "label CONTAINS '35.00'")
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: updated, object: searchRow(bill))], timeout: 10), .completed)
         XCTAssertEqual(app.textFields["search.query"].value as? String, bill)

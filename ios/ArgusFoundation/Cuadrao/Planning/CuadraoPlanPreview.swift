@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import CuadraoBook
 
 // Local UI scenarios only. Nothing in this file reads or writes a financial service.
 enum CanvasPlanKind: String, Codable, CaseIterable, Identifiable {
@@ -40,7 +41,8 @@ enum CanvasPlanLook: String, Codable, CaseIterable, Identifiable {
 }
 
 enum PlanCurrency {
-    static let supported = ["DOP", "USD", "EUR"]
+    /// The app's currencies, owned by the book's table so every picker and check shares one list.
+    static let supported = CurrencyTable.offered
 }
 
 struct CanvasPlan: Identifiable, Codable, Equatable {

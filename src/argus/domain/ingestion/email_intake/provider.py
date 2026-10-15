@@ -12,6 +12,7 @@ from uuid import UUID
 import httpx
 
 from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+from argus.domain.ingestion.email_intake.budget import FetchBudget
 
 RECEIVING_DEADLINE_SECONDS = 60
 
@@ -40,15 +41,19 @@ class ResendReceivingClient:
         self._api_key = api_key
         self._hosts = frozenset(allowed_download_hosts)
 
-    async def raw_message(self, email_id: str) -> ReceivedEmail:
+    async def raw_message(
+        self, email_id: str, *, budget: FetchBudget | None = None
+    ) -> ReceivedEmail:
         try:
             return await asyncio.wait_for(
-                self._raw_message(email_id), RECEIVING_DEADLINE_SECONDS
+                self._raw_message(email_id, budget), RECEIVING_DEADLINE_SECONDS
             )
         except asyncio.TimeoutError:
             raise EmailProviderError("provider_unavailable", retryable=True) from None
 
-    async def _raw_message(self, email_id: str) -> ReceivedEmail:
+    async def _raw_message(
+        self, email_id: str, budget: FetchBudget | None
+    ) -> ReceivedEmail:
         try:
             if str(UUID(email_id)) != email_id:
                 raise ValueError
@@ -57,6 +62,7 @@ class ResendReceivingClient:
         metadata_bytes = await self._get(
             f"https://api.resend.com/emails/receiving/{email_id}?html_format=cid",
             authenticated=True,
+            budget=budget,
         )
         try:
             metadata = json.loads(metadata_bytes)
@@ -76,7 +82,7 @@ class ResendReceivingClient:
         except (ValueError, KeyError, TypeError):
             raise EmailProviderError("invalid_provider_metadata") from None
         self._validate_download(url)
-        raw = await self._get(url, authenticated=False)
+        raw = await self._get(url, authenticated=False, budget=budget)
         if not raw:
             raise EmailProviderError("empty_email")
         return ReceivedEmail(raw=raw, recipients=tuple(recipients))
@@ -106,7 +112,10 @@ class ResendReceivingClient:
         except ValueError:
             raise EmailProviderError("unsafe_download_url") from None
 
-    async def _get(self, url: str, *, authenticated: bool) -> bytes:
+    async def _get(
+        self, url: str, *, authenticated: bool, budget: FetchBudget | None = None
+    ) -> bytes:
+        reservation = await budget.reserve() if budget is not None else None
         # Build Request directly so client defaults cannot leak credentials to signed URLs.
         headers = {"Accept-Encoding": "identity"}
         if authenticated:
@@ -144,6 +153,8 @@ class ResendReceivingClient:
                     if len(chunks) + len(chunk) > SOURCE_MAX_BYTES:
                         raise EmailProviderError("provider_response_too_large")
                     chunks.extend(chunk)
+                if budget is not None:
+                    await budget.settle(reservation, len(chunks))
                 return bytes(chunks)
             finally:
                 await response.aclose()

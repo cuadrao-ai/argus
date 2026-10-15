@@ -21,6 +21,8 @@ struct ConnectedCuadraoShell: View {
     @State private var addNotice: AddNotice?
     @State private var creatingPlan = false
     @State private var capturing: ReceiptSourceChoice?
+    /// Files the picker returned, kept until its cover has closed so the next sheet can open.
+    @State private var captured: [(data: Data, name: String, pdf: Bool)]?
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
 
@@ -88,13 +90,22 @@ struct ConnectedCuadraoShell: View {
             }
         }
         .savedReceiptOutcome(auth.savedReceipts, spanish: spanish)
-        .fullScreenCover(item: $capturing) { source in
+        .environment(\.receiptJourney, auth.receiptJourney)
+        .receiptJourney(auth.receiptJourney, spanish: spanish) {
+            Task {
+                await auth.savedReceipts?.load()
+                await auth.financialLoop?.refresh()
+                auth.financialSearch?.invalidate()
+            }
+        }
+        .fullScreenCover(item: $capturing, onDismiss: {
+            if let files = captured { captured = nil; keep(files) }
+        }) { source in
             ReceiptNativePicker(source: source, spanish: spanish) { result in
                 capturing = nil
                 switch result {
                 case .success(let files):
-                    let prepared = SavedReceiptFiles.prepared(files, source: source, spanish: spanish)
-                    Task { await auth.savedReceipts?.save(prepared) }
+                    captured = SavedReceiptFiles.prepared(files, source: source, spanish: spanish)
                 case .failure(let error) where (error as NSError).code != NSUserCancelledError || (error as NSError).domain != NSCocoaErrorDomain:
                     auth.savedReceipts?.fail(.unusableFile)
                 case .failure:
@@ -212,10 +223,23 @@ struct ConnectedCuadraoShell: View {
         }
     }
 
+    /// Captured files go through the receipt journey, which asks once before any of them is read.
+    private func keep(_ files: [(data: Data, name: String, pdf: Bool)]) {
+        if let journey = auth.receiptJourney {
+            journey.begin(files)
+        } else {
+            Task { await auth.savedReceipts?.save(files) }
+        }
+    }
+
     private func capture(_ source: ReceiptSourceChoice) {
         #if DEBUG
         if CuadraoFirstRelease.savedReceiptsSample {
-            Task { await auth.savedReceipts?.save(SampleSavedReceiptsTransport.files(for: source)) }
+            keep(SampleSavedReceiptsTransport.files(for: source))
+            return
+        }
+        if SyntheticReceipt.active {
+            keep([SyntheticReceipt.file()])
             return
         }
         #endif

@@ -55,10 +55,13 @@ class Provider:
         self.raw, self.recipients, self.calls = raw, recipients, 0
         self.failure: EmailProviderError | None = None
 
-    async def raw_message(self, email_id: str) -> ReceivedEmail:
+    async def raw_message(self, email_id: str, *, budget=None) -> ReceivedEmail:
+        reservation = await budget.reserve() if budget else None
         self.calls += 1
         if self.failure is not None:
             raise self.failure
+        if budget:
+            await budget.settle(reservation, len(self.raw))
         return ReceivedEmail(self.raw, self.recipients)
 
 
@@ -287,8 +290,10 @@ async def test_transient_storage_failure_keeps_the_delivery_retryable_and_resume
         ("later.png", "pending"),
     ]
     assert not await world.runtime.next()  # backoff holds it
+    charged = {key: tuple(value) for key, value in world.store._usage.items()}
     world.clock.advance(11)
     assert await world.runtime.next()
+    assert {key: tuple(value) for key, value in world.store._usage.items()} == charged
     assert world.store.get(delivery.id, world.route.space_id).state == "captured"
     assert uploads == ["forwarded.eml", "first.png", "later.png", "later.png"]
     assert (
@@ -394,3 +399,40 @@ def test_the_earliest_save_of_a_file_is_the_business_s_not_one_person_s():
         space_id=other_space, sha256=digest
     ) == first + timedelta(seconds=120)
     assert documents.store.earliest_saved(space_id=space, sha256="0" * 64) is None
+
+
+@pytest.mark.asyncio
+async def test_aggregate_pixel_overflow_rejects_before_any_document_capture(monkeypatch):
+    from argus.domain.ingestion.documents import preparation
+
+    monkeypatch.setattr(preparation, "MAX_PIXELS", 2 * 32 * 32 - 1)
+    world = rig(message(("one.png", "image/png", png()), ("two.png", "image/png", png())))
+    delivery = world.enqueue()
+    assert await world.runtime.next()
+    saved = world.store.get(delivery.id, world.route.space_id)
+    assert (saved.state, saved.error_code) == ("rejected", "document_email_limit")
+    assert not world.drafts()
+    assert not world.store.parts(delivery.id)
+
+
+@pytest.mark.asyncio
+async def test_ai_dispatch_happens_after_capture_settles_and_failure_keeps_original():
+    world = rig(message(("receipt.png", "image/png", png())))
+    delivery = world.enqueue()
+    seen = []
+
+    async def read(route, connection_id):
+        captured = world.store.get(delivery.id, route.space_id)
+        assert captured.state == "captured"
+        assert captured.lease_token is None
+        seen.append(connection_id)
+        raise DocumentServiceError("document_reading_not_allowed")
+
+    world.runtime.read_receipt = read
+    assert await world.runtime.next()
+    captured = world.store.get(delivery.id, world.route.space_id)
+    assert captured.state == "captured"
+    assert captured.original_document_id is not None
+    assert len(seen) == 1
+    assert seen[0] != captured.original_document_id
+    assert len(world.drafts()) == 2

@@ -3,7 +3,8 @@
 import { useCallback, useState } from "react";
 import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
+import type { BusinessCapture, ReceiptSummary, ReceiptActivityCounts } from "@/lib/business-api";
+import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
@@ -39,8 +40,8 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
  * its attachments are) plus the drafts with an open note. Both lists come
  * from the backend; the count is never computed from anything else.
  */
-export function inboxCount(records: { inbox: readonly ReceiptSummary[] | null; notes: readonly BusinessCapture[] | null }): number {
-  const receipts = records.inbox?.filter((receipt) => !receipt.email_original).length ?? 0;
+export function inboxCount(records: { inbox: readonly ReceiptSummary[] | null; notes: readonly BusinessCapture[] | null; receiptActivity?: ReceiptActivityCounts | null }): number {
+  const receipts = records.receiptActivity?.unread_count ?? 0;
   return receipts + (records.notes ? openNotesByDraft(records.notes).length : 0);
 }
 
@@ -100,7 +101,8 @@ export function ReceiptRow({ receipt, onOpen, onMark }: { receipt: ReceiptSummar
         onClick={onOpen}
         className="flex min-w-0 flex-1 items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]"
       >
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
+        <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
+          {receipt.activity?.state === "reading" ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[12px] border-2 border-teal-500/50 border-t-transparent motion-safe:animate-spin" /> : receipt.activity?.unread ? <span aria-hidden="true" data-testid="receipt-unread-dot" className="absolute right-0 top-0 h-2 w-2 rounded-full bg-teal-600" /> : null}
           <Icon className="h-5 w-5 text-black/55 dark:text-white/55" />
         </span>
         <span className="min-w-0 flex-1">
@@ -116,7 +118,9 @@ export function ReceiptRow({ receipt, onOpen, onMark }: { receipt: ReceiptSummar
             {receipt.attention
               ? attentionLabel(receipt.attention)
               : savedUnread(receipt)
-                ? savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
+                ? receipt.activity?.state === "saved_unread"
+                  ? t("business.activity.saved_row", "Saved unread. Waiting for receipt reading.")
+                  : savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
                 : formatRelativeTime(receipt.received_at, locale)}
           </span>
           <RecordMarks personal={receipt.personal} fiscalValue={receipt.fiscal_value} known={marksKnown(receipt.status)} className="mt-1" />
@@ -184,6 +188,7 @@ export default function BusinessInboxPanel() {
 
   return (
     <section>
+      <ReceiptReadingControl />
       <PanelHeading
         title={t("business.inbox.title", "Inbox")}
         subtitle={t("business.inbox.subtitle", "Receipts waiting for you to review. Nothing here is an expense until you confirm it.")}

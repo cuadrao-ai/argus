@@ -125,6 +125,8 @@ def test_an_unknown_outcome_is_retried_only_with_the_owners_consent(
     alice.get("/overview", **WINDOW)
     assert stub.calls == []
 
+    assert alice.reading(True).status_code == 200
+    assert stub.calls == []
     assert alice.post(f"/receipts/{receipt_id}/prepare", **CONSENT).status_code == 200
     assert _next(alice.detail(receipt_id)) == ("review_ready", None, False, False)
     assert stub.calls == [receipt_id]

@@ -12,14 +12,15 @@
     <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
     <key>LSRequiresIPhoneOS</key><true/>
-    <key>UILaunchScreen</key><dict/>
+    <key>UILaunchScreen</key><dict>
+        <key>UIColorName</key><string>BrandPaper</string>
+        <key>UIImageName</key><string>CuadraoLockup</string>
+    </dict>
     <key>UIApplicationSceneManifest</key><dict>
         <key>UIApplicationSupportsMultipleScenes</key><false/>
     </dict>
     <key>UISupportedInterfaceOrientations</key><array>
         <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <key>UIAppFonts</key><array>
         <string>Inter-Regular.ttf</string>

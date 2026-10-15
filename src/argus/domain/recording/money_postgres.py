@@ -81,6 +81,8 @@ def persist(
                 "reversal_of_revision",
             )
         }
+        details["entered_on"] = r.entered_on.isoformat() if r.entered_on else None
+        details["coverage_skips"] = [list(skip) for skip in r.coverage_skips]
         reason = r.reason
         if record_owner != user_id and r.role == "destination":
             for field in ("note", "category_id", "source_id", "interest_minor"):

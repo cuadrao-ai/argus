@@ -3410,6 +3410,31 @@ boundary proposal is approved.
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
 
+### Business receipt reading consent and attention
+
+`20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version 1, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.
+
+`business_receipt_read_states` stores `(space_id,person_id,connection_id)` and the exact server completion cursor. It stores no money, review facts or source text. An acknowledgement under the live read grant locks and rechecks the canonical record before changing only that person's boundary. `business_receipt_activity_baseline` records the migration time. Completions established before it start read without changing receipt content. New completions on old receipts remain unread. Tables have RLS with no direct client grants; only the existing service-role backend mutates them.
+
+### Business email daily receiving allowance
+
+`business_email_daily_usage` is server-only, with RLS and no client grants.
+Its primary key is `(route_id, day)`, where `day` is UTC and the immutable,
+unique route owns the receiving address. `messages` counts admitted messages
+and later download retries. `bytes_used` includes completed response-body bytes,
+outstanding 10 MiB fetch reservations, and conservative charges for interrupted
+fetches. A route deletion cascades its usage rows, including account/space deletion.
+Migration `20261014133457_business_email_daily_budget.sql` adds this table and
+internal delivery budget day, message-lease and fetch-token columns. The delivery
+and daily counter changes share short transactions. New-row admission deduplicates
+before charging; a quota wait is durable pending work due next UTC midnight.
+Each fetch checks the live delivery lease; settlement consumes its exact fetch
+token once. A reclaimed or expired worker cannot refund a later attempt. Crashed
+reservations remain charged for their original day. No automatic release of an
+uncertain reservation grants additional download capacity. Byte reservations on
+subsequent days charge that day's counter. Policy comes from receiving settings;
+it is not copied into a client or route row.
+
 ### Business WhatsApp AI permission
 
 `business_whatsapp_ai_consents` is server-only, with RLS and no client grants.
@@ -3453,7 +3478,7 @@ establish delivery of all seven Business journeys.
 
 | Table | Durable owner and invariants |
 | --- | --- |
-| `business_client_grants` | Explicit direct grant to a named `grantee_id` for exactly one `space_id`, issuer, capabilities (`read`, `prepare`, `approve`), creation/expiry/revocation times. No role-derived capabilities. The owner's own grant (grantee = issuer = owner, all three capabilities) is created with the space, or once on the next open of an older space. Named accountants hold read and prepare only. First-flow service resolves active grants on each operation. Firm identity, firm delegation and issuer onboarding remain unimplemented. |
+| `business_client_grants` | Explicit direct grant to a named `grantee_id` for exactly one `space_id`, issuer, capabilities (`read`, `prepare`, `approve`), creation/expiry/revocation times. No role-derived capabilities. The owner's own grant (grantee = issuer = owner, all three capabilities) is created with the space, or once on the next open of an older space. Named accountants hold read and prepare only: migration `20261014110000_business_grant_approve_owner_only.sql` makes the database refuse `approve` on any grant whose grantee is not the space's `created_by`, on insert and on update, whoever writes the row. First-flow service resolves active grants on each operation. Firm identity, firm delegation and issuer onboarding remain unimplemented. |
 | `business_access_invites` | A pending invite for an email with no confirmed account yet: `space_id`, `issuer_id` (the owner), lowercased `email`, `expires_at` (14 days), `accepted_at` and `accepted_grant_id` once a confirmed sign-in with that email turned it into a read+prepare grant, `revoked_at` when the owner withdrew it. One live invite per space and email. Service role only. Access changes write `business_action_receipts` rows without a turn. |
 | `business_sources` | Stable source identity and idempotent `(space_id, source_key)` for one original message, attachment, agent proposal or human `web_action`. Web actions require channel `web` and retain immutable canonical submitted command text, with server-derived source key and actual `member_set` provenance. Direct source updates/deletes fail; owning connection/client deletion cascades through source links and answered questions under the existing deletion policy. Message/proposal/web-action text is immutable; attachment references the existing source connection rather than copying bytes or extraction. A composite FK prevents another space's connection. |
 | `business_draft_sources` | Many-to-many source relationships pinned by composite FKs to the same client as the canonical candidate. No facts. |

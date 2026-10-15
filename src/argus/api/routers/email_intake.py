@@ -6,7 +6,8 @@ import json
 import secrets
 import time
 from dataclasses import asdict
-from typing import Annotated, Any
+from datetime import datetime, timezone
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -45,6 +46,11 @@ router = APIRouter(
     },
 )
 MAX_WEBHOOK_BYTES = 64 * 1024
+
+
+class EmailDeliveryWaiting(BaseModel):
+    reason: Literal["daily_budget"] = "daily_budget"
+    retry_at: datetime
 
 
 class ReceivedData(BaseModel):
@@ -266,7 +272,23 @@ def _group(
         result.pop(key)
     if not detail:
         result.pop("text_body")
-    result["retryable"] = runtime.retryable(delivery)
+    budget_limited = delivery.error_code in (
+        "email_daily_message_budget",
+        "email_daily_byte_budget",
+    )
+    available_at = result.pop("available_at")
+    waiting = (
+        EmailDeliveryWaiting(retry_at=available_at)
+        if delivery.state == "received"
+        and budget_limited
+        and available_at is not None
+        and available_at > datetime.now(timezone.utc)
+        else None
+    )
+    if budget_limited:
+        result["error_code"] = None
+    result["waiting"] = waiting.model_dump() if waiting else None
+    result["retryable"] = False if waiting else runtime.retryable(delivery)
     known = (
         relations
         if relations is not None

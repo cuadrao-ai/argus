@@ -44,10 +44,6 @@ extension CuadraoTab {
     }
 }
 
-extension CuadraoNavigationSlot {
-    static var current: [CuadraoNavigationSlot] { slots(hasAssistant: CuadraoFirstRelease.hasAssistant) }
-}
-
 struct CuadraoNavigationBar: View {
     @Binding var selection: CuadraoTab
     let compact: Bool
@@ -55,6 +51,7 @@ struct CuadraoNavigationBar: View {
     var avatar: CuadraoAvatarSelection = .none
     var profileName: String = ""
     var addOpen = false
+    var hasAssistant: Bool = CuadraoFirstRelease.hasAssistant
     let add: () -> Void
     @GestureState private var scrubbing: CuadraoNavigationSlot?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -62,7 +59,7 @@ struct CuadraoNavigationBar: View {
     private let padding: CGFloat = 4
     private let slotHeight: CGFloat = 48
 
-    private var slots: [CuadraoNavigationSlot] { CuadraoNavigationSlot.current }
+    private var slots: [CuadraoNavigationSlot] { CuadraoNavigationSlot.slots(hasAssistant: hasAssistant) }
     /// With an add slot, a collapsed bar folds into the + alone at the right; otherwise it only narrows.
     private var collapsesToAdd: Bool { compact && slots.contains(.add) }
 

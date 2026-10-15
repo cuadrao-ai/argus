@@ -133,7 +133,9 @@ struct ConnectedCuadraoHome: View {
         .sheet(item: $sheet) { item in modal(item) }
         .overlay(alignment: .bottom) {
             if let archivedID, homePath.isEmpty, accounts.accounts.first(where: { $0.id == archivedID })?.archived == true {
-                CuadraoArchivedAccountToast(spanish: spanish, undo: { restore(archivedID) }, close: { self.archivedID = nil })
+                CuadraoToast(text: spanish ? "Cuenta archivada" : "Account archived", actionTitle: spanish ? "Deshacer" : "Undo",
+                    actionIdentifier: "accounts.archived.undo", action: { restore(archivedID) }, spanish: spanish,
+                    closeIdentifier: "accounts.archived.close", token: archivedID, close: { self.archivedID = nil })
             }
         }
         .onChange(of: accounts.identity?.revision) { _, _ in archivedID = nil }
@@ -193,6 +195,7 @@ struct ConnectedCuadraoHome: View {
                 }.padding(24)
             }
             .accessibilityIdentifier("screen.accounts")
+            .refreshable { await accounts.refresh(account.id); await loop.open(account) }
             .background(WelcomePalette.background)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)

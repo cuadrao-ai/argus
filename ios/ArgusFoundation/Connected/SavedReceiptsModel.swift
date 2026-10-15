@@ -9,9 +9,10 @@ enum SavedReceiptOutcome: Equatable {
 }
 
 enum SavedReceiptFailure: Equatable {
-    case tooLarge, wrongType, limitReached, couldNotSave, couldNotDelete, unusableFile, scannerUnavailable
+    case tooLarge, wrongType, limitReached, couldNotSave, couldNotDelete, unusableFile, scannerUnavailable, offline
 
     init(_ error: Error) {
+        if error is URLError { self = .offline; return }
         guard case .rejected(_, let code)? = error as? SessionFailure else { self = .couldNotSave; return }
         switch code {
         case "document_too_large": self = .tooLarge
@@ -56,7 +57,11 @@ final class SavedReceiptsModel: ObservableObject {
     @Published private(set) var saving = false
     @Published private(set) var removing: String?
     @Published var outcome: SavedReceiptOutcome?
+    /// What the server read from each receipt, by connection ID, for Search.
+    @Published private(set) var readings: [String: DocumentReceipt] = [:]
     var sessionChanged: ((SessionSnapshot) -> Void)?
+    /// Reads one receipt's reading. Unset where readings are not available.
+    var reading: (@Sendable (String, SessionSnapshot) async -> DocumentReceipt?)?
 
     private let transport: any SavedReceiptsTransport
     private let currentSession: @Sendable () async -> SessionSnapshot
@@ -65,6 +70,7 @@ final class SavedReceiptsModel: ObservableObject {
     private var nextOffset: Int?
     private var failedFiles: [(data: Data, name: String, pdf: Bool)] = []
     private var queued: [(data: Data, name: String, pdf: Bool)] = []
+    private var readStamps: [String: String] = [:]
 
     init(transport: any SavedReceiptsTransport, currentSession: @escaping @Sendable () async -> SessionSnapshot) {
         self.transport = transport
@@ -81,6 +87,7 @@ final class SavedReceiptsModel: ObservableObject {
         identity = next
         ticket = UUID()
         items = []; nextOffset = nil; loading = false; loadFailed = false; saving = false; removing = nil; outcome = nil
+        readings = [:]; readStamps = [:]
         failedFiles = []; queued = []
     }
 
@@ -184,6 +191,21 @@ final class SavedReceiptsModel: ObservableObject {
             outcome = .failed(.couldNotDelete)
         }
     }
+
+    /// Loads the readings of receipts the server has read, once per version of each receipt.
+    func loadReadings() async {
+        guard let identity, let reading else { return }
+        let mine = ticket
+        for document in items where document.status != "saved" && readStamps[document.id] != document.updatedAt {
+            let value = await reading(document.id, identity)
+            guard mine == ticket else { return }
+            readStamps[document.id] = document.updatedAt
+            if let value { readings[document.id] = value }
+        }
+    }
+
+    /// Saved receipts that match a Search query.
+    func matching(_ query: String) -> [SavedDocument] { ReceiptSearch.matches(items, readings: readings, query: query) }
 
     /// The stored file's bytes for viewing, or nil when it cannot be read.
     func source(of document: SavedDocument) async -> Data? {

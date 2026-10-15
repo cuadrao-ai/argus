@@ -42,6 +42,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "inbox" })}
         trailing={count(inboxCount)}
+        activityPresentation={records.receiptActivity?.presentation === "working" ? "working" : records.receiptActivity?.presentation === "unread" ? "new_activity" : "none"}
         iconSize={20}
       />
       <SidebarNavButton

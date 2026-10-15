@@ -14,11 +14,11 @@ const FILE_TYPES: Record<string, { label: string; extensions: string[] }> = {
 };
 
 export function receiptFormatLabels(limits: ReceiptLimits): string[] {
-  return limits.media_types.map((type) => FILE_TYPES[type]?.label ?? type);
+  return [...new Set(limits.media_types.map((type) => FILE_TYPES[type]?.label ?? type))];
 }
 
 export function receiptFileAccept(limits: ReceiptLimits): string {
-  return limits.media_types.flatMap((type) => [type, ...(FILE_TYPES[type]?.extensions ?? []).map((extension) => `.${extension}`)]).join(",");
+  return [...new Set(limits.media_types.flatMap((type) => [type, ...(FILE_TYPES[type]?.extensions ?? []).map((extension) => `.${extension}`)]))].join(",");
 }
 
 /** Browsers leave some files untyped (CSV, EML); the extension names the type when the server accepts it. */

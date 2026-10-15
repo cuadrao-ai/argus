@@ -20,13 +20,14 @@ struct ConnectedTransactionSheet: View {
 
     var body: some View {
         CuadraoTransactionSheet(
-            account: CuadraoTransactionAccount(title: name(model.origin), artwork: ConnectedAccountPresentation.artwork(model.origin.type),
-                                               symbol: AccountPresentation.symbol(model.origin.type)),
+            account: CuadraoTransactionAccount(title: name(model.headerAccount), artwork: ConnectedAccountPresentation.artwork(model.headerAccount.type),
+                                               symbol: AccountPresentation.symbol(model.headerAccount.type)),
             spanish: spanish, reviewing: reviewing, title: title, primaryTitle: primaryTitle,
             primaryEnabled: primaryEnabled, primaryBusy: model.busy,
             primaryIdentifier: closed ? nil : reviewing && confirmable ? "loop.confirm" : "loop.review",
             cancelDisabled: locked, dismissDisabled: locked,
             scrollTarget: model.focusCategory && model.options != nil && !reviewing ? "loop.category" : nil,
+            showsAccountHeader: reviewing,
             back: { model.edit() }, primary: primaryAction) {
             if reviewing { review } else { entry }
             if let error = model.errorKey {
@@ -84,10 +85,10 @@ struct ConnectedTransactionSheet: View {
             if model.errorKey == nil { ProgressView("accounts.loading") }
             else { Button("accounts.retry") { Task { await model.load() } }.frame(minHeight: 44) }
         } else if model.canEdit {
-            kindRow
-            accountRows
             CuadraoAmountField(raw: $model.amount, currency: $currency, error: $amountError, spanish: spanish,
-                               currencySelectable: false, identifier: "loop.amount")
+                               currencySelectable: false, identifier: "loop.amount", hero: true, autofocus: true)
+            kindRow
+            if model.kind.isPaired { transferCards }
             if model.needsLoanSplit {
                 field(NSLocalizedString("debt.principal", comment: ""), text: $model.principal, id: "loop.principal", decimal: true)
                 field(NSLocalizedString("debt.interest", comment: ""), text: $model.interest, id: "loop.interest", decimal: true)
@@ -95,27 +96,32 @@ struct ConnectedTransactionSheet: View {
                 Text("debt.split.disclosure").font(.caption).foregroundStyle(.secondary)
             }
             if model.returning != nil { Text("debt.return.disclosure").font(.caption).foregroundStyle(.secondary) }
-            DatePicker(spanish ? "Fecha" : "Date", selection: $model.date, in: ...Date(), displayedComponents: .date)
-                .accessibilityIdentifier("loop.date")
-            if model.kind == .income {
-                choice(NSLocalizedString("loop.activity.source", comment: ""), selection: $model.sourceId,
-                       values: model.options?.sources ?? [], id: "loop.sourceType",
-                       none: NSLocalizedString("loop.category.none", comment: "")) { NSLocalizedString("loop.source." + $0, comment: "") }
-            }
-            if model.kind == .refund {
-                choice(NSLocalizedString("loop.activity.purchase", comment: ""), selection: $model.purchaseActivityId,
-                       values: model.purchases.map(\.activityId), id: "loop.purchase",
-                       none: NSLocalizedString("loop.activity.purchaseNone", comment: "")) { id in
-                    model.purchases.first { $0.activityId == id }.map(purchaseLabel) ?? ""
+            MovementChipFlow {
+                MovementDateChip(caption: spanish ? "Fecha" : "Date", date: $model.date, range: .distantPast...Date(), identifier: "loop.date")
+                if !model.kind.isPaired {
+                    chip(model.kind == .refund ? "loop.activity.refundTo" : "loop.activity.account", symbol: "building.columns",
+                         selection: $model.accountId, choices: model.singleChoices, id: "loop.account")
                 }
-                if model.purchaseActivityId != nil { Text("loop.activity.linkedCategory").font(.caption).foregroundStyle(.secondary) }
+                if model.kind == .income {
+                    chip(NSLocalizedString("loop.activity.source", comment: ""), symbol: "arrow.down.circle", selection: $model.sourceId,
+                         values: model.options?.sources ?? [], id: "loop.sourceType",
+                         none: NSLocalizedString("loop.category.none", comment: "")) { NSLocalizedString("loop.source." + $0, comment: "") }
+                }
+                if model.kind == .refund {
+                    chip(NSLocalizedString("loop.activity.purchase", comment: ""), symbol: "bag", selection: $model.purchaseActivityId,
+                         values: model.purchases.map(\.activityId), id: "loop.purchase",
+                         none: NSLocalizedString("loop.activity.purchaseNone", comment: "")) { id in
+                        model.purchases.first { $0.activityId == id }.map(purchaseLabel) ?? ""
+                    }
+                }
+                if model.kind == .expense || (model.kind == .refund && model.purchaseActivityId == nil) {
+                    chip(NSLocalizedString("loop.category", comment: ""), symbol: "tag", selection: $model.categoryId,
+                         values: model.options?.categories ?? [], id: "loop.category",
+                         none: NSLocalizedString("loop.category.none", comment: "")) { NSLocalizedString("loop.category." + $0, comment: "") }
+                        .id("loop.category")
+                }
             }
-            if model.kind == .expense || (model.kind == .refund && model.purchaseActivityId == nil) {
-                choice(NSLocalizedString("loop.category", comment: ""), selection: $model.categoryId,
-                       values: model.options?.categories ?? [], id: "loop.category",
-                       none: NSLocalizedString("loop.category.none", comment: "")) { NSLocalizedString("loop.category." + $0, comment: "") }
-                    .id("loop.category")
-            }
+            if model.kind == .refund, model.purchaseActivityId != nil { Text("loop.activity.linkedCategory").font(.caption).foregroundStyle(.secondary) }
             VStack(alignment: .leading, spacing: 8) {
                 TextField(spanish ? "Concepto (opcional)" : "Description (optional)", text: $model.note, axis: .vertical)
                     .focused($focused).lineLimit(1...4).modifier(RegistrationField())
@@ -151,35 +157,40 @@ struct ConnectedTransactionSheet: View {
         }
     }
 
-    @ViewBuilder private var accountRows: some View {
-        if model.kind == .paymentReversal {
-            accountChoice("loop.activity.from", selection: $model.destinationAccountId, choices: model.destinationChoices, id: "loop.destination")
-            accountChoice("loop.activity.to", selection: $model.sourceAccountId, choices: model.sourceChoices, id: "loop.source")
-        } else if model.kind.isPaired {
-            accountChoice("loop.activity.from", selection: $model.sourceAccountId, choices: model.sourceChoices, id: "loop.source")
-            accountChoice(model.kind == .cardPayment ? "loop.activity.card" : "loop.activity.to",
-                          selection: $model.destinationAccountId, choices: model.destinationChoices, id: "loop.destination")
-        } else {
-            accountChoice(model.kind == .refund ? "loop.activity.refundTo" : "loop.activity.account",
-                          selection: $model.accountId, choices: model.singleChoices, id: "loop.account")
-        }
+    private var copy: MovementEntryCopy { MovementEntryCopy(spanish: spanish) }
+
+    /// "From" and "To" for paired kinds. A payment reversal shows the debt side first, as the money returns from it.
+    @ViewBuilder private var transferCards: some View {
+        let reversal = model.kind == .paymentReversal
+        let from = reversal ? $model.destinationAccountId : $model.sourceAccountId
+        let to = reversal ? $model.sourceAccountId : $model.destinationAccountId
+        let fromChoices = reversal ? model.destinationChoices : model.sourceChoices
+        let toChoices = reversal ? model.sourceChoices : model.destinationChoices
+        let none = NSLocalizedString("loop.activity.chooseAccount", comment: "")
+        let swappable = from.wrappedValue != nil && to.wrappedValue != nil
+            && fromChoices.contains { $0.id == to.wrappedValue } && toChoices.contains { $0.id == from.wrappedValue }
+        MovementTransferCards(
+            copy: copy, from: from, to: to,
+            fromValues: [nil] + fromChoices.map { Optional($0.id) }, toValues: [nil] + toChoices.map { Optional($0.id) },
+            valueTitle: { value in (fromChoices + toChoices).first { $0.id == value }.map(name) ?? none },
+            swap: { let first = from.wrappedValue; from.wrappedValue = to.wrappedValue; to.wrappedValue = first },
+            canSwap: swappable,
+            fromIdentifier: reversal ? "loop.destination" : "loop.source", toIdentifier: reversal ? "loop.source" : "loop.destination",
+            swapIdentifier: "loop.swap")
     }
 
-    private func accountChoice(_ key: String, selection: Binding<UUID?>, choices: [FinancialAccount], id: String) -> some View {
-        choice(NSLocalizedString(key, comment: ""), selection: selection, values: choices.map(\.id), id: id,
-               none: NSLocalizedString("loop.activity.chooseAccount", comment: "")) { value in
+    private func chip(_ key: String, symbol: String, selection: Binding<UUID?>, choices: [FinancialAccount], id: String) -> some View {
+        chip(NSLocalizedString(key, comment: ""), symbol: symbol, selection: selection, values: choices.map(\.id), id: id,
+             none: NSLocalizedString("loop.activity.chooseAccount", comment: "")) { value in
             choices.first { $0.id == value }.map(name) ?? ""
         }
     }
 
-    private func choice<Value: Hashable>(_ caption: String, selection: Binding<Value?>, values: [Value], id: String,
-                                         none: String, title: @escaping (Value) -> String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(caption).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier(id + ".label")
-            CuadraoChoiceMenu(title: caption, selection: selection, values: [nil] + values.map(Optional.some),
-                              valueTitle: { $0.map(title) ?? none })
-                .accessibilityIdentifier(id)
-        }
+    private func chip<Value: Hashable>(_ caption: String, symbol: String, selection: Binding<Value?>, values: [Value], id: String,
+                                       none: String, title: @escaping (Value) -> String) -> some View {
+        MovementChoiceChip(caption: caption, symbol: symbol, selection: selection, values: [nil] + values.map(Optional.some),
+                           valueTitle: { $0.map(title) ?? none })
+            .accessibilityIdentifier(id)
     }
 
     private func field(_ caption: String, text: Binding<String>, id: String, decimal: Bool = false) -> some View {

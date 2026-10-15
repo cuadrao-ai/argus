@@ -202,6 +202,7 @@ def test_later_confirmed_same_day_check_becomes_current(scene):
     assert account_response(result.stored).balance.amount_minor == 800000
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_unknown_opening_after_spending_requires_review_and_preserves_inclusion(scene):
     service, user, _ = scene
     account = service.create(
@@ -309,6 +310,7 @@ def test_opening_correction_cannot_overflow_current_residual(scene):
     assert current.account.version == 2 and current.opening.current.amount_minor == 0
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_home_aggregates_exact_strings_beyond_int64_and_preserves_archived_unknown(scene):
     from argus.domain.recording.loop_reads import home_response
 
@@ -339,6 +341,7 @@ def test_home_aggregates_exact_strings_beyond_int64_and_preserves_archived_unkno
     assert usd["unknown_accounts"] == 1 and usd["known_accounts"] == 2
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_edit_cannot_apply_currency_rules_from_a_different_version(scene, monkeypatch):
     service, user, _ = scene
     account = service.create(
@@ -373,6 +376,7 @@ def test_edit_cannot_apply_currency_rules_from_a_different_version(scene, monkey
 
 @pytest.mark.parametrize("with_opening", [False, True])
 @pytest.mark.parametrize("source_kind", ["balance_check", "expense"])
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_balance_date_uses_latest_source_zone_after_reopen(
     scene, with_opening, source_kind
 ):
@@ -450,6 +454,7 @@ def test_balance_date_uses_latest_source_zone_after_reopen(
         ("investment", "checking", "value_update"),
     ],
 )
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_observation_locks_account_type_without_expenses(
     scene, with_opening, initial_type, target_type, record_kind
 ):

@@ -1,0 +1,13 @@
+{
+  "source": "search-dismissal-verified/result.xcresult",
+  "date": "2026-10-11",
+  "terminal_utc": "22:06:18.510",
+  "attachment_uuid": "147A908D-5ED6-4F94-A9C5-1016FC1B7FF9",
+  "visible_error": "We couldn\u2019t sign you in.",
+  "provider_error_code": null,
+  "http_status": null,
+  "interpretation": "Authentication rejection; different from the unavailable local CAPTCHA page error.",
+  "limits": "No specific credential, account-policy, or CAPTCHA cause established. Reported hosted secret change not independently verified.",
+  "retries": 0,
+  "financial_steps_reached": false
+}

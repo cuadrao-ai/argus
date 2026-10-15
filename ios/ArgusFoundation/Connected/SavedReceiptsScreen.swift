@@ -6,6 +6,8 @@ import PDFKit
 struct SavedReceiptsScreen: View {
     @ObservedObject var model: SavedReceiptsModel
     let spanish: Bool
+    /// Continues a receipt the server is reading or has read. Without it, every row opens the file.
+    var review: ((SavedDocument) -> Void)? = nil
     @State private var viewing: ViewedReceipt?
     @State private var deleting: SavedDocument?
     @State private var openFailed = false
@@ -59,12 +61,13 @@ struct SavedReceiptsScreen: View {
     private var list: some View {
         List {
             ForEach(model.items) { document in
-                Button { open(document) } label: { row(document) }
+                Button { select(document) } label: { row(document) }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("saved.receipts.row." + document.id)
                     .accessibilityAction(named: Text(copy.delete)) { deleting = document }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) { deleting = document } label: { Label(copy.delete, systemImage: "trash") }
+                            .tint(.red)
                     }
                     .contextMenu {
                         Button { open(document) } label: { Label(copy.view, systemImage: "doc.text.magnifyingglass") }
@@ -100,6 +103,10 @@ struct SavedReceiptsScreen: View {
         return size + " · " + date
     }
 
+    private func select(_ document: SavedDocument) {
+        if let review, document.status != "saved" { review(document) } else { open(document) }
+    }
+
     private func open(_ document: SavedDocument) {
         Task {
             if let data = await model.source(of: document) { viewing = ViewedReceipt(document: document, data: data) }
@@ -108,13 +115,21 @@ struct SavedReceiptsScreen: View {
     }
 }
 
+/// A receipt file opened in the viewer. Plain fields, so the on-device guest book can show its own receipts.
 struct ViewedReceipt: Identifiable {
-    let document: SavedDocument
+    let id: String
+    let filename: String
+    let mediaType: String
     let data: Data
-    var id: String { document.id }
 }
 
-private struct SavedReceiptViewer: View {
+extension ViewedReceipt {
+    init(document: SavedDocument, data: Data) {
+        self.init(id: document.id, filename: document.filename, mediaType: document.mediaType, data: data)
+    }
+}
+
+struct SavedReceiptViewer: View {
     let receipt: ViewedReceipt
     let copy: SavedReceiptCopy
     @Environment(\.dismiss) private var dismiss
@@ -122,15 +137,15 @@ private struct SavedReceiptViewer: View {
     var body: some View {
         NavigationStack {
             Group {
-                if receipt.document.mediaType == "application/pdf" {
+                if receipt.mediaType == "application/pdf" {
                     SavedReceiptPDF(data: receipt.data)
                 } else if let image = UIImage(data: receipt.data) {
-                    ScrollView { Image(uiImage: image).resizable().scaledToFit().accessibilityLabel(receipt.document.filename) }
+                    ScrollView { Image(uiImage: image).resizable().scaledToFit().accessibilityLabel(receipt.filename) }
                 } else {
                     Text(copy.couldNotOpen).padding(32)
                 }
             }
-            .navigationTitle(receipt.document.filename).navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(receipt.filename).navigationBarTitleDisplayMode(.inline)
             .toolbar { CuadraoDoneToolbar(title: copy.done) { dismiss() } }
         }
         .tint(WelcomePalette.pine)

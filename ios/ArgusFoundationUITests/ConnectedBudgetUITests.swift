@@ -34,7 +34,7 @@ extension FinancialLoopUITests {
         app.returnFromDetail("budget.close")
         openMoneyAccount(cash)
         recordMoney(kind: "refund", amount: "25", note: "Budget refund " + stamp, purchase: "Card groceries " + stamp)
-        assertText("Balance unknown")
+        assertText("DOP 25.00")
         openBudget(title)
         assertBudget(spent: "155.00", status: "5.00", over: true)
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'budget.activity.'")).count, 3)
@@ -119,6 +119,18 @@ extension FinancialLoopUITests {
         verifyBudgetSearchAndReopen(title)
     }
 
+    func testRetainedBudgetSearchFromActivityPerspective() throws {
+        guard let title = ProcessInfo.processInfo.environment["ARGUS_TEST_SEARCH_QUERY"] else {
+            throw XCTSkip("Requires a retained isolated budget journey.")
+        }
+        try signIn()
+        app.revealConnectedTabBar()
+        tapVisible(app.buttons["tab.search"])
+        tapVisible(app.buttons["search.filter.activity"])
+        XCTAssertTrue(app.buttons["search.filter.activity"].isSelected)
+        verifyBudgetSearchAndReopen(title)
+    }
+
     private func verifyBudgetSearchAndReopen(_ title: String) {
         app.buttons["tab.search"].tap()
         let query = app.textFields["search.query"]
@@ -126,6 +138,7 @@ extension FinancialLoopUITests {
         query.tap()
         if app.buttons["search.clear"].exists { app.buttons["search.clear"].tap(); query.tap() }
         query.typeText(title + "\n")
+        chooseSearchPlans()
         let hit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search.row.budget.' AND label CONTAINS %@", title)).firstMatch
         tapVisible(hit)
         assertBudget(spent: "155.00", status: "5.00")
@@ -208,11 +221,15 @@ extension FinancialLoopUITests {
     func assertBudget(spent: String, status: String, over: Bool = false) {
         let detail = app.descendants(matching: .any)["budget.detail"]
         let amount = detail.staticTexts["budget.spent"]
-        let expected = NSPredicate(format: "label == %@", "DOP " + spent)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: expected, object: amount)], timeout: 15), .completed)
         let remaining = detail.descendants(matching: .any)["budget.remaining"]
-        XCTAssertTrue(remaining.waitForExistence(timeout: 15))
-        XCTAssertTrue(remaining.label.contains(status))
-        XCTAssertTrue(remaining.label.contains(over ? "over budget" : "remaining"))
+        let direction = over ? "over budget" : "remaining"
+        let expected = NSPredicate { _, _ in
+            amount.exists && amount.label == "DOP " + spent
+                && remaining.exists && remaining.label.contains(status)
+                && remaining.label.contains(direction)
+        }
+        let result = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: expected, object: nil)], timeout: 15)
+        XCTAssertEqual(result, .completed,
+                       "Expected spent DOP \(spent) and \(status) \(direction); actual spent: \(amount.exists ? amount.label : "<missing>"), status: \(remaining.exists ? remaining.label : "<missing>")")
     }
 }

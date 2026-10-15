@@ -2206,6 +2206,18 @@
     }
   },
   "business": {
+    "activity": {
+      "all_channels": "La lectura de recibos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
+      "error": "No se pudo actualizar la lectura de recibos. Inténtalo de nuevo.",
+      "mark_read": "Marcar como leído",
+      "open_settings": "Abrir configuración de lectura",
+      "owner_only": "El dueño del negocio puede activar la lectura de recibos.",
+      "reading_on": "La lectura de recibos está activada.",
+      "saved_prompt": "Tus recibos están guardados sin leer. Activa la lectura para prepararlos para revisión.",
+      "saved_row": "Guardado sin leer. En espera de la lectura de comprobantes.",
+      "turn_off": "Desactivar lectura",
+      "turn_on": "Activar lectura de recibos"
+    },
     "export": {
       "title": "Exportar registros del negocio",
       "scope": "{{name}} · CSV, Excel y originales conservados en un ZIP.",
@@ -2521,6 +2533,8 @@
       "repeat_upload": "Ya habías guardado este archivo",
       "no_filename": "Adjunto sin nombre",
       "body_failed": "No se pudo cargar el mensaje.",
+      "waiting_label": "En espera hasta mañana",
+      "waiting_resume": "Este correo está pendiente. Se procesará automáticamente a partir del {{time}} UTC. No tienes que enviarlo otra vez.",
       "no_body": "Sin texto en el mensaje.",
       "reload": "Actualizar",
       "address_failed": "No se pudo cargar la dirección de recepción.",
@@ -2556,11 +2570,12 @@
       "replayed": "Ya estaba guardado. Este es ese recibo.",
       "camera": "Tomar foto",
       "choose": "Elegir archivo",
+      "choose_another": "Elegir otro archivo",
       "consent": "Prepararlo con IA después de guardarlo. El recibo se envía a nuestro proveedor de IA para completar los detalles y que tú los revises. Déjalo desactivado para completarlos tú mismo.",
       "drop": "Suelta un recibo aquí.",
       "paste": "Pegar",
       "clipboard_empty": "No hay una imagen o PDF de recibo para pegar. Copia uno primero o elige un archivo.",
-      "failed": "No pudimos guardar este recibo. Revisa tu conexión y reintenta. No se guardará dos veces.",
+      "failed": "No pudimos leer el recibo. Inténtalo de nuevo.",
       "formats": "{{formats}}, hasta {{size}} MB. El original es privado para ti.",
       "heic": "Esta es una foto HEIC de iPhone. Súbela desde el navegador de tu iPhone, que la convierte, o expórtala como JPG primero.",
       "replace": "Elegir otro",
@@ -2585,7 +2600,7 @@
         "rejected": "No se puede subir"
       },
       "too_large": "Este archivo pesa más de {{size}} MB. Usa una foto o un PDF más pequeño.",
-      "unsupported": "Este tipo de archivo no es compatible. Usa {{formats}}."
+      "unsupported": "Este archivo no es compatible. Prueba con {{formats}}."
     },
     "notice": {
       "conversation_unavailable": "Esta conversación no está disponible en Cuadrao Business.",

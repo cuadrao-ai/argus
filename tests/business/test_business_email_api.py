@@ -219,7 +219,8 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
         for item in alice.get("/search", q="forwarded").json()["receipts"]
     }
     assert searched[original_id]["email_original"] is True
-    # The attachment is the receipt: it still prepares.
+    # The attachment is the receipt; the owner opts in to its reading.
+    assert alice.reading(True).status_code == 200
     prepared = alice.post(
         f"/receipts/{attachment_id}/prepare", **{"X-Extraction-Consent": "true"}
     )
@@ -441,3 +442,62 @@ def test_a_file_uploaded_on_the_web_first_keeps_its_label_and_the_email_is_the_r
     ) == (first, False)
     one = alice.get(f"/email/deliveries/{second}").json()
     assert one["parts"][0]["repeat_of_delivery_id"] == first
+
+
+@pytest.mark.parametrize(
+    "code", ["email_daily_message_budget", "email_daily_byte_budget"]
+)
+def test_capped_email_waiting_survives_real_api_serialization(alice, runtime, code):  # noqa: F811
+    from dataclasses import asdict, replace
+    from datetime import datetime, timedelta, timezone
+
+    from argus.domain.ingestion.email_intake.budget import next_utc_day
+    from argus.domain.ingestion.email_intake.store import _delivery
+
+    now = datetime.now(timezone.utc)
+    store = runtime.store
+    store.clock = lambda: now
+    scope = alice.scope()
+    route = store.create_route(
+        recipient="recibos-wait@example.test",
+        space_id=scope.owner.space_id,
+        principal_id=scope.person_id,
+        granted_by=scope.person_id,
+        grant_id=str(uuid4()),
+    )
+    item = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=route.space_id,
+        principal_id=route.principal_id,
+    )
+    store.defer_budget(store.claim(delivery_id=item.id), code)
+    waiting_item = store.get(item.id, route.space_id)
+    assert _delivery(asdict(waiting_item)).available_at == next_utc_day(now)
+    expected = {
+        "reason": "daily_budget",
+        "retry_at": next_utc_day(now).isoformat().replace("+00:00", "Z"),
+    }
+    for payload in (
+        alice.get("/email/deliveries").json()["items"][0],
+        alice.get(f"/email/deliveries/{item.id}").json(),
+    ):
+        assert payload["waiting"] == expected
+        assert payload["state"] == "received"
+        assert payload["error_code"] is None
+        assert payload["retryable"] is False
+        assert "available_at" not in payload
+
+    # A refresh after the server deadline must not promise another tomorrow.
+    store._available[item.id] = now - timedelta(seconds=1)
+    due = alice.get(f"/email/deliveries/{item.id}").json()
+    assert due["waiting"] is None and due["error_code"] is None
+    assert store.get(item.id, route.space_id).error_code == code
+    store._available[item.id] = next_utc_day(now)
+    for state in ("processing", "partial", "rejected", "captured"):
+        store._deliveries[item.id] = replace(waiting_item, state=state)
+        assert alice.get(f"/email/deliveries/{item.id}").json()["waiting"] is None
+    store._deliveries[item.id] = replace(waiting_item, error_code=None)
+    assert alice.get(f"/email/deliveries/{item.id}").json()["waiting"] is None

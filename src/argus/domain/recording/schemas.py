@@ -33,7 +33,7 @@ class CreateFinancialAccountRequest(BaseModel):
     currency: str = Field(min_length=3, max_length=3)
     nickname: str | None = Field(default=None, max_length=200)
     # Starting balance as typed, dot-decimal; a liability is the positive amount
-    # owed. Omitted means the balance stays unknown. `as_of` defaults to now.
+    # owed. The OpenAPI text for a blank amount lives in openapi_compat.
     amount: str | None = Field(default=None, max_length=40)
     as_of: datetime | None = None
     time_zone: str | None = Field(default=None, max_length=64)

@@ -2206,6 +2206,18 @@
     }
   },
   "business": {
+    "activity": {
+      "all_channels": "Receipt reading is managed for your Business across email, WhatsApp and uploads.",
+      "error": "Receipt reading could not be updated. Try again.",
+      "mark_read": "Mark as read",
+      "open_settings": "Open receipt reading settings",
+      "owner_only": "The Business owner can turn receipt reading on.",
+      "reading_on": "Receipt reading is on.",
+      "saved_prompt": "Your receipts are saved unread. Turn on receipt reading to prepare them for review.",
+      "saved_row": "Saved unread. Waiting for receipt reading.",
+      "turn_off": "Turn reading off",
+      "turn_on": "Turn receipt reading on"
+    },
     "export": {
       "title": "Export Business records",
       "scope": "{{name}} · CSV, Excel and retained originals in one ZIP.",
@@ -2539,6 +2551,8 @@
       "repeat_upload": "You already saved this file",
       "no_filename": "Unnamed attachment",
       "body_failed": "Could not load the message.",
+      "waiting_label": "Waiting until tomorrow",
+      "waiting_resume": "This email is waiting. Processing resumes automatically from {{time}} UTC. You do not need to send it again.",
       "no_body": "No message text.",
       "reload": "Refresh",
       "address_failed": "Could not load the receiving address.",
@@ -2635,7 +2649,7 @@
     },
     "intake": {
       "replayed": "Already saved before. This is that receipt.",
-      "unsupported": "This file type isn't supported. Use {{formats}}.",
+      "unsupported": "This file isn't supported. Try {{formats}}.",
       "too_large": "This file is larger than {{size}} MB. Use a smaller photo or PDF.",
       "heic": "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first.",
       "title": "Upload receipt",
@@ -2664,8 +2678,9 @@
       "clipboard_empty": "There's no receipt image or PDF to paste. Copy one first, or choose a file.",
       "replace": "Choose another",
       "choose": "Choose file",
+      "choose_another": "Choose another file",
       "camera": "Take photo",
-      "failed": "We couldn't save this receipt. Check your connection and try again. It won't be saved twice.",
+      "failed": "We couldn't read the receipt. Try again.",
       "consent": "Prepare it with AI after saving. The receipt is sent to our AI provider to fill in the details for your review. Leave this off to fill them in yourself."
     },
     "period": {

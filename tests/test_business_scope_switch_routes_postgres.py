@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
 
+import psycopg
 import pytest
 from argus.api import state as api_state
 from argus.api.main import app
@@ -324,12 +325,16 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
         r for r in _ledger(bob.space_id) if r[1] != web.grant_a
     ]
 
-    # Approval never leaves the owner, whatever a grant row says.
+    # Approval never leaves the owner: the database refuses approve on a grantee's
+    # row, and the code refuses it even if such a row existed.
     with Connection.connect(shared.DSN) as db:
-        db.execute(
-            "update public.business_client_grants set capabilities=ARRAY['read','prepare','approve'] where id=%s",
-            (web.grant_a,),
-        )
+        with pytest.raises(
+            psycopg.errors.CheckViolation, match="business_grant_approve_owner_only"
+        ):
+            db.execute(
+                "update public.business_client_grants set capabilities=ARRAY['read','prepare','approve'] where id=%s",
+                (web.grant_a,),
+            )
     version = client.get(
         f"{API}/business/drafts/{draft_a}/dossier", headers=_as(bob, web.grant_a)
     ).json()["version"]

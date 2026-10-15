@@ -220,6 +220,9 @@ struct CuadraoProfilePage: View {
                     link(.memory); link(.files); link(.conversations)
                 } header: { Text(spanish ? "Tus datos" : "Your data") }
             }
+            if CuadraoFirstRelease.savedReceipts, case .connected(_, let profile) = connection, let journey = profile.receiptJourney {
+                ReceiptReadingSetting(model: journey, spanish: spanish)
+            }
             if CuadraoFirstRelease.shows(.shared) || CuadraoFirstRelease.shows(.removed) {
                 Section {
                     link(.shared); link(.removed)
@@ -321,5 +324,19 @@ struct CuadraoProfilePage: View {
     }
     private func empty(_ title: String, detail: String) -> some View {
         ContentUnavailableView(title, systemImage: route.symbol, description: Text(detail))
+    }
+}
+
+/// AI reading of receipts, on or off for this account. The long explanation lives in the footer.
+private struct ReceiptReadingSetting: View {
+    @ObservedObject var model: ReceiptJourneyModel
+    let spanish: Bool
+
+    var body: some View {
+        let copy = ReceiptJourneyCopy(spanish: spanish)
+        Section {
+            Toggle(copy.settingTitle, isOn: Binding(get: { model.readingAllowed }, set: { model.setReadingAllowed($0) }))
+                .accessibilityIdentifier("cuadrao.privacy.receiptReading")
+        } footer: { Text(copy.settingFooter) }
     }
 }
