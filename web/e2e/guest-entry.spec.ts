@@ -407,7 +407,7 @@ async function readGuestEmptySurface(page: Page) {
     headingGroup: await heading.locator("..").innerText(),
     placeholder: await page.getByTestId("chat-input").getAttribute("placeholder"),
     starterLabels: await starterActions.allTextContents(),
-    headerTitle: (await page.locator("header h1").innerText()).trim(),
+    headerHeadingCount: await page.locator("header h1").count(),
   };
 }
 
@@ -420,7 +420,7 @@ test("@guest-shell Start over reuses the guest landing surface", async ({
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   const landingSurface = await readGuestEmptySurface(page);
-  expect(landingSurface.headerTitle).toBe("");
+  expect(landingSurface.headerHeadingCount).toBe(0);
 
   const composer = page.getByTestId("chat-input");
   await composer.fill("Compare Apple with SPY");
