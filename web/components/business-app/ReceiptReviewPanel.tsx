@@ -125,7 +125,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     <ReceiptReviewFrame
       back={confirmed ? "expenses" : "inbox"}
       eyebrow={detail.record_context?.space_name || null}
-      title={detail.merchant ?? (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
+      title={confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt")}
       badge={<StatusPill status={detail.status} />}
       summary={detail.amount && detail.currency ? <p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{formatMoney(detail.amount, detail.currency, locale)}</p> : null}
       source={source}

@@ -308,8 +308,9 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
             <button type="button" disabled={busy || checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{checking ? t("common.loading", "Loading") : t("business.dossier.refresh", "Check current record")}</button>
           </div>
     </ReceiptReviewFrame>
-    {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
+    {/* The note dialog keeps the third place in every branch, so a refused save keeps its message. */}
     {captureDialog}
+    {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
   </>
   );
 }
