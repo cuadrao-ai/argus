@@ -174,6 +174,75 @@ extension FinancialLoopUITests {
         capture("guest-search-opened-plan")
     }
 
+    private func openSearchWithTaxiAndFood() {
+        launchSignedOut(arguments: ["--cuadrao-guest-book"])
+        enterGuestBook()
+        addAccount(type: "checking", name: "Main", currency: "USD", amount: "1000")
+        recordMovement(amount: "20", note: "Taxi")
+        createPlan(kind: "budget", name: "Food", target: "300")
+        for _ in 0..<3 { app.swipeDown(velocity: .fast) }
+        app.buttons["tab.search"].tap()
+        XCTAssertTrue(app.textFields["search.query"].waitForExistence(timeout: 10))
+    }
+
+    private func openTaxiFromSearch() {
+        app.buttons["search.filter.activity"].tap()
+        search("taxi")
+        results("guest.search.movement.").firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10))
+    }
+
+    func testGuestSearchBackFromAResultReturnsToSearchWithItsQueryAndResults() throws {
+        openSearchWithTaxiAndFood()
+        openTaxiFromSearch()
+        app.accountBack.tap()
+        let field = app.textFields["search.query"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "back from a result returns to Search, not to Home")
+        XCTAssertEqual(field.value as? String, "taxi")
+        XCTAssertTrue(app.buttons["search.filter.activity"].isSelected, "the scope is kept")
+        XCTAssertEqual(results("guest.search.movement.").count, 1, "the results are still there")
+        capture("guest-search-after-back")
+
+        app.buttons["search.filter.plans"].tap()
+        app.buttons["search.clear"].tap()
+        search("food")
+        results("guest.search.plan.").firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.plan.detail"].waitForExistence(timeout: 10))
+        app.accountBack.tap()
+        XCTAssertTrue(app.textFields["search.query"].waitForExistence(timeout: 10), "a plan result also returns to Search")
+        XCTAssertEqual(app.textFields["search.query"].value as? String, "food")
+        XCTAssertEqual(results("guest.search.plan.").count, 1)
+    }
+
+    func testGuestBackFromAResultOpenedOnHomeOrPlanStaysOnThatTab() throws {
+        openSearchWithTaxiAndFood()
+        app.buttons["tab.home"].tap()
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.movement.row.' AND label CONTAINS 'Taxi'")).firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10))
+        app.accountBack.tap()
+        XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 10), "back from a movement opened on Home returns to Home")
+        XCTAssertFalse(app.textFields["search.query"].exists)
+
+        app.buttons["tab.plan"].tap()
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.plan.row.'")).firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.plan.detail"].waitForExistence(timeout: 10))
+        app.accountBack.tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.plan.row.'")).firstMatch.waitForExistence(timeout: 10),
+                      "back from a plan opened on Plan returns to the plan list")
+        XCTAssertFalse(app.textFields["search.query"].exists)
+    }
+
+    func testGuestSearchBackAfterChangingTabsByHandNeverJumpsToSearch() throws {
+        openSearchWithTaxiAndFood()
+        openTaxiFromSearch()
+        app.buttons["tab.plan"].tap()
+        app.buttons["tab.home"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10), "Home still shows the opened movement")
+        app.accountBack.tap()
+        XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 10), "back lands on the Home list")
+        XCTAssertFalse(app.textFields["search.query"].exists, "a hand-made tab change ends the return to Search")
+    }
+
     func testGuestGoalWhatIfStatesAssumptionsAndAppliesOnlyOnRequest() throws {
         launchSignedOut(arguments: ["--cuadrao-guest-book"])
         enterGuestBook()
