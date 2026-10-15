@@ -89,8 +89,12 @@ export type BusinessDossier = BusinessRecordContext & {
   /** The record's marks from the server, the same reading every list shows: Personal, who last changed it when not the owner, the fiscal number, the 606 answer. */
   personal?: boolean;
   personal_marked_by?: string | null;
+  /** The record's facts exist, so an empty fiscal_value means no fiscal number. */
+  fiscal_known?: boolean;
   fiscal_value?: "ncf" | "ecf" | null;
   include_606?: boolean | null;
+  /** Who gave the 606 answer, while one applies. */
+  include_606_by?: string | null;
   read_purchases?: BusinessReadPurchase[];
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
   read_total?: string | null;

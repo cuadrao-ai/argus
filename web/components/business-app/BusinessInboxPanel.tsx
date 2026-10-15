@@ -84,22 +84,18 @@ export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }:
   );
 }
 
-/** The read facts exist once a receipt is ready for review, needs attention or is confirmed. */
-export function marksKnown(status: ReceiptSummary["status"]): boolean {
-  return status === "review_ready" || status === "needs_attention" || status === "confirmed";
-}
-
 export function ReceiptRow({ receipt, onOpen, onMark }: { receipt: ReceiptSummary; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const attentionLabel = useAttentionLabel();
   const Icon = receipt.media_type === "application/pdf" ? FileText : ImageIcon;
   return (
-    <li className="flex items-center gap-1">
+    // On a phone the Personal toggle wraps under the row so the merchant keeps its column.
+    <li className="flex flex-wrap items-center gap-1">
       <button
         type="button"
         onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]"
+        className="flex min-w-0 flex-1 basis-80 items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]"
       >
         <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
           {receipt.activity?.state === "reading" ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[12px] border-2 border-teal-500/50 border-t-transparent motion-safe:animate-spin" /> : receipt.activity?.unread ? <span aria-hidden="true" data-testid="receipt-unread-dot" className="absolute right-0 top-0 h-2 w-2 rounded-full bg-teal-600" /> : null}
@@ -123,7 +119,7 @@ export function ReceiptRow({ receipt, onOpen, onMark }: { receipt: ReceiptSummar
                   : savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
                 : formatRelativeTime(receipt.received_at, locale)}
           </span>
-          <RecordMarks personal={receipt.personal} fiscalValue={receipt.fiscal_value} known={marksKnown(receipt.status)} markedBy={receipt.personal_marked_by} className="mt-1" />
+          <RecordMarks personal={receipt.personal} fiscalValue={receipt.fiscal_value} known={receipt.fiscal_known === true} markedBy={receipt.personal_marked_by} className="mt-1" />
         </span>
         <span className="hidden text-right text-[15px] font-medium tabular-nums text-black dark:text-white mobile:block">
           {formatMoney(receipt.amount, receipt.currency, locale)}
@@ -138,7 +134,7 @@ export function ReceiptRow({ receipt, onOpen, onMark }: { receipt: ReceiptSummar
           aria-pressed={receipt.personal === true}
           aria-label={receipt.personal ? t("business.marks.unmark_personal_label", "No longer personal") : t("business.marks.mark_personal_label", "Mark as personal")}
           onClick={() => onMark(receipt)}
-          className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 ${receipt.personal ? "border-[var(--cuadrao-green)] bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : "border-black/15 text-black/70 hover:bg-black/[0.04] dark:border-white/20 dark:text-white/75 dark:hover:bg-white/[0.06]"}`}
+          className={`ml-auto inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 ${receipt.personal ? "border-[var(--cuadrao-green)] bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : "border-black/15 text-black/70 hover:bg-black/[0.04] dark:border-white/20 dark:text-white/75 dark:hover:bg-white/[0.06]"}`}
         >
           {t("business.marks.mark_personal", "Personal")}
         </button>

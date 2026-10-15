@@ -76,10 +76,14 @@ export type ReceiptSummary = ReceiptReviewFields & {
   personal?: boolean;
   /** Who marked it, when that was someone other than the owner; absent otherwise. */
   personal_marked_by?: string | null;
+  /** The server says the receipt's facts exist (a draft owns it), so an empty fiscal_value means no fiscal number; absent before a read. */
+  fiscal_known?: boolean;
   /** The fiscal number the draft carries (NCF or e-CF); absent without one or before a read. */
   fiscal_value?: "ncf" | "ecf" | null;
   /** The accountant's 606 answer for a personal receipt with a fiscal number; absent until given. */
   include_606?: boolean | null;
+  /** Who gave the 606 answer; absent while there is none. */
+  include_606_by?: string | null;
   /** The caller may mark or unmark it: anyone holding prepare, on a receipt that has a draft. */
   personal_editable?: boolean;
   filename: string | null;
@@ -256,6 +260,8 @@ export type BusinessExpense = {
   fiscal_value?: "ncf" | "ecf" | null;
   /** The accountant's 606 answer for a personal expense with a fiscal number; absent until given. */
   include_606?: boolean | null;
+  /** Who gave the 606 answer; absent while there is none. */
+  include_606_by?: string | null;
 };
 
 /** One saved expense with when it was recorded and its revision; both null when the money read does not say. */

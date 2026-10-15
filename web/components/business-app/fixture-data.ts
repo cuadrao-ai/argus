@@ -71,6 +71,7 @@ function seedReceipts(): ReceiptDetail[] {
   return [
     receipt({
       id: "rcpt-ferreteria",
+      fiscal_known: true,
       status: "review_ready",
       channel: "whatsapp",
       personal_editable: true,
@@ -98,6 +99,7 @@ function seedReceipts(): ReceiptDetail[] {
     }),
     receipt({
       id: "rcpt-papeleria",
+      fiscal_known: true,
       status: "review_ready",
       draft_id: dossierFixtureIds.unprepared,
       // The accountant marked it Personal; the owner sees who and can take it back.
@@ -188,6 +190,7 @@ function seedReceipts(): ReceiptDetail[] {
     }),
     receipt({
       id: "rcpt-confirmed",
+      fiscal_known: true,
       status: "confirmed",
       filename: "hosting-sep.pdf",
       media_type: "application/pdf",
@@ -520,7 +523,7 @@ export function createFixtureBusinessDataSource(
       const injected = injectedWriteError();
       if (injected) throw injected;
       const entered = current.enterable
-        ? { status: "review_ready" as const, error_code: null, attention: null, preparable: false, enterable: false }
+        ? { status: "review_ready" as const, fiscal_known: true, error_code: null, attention: null, preparable: false, enterable: false }
         : {};
       const reviewed: ReceiptDetail = {
         ...merged,

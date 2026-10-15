@@ -44,6 +44,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
   const labels = {
     unknown: t("business.dossier.unknown", "Unknown"),
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),
+    yes: t("business.marks.yes", "Yes"),
+    no: t("business.marks.no", "No"),
     ownerFunds: t("business.dossier.owner_funds", "Owner's money"),
     businessAccount: t("business.dossier.business_account", "Business account"),
     value: (key: BusinessFactField, value: string) => {
@@ -57,7 +59,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
   const counts = reviewCounts([...rows, ...fiscalRows]);
   // Without an NCF and an e-CF the record has no fiscal receipt number: one row
   // says so, in the chip's words, in place of two empty ones.
-  const noFiscal = !dossier.fiscal_value;
+  const noFiscal = dossier.fiscal_known === true && !dossier.fiscal_value;
   const shownFiscalRows = noFiscal ? fiscalRows.filter(({ key }) => key !== "ncf" && key !== "ecf") : fiscalRows;
 
   const standingText = (standing: FactStanding, origin: string | null, blocked: boolean) => {

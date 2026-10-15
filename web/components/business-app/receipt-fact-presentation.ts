@@ -28,10 +28,11 @@ export function presentBusinessFact(
   return labels.value?.(key, String(fact.value)) ?? String(fact.value);
 }
 
-export function presentFiscalFact(key: BusinessFiscalField, facts: BusinessFacts, locale: string, labels: { unknown: string; ownerUnknown: string; notRecorded: string }): string {
+export function presentFiscalFact(key: BusinessFiscalField, facts: BusinessFacts, locale: string, labels: { unknown: string; ownerUnknown: string; notRecorded: string; yes?: string; no?: string }): string {
   const fact = facts.fiscal?.[key];
   if (!fact) return labels.notRecorded;
   if (fact.state !== "known") return fact.state === "owner_does_not_know" ? labels.ownerUnknown : labels.unknown;
-  if (typeof fact.value === "boolean") return String(fact.value);
+  // The 606 answer reads as the Sí or No the accountant chose.
+  if (typeof fact.value === "boolean") return (fact.value ? labels.yes : labels.no) ?? String(fact.value);
   return key === "itbis" && facts.currency.state === "known" ? formatMoney(fact.value, facts.currency.value, locale) : fact.value;
 }

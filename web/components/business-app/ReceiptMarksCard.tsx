@@ -25,7 +25,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   const personal = dossier.personal === true;
   const fiscalValue = dossier.fiscal_value ?? null;
   const inclusion = dossier.include_606 ?? null;
-  const answeredBy = dossier.history.at(-1)?.actor.display_name ?? "";
+  const answeredBy = dossier.include_606_by ?? "";
   const markedBy = dossier.personal_marked_by ?? null;
 
   const run = async (call: () => Promise<BusinessDossier>, failure: string) => {
@@ -46,7 +46,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   return (
     <div className={cardClass} data-testid="receipt-marks-card">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <RecordMarks personal={personal} fiscalValue={fiscalValue} known markedBy={markedBy} />
+        <RecordMarks personal={personal} fiscalValue={fiscalValue} known={dossier.fiscal_known === true} markedBy={markedBy} />
         {canPrepare ? (
           <button
             type="button"

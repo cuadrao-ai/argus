@@ -51,6 +51,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     const current: BusinessFacts = { ...facts, category_id: { ...known("other"), origin: "member_set", source_ids: [reviewSourceId] }, funding: ready ? { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "member_set", source_ids: [reviewSourceId] } : unknown(), amount: name === "unknownAmount" ? unknown() : facts.amount, kind: name === "unknownKind" ? unknown() : name === "income" ? known("income") : facts.kind };
     dossiers.set(id, {
       draft_id: id,
+      // The server's reading: every sample record has read facts.
+      fiscal_known: true,
       space_id: "50000000-0000-4000-8000-000000000001",
       space_name: "Taller Lucía · sample business",
       accounts,

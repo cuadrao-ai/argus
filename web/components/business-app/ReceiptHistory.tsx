@@ -15,6 +15,8 @@ export default function ReceiptHistory({ history, accounts }: { history: Busines
   const labels = {
     unknown: t("business.dossier.unknown", "Unknown"),
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),
+    yes: t("business.marks.yes", "Yes"),
+    no: t("business.marks.no", "No"),
     ownerFunds: t("business.dossier.owner_funds", "Owner's money"),
     businessAccount: t("business.dossier.business_account", "Business account"),
     value: (key: BusinessFactField, value: string) => {

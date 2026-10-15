@@ -104,7 +104,7 @@ describe("the Personal control in the Bandeja", () => {
 
   test("anyone the server lets prepare gets a sibling button next to the row; a read-only grant gets the chip only", async () => {
     const marked: string[] = [];
-    const owner = await mountRow(receipt({ personal_editable: true, fiscal_value: null }), (r) => marked.push(r.id));
+    const owner = await mountRow(receipt({ personal_editable: true, fiscal_known: true, fiscal_value: null }), (r) => marked.push(r.id));
     const button = owner.host.querySelector('[data-testid="mark-personal-rcpt-1"]') as HTMLButtonElement;
     assert.ok(button, "a Personal control");
     assert.equal(button.closest("button"), button, "not nested in the row's button");
@@ -154,6 +154,8 @@ describe("the receipt page's marks card", () => {
       personal_marked_by: personal && markedBy === "accountant" ? "Lía" : null,
       fiscal_value: ncf ? "ncf" : null,
       include_606: personal && ncf ? answer : null,
+      include_606_by: personal && ncf && answer !== null ? "Lía" : null,
+      fiscal_known: true,
       facts: {
         business_share: share(personal ? "none" : "all", markedBy === "owner" ? "owner_stated" : "member_set"),
         fiscal: ncf ? { rnc: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, ncf: { state: "known", value: "B0100000001", origin: "extracted", verified: false, source_ids: ["s"] }, ecf: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, itbis: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, include_606: answer === null ? { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } : { state: "known", value: answer, origin: "member_set", verified: true, source_ids: ["s"] } } : null,
@@ -254,7 +256,7 @@ describe("the review page's fiscal details", () => {
     const { default: ReceiptRecordFacts } = await import("@/components/business-app/ReceiptRecordFacts");
     const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
     const ncf = fiscal && (fiscal as { ncf?: { state?: string } }).ncf?.state === "known";
-    const d = { draft_id: "d-1", version: 1, capabilities: ["read"], blockers: [], questions: [], history: [], fiscal_value: ncf ? "ncf" : null, facts: { kind: unknown, amount: unknown, currency: unknown, occurred_on: unknown, counterparty: unknown, funding: unknown, business_share: unknown, receipt_state: unknown, category_id: unknown, fiscal } } as unknown as BusinessDossier;
+    const d = { draft_id: "d-1", version: 1, capabilities: ["read"], blockers: [], questions: [], history: [], fiscal_known: true, fiscal_value: ncf ? "ncf" : null, facts: { kind: unknown, amount: unknown, currency: unknown, occurred_on: unknown, counterparty: unknown, funding: unknown, business_share: unknown, receipt_state: unknown, category_id: unknown, fiscal } } as unknown as BusinessDossier;
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ReceiptRecordFacts dossier={d} accounts={[]} /></env.I18nextProvider>); });
     return env;
   }
@@ -314,5 +316,63 @@ describe("one owner for the marks", () => {
       assert.equal(row.personal, item.personal, item.name);
       await env.act(async () => env.root.unmount());
     }
+  });
+});
+
+describe("the server states what the browser used to guess", () => {
+  test("an unreadable receipt nobody read shows no fiscal chip; a read one without a number does", async () => {
+    const env = await setup();
+    const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
+    const render = (item: ReceiptSummary) => env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ul><ReceiptRow receipt={item} onOpen={() => undefined} /></ul></env.I18nextProvider>); });
+    await render(receipt({ status: "needs_attention", attention: "unreadable" as ReceiptSummary["attention"], merchant: null, amount: null }));
+    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]'), null, "nothing read, nothing claimed");
+    await render(receipt({ status: "review_ready", fiscal_known: true, fiscal_value: null }));
+    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]')?.textContent, "Sin comprobante fiscal");
+    await render(receipt({ status: "review_ready", fiscal_known: true, fiscal_value: "ecf" }));
+    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]'), null);
+    await env.act(async () => env.root.unmount());
+  });
+
+  test("the 606 line names whoever answered, even when the owner edited the record afterwards", async () => {
+    const env = await setup();
+    const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+    const { default: ReceiptMarksCard } = await import("@/components/business-app/ReceiptMarksCard");
+    const accountant = { chosen: { space_id: "s", name: "Colmado Peña", grant_id: "g", role: "accountant", capabilities: ["read", "prepare"], access_seen: true }, reload: () => undefined, source: {} } as unknown as BusinessContextValue;
+    const ownerEdit = { draft_id: "d-1", version: 5, actor: { actor_id: "o", actor_kind: "member", display_name: "Dueño", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño" }, before: {}, after: {}, source_ids: [], turn_key: null, created_at: "2026-10-13T11:00:00Z" };
+    const record = { draft_id: "d-1", version: 5, capabilities: ["read", "prepare"], history: [ownerEdit], facts: {}, personal: true, fiscal_known: true, fiscal_value: "ncf", include_606: false, include_606_by: "Lía" } as unknown as BusinessDossier;
+    await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={accountant}><ReceiptMarksCard dossier={record} onChanged={() => undefined} /></BusinessContext.Provider></env.I18nextProvider>); });
+    assert.equal(env.host.querySelector('[data-testid="receipt-606-state"]')?.textContent, "Fuera del 606 por Lía");
+    await env.act(async () => env.root.unmount());
+  });
+
+  test("the history reads a 606 answer as Sí or No, never true or false", async () => {
+    const env = await setup();
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
+    const base = { kind: unknown, amount: unknown, currency: unknown, occurred_on: unknown, counterparty: unknown, funding: unknown, business_share: unknown, receipt_state: unknown, category_id: unknown };
+    const fiscal = (answer: unknown) => ({ rnc: unknown, ncf: { state: "known", value: "B01", origin: "extracted", verified: false, source_ids: ["s"] }, ecf: unknown, itbis: unknown, include_606: answer });
+    const revision = { draft_id: "d-1", version: 4, actor: { actor_id: "a", actor_kind: "member", display_name: "Lía", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño" }, before: { ...base, fiscal: fiscal(unknown) }, after: { ...base, fiscal: fiscal({ state: "known", value: true, origin: "member_set", verified: true, source_ids: ["s"] }) }, source_ids: ["s"], turn_key: null, created_at: "2026-10-13T10:00:00Z" };
+    await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ReceiptHistory history={[revision] as never} accounts={[]} /></env.I18nextProvider>); });
+    const text = env.host.textContent ?? "";
+    assert.ok(text.includes("Sí"), text);
+    assert.ok(!/\btrue\b|\bfalse\b/.test(text), text);
+    await env.act(async () => env.root.unmount());
+  });
+});
+
+describe("the Bandeja row on a phone", () => {
+  test("the Personal toggle may wrap under the row: the open button keeps a basis and both the merchant and the 44px toggle stay", async () => {
+    const env = await setup();
+    const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
+    await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ul><ReceiptRow receipt={receipt({ personal: true, personal_marked_by: "Marta", personal_editable: true, fiscal_known: true, fiscal_value: null })} onOpen={() => undefined} onMark={() => undefined} /></ul></env.I18nextProvider>); });
+    const li = env.host.querySelector("li")!;
+    assert.ok(li.className.split(" ").includes("flex-wrap"), "the row wraps");
+    const open = li.querySelector("button")!;
+    assert.ok(open.className.split(" ").includes("basis-80") && open.className.split(" ").includes("min-w-0"));
+    assert.equal(open.textContent?.includes("Ferretería Luna"), true, "the merchant is there");
+    const toggle = env.host.querySelector('[data-testid="mark-personal-rcpt-1"]')!;
+    assert.ok(toggle.className.includes("min-h-11"));
+    for (const chip of env.host.querySelectorAll("[data-mark]")) assert.ok(chip.className.includes("whitespace-nowrap"), "a chip never wraps inside");
+    await env.act(async () => env.root.unmount());
   });
 });

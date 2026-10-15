@@ -152,7 +152,7 @@ export function useOwnerView(): boolean {
 export function RecordMarks({ personal, fiscalValue, known, markedBy = null, className = "" }: { personal?: boolean; fiscalValue?: "ncf" | "ecf" | null; known: boolean; markedBy?: string | null; className?: string }) {
   const { t } = useTranslation();
   const owner = useOwnerView();
-  const chip = "inline-flex min-h-6 items-center rounded-full border px-2 text-[11px] font-medium";
+  const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-full border px-2 text-[11px] font-medium";
   if (!personal && (!known || fiscalValue)) return null;
   const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: markedBy }) : null;
   return (
