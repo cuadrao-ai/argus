@@ -90,6 +90,8 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     assert.equal(page.text('[data-testid="overview-inbox-count"]'), "5");
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "5");
     assert.match(page.text('[data-testid="overview-attention"]') ?? "", /^3 recibos necesitan tu atención/);
+    // The starter chip under the Resumen names the same number.
+    assert.ok([...page.host.querySelectorAll('[data-testid="resumen"] button')].some((button) => button.textContent === "Revisar 5 recibos"));
     await page.act(async () => page.root.unmount());
   });
 

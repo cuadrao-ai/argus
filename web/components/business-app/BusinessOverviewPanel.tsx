@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import StarterActions from "@/components/chat/StarterActions";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useBusiness } from "./BusinessWorkspace";
-import { inboxCount } from "./BusinessInboxPanel";
+import { inboxCount } from "./inbox-count";
 import { formatDay, formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows } from "./business-ui";
 import BusinessPeriodControl, { usePeriodLabel } from "./BusinessPeriodControl";

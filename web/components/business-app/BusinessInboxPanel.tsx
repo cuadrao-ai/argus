@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { BusinessCapture, ReceiptSummary, ReceiptActivityCounts } from "@/lib/business-api";
+import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
@@ -34,15 +34,7 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
   return [...byDraft.values()].sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
 }
 
-/**
- * The Bandeja's number for the Resumen card and the sidebar badge, exactly as
- * the server counts it: every row the Bandeja lists, receipts awaiting review
- * and notes no receipt carries. Unread is a different count (the badge's dot).
- * Null until the server answers, because an unknown count is not zero.
- */
-export function inboxCount(records: { receiptActivity?: ReceiptActivityCounts | null }): number | null {
-  return records.receiptActivity?.pending_review_count ?? null;
-}
+export { inboxCount } from "./inbox-count";
 
 export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }: { notes: OpenNote[]; error: boolean; truncated?: boolean; onOpen: (draftId: string) => void }) {
   const { t, i18n } = useTranslation();
