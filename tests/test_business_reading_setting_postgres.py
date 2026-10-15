@@ -1,7 +1,8 @@
 """The owner's stored receipt-reading setting decides every Business read, over
 HTTP on the real app, Auth and Postgres: a read in flight stops when the owner
-turns reading off, an email receipt is read only while it is on, and a legacy
-prepare is refused while it is off. A local stub stands in for the provider."""
+turns reading off, an email receipt is read only while it is on, a legacy
+prepare is refused while it is off, and a read the Render Workflow worker runs
+lands exactly like the API's. A local stub stands in for the provider."""
 
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ from argus.api.documents import documents_service
 from argus.api.email_intake import _read_receipt, configure_email_intake
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
+from argus.domain.ingestion.documents.jobs import PreparationJobs
 from argus.domain.ingestion.email_intake.provider import ReceivedEmail
 from argus.domain.ingestion.email_intake.service import (
     EmailCapture,
@@ -29,7 +31,7 @@ from fastapi.testclient import TestClient
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
-from tests.business.receipt_stub import ReceiptStub
+from tests.business.receipt_stub import PURCHASE, ReceiptStub
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import SECRET, WEBHOOK, signed
 from tests.business_reading_support import ROUTE
@@ -265,3 +267,143 @@ def test_an_emailed_receipt_is_read_only_while_the_owners_reading_is_on(
         assert web.stub.calls == []
         assert _receipt(web, attachment["id"])["status"] == "saved"
     assert _receipt(web, original["id"])["status"] == "saved"
+
+
+def _landed(world, receipt_id: str) -> dict:  # noqa: ANN001
+    """What a read leaves behind: the receipt, its draft's revisions, the
+    action ledger rows that name it and any legacy import observations."""
+
+    detail = _receipt(world, receipt_id)
+    with Connection.connect(shared.DSN) as db:
+        revisions = db.execute(
+            "select version, actor->>'actor_kind', after_facts"
+            " from public.business_draft_revisions where draft_id=%s order by version",
+            (detail["draft_id"],),
+        ).fetchall()
+        ledger = db.execute(
+            "select actor->>'actor_kind', outcome->>'outcome', outcome->>'version',"
+            " outcome->>'draft_id' from public.business_action_receipts"
+            " where command->'binding'->>'connection_id'=%s",
+            (receipt_id,),
+        ).fetchall()
+        [observations] = db.execute(
+            "select count(*) from public.financial_import_observations"
+            " where connection_id=%s",
+            (receipt_id,),
+        ).fetchone()
+    facts = ("kind", "amount", "currency", "occurred_on", "counterparty")
+    return {
+        "receipt": {
+            key: detail[key]
+            for key in ("status", "error_code", "merchant", "occurred_on", "amount")
+            + ("currency", "version", "read_pending")
+        },
+        "revisions": [
+            (
+                version,
+                actor,
+                {name: (after[name]["value"], after[name]["verified"]) for name in facts},
+            )
+            for version, actor, after in revisions
+        ],
+        "ledger": [
+            (actor, outcome, version, draft == detail["draft_id"])
+            for actor, outcome, version, draft in ledger
+        ],
+        "observations": observations,
+    }
+
+
+def _landed_as(merchant: str, occurred_on: str, amount: str) -> dict:
+    return {
+        "receipt": {
+            "status": "review_ready",
+            "error_code": None,
+            "merchant": merchant,
+            "occurred_on": occurred_on,
+            "amount": amount,
+            "currency": "DOP",
+            "version": 1,
+            "read_pending": False,
+        },
+        "revisions": [
+            (
+                1,
+                "extractor",
+                {
+                    "kind": ("expense", False),
+                    "amount": (amount, False),
+                    "currency": ("DOP", False),
+                    "occurred_on": (occurred_on, False),
+                    "counterparty": (merchant, False),
+                },
+            )
+        ],
+        "ledger": [("extractor", "applied", "1", True)],
+        "observations": 0,
+    }
+
+
+def test_a_worker_read_lands_exactly_like_an_api_read(
+    web,
+    monkeypatch: pytest.MonkeyPatch,  # noqa: ANN001
+) -> None:
+    """The Render Workflow worker reads a Business receipt through the same
+    canonical bridge as the API: one provider call each, the same saved state.
+    Its own purchase keeps the second receipt from being the first's duplicate."""
+
+    from workflows.document_job import run_document_preparation
+
+    assert _reading(web, True).status_code == 200
+    by_api = _upload(web, RECEIPT + b"\x14")
+    assert by_api.status_code == 200, by_api.text
+    api_id = by_api.json()["id"]
+
+    attempts: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "argus.api.documents.document_jobs",
+        lambda: PreparationJobs(web.documents, lambda *attempt: attempts.append(attempt)),
+    )
+    by_worker = _upload(web, RECEIPT + b"\x15")
+    assert by_worker.status_code == 200, by_worker.text
+    worker_id = by_worker.json()["id"]
+    [(connection_id, attempt_id)] = attempts
+    worker = ReceiptStub(
+        {
+            **PURCHASE,
+            "amount": "1200.00",
+            "occurred_on": "2026-10-07",
+            "merchant": "SUMINISTROS DEL PUERTO SRL",
+        },
+        {
+            "merchant": "SUMINISTROS DEL PUERTO SRL",
+            "occurred_on": "2026-10-07",
+            "currency": "DOP",
+            "items": [{"id": "1", "description": "Cemento gris", "total": "1016.95"}],
+            "subtotal": "1016.95",
+            "tax": "183.05",
+            "total": "1200.00",
+        },
+    )
+    outcome = asyncio.run(
+        run_document_preparation(
+            connection_id,
+            attempt_id,
+            env={"ARGUS_WORKFLOW_DATABASE_URL": shared.DSN},
+            objects=web.documents.store.objects,
+            extractor=worker,
+        )
+    )
+
+    assert (web.stub.calls, worker.calls) == ([api_id], [worker_id])
+    assert outcome == {
+        "connection_id": worker_id,
+        "attempt_id": attempt_id,
+        "outcome": "prepared",
+    }
+    assert _landed(web, api_id) == _landed_as(
+        "FERRETERIA LA ESQUINA SRL", "2026-10-06", "3450"
+    )
+    assert _landed(web, worker_id) == _landed_as(
+        "SUMINISTROS DEL PUERTO SRL", "2026-10-07", "1200"
+    )
