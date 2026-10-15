@@ -33,9 +33,8 @@ extension FinancialLoopUITests {
         XCTAssertTrue(app.buttons["cuadrao.appearance.light"].waitForExistence(timeout: 5))
         assertNoDevelopmentNote()
         XCTAssertTrue(app.descendants(matching: .any)["profile.primaryCurrency"].exists, "Moneda preferida stays")
-        for example in ["Idioma", "República Dominicana"] {
-            XCTAssertFalse(labelled(example).exists, example)
-        }
+        XCTAssertFalse(labelled("República Dominicana").exists, "República Dominicana")
+        XCTAssertEqual(app.descendants(matching: .any)["cuadrao.profile.language"].label, "Idioma, Español", "Idioma is read-only information")
         capture("preferencias-\(look)")
         app.navigationBars.buttons.firstMatch.tap()
 
