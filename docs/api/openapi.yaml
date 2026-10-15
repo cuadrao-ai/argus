@@ -1102,7 +1102,9 @@ paths:
       tags:
       - financial-accounts
       - business
-      description: The owner marks the receipt as personal or takes the mark back.
+      description: 'The owner or anyone holding prepare marks the receipt as personal or
+
+        takes the mark back; a read-only grant is refused.'
       parameters:
       - name: draft_id
         in: path
@@ -13131,6 +13133,10 @@ components:
         personal:
           type: boolean
           default: false
+        personal_marked_by:
+          anyOf:
+          - type: string
+          - type: 'null'
         fiscal_value:
           anyOf:
           - type: string
@@ -16139,6 +16145,10 @@ components:
         personal:
           type: boolean
           default: false
+        personal_marked_by:
+          anyOf:
+          - type: string
+          - type: 'null'
         fiscal_value:
           anyOf:
           - type: string
@@ -19014,9 +19024,11 @@ components:
       required:
       - version
       - personal
-      description: 'The owner marks a receipt as personal (no part of it is the Business''s)
+      description: 'The owner or a prepare-holder marks a receipt as personal (no part of
 
-        or takes the mark back. Reversible, a new revision each way.'
+        it is the Business''s) or takes the mark back. Reversible, a new revision
+
+        each way.'
     MarketSession:
       properties:
         phase:
@@ -22338,6 +22350,10 @@ components:
         personal:
           type: boolean
           default: false
+        personal_marked_by:
+          anyOf:
+          - type: string
+          - type: 'null'
         fiscal_value:
           anyOf:
           - type: string
@@ -22951,6 +22967,10 @@ components:
         personal:
           type: boolean
           default: false
+        personal_marked_by:
+          anyOf:
+          - type: string
+          - type: 'null'
         fiscal_value:
           anyOf:
           - type: string

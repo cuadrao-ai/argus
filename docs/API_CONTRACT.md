@@ -9327,13 +9327,17 @@ person starts their space, every route below except POST `/space` answers 404
     its row, a second review gets its own); the upload row is written in the
     transaction that saves the receipt.
   - Personal receipts and the 606. A receipt is personal when its
-    `business_share` is `none` and the owner stated it: POST
+    `business_share` is `none` and a person stated it (origin `owner_stated`
+    for the owner, `member_set` for anyone else): POST
     `/api/v1/business/drafts/{id}/personal` (`Idempotency-Key`, body
-    `{version, personal}`), the owner alone (403 `business_permission_denied`
-    for a grantee), on an open or an approved draft, reversible with
-    `personal: false`; each way is a new revision in the history and one
-    `mark_personal` ledger row naming the grant. A `none` of any other origin
-    (a model's reading, a member's edit) marks nothing. Approval admits a
+    `{version, personal}`), the owner or anyone holding prepare through a
+    live grant (403 `business_permission_denied` for a read-only grant), on
+    an open or an approved draft, reversible with `personal: false` by the
+    same people, so the owner can always take back anyone's mark; each way is
+    a new revision in the history and one `mark_personal` ledger row naming
+    the actor, the grant used and its issuer. A `none` of any other origin
+    (a model's reading, a match, a default) marks nothing. Approval stays the
+    owner's alone. Approval admits a
     personal receipt and records it as today; a partial share stays refused.
     "Has fiscal value" is an NCF or an e-CF the draft knows, of any origin
     (the e-CF check state comes later); the 606 itself is not built. A
@@ -9345,9 +9349,11 @@ person starts their space, every route below except POST `/space` answers 404
     `fiscal.include_606`, a revision and a `decide_606` ledger row. Receipt
     summaries and details, expenses and their detail carry `personal`,
     `fiscal_value` (`ncf`, `ecf` or null) and `include_606` (true, false or
-    null when not applicable or unanswered), present only when set; receipt
-    summaries add `personal_editable` for the owner with prepare on a receipt
-    that has a draft. The overview's `totals` are "Gastos reales" (approved
+    null when not applicable or unanswered), present only when set, and
+    `personal_marked_by`, the display name of whoever last changed the mark
+    when that was not the owner (absent otherwise); receipt summaries add
+    `personal_editable` for anyone with prepare on a receipt that has a
+    draft. The overview's `totals` are "Gastos reales" (approved
     expenses that are not personal), `fiscal_totals` are those with fiscal
     value and `without_fiscal_totals` the rest, all per currency from the same
     rows. The export's records gain `personal`, `fiscal_value` and
