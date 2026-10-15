@@ -18,6 +18,8 @@ afterAll(async () => {
 const unmounts: Array<() => Promise<void>> = [];
 afterEach(async () => {
   for (const unmount of unmounts.splice(0)) await unmount();
+  // The overlay registry is a process-wide singleton: leave it not listening on this document.
+  (await import("../components/layout/overlayStack")).resetOverlayStack();
   document.body.innerHTML = "";
 });
 
