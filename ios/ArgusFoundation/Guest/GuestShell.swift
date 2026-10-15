@@ -93,6 +93,8 @@ struct GuestShell: View {
     @State private var profilePath: [GuestProfileRoute] = []
     @State private var homePath: [GuestRoute] = []
     @State private var planPath: [UUID] = []
+    /// The tab holding a result opened from Search. Closing that result returns to Search; changing tab by hand drops it.
+    @State private var searchResultTab: CuadraoTab?
     @State private var sheet: GuestSheet?
     @State private var capturing: ReceiptSourceChoice?
     @State private var captured: [(data: Data, name: String, pdf: Bool)]?
@@ -119,6 +121,14 @@ struct GuestShell: View {
         .environment(\.guestAddReceipt) { capture($0) }
         .cuadraoToast($toast, spanish: spanish)
         .onAppear { announceFirstOpen() }
+        .onChange(of: tab) { _, new in
+            if new != searchResultTab { searchResultTab = nil }
+        }
+        .onChange(of: searchResultIsOpen) { was, isOpen in
+            guard was, !isOpen, searchResultTab != nil else { return }
+            searchResultTab = nil
+            tab = .search
+        }
         .onChange(of: expenseCount) { old, new in
             guard old == 0, new >= 1, !GuestNotice.firstSave.seen else { return }
             GuestNotice.firstSave.markSeen()
@@ -235,12 +245,20 @@ struct GuestShell: View {
         }
     }
 
-    /// A search result opens in the tab that owns it.
+    private var searchResultIsOpen: Bool {
+        switch searchResultTab {
+        case .home: !homePath.isEmpty
+        case .plan: !planPath.isEmpty
+        default: false
+        }
+    }
+
+    /// A search result opens in the tab that owns it, and closing it returns to Search.
     private func open(_ target: GuestSearchTarget) {
         switch target {
-        case .account(let id): tab = .home; homePath = [.account(id)]
-        case .movement(let id): tab = .home; homePath = [.movement(id)]
-        case .plan(let id): tab = .plan; planPath = [id]
+        case .account(let id): searchResultTab = .home; tab = .home; homePath = [.account(id)]
+        case .movement(let id): searchResultTab = .home; tab = .home; homePath = [.movement(id)]
+        case .plan(let id): searchResultTab = .plan; tab = .plan; planPath = [id]
         }
     }
 
