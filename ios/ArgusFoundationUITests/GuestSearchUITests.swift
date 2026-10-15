@@ -232,15 +232,17 @@ extension FinancialLoopUITests {
         XCTAssertFalse(app.textFields["search.query"].exists)
     }
 
-    func testGuestSearchBackAfterChangingTabsByHandNeverJumpsToSearch() throws {
+    func testGuestBackAfterLeavingSearchByHandNeverJumpsBackToSearch() throws {
         openSearchWithTaxiAndFood()
         openTaxiFromSearch()
-        app.buttons["tab.plan"].tap()
+        app.accountBack.tap()
+        XCTAssertTrue(app.textFields["search.query"].waitForExistence(timeout: 10))
         app.buttons["tab.home"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10), "Home still shows the opened movement")
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.movement.row.' AND label CONTAINS 'Taxi'")).firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10))
         app.accountBack.tap()
         XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 10), "back lands on the Home list")
-        XCTAssertFalse(app.textFields["search.query"].exists, "a hand-made tab change ends the return to Search")
+        XCTAssertFalse(app.textFields["search.query"].exists, "an earlier visit to Search does not pull a later back to Search")
     }
 
     func testGuestGoalWhatIfStatesAssumptionsAndAppliesOnlyOnRequest() throws {
