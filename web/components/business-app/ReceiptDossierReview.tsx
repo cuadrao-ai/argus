@@ -21,6 +21,7 @@ import ReceiptHistory from "./ReceiptHistory";
 import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { formatMoney } from "./business-format";
+import { nextBandejaReceipt } from "./bandeja-order";
 import { cardClass, LoadingRows, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
@@ -143,7 +144,7 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
 
 export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }: { draftId: string; onUnprepared?: () => void; receipt?: ReceiptDetail }) {
   const { t, i18n } = useTranslation();
-  const { source, reload } = useBusiness();
+  const { source, reload, records, openPanel } = useBusiness();
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [operation, setOperation] = useState<Operation>({ kind: "idle" });
@@ -157,6 +158,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const [captureRetained, setCaptureRetained] = useState(false);
   const [capturePending, setCapturePending] = useState(false);
   const [settling, setSettling] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
   const inFlight = useRef(false);
   const reviewRequest = useRef<{ version: number; facts: BusinessFactPatch; key: string } | null>(null);
   const approvalKey = useRef<{ version: number; key: string } | null>(null);
@@ -204,8 +206,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     } finally { setChecking(false); }
   };
 
-  const write = async (action: "save" | "approve", facts?: BusinessFactPatch) => {
-    if (!dossier || inFlight.current || operation.kind !== "idle" || action === "save" && !facts) return;
+  const write = async (action: "save" | "approve", facts?: BusinessFactPatch): Promise<BusinessDossier | null> => {
+    if (!dossier || inFlight.current || operation.kind !== "idle" || action === "save" && !facts) return null;
     inFlight.current = true;
     setOperation({ kind: action === "save" ? "saving" : "approving" });
     setProblem(null);
@@ -226,6 +228,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       setDirty(false);
       setOperation(next.approval_result?.status === "outcome_unknown" ? { kind: "uncertain", action: "approve", version: dossier.version } : { kind: "idle" });
       reload();
+      return next;
     } catch (error) {
       const { code, status } = error as { code?: string; status?: number };
       if (status && status >= 400 && status < 500) reviewRequest.current = null;
@@ -244,7 +247,24 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
         setOperation({ kind: "uncertain", action, version: dossier.version });
         setProblem(t("business.dossier.outcome_unknown", "The action's outcome isn't known yet. Check the saved status before taking another action."));
       }
+      return null;
     } finally { inFlight.current = false; }
+  };
+
+  // Only a recorded approval moves on, to the next row of the Bandeja as the server lists it now.
+  const approveAndNext = async () => {
+    if (!receipt) return;
+    const seen = records.inbox;
+    setAdvancing(true);
+    try {
+      const approved = await write("approve");
+      if (approved?.approval_result?.status !== "recorded") return;
+      const fresh = await source.receipts("inbox").catch(() => null);
+      const next = fresh ? nextBandejaReceipt(receipt.id, seen, fresh) : null;
+      openPanel(next ? { kind: "receipt", receiptId: next } : { kind: "inbox" });
+    } finally {
+      setAdvancing(false);
+    }
   };
 
   const captureDialog = <ManualCaptureDialog isOpen={captureOpen} target={captureTarget} revision={captureRevision} onClose={() => setCaptureOpen(false)} onPending={setCapturePending} onRetained={setCaptureRetained} onUnavailable={() => { setUnavailable(true); setDossier(null); }} onSaved={(saved) => { setDossier(saved); setCaptureOpen(false); setUnavailable(false); reload(); }} />;
@@ -270,6 +290,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const title = dossier.facts.counterparty.state === "known" ? dossier.facts.counterparty.value : t("business.dossier.title", "Review record");
   const attachments = dossier.sources.filter((item) => item.kind === "attachment");
   const busy = operation.kind === "saving" || operation.kind === "approving";
+  const approvable = mutable && dossier.approval_available && !dirty && !editing;
 
   return (<>
     {captureRecovery}
@@ -300,7 +321,10 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
           <div className={cardClass}>
             {recorded ? <><p role="status" className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: factsRevision(dossier) })}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{dossier.approval_result?.status === "recorded" ? t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: dossier.approval_result.actor.display_name, issuer: dossier.approval_result.actor.issuer_display_name }) : null}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p></> : <>
-              {canApprove && expense ? <button type="button" className={primaryButtonClass} disabled={!mutable || !dossier.approval_available || dirty || editing || !expense} onClick={() => void write("approve")}>{operation.kind === "approving" ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve", "Approve expense")}</button> : null}
+              {canApprove && expense ? <div className="flex flex-wrap items-center gap-3">
+                {receipt ? <button type="button" className={primaryButtonClass} disabled={!approvable} onClick={() => void approveAndNext()}>{operation.kind === "approving" && advancing ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve_next", "Approve and next")}</button> : null}
+                <button type="button" className={receipt ? secondaryButtonClass : primaryButtonClass} disabled={!approvable} onClick={() => void write("approve")}>{operation.kind === "approving" && !advancing ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve", "Approve expense")}</button>
+              </div> : null}
               {line ? <p className={`${canApprove ? "mt-3 " : ""}text-[13px] leading-relaxed text-black/65 dark:text-white/65`}>{line === "approval_effect" ? t("business.dossier.approval_effect", "Approval records this revision as one expense. Saving review details does not record it.") : line === "prepare_only" ? t("business.dossier.prepare_only", "Your permission allows preparing this record. A person with approval permission must approve it.") : t("business.dossier.read_only", "Your permission allows viewing this record.")}</p> : null}
               {dossier.approval_result?.status === "failed" ? <p role="alert" className="mt-3 text-[13px] text-black/70 dark:text-white/70">{t("business.dossier.approval_failed", "Approval did not finish. Check the current record before another action.")}</p> : null}
             </>}

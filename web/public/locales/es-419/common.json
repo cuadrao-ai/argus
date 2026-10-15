@@ -2295,6 +2295,7 @@
       "for_owner": "Para el dueño",
       "before_approval": "Antes de aprobar",
       "approve": "Aprobar gasto",
+      "approve_next": "Aprobar y siguiente",
       "approved_by": "Aprobado por {{name}} · permiso otorgado por {{issuer}}",
       "approving": "Aprobando…",
       "approval_effect": "Aprobar registra esta revisión como un gasto. Guardar los detalles de revisión no lo registra.",
