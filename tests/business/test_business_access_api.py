@@ -6,11 +6,10 @@ from datetime import timedelta
 from uuid import uuid4
 
 import pytest
-from argus.api.business_spaces import business_access
-from argus.api.routers.profile import _accept_business_invites
+from argus.api.business_spaces import accept_business_invites, business_access
 from fastapi.testclient import TestClient
 
-from tests.business.conftest import ALICE
+from tests.business.conftest import ALICE, BOB
 from tests.business.test_business_api import Owner, alice, bob  # noqa: F401
 
 
@@ -111,10 +110,10 @@ def test_a_pending_invite_turns_into_a_grant_when_that_email_signs_in(
     invited = alice.post("/access", {"email": "bob@example.test"})
     assert invited.status_code == 201 and invited.json()["invites"]
     # Not confirmed yet: a profile read grants nothing.
-    assert _accept_business_invites(bob.person) is None
+    assert accept_business_invites(bob.person) is None
     assert store.capabilities(alice.scope().owner.space_id, bob.person) == ()
     store.confirm(bob.person, "bob@example.test")
-    _accept_business_invites(bob.person)
+    accept_business_invites(bob.person)
     assert store.capabilities(alice.scope().owner.space_id, bob.person) == (
         "read",
         "prepare",
@@ -125,6 +124,35 @@ def test_a_pending_invite_turns_into_a_grant_when_that_email_signs_in(
     assert "accept_invite" in [c.action for c in store.ledger]
 
 
+def test_the_first_spaces_read_after_sign_in_lists_the_client_business(
+    biz: TestClient,
+    identities,  # noqa: ANN001
+    alice: Owner,  # noqa: F811
+) -> None:
+    """The web client reads the switcher beside the profile, so the listing
+    itself turns the invite into a grant; a replay accepts nothing twice."""
+
+    store = business_access()
+    assert store is not None
+    invited = alice.post("/access", {"email": "bob@example.test"})
+    assert invited.status_code == 201, invited.text
+    newcomer = Owner(biz, BOB, identities[BOB]["id"])
+    store.confirm(newcomer.person, "bob@example.test")
+
+    first = newcomer.get("/spaces")
+    assert first.status_code == 200, first.text
+    [client_business] = first.json()["spaces"]
+    assert (
+        client_business["space_id"],
+        client_business["role"],
+        client_business["capabilities"],
+        client_business["access_seen"],
+    ) == (alice.scope().owner.space_id, "accountant", ["read", "prepare"], False)
+    assert newcomer.get("/spaces").json()["spaces"] == [client_business]
+    assert [c.action for c in store.ledger].count("accept_invite") == 1
+    assert alice.get("/access").json()["invites"] == []
+
+
 def test_the_profile_read_never_fails_because_of_the_invite_hook(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -133,9 +161,9 @@ def test_the_profile_read_never_fails_because_of_the_invite_hook(
             raise RuntimeError("database away")
 
     monkeypatch.setattr("argus.api.business_spaces._access", Broken())
-    assert _accept_business_invites(str(uuid4())) is None
+    assert accept_business_invites(str(uuid4())) is None
     monkeypatch.setattr("argus.api.business_spaces._access", None)
-    assert _accept_business_invites(str(uuid4())) is None
+    assert accept_business_invites(str(uuid4())) is None
 
 
 def test_re_inviting_an_expired_email_makes_a_fresh_live_invite(
