@@ -5,6 +5,39 @@ import XCTest
 extension FinancialLoopUITests {
     func testAcceptedDeletionRelaunchesSignedOut() throws {
         try signIn()
+        let inProgress = submitAcceptedDeletion()
+        capture("deletion-accepted")
+
+        for launch in 1...2 {
+            relaunchToSignedOutEntry("launch \(launch)")
+            XCTAssertFalse(inProgress.exists, "launch \(launch) no longer shows Eliminación en curso")
+            capture("deletion-relaunch-\(launch)")
+        }
+    }
+
+    /// The deleted account's local receipt drafts leave with it; checked on disk by the lane run. Here: another
+    /// account's draft on the same iPhone is still there after the accepted deletion and a relaunch.
+    func testAcceptedDeletionKeepsAnotherAccountsReceiptDraft() throws {
+        #if !DEBUG
+        throw XCTSkip("Receipt capture remains a development-only local draft.")
+        #else
+        try signIn(fresh: true, user: "B")
+        let kept = addConnectedSampleDraft()
+        try signIn(fresh: true)
+        _ = addConnectedSampleDraft()
+        capture("deletion-drafts-before")
+        _ = submitAcceptedDeletion()
+        capture("deletion-drafts-accepted")
+        relaunchToSignedOutEntry("relaunch")
+        try signIn(user: "B")
+        openConnectedSavedReceipts()
+        XCTAssertTrue(app.buttons[kept].waitForExistence(timeout: 5), "another account's draft stays on this iPhone")
+        capture("deletion-drafts-other-account-kept")
+        app.buttons["Done"].tap()
+        #endif
+    }
+
+    private func submitAcceptedDeletion() -> XCUIElement {
         app.terminate()
         app.launchArguments = ["-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO", "--cuadrao-release-gates"]
         app.launch()
@@ -20,19 +53,31 @@ extension FinancialLoopUITests {
         submit.tap()
         let inProgress = app.staticTexts["identity.delete.inProgress"]
         XCTAssertTrue(inProgress.waitForExistence(timeout: 30), "the server accepted the deletion")
-        capture("deletion-accepted")
+        return inProgress
+    }
 
-        for launch in 1...2 {
-            app.terminate()
-            app.launch()
-            let signedOut = app.buttons["cuadrao.welcome.signin"].firstMatch
-            let loginOnly = app.textFields["auth.email"].firstMatch
-            let entry = NSPredicate { _, _ in signedOut.exists || loginOnly.exists }
-            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: entry, object: nil)], timeout: 30), .completed,
-                           "launch \(launch) opens the signed-out entry")
-            XCTAssertFalse(inProgress.exists, "launch \(launch) no longer shows Eliminación en curso")
-            XCTAssertFalse(app.buttons["header.profile"].exists, "launch \(launch) shows no account")
-            capture("deletion-relaunch-\(launch)")
-        }
+    private func relaunchToSignedOutEntry(_ label: String) {
+        app.terminate()
+        app.launch()
+        let signedOut = app.buttons["cuadrao.welcome.signin"].firstMatch
+        let loginOnly = app.textFields["auth.email"].firstMatch
+        let entry = NSPredicate { _, _ in signedOut.exists || loginOnly.exists }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: entry, object: nil)], timeout: 30), .completed,
+                       "\(label) opens the signed-out entry")
+        XCTAssertFalse(app.buttons["header.profile"].exists, "\(label) shows no account")
+    }
+
+    private func addConnectedSampleDraft() -> String {
+        openConnectedSavedReceipts()
+        tapVisible(app.buttons["saved-add-receipt"])
+        tapVisible(app.buttons["receipt-sample"])
+        XCTAssertTrue(app.staticTexts["receipt-local-draft-notice"].waitForExistence(timeout: 5))
+        app.buttons["receipt-later"].tap()
+        openConnectedSavedReceipts()
+        let card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'receipt-card-'")).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        let id = card.identifier
+        app.buttons["Done"].tap()
+        return id
     }
 }
