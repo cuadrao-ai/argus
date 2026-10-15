@@ -107,11 +107,55 @@ final class AccountDeletionTests: XCTestCase {
         let result = try await controller.deleteAccount(expectedIdentity: identity)
         XCTAssertEqual(result, .pending(userID: UUID(uuidString: identity.profile!.id)!))
         let restored = try fixture.controller(); let snapshot = try await restored.restore()
-        XCTAssertEqual(snapshot.phase, .accountDeletionPending)
+        XCTAssertEqual(snapshot.phase, .signedOut)
         XCTAssertNil(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".session"))
         do { _ = try await restored.resumePendingAccountDeletion(); XCTFail("Accepted deletion has no interactive proof") }
         catch { XCTAssertEqual(error as? SessionFailure, .staleOperation) }
         let commands = await fixture.server.captured(); XCTAssertEqual(commands.count, 1)
+    }
+
+    func testAcceptedDeletionRelaunchesSignedOutWithNothingStoredAfterTheServerFinishes() async throws {
+        let fixture = DeletionFixture(); let controller = try fixture.controller()
+        let identity = try await fixture.login(controller)
+        await fixture.server.configure(202, ["status": "in_progress", "pending": ["analytics"]])
+        let result = try await controller.deleteAccount(expectedIdentity: identity)
+        XCTAssertEqual(result, .pending(userID: UUID(uuidString: identity.profile!.id)!))
+        let accepted = await controller.snapshot(); XCTAssertEqual(accepted.phase, .accountDeletionPending)
+        XCTAssertEqual(try fixture.journal()?.phase, .pending)
+
+        await fixture.server.auth.configure(meStatuses: [401, 401, 401], refreshStatus: 400, refreshErrorCode: "user_not_found")
+        let requestsBefore = await fixture.server.auth.captured().count
+        for _ in 0..<2 {
+            let relaunched = try fixture.controller()
+            let snapshot = try await relaunched.restore()
+            XCTAssertEqual(snapshot.phase, .signedOut, "relaunch after an accepted deletion lands signed out")
+            XCTAssertNil(snapshot.profile)
+            let statuses = try await relaunched.accountDeletionStatuses(); XCTAssertEqual(statuses, [])
+        }
+        for key in [".session", ".pending", ".deletion"] {
+            XCTAssertNil(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + key), key)
+        }
+        let requestsAfter = await fixture.server.auth.captured().count
+        XCTAssertEqual(requestsAfter, requestsBefore, "the signed-out relaunch needs no network")
+        let commands = await fixture.server.captured(); XCTAssertEqual(commands.count, 1)
+    }
+
+    func testTransientNetworkErrorKeepsDeletionStateAndSessionAcrossRelaunch() async throws {
+        let fixture = DeletionFixture(); let controller = try fixture.controller()
+        let identity = try await fixture.login(controller)
+        await fixture.server.configure(202, ["status": "in_progress", "pending": []], lose: true)
+        let result = try await controller.deleteAccount(expectedIdentity: identity)
+        guard case .uncertain = result else { return XCTFail("A lost response is uncertain") }
+        for _ in 0..<2 {
+            let relaunched = try fixture.controller()
+            let snapshot = try await relaunched.restore()
+            XCTAssertEqual(snapshot.phase, .accountDeletionUncertain, "a network error never signs out")
+        }
+        XCTAssertEqual(try fixture.journal()?.phase, .uncertain)
+        XCTAssertNotNil(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".session"), "proof kept for Check again")
+        let userID = try XCTUnwrap(UUID(uuidString: identity.profile!.id))
+        let status = try await fixture.controller().accountDeletionStatus(userID: userID)
+        XCTAssertEqual(status, .uncertain(userID: userID, retryAfter: nil, canRetry: true, recovery: nil))
     }
 
     func testLostResponseSurvivesRelaunchAndBlocksProtectedDispatchBeforeSameCommandResolution() async throws {

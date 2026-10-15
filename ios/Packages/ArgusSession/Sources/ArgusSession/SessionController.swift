@@ -640,9 +640,11 @@ public actor SessionController {
         }
         if let session = try vault.session(), session.user.id != journal.userID { return false }
         // An interrupted token removal must finish before ordinary SDK adoption.
-        endAccountEpoch(as: journal.phase == .pending ? .accountDeletionPending : .signedOut)
+        endAccountEpoch(as: .signedOut)
         try vault.removeSession()
         try vault.removePending()
+        // Accepted (202) retired the only proof that could observe the run finish, so it ends signed out here.
+        if journal.phase == .pending { try vault.removeDeletionJournal(epoch: vault.epoch(), userID: journal.userID) }
         return true
     }
 

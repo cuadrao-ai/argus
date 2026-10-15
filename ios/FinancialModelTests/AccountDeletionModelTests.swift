@@ -86,7 +86,7 @@ private struct DeletionModelFixture {
 
 @MainActor
 final class AccountDeletionModelTests: XCTestCase {
-    func testAcceptedDeletionIsPendingNotDeletedAndKeepsDraftsAcrossRelaunch() async throws {
+    func testAcceptedDeletionIsPendingNotDeletedAndRelaunchesSignedOut() async throws {
         let fixture = DeletionModelFixture(); let controller = try fixture.controller()
         _ = try await fixture.login(controller)
         let alice = await fixture.alice; try fixture.folders.create(alice)
@@ -98,17 +98,17 @@ final class AccountDeletionModelTests: XCTestCase {
         XCTAssertEqual(model.state, .pending)
         XCTAssertEqual(published, [.accountDeletionPending], "the shell leaves the signed-in surface on acceptance")
         XCTAssertTrue(fixture.folders.exists(alice), "202 is accepted work, not confirmed deletion")
+        model.finish()
+        XCTAssertEqual(model.state, .ready, "Done leaves the signed-out destination without claiming completion")
 
         let relaunched = try fixture.controller()
         let restored = try await relaunched.restore()
-        XCTAssertEqual(restored.phase, .accountDeletionPending)
+        XCTAssertEqual(restored.phase, .signedOut)
         let reopened = fixture.model(relaunched)
         await reopened.load()
-        XCTAssertEqual(reopened.state, .pending)
+        XCTAssertEqual(reopened.state, .ready, "the next launch is the signed-out entry, never a claimed completion")
         XCTAssertEqual(fixture.folders.attempts, [])
         XCTAssertTrue(fixture.folders.exists(alice))
-        reopened.finish()
-        XCTAssertEqual(reopened.state, .ready, "Done leaves the signed-out destination without claiming completion")
     }
 
     func testInterruptedResponseThenRetryCompletesAndCleansExactlyOnce() async throws {
