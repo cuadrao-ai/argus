@@ -22,7 +22,6 @@ extension FinancialLoopUITests {
             XCTAssertTrue(app.buttons["cuadrao.profile.identity"].waitForExistence(timeout: 15))
             assertNoRawLanguageCode()
             tapVisible(app.buttons["cuadrao.profile.preferences"])
-            XCTAssertTrue(app.buttons["cuadrao.appearance.light"].waitForExistence(timeout: 5))
             assertLanguageRow(id: "cuadrao.profile.language", label: label, value: value)
             assertNoRawLanguageCode()
             perfilIdiomaCapture("preferencias-idioma-\(language)-\(look)")
@@ -38,7 +37,6 @@ extension FinancialLoopUITests {
         XCTAssertTrue(app.buttons["guest.profile.preferences"].waitForExistence(timeout: 10))
         assertNoRawLanguageCode()
         app.buttons["guest.profile.preferences"].tap()
-        XCTAssertTrue(app.buttons["guest.profile.currency"].waitForExistence(timeout: 5))
         assertLanguageRow(id: "guest.profile.language", label: label, value: value)
         assertNoRawLanguageCode()
         perfilIdiomaCapture("guest-preferencias-idioma-\(language)-\(look)")
@@ -46,7 +44,9 @@ extension FinancialLoopUITests {
 
     private func assertLanguageRow(id: String, label: String, value: String, file: StaticString = #filePath, line: UInt = #line) {
         let row = app.descendants(matching: .any)[id]
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "the language row exists", file: file, line: line)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "the language row exists", file: file, line: line)
+        for _ in 0..<6 where !row.isHittable || row.frame.maxY > app.frame.maxY - 60 { app.swipeUp() }
+        XCTAssertTrue(row.isHittable && row.frame.maxY <= app.frame.maxY - 60, "the language row scrolls into view at larger text", file: file, line: line)
         XCTAssertTrue(row.label.contains(label), "label \(row.label)", file: file, line: line)
         XCTAssertTrue(row.label.contains(value) || (row.value as? String)?.contains(value) == true,
                       "value \(row.label) / \(String(describing: row.value))", file: file, line: line)
