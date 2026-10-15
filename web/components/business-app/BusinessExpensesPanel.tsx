@@ -97,7 +97,7 @@ export default function BusinessExpensesPanel() {
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <RecordMarks personal={expense.personal} fiscalValue={expense.fiscal_value} known className="mt-1" />
+                  <RecordMarks personal={expense.personal} fiscalValue={expense.fiscal_value} known markedBy={expense.personal_marked_by} className="mt-1" />
                 </span>
                 <span className="text-right text-[15px] font-medium tabular-nums text-black dark:text-white">
                   {formatMoney(expense.amount, expense.currency, locale)}

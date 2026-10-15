@@ -72,13 +72,15 @@ export type ReceiptSummary = ReceiptReviewFields & {
   id: string;
   activity?: ReceiptActivity | null;
   channel: ReceiptChannel;
-  /** Marked by the owner as no part of the Business: left out of the totals, kept visible. */
+  /** Marked by a person as no part of the Business: left out of the totals, kept visible. */
   personal?: boolean;
+  /** Who marked it, when that was someone other than the owner; absent otherwise. */
+  personal_marked_by?: string | null;
   /** The fiscal number the draft carries (NCF or e-CF); absent without one or before a read. */
   fiscal_value?: "ncf" | "ecf" | null;
   /** The accountant's 606 answer for a personal receipt with a fiscal number; absent until given. */
   include_606?: boolean | null;
-  /** The caller may mark or unmark it: the owner, with prepare, on a receipt that has a draft. */
+  /** The caller may mark or unmark it: anyone holding prepare, on a receipt that has a draft. */
   personal_editable?: boolean;
   filename: string | null;
   /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
@@ -177,7 +179,7 @@ export async function approveBusinessDraft(draftId: string, version: number, ide
   });
 }
 
-/** The owner marks a receipt as personal (no part of it is the Business's) or takes the mark back. */
+/** The owner or a prepare-holder marks a receipt as personal (no part of it is the Business's) or takes the mark back. */
 export async function markBusinessPersonal(draftId: string, version: number, personal: boolean, idempotencyKey: string): Promise<BusinessDossier> {
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/personal`, {
     method: "POST",
@@ -246,8 +248,10 @@ export type BusinessExpense = {
   receipt_id: string | null;
   /** The bridge draft that recorded it, when one did: the record to open when no single receipt is named. Absent for a hand-entered expense. */
   draft_id?: string | null;
-  /** Marked by the owner as no part of the Business: left out of the totals, kept visible. */
+  /** Marked by a person as no part of the Business: left out of the totals, kept visible. */
   personal?: boolean;
+  /** Who marked it, when that was someone other than the owner; absent otherwise. */
+  personal_marked_by?: string | null;
   /** The fiscal number the draft carries (NCF or e-CF); absent without one. */
   fiscal_value?: "ncf" | "ecf" | null;
   /** The accountant's 606 answer for a personal expense with a fiscal number; absent until given. */

@@ -5,8 +5,10 @@ import type { BusinessOverview, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 
-// A real DOM: the Personal control sits beside the row's button, the toast
-// offers the way back, and the 606 answer belongs to the accountant alone.
+// A real DOM: the Personal control sits beside the row's button for anyone
+// holding prepare, the owner sees who else marked it and takes it back in one
+// tap, the review page names a missing fiscal number in the chip's words, and
+// the 606 answer belongs to the accountant alone.
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -48,7 +50,28 @@ describe("the chips", () => {
     assert.equal(env.host.querySelector('[data-testid="record-marks"]'), null);
     await render({ known: true, fiscalValue: "ncf", personal: true });
     assert.equal(env.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
+    assert.equal(env.host.querySelector('[data-testid="personal-marked-dot"]'), null, "the owner's own mark has no dot");
     assert.equal(env.host.querySelector('[data-mark="no_fiscal"]'), null);
+    await env.act(async () => env.root.unmount());
+  });
+
+  test("the owner sees a dot on the Personal chip when someone else marked it, read as Marcado por <nombre>; the accountant does not", async () => {
+    const env = await setup();
+    const { RecordMarks } = await import("@/components/business-app/business-ui");
+    const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+    const render = (role: "owner" | "accountant") => env.act(async () => {
+      const value = { chosen: role === "owner" ? { space_id: "s", name: "Mi negocio", grant_id: "own", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true } : { space_id: "s", name: "Colmado Peña", grant_id: "g", role: "accountant", capabilities: ["read", "prepare"], access_seen: true } } as unknown as BusinessContextValue;
+      env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><RecordMarks known fiscalValue="ncf" personal markedBy="Marta" /></BusinessContext.Provider></env.I18nextProvider>);
+    });
+    await render("owner");
+    const chip = env.host.querySelector('[data-mark="personal"]')!;
+    assert.ok(chip.querySelector('[data-testid="personal-marked-dot"]'), "a dot on the chip");
+    assert.equal(chip.querySelector('[data-testid="personal-marked-dot"]')?.getAttribute("aria-hidden"), "true", "the dot is not read twice");
+    assert.equal(chip.querySelector(".sr-only")?.textContent, "Marcado por Marta");
+    assert.equal(chip.getAttribute("title"), "Marcado por Marta");
+    await render("accountant");
+    assert.equal(env.host.querySelector('[data-testid="personal-marked-dot"]'), null);
+    assert.equal(env.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
     await env.act(async () => env.root.unmount());
   });
 });
@@ -79,7 +102,7 @@ describe("the Personal control in the Bandeja", () => {
     return env;
   }
 
-  test("the owner gets a sibling button next to the row, pressed when personal; a grantee gets the chip only", async () => {
+  test("anyone the server lets prepare gets a sibling button next to the row; a read-only grant gets the chip only", async () => {
     const marked: string[] = [];
     const owner = await mountRow(receipt({ personal_editable: true, fiscal_value: null }), (r) => marked.push(r.id));
     const button = owner.host.querySelector('[data-testid="mark-personal-rcpt-1"]') as HTMLButtonElement;
@@ -92,22 +115,42 @@ describe("the Personal control in the Bandeja", () => {
     assert.deepEqual(marked, ["rcpt-1"]);
     assert.ok(owner.host.querySelector('[data-mark="no_fiscal"]'), "the grey chip on the row");
     await owner.act(async () => owner.root.unmount());
-    const grantee = await mountRow(receipt({ personal: true, fiscal_value: "ncf" }), () => undefined);
-    assert.equal(grantee.host.querySelector('[data-testid="mark-personal-rcpt-1"]'), null);
-    assert.equal(grantee.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
-    await grantee.act(async () => grantee.root.unmount());
+    const reader = await mountRow(receipt({ personal: true, fiscal_value: "ncf" }), () => undefined);
+    assert.equal(reader.host.querySelector('[data-testid="mark-personal-rcpt-1"]'), null);
+    assert.equal(reader.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
+    await reader.act(async () => reader.root.unmount());
+  });
+
+  test("the owner sees the dot on a receipt the accountant marked and takes the mark back in one tap", async () => {
+    const marked: ReceiptSummary[] = [];
+    const owner = await mountRow(receipt({ personal: true, personal_marked_by: "Marta", personal_editable: true, fiscal_value: "ncf" }), (r) => marked.push(r));
+    assert.ok(owner.host.querySelector('[data-mark="personal"] [data-testid="personal-marked-dot"]'), "the dot on the chip");
+    assert.equal(owner.host.querySelector('[data-mark="personal"] .sr-only')?.textContent, "Marcado por Marta");
+    const button = owner.host.querySelector('[data-testid="mark-personal-rcpt-1"]') as HTMLButtonElement;
+    assert.equal(button.getAttribute("aria-pressed"), "true");
+    assert.equal(button.getAttribute("aria-label"), "Ya no es personal");
+    await owner.act(async () => { button.click(); });
+    assert.equal(marked.length, 1, "one tap");
+    assert.equal(marked[0].personal, true, "the unmark of the receipt as listed");
+    await owner.act(async () => owner.root.unmount());
   });
 });
 
 describe("the receipt page's marks card", () => {
-  const dossier = (over: Partial<BusinessDossier> = {}, personal = false, ncf = true, answer: boolean | null = null): BusinessDossier =>
+  const OWNER = { actor_id: "o", actor_kind: "member", display_name: "Dueño", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño" };
+  const ACCOUNTANT = { actor_id: "a", actor_kind: "member", display_name: "Lía", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño" };
+  const share = (kind: "all" | "none", origin: string) => ({ state: "known", value: { kind }, origin, verified: true, source_ids: ["s"] });
+  const dossier = (over: Partial<BusinessDossier> = {}, personal = false, ncf = true, answer: boolean | null = null, markedBy: "owner" | "accountant" = "owner"): BusinessDossier =>
     ({
       draft_id: "d-1",
       version: 3,
       capabilities: ["read", "prepare"],
-      history: [{ version: 3, actor: { actor_id: "a", actor_kind: "member", display_name: "Lía", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño" }, before: null, after: {}, source_ids: [], created_at: "2026-10-13T10:00:00Z" }],
+      history: [
+        { version: 2, actor: markedBy === "owner" ? OWNER : ACCOUNTANT, before: { business_share: share("all", "extracted") }, after: { business_share: share(personal ? "none" : "all", markedBy === "owner" ? "owner_stated" : "member_set") }, source_ids: [], created_at: "2026-10-13T09:00:00Z" },
+        { version: 3, actor: ACCOUNTANT, before: null, after: {}, source_ids: [], created_at: "2026-10-13T10:00:00Z" },
+      ],
       facts: {
-        business_share: { state: "known", value: { kind: personal ? "none" : "all" }, origin: "owner_stated", verified: true, source_ids: ["s"] },
+        business_share: share(personal ? "none" : "all", markedBy === "owner" ? "owner_stated" : "member_set"),
         fiscal: ncf ? { rnc: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, ncf: { state: "known", value: "B0100000001", origin: "extracted", verified: false, source_ids: ["s"] }, ecf: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, itbis: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, include_606: answer === null ? { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } : { state: "known", value: answer, origin: "member_set", verified: true, source_ids: ["s"] } } : null,
       },
       ...over,
@@ -142,7 +185,8 @@ describe("the receipt page's marks card", () => {
     assert.equal(page.changed.length, 1);
     await page.act(async () => page.root.unmount());
     const pending = await mountCard(dossier({}, true, true, null), "owner");
-    assert.equal(pending.host.querySelector('[data-testid="receipt-606-state"]')?.textContent, "Pendiente de contador");
+    assert.equal(pending.host.querySelector('[data-testid="receipt-606-state"]')?.textContent, "Pendiente del contador");
+    assert.equal(pending.host.querySelector('[data-testid="personal-marked-dot"]'), null, "the owner's own mark");
     assert.equal(pending.host.querySelector('[data-testid="receipt-606-yes"]'), null, "the owner never answers");
     assert.equal((pending.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement).textContent, "Ya no es personal");
     await pending.act(async () => pending.root.unmount());
@@ -151,10 +195,30 @@ describe("the receipt page's marks card", () => {
     await included.act(async () => included.root.unmount());
   });
 
-  test("the accountant sees Sí and No, 44px each, only for a personal receipt with a fiscal number, and never the Personal control", async () => {
-    const page = await mountCard(dossier({}, true, true, null), "accountant");
+  test("the owner sees who else marked it and undoes the accountant's mark in one tap", async () => {
+    const page = await mountCard(dossier({}, true, true, null, "accountant"), "owner");
+    assert.equal(page.host.querySelector('[data-mark="personal"] .sr-only')?.textContent, "Marcado por Lía");
+    const toggle = page.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
+    assert.equal(toggle.textContent, "Ya no es personal");
+    await page.act(async () => { toggle.click(); });
+    await page.settle();
+    assert.deepEqual(page.calls, ["mark:false:3"]);
+    assert.equal(page.changed.length, 1);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("a read-only grant reads the mark and has no control", async () => {
+    const page = await mountCard(dossier({ capabilities: ["read"] } as Partial<BusinessDossier>, true, true, null, "accountant"), "accountant");
     assert.equal(page.host.querySelector('[data-testid="receipt-mark-personal"]'), null);
-    assert.ok(page.host.textContent?.includes("Solo el dueño puede marcar un recibo como personal."));
+    assert.equal(page.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
+    assert.equal(page.host.querySelector('[data-testid="receipt-606-yes"]'), null);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("the accountant with prepare marks Personal too, and sees Sí and No, 44px each, only for a personal receipt with a fiscal number", async () => {
+    const page = await mountCard(dossier({}, true, true, null), "accountant");
+    assert.equal((page.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement).textContent, "Ya no es personal");
+    assert.ok(!page.host.textContent?.includes("Solo el dueño"));
     assert.ok(page.host.textContent?.includes("¿Incluir en 606?"));
     const yes = page.host.querySelector('[data-testid="receipt-606-yes"]') as HTMLButtonElement;
     const no = page.host.querySelector('[data-testid="receipt-606-no"]') as HTMLButtonElement;
@@ -172,5 +236,46 @@ describe("the receipt page's marks card", () => {
     const notPersonal = await mountCard(dossier({}, false, true, null), "accountant");
     assert.equal(notPersonal.host.querySelector('[data-testid="receipt-606"]'), null);
     await notPersonal.act(async () => notPersonal.root.unmount());
+  });
+});
+
+describe("the review page's fiscal details", () => {
+  async function facts(fiscal: Record<string, unknown> | null, lng: "es-419" | "en" = "es-419") {
+    const env = await setup();
+    if (lng === "en") {
+      env.i18n.addResourceBundle("en", "translation", (await import("@/public/locales/en/common.json")).default);
+      await env.i18n.changeLanguage("en");
+    }
+    const { default: ReceiptRecordFacts } = await import("@/components/business-app/ReceiptRecordFacts");
+    const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
+    const d = { draft_id: "d-1", version: 1, capabilities: ["read"], blockers: [], questions: [], history: [], facts: { kind: unknown, amount: unknown, currency: unknown, occurred_on: unknown, counterparty: unknown, funding: unknown, business_share: unknown, receipt_state: unknown, category_id: unknown, fiscal } } as unknown as BusinessDossier;
+    await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ReceiptRecordFacts dossier={d} accounts={[]} /></env.I18nextProvider>); });
+    return env;
+  }
+  const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
+
+  test("a record without an NCF or an e-CF reads Sin comprobante fiscal in its fiscal row, never No registrado", async () => {
+    for (const fiscal of [null, { rnc: unknown, ncf: unknown, ecf: unknown, itbis: unknown }]) {
+      const env = await facts(fiscal);
+      const section = env.host.querySelector('[data-testid="receipt-fiscal-facts"]')!;
+      assert.ok(section, "the fiscal details are there");
+      const row = section.querySelector('[data-fact="fiscal_number"]')!;
+      assert.equal(row.querySelector("dt")?.textContent, "NCF / e-CF");
+      assert.equal(row.querySelector("dd")?.textContent, "Sin comprobante fiscal");
+      assert.equal(section.querySelector('[data-fact="ncf"]'), null);
+      assert.equal(section.querySelector('[data-fact="ecf"]'), null);
+      assert.ok(!/No registrado|Sin registrar|Not recorded/.test(section.textContent ?? ""));
+      await env.act(async () => env.root.unmount());
+    }
+  });
+
+  test("in English it reads No fiscal receipt number; a record with an NCF shows its number", async () => {
+    const english = await facts(null, "en");
+    assert.equal(english.host.querySelector('[data-fact="fiscal_number"] dd')?.textContent, "No fiscal receipt number");
+    await english.act(async () => english.root.unmount());
+    const withNcf = await facts({ rnc: unknown, ncf: { state: "known", value: "B0100000001", origin: "extracted", verified: false, source_ids: ["s"] }, ecf: unknown, itbis: unknown });
+    assert.equal(withNcf.host.querySelector('[data-fact="fiscal_number"]'), null);
+    assert.equal(withNcf.host.querySelector('[data-fact="ncf"] dd')?.textContent, "B0100000001");
+    await withNcf.act(async () => withNcf.root.unmount());
   });
 });

@@ -123,7 +123,7 @@ export function ReceiptRow({ receipt, onOpen, onMark }: { receipt: ReceiptSummar
                   : savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
                 : formatRelativeTime(receipt.received_at, locale)}
           </span>
-          <RecordMarks personal={receipt.personal} fiscalValue={receipt.fiscal_value} known={marksKnown(receipt.status)} className="mt-1" />
+          <RecordMarks personal={receipt.personal} fiscalValue={receipt.fiscal_value} known={marksKnown(receipt.status)} markedBy={receipt.personal_marked_by} className="mt-1" />
         </span>
         <span className="hidden text-right text-[15px] font-medium tabular-nums text-black dark:text-white mobile:block">
           {formatMoney(receipt.amount, receipt.currency, locale)}

@@ -84,7 +84,7 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
               <dt className="text-black/55 dark:text-white/55">{t("business.review.account", "Paid from")}</dt>
               <dd className="text-black dark:text-white">{state.expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : (state.expense.account_id && accounts.get(state.expense.account_id)?.nickname) || t("business.expenses.account_unknown", "Unknown")}</dd>
             </dl>
-            <RecordMarks personal={state.expense.personal} fiscalValue={state.expense.fiscal_value} known className="mt-4" />
+            <RecordMarks personal={state.expense.personal} fiscalValue={state.expense.fiscal_value} known markedBy={state.expense.personal_marked_by} className="mt-4" />
             {state.expense.personal && state.expense.fiscal_value ? (
               <p className="mt-2 text-[13px] text-black/65 dark:text-white/65" data-testid="expense-606-state">
                 {state.expense.include_606 === true ? t("business.marks.included_606", "Included in the 606") : state.expense.include_606 === false ? t("business.marks.excluded_606", "Not included in the 606") : t("business.marks.pending_606", "Waiting for the accountant")}

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useContext, useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptAttention, ReceiptStatus } from "@/lib/business-api";
-import { useBusiness } from "./BusinessWorkspace";
+import { BusinessContext, useBusiness } from "./BusinessWorkspace";
 
 export const cardClass =
   "rounded-[20px] border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
@@ -135,20 +135,35 @@ export function useChannelLabel() {
     channel === "whatsapp" ? "WhatsApp" : channel === "email" ? t("business.dossier.email", "Email") : t("business.dossier.web", "Web upload");
 }
 
+/** The owner is looking: their own Business, not a client's opened through a grant. */
+export function useOwnerView(): boolean {
+  const business = useContext(BusinessContext);
+  return !business?.chosen || business.chosen.role === "owner";
+}
+
 /**
  * The marks a record carries, as text in a muted chip, never colour alone:
- * "Personal" when the owner marked it as no part of the Business; "Sin
+ * "Personal" when a person marked it as no part of the Business; "Sin
  * comprobante fiscal" when the read facts hold no NCF and no e-CF. Grey on
  * purpose: a missing fiscal number is a fact about the receipt, not a fault.
+ * When someone other than the owner marked it Personal, the owner sees a small
+ * dot on the chip that reads "Marcado por <nombre>".
  */
-export function RecordMarks({ personal, fiscalValue, known, className = "" }: { personal?: boolean; fiscalValue?: "ncf" | "ecf" | null; known: boolean; className?: string }) {
+export function RecordMarks({ personal, fiscalValue, known, markedBy = null, className = "" }: { personal?: boolean; fiscalValue?: "ncf" | "ecf" | null; known: boolean; markedBy?: string | null; className?: string }) {
   const { t } = useTranslation();
+  const owner = useOwnerView();
   const chip = "inline-flex min-h-6 items-center rounded-full border px-2 text-[11px] font-medium";
   if (!personal && (!known || fiscalValue)) return null;
+  const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: markedBy }) : null;
   return (
     <span className={`flex flex-wrap items-center gap-1.5 ${className}`} data-testid="record-marks">
-      {personal ? <span data-mark="personal" className={`${chip} border-[var(--cuadrao-green)]/35 text-[var(--cuadrao-green)]`}>{t("business.marks.personal_chip", "Personal")}</span> : null}
-      {known && !fiscalValue ? <span data-mark="no_fiscal" className={`${chip} border-black/15 text-black/55 dark:border-white/15 dark:text-white/55`}>{t("business.marks.no_fiscal_chip", "No fiscal receipt")}</span> : null}
+      {personal ? (
+        <span data-mark="personal" title={marker ?? undefined} className={`${chip} gap-1 border-[var(--cuadrao-green)]/35 text-[var(--cuadrao-green)]`}>
+          {t("business.marks.personal_chip", "Personal")}
+          {marker ? <><span data-testid="personal-marked-dot" aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--cuadrao-green)]" /><span className="sr-only">{marker}</span></> : null}
+        </span>
+      ) : null}
+      {known && !fiscalValue ? <span data-mark="no_fiscal" className={`${chip} border-black/15 text-black/55 dark:border-white/15 dark:text-white/55`}>{t("business.marks.no_fiscal_chip", "No fiscal receipt number")}</span> : null}
     </span>
   );
 }

@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
-import { dossierFiscalInclusion, dossierFiscalValue, dossierIsPersonal } from "@/lib/business-dossier";
+import { dossierFiscalInclusion, dossierFiscalValue, dossierIsPersonal, dossierPersonalMarkedBy } from "@/lib/business-dossier";
 import { useBusiness } from "./BusinessWorkspace";
 import { cardClass, RecordMarks } from "./business-ui";
 
 /**
  * What the record is marked as, and the two decisions that are people's:
- * the owner alone marks a receipt as personal (reversible, a new revision
- * each way); a prepare-holder who is not the owner answers whether a
- * personal receipt with a fiscal number goes into the 606. The owner reads
- * that answer; the app never gives it.
+ * the owner or anyone holding prepare marks a receipt as personal or takes
+ * the mark back (a new revision each way), so the owner can always undo
+ * someone else's mark in one tap; a prepare-holder who is not the owner
+ * answers whether a personal receipt with a fiscal number goes into the 606.
+ * The owner reads that answer; the app never gives it.
  */
 export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: { dossier: BusinessDossier; busy?: boolean; onChanged: (next: BusinessDossier) => void }) {
   const { t } = useTranslation();
@@ -25,6 +26,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   const fiscalValue = dossierFiscalValue(dossier.facts);
   const inclusion = dossierFiscalInclusion(dossier.facts);
   const answeredBy = dossier.history.at(-1)?.actor.display_name ?? "";
+  const markedBy = dossierPersonalMarkedBy(dossier);
 
   const run = async (call: () => Promise<BusinessDossier>, failure: string) => {
     setWorking(true);
@@ -44,8 +46,8 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   return (
     <div className={cardClass} data-testid="receipt-marks-card">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <RecordMarks personal={personal} fiscalValue={fiscalValue} known />
-        {owner && canPrepare ? (
+        <RecordMarks personal={personal} fiscalValue={fiscalValue} known markedBy={markedBy} />
+        {canPrepare ? (
           <button
             type="button"
             data-testid="receipt-mark-personal"
@@ -56,8 +58,6 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
           >
             {personal ? t("business.marks.unmark_personal_label", "No longer personal") : t("business.marks.mark_personal_label", "Mark as personal")}
           </button>
-        ) : personal && !owner ? (
-          <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.marks.owner_only", "Only the owner can mark a receipt as personal.")}</p>
         ) : null}
       </div>
       {personal && fiscalValue ? (

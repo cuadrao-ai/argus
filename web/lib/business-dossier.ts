@@ -27,10 +27,22 @@ export type BusinessSourceEvidence =
 export type BusinessFiscalField = keyof NonNullable<BusinessFacts["fiscal"]>;
 export const BUSINESS_FISCAL_FIELDS: BusinessFiscalField[] = ["rnc", "ncf", "ecf", "itbis", "include_606"];
 
-/** Marked by the owner as no part of the Business: business_share none, stated by the owner. */
+/** Marked by a person as no part of the Business: business_share none, stated by the owner or a prepare-holder. */
 export function dossierIsPersonal(facts: BusinessFacts): boolean {
   const share = facts.business_share;
-  return share.state === "known" && share.value.kind === "none" && share.origin === "owner_stated";
+  return share.state === "known" && share.value.kind === "none" && (share.origin === "owner_stated" || share.origin === "member_set");
+}
+
+/**
+ * Who marked a personal record, when that was not the owner: the actor of the
+ * latest revision that changed business_share. The owner acts through the
+ * grant they issued themselves; anyone else's grant was issued by another.
+ */
+export function dossierPersonalMarkedBy(dossier: Pick<BusinessDossier, "facts" | "history">): string | null {
+  if (!dossierIsPersonal(dossier.facts)) return null;
+  const change = dossier.history.findLast((revision) => JSON.stringify(revision.before?.business_share ?? null) !== JSON.stringify(revision.after?.business_share ?? null));
+  if (!change || change.actor.actor_id === change.actor.issuer_id) return null;
+  return change.actor.display_name;
 }
 
 /** The fiscal number the draft carries: an e-CF or an NCF it knows, of any origin. */

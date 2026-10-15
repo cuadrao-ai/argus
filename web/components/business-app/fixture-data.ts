@@ -100,6 +100,10 @@ function seedReceipts(): ReceiptDetail[] {
       id: "rcpt-papeleria",
       status: "review_ready",
       draft_id: dossierFixtureIds.unprepared,
+      // The accountant marked it Personal; the owner sees who and can take it back.
+      personal: true,
+      personal_marked_by: "Marta",
+      personal_editable: true,
       enterable: false,
       filename: "papeleria-oct.pdf",
       media_type: "application/pdf",
@@ -237,6 +241,8 @@ function seedExpenses(): BusinessExpense[] {
       occurred_on: dayOnly(daysAgo(8)),
       receipt_id: null,
       draft_id: null,
+      personal: true,
+      personal_marked_by: "Marta",
     },
   ];
 }
@@ -418,10 +424,12 @@ export function createFixtureBusinessDataSource(
     },
     markPersonal: async (id, version, personal) => {
       await delay();
-      for (const item of receipts) if (item.id === id || item.draft_id === id) replace({ ...item, personal });
-      for (const item of expenses) if (item.receipt_id === id || item.draft_id === id) item.personal = personal;
+      // The preview acts as the owner: the owner's own mark names nobody else.
+      for (const item of receipts) if (item.id === id || item.draft_id === id) replace({ ...item, personal, personal_marked_by: null });
+      for (const item of expenses) if (item.receipt_id === id || item.draft_id === id) Object.assign(item, { personal, personal_marked_by: null });
       void version;
-      return dossierSource.dossier(id);
+      // The sample receipt behind an unprepared draft has no record to answer with; a ready one stands in.
+      return dossierSource.dossier(id).catch(() => dossierSource.dossier(dossierFixtureIds.ready));
     },
     decideFiscalInclusion: async (id, version, include) => {
       await delay();
