@@ -8,6 +8,7 @@ space only with ``resolve_business_scope``.
 from __future__ import annotations
 
 from fastapi import HTTPException, Request
+from loguru import logger
 
 from argus.api import state as api_state
 from argus.api.dependencies import problem
@@ -54,6 +55,23 @@ def business_access() -> AccessStore | None:
 def configure_business_access(store: AccessStore | None) -> None:
     global _access
     _access = store
+
+
+def accept_business_invites(user_id: str) -> None:
+    """Pending Business invites for this person's confirmed email become grants.
+
+    Every read that can be a person's first after sign-in runs it (the profile
+    and the Business listing). Idempotent, and it never blocks the read."""
+
+    store = business_access()
+    if store is None:
+        return
+    try:
+        store.accept_invites(user_id)
+    except Exception as error:  # noqa: BLE001 - the read answers; the class is logged
+        logger.warning(
+            "business_access_accept_failed", user_id=user_id, error=type(error).__name__
+        )
 
 
 def start_business_spaces(app: object) -> None:
