@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowLeft, RotateCcw } from "lucide-react";
+import { AlertCircle, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import ReceiptReadingControl from "./ReceiptReadingControl";
@@ -10,6 +10,7 @@ import ReceiptReadNotice from "./ReceiptReadNotice";
 import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
+import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
@@ -120,7 +121,19 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   }
   if (!detail || !draft) return <LoadingRows rows={4} />;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
-  if (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading") return <section><ReceiptSourcePreview detail={detail} /><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></section>;
+  const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />) => (
+    <ReceiptReviewFrame
+      back={confirmed ? "expenses" : "inbox"}
+      eyebrow={detail.record_context?.space_name || null}
+      title={detail.merchant ?? (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
+      badge={<StatusPill status={detail.status} />}
+      summary={detail.amount && detail.currency ? <p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{formatMoney(detail.amount, detail.currency, locale)}</p> : null}
+      source={source}
+    >
+      {children}
+    </ReceiptReviewFrame>
+  );
+  if (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading") return frame(<><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
   const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
 
@@ -250,26 +263,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     setDraft((current) => (current ? { ...current, [key]: event.target.value } : current));
 
   return (
-    <section aria-labelledby="receipt-review-title">
-      <button
-        type="button"
-        onClick={() => openPanel({ kind: confirmed ? "expenses" : "inbox" })}
-        className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] font-medium text-black/60 hover:text-black dark:text-white/60 dark:hover:text-white"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {confirmed ? t("business.nav.expenses", "Expenses") : t("business.nav.inbox", "Inbox")}
-      </button>
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <h2 id="receipt-review-title" className="font-display text-[24px] font-medium tracking-tight text-black dark:text-white">
-          {confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt")}
-        </h2>
-        <StatusPill status={detail.status} />
-      </div>
-
-      <div className="grid gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <ReceiptSourcePreview detail={detail} />
-
-        <div className="space-y-4">
+    <>
+      {frame(
+        <>
           {detail.email_original ? <div role="note" data-testid="receipt-email-original" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p>{t("business.review.email_original", "This is the email itself. Its attachment is the receipt to review.")}</p></div> : null}
           {incompleteBridge ? <div className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p>{uncertainVersion === null ? <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}</div> : null}
           {detail.status === "needs_attention" ? (
@@ -383,25 +379,6 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
             )}
           </div>
 
-          {detail.evidence ? (
-            <details className={cardClass}>
-              <summary className="cursor-pointer text-[14px] font-medium text-black/70 dark:text-white/70">
-                {t("business.review.evidence", "What the receipt says")}
-              </summary>
-              <dl className="mt-3 space-y-1.5 text-[13px] text-black/65 dark:text-white/65">
-                {detail.evidence.merchant ? <div className="flex justify-between gap-3"><dt>{t("business.review.merchant", "Merchant")}</dt><dd className="text-right">{detail.evidence.merchant}</dd></div> : null}
-                {detail.evidence.occurred_on ? <div className="flex justify-between gap-3"><dt>{t("business.review.date", "Date")}</dt><dd>{formatDay(detail.evidence.occurred_on, locale)}</dd></div> : null}
-                {detail.evidence.lines.map((line, index) => (
-                  <div key={index} className="flex justify-between gap-3"><dt className="truncate">{line.description}</dt><dd className="tabular-nums">{formatMoney(line.amount, detail.evidence?.currency ?? null, locale)}</dd></div>
-                ))}
-                {detail.evidence.tax ? <div className="flex justify-between gap-3"><dt>{t("business.review.tax", "Tax")}</dt><dd className="tabular-nums">{formatMoney(detail.evidence.tax, detail.evidence.currency, locale)}</dd></div> : null}
-                {detail.evidence.total ? <div className="flex justify-between gap-3 font-medium text-black dark:text-white"><dt>{t("business.review.amount", "Total")}</dt><dd className="tabular-nums">{formatMoney(detail.evidence.total, detail.evidence.currency, locale)}</dd></div> : null}
-              </dl>
-              <p className="mt-3 text-[12px] text-black/45 dark:text-white/45">
-                {t("business.review.evidence_note", "Your corrections don't change what was read from the receipt. One receipt saves one expense for its total.")}
-              </p>
-            </details>
-          ) : null}
 
           {problem ? (
             <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p>
@@ -434,10 +411,32 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               {uncertainVersion !== null ? <button type="button" className={secondaryButtonClass} disabled={busy !== null} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}
             </div>
           ) : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
-        </div>
-      </div>
+        </>,
+        <>
+          <ReceiptSourcePreview detail={detail} />
+          {detail.evidence ? (
+            <details className={cardClass}>
+              <summary className="cursor-pointer text-[14px] font-medium text-black/70 dark:text-white/70">
+                {t("business.review.evidence", "What the receipt says")}
+              </summary>
+              <dl className="mt-3 space-y-1.5 text-[13px] text-black/65 dark:text-white/65">
+                {detail.evidence.merchant ? <div className="flex justify-between gap-3"><dt>{t("business.review.merchant", "Merchant")}</dt><dd className="text-right">{detail.evidence.merchant}</dd></div> : null}
+                {detail.evidence.occurred_on ? <div className="flex justify-between gap-3"><dt>{t("business.review.date", "Date")}</dt><dd>{formatDay(detail.evidence.occurred_on, locale)}</dd></div> : null}
+                {detail.evidence.lines.map((line, index) => (
+                  <div key={index} className="flex justify-between gap-3"><dt className="truncate">{line.description}</dt><dd className="tabular-nums">{formatMoney(line.amount, detail.evidence?.currency ?? null, locale)}</dd></div>
+                ))}
+                {detail.evidence.tax ? <div className="flex justify-between gap-3"><dt>{t("business.review.tax", "Tax")}</dt><dd className="tabular-nums">{formatMoney(detail.evidence.tax, detail.evidence.currency, locale)}</dd></div> : null}
+                {detail.evidence.total ? <div className="flex justify-between gap-3 font-medium text-black dark:text-white"><dt>{t("business.review.amount", "Total")}</dt><dd className="tabular-nums">{formatMoney(detail.evidence.total, detail.evidence.currency, locale)}</dd></div> : null}
+              </dl>
+              <p className="mt-3 text-[12px] text-black/45 dark:text-white/45">
+                {t("business.review.evidence_note", "Your corrections don't change what was read from the receipt. One receipt saves one expense for its total.")}
+              </p>
+            </details>
+          ) : null}
+        </>,
+      )}
       <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
-    </section>
+    </>
   );
 }
 

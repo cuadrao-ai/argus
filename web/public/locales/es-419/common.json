@@ -2247,6 +2247,7 @@
       "settle_failed": "No se pudo marcar el resto como atendido. Revisa el registro actual antes de intentarlo de nuevo.",
       "title": "Revisar registro",
       "unknown": "Desconocido",
+      "rnc_unknown": "RNC desconocido",
       "owner_unknown": "El dueño no sabe",
       "owner_funds": "Dinero del dueño",
       "business_account": "Cuenta del negocio",
