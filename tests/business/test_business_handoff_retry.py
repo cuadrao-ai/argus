@@ -16,7 +16,10 @@ from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionRes
 from argus.domain.owner_scope import BusinessSpace
 
 from tests.business.receipt_stub import DETAILS, PURCHASE
-from tests.ingestion.test_business_document_bridge import document_bridge  # noqa: F401
+from tests.ingestion.test_business_document_bridge import (  # noqa: F401
+    document_bridge,
+    reading_on,
+)
 
 NOW = datetime(2026, 10, 12, 20, 26, tzinfo=timezone.utc)
 
@@ -107,6 +110,7 @@ async def test_a_refused_handoff_keeps_the_read_and_the_retry_hands_off_again(
     ]
     scope = BusinessSpace(str(uuid4()))
     owner = str(uuid4())
+    reading_on(service, scope, owner)
     receipt = await service.upload(
         user_id=owner,
         content=b"%PDF-fixture",

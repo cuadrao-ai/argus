@@ -32,6 +32,7 @@ from argus.domain.owner_scope import PERSONAL
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_reading_support import ROUTE, reading_setting, turn_reading
 from tests.document_sources_support import source_objects, stored_paths
 
 users = shared.users
@@ -534,7 +535,6 @@ def test_workflow_worker_prepares_the_dispatched_attempt(
 def test_workflow_worker_never_reads_a_business_receipt_once_reading_is_off(
     pool: ConnectionPool, users: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
     from argus.domain.owner_scope import BusinessSpace
 
     from workflows.document_job import (
@@ -544,11 +544,7 @@ def test_workflow_worker_never_reads_a_business_receipt_once_reading_is_off(
 
     monkeypatch.setattr(
         "argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route",
-        lambda: {
-            "gateway": "fixture",
-            "interpretation": [{"model": "fixture-reader"}],
-            "reply": [],
-        },
+        lambda: ROUTE,
     )
 
     class Counted:
@@ -566,15 +562,8 @@ def test_workflow_worker_never_reads_a_business_receipt_once_reading_is_off(
             "values(%s,%s,'business','Reading proof')",
             (scope.space_id, owner),
         )
-    setting = BusinessReceiptConsentStore(pool)
-    shown = setting.status(scope.space_id, owner)
-    setting.set(
-        scope.space_id,
-        owner,
-        enabled=True,
-        version=1,
-        disclosure_token=shown["disclosure_token"],
-    )
+    setting = reading_setting(pool)
+    turn_reading(setting, scope.space_id, owner)
     objects = source_objects()
     api = postgres_documents_service(pool, objects, Counted())
     api.business_receipt_consent = setting
@@ -596,7 +585,7 @@ def test_workflow_worker_never_reads_a_business_receipt_once_reading_is_off(
     jobs.start(user_id=owner, connection_id=captured.connection_id)
     [(connection_id, attempt_id)] = dispatched
 
-    setting.set(scope.space_id, owner, enabled=False, version=1)
+    turn_reading(setting, scope.space_id, owner, enabled=False)
     outcome = asyncio.run(
         run_document_preparation(
             connection_id,

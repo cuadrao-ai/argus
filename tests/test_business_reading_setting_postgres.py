@@ -32,6 +32,7 @@ from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import ReceiptStub
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import SECRET, WEBHOOK, signed
+from tests.business_reading_support import ROUTE
 from tests.local_supabase_support import local_supabase_gateway
 from tests.test_business_scope_switch_routes_postgres import API, ENV, _person
 
@@ -39,11 +40,6 @@ pytestmark = pytest.mark.skipif(
     not (shared.DSN and os.getenv("ARGUS_LOCAL_SUPABASE_URL")),
     reason="local Supabase proof variables are not configured",
 )
-ROUTE = {
-    "gateway": "fixture",
-    "interpretation": [{"model": "fixture-reader"}],
-    "reply": [],
-}
 
 
 @pytest.fixture

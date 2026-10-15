@@ -6,7 +6,6 @@ import asyncio
 import hashlib
 import unicodedata
 import uuid
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
@@ -133,10 +132,9 @@ class DocumentsService:
         # One bounded decode/capture at a time on this app-owned service.
         self._capture_slot = asyncio.Semaphore(1)
         self.business_actions = business_actions
+        # The owner's stored receipt-reading setting: the only consent for a
+        # Business read, asked again at the moment of each read.
         self.business_receipt_consent = None
-        # Asked at the moment of a read, so a permission withdrawn after the
-        # draft was queued stops a read that has not started.
-        self.read_gate: Callable[[str, str], bool] | None = None
         # An app with a Postgres pool never falls back to legacy Business
         # delivery; without a pool there is no canonical wiring to require.
         self.business_preparation_required = business_preparation_required
@@ -287,9 +285,9 @@ class DocumentsService:
         context_only: bool = False,
     ) -> DocumentOutcome:
         consent_id = None
-        if space_id(scope) is not None and self.business_receipt_consent is not None:
+        if space_id(scope) is not None:
             permission = await asyncio.to_thread(
-                self.business_receipt_consent.status, space_id(scope), user_id
+                self._business_permission, scope, user_id
             )
             consent = permission["enabled"] and not context_only
             consent_id = permission["consent_id"] if consent else None
@@ -412,22 +410,33 @@ class DocumentsService:
         if draft.status == "queued":
             self._update(user_id, draft, status="saved", consent=False, error_code=code)
 
+    def _business_permission(self, scope: OwnerScope, user_id: str) -> dict:
+        """The owner's setting for this Business; off when the service has none."""
+
+        if self.business_receipt_consent is None:
+            return {"enabled": False, "consent_id": None}
+        return self.business_receipt_consent.status(space_id(scope), user_id)
+
     def _reading_allowed(self, user_id: str, connection_id: str) -> bool:
-        if self.business_receipt_consent is not None:
-            row = self.hub.connections.get_any_scope(
-                user_id=user_id, connection_id=connection_id
+        """A Personal upload carries its own consent. A Business receipt is read
+        only under the owner's current setting, the one it was queued under."""
+
+        row = self.hub.connections.get_any_scope(
+            user_id=user_id, connection_id=connection_id
+        )
+        business = space_id(row.scope)
+        if business is None:
+            return True
+        if self.business_receipt_consent is None:
+            return False
+        draft = self.store.draft(user_id=user_id, connection_id=connection_id)
+        return bool(
+            draft
+            and draft.business_reading_consent_id
+            and self.business_receipt_consent.enabled(
+                business, user_id, draft.business_reading_consent_id
             )
-            business = space_id(row.scope)
-            if business is not None:
-                draft = self.store.draft(user_id=user_id, connection_id=connection_id)
-                return bool(
-                    draft
-                    and draft.business_reading_consent_id
-                    and self.business_receipt_consent.enabled(
-                        business, user_id, draft.business_reading_consent_id
-                    )
-                )
-        return self.read_gate is None or self.read_gate(user_id, connection_id)
+        )
 
     def read_pending(
         self, user_id: str, connection_id: str, draft: DocumentDraft
@@ -459,18 +468,14 @@ class DocumentsService:
                 raise DocumentServiceError("document_extraction_consent_required")
             if not draft.source_available:
                 raise DocumentServiceError("document_source_unavailable")
-            if space_id(scope) is not None and self.business_receipt_consent is not None:
-                permission = self.business_receipt_consent.status(
-                    space_id(scope), user_id
-                )
+            if space_id(scope) is not None:
+                permission = self._business_permission(scope, user_id)
                 if not permission["enabled"]:
+                    # A click is a fresh action: it is told why nothing was queued.
                     raise DocumentServiceError("business_receipt_reading_off")
                 draft = self._update(
                     user_id, draft, business_reading_consent_id=permission["consent_id"]
                 )
-            if not self._reading_allowed(user_id, connection_id):
-                # A click is a fresh action: it is told why nothing was queued.
-                raise DocumentServiceError("whatsapp_receipt_reading_off")
             self._update(user_id, draft, status="queued", consent=True, error_code=None)
         return self.outcome(
             user_id=user_id,

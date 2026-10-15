@@ -8942,12 +8942,12 @@ returns `active_scope_version`, the scope of any active permission, so a screen
 can say another permission is on. `POST` takes an optional `language`; the text
 shown in that language is the one stored and hashed, and the token binds it.
 Changing the words an owner was shown asks for consent again. With the
-permission off, a received receipt is saved unread, and
-`POST /api/v1/business/receipts/{id}/prepare` on a WhatsApp receipt returns 409
-`whatsapp_receipt_reading_off` instead of queueing it. With it on, the receipt is
-read after the acknowledgement. The permission is checked again just before the
-provider call, whoever asks for the read, against the owner who received the
-receipt; the only window left is the commit and the request start. One
+Business receipt-reading setting off, a received receipt is saved unread, and
+`POST /api/v1/business/receipts/{id}/prepare` returns 422
+`business_receipt_reading_off` instead of queueing it. With it on, the receipt is
+read after the acknowledgement. The setting is checked again just before the
+provider call, whoever asks for the read; the only window left is the commit and
+the request start. One
 follow-up message tells the sender what was read, only inside the 24 hour
 window. It names the merchant, amount and currency only when the read found one
 clear purchase with nothing marked uncertain and a merchant of letters, digits,
@@ -9006,6 +9006,8 @@ pending proof of its authorization and deletion lifecycle.
 A Business owner explicitly enables scope version 1 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
 
 `GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. `POST /business/receipt-reading` takes `{enabled,scope_version:1,disclosure_token,language}` and `Idempotency-Key` from the owner. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
+
+The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, the in-process reader and the Render Workflow document worker. A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
 Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count` and `needs_attention_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
 
@@ -9284,7 +9286,9 @@ person starts their space, every route below except POST `/space` answers 404
     `/access*`, POST `/accounts`, POST `/expenses`, email address creation
     and stop, WhatsApp, Business chat, every approve (`approve`, `settle
     remainder`, legacy `confirm`), and sending a document to the AI
-    provider (`X-Extraction-Consent` on upload, and `/receipts/{id}/prepare`).
+    provider (`/receipts/{id}/prepare`). A grantee's upload is not refused
+    for `X-Extraction-Consent`: the header is ignored and the owner's
+    receipt-reading setting decides whether the receipt is read.
     Every legacy write under a grant leaves a `business_action_receipts` row
     (`receipt_upload`, `receipt_review`, `receipt_confirm`) naming the grant
     and its issuer.
@@ -9413,11 +9417,12 @@ accept path recorded.
   `{nickname, type, currency}` and answers 201, or 200 with the same account on
   an exact replay.
 - POST `/api/v1/business/receipts` takes raw bytes. It uses the same media
-  types, size limit, `X-Extraction-Consent` and rate limits as
-  `/financial-documents`. It also requires `Idempotency-Key`, and
-  `X-Document-Filename` is URL-encoded. A receipt's identity is its bytes, so
-  a retry returns the same receipt. It answers a `ReceiptSummary` that is
-  `queued` with consent and `saved` without it.
+  types, size limit and rate limits as `/financial-documents`. It also
+  requires `Idempotency-Key`, and `X-Document-Filename` is URL-encoded. A
+  receipt's identity is its bytes, so a retry returns the same receipt. It
+  ignores `X-Extraction-Consent`. It answers a `ReceiptSummary` that is
+  `queued` while the owner's receipt-reading setting is on and `saved`
+  while it is off.
 - Business email receiving (default off; `CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`,
   `CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED`, `CUADRAO_BUSINESS_EMAIL_DOMAIN`,
   `RESEND_BUSINESS_API_KEY`, `CUADRAO_RESEND_WEBHOOK_SECRET`; the older
@@ -9659,7 +9664,9 @@ accept path recorded.
   readable by the owner only.
 - POST `/api/v1/business/receipts/{id}/prepare` requires
   `X-Extraction-Consent: true`, else 422
-  `document_extraction_consent_required`. A receipt entered by hand is 409
+  `document_extraction_consent_required`. While the owner's receipt-reading
+  setting is off it is 422 `business_receipt_reading_off` and nothing is
+  queued. A receipt entered by hand is 409
   `document_entered_by_owner`, here and on `/financial-documents`. It queues preparation through the
   #823 job dispatch when jobs are on, and through a background task otherwise.
 - PATCH `/api/v1/business/receipts/{id}/review` takes `{version, fields}`. Each
