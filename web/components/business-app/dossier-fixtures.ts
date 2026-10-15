@@ -127,9 +127,11 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       captureReceipts.set(key, { input, draftId: id });
       return get(id);
     },
-    captures: async (query = "", limit = 20) => {
+    captures: async (query = "", limit = 20, view: "inbox" | "all" = "all") => {
       if (query.includes("\0") || [...query].length > 200 || !Number.isInteger(limit) || limit < 1 || limit > 50) fail(422, "invalid_request");
-      return captures.filter((note) => note.text.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.received_at.localeCompare(a.received_at) || b.source_id.localeCompare(a.source_id)).slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state }; });
+      // The Bandeja's notes, as the API answers them: drafts awaiting review that no receipt carries.
+      const listed = (note: BusinessCapture) => view === "all" || (["open", "accepting"].includes(get(note.draft_id).review_state) && !get(note.draft_id).sources.some((item) => item.kind === "attachment"));
+      return captures.filter((note) => listed(note) && note.text.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.received_at.localeCompare(a.received_at) || b.source_id.localeCompare(a.source_id)).slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state }; });
     },
     createReceiptDraft: (receipt: ReceiptDetail) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;

@@ -19,7 +19,6 @@ from argus.domain.business import ledger
 from argus.domain.business.authority import ActionError
 from argus.domain.business.config import business_chat_enabled
 from argus.domain.business.receipts import (
-    AWAITING_REVIEW,
     CLOSED,
     Receipt,
     compose,
@@ -493,8 +492,6 @@ class BusinessService:
             "outside_period_latest_on": max(
                 (item["occurred_on"] for item in outside), default=None
             ),
-            "awaiting_review": sum(r.status in AWAITING_REVIEW for r in receipts),
-            "needs_attention": sum(r.status == "needs_attention" for r in receipts),
             "last_received_at": max((r.draft.created_at for r in receipts), default=None),
             "last_confirmed_at": max(recorded.values(), default=None),
         }

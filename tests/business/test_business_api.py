@@ -546,7 +546,13 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
     }
     assert alice.get("/receipts", view="inbox").json() == {
         "items": [],
-        "activity": {"reading_count": 0, "unread_count": 0, "presentation": "none"},
+        "activity": {
+            "reading_count": 0,
+            "unread_count": 0,
+            "presentation": "none",
+            "pending_review_count": 0,
+            "needs_attention_count": 0,
+        },
     }
     [saved] = alice.get("/receipts", view="all").json()["items"]
     assert (saved["status"], saved["expense_id"]) == ("confirmed", expense_id)
@@ -680,7 +686,13 @@ def test_source_returns_the_uploaded_bytes_only_to_the_owner(
     ] * 5
     assert bob.get("/receipts", view="all").json() == {
         "items": [],
-        "activity": {"reading_count": 0, "unread_count": 0, "presentation": "none"},
+        "activity": {
+            "reading_count": 0,
+            "unread_count": 0,
+            "presentation": "none",
+            "pending_review_count": 0,
+            "needs_attention_count": 0,
+        },
     }
     window = {"from": "2026-10-01", "to": "2026-10-31"}
     assert bob.get("/expenses", **window).json() == {"items": []}

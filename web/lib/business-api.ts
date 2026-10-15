@@ -52,7 +52,13 @@ export type ReceiptActivity = {
   unread: boolean;
   completion_cursor: string | null;
 };
-export type ReceiptActivityCounts = { reading_count: number; unread_count: number; presentation: "working" | "unread" | "none" };
+/**
+ * The Bandeja's counts, from the server only. `unread_count` is new activity
+ * this person has not opened; `pending_review_count` is every row the Bandeja
+ * lists (receipts not yet saved or dismissed, and notes no receipt carries);
+ * `needs_attention_count` is how many of those receipts need attention.
+ */
+export type ReceiptActivityCounts = { reading_count: number; unread_count: number; presentation: "working" | "unread" | "none"; pending_review_count: number; needs_attention_count: number };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 
 export function getReceiptActivity(signal?: AbortSignal): Promise<ReceiptActivityCounts> {
@@ -280,7 +286,6 @@ export type BusinessOverview = {
   fiscal_totals?: { currency: CurrencyCode; amount: DecimalString; count: number }[];
   /** "Sin comprobante fiscal": real minus fiscal, per currency; what does not go into the 606. */
   without_fiscal_totals?: { currency: CurrencyCode; amount: DecimalString; count: number }[];
-  needs_attention: number;
   last_received_at: string | null;
   last_confirmed_at: string | null;
   /** Saved expenses the chosen period leaves out, so none looks vanished. */
@@ -339,8 +344,9 @@ export async function captureBusinessNote(input: BusinessCaptureInput, key: stri
   return response.json() as Promise<BusinessDossier>;
 }
 
-export async function listBusinessCaptures(query = "", limit = 20): Promise<BusinessCapture[]> {
-  const params = new URLSearchParams({ q: query, limit: String(limit) });
+/** `inbox` asks for the notes the Bandeja lists: drafts awaiting review that no receipt carries. */
+export async function listBusinessCaptures(query = "", limit = 20, view: "inbox" | "all" = "all"): Promise<BusinessCapture[]> {
+  const params = new URLSearchParams({ q: query, limit: String(limit), view });
   const page = await apiFetch<{ items: BusinessCapture[] }>(`/business/captures?${params}`);
   return page.items;
 }

@@ -411,7 +411,6 @@ export function createFixtureBusinessDataSource(
         totals: sum(real),
         fiscal_totals: sum(real.filter((item) => item.fiscal_value)),
         without_fiscal_totals: sum(real.filter((item) => !item.fiscal_value)),
-        needs_attention: receipts.filter((item) => item.status === "needs_attention").length,
         outside_period_count: expenses.length - inPeriod.length,
         outside_period_latest_on: expenses.filter((item) => !inPeriod.includes(item)).map((item) => item.occurred_on).sort().at(-1) ?? null,
         last_received_at: receipts[0]?.received_at ?? null,
@@ -423,6 +422,26 @@ export function createFixtureBusinessDataSource(
       return view === "all"
         ? receipts
         : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
+    },
+    // The sample's stand-in for the server's one count projection: every row
+    // the Bandeja lists (never the email itself) plus notes no receipt carries.
+    receiptPage: async (view) => {
+      await delay();
+      const items = view === "all" ? receipts : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
+      const pending = receipts.filter((item) => !item.email_original && item.status !== "confirmed" && item.status !== "dismissed");
+      const notes = new Set((await dossierSource.captures("", 50, "inbox")).map((note) => note.draft_id)).size;
+      const reading = receipts.filter((item) => item.read_pending).length;
+      const unread = receipts.filter((item) => item.activity?.unread).length;
+      return {
+        items,
+        activity: {
+          reading_count: reading,
+          unread_count: unread,
+          presentation: reading ? "working" : unread ? "unread" : "none",
+          pending_review_count: pending.length + notes,
+          needs_attention_count: pending.filter((item) => item.status === "needs_attention").length,
+        },
+      };
     },
     receipt: async (id) => {
       await delay();

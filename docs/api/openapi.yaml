@@ -827,6 +827,15 @@ paths:
           maximum: 50
           minimum: 1
           default: 20
+      - name: view
+        in: query
+        required: false
+        schema:
+          enum:
+          - inbox
+          - all
+          type: string
+          default: all
       - name: X-Business-Grant
         in: header
         required: false
@@ -16402,6 +16411,17 @@ components:
           known: '#/components/schemas/Known_Literal__fiscal_receipt____informal_receipt____no_receipt___'
           owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
           unknown: '#/components/schemas/Unknown'
+    Fact_Rnc_:
+      oneOf:
+      - $ref: '#/components/schemas/Known_Rnc_'
+      - $ref: '#/components/schemas/Unknown'
+      - $ref: '#/components/schemas/OwnerDoesNotKnow'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/Known_Rnc_'
+          owner_does_not_know: '#/components/schemas/OwnerDoesNotKnow'
+          unknown: '#/components/schemas/Unknown'
     Fact_bool_:
       oneOf:
       - $ref: '#/components/schemas/Known_bool_'
@@ -16626,7 +16646,7 @@ components:
     FiscalFacts:
       properties:
         rnc:
-          $ref: '#/components/schemas/Fact_str_'
+          $ref: '#/components/schemas/Fact_Rnc_'
           default:
             state: unknown
             verified: false
@@ -18691,6 +18711,37 @@ components:
           - fiscal_receipt
           - informal_receipt
           - no_receipt
+        origin:
+          type: string
+          enum:
+          - extracted
+          - qr_decoded
+          - owner_stated
+          - member_set
+          - matched
+          - default
+        verified:
+          type: boolean
+          default: false
+        source_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - origin
+      - source_ids
+    Known_Rnc_:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          $ref: '#/components/schemas/Rnc'
         origin:
           type: string
           enum:
@@ -22190,12 +22241,18 @@ components:
           - working
           - unread
           - none
+        pending_review_count:
+          type: integer
+        needs_attention_count:
+          type: integer
       additionalProperties: false
       type: object
       required:
       - reading_count
       - unread_count
       - presentation
+      - pending_review_count
+      - needs_attention_count
     ReceiptCardFacts:
       properties:
         execution_costs:
@@ -23513,6 +23570,8 @@ components:
       - prompt
       - allowed_answers
       - created_at
+    Rnc:
+      type: string
     RunDossier:
       properties:
         run_id:

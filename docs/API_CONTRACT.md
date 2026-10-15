@@ -9007,7 +9007,9 @@ A Business owner explicitly enables scope version 1 `business_receipt_reading` f
 
 `GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. `POST /business/receipt-reading` takes `{enabled,scope_version:1,disclosure_token,language}` and `Idempotency-Key` from the owner. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
 
-Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count` and `presentation:working|unread|none`. Saved unread and unread ready receipts count; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
+Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count` and `needs_attention_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
+
+The Bandeja's counts have two meanings and two names. `unread_count` is new activity this person has not opened; the web shows it as the badge's activity dot, never as the Bandeja number. `pending_review_count` is every row the Bandeja lists, opened or not: each receipt that is neither `confirmed` nor `dismissed` and is not an email original, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source (the drafts `GET /business/captures?view=inbox` lists). `needs_attention_count` is how many of those receipts are `needs_attention`. `GET /business/receipts` returns the same object as `activity` for either view, and `GET /business/overview` derives its `needs_attention` and `awaiting_review` (`pending_review_count` minus `needs_attention_count`) from the same server projection. The sidebar badge and the Resumen's "En tu bandeja" render `pending_review_count`; the Resumen's attention line renders `needs_attention_count`. An unknown count renders no number, never 0. The in-memory app keeps no notes and counts none.
 
 `POST /business/receipts/{receipt_id}/read` takes `{completion_cursor}` and returns current activity under the caller's live read grant. Only the current server cursor advances that person's boundary. A stale cursor leaves newer content unread. Seeing is separate for each person and Business. GET, opening a panel and seen mutations never change financial records or list ordering. Automatic web acknowledgement requires hydrated canonical ready content intersecting the visible, focused record viewport. Explicit mark read is also supported.
 
@@ -9178,8 +9180,12 @@ new evidence, and returns the current dossier of that same draft; it does not
 claim the current version equals the original capture version. Input drift,
 stale targets, foreign targets and missing capabilities use the errors above.
 
-`GET /business/captures?q=&limit=` returns `{items: [...]}` under the owner's
+`GET /business/captures?q=&limit=&view=` returns `{items: [...]}` under the owner's
 existing Business and live read grant; it does not infer an accountant's client.
+`view` is `all` (default) or `inbox`. `inbox` keeps only the notes of drafts
+awaiting review (`open` or `accepting`) that no receipt source carries, which is
+what the Bandeja lists as notes; a note added to a receipt's record is part of
+that receipt's row. Search keeps `all`, so every saved note stays findable.
 `q` defaults to empty, is at most 200 characters, rejects U+0000 (NUL), and
 matches a literal case-insensitive substring of original text (`%` and `_` are literal).
 `limit` is 1–50, default 20. Items contain `draft_id`, current `version`, the
@@ -9494,6 +9500,12 @@ accept path recorded.
   invoice currency DOP, the DOP total paid, any other-currency total marked
   informational, the e-NCF, issuer RNC, issue date, ITBIS and propina legal.
   The read's e-NCF, RNC and ITBIS land on the draft's fiscal facts as before.
+  The fiscal `rnc` fact is typed `Rnc`: a value with no nonzero digit
+  (`000000000`, `000-00000-0`) is no RNC. A read, a QR or a saved draft that
+  carries one holds an unknown RNC with its sources kept (the raw value stays
+  in the saved batch, and the server logs `business_rnc_without_number`); a
+  person's all-zero RNC is refused by the type. No route takes a person's RNC
+  today. The web reads an unknown RNC as "RNC desconocido".
   When the source names its own currency and the read chose another, the
   projection records `receipt_currency_conflict` (field `currency`) beside
   `receipt_purchase_ambiguous`, keeps the rows as evidence and holds the read
@@ -9701,7 +9713,9 @@ accept path recorded.
 - GET `/api/v1/business/overview?from&to` returns per-currency `totals`
   `{currency, amount, count}`, with no conversion. It also returns
   `awaiting_review`, `needs_attention`, `last_received_at` and
-  `last_confirmed_at`.
+  `last_confirmed_at`. `awaiting_review` plus `needs_attention` equals the
+  Bandeja's `pending_review_count` (see receipt activity): an email original is
+  context, never a receipt awaiting review.
 - GET `/api/v1/business/updates` returns `{items}` derived from receipt states
   (`receipt_ready`, `receipt_needs_attention`, `expense_confirmed`), newest
   first, each with the receipt's `error_code` and `attention`. Nothing is

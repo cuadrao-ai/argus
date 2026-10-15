@@ -484,16 +484,17 @@ def receipt_summaries(context: BusinessContext, view: str) -> list[dict]:
 
 
 def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa: ANN001
-    """The home overview with its receipt counts taken from the overlaid views,
-    so an approved draft is a saved expense, not a receipt awaiting review."""
+    """The home overview with its receipt counts from the Bandeja's own
+    projection over the overlaid views: an approved draft is a saved expense
+    and the email itself is not a receipt, the same as in the Bandeja."""
 
+    from argus.api.business_receipt_activity import inbox
     from argus.domain.business import ledger
-    from argus.domain.business.receipts import AWAITING_REVIEW
 
     data = context.service.overview(context.scope, start, end)
-    items = receipt_summaries(context, "all")
-    data["awaiting_review"] = sum(item["status"] in AWAITING_REVIEW for item in items)
-    data["needs_attention"] = sum(item["status"] == "needs_attention" for item in items)
+    counts = inbox(context, receipt_summaries(context, "all"))
+    data["needs_attention"] = counts["needs_attention_count"]
+    data["awaiting_review"] = counts["pending_review_count"] - data["needs_attention"]
     # Gastos reales leave the owner's personal receipts out; con valor fiscal
     # are the real ones that carry an NCF or an e-CF; the rest do not go into
     # the 606. All three from the same rows, so the line never disagrees.

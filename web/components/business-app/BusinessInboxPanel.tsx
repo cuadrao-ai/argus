@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { BusinessCapture, ReceiptSummary, ReceiptActivityCounts } from "@/lib/business-api";
+import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
@@ -34,16 +34,7 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
   return [...byDraft.values()].sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
 }
 
-/**
- * What the Inbox list shows, as one number for the Overview card and the
- * sidebar badge: receipts awaiting review (the email itself is not a row,
- * its attachments are) plus the drafts with an open note. Both lists come
- * from the backend; the count is never computed from anything else.
- */
-export function inboxCount(records: { inbox: readonly ReceiptSummary[] | null; notes: readonly BusinessCapture[] | null; receiptActivity?: ReceiptActivityCounts | null }): number {
-  const receipts = records.receiptActivity?.unread_count ?? 0;
-  return receipts + (records.notes ? openNotesByDraft(records.notes).length : 0);
-}
+export { inboxCount } from "./inbox-count";
 
 export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }: { notes: OpenNote[]; error: boolean; truncated?: boolean; onOpen: (draftId: string) => void }) {
   const { t, i18n } = useTranslation();
@@ -216,7 +207,7 @@ export default function BusinessInboxPanel() {
         <>
           <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
           {items.length ? (
-            <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
+            <ul data-testid="business-inbox-receipts" className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
               {items.map((receipt) => (
                 <ReceiptRow
                   key={receipt.id}
