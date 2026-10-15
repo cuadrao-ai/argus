@@ -106,6 +106,7 @@ def test_declined_ai_receipt_is_entered_by_hand_and_saved_once(
             "account_id": account,
             "occurred_on": "2026-10-07",
             "receipt_id": receipt_id,
+            "fiscal_known": True,
         }
     ]
     assert alice.get(f"/receipts/{receipt_id}/source").content == RECEIPT

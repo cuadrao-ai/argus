@@ -16,7 +16,7 @@ export type BusinessFacts = {
   business_share: BusinessFact<{ kind: "all" | "none" } | { kind: "partial"; amount: string }>;
   receipt_state: BusinessFact<"fiscal_receipt" | "informal_receipt" | "no_receipt">;
   category_id: BusinessFact<string>;
-  fiscal: { rnc: BusinessFact<string>; ncf: BusinessFact<string>; ecf: BusinessFact<string>; itbis: BusinessFact<string> } | null;
+  fiscal: { rnc: BusinessFact<string>; ncf: BusinessFact<string>; ecf: BusinessFact<string>; itbis: BusinessFact<string>; include_606?: BusinessFact<boolean> } | null;
 };
 
 export type BusinessSourceEvidence =
@@ -25,7 +25,7 @@ export type BusinessSourceEvidence =
   | { id: string; kind: "attachment"; channel: "web" | "whatsapp" | "email"; received_at: string; connection_id: string; filename: string | null; media_type: string; email_delivery_ids?: string[] };
 
 export type BusinessFiscalField = keyof NonNullable<BusinessFacts["fiscal"]>;
-export const BUSINESS_FISCAL_FIELDS: BusinessFiscalField[] = ["rnc", "ncf", "ecf", "itbis"];
+export const BUSINESS_FISCAL_FIELDS: BusinessFiscalField[] = ["rnc", "ncf", "ecf", "itbis", "include_606"];
 
 export type BusinessFactField = Exclude<keyof BusinessFacts, "fiscal">;
 export type BusinessFactInput<T> = { state: "known"; value: T } | { state: "unknown" | "owner_does_not_know"; value: null };
@@ -86,6 +86,15 @@ export type BusinessDossier = BusinessRecordContext & {
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */
   dgii_qr?: DgiiQr | null;
+  /** The record's marks from the server, the same reading every list shows: Personal, who last changed it when not the owner, the fiscal number, the 606 answer. */
+  personal?: boolean;
+  personal_marked_by?: string | null;
+  /** The record's facts exist, so an empty fiscal_value means no fiscal number. */
+  fiscal_known?: boolean;
+  fiscal_value?: "ncf" | "ecf" | null;
+  include_606?: boolean | null;
+  /** Who gave the 606 answer, while one applies. */
+  include_606_by?: string | null;
   read_purchases?: BusinessReadPurchase[];
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
   read_total?: string | null;

@@ -9326,6 +9326,49 @@ person starts their space, every route below except POST `/space` answers 404
     keyed by the record and the request's `Idempotency-Key` (a replay repeats
     its row, a second review gets its own); the upload row is written in the
     transaction that saves the receipt.
+  - Personal receipts and the 606. A receipt is personal when its
+    `business_share` is `none` and a person stated it (origin `owner_stated`
+    for the owner, `member_set` for anyone else): POST
+    `/api/v1/business/drafts/{id}/personal` (`Idempotency-Key`, body
+    `{version, personal}`), the owner or anyone holding prepare through a
+    live grant (403 `business_permission_denied` for a read-only grant), on
+    an open or an approved draft, reversible with `personal: false` by the
+    same people, so the owner can always take back anyone's mark; each way is
+    a new revision in the history and one `mark_personal` ledger row naming
+    the actor, the grant used and its issuer. A `none` of any other origin
+    (a model's reading, a match, a default) marks nothing. Approval stays the
+    owner's alone. Approval admits a
+    personal receipt and records it as today; a partial share stays refused.
+    "Has fiscal value" is an NCF or an e-CF the draft knows, of any origin
+    (the e-CF check state comes later); the 606 itself is not built. A
+    prepare-holder who is not the owner answers POST
+    `/api/v1/business/drafts/{id}/fiscal-inclusion` (`Idempotency-Key`, body
+    `{version, include}`) for a personal receipt with a fiscal number (the
+    owner acting as owner is 403 `business_permission_denied`; otherwise 409
+    `business_606_not_applicable`); the answer is the fact
+    `fiscal.include_606`, a revision and a `decide_606` ledger row. Receipt
+    summaries and details, expenses and their detail, and the draft dossier
+    carry `personal`,
+    `fiscal_value` (`ncf`, `ecf` or null) and `include_606` (true, false or
+    null when not applicable or unanswered), present only when set, and
+    `personal_marked_by`, the display name of whoever last changed the mark
+    when that was not the owner (absent otherwise), `include_606_by`, the
+    display name of whoever last changed the 606 answer while one applies,
+    and `fiscal_known`: on a receipt summary or detail, present and true once
+    a draft owns the receipt (absent before anything is read); on the dossier,
+    always true; on an expense, its detail and a search expense, always
+    present and true, since a saved expense's fiscal standing is settled (the
+    same split the overview's totals make). So an absent `fiscal_value` with
+    `fiscal_known` true means no fiscal number; all read by one
+    server function so a list row and its record always agree; receipt
+    summaries add
+    `personal_editable` for anyone with prepare on a receipt that has a
+    draft. The overview's `totals` are "Gastos reales" (approved
+    expenses that are not personal), `fiscal_totals` are those with fiscal
+    value and `without_fiscal_totals` the rest, all per currency from the same
+    rows. The export's records gain `personal`, `fiscal_value` and
+    `include_606` (`yes`, `no` or empty); a personal expense stays in the
+    export with its mark.
   - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
     capabilities, created_at, owner}], invites: [{id, email, created_at,
     expires_at}]}`: live grants, the owner first, and pending invites.

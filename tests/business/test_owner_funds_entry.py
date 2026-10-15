@@ -57,6 +57,7 @@ def test_owner_funded_expense_is_visible_without_account_or_balance(alice):
             "funding": "owner_funds",
             "occurred_on": "2026-09-19",
             "receipt_id": None,
+            "fiscal_known": True,
         }
     ]
     assert alice.get("/workspace").json()["accounts"] == []

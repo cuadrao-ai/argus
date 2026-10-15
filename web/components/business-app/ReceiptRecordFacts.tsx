@@ -44,6 +44,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
   const labels = {
     unknown: t("business.dossier.unknown", "Unknown"),
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),
+    yes: t("business.marks.yes", "Yes"),
+    no: t("business.marks.no", "No"),
     ownerFunds: t("business.dossier.owner_funds", "Owner's money"),
     businessAccount: t("business.dossier.business_account", "Business account"),
     value: (key: BusinessFactField, value: string) => {
@@ -55,6 +57,10 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
   const rows = recordFactRows(dossier);
   const fiscalRows = fiscalFactRows(dossier.facts);
   const counts = reviewCounts([...rows, ...fiscalRows]);
+  // Without an NCF and an e-CF the record has no fiscal receipt number: one row
+  // says so, in the chip's words, in place of two empty ones.
+  const noFiscal = dossier.fiscal_known === true && !dossier.fiscal_value;
+  const shownFiscalRows = noFiscal ? fiscalRows.filter(({ key }) => key !== "ncf" && key !== "ecf") : fiscalRows;
 
   const standingText = (standing: FactStanding, origin: string | null, blocked: boolean) => {
     if (standing === "verified") return t("business.dossier.verified", "Verified");
@@ -108,15 +114,24 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
           return row(key, t(`business.dossier.field.${key}`, key), value, standing, fact.state === "known" ? fact.origin : null, blocked, asked, confirm);
         })}
       </dl>
-      {fiscal ? (
+      {fiscal || noFiscal ? (
         <div className="mt-5 border-t border-black/10 pt-5 dark:border-white/10" data-testid="receipt-fiscal-facts">
           <p className="mb-3 text-[14px] font-medium text-black/80 dark:text-white/80">{t("business.dossier.fiscal_details", "Fiscal details")}</p>
           <dl className="divide-y divide-black/[0.05] dark:divide-white/[0.05]">
-            {fiscalRows.map(({ key, standing }) => {
-              const fact = fiscal[key];
+            {noFiscal ? (
+              <div data-fact="fiscal_number" data-standing="empty" className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                <CircleDashed className={`mt-1 h-4 w-4 shrink-0 ${GREY.className}`} aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <dt className="text-[12px] font-medium text-black/55 dark:text-white/55">{`${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`}</dt>
+                  <dd className="mt-0.5 break-words text-[15px] text-black/85 dark:text-white/85">{t("business.marks.no_fiscal_chip", "No fiscal receipt number")}</dd>
+                </div>
+              </div>
+            ) : null}
+            {shownFiscalRows.map(({ key, standing }) => {
+              const fact = fiscal?.[key];
               const value = presentFiscalFact(key, dossier.facts, locale, { ...labels, notRecorded: t("business.dossier.not_recorded", "Not recorded") });
               // NCF and e-CF are alternatives and no blocker names a fiscal field: an empty one is "Sin dato", never "Falta".
-              return row(key, t(`business.dossier.field.${key}`, key), value, standing, fact.state === "known" ? fact.origin : null, false, false);
+              return row(key, t(`business.dossier.field.${key}`, key), value, standing, fact?.state === "known" ? fact.origin : null, false, false);
             })}
           </dl>
         </div>

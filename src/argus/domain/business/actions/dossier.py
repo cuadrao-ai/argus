@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import TypeAdapter
 
 from argus.domain.business.actions.facts import facts_of
+from argus.domain.business.actions.marks import draft_marks
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
@@ -97,8 +98,10 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
         result.append(Blocker(code="amount_positive_required", field="amount"))
     if (
         isinstance(facts.business_share, Known)
-        and facts.business_share.value.kind != "all"
+        and facts.business_share.value.kind == "partial"
     ):
+        # A personal receipt (none) is approved and left out of the totals;
+        # a partial share has no recording rule yet.
         result.append(
             Blocker(code="business_allocation_unsupported", field="business_share")
         )
@@ -209,4 +212,5 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         unrecorded_purchases=resolution.unrecorded_purchases(),
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
+        **draft_marks(tx, draft_id, facts),
     )

@@ -176,6 +176,29 @@ class ReceiptSummary(_Wire):
     currency: str | None
     category_id: str | None
     account_id: str | None
+    # Marked by a person as no part of the Business: left out of the totals, kept visible.
+    personal: bool = Field(default=False, exclude_if=lambda value: value is False)
+    # Who marked it, when that was someone other than the owner; absent otherwise.
+    personal_marked_by: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    # The receipt's facts exist (a draft owns it), so an absent fiscal_value
+    # means no fiscal number; absent while nothing is read yet.
+    fiscal_known: bool = Field(default=False, exclude_if=lambda value: value is False)
+    # The fiscal number the draft carries today (NCF or e-CF), absent without one or before a read.
+    fiscal_value: Literal["ncf", "ecf"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    # The accountant's 606 answer for a personal receipt with a fiscal number; absent until given or not applicable.
+    include_606: bool | None = Field(default=None, exclude_if=lambda value: value is None)
+    # Who gave that answer; absent while there is none.
+    include_606_by: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    # Whether the caller may mark or unmark it: anyone holding prepare.
+    personal_editable: bool = Field(
+        default=False, exclude_if=lambda value: value is False
+    )
 
 
 class ReceiptEvidenceLine(_Wire):
@@ -236,6 +259,20 @@ class BusinessExpense(_Wire):
     # The bridge draft that recorded it, when one did: the record to open when
     # the expense names no single receipt.
     draft_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    personal: bool = Field(default=False, exclude_if=lambda value: value is False)
+    personal_marked_by: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    # A saved expense's fiscal standing is settled on the server: the number it
+    # carries, or none, the same split the overview's totals make.
+    fiscal_known: bool = True
+    fiscal_value: Literal["ncf", "ecf"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    include_606: bool | None = Field(default=None, exclude_if=lambda value: value is None)
+    include_606_by: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ExpenseDetail(BusinessExpense):
@@ -269,7 +306,12 @@ class BusinessOverview(_Wire):
     to: date
     # The server's day in the recording time zone: the one clock for "today".
     today: date
+    #: "Gastos reales": every approved expense of the period that is not personal.
     totals: list[CurrencyTotal]
+    #: "Con valor fiscal": those that carry an NCF or an e-CF.
+    fiscal_totals: list[CurrencyTotal] = Field(default_factory=list)
+    #: "Sin comprobante fiscal": real minus fiscal, per currency; what does not go into the 606.
+    without_fiscal_totals: list[CurrencyTotal] = Field(default_factory=list)
     awaiting_review: int
     needs_attention: int
     last_received_at: datetime | None

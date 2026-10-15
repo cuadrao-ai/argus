@@ -350,6 +350,13 @@ class BusinessService:
         end = end if end is not None else ledger.today()
         return self._expenses(scope, self._activities(scope), start, end)
 
+    def expense_rows(
+        self, scope: BusinessScope, start: date, end: date
+    ) -> list[dict[str, Any]]:
+        """The period's saved expenses with their minor-unit amounts, for totals."""
+
+        return ledger.expenses(self._activities(scope), {}, start, end)
+
     def expense(self, scope: BusinessScope, expense_id: str) -> dict[str, Any]:
         """One saved expense of this Business, with when it was recorded and its
         revision; any other id, including another Business's, is not found."""

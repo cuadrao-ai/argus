@@ -107,6 +107,8 @@ describe("the counts line agrees with 'Antes de aprobar'", () => {
     const dossier = {
       ...base,
       facts: { ...base.facts, amount: known("owner_stated"), fiscal: { rnc: known("qr_decoded"), ncf: unknown, ecf: known("owner_stated"), itbis: unknown } },
+      // The server's reading of the same facts: an e-CF is known.
+      fiscal_value: "ecf",
       blockers: [],
       questions: [],
     } as unknown as BusinessDossier;
@@ -152,6 +154,8 @@ describe("the record facts on the review page", () => {
     const dossier = {
       ...base,
       facts: { ...base.facts, counterparty: known("extracted"), occurred_on: known("qr_decoded"), category_id: known("matched"), amount: unknown, fiscal: { rnc: known("qr_decoded"), ncf: unknown, ecf: known("extracted"), itbis: unknown } },
+      // The server's reading of the same facts: an e-CF is known.
+      fiscal_value: "ecf",
       blockers: [{ code: "missing_fields", field: "amount" }],
       questions: [],
     } as unknown as BusinessDossier;
