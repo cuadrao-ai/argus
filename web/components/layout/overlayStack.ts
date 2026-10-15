@@ -180,10 +180,18 @@ export function overlayStackIds(): readonly string[] {
   return layers.map((open) => open.id);
 }
 
-/** Test seam: reset between cases. */
+/**
+ * Test seam: reset between cases.
+ *
+ * `listening` is cleared even when there is no `document` to detach from.
+ * `syncListeners` returns early in that case, so a file that tore its DOM down
+ * with a layer still open left `listening` true, and the next file's stub
+ * document never received a listener.
+ */
 export function resetOverlayStack(): void {
   layers = [];
   syncListeners();
+  listening = false;
 }
 
 /**

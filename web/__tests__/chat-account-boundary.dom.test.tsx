@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, beforeAll, describe, mock, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // The real hook against a Supabase client whose auth events this test fires.
@@ -19,6 +19,13 @@ mock.module("@/lib/supabase-client", () => ({
     },
   }),
 }));
+
+// The session and the subscription are module state that the cases mutate: a
+// case that ends signed out leaves the next one starting as a stranger.
+beforeEach(() => {
+  listener = null;
+  currentSession = { user: { id: "user-1" } };
+});
 
 beforeAll(() => {
   process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
