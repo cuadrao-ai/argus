@@ -75,7 +75,7 @@ test.describe("Business preview", () => {
 
   test("an Overview draft survives a visit to the Inbox", async ({ page }) => {
     await openPreview(page);
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
 
     const composer = page.getByTestId("chat-input");
     await composer.click();
@@ -86,13 +86,13 @@ test.describe("Business preview", () => {
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
 
     await nav(page).getByRole("button", { name: /^Overview/ }).click();
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
     await expect(page.getByTestId("chat-input")).toHaveText("How much did I spend on paint?");
   });
 
   test("the Create menu opens from the collapsed rail inside the viewport", async ({ page }) => {
     await openPreview(page, PREVIEW, { sidebarMode: "collapsed" });
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
 
     const trigger = page.getByTestId("business-create");
     await expect(trigger).toHaveAccessibleName("Create");
@@ -422,7 +422,7 @@ test.describe("Business preview on a phone", () => {
 
   test("the drawer shows the Business destinations with labels and Create", async ({ page }) => {
     await openPreview(page);
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
 
     await page.getByTestId("chat-shell-menu-trigger").click();
 
@@ -571,7 +571,7 @@ test.describe("Business preview while its chat is off", () => {
 
   async function openLoaded(page: Page, url = CHAT_OFF) {
     await openPreview(page, url, { emptyChat: false });
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
     // The inbox chip comes with the workspace payload, so chat_available has been read.
     await expect(
       page.getByTestId("workspace-panel-region").getByRole("button", { name: /^Review \d+ receipts/ }),
@@ -594,7 +594,7 @@ test.describe("Business preview while its chat is off", () => {
     await page.keyboard.press("ControlOrMeta+Shift+Comma");
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
 
     await page.getByTestId("business-create").click();
     await expect(page.getByRole("menu", { name: "Create" }).getByRole("menuitem")).toHaveText([
@@ -608,7 +608,7 @@ test.describe("Business preview while its chat is off", () => {
       ["Inbox", "Inbox"],
       ["Expenses", "Expenses"],
       ["Updates", "Updates"],
-      ["Overview", "Your business"],
+      ["Overview", "Mi negocio"],
     ]) {
       await nav(page).getByRole("button", { name: new RegExp(`^${label}`) }).click();
       await expect(panelHeading(page, heading)).toBeVisible();
@@ -669,7 +669,7 @@ test.describe("Business preview on a phone while its chat is off", () => {
 
   test("the drawer keeps the destinations and Create, with no New chat or Recents", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?chat=off`);
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
     await page.getByTestId("chat-shell-menu-trigger").click();
     for (const label of ["Overview", "Inbox", "Expenses", "Updates"]) {
       await expect(nav(page).getByText(label, { exact: true })).toBeVisible();

@@ -29,15 +29,15 @@ export default function BusinessCreateMenu({
           <button
             ref={ref}
             type="button"
-            aria-label={label}
             aria-haspopup="menu"
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
             data-testid="business-create-compact"
             onClick={toggle}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 active:scale-95 dark:hover:bg-white/5 dark:focus-visible:ring-white/30"
+            className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full pl-3 pr-4 font-display text-[15px] font-medium tracking-tight text-black transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 active:scale-95 dark:text-white dark:hover:bg-white/5 dark:focus-visible:ring-white/30"
           >
-            <Plus className="h-5 w-5 text-black/70 dark:text-white/70" />
+            <Plus className="h-5 w-5 text-black/70 dark:text-white/70" aria-hidden="true" />
+            {label}
           </button>
         )}
       />
