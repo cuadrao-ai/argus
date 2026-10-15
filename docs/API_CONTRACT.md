@@ -9500,6 +9500,12 @@ accept path recorded.
   invoice currency DOP, the DOP total paid, any other-currency total marked
   informational, the e-NCF, issuer RNC, issue date, ITBIS and propina legal.
   The read's e-NCF, RNC and ITBIS land on the draft's fiscal facts as before.
+  The fiscal `rnc` fact is typed `Rnc`: a value with no nonzero digit
+  (`000000000`, `000-00000-0`) is no RNC. A read, a QR or a saved draft that
+  carries one holds an unknown RNC with its sources kept (the raw value stays
+  in the saved batch, and the server logs `business_rnc_without_number`); a
+  person's all-zero RNC is refused by the type. No route takes a person's RNC
+  today. The web reads an unknown RNC as "RNC desconocido".
   When the source names its own currency and the read chose another, the
   projection records `receipt_currency_conflict` (field `currency`) beside
   `receipt_purchase_ambiguous`, keeps the rows as evidence and holds the read

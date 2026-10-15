@@ -43,7 +43,7 @@
       ]
     },
     "claude/business-review-counts-1113": {
-      "description": "Issue #1113: one receipt review page (source left, fields right, one Aprobar; the by-hand and unread layouts render in the same frame), one 'Leido de la fuente - sin verificar' banner per facts card, 'RNC desconocido' for an unknown RNC, and one server count for the Bandeja and the Resumen (pending_review_count and needs_attention_count beside unread_count; captures?view=inbox lists notes no receipt carries). No migration, no iOS, no model-facing text.",
+      "description": "Issue #1113: one receipt review page (source left, fields right, one Aprobar; the by-hand and unread layouts render in the same frame), one 'Leido de la fuente - sin verificar' banner per facts card, 'RNC desconocido' for an unknown RNC, and one server count for the Bandeja and the Resumen, and an RNC with no nonzero digit is no RNC (the typed fiscal rnc fact) (pending_review_count and needs_attention_count beside unread_count; captures?view=inbox lists notes no receipt carries). No migration, no iOS, no model-facing text.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
@@ -76,14 +76,18 @@
         "src/argus/api/routers/business_manual.py",
         "src/argus/domain/business/actions/captures.py",
         "src/argus/domain/business/actions/service.py",
+        "src/argus/domain/business/contracts/facts.py",
         "src/argus/domain/business/receipt_activity.py",
         "src/argus/domain/business/receipts.py",
         "src/argus/domain/business/service.py",
         "tests/business/test_actions_capture_api.py",
         "tests/business/test_business_api.py",
         "tests/business/test_business_review_counts.py",
+        "tests/business/test_rnc_contract.py",
+        "tests/ingestion/test_business_receipt_fiscal_extraction.py",
         "tests/test_business_review_counts_postgres.py",
         "tests/test_business_review_counts_routes_postgres.py",
+        "tests/test_business_zero_rnc_postgres.py",
         "web/__tests__/business-inbox-notes.test.tsx",
         "web/__tests__/business-review-counts.dom.test.tsx",
         "web/__tests__/business-switch-boundary.dom.test.tsx",
@@ -104,6 +108,8 @@
         "web/components/business-app/fixture-data.ts",
         "web/components/business-app/inbox-count.ts",
         "web/components/business-app/receipt-fact-presentation.ts",
+        "web/e2e/business-pilot-walkthrough.spec.ts",
+        "web/e2e/business-record-review.spec.ts",
         "web/lib/business-api.ts",
         "web/public/locales/en/common.json",
         "web/public/locales/es-419/common.json"
