@@ -35,10 +35,12 @@ final class CuadraoBuildGate: NSObject, XCTestObservation {
             return
         }
         // Second line: an app and a test bundle from different builds can still reach the legacy preview.
+        // Journeys end on many Cuadrao screens, so only the legacy marker is a sound per-test check.
         testCase.addTeardownBlock {
             let app = XCUIApplication()
             guard app.state == .runningForeground, app.staticTexts["sample.notice"].exists else { return }
-            XCTFail("CUADRAO UI TESTS: this test ran against the legacy foundation preview, not Cuadrao. "
+            XCTFail("CUADRAO UI TESTS: this test ran against the legacy foundation preview, not Cuadrao, "
+                + "whose first screen is the welcome lockup cuadrao.welcome.lockup (DESIGN.md section 13). "
                 + "Build the app and the UI tests together with ios/Config/Local.xcconfig present.")
         }
     }
