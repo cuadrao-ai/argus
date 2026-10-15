@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
-import { dossierFiscalInclusion, dossierFiscalValue, dossierIsPersonal, dossierPersonalMarkedBy } from "@/lib/business-dossier";
 import { useBusiness } from "./BusinessWorkspace";
 import { cardClass, RecordMarks } from "./business-ui";
 
@@ -22,11 +21,12 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   const [problem, setProblem] = useState<string | null>(null);
   const canPrepare = dossier.capabilities.includes("prepare");
   const owner = !chosen || chosen.role === "owner";
-  const personal = dossierIsPersonal(dossier.facts);
-  const fiscalValue = dossierFiscalValue(dossier.facts);
-  const inclusion = dossierFiscalInclusion(dossier.facts);
+  // The server reads the marks; the card shows them as given.
+  const personal = dossier.personal === true;
+  const fiscalValue = dossier.fiscal_value ?? null;
+  const inclusion = dossier.include_606 ?? null;
   const answeredBy = dossier.history.at(-1)?.actor.display_name ?? "";
-  const markedBy = dossierPersonalMarkedBy(dossier);
+  const markedBy = dossier.personal_marked_by ?? null;
 
   const run = async (call: () => Promise<BusinessDossier>, failure: string) => {
     setWorking(true);

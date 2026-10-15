@@ -429,7 +429,8 @@ export function createFixtureBusinessDataSource(
       for (const item of expenses) if (item.receipt_id === id || item.draft_id === id) Object.assign(item, { personal, personal_marked_by: null });
       void version;
       // The sample receipt behind an unprepared draft has no record to answer with; a ready one stands in.
-      return dossierSource.dossier(id).catch(() => dossierSource.dossier(dossierFixtureIds.ready));
+      const record = await dossierSource.dossier(id).catch(() => dossierSource.dossier(dossierFixtureIds.ready));
+      return { ...record, personal, personal_marked_by: null };
     },
     decideFiscalInclusion: async (id, version, include) => {
       await delay();

@@ -27,39 +27,6 @@ export type BusinessSourceEvidence =
 export type BusinessFiscalField = keyof NonNullable<BusinessFacts["fiscal"]>;
 export const BUSINESS_FISCAL_FIELDS: BusinessFiscalField[] = ["rnc", "ncf", "ecf", "itbis", "include_606"];
 
-/** Marked by a person as no part of the Business: business_share none, stated by the owner or a prepare-holder. */
-export function dossierIsPersonal(facts: BusinessFacts): boolean {
-  const share = facts.business_share;
-  return share.state === "known" && share.value.kind === "none" && (share.origin === "owner_stated" || share.origin === "member_set");
-}
-
-/**
- * Who marked a personal record, when that was not the owner: the actor of the
- * latest revision that changed business_share. The owner acts through the
- * grant they issued themselves; anyone else's grant was issued by another.
- */
-export function dossierPersonalMarkedBy(dossier: Pick<BusinessDossier, "facts" | "history">): string | null {
-  if (!dossierIsPersonal(dossier.facts)) return null;
-  const change = dossier.history.findLast((revision) => JSON.stringify(revision.before?.business_share ?? null) !== JSON.stringify(revision.after?.business_share ?? null));
-  if (!change || change.actor.actor_id === change.actor.issuer_id) return null;
-  return change.actor.display_name;
-}
-
-/** The fiscal number the draft carries: an e-CF or an NCF it knows, of any origin. */
-export function dossierFiscalValue(facts: BusinessFacts): "ncf" | "ecf" | null {
-  if (!facts.fiscal) return null;
-  if (facts.fiscal.ecf.state === "known") return "ecf";
-  if (facts.fiscal.ncf.state === "known") return "ncf";
-  return null;
-}
-
-/** The accountant's 606 answer when one applies (personal, with a fiscal number), else null. */
-export function dossierFiscalInclusion(facts: BusinessFacts): boolean | null {
-  if (!dossierIsPersonal(facts) || !dossierFiscalValue(facts)) return null;
-  const answer = facts.fiscal?.include_606;
-  return answer && answer.state === "known" ? answer.value : null;
-}
-
 export type BusinessFactField = Exclude<keyof BusinessFacts, "fiscal">;
 export type BusinessFactInput<T> = { state: "known"; value: T } | { state: "unknown" | "owner_does_not_know"; value: null };
 export type BusinessFactPatch = { [K in BusinessFactField]?: BusinessFactInput<NonNullable<BusinessFacts[K]["value"]>> };
@@ -119,6 +86,11 @@ export type BusinessDossier = BusinessRecordContext & {
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */
   dgii_qr?: DgiiQr | null;
+  /** The record's marks from the server, the same reading every list shows: Personal, who last changed it when not the owner, the fiscal number, the 606 answer. */
+  personal?: boolean;
+  personal_marked_by?: string | null;
+  fiscal_value?: "ncf" | "ecf" | null;
+  include_606?: boolean | null;
   read_purchases?: BusinessReadPurchase[];
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
   read_total?: string | null;

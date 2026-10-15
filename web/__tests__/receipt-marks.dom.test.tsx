@@ -149,6 +149,11 @@ describe("the receipt page's marks card", () => {
         { version: 2, actor: markedBy === "owner" ? OWNER : ACCOUNTANT, before: { business_share: share("all", "extracted") }, after: { business_share: share(personal ? "none" : "all", markedBy === "owner" ? "owner_stated" : "member_set") }, source_ids: [], created_at: "2026-10-13T09:00:00Z" },
         { version: 3, actor: ACCOUNTANT, before: null, after: {}, source_ids: [], created_at: "2026-10-13T10:00:00Z" },
       ],
+      // The marks as the server reads them: the card renders these, never its own reading of the facts.
+      personal,
+      personal_marked_by: personal && markedBy === "accountant" ? "Lía" : null,
+      fiscal_value: ncf ? "ncf" : null,
+      include_606: personal && ncf ? answer : null,
       facts: {
         business_share: share(personal ? "none" : "all", markedBy === "owner" ? "owner_stated" : "member_set"),
         fiscal: ncf ? { rnc: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, ncf: { state: "known", value: "B0100000001", origin: "extracted", verified: false, source_ids: ["s"] }, ecf: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, itbis: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, include_606: answer === null ? { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } : { state: "known", value: answer, origin: "member_set", verified: true, source_ids: ["s"] } } : null,
@@ -248,7 +253,8 @@ describe("the review page's fiscal details", () => {
     }
     const { default: ReceiptRecordFacts } = await import("@/components/business-app/ReceiptRecordFacts");
     const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
-    const d = { draft_id: "d-1", version: 1, capabilities: ["read"], blockers: [], questions: [], history: [], facts: { kind: unknown, amount: unknown, currency: unknown, occurred_on: unknown, counterparty: unknown, funding: unknown, business_share: unknown, receipt_state: unknown, category_id: unknown, fiscal } } as unknown as BusinessDossier;
+    const ncf = fiscal && (fiscal as { ncf?: { state?: string } }).ncf?.state === "known";
+    const d = { draft_id: "d-1", version: 1, capabilities: ["read"], blockers: [], questions: [], history: [], fiscal_value: ncf ? "ncf" : null, facts: { kind: unknown, amount: unknown, currency: unknown, occurred_on: unknown, counterparty: unknown, funding: unknown, business_share: unknown, receipt_state: unknown, category_id: unknown, fiscal } } as unknown as BusinessDossier;
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ReceiptRecordFacts dossier={d} accounts={[]} /></env.I18nextProvider>); });
     return env;
   }
@@ -277,5 +283,36 @@ describe("the review page's fiscal details", () => {
     assert.equal(withNcf.host.querySelector('[data-fact="fiscal_number"]'), null);
     assert.equal(withNcf.host.querySelector('[data-fact="ncf"] dd')?.textContent, "B0100000001");
     await withNcf.act(async () => withNcf.root.unmount());
+  });
+});
+
+describe("one owner for the marks", () => {
+  test("the Bandeja row and the record show the same server marks for a grantee's mark, the owner's mark and after an unmark", async () => {
+    const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+    const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
+    const { default: ReceiptMarksCard } = await import("@/components/business-app/ReceiptMarksCard");
+    const owner = { chosen: null, reload: () => undefined, source: {} } as unknown as BusinessContextValue;
+    const cases: { name: string; personal: boolean; by: string | null }[] = [
+      { name: "grantee mark", personal: true, by: "Marta" },
+      { name: "owner mark", personal: true, by: null },
+      { name: "unmarked", personal: false, by: null },
+    ];
+    for (const item of cases) {
+      const server = { personal: item.personal, personal_marked_by: item.by, fiscal_value: "ncf" as const, include_606: null };
+      const read = (host: HTMLElement) => ({
+        personal: host.querySelector('[data-mark="personal"]') !== null,
+        dot: host.querySelector('[data-testid="personal-marked-dot"]') !== null,
+        said: host.querySelector('[data-mark="personal"] .sr-only')?.textContent ?? null,
+      });
+      const env = await setup();
+      await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={owner}><ul><ReceiptRow receipt={receipt({ ...server, personal_editable: true })} onOpen={() => undefined} onMark={() => undefined} /></ul></BusinessContext.Provider></env.I18nextProvider>); });
+      const row = read(env.host);
+      await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={owner}><ReceiptMarksCard dossier={{ draft_id: "d-1", version: 3, capabilities: ["read", "prepare"], history: [], facts: { business_share: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, fiscal: null }, ...server } as unknown as BusinessDossier} onChanged={() => undefined} /></BusinessContext.Provider></env.I18nextProvider>); });
+      const record = read(env.host);
+      assert.deepEqual(record, row, item.name);
+      assert.equal(row.said, item.by ? `Marcado por ${item.by}` : null, item.name);
+      assert.equal(row.personal, item.personal, item.name);
+      await env.act(async () => env.root.unmount());
+    }
   });
 });

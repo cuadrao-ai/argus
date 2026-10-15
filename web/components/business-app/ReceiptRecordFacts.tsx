@@ -3,7 +3,7 @@
 import { AlertCircle, CheckCircle2, CircleDashed, Link2, QrCode, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
-import { dossierFiscalValue, type BusinessDossier, type BusinessFactField } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessFactField } from "@/lib/business-dossier";
 import { useCategoryLabel } from "./business-ui";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import { fiscalFactRows, recordFactRows, reviewCounts, type FactStanding } from "./receipt-fact-rows";
@@ -57,7 +57,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
   const counts = reviewCounts([...rows, ...fiscalRows]);
   // Without an NCF and an e-CF the record has no fiscal receipt number: one row
   // says so, in the chip's words, in place of two empty ones.
-  const noFiscal = dossierFiscalValue(dossier.facts) === null;
+  const noFiscal = !dossier.fiscal_value;
   const shownFiscalRows = noFiscal ? fiscalRows.filter(({ key }) => key !== "ncf" && key !== "ecf") : fiscalRows;
 
   const standingText = (standing: FactStanding, origin: string | null, blocked: boolean) => {
