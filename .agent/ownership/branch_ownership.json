@@ -2725,6 +2725,10 @@
         "web/components/sidebar/SidebarHeader.tsx",
         "web/components/sidebar/ProfileMenu.tsx",
         "web/__tests__/shared-shell-polish.dom.test.tsx",
+        "web/e2e/conversation-activity-ui.spec.ts",
+        "web/e2e/cuadrao-branding.spec.ts",
+        "web/e2e/guest-entry.spec.ts",
+        "web/e2e/guest-experience.spec.ts",
         "docs/reports/evidence/cuadrao-business/shared-shell-20261015/**"
       ],
       "deny": []

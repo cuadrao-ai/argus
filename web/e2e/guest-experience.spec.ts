@@ -988,7 +988,7 @@ test("@guest-experience exact-head 20-check matrix", async ({
       async () => {
         await page.goto("/chat", { waitUntil: "domcontentloaded" });
         await expect(page.getByTestId("chat-input")).toBeVisible();
-        const expand = page.getByRole("button", { name: "Expand sidebar" });
+        const expand = page.getByRole("button", { name: "Expand", exact: true });
         if (await expand.isVisible()) await expand.click();
         const sidebar = page.locator("aside");
         const recents = sidebar.getByRole("button", { name: "Recents" });
@@ -1095,7 +1095,7 @@ test("@guest-experience exact-head 20-check matrix", async ({
           claimGuestPage.getByTestId("result-equity-chart"),
         ).toBeVisible({ timeout: 60_000 });
 
-        const expand = page.getByRole("button", { name: "Expand sidebar" });
+        const expand = page.getByRole("button", { name: "Expand", exact: true });
         if (await expand.isVisible()) await expand.click();
         await page.getByRole("button", { name: "Search" }).click();
         const ownerSearchSurface = searchSurface(page);
@@ -1129,7 +1129,8 @@ test("@guest-experience exact-head 20-check matrix", async ({
         await closeSearchSurface(page, ownerSearchSurface);
 
         const foreignExpand = claimGuestPage.getByRole("button", {
-          name: "Expand sidebar",
+          name: "Expand",
+          exact: true,
         });
         if (await foreignExpand.isVisible()) await foreignExpand.click();
         await claimGuestPage.getByRole("button", { name: "Search" }).click();

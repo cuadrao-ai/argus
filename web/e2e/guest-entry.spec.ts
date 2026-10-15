@@ -554,6 +554,7 @@ for (const preBootstrapSidebarCase of [
     expiryCopy: /Available until/,
     noRecentCopy: "No recent chats yet.",
     recentsLabel: "Recents",
+    expandLabel: "Expand",
   },
   {
     language: "es-419",
@@ -561,6 +562,7 @@ for (const preBootstrapSidebarCase of [
     expiryCopy: /Disponible hasta/,
     noRecentCopy: "Aún no hay chats recientes.",
     recentsLabel: "Recientes",
+    expandLabel: "Expandir",
   },
 ] as const) {
   test(`@guest-shell ${preBootstrapSidebarCase.language} pre-bootstrap sidebar makes no retention promise`, async ({
@@ -573,7 +575,7 @@ for (const preBootstrapSidebarCase of [
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByTestId("chat-input")).toBeVisible();
-    await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await page.getByRole("button", { name: preBootstrapSidebarCase.expandLabel, exact: true }).click();
     const sidebar = page.locator("aside");
     await expect
       .poll(async () => (await sidebar.boundingBox())?.width ?? 0)
@@ -1263,7 +1265,7 @@ test("@guest-shell capability chrome stays visible and opens typed conversion", 
   ).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "Expand sidebar" }).click();
+  await page.getByRole("button", { name: "Expand", exact: true }).click();
   await expect(page.getByRole("button", { name: "Buscar" })).toBeVisible();
   await expect(page.getByTestId("guest-temporary-notice")).toHaveCount(1);
   await expect(page.locator("aside").getByText(/Chat temporal/)).toHaveCount(0);
@@ -1278,7 +1280,7 @@ test("@guest-shell capability chrome stays visible and opens typed conversion", 
   await expect(
     page.getByRole("button", { name: "Cerrar búsqueda" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await page.getByRole("button", { name: "Collapse", exact: true }).click();
   await expect(page.getByTestId("guest-temporary-notice")).toHaveCount(1);
 
   await page.getByTestId("chat-input").fill("Compara Apple con SPY");
@@ -1384,7 +1386,7 @@ test("@guest-shell mobile keeps composer, legal copy, and 44px controls reachabl
     ),
   ).toBe(true);
 
-  await page.getByRole("button", { name: "Expand sidebar" }).click();
+  await page.getByRole("button", { name: "Expand", exact: true }).click();
   await expect
     .poll(async () => (await page.locator("aside").boundingBox())?.width ?? 0)
     .toBeGreaterThanOrEqual(280);
@@ -1395,7 +1397,7 @@ test("@guest-shell mobile keeps composer, legal copy, and 44px controls reachabl
     0,
   );
   await expect(page.getByTestId("guest-temporary-notice")).toHaveCount(1);
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await page.getByRole("button", { name: "Collapse", exact: true }).click();
   await expect(page.getByTestId("guest-temporary-notice")).toHaveCount(1);
   expect(
     await page.evaluate(
