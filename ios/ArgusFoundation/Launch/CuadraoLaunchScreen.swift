@@ -33,10 +33,14 @@ struct LaunchGateHost<Content: View>: View {
     }
 }
 
-/// Continues the static launch screen (Info.plist UILaunchScreen): BrandPaper with the lockup at its natural
-/// size, centred on the full screen. A quiet loader appears below it only when the wait passes one second.
+/// Continues the static launch screen (Info.plist UILaunchScreen): BrandPaper with the CuadraoLaunchLockup image
+/// centred on the full screen. That image is the lockup, unchanged, on a taller transparent canvas, so the lockup
+/// sits `lift` points above centre, exactly where the welcome screen draws it, and the logo does not move when
+/// the welcome screen replaces this one. A quiet loader appears below it only when the wait passes one second.
 struct CuadraoLaunchScreen: View {
     static let loaderDelay: Duration = .seconds(1)
+    /// Half the transparent padding in CuadraoLaunchLockup: how far above the screen centre the lockup sits.
+    static let lift: CGFloat = 62
     var unreachable = false
     var retrying = false
     var retry: () -> Void = {}
@@ -46,12 +50,14 @@ struct CuadraoLaunchScreen: View {
     var body: some View {
         ZStack {
             WelcomePalette.brandPaper
-            Image("CuadraoLockup")
+            Image("CuadraoLaunchLockup")
                 .accessibilityLabel("cuadrao")
+                .accessibilityIdentifier("app.launching.lockup")
             // Same centre as the lockup, so the logo never moves when the loader or the message appears.
             Color.clear
                 .frame(width: 280, height: 56)
                 .overlay(alignment: .top) { below.offset(y: 96) }
+                .offset(y: -Self.lift)
         }
         .ignoresSafeArea()
         .accessibilityElement(children: .contain)
