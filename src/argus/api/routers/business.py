@@ -513,16 +513,13 @@ async def upload_receipt(
     request: Request,
     background_tasks: BackgroundTasks,
     filename: str | None = Header(default=None, alias="X-Document-Filename"),
-    consent: str | None = Header(default=None, alias="X-Extraction-Consent"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     context: BusinessContext = Depends(require_business_document_write),  # noqa: B008
 ) -> dict[str, Any]:
-    """The receipt's identity is its bytes, so a retry returns the same receipt."""
+    """The receipt's identity is its bytes, so a retry returns the same receipt.
+    The owner's stored receipt-reading setting decides whether it is read."""
 
     _required_idempotency_key(request, idempotency_key)
-    if consent == "true":
-        # Sending a document to the AI provider is the owner's choice alone.
-        owner_only(request, context)
     media_type, content = await read_document_upload(request)
     try:
         receipt = await context.service.upload(
@@ -530,7 +527,7 @@ async def upload_receipt(
             content=content,
             filename=document_filename(filename),
             media_type=media_type,
-            consent=consent == "true",
+            consent=False,
             on_capture=upload_recorder(context, request),
         )
         if receipt.status == "queued":

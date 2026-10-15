@@ -11,6 +11,7 @@ from uuid import uuid4
 from argus.api.business_spaces import business_access
 from fastapi.testclient import TestClient
 
+from tests.business.receipt_stub import ReceiptStub
 from tests.business.test_business_api import (  # noqa: F401
     ALICE,
     BASE,
@@ -26,6 +27,7 @@ from tests.test_conversation_surfaces import client as chat_client  # noqa: F401
 
 GRANT = "X-Business-Grant"
 OTHER_RECEIPT = RECEIPT[:-8] + bytes(8)
+THIRD_RECEIPT = RECEIPT[:-8] + b"\x01" * 8
 
 
 def get_as(owner: Owner, path: str, grant: str | None, **params: str):  # noqa: ANN201
@@ -98,6 +100,7 @@ def test_the_one_time_line_is_remembered_per_grant_and_never_for_the_own_busines
 def test_with_the_chosen_grant_the_accountant_reads_and_prepares_the_clients_business_only(
     alice: Owner,  # noqa: F811
     bob: Owner,  # noqa: F811
+    stub: ReceiptStub,
 ) -> None:
     grant = _grant(alice, bob)
     uploaded = alice.upload(consent=False)
@@ -141,21 +144,46 @@ def test_with_the_chosen_grant_the_accountant_reads_and_prepares_the_clients_bus
         ).status_code
         == 403
     )
-    uploaded_with_consent = bob.client.post(
+    # A grantee's consent header is ignored: the owner's setting is off, so the
+    # receipt is saved unread and the provider is never called.
+    uploaded_with_consent = _grantee_upload(bob, grant, OTHER_RECEIPT)
+    assert uploaded_with_consent.status_code == 200, uploaded_with_consent.text
+    assert uploaded_with_consent.json()["status"] == "saved"
+    assert stub.calls == []
+
+
+def _grantee_upload(bob: Owner, grant: str, content: bytes):  # noqa: F811, ANN202
+    return bob.client.post(
         "/api/v1/business/receipts",
-        content=OTHER_RECEIPT,
+        content=content,
         headers={
             **bob.auth,
-            **headers,
+            GRANT: grant,
             "Content-Type": "image/png",
             "Idempotency-Key": str(uuid4()),
             "X-Extraction-Consent": "true",
         },
     )
-    assert (uploaded_with_consent.status_code, uploaded_with_consent.json()["code"]) == (
-        403,
-        "business_permission_denied",
-    )
+
+
+def test_a_grantees_upload_follows_the_owners_reading_setting(
+    alice: Owner,  # noqa: F811
+    bob: Owner,  # noqa: F811
+    stub: ReceiptStub,
+) -> None:
+    grant = _grant(alice, bob)
+    assert alice.reading(True).status_code == 200
+    uploaded = _grantee_upload(bob, grant, OTHER_RECEIPT)
+    assert uploaded.status_code == 200, uploaded.text
+    receipt_id = uploaded.json()["id"]
+    assert uploaded.json()["status"] == "queued"
+    assert stub.calls == [receipt_id]
+    assert alice.detail(receipt_id)["status"] == "review_ready"
+    assert alice.reading(False).status_code == 200
+    unread = _grantee_upload(bob, grant, THIRD_RECEIPT)
+    assert unread.status_code == 200, unread.text
+    assert unread.json()["status"] == "saved"
+    assert stub.calls == [receipt_id]
 
 
 def test_owner_only_routes_refuse_a_grantee_and_a_dead_or_foreign_grant_stops_everything(

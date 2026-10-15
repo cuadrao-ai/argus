@@ -14,6 +14,12 @@ from argus.domain.ingestion.documents.store import InMemoryDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.owner_scope import PERSONAL, BusinessSpace
 
+from tests.business_reading_support import reading_setting, turn_reading
+
+
+def reading_on(service: DocumentsService, scope: BusinessSpace, owner: str) -> None:
+    turn_reading(service.business_receipt_consent, scope.space_id, owner)
+
 
 @pytest.fixture
 def document_bridge():
@@ -26,6 +32,7 @@ def document_bridge():
     extractor = Mock(extract=AsyncMock(return_value=ExtractionBatch(candidates=())))
     bridge = Mock()
     service = DocumentsService(hub, store, extractor, business_actions=bridge)
+    service.business_receipt_consent = reading_setting()
     return service, bridge, extractor, sink
 
 
@@ -35,15 +42,16 @@ async def test_business_preparation_uses_canonical_bridge_and_saved_batch_on_ret
 ):
     service, bridge, extractor, sink = document_bridge
     scope = BusinessSpace(str(uuid4()))
+    owner = str(uuid4())
+    reading_on(service, scope, owner)
     receipt = await service.upload(
-        user_id=str(uuid4()),
+        user_id=owner,
         content=b"%PDF-fixture",
         filename="receipt.pdf",
         media_type="application/pdf",
         consent=True,
         scope=scope,
     )
-    owner = service.store.owner(connection_id=receipt.connection_id)
     await service.resume(user_id=owner, connection_id=receipt.connection_id, scope=scope)
     await service.resume(user_id=owner, connection_id=receipt.connection_id, scope=scope)
     assert bridge.check_attachment_preparation.call_count == 3
@@ -60,6 +68,7 @@ async def test_denied_original_grant_never_calls_extractor(document_bridge):
     )
     scope = BusinessSpace(str(uuid4()))
     owner = str(uuid4())
+    reading_on(service, scope, owner)
     receipt = await service.upload(
         user_id=owner,
         content=b"%PDF-fixture",
@@ -105,6 +114,7 @@ async def test_failed_canonical_save_keeps_batch_for_retry(document_bridge):
     ]
     scope = BusinessSpace(str(uuid4()))
     owner = str(uuid4())
+    reading_on(service, scope, owner)
     receipt = await service.upload(
         user_id=owner,
         content=b"%PDF-fixture",
@@ -134,6 +144,7 @@ async def test_unwired_business_preparation_with_pool_fails_before_provider(
     service.business_preparation_required = True
     scope = BusinessSpace(str(uuid4()))
     owner = str(uuid4())
+    reading_on(service, scope, owner)
     receipt = await service.upload(
         user_id=owner,
         content=b"%PDF-fixture",
@@ -159,6 +170,7 @@ async def test_unwired_business_preparation_without_pool_delivers_legacy_and_log
     service.business_actions = None
     scope = BusinessSpace(str(uuid4()))
     owner = str(uuid4())
+    reading_on(service, scope, owner)
     receipt = await service.upload(
         user_id=owner,
         content=b"%PDF-fixture",

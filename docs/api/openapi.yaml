@@ -2043,16 +2043,11 @@ paths:
       tags:
       - financial-accounts
       - business
-      description: The receipt's identity is its bytes, so a retry returns the same receipt.
+      description: 'The receipt''s identity is its bytes, so a retry returns the same receipt.
+
+        The owner''s stored receipt-reading setting decides whether it is read.'
       parameters:
       - name: X-Document-Filename
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-      - name: X-Extraction-Consent
         in: header
         required: false
         schema:
