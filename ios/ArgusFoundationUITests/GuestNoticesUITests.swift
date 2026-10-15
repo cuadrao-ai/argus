@@ -85,7 +85,10 @@ extension FinancialLoopUITests {
         XCTAssertGreaterThan(firstSaveTitle.frame.minY, app.frame.height * 0.4, "the sheet is half height: its title sits in the lower half")
         XCTAssertTrue(app.buttons["Sheet Grabber"].exists, "a grabber")
         capture("guest-first-save-sheet")
-        firstSaveTitle.swipeDown(velocity: .fast)
+        // Pull the sheet down to the bottom edge, as a person does. A swipe scoped to the title is too short to dismiss reliably.
+        firstSaveTitle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)),
+                   withVelocity: .fast, thenHoldForDuration: 0)
         XCTAssertTrue(firstSaveTitle.waitForNonExistence(timeout: 5), "swipe to dismiss")
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.movement.row.'")).firstMatch.waitForExistence(timeout: 5),
                       "the expense was saved, the sheet never stood in its way")
