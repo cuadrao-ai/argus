@@ -2734,6 +2734,28 @@
       ],
       "deny": []
     },
+    "claude/business-consent-followups-1131": {
+      "description": "Issue #1131 items 1, 3 and 4: the Render Workflow document worker reads a Business receipt through the canonical BusinessActions bridge exactly like the API, proven by one real-Postgres test with one provider call each; the unreachable whatsapp_receipt_reading_off problem mapping and the unused WhatsApp capture_owner store method are removed. No web, copy, migration or model-facing change; item 2 waits for approved Spanish copy.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "workflows/document_job.py",
+        "src/argus/api/documents.py",
+        "src/argus/domain/ingestion/documents/**",
+        "src/argus/domain/ingestion/whatsapp/store.py",
+        "src/argus/domain/ingestion/whatsapp/store_postgres.py",
+        "tests/test_business_reading_setting_postgres.py",
+        "tests/test_document_jobs_postgres.py",
+        "docs/API_CONTRACT.md"
+      ],
+      "deny": [
+        ".env",
+        ".env.*",
+        "web/**",
+        "ios/**",
+        "supabase/**"
+      ]
+    },
     "claude/business-approve-and-next": {
       "description": "Aprobar y siguiente on the Business receipt review page, from the locked Oct 14 receipt review line: after the server records an owner's approval, open the next receipt in the Bandeja's server order, or the Bandeja when none is left. Same approve request as Aprobar gasto. One locale key business.dossier.approve_next. No server change, no model-facing text.",
       "base_ref": "origin/codex/private-alpha-next",
