@@ -2687,6 +2687,34 @@
         "ios/**",
         "web/**"
       ]
+    },
+    "claude/business-web-locked-polish": {
+      "description": "Sprint map 1.8 lines 100-102 on the Business web app: the Resumen names the Business by its name or Mi negocio, the profile name question drops Argus, removing access is a red action behind its confirmation, and the phone Crear button shows its label. Spanish DOM tests and local preview screenshots. No server, API, migration, model-facing or iOS changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/reports/evidence/cuadrao-business/locked-polish-20261015/**",
+        "web/__tests__/business-locked-polish.dom.test.tsx",
+        "web/__tests__/empty-chat-greeting-aria.test.ts",
+        "web/components/business-app/BusinessAccessPanel.tsx",
+        "web/components/business-app/BusinessCreateMenu.tsx",
+        "web/components/business-app/BusinessOverviewPanel.tsx",
+        "web/components/business-app/business-ui.tsx",
+        "web/e2e/business-pilot-preview.spec.ts",
+        "web/e2e/business-pilot-walkthrough.spec.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*",
+        "ios/**",
+        "src/**",
+        "supabase/**",
+        "workflows/**"
+      ]
     }
   }
 }

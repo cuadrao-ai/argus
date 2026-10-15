@@ -5,7 +5,7 @@ import { Mail, ShieldCheck, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { cardClass, dangerButtonClass, dangerConfirmButtonClass, LoadingRows, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 
 type Pending = { kind: "grant"; item: BusinessAccessGrant } | { kind: "invite"; item: BusinessAccessInvite };
 
@@ -47,7 +47,7 @@ export function AccessList({
             {grant.owner ? (
               <span className="text-[12px] text-black/40 dark:text-white/40">{t("business_access.owner_locked", "Your own access cannot be removed.")}</span>
             ) : (
-              <button type="button" className={secondaryButtonClass} disabled={busyId === grant.id} onClick={() => onRemove({ kind: "grant", item: grant })}>
+              <button type="button" className={dangerButtonClass} disabled={busyId === grant.id} onClick={() => onRemove({ kind: "grant", item: grant })}>
                 {t("business_access.remove", "Remove access")}
               </button>
             )}
@@ -68,7 +68,7 @@ export function AccessList({
                   <span className="block truncate text-[15px] font-medium text-black dark:text-white">{invite.email}</span>
                   <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">{t("business_access.pending_until", "Expires {{date}}", { date: formatDay(invite.expires_at, locale) })}</span>
                 </span>
-                <button type="button" className={secondaryButtonClass} disabled={busyId === invite.id} onClick={() => onRemove({ kind: "invite", item: invite })}>
+                <button type="button" className={dangerButtonClass} disabled={busyId === invite.id} onClick={() => onRemove({ kind: "invite", item: invite })}>
                   {t("business_access.remove_invite", "Cancel invite")}
                 </button>
               </li>
@@ -164,7 +164,7 @@ export default function BusinessAccessPanel() {
                   : t("business_access.remove_invite_confirm", "Cancel the invite for {{who}}?", { who })}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" className={primaryButtonClass} onClick={remove}>{t("business_access.confirm", "Yes, remove")}</button>
+                <button type="button" className={dangerConfirmButtonClass} onClick={remove}>{t("business_access.confirm", "Yes, remove")}</button>
                 <button type="button" className={secondaryButtonClass} onClick={() => setPending(null)}>{t("business_access.cancel", "Cancel")}</button>
               </div>
             </div>

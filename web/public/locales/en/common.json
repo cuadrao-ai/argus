@@ -1052,7 +1052,7 @@
       "delete_account_note": "Permanently delete your Cuadrao account and your data.",
       "display_name_save_error": "Could not save that name yet.",
       "display_name_too_long": "Keep this to {{count}} characters or fewer.",
-      "preferred_name": "What should Argus call you?",
+      "preferred_name": "What should we call you?",
       "preferred_name_placeholder": "Leave blank for no name",
       "preferred_name_unset": "Not set",
       "preferred_name_save_error": "Could not save that name yet.",
@@ -2699,7 +2699,7 @@
       "label": "Period"
     },
     "overview": {
-      "title": "Your business",
+      "title": "My business",
       "error": "We couldn't load your business records. Your saved receipts and expenses are safe. Try again.",
       "in_inbox": "In your inbox",
       "open_inbox": "Open inbox",

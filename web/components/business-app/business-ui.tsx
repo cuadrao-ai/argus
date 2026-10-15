@@ -13,6 +13,9 @@ export const pillButtonClass =
 
 export const primaryButtonClass = `${pillButtonClass} bg-black text-white dark:bg-white dark:text-black`;
 export const secondaryButtonClass = `${pillButtonClass} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`;
+/** A destructive action: red, and always behind a confirmation. */
+export const dangerButtonClass = `${pillButtonClass} border border-[#a8434c]/40 bg-white text-[#a8434c] dark:border-[#ec9aa0]/40 dark:bg-[#1f2225] dark:text-[#ec9aa0]`;
+export const dangerConfirmButtonClass = `${pillButtonClass} bg-[#a8434c] text-white dark:bg-[#ec9aa0] dark:text-black`;
 
 export function PanelHeading({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (

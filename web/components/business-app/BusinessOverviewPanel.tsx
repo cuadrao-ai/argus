@@ -26,7 +26,7 @@ export default function BusinessOverviewPanel() {
     <section aria-labelledby="business-overview-title">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
-          {chosen && chosen.role !== "owner" ? chosen.name : t("business.overview.title", "Your business")}
+          {chosen?.name || t("business.overview.title", "My business")}
         </h2>
         <BusinessPeriodControl period={period} setPeriod={setPeriod} />
       </div>
