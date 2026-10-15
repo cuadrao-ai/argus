@@ -1052,7 +1052,7 @@
       "delete_account_note": "Elimina para siempre tu cuenta de Cuadrao y tus datos.",
       "display_name_save_error": "No pudimos guardar ese nombre todavía.",
       "display_name_too_long": "Usa {{count}} caracteres o menos.",
-      "preferred_name": "¿Cómo quieres que Argus te llame?",
+      "preferred_name": "¿Cómo quieres que te llamemos?",
       "preferred_name_placeholder": "Déjalo vacío para no usar nombre",
       "preferred_name_unset": "Sin definir",
       "preferred_name_save_error": "No se pudo guardar ese nombre todavía.",
@@ -2627,7 +2627,7 @@
       "no_expenses": "Todavía no hay gastos guardados en este período.",
       "open_inbox": "Abrir la bandeja",
       "separate_currencies": "Cada moneda se suma por separado. Sin conversión.",
-      "title": "Tu negocio"
+      "title": "Mi negocio"
     },
     "period": {
       "all": "Todo",
