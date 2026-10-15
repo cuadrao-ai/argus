@@ -256,6 +256,8 @@ export type BusinessExpense = {
   personal?: boolean;
   /** Who marked it, when that was someone other than the owner; absent otherwise. */
   personal_marked_by?: string | null;
+  /** The server settles a saved expense's fiscal standing: the number it carries, or none. */
+  fiscal_known?: boolean;
   /** The fiscal number the draft carries (NCF or e-CF); absent without one. */
   fiscal_value?: "ncf" | "ecf" | null;
   /** The accountant's 606 answer for a personal expense with a fiscal number; absent until given. */

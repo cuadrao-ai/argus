@@ -533,7 +533,9 @@ def linked_records(tx, activity_ids: list[str]) -> dict[str, dict[str, str | Non
         " and s.space_id=l.space_id and s.connection_id is not null"
         + MARKER_JOIN
         + " where e.owner_space_id=%s and e.user_id=%s and e.activity_id = any(%s)"
-        " and e.resolution ? 'business'",
+        " and e.resolution ? 'business'"
+        # The latest revised draft speaks for its activity, whatever order the rows come in.
+        " order by e.updated_at desc, e.id desc",
         (
             tx.context.actor.space_id,
             tx.context.owner_id,

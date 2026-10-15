@@ -13162,6 +13162,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        fiscal_known:
+          type: boolean
+          default: true
         fiscal_value:
           anyOf:
           - type: string
@@ -16178,6 +16181,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        fiscal_known:
+          type: boolean
+          default: true
         fiscal_value:
           anyOf:
           - type: string

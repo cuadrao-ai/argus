@@ -356,6 +356,12 @@ describe("the server states what the browser used to guess", () => {
     const text = env.host.textContent ?? "";
     assert.ok(text.includes("Sí"), text);
     assert.ok(!/\btrue\b|\bfalse\b/.test(text), text);
+    assert.equal(env.host.querySelector('[data-testid="history-606"] dd')?.textContent, "Pendiente del contador→Sí");
+    // A read that creates the record leaves the 606 open: no 606 row, never "Sin registrar".
+    const created = { ...revision, version: 1, before: null, after: { ...base, fiscal: fiscal(unknown) } };
+    await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ReceiptHistory history={[created] as never} accounts={[]} /></env.I18nextProvider>); });
+    assert.equal(env.host.querySelector('[data-testid="history-606"]'), null);
+    assert.ok(!(env.host.textContent ?? "").includes("Incluir en 606"));
     await env.act(async () => env.root.unmount());
   });
 });

@@ -464,3 +464,35 @@ def test_the_606_answer_names_the_accountant_after_the_owner_edits_something_els
         )
     )
     assert (after.include_606, after.include_606_by) == (True, accountant_name)
+
+
+def test_one_expense_has_one_draft_so_its_marks_have_one_source(actions, users):  # noqa: ANN001
+    """The database admits one import event per recorded activity: a second
+    draft cannot claim an expense, so the expense's marks come from exactly one
+    draft and linked_records, ordered by the latest revision, is deterministic."""
+
+    service, accountant, _ = actions
+    owner = _owner(service, accountant, users)
+    first = ready(service, accountant)
+    approved = service.approve(
+        owner,
+        first,
+        ApproveExpense(
+            version=service.dossier(owner, first).version, action="record_expense"
+        ),
+        "approve",
+    )
+    assert approved.outcome == "applied", approved
+    second = ready(service, accountant)
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        with service.authority.pool.connection() as db:
+            db.execute(
+                "update public.financial_import_events set state='accepted', activity_id=%s"
+                " where id=%s",
+                (approved.activity_id, str(second)),
+            )
+    activity = str(approved.activity_id)
+    with transaction(service.authority, owner) as tx:
+        once = linked_records(tx, [activity])[activity]
+        again = linked_records(tx, [activity])[activity]
+    assert once == again and once["draft_id"] == str(first)

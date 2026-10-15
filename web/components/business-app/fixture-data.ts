@@ -212,6 +212,7 @@ function seedExpenses(): BusinessExpense[] {
   return [
     {
       id: "exp-hosting",
+      fiscal_known: true,
       merchant: "Nube Hosting",
       amount: "24.00",
       currency: "USD",
@@ -224,6 +225,7 @@ function seedExpenses(): BusinessExpense[] {
     },
     {
       id: "exp-gas",
+      fiscal_known: true,
       merchant: "Estación Ruta 3",
       amount: "2100.00",
       currency: "DOP",
@@ -235,6 +237,7 @@ function seedExpenses(): BusinessExpense[] {
     },
     {
       id: "exp-lunch",
+      fiscal_known: true,
       merchant: "Comedor Doña Ana",
       amount: "1250.00",
       currency: "DOP",
@@ -342,7 +345,7 @@ export function createFixtureBusinessDataSource(
       if (receipt && dossier.approval_result?.status === "recorded") {
         const facts = dossier.facts;
         if (facts.amount.state === "known" && facts.currency.state === "known" && facts.occurred_on.state === "known" && facts.funding.state === "known" && facts.funding.value.kind === "business_account") {
-          expenses = [{ id: dossier.approval_result.activity_id, merchant: facts.counterparty.value, amount: facts.amount.value, currency: facts.currency.value, category_id: facts.category_id.value, account_id: facts.funding.value.account_id, occurred_on: facts.occurred_on.value, receipt_id: receipt.id, draft_id: id }, ...expenses];
+          expenses = [{ id: dossier.approval_result.activity_id, fiscal_known: true, merchant: facts.counterparty.value, amount: facts.amount.value, currency: facts.currency.value, category_id: facts.category_id.value, account_id: facts.funding.value.account_id, occurred_on: facts.occurred_on.value, receipt_id: receipt.id, draft_id: id }, ...expenses];
           replace({ ...receipt, status: "confirmed", expense_id: dossier.approval_result.activity_id });
         }
       }

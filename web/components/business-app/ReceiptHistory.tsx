@@ -12,6 +12,11 @@ export default function ReceiptHistory({ history, accounts }: { history: Busines
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
   const fiscalStatus = (fact: BusinessFact<string | boolean> | undefined) => !fact ? t("business.dossier.not_recorded", "Not recorded") : fact.state === "known" && fact.verified ? t("business.dossier.verified", "Verified") : t("business.dossier.not_verified", "Not verified");
+  const answer606 = (facts: BusinessDraftRevision["before"]): boolean | null => {
+    const fact = facts?.fiscal?.include_606;
+    return fact && fact.state === "known" ? fact.value : null;
+  };
+  const saidOf = (answer: boolean | null) => answer === null ? t("business.marks.pending_606", "Waiting for the accountant") : answer ? t("business.marks.yes", "Yes") : t("business.marks.no", "No");
   const labels = {
     unknown: t("business.dossier.unknown", "Unknown"),
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),
@@ -32,7 +37,8 @@ export default function ReceiptHistory({ history, accounts }: { history: Busines
         <ol className="mt-2 space-y-5">
           {[...history].sort((a, b) => b.version - a.version).map((revision) => {
             const changed = (Object.keys(revision.after).filter((key) => key !== "fiscal") as BusinessFactField[]).filter((key) => JSON.stringify(revision.before?.[key]) !== JSON.stringify(revision.after[key]));
-            const changedFiscal = BUSINESS_FISCAL_FIELDS.filter((key) => JSON.stringify(revision.before?.fiscal?.[key]) !== JSON.stringify(revision.after.fiscal?.[key]));
+            // The 606 answer is a person's: a row only when someone gave or changed it, never for a read that left it open.
+            const changedFiscal = BUSINESS_FISCAL_FIELDS.filter((key) => key === "include_606" ? answer606(revision.after) !== null && answer606(revision.after) !== answer606(revision.before) : JSON.stringify(revision.before?.fiscal?.[key]) !== JSON.stringify(revision.after.fiscal?.[key]));
             return (
               <li key={revision.version} className="border-l-2 border-black/10 pl-3 dark:border-white/10">
                 <p className="text-[14px] font-medium text-black/80 dark:text-white/80">{revision.actor.display_name} · {t("business.dossier.revision", "Revision {{version}}", { version: revision.version })}</p>
@@ -45,7 +51,10 @@ export default function ReceiptHistory({ history, accounts }: { history: Busines
                       <dd className="mt-1 break-words text-black/75 dark:text-white/75"><span className="text-black/50 dark:text-white/50">{revision.before ? presentBusinessFact(key, revision.before, accounts, locale, labels) : t("business.dossier.not_recorded", "Not recorded")}</span><span aria-label={t("business.dossier.changed_to", "changed to")} className="mx-2">→</span>{presentBusinessFact(key, revision.after, accounts, locale, labels)}</dd>
                     </div>
                   ))}
-                  {changedFiscal.map((key) => <div key={key} className="text-[13px]">
+                  {changedFiscal.map((key) => key === "include_606" ? <div key={key} className="text-[13px]" data-testid="history-606">
+                    <dt className="font-medium text-black/65 dark:text-white/65">{t(`business.dossier.field.${key}`, key)}</dt>
+                    <dd className="mt-1 break-words text-black/75 dark:text-white/75"><span className="text-black/50 dark:text-white/50">{saidOf(answer606(revision.before))}</span><span aria-label={t("business.dossier.changed_to", "changed to")} className="mx-2">→</span>{saidOf(answer606(revision.after))}</dd>
+                  </div> : <div key={key} className="text-[13px]">
                     <dt className="font-medium text-black/65 dark:text-white/65">{t(`business.dossier.field.${key}`, key)}</dt>
                     <dd className="mt-1 break-words text-black/75 dark:text-white/75"><span className="text-black/50 dark:text-white/50">{revision.before ? presentFiscalFact(key, revision.before, locale, { ...labels, notRecorded: t("business.dossier.not_recorded", "Not recorded") }) : t("business.dossier.not_recorded", "Not recorded")}</span><span aria-label={t("business.dossier.changed_to", "changed to")} className="mx-2">→</span>{presentFiscalFact(key, revision.after, locale, { ...labels, notRecorded: t("business.dossier.not_recorded", "Not recorded") })}</dd>
                     <p className="mt-1 text-[12px] text-black/55 dark:text-white/55">{fiscalStatus(revision.before?.fiscal?.[key])} → {fiscalStatus(revision.after.fiscal?.[key])}</p>

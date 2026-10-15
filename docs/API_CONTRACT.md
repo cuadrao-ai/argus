@@ -9354,10 +9354,12 @@ person starts their space, every route below except POST `/space` answers 404
     `personal_marked_by`, the display name of whoever last changed the mark
     when that was not the owner (absent otherwise), `include_606_by`, the
     display name of whoever last changed the 606 answer while one applies,
-    and `fiscal_known`, true once the record's facts exist (a draft owns the
-    receipt and the dossier; a saved expense's standing is always settled,
-    the same split the overview's totals make) so an absent `fiscal_value`
-    means no fiscal number rather than nothing read yet; all read by one
+    and `fiscal_known`: on a receipt summary or detail, present and true once
+    a draft owns the receipt (absent before anything is read); on the dossier,
+    always true; on an expense, its detail and a search expense, always
+    present and true, since a saved expense's fiscal standing is settled (the
+    same split the overview's totals make). So an absent `fiscal_value` with
+    `fiscal_known` true means no fiscal number; all read by one
     server function so a list row and its record always agree; receipt
     summaries add
     `personal_editable` for anyone with prepare on a receipt that has a

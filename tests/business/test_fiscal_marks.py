@@ -243,3 +243,108 @@ def test_a_receipt_says_no_fiscal_number_only_once_its_facts_exist():
     }
     overlaid = draft_overlay({**summary, "status": "review_ready"}, [row])
     assert overlaid["fiscal_known"] is True and overlaid["fiscal_value"] is None
+
+
+def test_every_wire_that_carries_marks_declares_every_mark_and_answers_200():
+    """The marks one server function returns are spread into receipt, expense,
+    search and dossier payloads whose models forbid unknown keys: each must
+    declare every mark, or the route answers 500. Checked through FastAPI's own
+    response validation with the real schemas."""
+
+    from argus.api.business_schemas import (
+        BusinessExpense,
+        BusinessSearch,
+        ExpenseDetail,
+        ExpensePage,
+        ReceiptDetail,
+        ReceiptPage,
+        ReceiptSummary,
+    )
+    from argus.domain.business.actions.marks import record_marks
+    from argus.domain.business.contracts.dossier import BusinessDossier
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    marked = facts(
+        business_share=known(WholeBusinessShare(kind="none"), origin="member_set"),
+        fiscal=FiscalFacts(
+            ncf=known("B01"), include_606=known(False, origin="member_set")
+        ),
+    )
+    marks = record_marks(
+        marked,
+        {"marker_id": str(uuid4()), "marker_name": "Lía", "answer_name": "Lía"},
+        str(uuid4()),
+    )
+    assert marks["fiscal_known"] and marks["personal_marked_by"] == "Lía"
+    for model in (
+        ReceiptSummary,
+        ReceiptDetail,
+        BusinessExpense,
+        ExpenseDetail,
+        BusinessDossier,
+    ):
+        assert set(marks) <= set(model.model_fields), model.__name__
+
+    expense = {
+        "id": str(uuid4()),
+        "merchant": "Ferretería",
+        "amount": "850.00",
+        "currency": "DOP",
+        "category_id": None,
+        "account_id": None,
+        "occurred_on": "2026-10-09",
+        "receipt_id": None,
+        "draft_id": str(uuid4()),
+        **marks,
+    }
+    receipt = {
+        "id": str(uuid4()),
+        "channel": "web",
+        "filename": "recibo.png",
+        "media_type": "image/png",
+        "size_bytes": 10,
+        "received_at": "2026-10-09T12:00:00Z",
+        "status": "review_ready",
+        "error_code": None,
+        "attention": None,
+        "preparable": False,
+        "enterable": False,
+        "expense_id": None,
+        "merchant": "Ferretería",
+        "occurred_on": "2026-10-09",
+        "amount": "850.00",
+        "currency": "DOP",
+        "category_id": None,
+        "account_id": None,
+        "personal_editable": True,
+        **marks,
+    }
+    app = FastAPI()
+
+    @app.get("/expenses", response_model=ExpensePage)
+    def expenses():  # noqa: ANN202
+        return {"items": [expense]}
+
+    @app.get("/expense", response_model=ExpenseDetail)
+    def detail():  # noqa: ANN202
+        return {**expense, "recorded_at": None, "revision": None}
+
+    @app.get("/search", response_model=BusinessSearch)
+    def search():  # noqa: ANN202
+        return {"expenses": [expense], "receipts": [receipt], "accounts": []}
+
+    @app.get("/receipts", response_model=ReceiptPage)
+    def receipts():  # noqa: ANN202
+        return {"items": [receipt]}
+
+    client = TestClient(app)
+    for path in ("/expenses", "/expense", "/search", "/receipts"):
+        answer = client.get(path)
+        assert answer.status_code == 200, (path, answer.text)
+    body = client.get("/expenses").json()["items"][0]
+    assert (body["fiscal_known"], body["personal"], body["include_606_by"]) == (
+        True,
+        True,
+        "Lía",
+    )

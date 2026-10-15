@@ -540,6 +540,7 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
                 "account_id": account,
                 "occurred_on": "2026-10-06",
                 "receipt_id": receipt_id,
+                "fiscal_known": True,
             }
         ]
     }
@@ -575,6 +576,7 @@ def test_manual_expense_is_canonical_and_replays(alice: Owner) -> None:
             "account_id": account,
             "occurred_on": "2026-10-04",
             "receipt_id": None,
+            "fiscal_known": True,
         }
     )
     conflict = alice.post("/expenses", {**entered, "amount": "99.00"}, key="exp-1")

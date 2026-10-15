@@ -263,6 +263,9 @@ class BusinessExpense(_Wire):
     personal_marked_by: str | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    # A saved expense's fiscal standing is settled on the server: the number it
+    # carries, or none, the same split the overview's totals make.
+    fiscal_known: bool = True
     fiscal_value: Literal["ncf", "ecf"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
