@@ -16,5 +16,7 @@
     "registration_claims": 1,
     "reminder_workers": 10,
     "reminder_claims": 1
-  }
+  },
+  "reconciled_integration_sha": "955b96b16133883fff3008604065583ff6294bb3",
+  "post_merge_browser_checks": 28
 }

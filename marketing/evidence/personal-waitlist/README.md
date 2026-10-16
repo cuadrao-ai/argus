@@ -21,6 +21,10 @@ has 215 passes and one existing mobile fine-pointer skip. It checks legal text,
 signup to confirmation to whole-row leave through real local handlers. The
 CAPTCHA adapter uses an explicit test-process fixture, never a runtime bypass.
 
+After merging the shared renderer from integration 955b96b, all 200 unit tests,
+the production build, lint, typecheck and 28 focused browser checks passed again.
+The ownership and modularity gates passed on the reconciled tree.
+
 The SQL suite has 29 passing assertions on local PostgreSQL 17. It covers RLS,
 constraints, ten-minute delivery reservations, confirmation expiry, a single
 24-hour reminder, seven-day and calendar-year retention, and whole-row removal.
