@@ -1,6 +1,7 @@
 """Document preparation jobs on real Postgres: one current attempt, lease-fenced."""
 
 import asyncio
+import hashlib
 import threading
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -52,7 +53,7 @@ def draft(connection_id: str, now: datetime, **changes: Any) -> DocumentDraft:
         connection_id=connection_id,
         filename="receipt.pdf",
         media_type="application/pdf",
-        sha256="c" * 64,
+        sha256=hashlib.sha256(changes.pop("content", b"%PDF-x")).hexdigest(),
         size_bytes=12,
         consent=True,
         created_at=now,
@@ -724,7 +725,9 @@ def test_only_the_named_attempt_claims_and_records_it(
         now=now,
         scope=PERSONAL,
     )
-    assert store.capture(user_id=owner, draft=draft(other.id, now), content=b"%PDF-y")
+    assert store.capture(
+        user_id=owner, draft=draft(other.id, now, content=b"%PDF-y"), content=b"%PDF-y"
+    )
     assert store.advance(
         user_id=owner,
         connection_id=other.id,
@@ -735,7 +738,7 @@ def test_only_the_named_attempt_claims_and_records_it(
     assert repo.lease(connection_id=other.id, holder="flag-off", now=now)
     assert store.update(
         user_id=owner,
-        draft=draft(other.id, now, version=2, status="preparing"),
+        draft=draft(other.id, now, content=b"%PDF-y", version=2, status="preparing"),
         expected_version=1,
         holder="flag-off",
     )

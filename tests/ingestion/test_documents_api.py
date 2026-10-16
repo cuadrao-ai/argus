@@ -294,15 +294,34 @@ def test_source_reopen_failure_and_explicit_recovery(client, extraction):
     assert draft.headers["cache-control"] == "no-store"
     assert draft.json()["source_available"] is True
     source = client.get(f"{DOCUMENTS}/{connection}/source", headers=bearer(ALICE))
+    assert source.json()["code"] == "document_source_unavailable"
+    from argus.api.documents import documents_service
+
+    service = documents_service()
+    owner = service.store.owner(connection_id=connection)
+    safe = b"rebuilt JPEG fixture"
+    assert service.store.save_rebuilt(
+        user_id=owner, connection_id=connection, content=safe, media_type="image/jpeg"
+    )
+    source = client.get(f"{DOCUMENTS}/{connection}/source", headers=bearer(ALICE))
     assert source.status_code == 200
+    assert source.content == safe
+    assert source.headers["content-type"] == "image/jpeg"
     assert source.headers["cache-control"] == "no-store"
     assert source.headers["x-content-type-options"] == "nosniff"
-    assert (
-        source.content
-        == (
-            Path(__file__).parents[1] / "document_extraction_fixtures/receipt-dop.png"
-        ).read_bytes()
-    )
+    from unittest.mock import patch
+
+    from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+
+    with patch.object(
+        service.store, "rebuilt", side_effect=SourceStorageUnavailable("unavailable")
+    ):
+        unavailable = client.get(
+            f"{DOCUMENTS}/{connection}/source", headers=bearer(ALICE)
+        )
+    assert unavailable.status_code == 503
+    assert unavailable.json()["code"] == "document_storage_unavailable"
+
     assert (
         client.get(f"{DOCUMENTS}/{connection}/source", headers=bearer(BOB)).status_code
         == 404

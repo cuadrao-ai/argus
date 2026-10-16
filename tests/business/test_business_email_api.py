@@ -213,7 +213,7 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
     assert [(r.status_code, r.json()["code"]) for r in refused] == [
         (409, "email_original_not_a_receipt")
     ] * 3
-    assert alice.get(f"/receipts/{original_id}/source").status_code == 200
+    assert alice.get(f"/receipts/{original_id}/source").json()["code"] == "document_source_unavailable"
     searched = {
         item["id"]: item
         for item in alice.get("/search", q="forwarded").json()["receipts"]

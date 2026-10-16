@@ -109,7 +109,7 @@ def test_declined_ai_receipt_is_entered_by_hand_and_saved_once(
             "fiscal_known": True,
         }
     ]
-    assert alice.get(f"/receipts/{receipt_id}/source").content == RECEIPT
+    assert alice.get(f"/receipts/{receipt_id}/source").json()["code"] == "document_source_unavailable"
 
     prepare = alice.post(
         f"/receipts/{receipt_id}/prepare", **{"X-Extraction-Consent": "true"}

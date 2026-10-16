@@ -208,13 +208,22 @@ class BusinessService:
         )
 
     def source(self, scope: BusinessScope, receipt_id: str) -> tuple[str, bytes]:
-        draft = self.documents.get(
+        self.documents.get(
             user_id=scope.person_id, connection_id=receipt_id, scope=scope.owner
         )
-        content = self.documents.source_bytes(
-            user_id=scope.person_id, connection_id=receipt_id, scope=scope.owner
-        )
-        return draft.media_type, content
+        from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+
+        try:
+            rebuilt = self.documents.store.rebuilt(
+                user_id=scope.person_id, connection_id=receipt_id
+            )
+        except SourceStorageUnavailable:
+            raise DocumentServiceError(
+                "document_storage_unavailable", retryable=True
+            ) from None
+        if rebuilt is None:
+            raise DocumentServiceError("document_source_unavailable")
+        return rebuilt
 
     async def start_entry(
         self,

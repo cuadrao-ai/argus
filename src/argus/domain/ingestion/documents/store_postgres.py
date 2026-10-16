@@ -1,16 +1,18 @@
 """Connection-fenced document drafts, preparation checkpoints and source references.
 
-A source is written to Storage before its reference commits, so a crash leaves
-an unreferenced object under the connection's prefix, never a row pointing at
-nothing. ``forget`` and account deletion remove objects by prefix, which also
-takes such orphans; an identical retry reuses the same path and adopts it.
+A pending reference commits before Storage writes. An interrupted upload stays
+unavailable and retryable, and disconnect can find every copy. Owner locks
+serialize shared object writes with last-reference deletion.
 """
 
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 
+from loguru import logger
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
@@ -22,8 +24,10 @@ from argus.domain.ingestion.documents.models import (
 )
 from argus.domain.ingestion.documents.objects import (
     SourceObjects,
+    SourceStorageUnavailable,
     connection_prefix,
     source_path,
+    verify_content,
 )
 from argus.domain.ingestion.documents.store import CaptureHook
 
@@ -74,14 +78,107 @@ class PostgresDocumentStore:
             DocumentDraft.model_validate(row[0]) if row and row[0] is not None else None
         )
 
+    @contextmanager
+    def _locked(self, user_id: str) -> Iterator:
+        with self._pool.connection() as connection, connection.transaction():
+            connection.execute(
+                "select pg_advisory_xact_lock(hashtextextended(%s,0))",
+                (f"document_sources:{user_id}",),
+            )
+            yield connection
+
+    @staticmethod
+    def _live(connection, user_id: str, connection_id: str) -> bool:
+        return (
+            connection.execute(
+                "select id from public.financial_source_connections where id=%s "
+                "and user_id=%s and source='statement' and status <> 'disconnected' "
+                "and not exists (select 1 from argus_private.account_deletion_runs "
+                "where user_id=%s) for update",
+                (connection_id, user_id, user_id),
+            ).fetchone()
+            is not None
+        )
+
     def source(self, *, user_id: str, connection_id: str) -> bytes | None:
-        row = self._read(user_id, connection_id, "source_path", "source_bytes")
+        row = self._read(user_id, connection_id, "source_path", "source_bytes", "draft")
         if row is None:
             return None
-        path, legacy = row
+        path, legacy, draft = row
+        if draft and not draft.get("source_available", True):
+            return None
         if path is not None:
             return self.objects.get(path)
-        return bytes(legacy) if legacy is not None else None
+        content = bytes(legacy) if legacy is not None else None
+        if content is not None:
+            logger.info("document_original_read caller=internal_inline_source_reader")
+        return verify_content(content, (draft or {}).get("sha256", ""))
+
+    def rebuilt(self, *, user_id: str, connection_id: str) -> tuple[str, bytes] | None:
+        row = self._read(
+            user_id, connection_id, "rebuilt_path", "rebuilt_media_type", "rebuilt_sha256"
+        )
+        if row is None or row[0] is None:
+            return None
+        path, media_type, digest = row
+        content = verify_content(self.objects.get(path), digest)
+        return (media_type, content) if content is not None else None
+
+    def save_rebuilt(
+        self, *, user_id: str, connection_id: str, content: bytes, media_type: str
+    ) -> bool:
+        from argus.domain.ingestion.documents.config import (
+            SOURCE_MAX_BYTES,
+            SOURCE_MEDIA_TYPES,
+        )
+
+        if (
+            not content
+            or len(content) > SOURCE_MAX_BYTES
+            or media_type not in SOURCE_MEDIA_TYPES
+        ):
+            raise ValueError("invalid rebuilt copy")
+        digest = hashlib.sha256(content).hexdigest()
+        with self._locked(user_id) as connection:
+            if not self._live(connection, user_id, connection_id):
+                return False
+            row = connection.execute(
+                "select draft->>'sha256',rebuilt_sha256,rebuilt_media_type "
+                "from public.financial_document_extractions "
+                "where user_id=%s and connection_id=%s",
+                (user_id, connection_id),
+            ).fetchone()
+            if row is None or not row[0]:
+                return False
+            if row[1] is not None and (row[1], row[2]) != (digest, media_type):
+                raise SourceStorageUnavailable("rebuilt_copy_conflict")
+            path = source_path(user_id=user_id, sha256=row[0], kind="rebuilt")
+            connection.execute(
+                "update public.financial_document_extractions set rebuilt_bucket=%s,"
+                "rebuilt_path=%s,rebuilt_media_type=%s,rebuilt_size_bytes=%s,rebuilt_sha256=%s "
+                "where user_id=%s and connection_id=%s",
+                (
+                    self.objects.bucket,
+                    path,
+                    media_type,
+                    len(content),
+                    digest,
+                    user_id,
+                    connection_id,
+                ),
+            )
+        with self._locked(user_id) as connection:
+            if not self._live(connection, user_id, connection_id):
+                return False
+            retained = connection.execute(
+                "select 1 from public.financial_document_extractions "
+                "where user_id=%s and connection_id=%s and rebuilt_path=%s and rebuilt_sha256=%s",
+                (user_id, connection_id, path, digest),
+            ).fetchone()
+            if retained is None:
+                return False
+            self.objects.put(path, content, media_type)
+        return True
 
     def capture(
         self,
@@ -91,72 +188,69 @@ class PostgresDocumentStore:
         content: bytes,
         on_capture: CaptureHook | None = None,
     ) -> bool:
-        """Rewrites the object unless the row holds legacy bytes: the path names
-        its content, so a repeat makes no second object and repairs a lost one.
-        Refused, and the object removed, once the connection is gone or an
-        account deletion run holds the person."""
-
         connection_id = draft.connection_id
-        row = self._read(user_id, connection_id, "source_bytes")
-        legacy = row is not None and row[0] is not None
         digest = hashlib.sha256(content).hexdigest()
-        path = source_path(user_id=user_id, connection_id=connection_id, sha256=digest)
-        if not legacy:
-            self.objects.put(path, content, draft.media_type)
-        with self._pool.connection() as connection, connection.transaction():
-            live = connection.execute(
-                "select id from public.financial_source_connections where id=%s "
-                "and user_id=%s and source='statement' and status <> 'disconnected' "
-                "and not exists (select 1 from argus_private.account_deletion_runs "
-                "where user_id=%s) for update",
-                (connection_id, user_id, user_id),
+        verify_content(content, draft.sha256)
+        path = source_path(user_id=user_id, sha256=digest)
+        # Commit the reference before the external write so disconnect can find
+        # a copy left by a process crash. Availability stays false until upload.
+        with self._locked(user_id) as connection:
+            if not self._live(connection, user_id, connection_id):
+                self._forget(connection, user_id, connection_id)
+                return False
+            connection.execute(
+                "insert into public.financial_document_extractions "
+                "(connection_id,user_id,draft,created_at) values (%s,%s,%s,%s) "
+                "on conflict (connection_id) do update set "
+                "draft=coalesce(financial_document_extractions.draft, case "
+                "when financial_document_extractions.batch is not null then "
+                'excluded.draft || \'{"status":"review_ready"}\'::jsonb else excluded.draft end)',
+                (
+                    connection_id,
+                    user_id,
+                    Jsonb(
+                        draft.model_copy(update={"source_available": False}).model_dump(
+                            mode="json"
+                        )
+                    ),
+                    draft.created_at,
+                ),
+            )
+            connection.execute(
+                "update public.financial_document_extractions set "
+                "source_bucket=%s,source_path=%s,source_media_type=%s,"
+                "source_size_bytes=%s,source_sha256=%s "
+                "where connection_id=%s and source_path is null and source_bytes is null",
+                (
+                    self.objects.bucket,
+                    path,
+                    draft.media_type,
+                    len(content),
+                    digest,
+                    connection_id,
+                ),
+            )
+        with self._locked(user_id) as connection:
+            if not self._live(connection, user_id, connection_id):
+                self._forget(connection, user_id, connection_id)
+                return False
+            row = connection.execute(
+                "select source_path,source_bytes,source_sha256 from "
+                "public.financial_document_extractions where connection_id=%s and user_id=%s",
+                (connection_id, user_id),
             ).fetchone()
-            if live is not None:
-                connection.execute(
-                    "insert into public.financial_document_extractions "
-                    "(connection_id,user_id,draft,created_at) values (%s,%s,%s,%s) "
-                    "on conflict (connection_id) do update set "
-                    "draft=coalesce(financial_document_extractions.draft, case "
-                    "when financial_document_extractions.batch is not null then "
-                    'excluded.draft || \'{"status":"review_ready"}\'::jsonb else excluded.draft end)',
-                    (
-                        connection_id,
-                        user_id,
-                        Jsonb(draft.model_dump(mode="json")),
-                        draft.created_at,
-                    ),
-                )
-            if live is not None and on_capture is not None:
+            if row is None:
+                return False
+            if row[0] is not None:
+                verify_content(content, row[2])
+                self.objects.put(row[0], content, draft.media_type)
+            if on_capture is not None:
                 on_capture(connection, connection_id)
-            if live is not None and not legacy:
-                connection.execute(
-                    "update public.financial_document_extractions set "
-                    "source_bucket=%s,source_path=%s,source_media_type=%s,"
-                    "source_size_bytes=%s,source_sha256=%s "
-                    "where connection_id=%s and source_path is null and source_bytes is null",
-                    (
-                        self.objects.bucket,
-                        path,
-                        draft.media_type,
-                        len(content),
-                        digest,
-                        connection_id,
-                    ),
-                )
-                connection.execute(
-                    "update public.financial_document_extractions set draft=draft || "
-                    "jsonb_build_object('source_available',true,"
-                    "'version',(draft->>'version')::integer+1) "
-                    "where connection_id=%s and source_path=%s "
-                    "and (draft->>'source_available')::boolean is false",
-                    (connection_id, path),
-                )
-        if live is None:
-            if not legacy:
-                self.objects.delete(
-                    connection_prefix(user_id=user_id, connection_id=connection_id)
-                )
-            return False
+            connection.execute(
+                "update public.financial_document_extractions set draft=draft || "
+                "jsonb_build_object('source_available',true) where connection_id=%s",
+                (connection_id,),
+            )
         return True
 
     def update(
@@ -241,16 +335,34 @@ class PostgresDocumentStore:
         return True
 
     def forget(self, *, user_id: str, connection_id: str) -> None:
-        """Objects first: a failure keeps the row, so a retried disconnect
-        finds and finishes the cleanup."""
+        with self._locked(user_id) as connection:
+            self._forget(connection, user_id, connection_id)
+
+    def _forget(self, connection, user_id: str, connection_id: str) -> None:
+        # The row remains until erasure succeeds, so retry has the same paths.
+        row = connection.execute(
+            "select source_path,rebuilt_path from public.financial_document_extractions "
+            "where user_id=%s and connection_id=%s",
+            (user_id, connection_id),
+        ).fetchone()
+        for path in row or ():
+            if path is None:
+                continue
+            other = connection.execute(
+                "select 1 from public.financial_document_extractions "
+                "where user_id=%s and connection_id<>%s "
+                "and (source_path=%s or rebuilt_path=%s) limit 1",
+                (user_id, connection_id, path, path),
+            ).fetchone()
+            if other is None:
+                self.objects.remove(path)
         self.objects.delete(
             connection_prefix(user_id=user_id, connection_id=connection_id)
         )
-        with self._pool.connection() as connection:
-            connection.execute(
-                "delete from public.financial_document_extractions where user_id=%s and connection_id=%s",
-                (user_id, connection_id),
-            )
+        connection.execute(
+            "delete from public.financial_document_extractions where user_id=%s and connection_id=%s",
+            (user_id, connection_id),
+        )
 
     def owner(self, *, connection_id: str) -> str | None:
         with self._pool.connection() as connection:
@@ -276,7 +388,8 @@ class PostgresDocumentStore:
                 "from public.financial_document_extractions d "
                 "join public.financial_source_connections c on c.id=d.connection_id "
                 "and c.user_id=d.user_id where c.source='statement' "
-                "and c.status <> 'disconnected' and (d.draft->>'status' in "
+                "and c.status <> 'disconnected' and (d.draft->>'source_available')::boolean "
+                "and (d.draft->>'status' in "
                 "('queued','preparing') or (d.draft->>'status'='needs_attention' "
                 "and (d.preparation_job->>'retry')::boolean)) "
                 "order by d.created_at, d.connection_id limit %s",

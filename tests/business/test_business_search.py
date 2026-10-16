@@ -90,7 +90,7 @@ def test_finds_the_business_expense_and_never_the_personal_one(alice: Owner) -> 
         "receipts": [],
         "accounts": [],
     }
-    assert alice.get(f"/receipts/{receipt_id}/source").content == RECEIPT
+    assert alice.get(f"/receipts/{receipt_id}/source").json()["code"] == "document_source_unavailable"
     personal = alice.client.get(
         "/api/v1/financial-search", params={"q": "ferreteria"}, headers=alice.auth
     ).json()["items"]

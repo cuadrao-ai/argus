@@ -178,11 +178,18 @@ def attachment(actions):
         ],
     )
     assert service.execute(context, key, 0, lease=lease).outcome == "applied"
-    return objects, source_id, content
+    rebuilt = b"%PDF-1.7 rebuilt fixture"
+    assert store.save_rebuilt(
+        user_id=context.owner_id,
+        connection_id=receipt,
+        content=rebuilt,
+        media_type="application/pdf",
+    )
+    return objects, source_id, rebuilt
 
 
 @pytest.mark.parametrize("available", [True, False])
-def test_canonical_attachment_original_or_individual_unavailability(
+def test_canonical_attachment_rebuilt_or_individual_unavailability(
     actions, attachment, available
 ):
     service, context, _ = actions
@@ -371,3 +378,19 @@ def test_revocation_waits_for_snapshot_grant_lock(actions, attachment, monkeypat
         )
     with pytest.raises(ActionError, match="business_record_not_found"):
         export_package(service.authority, context, PERIOD, objects)
+
+
+def test_export_never_falls_back_to_a_retained_original(actions, attachment):
+    service, context, _ = actions
+    objects, _, _ = attachment
+    for path in list(objects.objects):
+        if path.startswith("rebuilt/"):
+            del objects.objects[path]
+    assert any(path.startswith("sealed/") for path in objects.objects)
+    files = unpack(export_package(service.authority, context, PERIOD, objects))
+    manifest = json.loads(files["manifest.json"])
+    source = manifest["sources"][0]
+    assert source["availability"] == "unavailable"
+    assert source["file"] is None
+    assert not manifest["evidence_complete"]
+    assert not any(name.startswith("originals/") for name in files)

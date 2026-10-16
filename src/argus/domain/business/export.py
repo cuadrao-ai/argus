@@ -426,7 +426,7 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                     }
                 )
             cursor.execute(
-                "select s.id,s.kind,s.text_content,s.connection_id,d.draft,d.source_sha256,"
+                "select s.id,s.kind,s.text_content,s.connection_id,d.draft,d.rebuilt_sha256,d.rebuilt_media_type,"
                 " array_agg(distinct l.draft_id) as draft_ids,"
                 " array_remove(array_agg(distinct e.activity_id),null) as activity_ids"
                 " from public.business_sources s join public.business_draft_sources l"
@@ -434,7 +434,7 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 " join public.financial_import_events e on e.id=l.draft_id and e.owner_space_id=l.space_id"
                 " left join public.financial_document_extractions d on d.connection_id=s.connection_id and d.user_id=e.user_id"
                 " where s.space_id=%s and e.user_id=%s and l.draft_id=any(%s::uuid[])"
-                " group by s.id,d.draft,d.source_sha256 order by s.id limit %s",
+                " group by s.id,d.draft,d.rebuilt_sha256,d.rebuilt_media_type order by s.id limit %s",
                 (
                     context.actor.space_id,
                     context.owner_id,
@@ -449,10 +449,10 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                     activity_ids=tuple(row["activity_ids"]),
                     kind=row["kind"],
                     filename=(row["draft"] or {}).get("filename"),
-                    media_type=(row["draft"] or {}).get("media_type"),
+                    media_type=row["rebuilt_media_type"],
                     text=row["text_content"],
                     connection_id=row["connection_id"],
-                    expected_sha256=row["source_sha256"],
+                    expected_sha256=row["rebuilt_sha256"],
                 )
                 for row in cursor.fetchall()
             )
@@ -481,16 +481,14 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
             def original(source: ExportSource) -> bytes | None:
                 authorize(connection, context.actor, context.grant_id).require("read")
                 cursor.execute(
-                    "select d.source_path,d.source_size_bytes,d.source_sha256,"
-                    " octet_length(d.source_bytes) as legacy_size,"
-                    " case when octet_length(d.source_bytes)<=%s then d.source_bytes end as content"
+                    "select d.rebuilt_path,d.rebuilt_size_bytes,"
+                    " d.draft->>'sha256' as original_sha256"
                     " from public.financial_document_extractions d"
                     " join public.financial_source_connections c on c.id=d.connection_id and c.user_id=d.user_id"
                     " join public.business_sources s on s.connection_id=c.id and s.space_id=c.owner_space_id"
                     " where s.id=%s and s.space_id=%s and c.user_id=%s"
                     " and c.status <> 'disconnected' and c.source='statement' for share of c",
                     (
-                        MAX_SOURCE_BYTES,
                         source.source_id,
                         context.actor.space_id,
                         context.owner_id,
@@ -499,20 +497,15 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 row = cursor.fetchone()
                 if row is None:
                     return None
-                if (
-                    max(row["source_size_bytes"] or 0, row["legacy_size"] or 0)
-                    > MAX_SOURCE_BYTES
-                ):
+                if (row["rebuilt_size_bytes"] or 0) > MAX_SOURCE_BYTES:
                     raise OriginalUnavailable("size_limit")
-                if row["source_path"] is None:
-                    return bytes(row["content"]) if row["content"] is not None else None
-                expected_path = (
-                    f"{context.owner_id}/{source.connection_id}/{row['source_sha256']}"
-                )
-                if row["source_path"] != expected_path:
+                if row["rebuilt_path"] is None:
+                    return None
+                expected_path = f"rebuilt/{context.owner_id}/{row['original_sha256']}"
+                if row["rebuilt_path"] != expected_path:
                     raise OriginalUnavailable("path_mismatch")
                 try:
-                    return objects.get(row["source_path"])
+                    return objects.get(row["rebuilt_path"])
                 except SourceStorageUnavailable:
                     return None
 

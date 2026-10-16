@@ -35,7 +35,7 @@ RECEIPT = (
 
 def _stored(user_id: str) -> int:
     objects = documents_service().store.objects
-    return sum(path.startswith(owner_prefix(user_id)) for path in objects.objects)
+    return sum(path.startswith((owner_prefix(user_id), f"sealed/{user_id}/", f"rebuilt/{user_id}/")) for path in objects.objects)
 
 
 def _saved(client) -> str:
@@ -66,7 +66,7 @@ def test_extraction_off_keeps_reading_and_removal_and_refuses_intake(
     opened = client.get(f"{DOCUMENTS}/{document}", headers=bearer(ALICE))
     assert (opened.status_code, opened.json()["status"]) == (200, "saved")
     source = client.get(f"{DOCUMENTS}/{document}/source", headers=bearer(ALICE))
-    assert (source.status_code, source.content) == (200, RECEIPT)
+    assert source.json()["code"] == "document_source_unavailable"
 
     unavailable = (404, "financial_connections_unavailable")
     assert _code(upload(client)) == unavailable
@@ -108,7 +108,7 @@ def test_ingestion_off_still_reads_and_removes_only_a_document(
     monkeypatch.setenv("ARGUS_INGESTION_ENABLED", "false")
 
     source = client.get(f"{DOCUMENTS}/{document}/source", headers=bearer(ALICE))
-    assert (source.status_code, source.content) == (200, RECEIPT)
+    assert source.json()["code"] == "document_source_unavailable"
     assert _code(client.get(CONNECTIONS, headers=bearer(ALICE))) == (
         404,
         "financial_connections_unavailable",
