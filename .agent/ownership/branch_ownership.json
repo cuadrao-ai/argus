@@ -3151,6 +3151,30 @@
         "marketing/components/business-footer.tsx",
         "marketing/components/touchup-shell.module.css"
       ]
+    },
+    "codex/marketing-footer-route-background": {
+      "description": "Contact and legal page root background, missing-page canvas parity, and relocation of footer evidence binaries only.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "marketing/app/globals.css",
+        "marketing/app/global-not-found.tsx",
+        "marketing/components/business-pages.tsx",
+        "marketing/components/legal-page.tsx",
+        "marketing/e2e/footer-background.spec.ts",
+        "docs/reports/evidence/marketing-footer-bounded/**",
+        "docs/reports/evidence/marketing-footer-background/**",
+        "docs/reports/evidence/marketing-footer-routes/**"
+      ],
+      "deny": [
+        "web/**",
+        "src/**",
+        "supabase/**",
+        "render.yaml",
+        "marketing/components/PersonalEarlyAccess.tsx",
+        "marketing/components/WaitlistCaptcha.tsx",
+        "marketing/.env*"
+      ]
     }
   }
 }
