@@ -19,6 +19,7 @@ from argus.domain.ingestion.connections import (
     SourceConnection,
 )
 from argus.domain.ingestion.contract import ImportCandidate, SourceKind, SourceRef
+from argus.domain.ingestion.documents.dgii_qr import read_dgii_qr
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     DraftProposal,
@@ -27,8 +28,13 @@ from argus.domain.ingestion.documents.models import (
     ReceiptDetails,
 )
 from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
-from argus.domain.ingestion.documents.preparation import validate_source
-from argus.domain.ingestion.documents.store import CaptureHook, DocumentStore
+from argus.domain.ingestion.documents.preparation import PreparedDocument, validate_source
+from argus.domain.ingestion.documents.rebuilt import ensure_rebuilt_image
+from argus.domain.ingestion.documents.store import (
+    CaptureHook,
+    DocumentStore,
+    download_source,
+)
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.owner_scope import OwnerScope, space_id
 
@@ -78,6 +84,7 @@ class Extractor(Protocol):
         media_type: str,
         connection_id: str,
         observed_at: datetime,
+        prepared: PreparedDocument | None = None,
     ) -> ExtractionBatch: ...
 
 
@@ -212,7 +219,21 @@ class DocumentsService:
 
         self._connection(user_id, connection_id, scope=scope)
         try:
-            return self._read_source(user_id, connection_id)
+            try:
+                ensure_rebuilt_image(
+                    store=self.store, user_id=user_id, connection_id=connection_id
+                )
+                self._connection(user_id, connection_id, scope=scope)
+                source = download_source(
+                    self.store, user_id=user_id, connection_id=connection_id
+                )
+            except SourceStorageUnavailable:
+                raise DocumentServiceError(
+                    "document_storage_unavailable", retryable=True
+                ) from None
+            if source is None:
+                raise DocumentServiceError("document_source_unavailable")
+            return source[1]
         except DocumentServiceError as error:
             if error.code == "document_source_unavailable":
                 draft = self.store.draft(user_id=user_id, connection_id=connection_id)
@@ -618,6 +639,31 @@ class DocumentsService:
                 )
                 if hashlib.sha256(content).hexdigest() != draft.sha256:
                     raise DocumentServiceError("document_source_changed")
+                prepared_args = {}
+                if draft.media_type in ("image/png", "image/jpeg"):
+                    try:
+                        await asyncio.to_thread(
+                            ensure_rebuilt_image,
+                            store=self.store,
+                            user_id=user_id,
+                            connection_id=connection_id,
+                        )
+                        image = await asyncio.to_thread(
+                            self.store.rebuilt,
+                            user_id=user_id,
+                            connection_id=connection_id,
+                        )
+                    except SourceStorageUnavailable:
+                        raise DocumentServiceError(
+                            "document_storage_unavailable", retryable=True
+                        ) from None
+                    if image is None:
+                        raise DocumentServiceError("document_source_unavailable")
+                    prepared_args["prepared"] = PreparedDocument(
+                        1,
+                        (image[1],),
+                        dgii_qr=await asyncio.to_thread(read_dgii_qr, (image[1],)),
+                    )
                 # Asked again just before the provider is reached, so a switch
                 # turned off while the source was read still stops this read. The
                 # only window left is the commit below and the request start.
@@ -647,6 +693,7 @@ class DocumentsService:
                     media_type=draft.media_type,
                     connection_id=connection_id,
                     observed_at=self.hub.clock(),
+                    **prepared_args,
                 )
                 self._validate(batch, connection_id)
                 if not self.store.save(
@@ -658,7 +705,9 @@ class DocumentsService:
                 ):
                     raise DocumentServiceError("document_lease_lost", retryable=True)
             self._validate(batch, connection_id)
-            if not entered_by_owner(batch) and not self._reading_allowed(user_id, connection_id):
+            if not entered_by_owner(batch) and not self._reading_allowed(
+                user_id, connection_id
+            ):
                 raise DocumentServiceError("document_reading_not_allowed")
             if not repo.renew(
                 connection_id=connection_id, holder=holder, now=self.hub.clock()
