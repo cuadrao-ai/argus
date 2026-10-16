@@ -6,6 +6,8 @@ from datetime import datetime
 
 from psycopg_pool import ConnectionPool
 
+from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
+from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyGroups
 from argus.domain.ingestion.whatsapp.store import (
     Claim,
     InboundRecord,
@@ -28,6 +30,7 @@ def _record(row: tuple) -> InboundRecord:
 class PostgresWhatsAppStore:
     def __init__(self, pool: ConnectionPool) -> None:
         self._pool = pool
+        self.reply_groups = PostgresReplyGroups(pool)
 
     def claim(
         self,
@@ -65,6 +68,7 @@ class PostgresWhatsAppStore:
         claim_until: datetime | None,
         settlement: Settlement,
         now: datetime,
+        reply_failure: PendingFailure | None = None,
     ) -> Settlement | None:
         with self._pool.connection() as connection, connection.transaction():
             # Held until commit, so a revoke cannot land between this read and
@@ -94,7 +98,11 @@ class PostgresWhatsAppStore:
                     claim_until,
                 ),
             )
-            return settlement if cursor.rowcount == 1 else None
+            if cursor.rowcount != 1:
+                return None
+            if reply_failure is not None:
+                self.reply_groups.enqueue_on(connection, reply_failure)
+            return settlement
 
     def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
         with self._pool.connection() as connection:

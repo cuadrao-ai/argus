@@ -46,6 +46,12 @@ from argus.domain.ingestion.whatsapp.replies import (
     reply_payload,
     review_url,
 )
+from argus.domain.ingestion.whatsapp.reply_groups import (
+    FAILURE_REASONS,
+    PendingFailure,
+    ReplyGroupCodec,
+    suppressed,
+)
 from argus.domain.ingestion.whatsapp.store import (
     RETRYABLE,
     SENDER_LINK_REVOKED,
@@ -143,6 +149,8 @@ class WhatsAppIntake:
         capture_text: Callable[[TextMessage], bool] | None = None,
         send_enabled: Callable[[], bool] = lambda: True,
         background: Callable[[Coroutine[Any, Any, None]], None] | None = None,
+        reply_codec: ReplyGroupCodec | None = None,
+        reply_group_wait_seconds: int = 120,
     ) -> None:
         self.store, self.keys, self.media = store, keys, media
         self.destination, self.clock = destination, clock
@@ -154,6 +162,8 @@ class WhatsAppIntake:
         self.processing_seconds: float = PROCESSING_SECONDS
         self.capture_text = capture_text
         self.send_enabled = send_enabled
+        self.reply_codec = reply_codec
+        self.reply_group_wait_seconds = reply_group_wait_seconds
 
     def issue_code(
         self, *, destination_owner_id: str, reply_language: ReplyLanguage
@@ -272,7 +282,19 @@ class WhatsAppIntake:
             await self._settle(key, held, Settlement("failed", error_code=code))
             log.warning("WhatsApp message failed", failure_mode=type(error).__name__)
             raise
-        settled = await self._settle(key, held, settlement)
+        failure = None
+        if isinstance(message, MediaMessage) and settlement.error_code in FAILURE_REASONS:
+            if self.reply_codec is None:
+                raise RuntimeError("whatsapp_reply_grouping_unavailable")
+            link = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
+            if (
+                link is not None
+                and link.destination_owner_id == settlement.destination_owner_id
+            ):
+                failure = self.reply_codec.failure(
+                    message, link, now=self.clock(), wait=self.reply_group_wait_seconds
+                )
+        settled = await self._settle(key, held, settlement, reply_failure=failure)
         if settled is None:
             log.warning("WhatsApp message claim lost before settling")
             return False
@@ -288,6 +310,12 @@ class WhatsAppIntake:
             status=settlement.status,
             error_code=settlement.error_code,
         )
+        if failure is not None:
+            log.info(
+                "WhatsApp failed file grouped",
+                event="whatsapp_file_failure",
+                reason=FAILURE_REASONS[settlement.error_code],
+            )
         await self._reply(message, settlement, log)
         await self._followup(message, settlement, log)
         return True
@@ -336,7 +364,12 @@ class WhatsAppIntake:
             )
 
     async def _settle(
-        self, key: bytes, held: datetime | None, settlement: Settlement
+        self,
+        key: bytes,
+        held: datetime | None,
+        settlement: Settlement,
+        *,
+        reply_failure: PendingFailure | None = None,
     ) -> Settlement | None:
         return await asyncio.to_thread(
             self.store.settle,
@@ -344,6 +377,7 @@ class WhatsAppIntake:
             claim_until=held,
             settlement=settlement,
             now=self.clock(),
+            reply_failure=reply_failure,
         )
 
     async def _decide(self, message: InboundMessage, sender: bytes) -> Settlement:
@@ -401,13 +435,22 @@ class WhatsAppIntake:
             return Settlement("rejected", owner, error_code="whatsapp_media_unsupported")
         try:
             fetched = await self.media.fetch(message.media_id)
-            captured = await self.destination.capture(
-                owner_id=owner,
-                content=fetched.content,
-                filename=message.filename,
-                media_type=fetched.mime_type,
-                source_text=message.caption,
-            )
+            for attempt in range(2):
+                try:
+                    captured = await self.destination.capture(
+                        owner_id=owner,
+                        content=fetched.content,
+                        filename=message.filename,
+                        media_type=fetched.mime_type,
+                        source_text=message.caption,
+                    )
+                    break
+                except CaptureFailed:
+                    if attempt:
+                        return Settlement(
+                            "rejected", owner, error_code="whatsapp_capture_failed"
+                        )
+                    await asyncio.sleep(0.25)
         except (MediaRejected, CaptureRejected) as error:
             return Settlement("rejected", owner, error_code=error.code)
         except (MediaUnavailable, CaptureFailed) as error:
@@ -427,6 +470,23 @@ class WhatsAppIntake:
         key: str | None = None,
         read: dict[str, str] | None = None,
     ) -> None:
+        resolved_key = key or reply_key(
+            settlement.status, settlement.error_code, duplicate=settlement.duplicate
+        )
+        if resolved_key == "whatsapp_sender_not_linked":
+            suppressed("unknown_sender", self.keys.sender(message.sender))
+            return
+        if (
+            resolved_key != "whatsapp_link_code_invalid"
+            and await asyncio.to_thread(
+                self.store.sender_link, sender_hash=self.keys.sender(message.sender)
+            )
+            is None
+        ):
+            suppressed("unknown_sender", self.keys.sender(message.sender))
+            return
+        if settlement.error_code in FAILURE_REASONS:
+            return
         if self.transport is None or not self.send_enabled():
             return
         if self.clock() - message.sent_at > SERVICE_WINDOW:
@@ -441,10 +501,7 @@ class WhatsAppIntake:
         elif settlement.error_code == "whatsapp_receipt_missing" and self.app_origin:
             url = inbox_url(self.app_origin)
         body = compose_reply(
-            key
-            or reply_key(
-                settlement.status, settlement.error_code, duplicate=settlement.duplicate
-            ),
+            resolved_key,
             language=settlement.reply_language,
             link=url,
             limit_mb=self.max_bytes // (1024 * 1024),

@@ -12,7 +12,10 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
+
+if TYPE_CHECKING:
+    from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
 
 ReplyLanguage = Literal["en", "es-419"]
 InboundStatus = Literal["received", "linked", "rejected", "captured", "failed"]
@@ -88,6 +91,7 @@ class WhatsAppStore(Protocol):
         claim_until: datetime | None,
         settlement: Settlement,
         now: datetime,
+        reply_failure: PendingFailure | None = None,
     ) -> Settlement | None:
         """Settle only while the caller's claim is the one held; None when it is not.
 
@@ -150,6 +154,7 @@ class InMemoryWhatsAppStore:
         self._inbound: dict[bytes, InboundRecord] = {}
         self._codes: dict[bytes, _Code] = {}
         self._links: list[_Link] = []
+        self.reply_failures: list[PendingFailure] = []
 
     def claim(
         self,
@@ -190,6 +195,7 @@ class InMemoryWhatsAppStore:
         claim_until: datetime | None,
         settlement: Settlement,
         now: datetime,
+        reply_failure: PendingFailure | None = None,
     ) -> Settlement | None:
         with self._lock:
             current = self._inbound[provider_message_key]
@@ -209,6 +215,8 @@ class InMemoryWhatsAppStore:
                 claim_until=None,
                 updated_at=now,
             )
+            if reply_failure is not None:
+                self.reply_failures.append(reply_failure)
             return settlement
 
     def inbound(self, provider_message_key: bytes) -> InboundRecord | None:

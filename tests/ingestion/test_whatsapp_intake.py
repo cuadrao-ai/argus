@@ -1,6 +1,6 @@
 """WhatsApp intake against in-memory stores; the same cases run on Postgres too."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -51,6 +51,130 @@ def _world() -> cases.World:
         alice=str(uuid4()),
         bob=str(uuid4()),
         spaces=InMemorySpaceStore(),
+    )
+
+
+@pytest.mark.asyncio
+async def test_unknown_sender_has_no_outbound_reply() -> None:
+    world = _world()
+    await world.deliver(
+        cases.image("700000000000991", "wamid.UNKNOWN", cases.STRANGER_PHONE)
+    )
+    assert world.record("wamid.UNKNOWN").error_code == "whatsapp_sender_not_linked"
+    assert world.transport.sent == []
+
+
+def test_blocked_file_copy_matches_approved_spanish_and_preserves_english() -> None:
+    assert compose_reply("whatsapp_media_invalid", language="es-419") == (
+        "No pudimos leer este archivo. Envíalo como foto o PDF."
+    )
+    assert compose_reply("whatsapp_media_invalid", language="en") == (
+        "We couldn't open that file. Send another photo or PDF of the receipt."
+    )
+
+
+@pytest.mark.parametrize("count", [1, 5, 12])
+def test_grouped_copy_quotes_one_and_lists_earliest_three(count: int) -> None:
+    from argus.domain.ingestion.secrets import SecretBox
+    from argus.domain.ingestion.whatsapp.reply_groups import (
+        ReplyAttempt,
+        ReplyGroup,
+        ReplyGroupCodec,
+    )
+    from argus.domain.ingestion.whatsapp.store import SenderLink
+
+    world = _world()
+    codec = ReplyGroupCodec(SecretBox(b"r" * 32), world.keys)
+    at = datetime(2026, 10, 16, 19, 42, tzinfo=timezone.utc)
+    link = SenderLink(world.alice, "1234", at, "es-419")
+    samples = []
+    for index in range(count):
+        message = MediaMessage(
+            f"wamid.GROUP{index}",
+            cases.ALICE_PHONE,
+            at + timedelta(seconds=index),
+            "700000000000991",
+            "image/png",
+            f"factura_{index}.pdf",
+        )
+        samples.append(codec.failure(message, link, now=at, wait=120).sample)
+    group = ReplyGroup(
+        world.keys.sender(cases.ALICE_PHONE),
+        world.alice,
+        str(uuid4()),
+        count,
+        samples[:3],
+        at,
+        at + timedelta(seconds=120),
+    )
+    payload = codec.payload(ReplyAttempt(str(uuid4()), group, False))
+    if count == 1:
+        assert payload["context"] == {"message_id": "wamid.GROUP0"}
+        assert (
+            payload["text"]["body"]
+            == "No pudimos leer este archivo. Envíalo como foto o PDF."
+        )
+    else:
+        assert "context" not in payload
+        assert payload["text"]["body"] == (
+            f"No pudimos leer {count} archivos:\n• factura_0.pdf\n• factura_1.pdf\n• factura_2.pdf\n"
+            f"• y {count - 3} más\nEnvíalos como foto o PDF."
+        )
+
+
+@pytest.mark.parametrize(
+    "name,mime,expected",
+    [
+        ("whatsapp-image", "image/png", "foto enviada a las 3:42 p. m."),
+        ("", "application/pdf", "archivo enviado a las 3:42 p. m."),
+        ("\x00factura\n\u202emayo.pdf", "application/pdf", "facturamayo.pdf"),
+        ("a" * 40, "application/pdf", "a" * 29 + "…"),
+    ],
+)
+def test_failed_file_labels_are_safe_and_use_santo_domingo_time(
+    name, mime, expected
+) -> None:
+    from argus.domain.ingestion.whatsapp.reply_groups import file_label
+
+    message = MediaMessage(
+        "wamid.LABEL",
+        cases.ALICE_PHONE,
+        datetime(2026, 10, 16, 19, 42, tzinfo=timezone.utc),
+        "700000000000991",
+        mime,
+        name,
+    )
+    assert file_label(message) == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fails_twice", [False, True])
+async def test_capture_failure_retries_once_before_grouping(fails_twice: bool) -> None:
+    from argus.domain.ingestion.whatsapp.intake import CaptureFailed
+
+    from tests.ingestion.whatsapp_support import RECEIPT_PNG, Media
+
+    world = _world()
+    await world.link(world.alice, cases.ALICE_PHONE)
+    world.transport.sent.clear()
+    world.graph.media["700000000000991"] = Media(RECEIPT_PNG, "image/png")
+    original = world.intake.destination.capture
+    attempts = 0
+
+    async def flaky_capture(**kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1 or fails_twice:
+            raise CaptureFailed("whatsapp_capture_failed")
+        return await original(**kwargs)
+
+    world.intake.destination.capture = flaky_capture
+    await world.deliver(cases.image("700000000000991", "wamid.RETRY"))
+    assert attempts == 2
+    assert len(world.store.reply_failures) == int(fails_twice)
+    assert len(world.transport.sent) == int(not fails_twice)
+    assert world.record("wamid.RETRY").status == (
+        "rejected" if fails_twice else "captured"
     )
 
 
