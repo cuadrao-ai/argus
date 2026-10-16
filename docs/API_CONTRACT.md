@@ -2538,12 +2538,15 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   inside the staging web origin; nonempty recovery redirects use `/auth/recovery`.
   The existing recovery request, CAPTCHA, limits, generic `202`, PKCE exchange
   and session revocation contracts above do not change.
-- Explicit renderers preserve captured subjects and bodies for confirmation,
-  invitation, magic link, secure email change and reauthentication. Secure email
+- Account renderers share the Spanish email layout with the personal waitlist.
+  Signup subjects start with the unbroken provider code. Other account subjects
+  contain no code. Account emails have no leave-list link or unsubscribe headers. Secure email
   change sends both addresses with the provider's hash mapping. Unknown actions,
   including currently disabled notifications, are refused rather than dropped.
-- Recovery uses the approved Spanish React Email template and preview. Its
-  HTML and plain text come from one tree. Sender is
+- Recovery uses the shared Spanish account layout and preview. HTML and plain
+  text derive from the same typed content. The canonical dependency-free renderer
+  lives in `marketing/lib/email/account-layout.ts`; a checked generated copy keeps
+  the web deployment independent of the marketing root. Sender is
   `Cuadrao <hola@mail.cuadrao.ai>` and Reply-To is `hola@cuadrao.ai`.
   Each recipient has a stable provider idempotency key; transport has one
   four-second total budget and no automatic retry or payload logging.

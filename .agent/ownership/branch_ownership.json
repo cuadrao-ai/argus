@@ -890,7 +890,7 @@
       ]
     },
     "codex/cuadrao-default-spanish-20261013": {
-      "description": "On a Cuadrao Business build Spanish (es-419) is the language a visitor sees first and the browser's language never decides; a choice saved on the device does, and the account's saved language rules once signed in. The auth page gets a footer link named by the other language (English / Español) that switches at once and is saved on the account at sign-in. Consumer builds keep English and browser detection.",
+      "description": "On a Cuadrao Business build Spanish (es-419) is the language a visitor sees first and the browser's language never decides; a choice saved on the device does, and the account's saved language rules once signed in. The auth page gets a footer link named by the other language (English / Espa\u00f1ol) that switches at once and is saved on the account at sign-in. Consumer builds keep English and browser detection.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
@@ -1927,7 +1927,7 @@
       ]
     },
     "codex/cuadrao-saved-unread-20261013": {
-      "description": "Founder caveat after the email forward test: a receipt saved without a read never looks stuck. One sentence owned by ReceiptReadNotice (Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea, o complétalo tú.) shown on the receipt page, under the Inbox row and under the captured attachment in Correos recibidos; the status pill reads Guardado, sin leer. The per-receipt button stays the consent; copy only, no API change.",
+      "description": "Founder caveat after the email forward test: a receipt saved without a read never looks stuck. One sentence owned by ReceiptReadNotice (Guardado, sin leer. Pulsa \u00abPreparar con IA\u00bb para que Cuadrao lo lea, o compl\u00e9talo t\u00fa.) shown on the receipt page, under the Inbox row and under the captured attachment in Correos recibidos; the status pill reads Guardado, sin leer. The per-receipt button stays the consent; copy only, no API change.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
@@ -2136,7 +2136,7 @@
       ]
     },
     "codex/cuadrao-whatsapp-copy-code-20261012": {
-      "description": "A square copy button beside the WhatsApp link code: press it, the full code lands on the clipboard, the icon turns into a check for a moment and comes back; named Copiar código, Copiado announced politely, a refusing clipboard never crashes the panel.",
+      "description": "A square copy button beside the WhatsApp link code: press it, the full code lands on the clipboard, the icon turns into a check for a moment and comes back; named Copiar c\u00f3digo, Copiado announced politely, a refusing clipboard never crashes the panel.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
@@ -2535,7 +2535,7 @@
       ]
     },
     "codex/cuadrao-fiscal-20261013": {
-      "description": "Founder items 3 and 4 (plan 3, approved 2026-10-13): two totals of equal weight on the Overview, Gastos reales (approved expenses that are not personal) and Con valor fiscal (those with an NCF or e-CF) with the line 'Sin comprobante fiscal: RD$X no entra al 606'; a grey 'Sin comprobante fiscal' chip; the owner's reversible Personal mark (business_share none stated by the owner, a revision and a mark_personal ledger row, on open and approved drafts, approval admits it, left out of both totals, kept visible and exported with its mark); the accountant's '¿Incluir en 606?' answer (fiscal.include_606, decide_606 ledger row, owner refused, reads the state). No migration: the names ride on 20261014100000 from the switcher PR. Built on top of the switcher branch; opens after it merges.",
+      "description": "Founder items 3 and 4 (plan 3, approved 2026-10-13): two totals of equal weight on the Overview, Gastos reales (approved expenses that are not personal) and Con valor fiscal (those with an NCF or e-CF) with the line 'Sin comprobante fiscal: RD$X no entra al 606'; a grey 'Sin comprobante fiscal' chip; the owner's reversible Personal mark (business_share none stated by the owner, a revision and a mark_personal ledger row, on open and approved drafts, approval admits it, left out of both totals, kept visible and exported with its mark); the accountant's '\u00bfIncluir en 606?' answer (fiscal.include_606, decide_606 ledger row, owner refused, reads the state). No migration: the names ride on 20261014100000 from the switcher PR. Built on top of the switcher branch; opens after it merges.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/interpreter_prompt_fingerprint.json",
@@ -2948,6 +2948,31 @@
         "web/**",
         "ios/**",
         "marketing/**"
+      ]
+    },
+    "codex/shared-account-email-layout": {
+      "description": "Shared staging account and waitlist email presentation, with code-safe signup rendering and generated package copies. No hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/reports/evidence/shared-account-email/**",
+        "marketing/lib/email/account-layout.ts",
+        "marketing/public/email/**",
+        "scripts/emails/**",
+        "web/server/emails/**",
+        "web/__tests__/auth-email-hook.test.ts",
+        "web/__tests__/auth-email-transport.test.ts",
+        "web/__tests__/reset-password-email.test.tsx",
+        "web/__tests__/shared-account-email.test.ts",
+        "web/public/email/**"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "supabase/migrations/**",
+        "render.yaml",
+        "marketing/lib/waitlist/**"
       ]
     }
   }

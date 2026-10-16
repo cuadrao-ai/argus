@@ -81,17 +81,17 @@ describe("staging Auth email hook", () => {
     assert.equal(sent[0].recipient, "owner@example.test");
     assert.equal(sent[0].from, "Cuadrao <hola@mail.cuadrao.ai>");
     assert.equal(sent[0].replyTo, "hola@cuadrao.ai");
-    assert.equal(sent[0].subject, "Restablece tu contraseña de Cuadrao");
+    assert.equal(sent[0].subject, "Cambia tu contraseña de Cuadrao");
     assert.ok((sent[0].text).includes(`https://skedzwocnmrhfigiwyzi.supabase.co/auth/v1/verify?token=${"a".repeat(64)}&type=recovery&redirect_to=https%3A%2F%2Fcuadrao-web-staging.onrender.com%2Fauth%2Frecovery`));
     assert.ok((sent[0].text).includes("El enlace vence en 1 hora y solo se puede usar una vez."));
   });
 
-  test("preserves subjects and content for every other core action", async () => {
+  test("renders the approved Spanish copy and shared layout for each action", async () => {
     const cases = [
-      ["signup", "Confirm your email address", "Follow the link below to confirm this email address and finish signing up."],
-      ["invite", "You've been invited", "You've been invited to create an account. Follow the link below to accept."],
-      ["magiclink", "Your sign-in link", "Follow the link below to sign in. This link expires shortly and can only be used once."],
-      ["reauthentication", "123456 is your verification code", "Use the code below to verify your identity. It expires shortly."],
+      ["signup", "123456 es tu código de Cuadrao", "Úsalo para confirmar tu cuenta."],
+      ["invite", "Te invitaron a Cuadrao", "Te invitaron a usar Cuadrao."],
+      ["magiclink", "Tu enlace para entrar", "O entra aquí"],
+      ["reauthentication", "Tu código de verificación", "123456"],
     ];
     for (const [action, subject, body] of cases) {
       const sent: AuthDelivery[] = [];
@@ -100,7 +100,8 @@ describe("staging Auth email hook", () => {
       assert.equal((sent).length, 1);
       assert.equal(sent[0].subject, subject);
       assert.ok((sent[0].text).includes(body));
-      assert.ok(!(sent[0].html).includes("Cuadrao LLC"));
+      assert.ok(sent[0].html.includes("Saludos, el equipo de Cuadrao"));
+      assert.ok(!sent[0].html.includes("Salir de la lista"));
     }
   });
 
@@ -122,8 +123,8 @@ describe("staging Auth email hook", () => {
     assert.equal(deliveries[1].recipient, "new@example.test");
     assert.ok((deliveries[1].text).includes(`token=${"a".repeat(64)}`));
     for (const delivery of deliveries) {
-      assert.equal(delivery.subject, "Confirm your new email address");
-      assert.ok((delivery.text).includes("Follow the link below to confirm new@example.test as your new email address."));
+      assert.equal(delivery.subject, "Confirma tu nuevo correo");
+      assert.ok((delivery.text).includes("Confirma que quieres usar este correo en Cuadrao."));
     }
   });
 
