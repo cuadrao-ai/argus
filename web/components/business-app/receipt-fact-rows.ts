@@ -1,4 +1,4 @@
-import type { BusinessDossier, BusinessFact, BusinessFactField, BusinessFacts, BusinessFiscalField } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessFact, BusinessFactField, BusinessFacts, BusinessFiscalField, BusinessFactPatch } from "@/lib/business-dossier";
 
 /**
  * How a fact stands, from its backend state and origin alone. A person reads
@@ -87,11 +87,20 @@ export function reviewCounts(rows: readonly FactRow<string>[]): { suggestions: n
 }
 
 export function recordFactRows(dossier: Pick<BusinessDossier, "facts" | "blockers" | "questions">): FactRow<BusinessFactField>[] {
-  return factRows(RECORD_FIELDS, (key) => dossier.facts[key], blockedFields(dossier), askedFields(dossier));
+  return factRows(RECORD_FIELDS, (key) => dossier.facts[key], blockedFields(dossier), askedFields(dossier))
+    .sort((a, b) => Number(b.standing === "empty") - Number(a.standing === "empty"));
 }
 
 export function fiscalFactRows(facts: BusinessFacts): FactRow<BusinessFiscalField>[] {
   const fiscal = facts.fiscal;
   if (!fiscal) return [];
   return factRows(["rnc", "ncf", "ecf", "itbis"] as const, (key) => fiscal[key]);
+}
+
+export function extractedConfirmationPatch(dossier: Pick<BusinessDossier, "facts" | "blockers" | "questions">, edits: BusinessFactPatch): BusinessFactPatch {
+  return Object.fromEntries(recordFactRows(dossier).flatMap(({ key, standing, blocked, asked }) => {
+    const fact = dossier.facts[key];
+    return standing === "suggestion" && !blocked && !asked && !Object.hasOwn(edits, key) && fact.state === "known"
+      ? [[key, { state: "known", value: fact.value }]] : [];
+  })) as BusinessFactPatch;
 }

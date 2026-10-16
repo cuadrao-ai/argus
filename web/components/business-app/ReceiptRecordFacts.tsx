@@ -1,26 +1,13 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, CircleDashed, Link2, QrCode, Sparkles } from "lucide-react";
+import { AlertCircle, CheckCircle2, CircleDashed, Link2, QrCode } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDossier, BusinessFactField } from "@/lib/business-dossier";
 import { useCategoryLabel } from "./business-ui";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import { fiscalFactRows, recordFactRows, reviewCounts, type FactStanding } from "./receipt-fact-rows";
-
-/**
- * The record's facts, led by what is settled. Each row says where its value
- * stands: verified, stated by a person, decoded from the DGII QR, linked to a
- * source, read from the source as a suggestion nobody confirmed, a default,
- * or without a value. What was read from the source and nobody confirmed is
- * said once, in the card's banner, not under each field; those rows keep their
- * marker and their Confirm. A suggestion can be confirmed in place by a person who
- * can prepare; the record then holds it as that person's statement, in the
- * history. Whether a gap blocks approval is the backend's word: a field a
- * blocker names reads "Falta" and carries the decision marker, as does a
- * field with an open question; the counts line counts only those, so it
- * never disagrees with "Antes de aprobar".
- */
 
 type StandingStyle = { Icon: typeof CheckCircle2; className: string; chip: string };
 
@@ -30,7 +17,7 @@ const STYLE: Record<FactStanding, StandingStyle> = {
   person: { Icon: CheckCircle2, className: "text-[var(--cuadrao-green)]", chip: "border-[var(--cuadrao-green)]/35 text-[var(--cuadrao-green)]" },
   qr: { Icon: QrCode, className: "text-[var(--cuadrao-green)]", chip: "border-[var(--cuadrao-green)]/35 text-[var(--cuadrao-green)]" },
   linked: { Icon: Link2, className: "text-[var(--cuadrao-green)]", chip: "border-[var(--cuadrao-green)]/35 text-[var(--cuadrao-green)]" },
-  suggestion: { Icon: Sparkles, className: "text-[var(--rui-color-warning)]", chip: "border-dashed border-[var(--rui-color-warning)]/70 text-[#7a6420] dark:text-[var(--rui-color-warning)]" },
+  suggestion: { Icon: CircleDashed, className: "text-[var(--rui-color-warning)]", chip: "border-dashed border-[var(--rui-color-warning)]/70 text-[#7a6420] dark:text-[var(--rui-color-warning)]" },
   default: GREY,
   unverified: GREY,
   owner_unknown: GREY,
@@ -38,7 +25,12 @@ const STYLE: Record<FactStanding, StandingStyle> = {
 };
 const BLOCKED: StandingStyle = { Icon: AlertCircle, className: "text-[var(--rui-color-danger)]", chip: "border-[var(--rui-color-danger)]/50 text-[var(--rui-color-danger)]" };
 
-export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confirmable = false }: { dossier: BusinessDossier; accounts: BusinessAccount[]; onConfirm?: (key: BusinessFactField) => void; confirmable?: boolean }) {
+export default function ReceiptRecordFacts({ dossier, accounts, onEdit, editor }: {
+  dossier: BusinessDossier;
+  accounts: BusinessAccount[];
+  onEdit?: (key: BusinessFactField) => void;
+  editor?: (key: BusinessFactField) => ReactNode;
+}) {
   const { t, i18n } = useTranslation();
   const categoryLabel = useCategoryLabel();
   const locale = i18n.resolvedLanguage ?? "en";
@@ -74,25 +66,18 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
     return t(`business.dossier.origin.${origin}`, t("business.dossier.not_verified", "Not verified"));
   };
 
-  const row = (key: string, label: string, value: string, standing: FactStanding, origin: string | null, blocked: boolean, asked: boolean, confirm?: () => void) => {
+  const row = (key: string, label: string, value: string, standing: FactStanding, origin: string | null, blocked: boolean, asked: boolean, edit?: () => void, control?: ReactNode) => {
     const { Icon, className, chip } = blocked && standing === "empty" ? BLOCKED : STYLE[standing];
-    // The banner says "read from the source, not verified" once for every such row.
     const showChip = standing !== "suggestion";
     return (
       <div key={key} data-fact={key} data-standing={standing} data-blocked={blocked || asked ? "true" : undefined} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
         <Icon className={`mt-1 h-4 w-4 shrink-0 ${className}`} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <dt className="text-[12px] font-medium text-black/55 dark:text-white/55">{label}</dt>
-          <dd className="mt-0.5 break-words text-[15px] text-black/85 dark:text-white/85">{value}</dd>
-          {showChip || confirm ? <p className="mt-1.5 flex flex-wrap items-center gap-2">
-            {showChip ? <span className={`inline-flex min-h-6 items-center rounded-full border px-2 text-[11px] font-medium ${chip}`}>{standingText(standing, origin, blocked)}</span> : null}
-            {confirm ? (
-              <button type="button" data-testid={`confirm-${key}`} onClick={confirm} className="inline-flex min-h-8 items-center rounded-full bg-[var(--cuadrao-green)] px-3 text-[12px] font-medium text-[var(--cuadrao-cream)] transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40">
-                {t("business.dossier.confirm_value", "Confirm")}
-              </button>
-            ) : null}
-          </p> : null}
-          {blocked || asked ? <p className="mt-1 text-[12px] font-medium text-[var(--rui-color-danger)]">{t("business.dossier.needs_resolution", "Needs a decision before approval")}</p> : null}
+          <dd className="mt-0.5 break-words text-[15px] text-black/85 dark:text-white/85">{control ?? (edit ? <button type="button" onClick={edit} className="min-h-11 w-full rounded-lg text-left underline decoration-black/20 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)] dark:decoration-white/20" aria-label={`${t("business.dossier.edit", "Edit details")} · ${label}`}>{value}</button> : value)}</dd>
+          {standing === "suggestion" ? <p className="mt-1 text-[12px] text-black/60 dark:text-white/65">{t("business.dossier.read_from_receipt", t("business.dossier.origin.extracted", "Read from source · not verified"))}</p> : null}
+          {showChip && !(key === "occurred_on" && standing === "empty") ? <p className="mt-1.5"><span className={`inline-flex min-h-6 items-center rounded-full border px-2 text-[11px] font-medium ${chip}`}>{standingText(standing, origin, blocked)}</span></p> : null}
+          {blocked || asked ? <p className="mt-1 text-[12px] font-medium text-[var(--rui-color-danger)]">{key === "occurred_on" && standing === "empty" ? t("business.dossier.add_date_to_approve", "Agrega la fecha para aprobar") : t("business.dossier.needs_resolution", "Needs a decision before approval")}</p> : null}
         </div>
       </div>
     );
@@ -102,12 +87,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
     <div data-testid="receipt-current-facts">
       {counts.suggestions > 0 || counts.missing > 0 || counts.unresolved > 0 ? (
         <div role="status" data-testid="receipt-review-counts" className="mb-4 rounded-[14px] bg-[var(--cuadrao-cream)] px-3.5 py-2.5 text-[13px] text-black/75 dark:text-white/80">
-          {counts.suggestions > 0 ? (
-            <p data-testid="receipt-read-banner" className="flex items-center gap-2 font-medium text-black/85 dark:text-white/90">
-              <Sparkles className="h-4 w-4 shrink-0 text-[var(--rui-color-warning)]" aria-hidden="true" />
-              {t("business.dossier.origin.extracted", "Read from source · not verified")}
-            </p>
-          ) : null}
           <p className={counts.suggestions > 0 ? "mt-1" : undefined}>
             {[
               counts.suggestions > 0 ? t("business.dossier.suggestions_pending", { count: counts.suggestions, defaultValue: "{{count}} suggestions to confirm" }) : null,
@@ -121,9 +100,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, onConfirm, confi
         {rows.map(({ key, standing, blocked, asked }) => {
           const fact = dossier.facts[key];
           const value = presentBusinessFact(key, dossier.facts, accounts, locale, labels);
-          // A suggestion a blocker names cannot be confirmed as it is: the same value would be refused.
-          const confirm = confirmable && onConfirm && standing === "suggestion" && !blocked ? () => onConfirm(key) : undefined;
-          return row(key, t(`business.dossier.field.${key}`, key), value, standing, fact.state === "known" ? fact.origin : null, blocked, asked, confirm);
+          const edit = onEdit ? () => onEdit(key) : undefined;
+          return row(key, t(`business.dossier.field.${key}`, key), value, standing, fact.state === "known" ? fact.origin : null, blocked, asked, edit, editor?.(key));
         })}
       </dl>
       {fiscal || noFiscal ? (

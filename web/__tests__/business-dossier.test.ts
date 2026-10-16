@@ -296,13 +296,13 @@ test("the header revision is the latest facts revision the history lists, not th
 
 test("the line under approve never tells a person who can approve that someone else must", () => {
   // Owner (prepare + approve) on a note whose kind is still unknown: no permission line; the blockers card names the kind.
-  assert.equal(approvalLine(true, true, false), null);
-  assert.equal(approvalLine(true, true, true), "approval_effect");
-  assert.equal(approvalLine(true, false, true), "approval_effect");
-  // Prepare-only access reads the permission line; read-only access reads its own.
-  assert.equal(approvalLine(false, true, false), "prepare_only");
-  assert.equal(approvalLine(false, true, true), "prepare_only");
-  assert.equal(approvalLine(false, false, true), "read_only");
+  assert.equal(approvalLine(true, true), null);
+  assert.equal(approvalLine(true, true), null);
+  assert.equal(approvalLine(true, false), null);
+  // Only prepare-only access reads a permission line.
+  assert.equal(approvalLine(false, true), "prepare_only");
+  assert.equal(approvalLine(false, true), "prepare_only");
+  assert.equal(approvalLine(false, false), null);
 });
 
 test("the record page mounts no export panel: exports belong to a period surface", () => {

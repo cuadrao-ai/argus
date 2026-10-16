@@ -82,8 +82,8 @@ describe("a recorded receipt names the revision that was approved", () => {
     const page = await mount();
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     await page.open(dossierFixtureIds.ready);
-    await page.wait(() => [...page.host.querySelectorAll("button")].some((item) => item.textContent === "Aprobar gasto"));
-    const approve = [...page.host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === "Aprobar gasto")!;
+    await page.wait(() => [...page.host.querySelectorAll("button")].some((item) => item.textContent === "Aprobar"));
+    const approve = [...page.host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === "Aprobar")!;
     await page.act(async () => approve.click());
     await page.wait(() => page.recorded() !== null);
     assert.equal(page.recorded(), "Se registró un gasto tras aprobar la revisión 2.Registrado el 10 oct 2026");

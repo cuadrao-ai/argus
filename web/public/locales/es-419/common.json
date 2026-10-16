@@ -2236,6 +2236,10 @@
       "retry": "Intentar de nuevo"
     },
     "dossier": {
+      "add_date_to_approve": "Agrega la fecha para aprobar",
+      "approve_one_pass": "Aprobar",
+      "confirm_read_values": "Confirmar {{count}} datos leídos",
+      "read_from_receipt": "Leído del recibo",
       "read_purchases_title": "Compras leídas en este recibo",
       "read_purchases_note": "La lectura mostró más de una compra. Completa este registro con una de ellas; las demás quedan aquí como evidencia.",
       "read_purchase": "Compra {{index}}",
@@ -2299,7 +2303,7 @@
       "approved_by": "Aprobado por {{name}} · permiso otorgado por {{issuer}}",
       "approving": "Aprobando…",
       "approval_effect": "Aprobar registra esta revisión como un gasto. Guardar los detalles de revisión no lo registra.",
-      "prepare_only": "Tu permiso permite preparar este registro. Una persona con permiso de aprobación debe aprobarlo.",
+      "prepare_only": "Puedes revisar y preparar este recibo. El dueño lo aprueba.",
       "read_only": "Tu permiso permite ver este registro.",
       "recorded": "Se registró un gasto tras aprobar la revisión {{version}}.",
       "correction_unsupported": "Las correcciones después del registro no están disponibles en este primer flujo.",
