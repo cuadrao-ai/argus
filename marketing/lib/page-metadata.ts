@@ -45,8 +45,8 @@ export const PAGE_METADATA: Record<
       description:
         "Meet Cuadrao Personal and leave your email to hear about early access.",
     },
-    terms: null,
-    deletion: null,
+    terms: { title: "Cuadrao Website Terms of Use", description: "Cuadrao Website Terms of Use" },
+    deletion: { title: "Delete your data | Cuadrao", description: "How to ask us to delete your data" },
     privacy: {
       title: "Privacy | Cuadrao",
       description:

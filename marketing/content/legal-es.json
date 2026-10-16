@@ -19,7 +19,7 @@
         "text": "2. Qué datos recogemos y para qué"
       },
       {
-        "kind": "unordered",
+        "kind": "list",
         "items": [
           "**Lista de espera de la app personal de Cuadrao:** tu correo (obligatorio) y, si quieres, cómo llevas hoy tus gastos y, en hasta 280 caracteres, qué te gustaría que Cuadrao te resolviera. Usamos esas respuestas solo para entender qué construir. No incluyas datos de cuentas, tarjetas, salud ni otros datos sensibles; si los vemos, los borramos. Solo entras a la lista cuando confirmas con el enlace que te enviamos por correo (vence en 48 horas); si no confirmas, borramos tu correo 7 días después de anotarte. Solo te escribiremos sobre la lista y el lanzamiento de la app: la confirmación, un recordatorio si no confirmas, una bienvenida a la que puedes responder y el aviso cuando la app esté disponible. Cada correo trae un enlace para salir de la lista.",
           "**Formulario \"Hablemos de tu negocio\"** (sección \"Empecemos por tu negocio\"): tu nombre; tu correo; tu rol (\"Soy\": dueño de negocio, contador u otro); con qué tienes dificultades; tu canal preferido (correo o WhatsApp); tu número de WhatsApp, si nos lo das; cómo supiste de nosotros; y la casilla opcional \"Quiero ver el prototipo y probarlo\". Los usamos para responder tu consulta, contactarte por el canal que prefieras, entender mejor tu negocio, saber cómo nos encontraste y, si marcas la casilla, invitarte a probar el prototipo. La casilla viene sin marcar y puedes desmarcarla o pedirnos que dejemos de invitarte en cualquier momento."
@@ -30,7 +30,7 @@
         "text": "Si eliges WhatsApp como canal preferido y nos das tu número, aceptas que Cuadrao te escriba por WhatsApp solo para responder tu consulta. No te enviaremos anuncios ni avisos de lanzamiento por WhatsApp sin un permiso aparte, y puedes pedirnos que dejemos de escribirte en cualquier momento, por ejemplo respondiendo \"BAJA\"."
       },
       {
-        "kind": "unordered",
+        "kind": "list",
         "items": [
           "**Datos técnicos básicos:** como tu dirección IP y datos de tu navegador, que se registran al visitar el sitio o enviar un formulario. Los usamos solo para la seguridad del sitio y para evitar spam y abusos. Además, nuestro servicio de seguridad trata señales técnicas, como tu IP y datos de tu navegador y tu conexión, según su propia política de privacidad.",
           "**Mensajes directos por correo o WhatsApp:** si nos escribes a hola@cuadrao.ai o por WhatsApp sin usar el formulario, recibimos tu nombre o número, tu correo y lo que nos cuentes. Lo usamos solo para responderte y darte seguimiento."
@@ -69,7 +69,7 @@
         "text": "No vendemos tus datos ni los compartimos para publicidad. Solo los ven proveedores que nos ayudan a operar el sitio, y únicamente para ese fin, salvo lo que se indica sobre el servicio de seguridad:"
       },
       {
-        "kind": "unordered",
+        "kind": "list",
         "items": [
           "nuestro proveedor de alojamiento web;",
           "nuestro proveedor de correo electrónico;",
@@ -100,7 +100,7 @@
         "text": "6. Cuánto tiempo los guardamos"
       },
       {
-        "kind": "unordered",
+        "kind": "list",
         "items": [
           "**Lista de espera de la app personal de Cuadrao:** si no confirmas, borramos tu correo y tus respuestas 7 días después de anotarte. Si confirmas, los guardamos hasta que salgas de la lista o 12 meses después de anotarte, lo que ocurra primero; luego borramos tu correo y tus respuestas.",
           "**Formulario \"Hablemos de tu negocio\":** guardamos el correo con tu consulta el tiempo necesario para responder y dar seguimiento, y como máximo 12 meses desde nuestro último contacto; luego lo borramos. Si firmas un acuerdo con nosotros, ese acuerdo regula esos datos.",

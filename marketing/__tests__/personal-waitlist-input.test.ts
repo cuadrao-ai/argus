@@ -9,7 +9,7 @@ test("the personal signup accepts only its optional answers and normalizes the e
 });
 
 test("account-like digit runs drop only the optional answer", () => {
-  for (const wish of ["Cuenta 1234567", "Tarjeta 1234 5678 9012 3456", "１２３４５６７", "١٢٣٤٥٦٧", "123-456-789"]) {
+  for (const wish of ["Cuenta 1234567", "Tarjeta 1234 5678 9012 3456", "１２３４５６７", "١٢٣٤٥٦٧", "123-456-789", "1\u200b2\u200b3\u200b4\u200b5\u200b6\u200b7"]) {
     expect(containsSensitiveDigits(wish)).toBe(true);
     expect(parsePersonalWaitlist({ email: "person@example.test", wish })?.wish).toBeNull();
     expect(parsePersonalWaitlist({ email: "person@example.test", wish })?.email).toBe("person@example.test");

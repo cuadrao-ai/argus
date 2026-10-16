@@ -1,14 +1,15 @@
+import { asNewClient, mockState, resetMock } from "./support";
+import { mockWaitlistWidget } from "./waitlist-fixture";
 import { expect, test } from "@playwright/test";
 
-test.beforeEach(async ({ page }) => {
-  await page.route("**/api/signups/config", (route) => route.fulfill({ json: { siteKey: "fixture-site-key" } }));
-  await page.route("https://challenges.cloudflare.com/turnstile/v0/api.js*", (route) => route.fulfill({
-    contentType: "application/javascript",
-    body: "window.turnstile={render:(_,o)=>{o.callback('fixture-token');return 'fixture';},remove:()=>{}};",
-  }));
+test.beforeEach(async ({ page, request, context }, info) => {
+  await resetMock(request);
+  await asNewClient(context, info);
+  await mockWaitlistWidget(page);
 });
 
-test("Spanish optional answers stay accessible and the unfinished endpoint fails closed", async ({ page }, info) => {
+test("Spanish optional answers stay accessible and missing runtime configuration fails closed", async ({ page }, info) => {
+  await page.route("**/api/waitlist/signups", (route) => route.fulfill({ status: 503, json: { error: "unavailable" } }));
   await page.goto("/personal");
   await page.getByRole("textbox", { name: "Correo", exact: true }).fill("fixture@example.test");
   const methods = page.getByRole("combobox", { name: "¿Cómo llevas hoy tus gastos?" });
@@ -35,8 +36,40 @@ test("digit warning is inline and the approved success sentence uses an explicit
   await expect(page.getByText("Quita los números de cuenta o tarjeta para enviar.", { exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "¿Qué te gustaría que Cuadrao te resolviera?" }).fill("Ordenar mis gastos");
   await page.getByRole("button", { name: "Avísame cuando pueda probarla" }).click();
-  await expect(page.getByRole("heading", { name: "Te avisaremos cuando Cuadrao esté listo para ti." })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Revisa tu correo." })).toBeFocused();
   await page.screenshot({ path: info.outputPath("personal-waitlist-confirmation-fixture.png"), fullPage: true });
   expect(await page.context().cookies()).toEqual([]);
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
+});
+
+test("real handler sends confirmation, confirms once, and one-click leave removes the row", async ({ page, request }, info) => {
+  await page.goto("/personal");
+  await page.locator("#personal-email").fill("flow@example.test");
+  await page.getByRole("button", { name: "Avísame cuando pueda probarla" }).click();
+  await expect(page.getByRole("heading", { name: "Revisa tu correo." })).toBeVisible();
+  const first = await mockState(request);
+  expect(first.signups).toHaveLength(1); expect(first.emails).toHaveLength(1);
+  const confirmation = first.emails[0].text.match(/https:\/\/cuadrao\.example\.test\/api\/waitlist\/confirm\?token=\S+/)![0];
+  const confirmationPath = new URL(confirmation).pathname + new URL(confirmation).search;
+  await page.goto(confirmationPath);
+  await expect(page.getByRole("heading", { name: "Ya estás en la lista." })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("waitlist-confirmed.png"), fullPage: true });
+  expect((await mockState(request)).emails).toHaveLength(2);
+  await page.goto(confirmationPath);
+  expect((await mockState(request)).emails).toHaveLength(2);
+  const leave = first.emails[0].text.match(/https:\/\/cuadrao\.example\.test\/api\/waitlist\/leave\?token=\S+/)![0];
+  const leavePath = new URL(leave).pathname + new URL(leave).search;
+  expect((await request.post(leavePath, { form: { "List-Unsubscribe": "One-Click" } })).status()).toBe(200);
+  expect((await mockState(request)).signups).toHaveLength(0);
+  await page.goto(leavePath);
+  await expect(page.getByRole("heading", { name: "Ya saliste de la lista." })).toBeVisible();
+  await expect(page.getByText("Borramos tu correo y tus respuestas.")).toBeVisible();
+  await page.screenshot({ path: info.outputPath("waitlist-left.png"), fullPage: true });
+});
+
+test("the legacy public signup URL cannot bypass CAPTCHA", async ({ request }) => {
+  const response = await request.post("/api/signups", { data: { email: "bypass@example.test", locale: "es" } });
+  expect(response.status()).toBe(400);
+  expect((await mockState(request)).signups).toHaveLength(0);
+  expect((await mockState(request)).emails).toHaveLength(0);
 });

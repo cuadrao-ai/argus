@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   planNotice,
+  pendingSignups,
   removeSignup,
   sendNotice,
   validateTemplate,
@@ -89,7 +90,7 @@ describe("notice template", () => {
 // A small stand-in for the signup table and the mail provider, so the tests
 // exercise claim-then-send as a database and Resend would actually answer.
 function backend(options: {
-  rows: Record<string, { removed?: boolean; notifiedAt?: string | null }>;
+  rows: Record<string, { removed?: boolean; notifiedAt?: string | null; privacyVersion?: string }>;
   claimStatus?: number;
   // The database saves the claim, then the answer is lost.
   claimAnswerLost?: boolean;
@@ -122,6 +123,7 @@ function backend(options: {
       const matches =
         !!row &&
         (!requiresActive || !row.removed) &&
+        (query.get("privacy_policy_version") !== "is.null" || !row.privacyVersion) &&
         (!wantsUnnotified || !row.notifiedAt) &&
         (wantsUnnotified || query.get("notified_at") === null || row.notifiedAt === claimedValue);
       if (!matches) return Response.json([]);
@@ -281,5 +283,22 @@ describe("notice sending", () => {
     expect(result.sent).toBe(1);
     expect(events).toEqual(["mail"]);
     expect((calls[0].init.headers as Record<string, string>)["Idempotency-Key"]).toStartWith("notice-test-");
+  });
+});
+
+
+describe("personal consent boundary", () => {
+  test("legacy discovery excludes double-opt-in rows", async () => {
+    const { fetch: doFetch } = recordingFetch((call) => {
+      const filter = new URL(call.url).searchParams.get("privacy_policy_version");
+      return Response.json(filter === "is.null" ? [a] : [a, b]);
+    });
+    expect(await pendingSignups(ops, doFetch)).toEqual([a]);
+  });
+  test("a stale notice plan cannot claim a row upgraded to personal consent", async () => {
+    const database = backend({ rows: { [a.email_digest]: { privacyVersion: "2026-10-16" } } });
+    const result = await sendNotice(ops, template, planNotice([a], null), database.doFetch, NOW);
+    expect(result.skipped).toBe(1);
+    expect(database.delivered()).toBe(0);
   });
 });

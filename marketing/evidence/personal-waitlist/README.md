@@ -1,36 +1,36 @@
-# Personal waitlist WIP evidence
+# Personal waitlist verification
 
-This draft is incomplete and must not be deployed. Owner: the personal waitlist
-lane. The root coordinator owns merge and staging actions.
+Owner: the personal waitlist lane. Root owns merge, migration, scheduling and
+staging deployment. The legal pages and waitlist must release together.
 
-The before screenshot shows the existing staging page without a submission.
-The after images show the local production build. The CAPTCHA widget is an
-explicit fixture. The success image also uses an explicit API response fixture.
-The actual local `/api/waitlist/signups` returns 503 and performs no write.
-These images prove layout and UI state only, not signup durability or email delivery.
+`before-mobile.png` shows the unchanged staging page. The after images show the
+local production build. CAPTCHA and mail are explicit fixtures. The form success
+image uses a response fixture; confirmed and left images exercise the real local
+handlers and their provider adapters. The leave check proves the entire fixture
+row is absent. These images do not prove hosted delivery.
 
-- `before-mobile.png` is the unchanged staging page.
-- `after-mobile.png` and `after-desktop.png` show the new Spanish fields.
-- `confirmation-fixture-mobile.png` shows the approved response sentence.
-- The three legal images show exact Spanish source text at 390 pixels.
+- `after-mobile.png` and `after-desktop.png` show the Spanish fields.
+- `confirmation-fixture-mobile.png` shows the approved check-email state.
+- `confirmed-mobile.png` and `left-mobile.png` show completed link actions.
+- The three legal images show exact supplied Spanish text at 390 pixels.
 
-Verification used `bun run lint`, `bun run typecheck`, `bun test __tests__`,
-`bun run build --webpack`, and the focused Playwright legal and waitlist tests.
-All 194 unit tests passed with 465 assertions. All 18 browser checks passed.
-The browser checks include 320-pixel and 390-pixel legal layout, accessibility,
-source text equality, optional fields, the inline digit warning, and the
-unfinished endpoint's 503 response. The production build passed.
+The production build, lint and typecheck pass. The unit suite has 200 passes
+and 552 assertions. The full browser suite
+has 215 passes and one existing mobile fine-pointer skip. It checks legal text,
+320/390-pixel geometry, accessibility, the English CTA to the Spanish form, and
+signup to confirmation to whole-row leave through real local handlers. The
+CAPTCHA adapter uses an explicit test-process fixture, never a runtime bypass.
 
-`python3 marketing/scripts/verify-legal-source.py` reproduces source equality.
-The latest supplied Markdown files are retained byte-for-byte under
-`marketing/content/legal-waitlist-source/`. Their manifest records source hashes.
-The Spanish rendered text contains 1455 privacy words, 204 deletion words and
-405 terms words. No date placeholder remains in the supplied terms file.
+The SQL suite has 29 passing assertions on local PostgreSQL 17. It covers RLS,
+constraints, ten-minute delivery reservations, confirmation expiry, a single
+24-hour reminder, seven-day and calendar-year retention, and whole-row removal.
+Ten concurrent registration workers produce one send reservation. Ten reminder
+workers also produce one reservation. No hosted migration or purge ran.
 
-Real CAPTCHA cookie and browser-storage behavior is not verified. The synthetic
-widget wrote no cookie, local storage or session storage. No cookie banner was
-added. No provider call, customer email, hosted database write or deletion ran.
+`python3 marketing/scripts/verify-legal-source.py` proves all six language routes
+match the exact supplied Markdown source. The source manifest records hashes.
 
-Storage approval, durable confirmation, reminder delivery, retention scheduling,
-shared email integration, exact-head CI and independent Eval remain open.
-See `docs/specs/cuadrao-personal-waitlist.md` for the pending data-contract choice.
+The real widget's cookies and local storage are NOT PROBED. The explicit fixture
+writes neither. No cookie banner was added. Live staging confirmation, delivery,
+reminder scheduling and leave proof remain release checks owned by root. The
+launch template is never sent automatically.

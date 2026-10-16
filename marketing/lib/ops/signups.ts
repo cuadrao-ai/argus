@@ -4,9 +4,7 @@ import { SIGNUP_TABLE } from "../forms/signup";
 import { emailDigest, normalizeEmail } from "../forms/validation";
 import type { BusinessLocale } from "../site-routes";
 
-// Operator-side signup handling. The marketing service only ever inserts; every
-// read, removal and notification goes through these functions so a removed
-// address can never be selected for a message.
+// Legacy operator notices must not reach the personal double-opt-in list.
 
 export type ActiveSignup = {
   email_digest: string;
@@ -46,7 +44,7 @@ async function checked(response: Response, action: string): Promise<Response> {
 export async function pendingSignups(config: OpsConfig, doFetch: typeof fetch): Promise<ActiveSignup[]> {
   const rows: ActiveSignup[] = [];
   for (let offset = 0; ; offset += PAGE) {
-    const query = `?select=email_digest,email,language&removed_at=is.null&notified_at=is.null&order=created_at.asc,email_digest.asc&limit=${PAGE}&offset=${offset}`;
+    const query = `?select=email_digest,email,language&removed_at=is.null&notified_at=is.null&privacy_policy_version=is.null&order=created_at.asc,email_digest.asc&limit=${PAGE}&offset=${offset}`;
     const response = await checked(
       await doFetch(table(config, query), { headers: restHeaders(config), signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) }),
       "reading signups",
@@ -218,7 +216,7 @@ export async function sendNotice(
   for (const row of plan.recipients) {
     const key = `${plan.stamp ? "notice" : "notice-test"}-${template.id}-${row.email_digest}`;
     const claimedAt = now().toISOString();
-    const active = `?email_digest=eq.${row.email_digest}&removed_at=is.null`;
+    const active = `?email_digest=eq.${row.email_digest}&removed_at=is.null&privacy_policy_version=is.null`;
 
     if (plan.stamp) {
       try {

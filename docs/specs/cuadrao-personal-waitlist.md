@@ -1,57 +1,103 @@
-# Personal waitlist implementation checkpoint
+# Personal app waitlist
 
-Owner: the personal waitlist lane. The root coordinator owns staging deployment.
-This draft follows the October 16 personal waitlist request. It does not change
-Business CTA destinations, Business inquiries, the English form, or account emails.
+Owner: the personal waitlist lane. The root coordinator owns integration and
+staging deployment. The English signup CTA links to the Spanish form and collects no data. The old
+public signup route uses the same CAPTCHA and opt-in handler. The waitlist and all
+six legal routes ship together after an independent exact-head Eval. This PR has made no hosted write, send or purge.
 
-The current branch is incomplete and must not be deployed. The new Spanish form
-posts to `/api/waitlist/signups`, which returns 503 without writing or sending.
-The existing deployed site remains unchanged. The legacy `/api/signups` route is
-unchanged for the existing English form.
+## Data model checklist
 
-## Verified work
+- Needs: prove consent, send confirmation and one reminder, confirm membership,
+  remove a signup on request and enforce the seven-day or twelve-month deadline.
+- Users: the person joining; the automated delivery and retention job; operations
+  through aggregate logs. There is no public list or answer readback.
+- Grain: one row per normalized email in the existing personal signup table.
+  The existing digest is the unique key. No second personal list is introduced.
+- History: new consent records the policy version and signup time. Confirmation
+  and delivery timestamps change. Existing answers are not overwritten by a
+  duplicate submit. An explicit new signup after leaving creates a new row.
+- Shape: optional spending answer and plain-text wish, confirmed_at,
+  privacy_policy_version, last_confirmation_sent_at, reminder_sent_at and one
+  opaque verification ID. Existing created_at is the canonical signup time; no
+  redundant signup_at is added. Legacy language, source and consent-version
+  columns keep their existing required compatibility values. No IP, browser,
+  fingerprint or reply content is stored in the row.
+- Constraints: SQL enforces allowed spending choices, 280 characters, unique
+  verification IDs and confirmation ordering. RLS remains on; anonymous and
+  authenticated roles cannot read or write. RPCs are service-role only.
+- Retention: unconfirmed rows expire seven days after signup; confirmed rows
+  expire twelve calendar months after signup. Leave immediately removes the
+  entire row, including answers and email_digest. No suppression row remains.
+  Previously collected rows are unchanged until fresh consent is submitted.
+- Idempotency: registration locks the existing email row. Confirmation sends
+  reserve a timestamp at least ten minutes apart. Reminder selection claims each
+  row once with skip-locked. Provider retries use the same key and body.
 
-The optional spending answer uses the five approved choices. The optional wish
-is capped at 280 characters and is never rendered back by the server. Seven or
-more decimal digits, including digits separated by spaces or punctuation, remove
-only the wish. HTML and links are removed. The email remains valid for signup.
+## Links, mail and abuse handling
 
-The CAPTCHA verifier requires a successful response for the request hostname
-and the `personal_waitlist` action. Missing tokens or secrets fail closed. The
-browser widget resets after a submit attempt. The page sets no tracking state.
-Real CAPTCHA cookie and storage behavior still requires a staging observation.
+The opaque verification ID is 256 random bits. Email links expose only its first
+128 bits and a purpose-bound HMAC. The remaining bits never enter a URL. Each
+confirmation link expires after 48 hours, even if a later confirmation is sent.
+Leave links do not expire while a row exists, remain valid beyond 30 days, and
+repeat successfully after deletion. The leave endpoint accepts one-click POST
+and a direct browser GET without login or extra data.
 
-The four email body entries preserve the approved confirmation, reminder and
-welcome copy. Launch is a template-only entry with no approved launch body and
-cannot be sent automatically. The shared account-email writer owns rendering.
-Waitlist transport owns one-click unsubscribe headers. Account emails receive
-neither an unsubscribe link nor an unsubscribe header.
+The form checks CAPTCHA hostname and action and includes a honeypot. The service
+keeps at most five attempts per IP per hour in the existing process-local limiter;
+restarts clear this abuse counter. The durable email limit survives restarts.
+Seven or more decimal digits, including separators and invisible format marks,
+drop only the optional wish. Links and HTML are stripped. The server never
+renders saved answers. No optional resend control is exposed.
 
-The three legal Markdown files are byte-identical copies of the source directory.
-The Spanish routes render the Spanish portion, as the existing legal renderer
-does. The English form and English privacy route remain unchanged. The source
-hashes are in `marketing/content/legal-waitlist-source/manifest.json`.
+Three automatic email types use the shared account layout: confirmation,
+24-hour reminder and welcome. All use Reply-To hola@cuadrao.ai, a Cuadrao sender
+at cuadrao.ai, the configured postal address, and a small grey leave link with
+both one-click unsubscribe headers. They have no code block or Business pitch.
+The fourth entry is a launch template, never sent automatically. Its launch body
+still needs an explicit future content lock before a manual launch send.
 
-## Pending decisions and checks
+A lost delivery response gets one retry with the same provider key. A second
+unknown outcome keeps the claim to avoid duplicate sends. A definite refusal
+releases only the matching reservation so it can safely retry. It emits
+`waitlist_delivery_failed`; operations must inspect that outcome before retrying.
+Welcome retries are limited to the first ten minutes after confirmation and use
+the original confirmation timestamp as their provider key.
 
-The requested stored-field list omits signup time, but the 24-hour reminder,
-48-hour link, seven-day unconfirmed retention and twelve-month confirmed retention
-need it. Durable send limits and an exactly-once reminder also require bounded
-operational state. Storage approval is pending. No migration, stored field,
-retention run, hosted email or staging database write has been made by this lane.
+## Deployment and verification
 
-Timing functions currently use synthetic records only. Tests cover exact time
-boundaries, repeated reminder suppression and leap-day retention. They do not
-prove durable scheduling, email delivery, database concurrency or deletion.
+Apply the new forward migration only after its PR merges. Never apply this
+branch directly. Required marketing-server configuration:
 
-The full acceptance gate remains unchecked until storage is approved, the shared
-layout is integrated, the real database lifecycle is implemented and tested, and
-Priya evaluates the final head. This checkpoint is not a SHIP verdict.
+- Existing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and RESEND_API_KEY.
+- MARKETING_WAITLIST_FROM: a Cuadrao display name and cuadrao.ai mailbox.
+- MARKETING_POSTAL_ADDRESS: the exact approved postal address.
+- CUADRAO_WAITLIST_ORIGIN: the HTTPS marketing origin, staging for this release.
+- CUADRAO_WAITLIST_TURNSTILE_SITE_KEY and CUADRAO_WAITLIST_TURNSTILE_SECRET.
 
-## Detection and tradeoffs
+Schedule `bun scripts/waitlist-maintenance.ts` hourly from the marketing root.
+It purges bounded batches first, then sends due reminders. Its output contains
+only aggregate counts. A failed send or job exits nonzero. Root owns scheduling
+and the first hosted checks; this writer has run only synthetic local deletion.
 
-The unavailable route returns 503 so an unfinished flow cannot silently create
-an unconfirmed signup through the legacy route. This blocks new Spanish signup
-only if someone deploys the draft, which is forbidden until the acceptance gate
-passes. The digit check can remove an innocent long number. That is preferable
-to storing an account number, and it never rejects the email signup.
+Run `bun test __tests__`, lint, typecheck, a production build, the marketing
+browser suite and `marketing/__tests__/waitlist-postgres.sql` in an isolated local
+database after the two signup migrations. Browser tests use explicit CAPTCHA
+and provider fixtures; they do not establish live CAPTCHA storage behavior.
+The staging walk must observe any cookies/local storage set by the real widget,
+verify delivery, confirm, leave, and prove the complete row is absent.
+
+## Legal and shared-file boundaries
+
+The three Markdown sources are exact copies of the approved directory. Both
+language sections render at the established ES and EN routes, including
+/en/privacy, /en/terms and /en/delete-data. Source hashes are committed. The old
+privacy-copy module is removed. No legal page publishes before this waitlist.
+
+In business-footer.tsx this lane owns only LegalNav and the FooterBar copyright
+line. The Business CTA writer owns ContactLink and other CTA hrefs. The owning
+Eval must re-check this shared file before landing. The website copyright is
+only © Cuadrao LLC 2026; the email postal address is not added to that footer.
+
+Legacy notice discovery and claims exclude rows with the new privacy policy
+version. This prevents the old manual notice flow from selecting unconfirmed
+personal signups or using its old email layout for them.

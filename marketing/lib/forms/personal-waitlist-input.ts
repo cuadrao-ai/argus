@@ -16,7 +16,7 @@ export type PersonalWaitlistInput = {
 };
 
 export function containsSensitiveDigits(value: string): boolean {
-  return /(?:\p{Nd}[\s().-]*){7}/u.test(value.normalize("NFKC"));
+  return /(?:\p{Nd}[\s().\-\p{Cf}]*){7}/u.test(value.normalize("NFKC"));
 }
 
 export function plainWish(value: string): string | null {
@@ -26,7 +26,7 @@ export function plainWish(value: string): string | null {
     .replace(/<[^>]*(?:>|$)/g, "")
     .replace(/(?:https?:\/\/|www\.)\S+/gi, "")
     .replace(/\b[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+\/?\S*/gu, "")
-    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/[\u0000-\u001f\u007f\p{Cf}]/gu, " ")
     .trim();
   return plain ? Array.from(plain).slice(0, 280).join("") : null;
 }

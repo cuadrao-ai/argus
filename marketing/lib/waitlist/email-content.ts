@@ -1,7 +1,5 @@
 const confirmationText = "Recibimos tu solicitud para la lista de espera de la app personal de Cuadrao, para llevar tus gastos y los de tu hogar. Confirma tu correo para que te avisemos cuando esté lista para ti.";
 
-export const WAITLIST_BUSINESS_LINE = "¿Buscas Cuadrao para tu negocio? Es un servicio aparte. Escríbenos en cuadrao.ai/contacto.";
-
 export const WAITLIST_EMAILS = {
   confirmation: {
     subject: "Confirma tu lugar en la lista de la app personal de Cuadrao",
@@ -12,7 +10,7 @@ export const WAITLIST_EMAILS = {
     automatic: true,
   },
   reminder: {
-    subject: "¿Sigues interesado? Confirma tu lugar en Cuadrao",
+    subject: "¿Todavía quieres tu lugar en la app personal de Cuadrao?",
     paragraphs: [confirmationText],
     button: "Confirmar mi correo",
     expiryNote: "Este enlace vence en 48 horas.",

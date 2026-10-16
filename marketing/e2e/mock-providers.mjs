@@ -2,6 +2,7 @@
 // what it receives so a test can prove a message or a row actually arrived, and
 // it can be switched into a failing mode to exercise the retry paths.
 import { createServer } from "node:http";
+import { createHash } from "node:crypto";
 
 const PORT = Number(process.env.MOCK_PROVIDER_PORT ?? 4510);
 const RESEND_KEY = "test-resend-key";
@@ -58,6 +59,32 @@ createServer(async (request, response) => {
     const result = { id: `email-${state.emails.length}` };
     if (key) state.idempotent.set(key, result);
     return send(response, 200, result);
+  }
+
+  if (url.pathname.startsWith("/rest/v1/rpc/cuadrao_waitlist_")) {
+    if (request.headers.apikey !== SERVICE_KEY) return send(response, 401, { message: "bad key" });
+    if (mode.supabase === "down") return send(response, 503, { message: "database down" });
+    const args = JSON.parse(raw);
+    const name = url.pathname.split("cuadrao_waitlist_")[1];
+    if (name === "register") {
+      const digest = createHash("sha256").update(args.p_email).digest("hex");
+      if (state.signups.has(digest)) return send(response, 200, []);
+      const row = { email_digest: digest, email: args.p_email, language: "es", consent_version: args.p_privacy_policy_version, privacy_policy_version: args.p_privacy_policy_version, expense_method: args.p_expense_method, wish: args.p_wish, verification_id: args.p_verification_id, created_at: new Date().toISOString(), last_confirmation_sent_at: new Date().toISOString(), confirmed_at: null, reminder_sent_at: null };
+      state.signups.set(digest, row);
+      return send(response, 200, [row]);
+    }
+    const row = [...state.signups.values()].find((item) => item.verification_id === args.p_verification_id);
+    if (name === "confirm") {
+      if (!row) return send(response, 200, []);
+      row.confirmed_at ??= new Date().toISOString();
+      return send(response, 200, [row]);
+    }
+    if (name === "leave") { if (row) state.signups.delete(row.email_digest); return send(response, 200, null); }
+  }
+  if (url.pathname === "/rest/v1/cuadrao_early_access_signups" && request.method === "GET") {
+    if (request.headers.apikey !== SERVICE_KEY) return send(response, 401, { message: "bad key" });
+    const prefix = url.searchParams.get("verification_id")?.replace(/^like\./, "").replace(/\*$/, "");
+    return send(response, 200, [...state.signups.values()].filter((row) => row.verification_id?.startsWith(prefix)));
   }
 
   if (url.pathname === "/rest/v1/cuadrao_early_access_signups" && request.method === "POST") {

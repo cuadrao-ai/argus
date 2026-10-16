@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
-import { businessPath } from "@/lib/site-routes";
 import type { BusinessLocale } from "./content";
 import { businessContactEmail } from "./site-copy";
 import styles from "./personal-early-access.module.css";
@@ -29,7 +28,7 @@ const copy = {
     privacy: "Usaremos tu correo solo para avisarte sobre el acceso anticipado a Cuadrao. Para retirar tu registro, escríbenos a",
     privacyLink: "Política de privacidad",
     rateLimited: "Hiciste varios intentos seguidos. Espera unos minutos e inténtalo de nuevo.",
-    success: "Te avisaremos cuando Cuadrao esté listo para ti.",
+    success: "Revisa tu correo.",
     next: "",
     error: `No pudimos guardar tu correo. Inténtalo de nuevo o escríbenos a ${businessContactEmail}.`,
     invalid: "Revisa tu correo e inténtalo de nuevo.",
@@ -45,17 +44,7 @@ const copy = {
     title: "Your finances, in order.",
     benefit: "Your accounts and next payment, at a glance.",
     body: "Leave your email and we’ll let you know when you can try Cuadrao.",
-    label: "Email address",
     button: "Let me know when I can try it",
-    saving: "Saving your signup…",
-    privacy: "We'll use your email only to tell you about Cuadrao early access. To remove your signup, email",
-    privacyLink: "Privacy policy",
-    rateLimited: "You made several attempts in a row. Wait a few minutes and try again.",
-    success: "You're on the list.",
-    next: "We’ll email you when an invitation is available for you.",
-    error: `We couldn't save your email. Try again or write to ${businessContactEmail}.`,
-    invalid: "Check your email address and try again.",
-    noScript: "Enable JavaScript to use this form.",
     phone: {
       alt: "Cuadrao Personal welcome screen with its logo and create-account button.",
       createAccount: "Create account",
@@ -65,7 +54,7 @@ const copy = {
 } as const;
 
 export function PersonalEarlyAccess({ locale }: { locale: BusinessLocale }) {
-  const c = copy[locale];
+  const c = copy.es;
   const hydrated = useSyncExternalStore(subscribeToHydration, clientSnapshot, serverSnapshot);
   const [email, setEmail] = useState("");
   const [expenseMethod, setExpenseMethod] = useState("");
@@ -90,10 +79,10 @@ export function PersonalEarlyAccess({ locale }: { locale: BusinessLocale }) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     try {
-      const response = await fetch(locale === "es" ? "/api/waitlist/signups" : "/api/signups", {
+      const response = await fetch("/api/waitlist/signups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, locale, website, ...(locale === "es" ? { expenseMethod, wish, captchaToken } : {}) }),
+        body: JSON.stringify({ email, website, expenseMethod, wish, captchaToken }),
         signal: controller.signal,
       });
       const result: unknown = await response.json();
@@ -116,6 +105,23 @@ export function PersonalEarlyAccess({ locale }: { locale: BusinessLocale }) {
     }
   }
 
+  if (locale === "en") return (
+    <section ref={rootRef} className={styles.hero} aria-labelledby="personal-title">
+      <div className={styles.content}>
+        <p className={styles.eyebrow}>{copy.en.eyebrow}</p>
+        <h1 id="personal-title">{copy.en.title}</h1>
+        <p className={styles.intro}>{copy.en.benefit}</p>
+      </div>
+      <div className={styles.capture} id="early-access">
+        <p className={styles.invitation}>{copy.en.body}</p>
+        <Link className={styles.redirectButton} href="/personal#early-access">{copy.en.button}<ArrowRight size={19} aria-hidden="true" /></Link>
+      </div>
+      <figure className={styles.preview}>
+        <WelcomePhone logoRef={logoRef} flying={false} copy={copy.en.phone} delivered={false} />
+      </figure>
+    </section>
+  );
+
   return (
     <section ref={rootRef} className={styles.hero} aria-labelledby="personal-title" data-signup-state={state.status} data-flight-state={flight ? "flying" : state.status === "success" ? "settled" : "rest"}>
       <div className={styles.content}>
@@ -130,10 +136,10 @@ export function PersonalEarlyAccess({ locale }: { locale: BusinessLocale }) {
             <div className={styles.confirmation}>
               <span className={styles.check}><Check size={24} aria-hidden="true" /></span>
               <h2 ref={confirmation} tabIndex={-1}>{c.success}</h2>
-              {c.next && <p>{c.next}</p>}
+              {locale === "es" ? <p>Te enviamos un enlace a {email.trim()} para confirmar tu lugar en la lista de la app personal de Cuadrao. Vence en 48 horas.</p> : c.next && <p>{c.next}</p>}
             </div>
           ) : (
-            <form method="post" action={locale === "es" ? "/api/waitlist/signups" : "/api/signups"} onSubmit={submit} aria-busy={state.status === "submitting"}>
+            <form method="post" action="/api/waitlist/signups" onSubmit={submit} aria-busy={state.status === "submitting"}>
               <noscript><p className={styles.local}>{c.noScript}</p></noscript>
               <fieldset className={styles.formFields} disabled={!hydrated}>
                 <label htmlFor="personal-email">{c.label}</label>
@@ -175,7 +181,6 @@ export function PersonalEarlyAccess({ locale }: { locale: BusinessLocale }) {
             </form>
           )}
         </div>
-        {locale === "en" && <p className={styles.privacy} id="signup-privacy">{c.privacy} <a href={`mailto:${businessContactEmail}`}>{businessContactEmail}</a>. <a href={businessPath(locale, "privacy")}>{c.privacyLink}</a>.</p>}
       </div>
       <figure className={styles.preview}>
         <WelcomePhone logoRef={logoRef} flying={Boolean(flight)} copy={c.phone} delivered={state.status === "success"} />
