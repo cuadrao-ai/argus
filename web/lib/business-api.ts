@@ -215,6 +215,12 @@ export async function settleBusinessRemainder(draftId: string, version: number, 
   });
 }
 
+/** The account types POST /business/accounts accepts; the server's ExpenseAccountType. */
+export const EXPENSE_ACCOUNT_TYPES = ["cash", "checking", "savings", "credit_card"] as const;
+export type ExpenseAccountType = (typeof EXPENSE_ACCOUNT_TYPES)[number];
+
+export type NewBusinessAccount = { nickname: string; type: ExpenseAccountType; currency: CurrencyCode };
+
 export type BusinessAccount = {
   id: string;
   nickname: string | null;
@@ -546,7 +552,7 @@ export async function recordBusinessExpense(
 }
 
 export async function createBusinessAccount(
-  input: { nickname: string; type: string; currency: CurrencyCode },
+  input: NewBusinessAccount,
   idempotencyKey: string,
 ): Promise<BusinessAccount> {
   return apiFetch("/business/accounts", {

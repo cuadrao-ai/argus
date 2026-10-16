@@ -2648,6 +2648,15 @@
       "untitled": "Recibo"
     },
     "record": {
+      "account_name": "Nombre",
+      "account_type": "Tipo de cuenta",
+      "account_types": {
+        "cash": "Efectivo",
+        "checking": "Cuenta corriente",
+        "credit_card": "Tarjeta de crédito",
+        "savings": "Ahorros"
+      },
+      "add_account": "Añadir cuenta",
       "amount_in": "Total en {{currency}}",
       "failed": "No pudimos guardar este gasto. Reintenta. No se guardará dos veces.",
       "no_accounts": "Primero agrega una cuenta del negocio para saber desde dónde se pagó este gasto.",
