@@ -520,12 +520,12 @@ def test_workflow_worker_prepares_the_dispatched_attempt(
             "from public.financial_document_extractions where connection_id=%s",
             (captured.connection_id,),
         ).fetchone()
-        prefix = f"{owner}/{captured.connection_id}/"
+        prefix = f"sealed/{owner}/"
         paths = stored_paths(connection, prefix)
     assert events == (1,)
     assert legacy[0] is True, "the worker read the source from Storage, not bytea"
     if not isinstance(objects, InMemorySourceObjects):
-        assert paths == [prefix + legacy[1]], "stored at {user}/{connection}/{sha256}"
+        assert paths == [prefix + legacy[1]], "stored at sealed/{user}/{sha256}"
     api.forget(
         api.hub.connections.get(
             user_id=owner, connection_id=captured.connection_id, scope=PERSONAL

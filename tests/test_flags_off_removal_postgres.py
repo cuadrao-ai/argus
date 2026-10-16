@@ -114,7 +114,10 @@ def _erase_storage(user_id: str) -> None:
 
 def _objects(person: str) -> int:
     with psycopg.connect(DSN) as connection:
-        return len(stored_paths(connection, owner_prefix(person)))
+        return sum(
+            len(stored_paths(connection, prefix))
+            for prefix in (owner_prefix(person), f"sealed/{person}/", f"rebuilt/{person}/")
+        )
 
 
 def _extractions(person: str) -> int:

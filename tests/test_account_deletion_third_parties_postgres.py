@@ -450,9 +450,12 @@ def test_document_sources_are_erased_before_the_account_delete(lane, world):  # 
     """#778: every object under the person's prefix goes, a referenced capture
     and an unreferenced one alike; anyone else's stays. Storage down keeps the
     run pending and the account locked, like any third party."""
+    from hashlib import sha256
+
     a, b = world["a"], world["b"]
+    digest = sha256(b"%PDF-fixture").hexdigest()
     objects = source_objects()
-    orphan, theirs = f"{a}/{uuid4()}/{'a' * 64}", f"{b}/{uuid4()}/{'b' * 64}"
+    orphan, theirs = f"{a}/{uuid4()}/{digest}", f"{b}/{uuid4()}/{digest}"
     for path in (orphan, theirs):
         objects.put(path, b"%PDF-fixture", "application/pdf")
     with ConnectionPool(DSN, min_size=0, max_size=2) as pool:
@@ -468,7 +471,7 @@ def test_document_sources_are_erased_before_the_account_delete(lane, world):  # 
             connection_id=statement.id,
             filename="statement.pdf",
             media_type="application/pdf",
-            sha256="0" * 64,
+            sha256=digest,
             size_bytes=12,
             created_at=NOW,
             updated_at=NOW,
@@ -477,7 +480,9 @@ def test_document_sources_are_erased_before_the_account_delete(lane, world):  # 
             user_id=a, draft=draft, content=b"%PDF-fixture"
         )
     with psycopg.connect(DSN) as c:
-        assert len(stored_paths(c, f"{a}/")) == 2
+        assert stored_paths(c, f"{a}/") == [orphan]
+        assert stored_paths(c, f"sealed/{a}/") == [f"sealed/{a}/{digest}"]
+        assert stored_paths(c, f"rebuilt/{a}/") == []
     try:
         admin = SqlAuthAdmin()
         with pytest.raises(AccountDeletionIncomplete) as raised:
@@ -525,7 +530,8 @@ def test_document_sources_are_erased_before_the_account_delete(lane, world):  # 
         assert done.status == "done"
         assert _run(run_id)[4]["storage"] == "deleted"
         with psycopg.connect(DSN) as c:
-            assert stored_paths(c, f"{a}/") == []
+            for prefix in (f"{a}/", f"sealed/{a}/", f"rebuilt/{a}/"):
+                assert stored_paths(c, prefix) == []
             assert stored_paths(c, f"{b}/") == [theirs]
     finally:
         objects.delete(f"{a}/")
