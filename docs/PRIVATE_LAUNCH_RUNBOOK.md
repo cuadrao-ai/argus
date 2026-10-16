@@ -905,20 +905,25 @@ What the logs and run record tell you:
   updated in the last 24 hours have seen one (any provider), the run logs
   `account_deletion.already_revoked_spike` (with the count): worth a look, a
   provider may be revoking grants on its own.
-- **PostHog.** Which outcome the step records depends on the API service's
-  configuration on each pass:
+- **PostHog.** Only the API service's configuration decides whether the step
+  is `not_applicable`, when the person's request opens the run. A sweep, a
+  force run or a later retry never marks the step `not_applicable`, whatever
+  its own environment holds. A step left pending stays pending and keeps its
+  `analytics_evidence`.
   - `ARGUS_ANALYTICS_DELETION_ENABLED` on: the PostHog deletion adapter (#806)
     runs, whether or not `POSTHOG_PROJECT_TOKEN` is set.
-  - Flag off and no `POSTHOG_PROJECT_TOKEN`: the server sends no PostHog
-    events, so the step records `analytics: not_applicable` with
-    `analytics_evidence.reason: posthog_not_configured` and the run can
-    finish, never `deleted`
+  - Flag off and no `POSTHOG_PROJECT_TOKEN` on the API service: the server
+    sends no PostHog events, so the run opens with
+    `analytics: not_applicable` and
+    `analytics_evidence.reason: posthog_not_configured` and can finish, never
+    `deleted`
     ([decision 1B](specs/argus-decision-log.md#october-15-2026-account-deletion-analytics-step-without-posthog-events)).
     On October 15, 2026, a read-only check found no `POSTHOG_PROJECT_TOKEN`
     on the staging API service, no PostHog setting on the staging web
     service, and no client PostHog setup in the web or iOS code.
   - Flag off and the token set: outside tests and local dev the step stays
-    pending (`analytics_adapter_unconfigured`).
+    pending (`analytics_adapter_unconfigured`) until the adapter deletes the
+    events or an operator forces it (`operator_forced`).
 
   A deployment that has ever sent events keeps them at PostHog after its
   token is removed. Turn on the deletion adapter there before removing the

@@ -88,6 +88,7 @@ from argus.observability.analytics_deletion import (
     NOT_APPLICABLE_REASON,
     AnalyticsDeletion,
     EventAnalyticsDeletion,
+    NoAnalyticsEvents,
 )
 from argus.observability.product_events import actor_hash_for_user
 
@@ -550,9 +551,14 @@ class AccountDeletionService:
                 # then inserts nothing and locks the row the other one made.
                 connection.execute(
                     "insert into argus_private.account_deletion_runs"
-                    " (subject_hash, user_id, analytics_distinct_id, status)"
-                    " values (%s, %s, %s, 'started') on conflict do nothing",
-                    (subject, user_id, actor_hash_for_user(user_id)),
+                    " (subject_hash, user_id, analytics_distinct_id, status, steps)"
+                    " values (%s, %s, %s, 'started', %s::jsonb) on conflict do nothing",
+                    (
+                        subject,
+                        user_id,
+                        actor_hash_for_user(user_id),
+                        json.dumps(self._analytics_at_open()),
+                    ),
                 )
                 row = connection.execute(select, (subject,)).fetchone()
                 if row is None:
@@ -1168,6 +1174,18 @@ class AccountDeletionService:
         self._record_step(subject, "storage", "deleted", run=run)
         return None
 
+    def _analytics_at_open(self) -> dict[str, Any]:
+        """Runs open only through the API route, so the API service's own
+        configuration decides whether PostHog ever held this person's events
+        (decision 1B). A sweep or force run never decides it from its own."""
+
+        if not isinstance(self._analytics, NoAnalyticsEvents):
+            return {}
+        return {
+            "analytics": "not_applicable",
+            "analytics_evidence": {"reason": NOT_APPLICABLE_REASON},
+        }
+
     def _delete_analytics(self, subject: str) -> str | None:
         """The reason while the PostHog person deletion is still owed."""
 
@@ -1204,19 +1222,11 @@ class AccountDeletionService:
                 return None
             return f"analytics_delete_{result.outcome}"
         outcome = self._analytics.delete_person(distinct_id)
-        if outcome == "not_applicable":
-            with self._households.connection() as connection, connection.transaction():
-                connection.execute(
-                    "update argus_private.account_deletion_runs"
-                    " set steps = steps || jsonb_build_object("
-                    " 'analytics', 'not_applicable', 'analytics_evidence',"
-                    " jsonb_build_object('reason', %s::text)),"
-                    " updated_at = %s where subject_hash = %s",
-                    (NOT_APPLICABLE_REASON, self._clock(), subject),
-                )
-            return None
-        if outcome == "recorded_by_fake" and not self._allow_fake_analytics:
-            # Nothing was deleted at PostHog. Never counted as done here.
+        if outcome == "not_applicable" or (
+            outcome == "recorded_by_fake" and not self._allow_fake_analytics
+        ):
+            # Nothing was deleted at PostHog. Never counted as done here: only
+            # the pass that opened the run decides there was nothing to delete.
             self._record_step(subject, "analytics", "pending")
             return "analytics_adapter_unconfigured"
         self._record_step(subject, "analytics", outcome)
