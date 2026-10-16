@@ -1,0 +1,22 @@
+{
+  "captured_at": "2026-10-16T17:11:04.754395+00:00",
+  "base_sha": "bc16c70c8e1e01271090695648bdb30f5c38b1a9",
+  "before_url": "https://cuadrao-marketing-staging.onrender.com/personal",
+  "after_url": "http://127.0.0.1:49311/personal",
+  "build": "next build --webpack",
+  "browser_tests": 215,
+  "unit_tests": 200,
+  "unit_assertions": 552,
+  "provider_evidence": "Real local Next handlers with explicit CAPTCHA, PostgREST and mail fixtures. Separate SQL checks ran on local PostgreSQL 17. No hosted send, write or purge.",
+  "actual_turnstile_storage": "NOT PROBED. Fixture path wrote no cookie, localStorage or sessionStorage.",
+  "browser_skips": 1,
+  "sql_checks": 29,
+  "concurrency_probes": {
+    "registration_workers": 10,
+    "registration_claims": 1,
+    "reminder_workers": 10,
+    "reminder_claims": 1
+  },
+  "reconciled_integration_sha": "955b96b16133883fff3008604065583ff6294bb3",
+  "post_merge_browser_checks": 28
+}

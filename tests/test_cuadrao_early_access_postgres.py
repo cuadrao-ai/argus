@@ -70,7 +70,9 @@ def test_a_repeated_address_is_ignored_not_duplicated(connection):
         assert _insert_ignoring_duplicates(connection, email=email, digest=digest) == 1
         assert _insert_ignoring_duplicates(connection, email=email, digest=digest) == 0
         with connection.cursor() as cursor:
-            cursor.execute(f"select count(*) from {TABLE} where email_digest = %s", (digest,))
+            cursor.execute(
+                f"select count(*) from {TABLE} where email_digest = %s", (digest,)
+            )
             assert cursor.fetchone()[0] == 1
     finally:
         _cleanup(connection, digest)
@@ -90,7 +92,9 @@ def test_a_removed_address_keeps_only_its_digest_and_blocks_reregistration(conne
             assert cursor.fetchone() == (None, True)
         assert _insert_ignoring_duplicates(connection, email=email, digest=digest) == 0
         with connection.cursor() as cursor:
-            cursor.execute(f"select email from {TABLE} where email_digest = %s", (digest,))
+            cursor.execute(
+                f"select email from {TABLE} where email_digest = %s", (digest,)
+            )
             assert cursor.fetchone() == (None,)
     finally:
         _cleanup(connection, digest)
@@ -174,9 +178,55 @@ def test_only_service_role_can_reach_the_table(connection):
     for role in ("anon", "authenticated"):
         for privilege in ("select", "insert", "update", "delete"):
             assert grants[(role, privilege)] is False, (role, privilege)
-    for privilege in ("select", "insert", "update"):
+    for privilege in ("select", "insert", "update", "delete"):
         assert grants[("service_role", privilege)] is True
-    assert grants[("service_role", "delete")] is False
+
+
+@pytest.mark.parametrize("role", ["anon", "authenticated", "service_role"])
+@pytest.mark.parametrize("operation", ["operator", "leave", "purge"])
+def test_personal_waitlist_deletion_requires_service_role(connection, role, operation):
+    email, legacy_email = _email(), _email()
+    digest, legacy_digest = _digest(email), _digest(legacy_email)
+    verification_id = _digest(fake.uuid4())
+    statements = {
+        "operator": (f"delete from {TABLE} where email_digest = %s", (digest,)),
+        "leave": ("select public.cuadrao_waitlist_leave(%s)", (verification_id,)),
+        "purge": ("select public.cuadrao_waitlist_purge(100)", ()),
+    }
+    with connection.transaction(force_rollback=True):
+        connection.execute(
+            "select * from public.cuadrao_waitlist_register(%s, %s, %s, %s, %s)",
+            (email, "No los llevo", "Private answer", verification_id, "test-policy"),
+        )
+        connection.execute(
+            f"update {TABLE} set created_at = now() - interval '8 days' "
+            "where email_digest = %s",
+            (digest,),
+        )
+        _insert_ignoring_duplicates(connection, email=legacy_email, digest=legacy_digest)
+        _remove(connection, legacy_digest)
+        assert connection.execute(
+            f"select count(*) from {TABLE} where email_digest = any(%s)",
+            ([digest, legacy_digest],),
+        ).fetchone() == (2,)
+        statement, params = statements[operation]
+        with connection.transaction(force_rollback=True):
+            connection.execute(
+                psycopg.sql.SQL("set local role {}").format(psycopg.sql.Identifier(role))
+            )
+            if role == "service_role":
+                connection.execute(statement, params)
+                assert connection.execute(
+                    f"select email_digest from {TABLE} where email_digest = any(%s)",
+                    ([digest, legacy_digest],),
+                ).fetchall() == [(legacy_digest,)]
+            else:
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    connection.execute(statement, params)
+        assert connection.execute(
+            f"select count(*) from {TABLE} where email_digest = any(%s)",
+            ([digest, legacy_digest],),
+        ).fetchone() == (2,)
 
 
 def test_row_level_security_is_on_with_no_policy(connection):

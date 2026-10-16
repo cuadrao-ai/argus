@@ -5,7 +5,6 @@ import { businessContactEmail, siteCopy } from "./site-copy";
 import { BusinessHeader } from "./business-header";
 import { ContactForm } from "./contact-form";
 import { PersonalEarlyAccess } from "./personal-early-access";
-export { PrivacyPage } from "./privacy-page";
 import { BusinessFooter } from "./business-footer";
 import styles from "./business.module.css";
 import touchup from "./touchup.module.css";

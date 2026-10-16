@@ -1,3 +1,4 @@
+import { mockWaitlistWidget } from "./waitlist-fixture";
 import { expect, test } from "@playwright/test";
 import {
   asNewClient,
@@ -9,16 +10,17 @@ import {
 } from "./support";
 
 const COPY = {
-  es: { path: "/personal", button: "Avísame cuando pueda probarla", success: "Ya estás en la lista." },
+  es: { path: "/personal", button: "Avísame cuando pueda probarla", success: "Revisa tu correo." },
   en: { path: "/en/personal", button: "Let me know when I can try it", success: "You're on the list." },
 } as const;
 
-test.beforeEach(async ({ request, context }, info) => {
+test.beforeEach(async ({ request, context, page }, info) => {
   await resetMock(request);
+  await mockWaitlistWidget(page);
   await asNewClient(context, info);
 });
 
-for (const locale of ["es", "en"] as const) {
+for (const locale of ["es"] as const) {
   const copy = COPY[locale];
 
   test.describe(`personal signup ${locale}`, () => {
@@ -80,3 +82,14 @@ for (const locale of ["es", "en"] as const) {
     await context.close();
   });
 }
+
+test("English signup links to the Spanish form and collects nothing", async ({ page, request }) => {
+  await page.goto("/en/personal");
+  await expect(page.locator("main form")).toHaveCount(0);
+  const link = page.getByRole("link", { name: "Let me know when I can try it", exact: true });
+  await expect(link).toHaveAttribute("href", "/personal#early-access");
+  await link.click();
+  await expect(page).toHaveURL(/\/personal#early-access$/);
+  await expect(page.getByRole("textbox", { name: "Correo", exact: true })).toBeVisible();
+  expect((await mockState(request)).signups).toHaveLength(0);
+});
