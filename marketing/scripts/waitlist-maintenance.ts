@@ -1,7 +1,7 @@
 import { waitlistDeps } from "../lib/waitlist/runtime";
 import { maintainWaitlist } from "../lib/waitlist/service";
 
-// Schedule this entrypoint hourly in the marketing service environment.
+// Manual recovery only. Supabase Cron owns scheduled retention and reminders.
 // It logs counts only. Launch notices are never part of this job.
 const deps = waitlistDeps();
 if (!deps) {

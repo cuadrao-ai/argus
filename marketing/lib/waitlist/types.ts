@@ -15,6 +15,6 @@ export type WaitlistStore = {
   confirm(id: string, issuedAt: string): Promise<WaitlistRow | null>;
   leave(id: string): Promise<void>;
   release(id: string, reservedAt: string, reminder: boolean): Promise<void>;
-  reminders(): Promise<WaitlistRow[]>;
+  reminders(limit?: number): Promise<WaitlistRow[]>;
   purge(): Promise<number>;
 };

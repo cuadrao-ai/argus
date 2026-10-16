@@ -15,7 +15,8 @@ export function waitlistDeps(env: Record<string, string | undefined> = process.e
   const captchaSecret = env.CUADRAO_WAITLIST_TURNSTILE_SECRET?.trim();
   if (!config.supabaseUrl || !config.supabaseServiceKey || !config.resendApiKey || !from || !postalAddress || !origin || !captchaSecret) return null;
   const mailbox = parseMailbox(/^Cuadrao <([^<>\r\n]+)>$/.exec(from)?.[1]);
-  if (!mailbox?.endsWith("@cuadrao.ai") || !/^Cuadrao\s*</.test(from)) return null;
+  const approvedStagingSender = config.supabaseUrl === "https://skedzwocnmrhfigiwyzi.supabase.co" && mailbox === "no-responder@mail.cuadrao.ai";
+  if (!mailbox?.endsWith("@cuadrao.ai") && !approvedStagingSender) return null;
   let url: URL;
   try { url = new URL(origin); } catch { return null; }
   if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) return null;

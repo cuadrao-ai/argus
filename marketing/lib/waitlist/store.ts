@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { PROVIDER_TIMEOUT_MS } from "../forms/config";
-import type { WaitlistRow, WaitlistStore } from "./types";
+import { PROVIDER_TIMEOUT_MS } from "../forms/config.ts";
+import type { WaitlistRow, WaitlistStore } from "./types.ts";
 
 export const PRIVACY_POLICY_VERSION = "2026-10-16";
 export type WaitlistDatabaseConfig = { supabaseUrl: string; supabaseServiceKey: string };
@@ -31,7 +31,7 @@ export function waitlistStore(config: WaitlistDatabaseConfig, doFetch: typeof fe
     async confirm(id, issuedAt) { return (await rows("confirm", { p_verification_id: id, p_issued_at: issuedAt }))[0] ?? null; },
     async leave(id) { await request("rpc/cuadrao_waitlist_leave", { p_verification_id: id }); },
     async release(id, reservedAt, reminder) { await request("rpc/cuadrao_waitlist_release", { p_verification_id: id, p_reserved_at: reservedAt, p_reminder: reminder }); },
-    async reminders() { return rows("reminders", { p_limit: 100 }); },
+    async reminders(limit = 100) { return rows("reminders", { p_limit: limit }); },
     async purge() { return Number(await request("rpc/cuadrao_waitlist_purge", { p_limit: 100 })); },
   };
 }

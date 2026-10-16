@@ -9779,3 +9779,13 @@ accept path recorded.
 
 Another person's receipt id answers 404 `receipt_not_found` on every receipt
 route. 
+
+### Waitlist staging scheduler
+
+`POST /functions/v1/waitlist-reminders` is an internal Supabase Edge Function.
+It requires the staging service-role bearer credential and the exact staging
+project URL. It sends at most two due reminders using the existing reservation
+RPC and shared email renderer. It returns counts; failures return HTTP 503.
+It never purges records. A separate SQL cron job calls the existing retention
+RPC. Both schedules run every five minutes, with retention offset by two minutes.
+Signup still sends confirmation immediately; welcome follows confirmation.

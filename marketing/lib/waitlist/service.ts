@@ -1,3 +1,4 @@
+import { remindWaitlist } from "./reminders";
 import { verifyWaitlistCaptcha } from "./captcha";
 import { tokenPrefix, verifyWaitlistToken } from "./tokens";
 import type { WaitlistRow, WaitlistStore } from "./types";
@@ -78,21 +79,8 @@ export async function leaveWaitlist(token: string, deps: Pick<WaitlistDeps, "sto
 
 export async function maintainWaitlist(deps: Pick<WaitlistDeps, "store" | "send">) {
   const purged = await deps.store.purge();
-  const rows = await deps.store.reminders();
-  let sent = 0;
-  let failed = 0;
-  for (const row of rows) {
-    // Read again so a confirmed or deleted row does not get a queued reminder.
-    const active = await deps.store.find(row.verification_id.slice(0, 32));
-    if (!active || active.confirmed_at) continue;
-    const outcome = await deps.send("reminder", row);
-    if (outcome === "sent") sent += 1;
-    else {
-      failed += 1;
-      if (outcome === "refused") await deps.store.release(row.verification_id, row.last_confirmation_sent_at!, true);
-    }
-  }
-  const result = { purged, remindersSent: sent, remindersFailed: failed };
+  const reminders = await remindWaitlist(deps);
+  const result = { purged, ...reminders };
   logEvent("waitlist_maintenance", result);
   return result;
 }
