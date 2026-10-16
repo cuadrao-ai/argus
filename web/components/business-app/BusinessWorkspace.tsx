@@ -40,8 +40,6 @@ import BusinessSwitcher from "./BusinessSwitcher";
 import { BusinessReviewShortcutsProvider } from "./BusinessReviewShortcuts";
 import { useBusinessKeyboardShortcuts } from "./business-keyboard-shortcuts";
 import BusinessBottomTabs from "./BusinessBottomTabs";
-import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
-import { Users } from "lucide-react";
 import BusinessPanel from "./BusinessPanel";
 import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
@@ -417,14 +415,12 @@ function BusinessWorkspaceContent({
       keyboardShortcuts,
       bottomNavigation: (shell) => shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview",
-      sidebarHeader: (shell) => <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} />,
       sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
-      sidebarFooter: (shell) => <SidebarNavButton icon={Users} label={t("business_access.nav", "Access")} collapsed={shell.sidebarCollapsed} onClick={() => openPanel({ kind: "access" })} />,
-      headerActions: (shell) => <>
+      sidebarFooter: (shell) => <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onAccess={() => openPanel({ kind: "access" })} />,
+      headerActions: () => <>
         {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-sm text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
         </button> : null}
-        {shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={false} onChoose={chooseBusiness} /> : null}
       </>,
       panel: () => <BusinessPanel />,
       starterEntries: () => actions.starterEntries,

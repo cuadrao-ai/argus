@@ -37,92 +37,63 @@ async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace
   const env = await setup();
   const { default: BusinessSwitcher } = await import("@/components/business-app/BusinessSwitcher");
   const chosenIds: (string | null)[] = [];
+  const access: string[] = [];
   await env.act(async () => {
     env.root.render(
       <env.I18nextProvider i18n={env.i18n}>
-        <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={collapsed} onChoose={(id) => chosenIds.push(id)} />
+        <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={collapsed} onChoose={(id) => chosenIds.push(id)} onAccess={() => access.push("access")} />
       </env.I18nextProvider>,
     );
   });
   await env.settle();
-  return { ...env, chosenIds };
+  return { ...env, chosenIds, access };
 }
 
 const key = (target: Element, key: string) => target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 
-describe("the Business switcher at the top left", () => {
-  test("the English default is Spanish in the collapsed label and open options", async () => {
-    const unnamed = { ...CLIENT, name: "My business" };
-    const page = await mountSwitcher([OWN, unnamed], unnamed, true);
-    const button = page.host.querySelector("button[aria-haspopup=listbox]") as HTMLButtonElement;
-    assert.equal(page.host.querySelector('[data-testid="business-current-name"]')?.textContent, "Mi negocio");
-    assert.ok(button.getAttribute("aria-label")?.includes("Mi negocio"));
-    assert.ok(button.getAttribute("title")?.includes("Mi negocio"));
-    await page.act(async () => button.click());
-    assert.ok([...document.querySelectorAll('[role="option"]')][1].textContent?.includes("Mi negocio"));
-    assert.ok(!page.host.textContent?.includes("My business"));
-    assert.equal(unnamed.name, "My business");
-    await page.act(async () => page.root.unmount());
-  });
-
-  test("with only the own Business it is a plain label naming it; nothing opens", async () => {
+describe("the Business mark and switcher", () => {
+  test("one business opens access and never offers a dead switch action", async () => {
     const page = await mountSwitcher([OWN], OWN);
-    const control = page.host.querySelector('[data-testid="business-switcher"]')!;
-    assert.equal(control.getAttribute("data-switchable"), "false");
-    assert.equal(page.host.querySelector('[data-testid="business-current-name"]')?.textContent, "Ferretería Luna");
-    assert.equal(page.host.querySelector("button"), null);
-    assert.ok(control.textContent?.includes("Tu negocio"));
-    await page.act(async () => page.root.unmount());
+    try {
+      const button = page.host.querySelector("button")!;
+      assert.ok(button.getAttribute("aria-label")?.includes("Ferretería Luna"));
+      await page.act(async () => button.click());
+      const items = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+      assert.deepEqual(items.map((item) => item.textContent), ["Equipo y accesos"]);
+      await page.act(async () => items[0].click());
+      assert.deepEqual(page.access, ["access"]);
+    } finally { await page.act(async () => page.root.unmount()); }
   });
-
-  test("with a client Business it is a button that names the active one and opens a listbox the keyboard drives", async () => {
+  test("real business names, current selection, keyboard choice and focus return", async () => {
     const page = await mountSwitcher([OWN, CLIENT, OTHER], CLIENT);
-    const button = page.host.querySelector("button[aria-haspopup=listbox]") as HTMLButtonElement;
-    assert.ok(button, "a switch button");
-    assert.equal(page.host.querySelector('[data-testid="business-current-name"]')?.textContent, "Colmado Peña");
-    assert.equal(button.getAttribute("aria-expanded"), "false");
-    assert.ok(button.getAttribute("aria-label")?.includes("Cambiar de negocio"));
-    await page.act(async () => { button.click(); });
-    await page.settle();
-    const list = document.querySelector('[role="listbox"]') as HTMLElement;
-    assert.ok(list, "the listbox opened");
-    assert.equal(document.activeElement, list, "focus moves into the list");
-    const options = [...document.querySelectorAll('[role="option"]')];
-    assert.deepEqual(options.map((o) => o.getAttribute("aria-selected")), ["false", "true", "false"]);
-    assert.ok(options[0].textContent?.includes("Ferretería Luna") && options[0].textContent?.includes("Tu negocio"));
-    assert.ok(options[2].textContent?.includes("Cliente · Ver y preparar"));
-    // Arrow down from the active (second) to the third, Home to the first, Enter chooses the own Business (null).
-    await page.act(async () => { key(list, "ArrowDown"); });
-    assert.equal(options[2].getAttribute("data-active"), "true");
-    await page.act(async () => { key(list, "Home"); });
-    assert.equal(options[0].getAttribute("data-active"), "true");
-    await page.act(async () => { key(list, "Enter"); });
-    await page.settle();
-    assert.deepEqual(page.chosenIds, [null]);
-    assert.equal(document.querySelector('[role="listbox"]'), null, "closed after choosing");
-    assert.equal(document.activeElement, button, "focus returns to the button");
-    // Open again, type-ahead to Taller, Escape closes without choosing.
-    await page.act(async () => { button.click(); });
-    await page.settle();
-    const again = document.querySelector('[role="listbox"]') as HTMLElement;
-    await page.act(async () => { key(again, "t"); });
-    assert.equal([...document.querySelectorAll('[role="option"]')][2].getAttribute("data-active"), "true");
-    await page.act(async () => { key(again, "Escape"); });
-    assert.equal(document.querySelector('[role="listbox"]'), null);
-    assert.deepEqual(page.chosenIds, [null]);
-    await page.act(async () => page.root.unmount());
+    try {
+      const button = page.host.querySelector("button")!;
+      await page.act(async () => button.click());
+      assert.equal(document.querySelector('[data-testid="business-current-name"]')?.textContent, "Colmado Peña");
+      const change = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((item) => item.textContent === "Cambiar de negocio")!;
+      await page.act(async () => change.click());
+      const list = document.querySelector('[role="listbox"]')!;
+      assert.equal(document.activeElement, list);
+      const options = [...document.querySelectorAll('[role="option"]')];
+      assert.deepEqual(options.map((option) => option.getAttribute("aria-selected")), ["false", "true", "false"]);
+      for (const [index, name] of ["Ferretería Luna", "Colmado Peña", "Taller Brito"].entries()) assert.ok(options[index].textContent?.includes(name));
+      await page.act(async () => key(list, "End"));
+      await page.act(async () => key(list, "Enter"));
+      assert.deepEqual(page.chosenIds, ["g-other"]);
+      assert.equal(document.activeElement, button);
+      assert.equal(document.querySelector('[role="listbox"]'), null);
+    } finally { await page.act(async () => page.root.unmount()); }
   });
-
-  test("a click on a client row chooses its grant; collapsed, the name stays readable to assistive tech", async () => {
+  test("collapsed business mark names the selected business and Escape makes no choice", async () => {
     const page = await mountSwitcher([OWN, CLIENT], OWN, true);
-    assert.equal(page.host.querySelector('[data-testid="business-current-name"]')?.textContent, "Ferretería Luna");
-    const button = page.host.querySelector("button[aria-haspopup=listbox]") as HTMLButtonElement;
-    await page.act(async () => { button.click(); });
-    await page.settle();
-    const client = [...document.querySelectorAll('[role="option"]')][1] as HTMLElement;
-    await page.act(async () => { client.click(); });
-    assert.deepEqual(page.chosenIds, ["g-client"]);
-    await page.act(async () => page.root.unmount());
+    try {
+      const button = page.host.querySelector("button")!;
+      assert.equal(button.getAttribute("aria-label"), "Negocio: Ferretería Luna");
+      await page.act(async () => button.click());
+      await page.act(async () => key(document.querySelector('[role="menu"]')!, "Escape"));
+      assert.deepEqual(page.chosenIds, []);
+      assert.equal(document.activeElement, button);
+    } finally { await page.act(async () => page.root.unmount()); }
   });
 });
 

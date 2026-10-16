@@ -2609,11 +2609,11 @@
       "go_business": "Ir a Cuadrao Business"
     },
     "nav": {
-      "expenses": "Gastos",
+      "expenses": "Recibos",
       "inbox": "Bandeja",
       "label": "Negocio",
-      "overview": "Resumen",
-      "updates": "Novedades"
+      "overview": "Inicio",
+      "updates": "Notificaciones"
     },
     "overview": {
       "attention_one": "{{count}} recibo necesita tu atención",
@@ -2823,7 +2823,7 @@
     "same_amount": "Mismo monto, sin conversión."
   },
   "business_access": {
-    "nav": "Acceso",
+    "nav": "Equipo y accesos",
     "title": "Acceso",
     "subtitle": "Quién puede ver y preparar los registros de tu negocio. Solo tú apruebas.",
     "owner": "Dueño",

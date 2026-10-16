@@ -52,6 +52,7 @@ test.describe("Business preview", () => {
     test.setTimeout(180_000);
     const switchTo = async (name: string) => {
       await page.getByTestId("business-switcher").getByRole("button").click();
+      await page.getByRole("menuitem", { name: "Switch Business" }).click();
       await page.getByRole("option", { name: new RegExp(name) }).click();
       await expect(page.getByTestId("business-current-name")).toHaveText(name);
       await expect(page.getByText("Your account changed", { exact: false })).toHaveCount(0);

@@ -22,6 +22,7 @@ type SidebarNavButtonProps = {
   className?: string;
   /** Optional right-side content (e.g. chevron for accordion) */
   trailing?: ReactNode;
+  badgeCount?: number;
   /** A compact keyboard hint shown while the primary modifier is held */
   shortcutHint?: string;
   /** Whether the keyboard hint is currently visible */
@@ -48,6 +49,7 @@ export default function SidebarNavButton({
   onClick,
   className = "",
   trailing,
+  badgeCount,
   shortcutHint,
   showShortcutHint = false,
   shortcutOnInteraction = false,
@@ -58,7 +60,7 @@ export default function SidebarNavButton({
     <button
       onClick={onClick}
       aria-current={active ? "page" : undefined}
-      className={`group mb-1 flex h-11 w-full items-center rounded-[14px] transition-colors duration-200 ${
+      className={`group mb-1 flex h-11 w-full items-center rounded-[14px] transition-colors duration-150 motion-reduce:transition-none motion-reduce:duration-0 ${
         active
           ? "bg-black/5 dark:bg-white/5"
           : "hover:bg-black/5 dark:hover:bg-white/5"
@@ -68,9 +70,9 @@ export default function SidebarNavButton({
       <div className="relative flex h-11 w-11 flex-shrink-0 items-center justify-center">
         <Icon
           style={{ width: iconSize, height: iconSize }}
-          className="text-black/60 transition-transform duration-150 ease-out group-hover:scale-[1.06] group-hover:text-black dark:text-white/60 dark:group-hover:text-white"
+          className="text-black/60 transition-colors duration-150 motion-reduce:transition-none motion-reduce:duration-0 group-hover:text-black dark:text-white/60 dark:group-hover:text-white"
         />
-        {activityPresentation !== "none" ? (
+        {collapsed && badgeCount !== undefined && badgeCount > 0 ? <span data-testid="business-inbox-count" className="absolute right-0 top-0 rounded-full bg-[var(--cuadrao-green)] px-1 text-[10px] tabular-nums text-white">{badgeCount}</span> : activityPresentation !== "none" ? (
           <span
             data-sidebar-activity-overlay="true"
             className="pointer-events-none absolute right-1 top-1"
@@ -84,7 +86,7 @@ export default function SidebarNavButton({
       </div>
       {/* Label: font-display (Space Grotesk) per DESIGN.md Nav/UI role */}
       <span
-        className={`ml-1 whitespace-nowrap font-display text-[15px] font-medium tracking-tight text-black transition-[opacity,max-width] duration-300 ease-in-out dark:text-white ${
+        className={`ml-1 whitespace-nowrap font-display text-[15px] font-medium tracking-tight text-black transition-[opacity,max-width] duration-150 motion-reduce:transition-none motion-reduce:duration-0 ease-in-out dark:text-white ${
           collapsed
             ? "pointer-events-none max-w-0 overflow-hidden opacity-0"
             : "max-w-[180px] opacity-100"

@@ -57,6 +57,40 @@
         "marketing/**"
       ]
     },
+    "codex/biz-sidebar-polish": {
+      "description": "Business sidebar polish. Owns the navigation and business menu, ChatSidebar footer and profile identity slot, ChatInterface rail preference wiring, the declared browser-storage layout key, and focused tests. Naming prompts, settings content, health routes and loading screens remain with their current lanes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/reports/evidence/biz-sidebar-polish/**",
+        "web/components/business-app/BusinessSidebarNav.tsx",
+        "web/components/business-app/BusinessSwitcher.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/chat/ChatInterface.tsx",
+        "web/components/sidebar/ChatSidebar.tsx",
+        "web/components/sidebar/SidebarNavButton.tsx",
+        "web/components/sidebar/useSidebarPreference.ts",
+        "web/lib/browser-storage.ts",
+        "web/lib/sidebar-mode-state.ts",
+        "web/lib/sidebar-identity.ts",
+        "web/public/locales/es-419/common.json",
+        "web/__tests__/business-sidebar-preference.test.ts",
+        "web/__tests__/business-sidebar-preference.dom.test.tsx",
+        "web/__tests__/business-switcher.dom.test.tsx",
+        "web/__tests__/business-locked-polish.dom.test.tsx",
+        "web/e2e/business-sidebar-polish.spec.ts",
+        "web/e2e/business-pilot-preview.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "ios/**",
+        "marketing/**",
+        "src/**",
+        "supabase/**",
+        "render.yaml"
+      ]
+    },
     "codex/business-owner-receipt-upload": {
       "description": "Issue #1112 owner Inbox upload acceptance coverage for saved reading permission, exact web request, JPEG/PDF source persistence and review entry. No runtime, provider, hosted, migration or iOS changes.",
       "base_ref": "origin/codex/private-alpha-next",

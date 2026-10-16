@@ -34,6 +34,7 @@ export const STORAGE_REGISTRY = {
   [LANGUAGE_STORAGE_KEY]: "language",
   [THEME_STORAGE_KEY]: "appearance",
   "argus:sidebar_mode": "layout",
+  "cuadrao:business:sidebar_modes": "layout",
   "argus:command_palette_layout": "layout",
   "argus:guest-hint:confirmation:v1": "tips",
   "argus:guest-hint:result:v1": "tips",

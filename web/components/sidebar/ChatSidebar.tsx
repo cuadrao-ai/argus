@@ -49,6 +49,7 @@ import {
 
 import type { ApiUser, HistoryItem, SearchConversationItem } from "@/lib/argus-api";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
+import { identityInitials } from "@/lib/sidebar-identity";
 import { sidebarShortcutHintsVisible } from "@/lib/sidebar-shortcuts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -127,6 +128,7 @@ export type ChatSidebarProps = {
   shortcutHintsSuppressed?: boolean;
   canManageConversation?: boolean;
   showProfileMenu?: boolean;
+  profileUser?: ApiUser | null;
   isGuest?: boolean;
   guestExpiresAt?: string | null;
   /** Rail on desktop, off-canvas drawer below the mobile threshold. */
@@ -187,6 +189,7 @@ export default function ChatSidebar({
   shortcutHintsSuppressed = false,
   canManageConversation = true,
   showProfileMenu = true,
+  profileUser = null,
   isGuest = false,
   guestExpiresAt = null,
   variant = "rail",
@@ -199,6 +202,7 @@ export default function ChatSidebar({
 }: ChatSidebarProps) {
   const { t, i18n } = useTranslation();
   const surface = useConversationSurface();
+  const isBusiness = surface === "business";
   const chatAvailable = useChatAvailable();
   const workspaceShortcuts = useChatWorkspace()?.keyboardShortcuts;
   const { selectPresentation, selectAggregatePresentation, selectOperationLabel } =
@@ -804,7 +808,7 @@ export default function ChatSidebar({
                                 { group: groupLabel },
                               )}
                               onClick={() => toggleRecentGroup(group.key)}
-                              className="mx-11 flex min-h-11 items-center rounded-lg text-left text-[12px] font-medium text-black/55 transition-colors hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30 motion-reduce:transition-none dark:text-white/55 dark:hover:text-white dark:focus-visible:ring-white/40"
+                              className="mx-11 flex min-h-11 items-center rounded-lg text-left text-[12px] font-medium text-black/55 transition-colors hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30 motion-reduce:transition-none motion-reduce:duration-0 dark:text-white/55 dark:hover:text-white dark:focus-visible:ring-white/40"
                             >
                               {t(
                                 isGroupExpanded
@@ -825,7 +829,7 @@ export default function ChatSidebar({
                           disabled={isLoadingMoreHistory}
                           aria-busy={isLoadingMoreHistory}
                           onClick={onLoadMoreHistory}
-                          className="flex min-h-11 w-full items-center rounded-lg text-left text-[12px] font-medium text-black/55 transition-colors hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30 disabled:cursor-wait disabled:text-black/30 motion-reduce:transition-none dark:text-white/55 dark:hover:text-white dark:focus-visible:ring-white/40 dark:disabled:text-white/30"
+                          className="flex min-h-11 w-full items-center rounded-lg text-left text-[12px] font-medium text-black/55 transition-colors hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30 disabled:cursor-wait disabled:text-black/30 motion-reduce:transition-none motion-reduce:duration-0 dark:text-white/55 dark:hover:text-white dark:focus-visible:ring-white/40 dark:disabled:text-white/30"
                         >
                           {t(
                             isLoadingMoreHistory
@@ -929,7 +933,7 @@ export default function ChatSidebar({
         </div>
       ) : null}
 
-      {footerActions ? (
+      {footerActions && !isBusiness ? (
         <div
           data-testid="sidebar-workspace-actions"
           className="border-t border-black/5 p-[6px] dark:border-white/5"
@@ -974,7 +978,8 @@ export default function ChatSidebar({
 
       {/* Footer: Profile menu trigger */}
       {showProfileMenu && !profileSlot ? (
-        <div className="relative border-t border-black/5 p-[6px] dark:border-white/5">
+        <div data-testid="sidebar-identities" className={`relative border-t border-black/5 p-[6px] dark:border-white/5 ${isBusiness ? `flex gap-2 ${isOpen ? "items-center" : "flex-col"}` : ""}`}>
+          {isBusiness ? footerActions : null}
           <ProfileMenu
             isOpen={isProfileMenuOpen}
             onClose={() => setIsProfileMenuOpen(false)}
@@ -989,7 +994,7 @@ export default function ChatSidebar({
             sidebarCollapsed={!isOpen}
             placement={variant}
           />
-          <div ref={profileButtonRef as React.RefObject<HTMLDivElement>}>
+          {isBusiness ? <button ref={profileButtonRef as React.RefObject<HTMLButtonElement>} type="button" data-testid="sidebar-person-trigger" aria-label={t("common.settings")} aria-haspopup="menu" aria-expanded={isProfileMenuOpen} onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors duration-150 hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)] dark:hover:bg-white/5 motion-reduce:transition-none motion-reduce:duration-0"><span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-full bg-black/10 text-[12px] font-semibold text-black dark:bg-white/15 dark:text-white">{identityInitials(profileUser?.display_name || profileUser?.username || profileUser?.email?.split("@")[0])}</span></button> : <div ref={profileButtonRef as React.RefObject<HTMLDivElement>}>
             <SidebarNavButton
               icon={User}
               label={t("common.settings")}
@@ -1002,7 +1007,7 @@ export default function ChatSidebar({
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
               iconSize={20}
             />
-          </div>
+          </div>}
         </div>
       ) : null}
     </aside>

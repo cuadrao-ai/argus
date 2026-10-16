@@ -228,13 +228,13 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         accessible.querySelectorAll('[aria-hidden="true"]').forEach((element) => element.remove());
         return accessible.getAttribute("aria-label") ?? accessible.textContent?.replace(/\d+$/, "").trim();
       });
-      assert.deepEqual(names, ["Resumen", "Bandeja", "Gastos", "Novedades"]);
+      assert.deepEqual(names, ["Inicio", "Bandeja", "Recibos", "Notificaciones"]);
       assert.ok(items.every((button) => button.querySelector("svg")), "each name sits with its icon");
       await page.close();
     }
   });
 
-  test("Acceso keeps its Spanish name and icon in the footer and opens access in either sidebar layout", async () => {
+  test("business menu keeps access reachable in either sidebar layout", async () => {
     const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
     function Footer({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
       const workspace = useChatWorkspace();
@@ -243,11 +243,14 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     for (const sidebarCollapsed of [false, true]) {
       const page = await mount(() => <Footer sidebarCollapsed={sidebarCollapsed} />);
       try {
-        const access = page.host.querySelector("footer button");
-        assert.ok(access, "Acceso is reachable in the footer");
-        assert.equal(access.textContent?.trim(), "Acceso");
-        assert.equal(access.getAttribute("aria-hidden"), null);
-        assert.ok(access.querySelector("svg"), "Acceso keeps its icon");
+        await page.settle(() => Boolean(page.host.querySelector("footer button")));
+        const mark = page.host.querySelector("footer button");
+        assert.ok(mark, "business mark is reachable in the footer");
+        await page.click(mark);
+        const access = document.querySelector('[role="menuitem"]');
+        assert.ok(access);
+        assert.equal(access.textContent?.trim(), "Equipo y accesos");
+        assert.ok(access.querySelector("svg"));
         assert.equal(page.business().panel.kind, "overview");
         await page.click(access);
         assert.equal(page.business().panel.kind, "access", "the footer action opens access");
