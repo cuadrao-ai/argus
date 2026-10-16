@@ -18,9 +18,9 @@ const payloadSchema = z.object({
   }),
 });
 
-type LinkedAction = "invite" | "magiclink" | "recovery";
+type LinkedAction = "invite" | "recovery";
 export type AuthMail =
-  | { action: "signup"; recipient: string; tokenHash: string; redirectTo: string; token: string }
+  | { action: "signup" | "magiclink"; recipient: string; tokenHash: string; redirectTo: string; token: string }
   | { action: LinkedAction; recipient: string; tokenHash: string; redirectTo: string }
   | { action: "email_change"; recipient: string; tokenHash: string; redirectTo: string; newEmail: string }
   | { action: "reauthentication"; recipient: string; token: string };
@@ -51,15 +51,15 @@ export function parseAuthMail(value: unknown, appOrigin: string): AuthMail[] {
     ];
   }
   if (data.email_action_type === "recovery" && data.redirect_to && data.redirect_to !== `${appOrigin}/auth/recovery`) throw new Error("Invalid recovery redirect");
-  if (data.email_action_type === "signup") {
-    return [{ action: "signup", recipient: user.email, tokenHash: hash, redirectTo: data.redirect_to, token: otp.parse(data.token) }];
+  if (data.email_action_type === "signup" || data.email_action_type === "magiclink") {
+    return [{ action: data.email_action_type, recipient: user.email, tokenHash: hash, redirectTo: data.redirect_to, token: otp.parse(data.token) }];
   }
   return [{ action: data.email_action_type, recipient: user.email, tokenHash: hash, redirectTo: data.redirect_to }];
 }
 
 const linkCopy = {
   invite: { subject: "Te invitaron a Cuadrao", paragraph: "Te invitaron a usar Cuadrao.", button: "Acepta aquí" },
-  magiclink: { subject: "Tu enlace para entrar", paragraph: "Entra aquí.", button: "Entra aquí", security: "Si no lo pediste, ignora este correo." },
+  magiclink: { subject: "Tu enlace para entrar", button: "O entra aquí", security: "Si no lo pediste, ignora este correo." },
 } as const;
 
 export async function renderAuthMail(mail: AuthMail, supabaseUrl: string) {
@@ -91,7 +91,7 @@ export async function renderAuthMail(mail: AuthMail, supabaseUrl: string) {
   }
   const copy = linkCopy[mail.action];
   return { subject: copy.subject, ...renderAccountEmail({
-    title: copy.subject, paragraphs: [copy.paragraph], action: { label: copy.button, url: url.href },
+    title: copy.subject, code: mail.action === "magiclink" ? mail.token : undefined, paragraphs: "paragraph" in copy ? [copy.paragraph] : [], action: { label: copy.button, url: url.href },
     afterAction: "security" in copy ? copy.security : undefined,
   }) };
 }

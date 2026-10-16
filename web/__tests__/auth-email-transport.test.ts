@@ -11,13 +11,14 @@ describe("Auth email compatibility and delivery", () => {
     const cases: AuthMail[] = [
       { ...linked, action: "signup", token: "55070219" },
       { ...linked, action: "invite" },
-      { ...linked, action: "magiclink" },
+      { ...linked, action: "magiclink", token: "55070219" },
       { ...linked, action: "email_change", newEmail: "new@example.test" },
       { action: "reauthentication", recipient: linked.recipient, token: "55070219" },
     ];
     for (const mail of cases) {
       const rendered = await renderAuthMail(mail, "https://skedzwocnmrhfigiwyzi.supabase.co");
       assert.equal(rendered.subject.includes("55070219"), mail.action === "signup");
+      assert.equal(rendered.text.includes("55070219"), ["signup", "magiclink", "reauthentication"].includes(mail.action));
       assert.ok(rendered.html.includes('alt="Cuadrao"'));
       assert.ok(rendered.html.includes("Saludos, el equipo de Cuadrao"));
       assert.ok(!rendered.html.includes("Salir de la lista"));

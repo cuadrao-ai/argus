@@ -90,7 +90,7 @@ describe("staging Auth email hook", () => {
     const cases = [
       ["signup", "123456 es tu código de Cuadrao", "Úsalo para confirmar tu cuenta."],
       ["invite", "Te invitaron a Cuadrao", "Te invitaron a usar Cuadrao."],
-      ["magiclink", "Tu enlace para entrar", "Entra aquí."],
+      ["magiclink", "Tu enlace para entrar", "O entra aquí"],
       ["reauthentication", "Tu código de verificación", "123456"],
     ];
     for (const [action, subject, body] of cases) {

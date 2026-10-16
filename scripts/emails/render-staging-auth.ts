@@ -9,7 +9,7 @@ const linked = { recipient: "synthetic@example.test", tokenHash: hash, redirectT
 const actions: Array<{ field: string; mail: AuthMail }> = [
   {field: "confirmation", mail: {...linked, action: "signup", token: code}},
   {field: "invite", mail: {...linked, action: "invite"}},
-  {field: "magic_link", mail: {...linked, action: "magiclink"}},
+  {field: "magic_link", mail: {...linked, action: "magiclink", token: code}},
   {field: "recovery", mail: {...linked, action: "recovery"}},
   {field: "email_change", mail: {...linked, action: "email_change", newEmail: "synthetic-new@example.test"}},
   {field: "reauthentication", mail: {action: "reauthentication", recipient: linked.recipient, token: code}},
