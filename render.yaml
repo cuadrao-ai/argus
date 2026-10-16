@@ -284,3 +284,17 @@ services:
         sync: false
       - key: NEXT_PUBLIC_ENABLE_SPANISH
         value: "true"
+
+  - type: web
+    name: cuadrao-marketing-staging
+    runtime: node
+    plan: free
+    repo: https://github.com/lagarcess/argus
+    branch: codex/private-alpha-next
+    rootDir: marketing
+    autoDeployTrigger: "off"
+    buildCommand: bun install --frozen-lockfile && bun run build --webpack
+    startCommand: bun run start -- -p $PORT
+    envVars:
+      - key: CUADRAO_SITE_INDEXING
+        value: private

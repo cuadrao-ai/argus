@@ -1,5 +1,4 @@
 import { businessContactEmail } from "./site-copy";
-import type { BusinessLocale } from "@/lib/site-routes";
 
 type Section = { id: string; title: string; paragraphs?: string[]; items?: string[] };
 
@@ -12,61 +11,6 @@ type PrivacyCopy = {
 };
 
 const email = businessContactEmail;
-
-const es: PrivacyCopy = {
-  eyebrow: "PRIVACIDAD",
-  title: "Tu privacidad en Cuadrao.",
-  intro:
-    "Usamos los datos que compartes para responder tus consultas y avisarte cuando esté disponible el acceso anticipado. Aquí explicamos qué información recibimos, cómo la usamos y cómo puedes solicitar su eliminación.",
-  updated: "Actualizado el 8 de octubre de 2026",
-  sections: [
-    {
-      id: "data",
-      title: "Qué datos recibimos",
-      paragraphs: [
-        "Si nos escribes: tu nombre, tu correo, el comentario opcional, el idioma de la página y, si lo compartes, tu número de WhatsApp. Los usamos para responderte.",
-        "Si pides acceso anticipado a Cuadrao Personal: tu correo, el idioma de la página, la fecha del registro y la versión de este texto que aceptaste. Los usamos solo para avisarte cuando haya acceso disponible. Registrarte no crea una cuenta ni garantiza acceso inmediato.",
-        "Cuando visitas el sitio: el proveedor de alojamiento puede registrar datos técnicos de la conexión, como la dirección IP.",
-        "Para frenar envíos automáticos, el sitio guarda tu dirección IP y, si nos escribes, tu correo en la memoria del servidor, no en una base de datos. Se olvidan en un máximo de dos horas, o antes si el servicio se reinicia.",
-      ],
-    },
-    {
-      id: "not-used",
-      title: "Qué no usamos",
-      paragraphs: [
-        "Este sitio no usa cookies, herramientas de analítica ni seguimiento publicitario, y no guarda datos en tu navegador. Las tipografías se sirven desde el mismo sitio. No usamos tus datos de contacto para enviarte publicidad.",
-        "Te pedimos que no escribas documentos, números de cuenta ni información financiera privada en el formulario.",
-      ],
-    },
-    {
-      id: "providers",
-      title: "Proveedores que intervienen",
-      items: [
-        "Render aloja el sitio.",
-        "Resend envía por correo los mensajes del formulario y, más adelante, el aviso de acceso anticipado. Puede conservar sus propios registros de envío.",
-        `Apple (iCloud Mail) recibe y guarda los correos que llegan a ${email}, incluidos los mensajes del formulario y las solicitudes de retiro.`,
-        "Supabase guarda los registros de acceso anticipado en servidores de Estados Unidos (Ohio).",
-        "Cloudflare administra el dominio cuadrao.ai.",
-      ],
-    },
-    {
-      id: "retention",
-      title: "Cuánto tiempo los conservamos",
-      paragraphs: [
-        "Tu mensaje se conserva en nuestro correo mientras haga falta para responderte y dar seguimiento a la conversación.",
-        "Tu registro de acceso anticipado permanece hasta que pidas retirarlo. Al retirarlo borramos tu correo y conservamos una huella técnica de la dirección, sin la dirección misma, junto con el idioma y las fechas del registro, del aviso y del retiro, para no volver a registrarte ni escribirte.",
-        "Los registros técnicos de la conexión los conserva el proveedor de alojamiento según sus propias reglas.",
-      ],
-    },
-    {
-      id: "choices",
-      title: "Tus opciones y contacto",
-      paragraphs: [
-        `Puedes pedirnos ver, corregir o eliminar tus datos, o retirar tu registro, escribiendo a ${email}. Atendemos esas solicitudes manualmente.`,
-      ],
-    },
-  ],
-};
 
 const en: PrivacyCopy = {
   eyebrow: "PRIVACY",
@@ -123,4 +67,4 @@ const en: PrivacyCopy = {
   ],
 };
 
-export const privacyCopy: Record<BusinessLocale, PrivacyCopy> = { es, en };
+export const privacyCopy: Record<"en", PrivacyCopy> = { en };

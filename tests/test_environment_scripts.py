@@ -413,22 +413,25 @@ def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
     assert set(_contract_array("ARGUS_RENDER_API_ENV")) == set(_render_env("argus-api"))
     assert set(_contract_array("ARGUS_RENDER_WEB_ENV")) == set(_render_env("argus-app"))
     render_config = yaml.safe_load(_source("render.yaml"))
-    assert {service["name"] for service in render_config["services"]} == {
-        "argus-api",
-        "argus-app",
-        "cuadrao-web-staging",
+    services = {service["name"]: service for service in render_config["services"]}
+    assert set(services) == {
+        "argus-api", "argus-app", "cuadrao-web-staging", "cuadrao-marketing-staging",
     }
     stage = _render_env("cuadrao-web-staging")
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
     entries = manifest["services"]["web"]["entries"]
     held = {entry["name"] for entry in manifest["services"]["web"]["hold"]}
     assert set(stage) == {entry["name"] for entry in entries} | held | {
-        "NEXT_PUBLIC_APP_ENV",
-        "NEXT_PUBLIC_MOCK_AUTH",
+        "NEXT_PUBLIC_APP_ENV", "NEXT_PUBLIC_MOCK_AUTH",
     }
     for entry in entries:
         if "value" in entry:
             assert stage[entry["name"]]["value"] == entry["value"]
+    marketing = services["cuadrao-marketing-staging"]
+    assert (marketing["plan"], marketing["autoDeployTrigger"]) == ("free", "off")
+    assert marketing["envVars"] == [
+        {"key": "CUADRAO_SITE_INDEXING", "value": "private"}
+    ]
 
 
 def test_render_web_declares_exact_server_only_https_app_origin() -> None:

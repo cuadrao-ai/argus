@@ -32,8 +32,8 @@ function LegalNav({ locale, c }: { locale: BusinessLocale; c: FooterCopy }) {
     <nav aria-label={c.footerLegal}>
       <span>{c.footerLegal}</span>
       <a href={businessPath(locale, "privacy")}>{c.privacyLabel}</a>
-      <span className={styles.footerPending}>{c.terms}</span>
-      <span className={styles.footerPending}>{c.responsible}</span>
+      {locale === "es" ? <a href={businessPath(locale, "terms")}>{c.terms}</a> : <span className={styles.footerPending}>{c.terms}</span>}
+      {locale === "es" ? <a href={businessPath(locale, "deletion")}>Eliminar tus datos</a> : <span className={styles.footerPending}>{c.responsible}</span>}
     </nav>
   );
 }
@@ -47,7 +47,7 @@ function FooterBar({ c }: { c: FooterCopy }) {
   );
   return (
     <div className={styles.footerBar}>
-      <p>{c.copyright}</p>
+      <p>Cuadrao LLC · 1209 Mountain Road Pl NE Ste N, Albuquerque, NM 87110</p>
       {socials.length > 0 && (
         <div className={styles.footerSocial} role="group" aria-label={c.socialLabel}>
           {socials.map(({ id, label, href }) => {

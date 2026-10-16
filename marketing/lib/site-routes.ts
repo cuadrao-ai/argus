@@ -1,20 +1,22 @@
 export const SITE_ORIGIN = "https://cuadrao.ai";
 
 export const LOCALES = ["es", "en"] as const;
-export const PAGES = ["home", "personal", "contact", "privacy"] as const;
+export const PAGES = ["home", "personal", "contact", "privacy", "terms", "deletion"] as const;
 
 export type BusinessLocale = (typeof LOCALES)[number];
 export type BusinessPage = (typeof PAGES)[number];
 
-// Spanish is the unprefixed default; English lives under /en. The slug is the
-// only per-locale difference, so every URL, canonical, alternate and sitemap
-// entry derives from this one table.
-const SLUGS: Record<BusinessLocale, Record<BusinessPage, string>> = {
-  es: { home: "", personal: "personal", contact: "contacto", privacy: "privacidad" },
-  en: { home: "", personal: "personal", contact: "contact", privacy: "privacy" },
+// A null slug keeps an untranslated page out of that locale.
+const SLUGS: Record<BusinessLocale, Record<BusinessPage, string | null>> = {
+  es: { home: "", personal: "personal", contact: "contacto", privacy: "privacidad", terms: "terminos", deletion: "eliminar-datos" },
+  en: { home: "", personal: "personal", contact: "contact", privacy: "privacy", terms: null, deletion: null },
 };
 
 const HTML_LANG: Record<BusinessLocale, string> = { es: "es-DO", en: "en" };
+
+export function pagesForLocale(locale: BusinessLocale): readonly BusinessPage[] {
+  return PAGES.filter((page) => SLUGS[locale][page] !== null);
+}
 
 export type SiteRoute = {
   locale: BusinessLocale;
@@ -43,6 +45,7 @@ export function businessPath(
 ): string {
   const prefix = locale === "en" ? "/en" : "";
   const slug = SLUGS[locale][page];
+  if (slug === null) throw new Error(`Page ${page} is unavailable in ${locale}`);
   return `${prefix}${slug ? `/${slug}` : ""}` || "/";
 }
 
@@ -54,7 +57,7 @@ export function pageUrl(locale: BusinessLocale, page: BusinessPage): string {
 }
 
 export const SITE_ROUTES: readonly SiteRoute[] = LOCALES.flatMap((locale) =>
-  PAGES.map((page) => ({
+  pagesForLocale(locale).map((page) => ({
     locale,
     page,
     path: businessPath(locale, page),
@@ -66,6 +69,7 @@ export const SITE_ROUTES: readonly SiteRoute[] = LOCALES.flatMap((locale) =>
 // unprefixed public path by a rewrite, so the internal /es tree is never public.
 export function internalPath(locale: BusinessLocale, page: BusinessPage): string {
   const slug = SLUGS[locale][page];
+  if (slug === null) throw new Error(`Page ${page} is unavailable in ${locale}`);
   return `/${locale}${slug ? `/${slug}` : ""}`;
 }
 
@@ -74,17 +78,18 @@ export function pageFromSlug(
   slug: readonly string[] | undefined,
 ): BusinessPage | null {
   const joined = (slug ?? []).join("/");
-  return PAGES.find((page) => SLUGS[locale][page] === joined) ?? null;
+  return pagesForLocale(locale).find((page) => SLUGS[locale][page] === joined) ?? null;
 }
 
 export function slugSegments(locale: BusinessLocale, page: BusinessPage): string[] {
   const slug = SLUGS[locale][page];
+  if (slug === null) throw new Error(`Page ${page} is unavailable in ${locale}`);
   return slug ? [slug] : [];
 }
 
 export function alternateLanguages(page: BusinessPage): Record<string, string> {
   const urls = Object.fromEntries(
-    LOCALES.map((locale) => [locale, pageUrl(locale, page)]),
+    LOCALES.filter((locale) => SLUGS[locale][page] !== null).map((locale) => [locale, pageUrl(locale, page)]),
   );
   return { ...urls, "x-default": urls.es };
 }

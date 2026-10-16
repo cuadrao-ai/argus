@@ -1,0 +1,321 @@
+{
+  "privacidad": {
+    "title": "Política de privacidad — sitio web de Cuadrao",
+    "blocks": [
+      {
+        "kind": "paragraph",
+        "text": "Vigente desde: 15 de octubre de 2026"
+      },
+      {
+        "kind": "heading",
+        "text": "1. Quiénes somos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Este sitio es de **Cuadrao LLC** · 1209 Mountain Road Pl NE Ste N, Albuquerque, NM 87110, EE. UU. · hola@cuadrao.ai"
+      },
+      {
+        "kind": "heading",
+        "text": "2. Qué datos recogemos y para qué"
+      },
+      {
+        "kind": "unordered",
+        "items": [
+          "**Lista de espera \"Avísame cuando pueda probarla\":** solo tu correo electrónico. Lo usamos para avisarte cuando puedas probar la app.",
+          "**Formulario \"Hablemos de tu negocio\"** (sección \"Empecemos por tu negocio\"): tu nombre; tu correo; tu rol (\"Soy\": dueño de negocio, contador u otro); con qué tienes dificultades; tu canal preferido (correo o WhatsApp); tu número de WhatsApp, si nos lo das; cómo supiste de nosotros; y la casilla opcional \"Quiero ver el prototipo y probarlo\". Los usamos para responder tu consulta, contactarte por el canal que prefieras, entender mejor tu negocio, saber cómo nos encontraste y, si marcas la casilla, invitarte a probar el prototipo. La casilla viene sin marcar y puedes desmarcarla o pedirnos que dejemos de invitarte en cualquier momento."
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "text": "Si eliges WhatsApp como canal preferido y nos das tu número, aceptas que Cuadrao te escriba por WhatsApp solo para responder tu consulta. No te enviaremos anuncios ni avisos de lanzamiento por WhatsApp sin un permiso aparte, y puedes pedirnos que dejemos de escribirte en cualquier momento, por ejemplo respondiendo \"BAJA\"."
+      },
+      {
+        "kind": "unordered",
+        "items": [
+          "**Datos técnicos básicos:** como tu dirección IP y datos de tu navegador, que se registran al visitar el sitio o enviar un formulario. Los usamos solo para la seguridad del sitio y para evitar spam y abusos."
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "text": "No pedimos más datos de los necesarios para esos fines."
+      },
+      {
+        "kind": "heading",
+        "text": "3. Base legal y consentimiento"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Tratamos tus datos con tu consentimiento. Lo das al enviar el formulario, después de ver el aviso que aparece junto al botón con el enlace a esta política (Ley 172-13, art. 5, numerales 3 y 4). En el caso del formulario \"Hablemos de tu negocio\", usamos   tus datos además para responder a la solicitud que tú nos haces antes de un posible acuerdo. Puedes retirar tu consentimiento cuando quieras, y eso no afecta lo que hicimos antes."
+      },
+      {
+        "kind": "heading",
+        "text": "4. Con quién los compartimos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "No vendemos tus datos ni los compartimos para publicidad. Solo los ven proveedores que nos ayudan a operar el sitio, y únicamente para ese fin:"
+      },
+      {
+        "kind": "unordered",
+        "items": [
+          "nuestro proveedor de alojamiento web;",
+          "nuestro proveedor de correo electrónico;",
+          "nuestro proveedor de base de datos, donde se guardan los formularios enviados."
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "text": "Si eliges WhatsApp como canal preferido o nos escribes por WhatsApp, recibimos tu número y tus mensajes, y Meta (WhatsApp) los procesa para entregarlos, posiblemente fuera de la República Dominicana, porque es necesario para responder lo que nos pides."
+      },
+      {
+        "kind": "paragraph",
+        "text": "También podemos revelarlos si la ley o una autoridad competente lo exige."
+      },
+      {
+        "kind": "heading",
+        "text": "5. Transferencia a Estados Unidos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Cuadrao LLC está en Estados Unidos y nuestros proveedores guardan los datos allí."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Esa transferencia es necesaria para atender lo que nos pides, y la aceptas al enviar el formulario después de ver este aviso (Ley 172-13, art. 80, numerales 1 y 6)."
+      },
+      {
+        "kind": "heading",
+        "text": "6. Cuánto tiempo los guardamos"
+      },
+      {
+        "kind": "unordered",
+        "items": [
+          "**Lista de espera:** hasta que salgas de la lista o 12 meses después del lanzamiento de la app, lo que ocurra primero; luego borramos tu correo. Para no volver a agregarte después de que salgas, guardamos solo una huella irreversible de tu dirección, que no permite recuperarla. La usamos solo para respetar tu decisión de salir y no para ningún otro fin.",
+          "**Formulario \"Hablemos de tu negocio\":**  el tiempo necesario para responder y dar seguimiento, y como máximo 12 meses desde nuestro último contacto; luego las borramos. Si firmas un acuerdo con nosotros, ese acuerdo regula esos datos."
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "text": "Los datos técnicos (IP y navegador) los guardamos hasta 30 días, solo para la seguridad y la prevención de spam y abusos, y luego se eliminan."
+      },
+      {
+        "kind": "heading",
+        "text": "7. Tus derechos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Puedes pedir acceder, corregir o suprimir tus datos, u oponerte a su uso. Escríbenos a hola@cuadrao.ai. Es gratis. Te damos acceso en 5 días hábiles y corregimos o suprimimos en 10 días hábiles. También puedes acudir a un juez con una acción de hábeas data."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Para confirmar que eres tú, te respondemos al mismo correo con el que te anotaste o enviaste el formulario, o al mismo número de WhatsApp con el que nos escribiste.  No te pedimos cédula ni otros documentos."
+      },
+      {
+        "kind": "heading",
+        "text": "8. Cómo salir de la lista o borrar tus datos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Usa el enlace \"Dejar de recibir estos correos\" que aparece en cada correo,  o escríbenos a hola@cuadrao.ai con el asunto \"Eliminar mis datos\". Más detalles en /eliminar-datos."
+      },
+      {
+        "kind": "heading",
+        "text": "9. Residentes de EE. UU."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Esta política se aplica a todas las personas, estén donde estén. No vendemos ni \"compartimos\" información personal según se definen esos términos en la ley de privacidad de California (CCPA). Para ejercer derechos que te dé tu estado, escríbenos a hola@cuadrao.ai."
+      },
+      {
+        "kind": "heading",
+        "text": "10. Seguridad"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Usamos medidas técnicas y organizativas razonables para proteger tus datos, como conexiones cifradas y acceso limitado. Ningún sistema es totalmente seguro."
+      },
+      {
+        "kind": "heading",
+        "text": "11. Menores"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Este sitio es solo para mayores de 18 años y no está dirigido a niños."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Si sabemos que un menor de 18 años nos envió datos, los borramos."
+      },
+      {
+        "kind": "heading",
+        "text": "12. Cambios"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Si cambiamos esta política, publicamos la nueva versión aquí con su fecha."
+      },
+      {
+        "kind": "heading",
+        "text": "13. Idioma y contacto"
+      },
+      {
+        "kind": "paragraph",
+        "text": "En caso de diferencia, prevalece la versión en español. Preguntas: hola@cuadrao.ai."
+      }
+    ]
+  },
+  "terminos": {
+    "title": "Términos de uso del sitio web de Cuadrao",
+    "blocks": [
+      {
+        "kind": "paragraph",
+        "text": "Vigente desde: 15 de octubre de 2026"
+      },
+      {
+        "kind": "heading",
+        "text": "1. Quiénes somos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Este sitio es de **Cuadrao LLC** · 1209 Mountain Road Pl NE Ste N, Albuquerque, NM 87110, EE. UU. · hola@cuadrao.ai"
+      },
+      {
+        "kind": "heading",
+        "text": "2. Qué es este sitio"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Este sitio es informativo. Usarlo, unirte a la lista de espera o enviarnos una consulta no crea ningún contrato ni implica ningún pago."
+      },
+      {
+        "kind": "heading",
+        "text": "3. Pilotos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Cualquier piloto, pagado o gratuito, se rige solo por un acuerdo escrito aparte que ambas partes firman, con sus propias condiciones, fechas y monto. Ese acuerdo prevalece sobre estos Términos."
+      },
+      {
+        "kind": "heading",
+        "text": "4. Uso aceptable"
+      },
+      {
+        "kind": "paragraph",
+        "text": "No uses el sitio para nada ilegal ni para dañarlo. En particular, no: intentes atacarlo, interrumpirlo o acceder sin permiso; extraigas su contenido con medios automatizados (scraping); ni envíes información falsa o de otra persona."
+      },
+      {
+        "kind": "heading",
+        "text": "5. Contenido y marca"
+      },
+      {
+        "kind": "paragraph",
+        "text": "El contenido del sitio y el nombre Cuadrao pertenecen a Cuadrao LLC. No los copies ni los uses sin nuestro permiso por escrito."
+      },
+      {
+        "kind": "heading",
+        "text": "6. No es asesoría"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Nada en este sitio es asesoría financiera, contable, tributaria ni legal."
+      },
+      {
+        "kind": "heading",
+        "text": "7. Sitio \"tal cual\""
+      },
+      {
+        "kind": "paragraph",
+        "text": "En la medida que la ley lo permita, el sitio se ofrece \"tal cual\" y \"según disponibilidad\", sin garantías."
+      },
+      {
+        "kind": "heading",
+        "text": "8. Responsabilidad"
+      },
+      {
+        "kind": "paragraph",
+        "text": "En la medida que la ley lo permita, Cuadrao LLC no responde por daños indirectos ni por pérdidas derivadas del uso del sitio."
+      },
+      {
+        "kind": "heading",
+        "text": "9. Tus derechos como consumidor"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Si eres consumidor en la República Dominicana, conservas todos tus derechos bajo la Ley 358-05, que son de orden público y no se pueden renunciar (arts. 2 y 83)."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Ante la duda, estos Términos se leen a tu favor. Nada en las secciones 7 y 8 limita esos derechos. Puedes reclamar ante Pro Consumidor o los tribunales dominicanos."
+      },
+      {
+        "kind": "heading",
+        "text": "10. Ley aplicable y disputas"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Estos Términos se rigen por las leyes del Estado de Nuevo México (EE. UU.). Si eres consumidor en la República Dominicana, se aplican además las leyes dominicanas que no se pueden renunciar, y puedes reclamar ante Pro Consumidor o los tribunales dominicanos. No hay arbitraje obligatorio ni renuncia a acciones colectivas."
+      },
+      {
+        "kind": "heading",
+        "text": "11. Cambios"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Si cambiamos estos Términos, publicamos la nueva versión aquí con su fecha."
+      },
+      {
+        "kind": "heading",
+        "text": "12. Idioma y contacto"
+      },
+      {
+        "kind": "paragraph",
+        "text": "En caso de diferencia, prevalece la versión en español. Preguntas: hola@cuadrao.ai."
+      }
+    ]
+  },
+  "eliminar-datos": {
+    "title": "Eliminar tus datos — Cuadrao",
+    "blocks": [
+      {
+        "kind": "paragraph",
+        "text": "Vigente desde: 15 de octubre de 2026"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Este sitio es de **Cuadrao LLC** · 1209 Mountain Road Pl NE Ste N, Albuquerque, NM 87110, EE. UU. · hola@cuadrao.ai"
+      },
+      {
+        "kind": "heading",
+        "text": "Cómo pedir que borremos tus datos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Escríbenos a hola@cuadrao.ai con el asunto \"Eliminar mis datos\"."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Escríbenos desde el mismo correo que usaste para anotarte o enviar el formulario, o escríbenos desde el mismo número de WhatsApp con el que nos escribiste.   Así confirmamos que eres tú, sin pedirte cédula ni otros documentos."
+      },
+      {
+        "kind": "heading",
+        "text": "Qué pasa después"
+      },
+      {
+        "kind": "ordered",
+        "items": [
+          "Te confirmamos que recibimos tu solicitud.",
+          "Borramos tus datos en un plazo de 10 días hábiles, sin costo. Si antes quieres ver qué datos tenemos, te los enviamos en 5 días hábiles (Ley 172-13, arts. 8 y 10).",
+          "Si la ley nos obliga a conservar algún dato, te decimos cuál y por qué."
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "text": "Para salir solo de la lista de espera \"Avísame cuando pueda probarla\", también puedes usar el enlace \"Dejar de recibir estos correos\" que aparece en cada correo, o escribirnos a hola@cuadrao.ai."
+      },
+      {
+        "kind": "paragraph",
+        "text": "En caso de diferencia, prevalece la versión en español."
+      }
+    ]
+  }
+}

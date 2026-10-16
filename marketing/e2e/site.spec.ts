@@ -147,7 +147,7 @@ test.describe("indexing", () => {
     expect((await request.get(`${PUBLIC_URL}/`)).headers()["x-robots-tag"]).toBeUndefined();
     const sitemap = await (await request.get(`${PUBLIC_URL}/sitemap.xml`)).text();
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-    expect(locations.sort()).toEqual(PAGES.map((entry) => entry.canonical).sort());
+    expect(locations.sort()).toEqual([...PAGES.map((entry) => entry.canonical), "https://cuadrao.ai/terminos", "https://cuadrao.ai/eliminar-datos"].sort());
     expect(sitemap).not.toContain("/api/");
     expect(sitemap).toContain('hreflang="en"');
   });

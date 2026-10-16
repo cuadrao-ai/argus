@@ -6,10 +6,11 @@ import {
   PersonalPage,
   PrivacyPage,
 } from "@/components/business-pages";
+import { LegalPage } from "@/components/legal-page";
 import { PAGE_METADATA, shareImage } from "@/lib/page-metadata";
 import {
   LOCALES,
-  PAGES,
+  pagesForLocale,
   SITE_ORIGIN,
   alternateLanguages,
   businessPath,
@@ -26,7 +27,7 @@ export const dynamicParams = false;
 
 export function generateStaticParams() {
   return LOCALES.flatMap((locale) =>
-    PAGES.map((page) => ({ locale, slug: slugSegments(locale, page) })),
+    pagesForLocale(locale).map((page) => ({ locale, slug: slugSegments(locale, page) })),
   );
 }
 
@@ -43,6 +44,7 @@ async function resolveRoute(
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, page } = await resolveRoute(params);
   const copy = PAGE_METADATA[locale][page];
+  if (!copy) notFound();
   const image = shareImage(locale, page);
   return {
     metadataBase: new URL(SITE_ORIGIN),
@@ -82,6 +84,9 @@ export default async function SitePage({ params }: Props) {
     case "personal":
       return <PersonalPage locale={locale} />;
     case "privacy":
-      return <PrivacyPage locale={locale} />;
+      return locale === "es" ? <LegalPage page="privacy" /> : <PrivacyPage locale={locale} />;
+    case "terms":
+    case "deletion":
+      return <LegalPage page={page} />;
   }
 }
