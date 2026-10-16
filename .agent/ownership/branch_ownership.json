@@ -3131,6 +3131,31 @@
         "marketing/.env*"
       ]
     },
+    "codex/marketing-en-waitlist": {
+      "description": "English Personal waitlist presentation and local browser proof. Iris copy approval and root exact-head Eval gate release. No email, server, data, footer, or global style changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "marketing/components/personal-early-access.tsx",
+        "marketing/components/waitlist-captcha.tsx",
+        "marketing/e2e/personal.spec.ts",
+        "marketing/e2e/personal-english-waitlist.spec.ts",
+        "marketing/e2e/personal-motion.spec.ts",
+        "docs/specs/cuadrao-personal-waitlist.md",
+        "docs/reports/evidence/marketing-english-waitlist/**"
+      ],
+      "deny": [
+        ".env",
+        "web/**",
+        "src/**",
+        "ios/**",
+        "supabase/**",
+        "render.yaml",
+        "marketing/lib/**",
+        "marketing/components/business-footer.tsx",
+        "marketing/**/*.css"
+      ]
+    },
     "codex/marketing-footer-background": {
       "description": "Page-specific root canvas color for mobile overscroll, loaded footer logo verification and focused browser evidence. Preserve the landed footer credit interaction.",
       "base_ref": "origin/codex/private-alpha-next",
