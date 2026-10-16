@@ -2179,6 +2179,25 @@
         "web/.env.local"
       ]
     },
+    "codex/lane08-rls-drift-forward": {
+      "description": "Adopt the existing staging rls_auto_enable function and ensure_rls event trigger through one forward migration. Preserve observed behavior and grants. No hosted writes or advisor hardening.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "supabase/migrations/20261016154607_adopt_staging_rls_auto_enable.sql",
+        "tests/test_client_grants_postgres.py",
+        "tests/test_rls_auto_enable_postgres.py",
+        "docs/reports/evidence/cuadrao-business/lane08-rls-forward/**"
+      ],
+      "deny": [
+        ".env",
+        ".env.*",
+        "src/**",
+        "web/**",
+        "ios/**",
+        "marketing/**"
+      ]
+    },
     "codex/lane09-item6-navigation": {
       "description": "Lane09 item6 and final9a-9h Business navigation and keyboard shortcuts. Optional shared shell and registry methods only; existing receipt callback registration and focus handoff, no approval/auth/API changes. Root owns reconciliation, independent Eval, merge and staging.",
       "base_ref": "d547945ea51ecb08dc3f7a6d160256da3a3cb770",
@@ -2221,6 +2240,30 @@
         "supabase/migrations/**",
         "src/**",
         "marketing/**"
+      ]
+    },
+    "codex/lane09-item7-personal-action": {
+      "description": "Lane09 item7 Personal row menu. Existing mark mutation remains unchanged. The shared upload-controls test edit only waits for Escape history traversal. Root owns independent Eval and landing.",
+      "base_ref": "ebc3cbf762b2512156997a074429f8d81be64e54",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/reports/evidence/lane09-item7-personal-action/**",
+        "web/__tests__/receipt-marks.dom.test.tsx",
+        "web/components/business-app/ActionMenu.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/e2e/business-personal-menu.playwright.config.ts",
+        "web/e2e/business-personal-menu.spec.ts",
+        "web/e2e/business-upload-controls.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        ".env.*",
+        "web/.env.*",
+        "ios/**",
+        "src/**",
+        "supabase/migrations/**",
+        "marketing/**",
+        "web/public/locales/**"
       ]
     },
     "codex/receipt-auto-read-activity": {
@@ -2898,6 +2941,28 @@
         "marketing/**",
         "web/public/locales/en/**",
         "web/components/business-app/BusinessWorkspace.tsx"
+      ]
+    },
+    "codex/lane08-pr1-migration-drift": {
+      "description": "Reconcile three applied staging migration identities and document merged-PR-only staging applies. No hosted writes or other schema changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "supabase/README.md",
+        "supabase/migrations/20261016010000_whatsapp_reply_grouping.sql",
+        "supabase/migrations/20261016065035_whatsapp_reply_grouping.sql",
+        "supabase/migrations/20261016180000_document_source_prefixes.sql",
+        "supabase/migrations/20261016090033_document_source_prefixes.sql",
+        "supabase/migrations/20261016142927_business_name_prompt.sql",
+        "docs/reports/evidence/cuadrao-business/lane08-pr1-migration-drift/**"
+      ],
+      "deny": [
+        ".env",
+        ".env.*",
+        "src/**",
+        "web/**",
+        "ios/**",
+        "marketing/**"
       ]
     }
   }

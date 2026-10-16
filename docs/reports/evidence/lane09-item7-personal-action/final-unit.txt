@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+__tests__/receipt-marks.dom.test.tsx:
+(pass) the chips > a read receipt without a fiscal number says so in grey text; a personal one says Personal; a receipt not yet read says nothing [79.98ms]
+(pass) the chips > the owner sees a dot on the Personal chip when someone else marked it, read as Marcado por <nombre>; the accountant does not [1.73ms]
+(pass) the Overview's two totals > Gastos reales and Con valor fiscal stand side by side with the 606 line under the second, from the server's numbers [7.92ms]
+(pass) the Personal control in the Bandeja > anyone the server lets prepare gets a row menu; a read-only grant gets the chip only [4.94ms]
+(pass) the Personal control in the Bandeja > the owner sees who marked the receipt and takes the mark back through its menu [1.88ms]
+(pass) the receipt page's marks card > the owner marks and unmarks; the 606 is read-only for the owner: pending, included or not [1.64ms]
+(pass) the receipt page's marks card > the owner sees who else marked it and undoes the accountant's mark in one tap [0.63ms]
+(pass) the receipt page's marks card > a read-only grant reads the mark and has no control [0.36ms]
+(pass) the receipt page's marks card > the accountant with prepare marks Personal too, and sees Sí and No, 44px each, only for a personal receipt with a fiscal number [1.20ms]
+(pass) the review page's fiscal details > a record without an NCF or an e-CF reads Sin comprobante fiscal in its fiscal row, never No registrado [4.28ms]
+(pass) the review page's fiscal details > in English it reads No fiscal receipt number; a record with an NCF shows its number [4.86ms]
+(pass) one owner for the marks > the Bandeja row and the record show the same server marks for a grantee's mark, the owner's mark and after an unmark [2.81ms]
+(pass) the server states what the browser used to guess > an unreadable receipt nobody read shows no fiscal chip; a read one without a number does [1.35ms]
+(pass) the server states what the browser used to guess > the 606 line names whoever answered, even when the owner edited the record afterwards [0.34ms]
+(pass) the server states what the browser used to guess > the history reads a 606 answer as Sí or No, never true or false [5.10ms]
+(pass) the Bandeja row menu > opening and dismissing the menu never opens or changes a receipt [1.99ms]
+
+ 16 pass
+ 0 fail
+Ran 16 tests across 1 file. [188.00ms]

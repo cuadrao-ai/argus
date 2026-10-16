@@ -1,0 +1,78 @@
+(node:56268) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] $ next start --port "3197"
+[WebServer] (node:56284) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker
+
+(node:56285) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:56285) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:56285) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 1280px (8.0s)
+(node:56298) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:56298) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:56298) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 390px (803ms)
+(node:56305) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:56305) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:56305) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 [chromium] › e2e/business-upload-controls.spec.ts:98:7 › recovery follows server permission {"enterable":false,"preparable":false} (395ms)
+  ✓  4 [chromium] › e2e/business-upload-controls.spec.ts:98:7 › recovery follows server permission {"enterable":true,"preparable":false} (726ms)
+  ✓  5 [chromium] › e2e/business-upload-controls.spec.ts:98:7 › recovery follows server permission {"enterable":false,"preparable":true} (729ms)
+  ✓  6 [chromium] › e2e/business-upload-controls.spec.ts:107:5 › English keeps existing canonical labels and accountant has no upload hero (1.2s)
+
+
+  1) [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 1280px 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByTestId('business-inbox-receipts').locator('li').first()
+    Expected substring: "recibo-interrumpido.jpg"
+    Timeout: 7000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" with timeout 7000ms
+      - waiting for getByTestId('business-inbox-receipts').locator('li').first()
+
+
+      62 |     await page.goto("/biz?view=inbox");
+      63 |     const row = page.getByTestId("business-inbox-receipts").locator("li").first();
+    > 64 |     await expect(row).toContainText("recibo-interrumpido.jpg");
+         |                       ^
+      65 |     await row.scrollIntoViewIfNeeded();
+      66 |     await capture("inbox");
+      67 |     if (baseline) return;
+        at /private/tmp/cuadrao-lane09-item7-personal-action/web/e2e/business-upload-controls.spec.ts:64:23
+
+    Error Context: temp/item7-playwright/business-upload-controls-o-96734--receipt-recovery-at-1280px-chromium/error-context.md
+
+  2) [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 390px 
+
+    Error: page.goto: net::ERR_ABORTED at http://localhost:3197/biz?view=inbox
+    Call log:
+      - navigating to "http://localhost:3197/biz?view=inbox", waiting until "load"
+
+
+      60 |       await expect(page.getByRole("dialog")).toHaveCount(0);
+      61 |     }
+    > 62 |     await page.goto("/biz?view=inbox");
+         |                ^
+      63 |     const row = page.getByTestId("business-inbox-receipts").locator("li").first();
+      64 |     await expect(row).toContainText("recibo-interrumpido.jpg");
+      65 |     await row.scrollIntoViewIfNeeded();
+        at /private/tmp/cuadrao-lane09-item7-personal-action/web/e2e/business-upload-controls.spec.ts:62:16
+
+    Error Context: temp/item7-playwright/business-upload-controls-o-8b60b-d-receipt-recovery-at-390px-chromium/error-context.md
+
+  2 failed
+    [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 1280px 
+    [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 390px 
+  4 passed (13.1s)
