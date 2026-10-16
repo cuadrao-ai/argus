@@ -190,16 +190,40 @@ def get_source(
     context: DocumentContext = Depends(require_saved_document_context),  # noqa: B008
 ) -> Response:
     try:
-        draft = context.service.get(
+        before = context.service.get(
             user_id=context.user_id, connection_id=connection_id, scope=PERSONAL
         )
-        content = context.service.source_bytes(
+        from argus.domain.ingestion.documents.models import DocumentExtractionError
+        from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+        from argus.domain.ingestion.documents.rebuilt import ensure_rebuilt_image
+
+        try:
+            ensure_rebuilt_image(
+                store=context.service.store,
+                user_id=context.user_id,
+                connection_id=connection_id,
+            )
+            download = context.service.store.download_source(
+                user_id=context.user_id, connection_id=connection_id
+            )
+        except SourceStorageUnavailable:
+            raise DocumentServiceError(
+                "document_storage_unavailable", retryable=True
+            ) from None
+        except DocumentExtractionError:
+            raise DocumentServiceError("document_source_unavailable") from None
+        after = context.service.get(
             user_id=context.user_id, connection_id=connection_id, scope=PERSONAL
         )
-        suffix = SOURCE_MEDIA_TYPES[draft.media_type]
+        if (before.sha256, before.media_type) != (after.sha256, after.media_type):
+            raise DocumentServiceError("document_source_unavailable")
+        if download is None:
+            raise DocumentServiceError("document_source_unavailable")
+        media_type, content = download
+        suffix = SOURCE_MEDIA_TYPES[media_type]
         return Response(
             content,
-            media_type=draft.media_type,
+            media_type=media_type,
             headers={
                 "Cache-Control": "no-store",
                 "X-Content-Type-Options": "nosniff",

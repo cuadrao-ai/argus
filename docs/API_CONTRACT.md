@@ -8624,12 +8624,15 @@ client reads it. Poll `GET /financial-documents/{connection_id}` for current sta
   observations, receipt detail, candidates, completeness/readability and projection
   issues. Internal provider/route metadata is excluded. The connection ID links to
   existing import review; no duplicate approval state is stored here.
-- `GET /financial-documents/{connection_id}/source` returns the retained file as a
-  download with a safe generic filename, `Cache-Control: no-store` and `nosniff`.
-  The API reads it from private Storage and proxies the bytes; no signed URL
-  leaves the server. Another person's connection is 404. A Storage outage is a
-  retryable 503 `document_storage_unavailable`, during upload and preparation
-  alike.
+- `GET /financial-documents/{connection_id}/source` returns verified original
+  bytes for PDF, text, CSV, XLSX, XML and EML. PNG/JPEG images return a rebuilt
+  JPEG, made on first download if missing and reused on later downloads. The
+  original remains retained; there is no bulk rebuild or original-image fallback.
+  Responses are attachments with a safe generic filename, their download media
+  type, `Cache-Control: no-store` and `nosniff`. Missing or unreadable images
+  return 422 `document_source_unavailable`. The API proxies private Storage
+  bytes; no signed URL leaves the server. Another person's connection is 404.
+  A Storage outage is a retryable 503 `document_storage_unavailable`.
 - `POST /financial-documents/{connection_id}/prepare` and `/resume` queue explicit
   preparation or replay saved candidate delivery. A fresh provider attempt requires
   `X-Extraction-Consent: true`; replay of saved preparation makes no provider call.
@@ -9148,7 +9151,7 @@ missing write capability returns 403. Stale versions and same-key/different-inpu
 requests return 409; invalid facts or unresolved approval blockers return 422.
 An uncertain financial effect is `outcome_unknown`, not success or safe retry.
 
-`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, retained `originals/` and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named read grant; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Original-source reads and final response release recheck the same grant, with existing grant/Business/source locks; authorization failure aborts the response. Missing retained originals and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission.
+`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named read grant; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission.
 
 **Business attachment preparation.** The existing consented Business upload and preparation routes use the shared document extractor, then the canonical Business Actions finalizer. No new HTTP route, caller-supplied actor/grant, or approval endpoint is added. Server dispatch captures the original preparing member's exact grant and issuer, Business owner, source connection/hash, consent and explicit target. Current web upload dispatch uses `target: null` for a new draft. An internal existing-draft target requires its exact open version; it must not fall back to creating a different draft.
 
@@ -9669,9 +9672,16 @@ accept path recorded.
   `check_details` (a purchase is ready but the read was incomplete) or
   `other`. `error_code` stays the precise cause. Nothing is retried
   automatically because of it.
-- GET `/api/v1/business/receipts/{id}/source` returns the stored original
-  (#778) as an attachment, with `X-Content-Type-Options: nosniff`. It is
-  readable by the owner only.
+- GET `/api/v1/business/receipts/{id}/source` returns verified original bytes
+  for PDF, text, CSV, XLSX, XML and EML, and rebuilt JPEGs for PNG/JPEG images.
+  A missing image copy is built on its first download and then reused; no bulk
+  rebuild occurs and originals remain retained. These rules also apply to export
+  attachments. Responses use attachment, `no-store` and `nosniff` headers after
+  existing authorization checks. Missing or unreadable image copies return 422
+  `document_source_unavailable`; original images are never a fallback. Export
+  releases snapshot locks before image conversion, then rechecks permission and
+  source identity before serving the archive. Internal extraction and email retry
+  original reads remain unchanged. No public audit endpoint is introduced.
 - POST `/api/v1/business/receipts/{id}/prepare` requires
   `X-Extraction-Consent: true`, else 422
   `document_extraction_consent_required`. While the owner's receipt-reading

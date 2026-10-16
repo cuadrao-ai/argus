@@ -114,7 +114,10 @@ def _erase_storage(user_id: str) -> None:
 
 def _objects(person: str) -> int:
     with psycopg.connect(DSN) as connection:
-        return len(stored_paths(connection, owner_prefix(person)))
+        return sum(
+            len(stored_paths(connection, prefix))
+            for prefix in (owner_prefix(person), f"sealed/{person}/", f"rebuilt/{person}/")
+        )
 
 
 def _extractions(person: str) -> int:
@@ -165,10 +168,15 @@ def test_a_saved_document_is_read_and_deleted_with_intake_off(
         listed = client.get(DOCUMENTS, headers=api.headers)
         assert [item["connection_id"] for item in listed.json()["items"]] == [document]
         source = client.get(f"{DOCUMENTS}/{document}/source", headers=api.headers)
-        assert (
-            hashlib.sha256(source.content).hexdigest()
-            == hashlib.sha256(RECEIPT).hexdigest()
-        )
+        assert source.status_code == 200
+        assert source.headers["content-type"] == "image/jpeg"
+        assert source.content.startswith(b"\xff\xd8") and source.content != RECEIPT
+        assert _objects(api.person) == 2
+        from argus.api.documents import documents_service
+
+        assert documents_service().store.source(user_id=api.person, connection_id=document) == RECEIPT
+        assert client.get(f"{DOCUMENTS}/{document}/source", headers=api.headers).content == source.content
+        assert _objects(api.person) == 2
         refused = client.post(
             DOCUMENTS,
             content=RECEIPT,

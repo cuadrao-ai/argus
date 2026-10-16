@@ -13,6 +13,7 @@ from uuid import uuid4
 
 import pytest
 from argus.api import email_intake as runtime_module
+from argus.api.documents import documents_service
 from argus.domain.ingestion.email_intake.store import InMemoryEmailStore
 from fastapi.testclient import TestClient
 
@@ -168,7 +169,10 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
     )
     claimed = store.claim()
     # Intake saves the documents after the email arrived: the save follows the arrival.
-    original = alice.upload(consent=False, name="forwarded.eml")
+    original = alice.upload(
+        content=b"Subject: Factura 0041\r\n\r\nForwarded receipt",
+        consent=False, name="forwarded.eml", media_type="message/rfc822",
+    )
     attachment = alice.upload(content=UNREADABLE, consent=False, name="recibo.png")
     assert (original.status_code, attachment.status_code) == (200, 200), attachment.text
     original_id, attachment_id = original.json()["id"], attachment.json()["id"]
@@ -213,7 +217,12 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
     assert [(r.status_code, r.json()["code"]) for r in refused] == [
         (409, "email_original_not_a_receipt")
     ] * 3
-    assert alice.get(f"/receipts/{original_id}/source").status_code == 200
+    source = alice.get(f"/receipts/{original_id}/source")
+    assert source.status_code == 200
+    assert source.headers["content-type"] == "message/rfc822"
+    assert source.content == documents_service().store.source(
+        user_id=alice.scope().person_id, connection_id=original_id
+    )
     searched = {
         item["id"]: item
         for item in alice.get("/search", q="forwarded").json()["receipts"]

@@ -3591,40 +3591,44 @@ A bound extraction's saved batch cannot be replaced or cleared. A `prepare_attac
 One existing Actions transaction locks the connection/document, checks the original live grant/issuer, owner/Business, source, consent, lease and exact target, then writes the canonical draft revision, source link and settled receipt. It rechecks completion conditions before commit. The original authority and saved-batch identity are never replaced on retry. There is no Money posting, new ledger or inferred legacy conversion. PostgreSQL checks stored source availability/reference and inline legacy bytes; it cannot make an external Storage object's existence atomic with its transaction.
 
 
-**Retained source objects (#778, `20261008100000`).** The source file lives in
-the private Storage bucket `financial-document-sources` at
-`{user_id}/{connection_id}/{sha256}`: owner-scoped, unguessable through the
-random connection id, and content-addressed, so a duplicate upload writes no
-second object. The bucket is private and `storage.objects` has no client
-policy, so only the service role reaches it. The row keeps `source_bucket`,
-`source_path`, `source_media_type`, `source_size_bytes` (1 to 10 MiB) and
-`source_sha256`, all set or all null; a check ties the path to the row's owner,
-connection and digest. `source_bytes` is legacy: never written, refused beside a
-reference, and still served for rows captured before the move until a later
-migration drops it. A retained source always has its draft, and a row with
-neither batch nor draft is refused. `argus.domain.ingestion.documents.objects`
-owns the put/get/delete interface; memory mode uses an in-memory store behind it.
+**Retained source objects (#778, `20261008100000`; Lane 06B, `20261016180000`).**
+One `financial_document_extractions` row still represents one document connection.
+New originals live at `sealed/{user_id}/{original_sha256}` and rebuilt copies at
+`rebuilt/{user_id}/{original_sha256}` in the private `financial-document-sources`
+bucket. Only the service role reaches the bucket. Same-owner connections may
+share an object. Writes never overwrite bytes; identical retries are no-ops.
+Existing `{user_id}/{connection_id}/{sha256}` objects remain in place.
 
-The October 2 founder clarification explicitly replaces this lane's former
-transient-file policy. Source files remain until explicit disconnect/deletion;
-rendered images and OCR intermediates stay transient. Row level security and
-revoked client grants remain. Owner/live-connection checks protect all draft and
-source reads. User/connection deletion cascades; disconnect removes source,
-draft and preparation while accepted financial activity follows existing retention.
+The row retains `source_bucket`, `source_path`, `source_media_type`,
+`source_size_bytes` and `source_sha256`, all set or all null. The additive
+migration accepts legacy and sealed paths. New `rebuilt_bucket`, `rebuilt_path`,
+`rebuilt_media_type`, `rebuilt_size_bytes` and `rebuilt_sha256` are also all set or
+all null. The rebuilt path uses the original digest; `rebuilt_sha256` verifies the
+actual rebuilt bytes. Checks bind both references to the owner, digest, allowed
+media types and 1 to 10 MiB size limits. Legacy `source_bytes` remains unchanged
+and is verified against the draft digest on reads. Non-image legacy sources may
+still download from inline bytes; images require a rebuilt copy. No existing
+objects or inline bytes move in this migration.
 
-Capture writes the object first, then locks the live owner connection and
-commits the draft and its reference before background dispatch. A crash in
-between leaves an unreferenced object, never a row pointing at nothing; an
-identical retry rewrites the same path and adopts it, and also restores an
-object that went missing (the draft says `source_available=false` until then).
-Capture refuses a person whose account deletion run is in flight and removes the
-object it wrote. `SOURCE_MAX_BYTES` and `SOURCE_MEDIA_TYPES` in
-`argus.domain.ingestion.documents.config` are the code's single copy of the
-bucket's limits; a real-Postgres test holds the bucket to them. Disconnect deletes the
-connection's prefix (orphans included) before the row, so a failed delete keeps
-the row and the idempotent disconnect retry finishes it. Account deletion
-deletes the person's prefix as its `storage` step, and once more right before
-the auth delete. No
+User downloads and attachment exports select verified originals for PDF, text,
+CSV, XLSX, XML and EML, and verified rebuilt JPEGs for PNG/JPEG images. Lane 06C's
+bounded helper builds a missing image on its first download; later downloads
+reuse the stored copy. Originals always remain retained. There is no bulk rebuild
+and no original-image fallback. Conversion runs outside export snapshot locks;
+permission and source identity are rechecked before release. Existing extraction
+and email retry readers keep verified original access. Original reads identify
+their storage reader in logs; integrity mismatches log and fail closed. A separate
+service-role audit response remains a held contract item, not a new endpoint.
+
+Capture commits a pending reference before the external write, then publishes
+availability after the upload and capture hook commit. Pending sources are not
+queued for extraction. A crash leaves a reference that retry or disconnect can
+find. Owner advisory locks serialize writes and last-reference deletion. A
+copy shared by another connection remains until its last reference is removed.
+Disconnect deletes both copies and the legacy connection prefix before deleting
+the row; failure preserves the reference for retry. Account deletion's unchanged
+owner-prefix call expands to legacy, sealed and rebuilt prefixes. Row deletion
+also removes legacy inline bytes. No
 path deletes confirmed financial activity. Draft updates compare versions, and preparation completion
 checks the connection lease. Duplicate capture cannot replace a source or reset
 an attempt. A persisted in-flight state prevents automatic retry after uncertain

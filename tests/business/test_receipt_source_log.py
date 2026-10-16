@@ -26,7 +26,7 @@ def test_the_source_route_names_the_outcome_in_the_message_text(alice: Owner) ->
     finally:
         logger.remove(sink)
     assert _messages(records) == [
-        f"receipt_source_served receipt_id={receipt_id} media_type=image/png"
+        f"receipt_source_served receipt_id={receipt_id} media_type=image/jpeg"
         f" size_bytes={len(served.content)}",
         "receipt_source_failed receipt_id=00000000-0000-4000-8000-000000000000"
         " code=receipt_not_found status=404",
