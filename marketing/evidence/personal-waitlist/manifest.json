@@ -1,0 +1,12 @@
+{
+  "captured_at": "2026-10-16T16:32:20.739045+00:00",
+  "base_sha": "bc16c70c8e1e01271090695648bdb30f5c38b1a9",
+  "before_url": "https://cuadrao-marketing-staging.onrender.com/personal",
+  "after_url": "http://127.0.0.1:4598/personal",
+  "build": "next build --webpack",
+  "browser_tests": 18,
+  "unit_tests": 194,
+  "unit_assertions": 465,
+  "provider_evidence": "CAPTCHA widget and successful submit response are explicit browser fixtures. The real local signup endpoint returns 503. No email or database write occurred.",
+  "actual_turnstile_storage": "NOT PROBED. Fixture path wrote no cookie, localStorage or sessionStorage."
+}

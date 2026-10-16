@@ -2247,6 +2247,39 @@
         "web/public/locales/**"
       ]
     },
+    "codex/marketing-personal-waitlist": {
+      "description": "Personal waitlist form, approved legal source, opt-in lifecycle and email integration. Staging only. Business CTAs and shared account email renderer belong to separate writers.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "marketing/app/api/signups/config/**",
+        "marketing/app/api/waitlist/**",
+        "marketing/components/personal-early-access.tsx",
+        "marketing/components/personal-early-access.module.css",
+        "marketing/components/waitlist-captcha.tsx",
+        "marketing/content/legal-es.json",
+        "marketing/content/legal-waitlist-source/**",
+        "marketing/lib/forms/personal-waitlist-input.ts",
+        "marketing/lib/waitlist/**",
+        "marketing/__tests__/legal-copy.test.ts",
+        "marketing/__tests__/personal-waitlist-*.test.ts",
+        "marketing/__tests__/waitlist-*.test.ts",
+        "marketing/e2e/personal-waitlist.spec.ts",
+        "marketing/evidence/personal-waitlist/**",
+        "marketing/scripts/verify-legal-source.py",
+        "docs/specs/cuadrao-personal-waitlist.md"
+      ],
+      "deny": [
+        ".env",
+        "web/**",
+        "ios/**",
+        "render.yaml",
+        "marketing/components/business-header.tsx",
+        "marketing/components/business-footer.tsx",
+        "marketing/components/touchup-landing.tsx",
+        "marketing/lib/email/**"
+      ]
+    },
     "codex/receipt-auto-read-activity": {
       "description": "Business owner consent for automatic receipt reading across email, WhatsApp and uploads, with canonical per-person receipt activity and visible Inbox refresh.",
       "base_ref": "origin/codex/private-alpha-next",

@@ -55,3 +55,12 @@
 .emailShell { position: relative; }
 .petPerch { position: absolute; right: 19px; top: -31px; pointer-events: none; transform: rotate(5deg); }
 .signup .emailShell input { padding-right: 78px; position: relative; }
+
+.optionalFields { display: grid; gap: 10px; margin-top: 22px; }
+.optionalFields label { margin: 10px 0 0; }
+.optionalFields select, .optionalFields textarea { width: 100%; min-height: 48px; border: 1px solid #9caaa3; border-radius: 7px; background: #fffefa; padding: 12px; font: inherit; color: #172b26; }
+.optionalFields textarea { min-height: 92px; resize: vertical; }
+.optionalFields .hint { font-size: 13px; line-height: 1.5; margin: 0; }
+.optionalFields .error:empty { display: none; }
+.optionalFields > a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; font-size: 14px; }
+.optionalFields :focus-visible { outline: 2px solid #294f43; outline-offset: 3px; }

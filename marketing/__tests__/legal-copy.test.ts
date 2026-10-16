@@ -3,9 +3,9 @@ import { expect, test } from "bun:test";
 import documents from "../content/legal-es.json";
 
 const approved = {
-  privacidad: "967ef49a948378c47bb1bac29bafa6042618a4b1f0f4476a3ca57bdd5a28dcdc",
-  terminos: "f5bbbe97b5a6496e576e1f2d244a424c0e4a87ed602677287a328477ab3d5045",
-  "eliminar-datos": "5b29aab4b58e4cdc457f0d070b35d49ef6cd8d5e8acc05b4995d9ca1db6a507e",
+  privacidad: "8c21adbcd7ac6ff2ab2a9e2b54b0cf74e04205a28a646050886907e46e5457f6",
+  terminos: "e15f03d6849fd6c46ad68159fbe9f9091f407df6ec688b44cda1b0b10d9ecda4",
+  "eliminar-datos": "8d89a035b4642bb5dadc6fe2ba5324fb493f128e3aac087123c8097d5b2da5fc",
 };
 
 for (const slug of Object.keys(documents) as (keyof typeof documents)[]) {
