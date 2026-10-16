@@ -923,7 +923,9 @@ What the logs and run record tell you:
     service, and no client PostHog setup in the web or iOS code.
   - Flag off and the token set: outside tests and local dev the step stays
     pending (`analytics_adapter_unconfigured`) until the adapter deletes the
-    events or an operator forces it (`operator_forced`).
+    events or an operator forces it (`operator_forced`). A no-token environment
+    with no configured deletion adapter cannot force analytics complete: the
+    step remains pending even with `--confirm`. Restore the adapter first.
 
   A deployment that has ever sent events keeps them at PostHog after its
   token is removed. Turn on the deletion adapter there before removing the
@@ -952,7 +954,9 @@ It refuses a step pending for less than 7 days (`step_pending_under_7_days`)
 or not pending at all (`step_not_pending`). With `--confirm`, an Apple, Plaid
 or Gmail step first gets one more revoke attempt, recorded in the run like any
 pass (`revoke_attempt` in the output); if that finishes the step nothing is
-forced. Otherwise it records the step `operator_forced` with the reason and
+forced. A no-token analytics force run without a configured deletion adapter
+also stays pending and returns `forced: false`; missing configuration never
+proves deletion. Otherwise it records the step `operator_forced` with the reason and
 your name in the run record, which outlives the deletion, then resumes the
 run. **The reason must
 not contain personal data**: no name, email or account details (the script

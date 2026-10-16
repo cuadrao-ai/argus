@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Literal, Protocol, runtime_checkable
 
@@ -78,3 +79,19 @@ def analytics_deletion_from_env() -> AnalyticsDeletion | EventAnalyticsDeletion:
     if not posthog_project_token_configured():
         return NoAnalyticsEvents()
     return RecordingAnalyticsDeletion()
+
+
+def advance_with_retry(
+    adapter: EventAnalyticsDeletion,
+    distinct_id: str,
+    submission_id: str,
+    request_id: str | None,
+) -> tuple[EventDeletionResult, int]:
+    """Retry transient failures with one durable submission identity, at most three times."""
+    for attempt in range(1, 4):
+        result = adapter.advance(distinct_id, submission_id, request_id)
+        if result.outcome != "failed" or attempt == 3:
+            return result, attempt
+        request_id = result.request_id or request_id
+        time.sleep(0.1 * 2 ** (attempt - 1))
+    raise AssertionError("unreachable")

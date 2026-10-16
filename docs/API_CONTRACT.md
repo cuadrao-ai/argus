@@ -3414,7 +3414,13 @@ ID. The run then opens with `analytics` recorded as `not_applicable`, with
 step does not hold the run. It is never recorded as `deleted`. With the token
 set, the step stays pending as `analytics_adapter_unconfigured` and keeps the
 account locked. A retry or the operator sweep never records `not_applicable`
-from its own environment, and never replaces existing `analytics_evidence`. The flag-on
+from its own environment, and never replaces existing `analytics_evidence`.
+The existing `steps` JSON also records `analytics_origin` (`route_first_pass`,
+`sweep`, or `force`) and `analytics_attempts`. A force run with no configured
+event adapter and no event token leaves analytics pending, even with operator
+confirmation; missing configuration is not proof of erasure. Transient adapter
+failures get at most three attempts per pass with bounded backoff and the same
+submission identity, then remain pending with `last_error`. The flag-on
 adapter runs whether or not the token is set. Lucas's
 [decision 1B](specs/argus-decision-log.md#october-15-2026-account-deletion-analytics-step-without-posthog-events)
 of October 15, 2026 makes this exception to decision 16 of the
