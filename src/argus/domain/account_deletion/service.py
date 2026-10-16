@@ -85,6 +85,7 @@ from argus.domain.household import deletion as household_deletion
 from argus.domain.ingestion.documents.objects import SourceObjects, owner_prefix
 from argus.domain.ingestion.secrets import SecretBox
 from argus.observability.analytics_deletion import (
+    NOT_APPLICABLE_REASON,
     AnalyticsDeletion,
     EventAnalyticsDeletion,
 )
@@ -203,7 +204,8 @@ class AccountDeletionService:
         self._box = secret_box
         # The recording fake counts as done only where it is explicitly the
         # adapter (tests, local dev). Anywhere else the PostHog step stays
-        # pending until a real deletion adapter ships.
+        # pending until a real deletion adapter ships, unless the server sends
+        # no PostHog events at all (not_applicable, decision 1B).
         self._allow_fake_analytics = allow_fake_analytics
         self._sources = source_objects
         self._clock = clock
@@ -1169,7 +1171,7 @@ class AccountDeletionService:
     def _delete_analytics(self, subject: str) -> str | None:
         """The reason while the PostHog person deletion is still owed."""
 
-        done = {"deleted", "operator_forced"}
+        done = {"deleted", "operator_forced", "not_applicable"}
         if self._allow_fake_analytics:
             done.add("recorded_by_fake")
         with self._households.connection() as connection:
@@ -1202,6 +1204,17 @@ class AccountDeletionService:
                 return None
             return f"analytics_delete_{result.outcome}"
         outcome = self._analytics.delete_person(distinct_id)
+        if outcome == "not_applicable":
+            with self._households.connection() as connection, connection.transaction():
+                connection.execute(
+                    "update argus_private.account_deletion_runs"
+                    " set steps = steps || jsonb_build_object("
+                    " 'analytics', 'not_applicable', 'analytics_evidence',"
+                    " jsonb_build_object('reason', %s::text)),"
+                    " updated_at = %s where subject_hash = %s",
+                    (NOT_APPLICABLE_REASON, self._clock(), subject),
+                )
+            return None
         if outcome == "recorded_by_fake" and not self._allow_fake_analytics:
             # Nothing was deleted at PostHog. Never counted as done here.
             self._record_step(subject, "analytics", "pending")

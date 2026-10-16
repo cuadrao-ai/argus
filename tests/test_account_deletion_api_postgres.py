@@ -361,7 +361,9 @@ def _delete_as_deployed(lane, world, route) -> tuple:  # noqa: ANN001, F811
         allow_fake=fake_analytics_allowed(),
     )
     try:
-        with patch.object(account_route, "account_deletion_service", return_value=service):
+        with patch.object(
+            account_route, "account_deletion_service", return_value=service
+        ):
             response = route["client"].post(
                 URL, json={"confirm": True}, headers=_bearer(_token(a, session))
             )
