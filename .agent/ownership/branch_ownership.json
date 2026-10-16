@@ -2755,6 +2755,22 @@
         "ios/**",
         "supabase/**"
       ]
+    },
+    "claude/business-approve-and-next": {
+      "description": "Aprobar y siguiente on the Business receipt review page, from the locked Oct 14 receipt review line: after the server records an owner's approval, open the next receipt in the Bandeja's server order, or the Bandeja when none is left. Same approve request as Aprobar gasto. One locale key business.dossier.approve_next. No server change, no model-facing text.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/components/business-app/bandeja-order.ts",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/public/locales/es-419/common.json",
+        "web/public/locales/en/common.json",
+        "web/__tests__/business-approve-next.dom.test.tsx",
+        "web/e2e/business-approve-next.spec.ts",
+        "docs/reports/evidence/cuadrao-business/approve-next-20261015/**"
+      ],
+      "deny": []
     }
   }
 }

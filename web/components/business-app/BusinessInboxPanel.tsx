@@ -8,6 +8,7 @@ import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
+import { bandejaReceipts } from "./bandeja-order";
 import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel } from "./business-ui";
 
@@ -166,9 +167,7 @@ export default function BusinessInboxPanel() {
   const { t } = useTranslation();
   const { records, openPanel, actions, panel } = useBusiness();
   const personal = usePersonalMark();
-  // The server marks an email's own ".eml" document once an attachment is a receipt;
-  // it lives inside its email row, never in this list.
-  const items = records.inbox?.filter((receipt) => !receipt.email_original) ?? null;
+  const items = records.inbox ? bandejaReceipts(records.inbox) : null;
   const notes = records.notes === null ? null : openNotesByDraft(records.notes);
 
   const upload = actions.create.find((action) => action.id === "upload_receipt");

@@ -2295,6 +2295,7 @@
       "for_owner": "For the owner",
       "before_approval": "Before approval",
       "approve": "Approve expense",
+      "approve_next": "Approve and next",
       "approved_by": "Approved by {{name}} · permission granted by {{issuer}}",
       "approving": "Approving…",
       "approval_effect": "Approval records this revision as one expense. Saving review details does not record it.",
