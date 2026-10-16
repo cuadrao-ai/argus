@@ -929,3 +929,23 @@ permissions are rechecked and duplicate effects remain idempotent. This is a
 bounded repair under current decisions, not a V2 platform, new provider/key,
 access expansion or deployment grant. Implementation and actual quality proof
 remain PENDING in the [existing manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026).
+
+
+## October 15, 2026: account-deletion analytics step without PostHog events
+
+Lucas approved decision 1B. In a deployment whose API server has no
+`POSTHOG_PROJECT_TOKEN`, the server sends no PostHog events, so no event exists
+under a deleted person's distinct ID. There, with no PostHog deletion adapter
+configured, the account-deletion analytics step records `not_applicable` with
+the reason `posthog_not_configured` and no longer holds the run. It is never
+recorded as deleted. Where the token is set, the step is unchanged: it stays
+pending until the deletion adapter completes it or an operator forces it.
+A configured deletion adapter runs whether or not the token is set.
+
+This narrows decision 16 of the
+[MVEE five-lane handoff](lanes/mvee-five-lane-handoff.md) only for deployments
+that send no PostHog events. On October 15, 2026, a read-only check found no
+`POSTHOG_PROJECT_TOKEN` on the staging API service, no PostHog setting on the
+staging web service, and no client PostHog setup in the web or iOS code. The
+[API contract](../API_CONTRACT.md#post-accountdelete) owns the step's behavior.
+This decision does not turn on account deletion or schedule the resume sweep.

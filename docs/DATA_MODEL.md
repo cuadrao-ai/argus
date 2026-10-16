@@ -2577,7 +2577,9 @@ run `steps`. It contains submission and request UUIDs, parsed provider status,
 selected-event count, HTTP status and local outcome. The run UUID owns submission
 identity, so retries do not create a separate identity store. Provider bodies,
 queries, distinct IDs and credentials are excluded from this evidence. A selected
-event count is not an independently verified deletion count. The
+event count is not an independently verified deletion count. Where the server
+sends no PostHog events, the step records `not_applicable` and
+`analytics_evidence` holds only `{"reason": "posthog_not_configured"}`. The
 [API contract](API_CONTRACT.md#post-accountdelete) owns completion and retry behavior.
 
 ---

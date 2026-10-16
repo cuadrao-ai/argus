@@ -3406,6 +3406,18 @@ auth delete waiting. User retries and the existing operator sweep resume the
 same request. Provider approval, credentials and activation remain external
 gates described in the [adapter evidence](reports/evidence/806-personless-deletion/README.md).
 
+With that flag off, the step depends on whether the server sends PostHog
+events. With no `POSTHOG_PROJECT_TOKEN`, the server sends none, so no event
+exists under the person's distinct ID. The step then records `analytics` as
+`not_applicable`, with `analytics_evidence` set to
+`{"reason": "posthog_not_configured"}`, and does not hold the run. It is never
+recorded as `deleted`. With the token set, the step stays pending as
+`analytics_adapter_unconfigured` and keeps the account locked. The flag-on
+adapter runs whether or not the token is set. Lucas's
+[decision 1B](specs/argus-decision-log.md#october-15-2026-account-deletion-analytics-step-without-posthog-events)
+of October 15, 2026 makes this exception to decision 16 of the
+[lane handoff](specs/lanes/mvee-five-lane-handoff.md).
+
 Existing runs bypass new-run admission. A linked Apple identity without a
 stored credential remains pending unless the existing run has a terminal Apple
 receipt. A fresh recovery code can be stored only under that run's exact live

@@ -905,10 +905,26 @@ What the logs and run record tell you:
   updated in the last 24 hours have seen one (any provider), the run logs
   `account_deletion.already_revoked_spike` (with the count): worth a look, a
   provider may be revoking grants on its own.
-- **PostHog.** Outside tests and local dev the step stays pending
-  (`analytics_adapter_unconfigured`) until a real deletion adapter ships
-  (#806). Don't turn on `ARGUS_ACCOUNT_DELETION_ENABLED` before then, nor
-  before #805 (decision 17's closed-line balance).
+- **PostHog.** Which outcome the step records depends on the API service's
+  configuration on each pass:
+  - `ARGUS_ANALYTICS_DELETION_ENABLED` on: the PostHog deletion adapter (#806)
+    runs, whether or not `POSTHOG_PROJECT_TOKEN` is set.
+  - Flag off and no `POSTHOG_PROJECT_TOKEN`: the server sends no PostHog
+    events, so the step records `analytics: not_applicable` with
+    `analytics_evidence.reason: posthog_not_configured` and the run can
+    finish, never `deleted`
+    ([decision 1B](specs/argus-decision-log.md#october-15-2026-account-deletion-analytics-step-without-posthog-events)).
+    On October 15, 2026, a read-only check found no `POSTHOG_PROJECT_TOKEN`
+    on the staging API service, no PostHog setting on the staging web
+    service, and no client PostHog setup in the web or iOS code.
+  - Flag off and the token set: outside tests and local dev the step stays
+    pending (`analytics_adapter_unconfigured`).
+
+  A deployment that has ever sent events keeps them at PostHog after its
+  token is removed. Turn on the deletion adapter there before removing the
+  token. Don't turn on `ARGUS_ACCOUNT_DELETION_ENABLED` before #805
+  (decision 17's closed-line balance), nor, on a deployment that sends
+  PostHog events, before #806 closes.
 - **The 7-day alert.** A step pending for 7 days logs
   `account_deletion.needs_operator` (with the step and its last error, no user
   id). Decide whether it can still finish. If it can't (Apple keeps answering
