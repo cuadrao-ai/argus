@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import type { ApiUser } from "@/lib/argus-api";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
@@ -32,6 +33,7 @@ export default function LanguageModal({
 }: LanguageModalProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { t, i18n } = useTranslation();
+  const isBusiness = useConversationSurface() === "business";
   const [searchQuery, setSearchQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -139,11 +141,11 @@ export default function LanguageModal({
                 </span>
                 {entry.code === normalizeEnabledLanguage(lang) ? (
                   <Check className="w-4 h-4 text-black dark:text-white" />
-                ) : (
+                ) : !isBusiness || entry.translation !== entry.name ? (
                   <span className="text-[14px] text-black/45 dark:text-white/45">
                     {entry.translation}
                   </span>
-                )}
+                ) : null}
               </button>
             ))
           )}
