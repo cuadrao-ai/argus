@@ -33,3 +33,7 @@ export function takeTitleFocus(receiptId: string): boolean {
   titleFocusPending = null;
   return true;
 }
+
+export function clearTitleFocusUnless(recordId?: string): void {
+  if (titleFocusPending !== recordId) titleFocusPending = null;
+}

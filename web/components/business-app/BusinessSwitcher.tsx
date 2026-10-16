@@ -1,5 +1,8 @@
 "use client";
 
+import { createPortal } from "react-dom";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -30,12 +33,16 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
+  const [position, setPosition] = useState({ left: 8, top: 80 });
+  useOverlayLayer({ isOpen: open, overlayId: listId, containerRef: listRef, onEscape: () => { setOpen(false); buttonRef.current?.focus(); } });
   const options = useMemo(() => spaces ?? [], [spaces]);
   const switchable = options.length > 1 || (options.length === 1 && options[0].role !== "owner");
   const current = chosen ?? options[0] ?? null;
 
   useEffect(() => {
     if (!open) return;
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) setPosition({ left: Math.min(Math.max(8, collapsed ? rect.right + 8 : rect.left), window.innerWidth - 304), top: rect.bottom + 4 });
     const index = Math.max(0, options.findIndex((space) => space.grant_id === current?.grant_id));
     setActive(index);
     const close = (event: MouseEvent) => {
@@ -43,7 +50,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
-  }, [open, options, current?.grant_id]);
+  }, [open, options, current?.grant_id, collapsed]);
 
   useEffect(() => {
     if (open) listRef.current?.focus();
@@ -83,7 +90,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
 
   if (!switchable) {
     return (
-      <div data-testid="business-switcher" data-switchable="false" className={`mx-[6px] mb-1 flex items-center gap-2.5 rounded-[14px] px-2 py-2 ${collapsed ? "justify-center" : ""}`} title={collapsed ? name : undefined}>
+      <Tooltip content={name} side="right" delay={150}><div tabIndex={collapsed ? 0 : undefined} data-testid="business-switcher" data-switchable="false" className={`mx-[6px] mb-1 flex items-center gap-2.5 rounded-[14px] px-2 py-2 ${collapsed ? "justify-center" : ""}`} title={collapsed ? name : undefined}>
         {badge}
         {!collapsed ? (
           <span className="min-w-0">
@@ -91,13 +98,13 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
             <span className="block truncate text-[11.5px] text-black/50 dark:text-white/50">{roleLine}</span>
           </span>
         ) : <span className="sr-only" data-testid="business-current-name">{name}</span>}
-      </div>
+      </div></Tooltip>
     );
   }
 
   return (
     <div className="relative mx-[6px] mb-1" data-testid="business-switcher" data-switchable="true">
-      <button
+      <Tooltip content={`${name} · ${t("business.switcher.change", "Switch Business")}`} side="right" delay={150}><span className="block"><button
         ref={buttonRef}
         type="button"
         aria-haspopup="listbox"
@@ -119,8 +126,8 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
             <ChevronsUpDown className="h-4 w-4 shrink-0 text-black/40 dark:text-white/40" aria-hidden="true" />
           </>
         ) : <span className="sr-only" data-testid="business-current-name">{name}</span>}
-      </button>
-      {open ? (
+      </button></span></Tooltip>
+      {open ? createPortal(
         <ul
           ref={listRef}
           id={listId}
@@ -129,7 +136,8 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
           aria-label={t("business.switcher.choose", "Choose a Business")}
           aria-activedescendant={options[active] ? `${listId}-${options[active].grant_id}` : undefined}
           onKeyDown={onListKey}
-          className="absolute left-0 top-full z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-[16px] border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
+          style={{ left: Math.max(8, position.left), top: position.top }}
+          className="fixed z-[100] mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-[16px] border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
         >
           {options.map((space, index) => {
             const selected = space.grant_id === current.grant_id;
@@ -154,7 +162,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
               </li>
             );
           })}
-        </ul>
+        </ul>, document.body
       ) : null}
     </div>
   );

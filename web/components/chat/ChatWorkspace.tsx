@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
+import type { WorkspaceKeyboardShortcut } from "@/lib/keyboard-shortcuts";
 import type { LucideIcon } from "lucide-react";
 import type { ConversationSurface } from "@/lib/conversation-surface-api";
 import type { WorkspaceStarterEntry } from "./StarterActions";
@@ -87,6 +88,8 @@ export type ChatWorkspace = Readonly<{
   chatAvailable: boolean;
   initialView: ChatShellView;
   profileInHeader: boolean;
+  keyboardShortcuts?: readonly WorkspaceKeyboardShortcut[];
+  bottomNavigation?: (bridge: ChatShellBridge) => ReactNode;
   /** Whether the current panel keeps the composer at its bottom edge. */
   panelHasComposer: boolean;
   sidebarNav: (bridge: ChatShellBridge) => ReactNode;

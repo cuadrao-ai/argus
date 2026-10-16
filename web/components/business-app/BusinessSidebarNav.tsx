@@ -1,6 +1,8 @@
 "use client";
 
-import { Bell, Inbox, LayoutGrid, ReceiptText, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
+import { Bell, Inbox, LayoutGrid, ReceiptText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
@@ -9,11 +11,13 @@ import { inboxCount as countInbox } from "./inbox-count";
 
 export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }) {
   const { t } = useTranslation();
+  const [command, setCommand] = useState(false);
+  useEffect(() => { setCommand(/Mac|iPhone|iPad|iPod/.test(navigator.userAgent)); }, []);
   const { panel, openPanel, records } = useBusiness();
   const inboxCount = countInbox(records);
   const isActive = (kind: BusinessPanelState["kind"]) =>
     shell.currentView === "workspace" &&
-    (panel.kind === kind || (kind === "inbox" && panel.kind === "receipt") || (kind === "expenses" && panel.kind === "expense"));
+    (panel.kind === kind || (kind === "inbox" && ["receipt", "draft"].includes(panel.kind)) || (kind === "expenses" && panel.kind === "expense"));
   const count = (value: number | null) =>
     value !== null && value > 0 && !shell.sidebarCollapsed ? (
       <span data-testid="business-inbox-count" className="rounded-full bg-black/5 px-2 py-0.5 text-[12px] tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60">
@@ -31,6 +35,8 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         icon={LayoutGrid}
         label={t("business.nav.overview", "Overview")}
         active={isActive("overview")}
+        shortcutHint={quickJumpHintDisplay(1, command)}
+        shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "overview" })}
         iconSize={20}
@@ -39,6 +45,8 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         icon={Inbox}
         label={t("business.nav.inbox", "Inbox")}
         active={isActive("inbox")}
+        shortcutHint={quickJumpHintDisplay(2, command)}
+        shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "inbox" })}
         trailing={count(inboxCount)}
@@ -49,6 +57,8 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         icon={ReceiptText}
         label={t("business.nav.expenses", "Expenses")}
         active={isActive("expenses")}
+        shortcutHint={quickJumpHintDisplay(3, command)}
+        shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "expenses" })}
         iconSize={20}
@@ -57,18 +67,13 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         icon={Bell}
         label={t("business.nav.updates", "Updates")}
         active={isActive("updates")}
+        shortcutHint={quickJumpHintDisplay(4, command)}
+        shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "updates" })}
         iconSize={20}
       />
-      <SidebarNavButton
-        icon={Users}
-        label={t("business_access.nav", "Access")}
-        active={isActive("access")}
-        collapsed={shell.sidebarCollapsed}
-        onClick={() => openPanel({ kind: "access" })}
-        iconSize={20}
-      />
+
     </nav>
   );
 }
