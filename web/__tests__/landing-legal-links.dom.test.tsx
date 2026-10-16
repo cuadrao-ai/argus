@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, describe, mock, test } from "bun:test";
+import type { Root } from "react-dom/client";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 mock.module("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined }),
   useSearchParams: () => new URLSearchParams(),
 }));
+
+const mounted = new Map<Root, HTMLElement>();
+let restoreFetch: (() => void) | null = null;
 
 const ENV_NAMES = [
   "NEXT_PUBLIC_CUADRAO_TERMS_URL",
@@ -22,12 +26,20 @@ beforeAll(() => {
 afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
-afterEach(() => {
+afterEach(async () => {
+  const { act } = await import("react");
+  await act(async () => { for (const [root, host] of mounted) { root.unmount(); host.remove(); } });
+  mounted.clear();
+  restoreFetch?.();
+  restoreFetch = null;
   for (const name of ENV_NAMES) delete process.env[name];
 });
 
 async function mountFrontDoor(query: string) {
   window.history.replaceState(null, "", `/${query}`);
+  const originalFetch = globalThis.fetch;
+  restoreFetch = () => { globalThis.fetch = originalFetch; };
+  globalThis.fetch = async () => Response.json({ code: "profile_unavailable" }, { status: 503 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -39,6 +51,7 @@ async function mountFrontDoor(query: string) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
+  mounted.set(root, host);
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
@@ -46,8 +59,18 @@ async function mountFrontDoor(query: string) {
       </I18nextProvider>,
     );
   });
-  for (let turn = 0; turn < 5; turn += 1) await act(async () => { await Promise.resolve(); });
-  return { act, root, host };
+  await act(async () => {
+    if (host.querySelector("[data-auth-brand]")) return;
+    await new Promise<void>((resolve, reject) => {
+      const observer = new MutationObserver(() => {
+        if (!host.querySelector("[data-auth-brand]")) return;
+        observer.disconnect(); clearTimeout(timeout); resolve();
+      });
+      const timeout = setTimeout(() => { observer.disconnect(); reject(new Error("Front door did not settle")); }, 1000);
+      observer.observe(host, { childList: true, subtree: true });
+    });
+  });
+  return { act, root: { unmount: () => { root.unmount(); mounted.delete(root); host.remove(); } }, host };
 }
 
 const SURFACES = [

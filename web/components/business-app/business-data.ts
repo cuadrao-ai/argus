@@ -1,3 +1,4 @@
+import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
 import * as api from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
 import { getChosenGrant } from "@/lib/business-grant";
@@ -134,8 +135,14 @@ export function withBusinessSpace(
   // accountant, so under a chosen grant the calls go straight through.
   let started: Promise<BusinessSpace> | null = null;
   let startedFor: string | null = null;
+  let generation = browserAuthGeneration();
   const ready = () => {
     const grant = getChosenGrant();
+    const currentGeneration = browserAuthGeneration();
+    if (generation !== currentGeneration) {
+      started = null;
+      generation = currentGeneration;
+    }
     if (grant) return Promise.resolve({ id: "", name: "" } as BusinessSpace);
     if (startedFor !== grant) {
       started = null;
@@ -150,7 +157,9 @@ export function withBusinessSpace(
   const after =
     <A extends unknown[], R>(call: (...args: A) => Promise<R>) =>
     async (...args: A): Promise<R> => {
+      const requestGeneration = browserAuthGeneration();
       await ready();
+      requireBrowserAuthGeneration(requestGeneration);
       return call(...args);
     };
   return {

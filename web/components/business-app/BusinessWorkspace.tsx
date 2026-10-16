@@ -321,7 +321,10 @@ export function BusinessWorkspaceProvider({
   useEffect(() => {
     let cancelled = false;
     if (onRecord) return;
-    source.captures("", NOTES_PAGE, "inbox").then(
+    source.ensureSpace(normalizeEnabledLanguage(i18n.language)).then(() => {
+      if (cancelled) return [];
+      return source.captures("", NOTES_PAGE, "inbox");
+    }).then(
       (notes) => {
         if (!cancelled) setRecords((current) => ({ ...current, notes, notesError: false, notesTruncated: notes.length >= NOTES_PAGE }));
       },
@@ -332,7 +335,7 @@ export function BusinessWorkspaceProvider({
     return () => {
       cancelled = true;
     };
-  }, [onRecord, revision, source]);
+  }, [onRecord, revision, source, i18n]);
 
   // The shell may replace the route while leaving a conversation; writing again
   // once that navigation lands keeps the panel in the address bar.

@@ -32,6 +32,7 @@ import { guestCaptchaConfigured } from "@/lib/guest-session";
 import { ENABLED_LANGUAGES, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { saveProfileLanguage } from "@/lib/profile-writes";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
+import { completeAuthVerification } from "@/lib/auth-verification";
 import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
 
 type AuthMode = "intro" | "request" | "signup" | "login";
@@ -62,6 +63,7 @@ export default function LandingPage() {
   const isMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const [authMode, setAuthMode] = useState<AuthMode>("intro");
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [verificationFailed, setVerificationFailed] = useState(false);
   const [profileProbeFailedClosed, setProfileProbeFailedClosed] =
     useState(false);
 
@@ -69,13 +71,22 @@ export default function LandingPage() {
     captureLandingIntentFromLocation();
     const nextAuthMode = authModeFromLocation();
     setAuthMode(nextAuthMode);
-    if (skipAuthenticatedRedirect()) {
-      setIsCheckingSession(false);
-      return;
-    }
+    const verification = completeAuthVerification();
     let cancelled = false;
     (async () => {
       try {
+        const verified = await verification;
+        if (cancelled) return;
+        if (verified === "failed") {
+          setVerificationFailed(true);
+          setAuthMode("login");
+          setIsCheckingSession(false);
+          return;
+        }
+        if (verified === "none" && skipAuthenticatedRedirect()) {
+          setIsCheckingSession(false);
+          return;
+        }
         const meResponse = await getMe();
         if (cancelled) return;
         if (meResponse === null) {
@@ -219,6 +230,7 @@ export default function LandingPage() {
             </button>
           ) : (
             <div className="w-full max-w-sm">
+              {verificationFailed ? <p role="alert">{t("auth.errors.unauthorized", "We couldn’t verify those account details. Check them and try again.")}</p> : null}
               {authMode === "request" ? (
                 <RequestAccess
                   onShowSignup={showSignup}
