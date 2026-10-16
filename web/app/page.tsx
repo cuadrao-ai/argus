@@ -32,6 +32,7 @@ import { guestCaptchaConfigured } from "@/lib/guest-session";
 import { ENABLED_LANGUAGES, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { saveProfileLanguage } from "@/lib/profile-writes";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
+import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
 
 type AuthMode = "intro" | "request" | "signup" | "login";
 
@@ -171,6 +172,7 @@ export default function LandingPage() {
   };
 
   const isSignup = authMode === "signup";
+  const acceptance = acceptanceLinks();
   const entrySurface = resolveLandingEntrySurface({
     authMode,
     // A Business build has no guest chat: a signed-out visitor sees login.
@@ -262,16 +264,18 @@ export default function LandingPage() {
                 </button>
               </p>
 
-              <p className="mt-4 w-full px-4 text-center text-[11px] md:text-[12px] tracking-tight">
-                {t('landing.legal_prefix', 'By joining, you agree to our')}{" "}
-                <a href="/terms" className="font-semibold transition-opacity hover:opacity-80">
-                  {t('landing.terms')}
-                </a>{" "}
-                {t('common.and', 'and')}{" "}
-                <a href="/privacy" className="font-semibold transition-opacity hover:opacity-80">
-                  {t('landing.privacy')}
-                </a>.
-              </p>
+              {acceptance ? (
+                <p className="mt-4 w-full px-4 text-center text-[11px] md:text-[12px] tracking-tight">
+                  {t('landing.legal_prefix', 'By joining, you agree to our')}{" "}
+                  <a href={acceptance.terms} className="font-semibold transition-opacity hover:opacity-80">
+                    {t('landing.terms')}
+                  </a>{" "}
+                  {t('common.and', 'and')}{" "}
+                  <a href={acceptance.privacy} className="font-semibold transition-opacity hover:opacity-80">
+                    {t('landing.privacy')}
+                  </a>.
+                </p>
+              ) : null}
             </>
           )}
         </div>

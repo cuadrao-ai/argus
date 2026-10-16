@@ -184,7 +184,7 @@ describe("guest conversion contract", () => {
     expect(modal).toContain("<AuthForm");
     expect(shared).toContain("showPassword");
     expect(shared).toContain("authError");
-    expect(shared).toContain("cuadraoLegalLinks()");
+    expect(shared).toContain("acceptanceLinks()");
     expect(shared).not.toContain('href="/terms"');
     expect(shared).not.toContain('href="/privacy"');
     expect(modal).toContain('role="dialog"');
