@@ -21,22 +21,23 @@ function initial(name: string): string {
   return letter ? letter.toLocaleUpperCase() : "·";
 }
 
-export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }: {
+export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, onOpenAccess }: {
   spaces: GrantedSpace[] | null;
   chosen: GrantedSpace | null;
   collapsed: boolean;
   onChoose: (grantId: string | null) => void;
+  onOpenAccess?: () => void;
 }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const { t, i18n } = useTranslation();
+  const [open, setOpen] = useState<false | "menu" | "switcher">(false);
   const [active, setActive] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
   const [position, setPosition] = useState({ left: 8, top: 80 });
-  useOverlayLayer({ isOpen: open, overlayId: listId, containerRef: listRef, onEscape: () => { setOpen(false); buttonRef.current?.focus(); } });
+  useOverlayLayer({ isOpen: Boolean(open), overlayId: listId, containerRef: listRef, onEscape: () => { setOpen(false); buttonRef.current?.focus(); } });
   const options = useMemo(() => spaces ?? [], [spaces]);
-  const switchable = options.length > 1 || (options.length === 1 && options[0].role !== "owner");
+  const switchable = Boolean(onOpenAccess) || options.length > 1 || (options.length === 1 && options[0].role !== "owner");
   const current = chosen ?? options[0] ?? null;
 
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) setPosition({ left: Math.min(Math.max(8, collapsed ? rect.right + 8 : rect.left), window.innerWidth - 304), top: rect.bottom + 4 });
     const index = Math.max(0, options.findIndex((space) => space.grant_id === current?.grant_id));
-    setActive(index);
+    setActive(open === "menu" ? 0 : index);
     const close = (event: MouseEvent) => {
       if (!listRef.current?.contains(event.target as Node) && !buttonRef.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -82,6 +83,26 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
     }
   };
 
+  const accessLabel = i18n.resolvedLanguage?.startsWith("es") ? "Equipo y accesos" : t("business_access.nav", "Access");
+  const menuItems = [
+    { id: "access", label: accessLabel },
+    ...(options.length > 1 ? [{ id: "switch", label: t("business.switcher.change", "Switch Business") }] : []),
+  ];
+  const runMenuItem = (id: string) => {
+    if (id === "switch") { setOpen("switcher"); return; }
+    setOpen(false);
+    onOpenAccess?.();
+    buttonRef.current?.focus();
+  };
+  const onMenuKey = (event: React.KeyboardEvent<HTMLUListElement>) => {
+    if (event.key === "ArrowDown") { event.preventDefault(); setActive((i) => Math.min(menuItems.length - 1, i + 1)); }
+    else if (event.key === "ArrowUp") { event.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
+    else if (event.key === "Home" || event.key === "End") { event.preventDefault(); setActive(event.key === "Home" ? 0 : menuItems.length - 1); }
+    else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); if (menuItems[active]) runMenuItem(menuItems[active].id); }
+    else if (event.key === "Escape" || event.key === "Tab") { setOpen(false); buttonRef.current?.focus(); if (event.key === "Escape") event.preventDefault(); }
+  };
+  const initials = name.split(/\s+/).slice(0, 2).map(initial).join("");
+
   const badge = (
     <span aria-hidden="true" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-[13px] font-semibold ${current.role === "owner" ? "bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : "bg-[var(--cuadrao-cream)] text-[var(--cuadrao-green)] ring-1 ring-[var(--cuadrao-green)]/30"}`}>
       {initial(name)}
@@ -104,16 +125,16 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
 
   return (
     <div className="relative mx-[6px] mb-1" data-testid="business-switcher" data-switchable="true">
-      <Tooltip content={`${name} · ${t("business.switcher.change", "Switch Business")}`} side="right" delay={150}><span className="block"><button
+      <Tooltip content={onOpenAccess ? name : `${name} · ${t("business.switcher.change", "Switch Business")}`} side="right" delay={150}><span className="block"><button
         ref={buttonRef}
         type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
+        aria-haspopup={onOpenAccess ? "menu" : "listbox"}
+        aria-expanded={Boolean(open)}
         aria-controls={listId}
-        aria-label={`${t("business.switcher.label", "Business")}: ${name}. ${t("business.switcher.change", "Switch Business")}`}
+        aria-label={onOpenAccess ? name : `${t("business.switcher.label", "Business")}: ${name}. ${t("business.switcher.change", "Switch Business")}`}
         title={collapsed ? `${name} · ${t("business.switcher.change", "Switch Business")}` : undefined}
-        onClick={() => setOpen((value) => !value)}
-        onKeyDown={(event) => { if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setOpen(true); } }}
+        onClick={() => setOpen((value) => value ? false : onOpenAccess ? "menu" : "switcher")}
+        onKeyDown={(event) => { if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setOpen(onOpenAccess ? "menu" : "switcher"); } }}
         className={`flex h-12 w-full items-center gap-2.5 rounded-[14px] px-2 text-left transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 dark:hover:bg-white/5 ${collapsed ? "justify-center" : ""}`}
       >
         {badge}
@@ -131,15 +152,21 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
         <ul
           ref={listRef}
           id={listId}
-          role="listbox"
+          role={open === "menu" ? "menu" : "listbox"}
           tabIndex={-1}
-          aria-label={t("business.switcher.choose", "Choose a Business")}
-          aria-activedescendant={options[active] ? `${listId}-${options[active].grant_id}` : undefined}
-          onKeyDown={onListKey}
+          aria-label={open === "menu" ? name : t("business.switcher.choose", "Choose a Business")}
+          aria-activedescendant={open === "menu" ? `${listId}-${menuItems[active]?.id}` : options[active] ? `${listId}-${options[active].grant_id}` : undefined}
+          onKeyDown={open === "menu" ? onMenuKey : onListKey}
           style={{ left: Math.max(8, position.left), top: position.top }}
           className="fixed z-[100] mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-[16px] border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
         >
-          {options.map((space, index) => {
+          {open === "menu" ? <>
+            <li role="presentation" className="flex items-center gap-2.5 border-b border-black/10 px-2 py-3 dark:border-white/10">
+              <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[var(--cuadrao-green)] text-[13px] font-semibold text-[var(--cuadrao-cream)]">{initials}</span>
+              <span className="min-w-0 break-words text-[14px] font-medium text-black dark:text-white">{name}</span>
+            </li>
+            {menuItems.map((item, index) => <li key={item.id} role="menuitem" id={`${listId}-${item.id}`} onMouseEnter={() => setActive(index)} onClick={() => runMenuItem(item.id)} className={`flex min-h-11 cursor-pointer items-center rounded-[12px] px-2 text-[14px] text-black dark:text-white ${index === active ? "bg-black/5 dark:bg-white/5" : ""}`}>{item.label}</li>)}
+          </> : options.map((space, index) => {
             const selected = space.grant_id === current.grant_id;
             const optionName = formatBusinessName(space.name, fallback);
             return (

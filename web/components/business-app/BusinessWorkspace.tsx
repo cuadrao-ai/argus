@@ -417,7 +417,7 @@ function BusinessWorkspaceContent({
       keyboardShortcuts,
       bottomNavigation: (shell) => shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview",
-      sidebarHeader: (shell) => <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} />,
+      sidebarHeader: (shell) => <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} />,
       sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
       sidebarFooter: (shell) => <SidebarNavButton icon={Users} label={t("business_access.nav", "Access")} collapsed={shell.sidebarCollapsed} onClick={() => openPanel({ kind: "access" })} />,
       headerActions: (shell) => <>

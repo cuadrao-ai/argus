@@ -33,14 +33,14 @@ async function setup() {
   return { act, root, host, settle, I18nextProvider, i18n };
 }
 
-async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace | null, collapsed = false) {
+async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace | null, collapsed = false, onOpenAccess?: () => void) {
   const env = await setup();
   const { default: BusinessSwitcher } = await import("@/components/business-app/BusinessSwitcher");
   const chosenIds: (string | null)[] = [];
   await env.act(async () => {
     env.root.render(
       <env.I18nextProvider i18n={env.i18n}>
-        <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={collapsed} onChoose={(id) => chosenIds.push(id)} />
+        <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={collapsed} onChoose={(id) => chosenIds.push(id)} onOpenAccess={onOpenAccess} />
       </env.I18nextProvider>,
     );
   });
@@ -213,5 +213,47 @@ describe("the chosen grant rides on every API call", () => {
     }
     setChosenGrant(null);
     assert.equal(argusApiRequestHeaders(undefined, {}).get(GRANT_HEADER), null);
+  });
+});
+
+
+describe("the Business mark menu", () => {
+  for (const current of [OWN, CLIENT]) {
+    test(`one Business hides switching and opens access for ${current.role}`, async () => {
+      let opened = 0;
+      const page = await mountSwitcher([current], current, false, () => { opened += 1; });
+      const button = page.host.querySelector("button[aria-haspopup=menu]") as HTMLButtonElement;
+      await page.act(async () => button.click());
+      const menu = document.querySelector('[role="menu"]')!;
+      assert.ok(menu.textContent?.includes(current.name));
+      assert.ok(menu.textContent?.includes(current === OWN ? "FL" : "CP"));
+      assert.deepEqual([...menu.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent), ["Equipo y accesos"]);
+      await page.act(async () => key(menu, "Enter"));
+      assert.equal(opened, 1);
+      assert.equal(document.querySelector('[role="menu"]'), null);
+      await page.act(async () => page.root.unmount());
+    });
+  }
+  test("two nonowner Businesses open the existing keyboard switcher", async () => {
+    const page = await mountSwitcher([CLIENT, OTHER], CLIENT, false, () => undefined);
+    const button = page.host.querySelector("button[aria-haspopup=menu]") as HTMLButtonElement;
+    await page.act(async () => button.click());
+    const menu = document.querySelector('[role="menu"]')!;
+    assert.ok(menu.textContent?.includes("Cambiar de negocio"));
+    await page.act(async () => key(menu, "ArrowDown"));
+    await page.act(async () => key(menu, "Enter"));
+    const list = document.querySelector('[role="listbox"]')!;
+    assert.ok(list);
+    await page.act(async () => key(list, "End"));
+    await page.act(async () => key(list, "Enter"));
+    assert.deepEqual(page.chosenIds, [OTHER.grant_id]);
+    await page.act(async () => button.click());
+    await page.act(async () => key(document.querySelector('[role="menu"]')!, "Escape"));
+    assert.equal(document.querySelector('[role="menu"]'), null);
+    assert.equal(document.activeElement, button);
+    await page.act(async () => button.click());
+    await page.act(async () => document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })));
+    assert.equal(document.querySelector('[role="menu"]'), null);
+    await page.act(async () => page.root.unmount());
   });
 });

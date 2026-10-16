@@ -57,6 +57,25 @@
         "marketing/**"
       ]
     },
+    "codex/business-mark-menu": {
+      "description": "Bounded Business mark menu, saved name and initials, access panel and existing switcher for any person with multiple Businesses. Receipt approval runtime unchanged; local fixture proof only.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/components/business-app/BusinessSwitcher.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/__tests__/business-switcher.dom.test.tsx",
+        "web/e2e/business-mark-menu.spec.ts",
+        "docs/reports/evidence/business-mark-menu/**"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "src/**",
+        "marketing/**",
+        "supabase/migrations/**"
+      ]
+    },
     "codex/business-owner-receipt-upload": {
       "description": "Issue #1112 owner Inbox upload acceptance coverage for saved reading permission, exact web request, JPEG/PDF source persistence and review entry. No runtime, provider, hosted, migration or iOS changes.",
       "base_ref": "origin/codex/private-alpha-next",
