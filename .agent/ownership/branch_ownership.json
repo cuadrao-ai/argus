@@ -2950,6 +2950,30 @@
         "marketing/**"
       ]
     },
+    "codex/web-fullscreen-loading-bar": {
+      "description": "Full-screen startup loading only: delayed Cuadrao lockup and indeterminate bar with reduced motion and hidden status. In-app waits remain unchanged.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/components/FullscreenLoading.tsx",
+        "web/components/FullscreenLoading.module.css",
+        "web/components/chat/ConversationRetrievalState.tsx",
+        "web/app/page.tsx",
+        "web/__tests__/business-loading.dom.test.tsx",
+        "web/e2e/business-loading.spec.ts",
+        "web/e2e/fullscreen-loading.spec.ts",
+        "web/e2e/fullscreen-loading.playwright.config.ts",
+        "docs/reports/evidence/fullscreen-loading/**"
+      ],
+      "deny": [
+        "marketing/**",
+        "ios/**",
+        "src/**",
+        "supabase/**",
+        ".env*",
+        "web/.env*"
+      ]
+    },
     "codex/shared-account-email-layout": {
       "description": "Shared staging account and waitlist email presentation, with code-safe signup rendering and generated package copies. No hosted changes.",
       "base_ref": "origin/codex/private-alpha-next",
