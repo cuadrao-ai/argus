@@ -40,14 +40,14 @@ function LegalNav({ locale, c }: { locale: BusinessLocale; c: FooterCopy }) {
 
 const SOCIAL_ICONS = { tiktok: Music2, instagram: Instagram, youtube: Youtube } as const;
 
-function FooterBar({ c }: { c: FooterCopy }) {
+function FooterBar({ c, localCredit = false }: { c: FooterCopy; localCredit?: boolean }) {
   const socials = visibleSocials(
     SOCIAL_PLATFORMS,
     socialPreviewEnabled(process.env.CUADRAO_SOCIAL_PREVIEW),
   );
   return (
-    <div className={styles.footerBar}>
-      <p>© Cuadrao LLC 2026</p>
+    <div className={`${styles.footerBar} ${localCredit ? shell.footerBarWithCredits : ""}`}>
+      {!localCredit && <p>© Cuadrao LLC 2026</p>}
       {socials.length > 0 && (
         <div className={styles.footerSocial} role="group" aria-label={c.socialLabel}>
           {socials.map(({ id, label, href }) => {
@@ -68,6 +68,16 @@ function FooterBar({ c }: { c: FooterCopy }) {
         {c.top}
         <ArrowUpRight size={16} aria-hidden="true" />
       </a>
+      {localCredit && (
+        <div className={shell.footerCredits} data-footer-credits>
+          <p>© Cuadrao LLC 2026</p>
+          <div className={shell.footerCreditReveal}>
+            <div className={shell.footerCreditClip}>
+              <span className={shell.footerCreditText}>Hecho con ♥ para la República Dominicana</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -111,7 +121,7 @@ export function BusinessFooter({
           <nav aria-label={c.footerExplore}>
             <span>{c.footerExplore}</span>
             <a href={`${businessPath(locale)}#el-producto`}>{c.business}</a>
-            <a href={`${businessPath(locale)}#la-idea`}>{c.explore}</a>
+            <a href={`${businessPath(locale)}#${locale === "es" ? "el-producto" : "la-idea"}`}>{c.explore}</a>
             <a href={`${businessPath(locale)}#preguntas`}>{c.faqLink}</a>
             <a href={businessPath(locale, "personal")}>{c.personal}</a>
           </nav>
@@ -129,7 +139,7 @@ export function BusinessFooter({
             </a>
           </nav>
           <LegalNav locale={locale} c={c} />
-          <FooterBar c={c} />
+          <FooterBar c={c} localCredit={locale === "es"} />
         </div>
       ) : (
         <div className={`${styles.businessFooterGrid} ${styles.lightFooterGrid}`}>
@@ -173,7 +183,7 @@ export function BusinessFooter({
             <a href={`mailto:${businessContactEmail}`}>{businessContactEmail}</a>
           </nav>
           <LegalNav locale={locale} c={c} />
-          <FooterBar c={c} />
+          <FooterBar c={c} localCredit={locale === "es" && personal} />
         </div>
       )}
       <div className={styles.wordmarkCrop} aria-hidden="true">
