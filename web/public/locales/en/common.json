@@ -2647,7 +2647,16 @@
       "save": "Save expense",
       "no_accounts": "Add a business account first so we know where this expense was paid from.",
       "amount_in": "Total in {{currency}}",
-      "failed": "We couldn't save this expense. Try again. It won't be saved twice."
+      "failed": "We couldn't save this expense. Try again. It won't be saved twice.",
+      "account_name": "Name",
+      "account_type": "Account type",
+      "account_types": {
+        "cash": "Cash",
+        "checking": "Checking",
+        "credit_card": "Credit card",
+        "savings": "Savings"
+      },
+      "add_account": "Add account"
     },
     "intake": {
       "replayed": "Already saved before. This is that receipt.",

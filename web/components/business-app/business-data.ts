@@ -16,6 +16,7 @@ import type {
   BusinessUpdate,
   BusinessWorkspaceInfo,
   ExpenseInput,
+  NewBusinessAccount,
   ReceiptDetail,
   ReceiptReviewFields,
   ReceiptSummary,
@@ -67,10 +68,7 @@ export type BusinessDataSource = Readonly<{
   ) => Promise<ReceiptDetail>;
   confirmReceipt: (id: string, version: number, key: string) => Promise<ReceiptDetail>;
   recordExpense: (input: ExpenseInput, key: string) => Promise<BusinessExpense>;
-  createAccount: (
-    input: { nickname: string; type: string; currency: string },
-    key: string,
-  ) => Promise<BusinessAccount>;
+  createAccount: (input: NewBusinessAccount, key: string) => Promise<BusinessAccount>;
   emailIntake: () => Promise<BusinessEmailIntake>;
   createEmailAddress: () => Promise<BusinessEmailIntake>;
   emailDeliveries: () => Promise<BusinessEmailDelivery[]>;

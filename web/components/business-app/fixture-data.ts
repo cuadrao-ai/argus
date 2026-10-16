@@ -301,7 +301,8 @@ function matches(query: string, text: string): boolean {
 
 const delay = (ms = 240) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export type FixtureOptions = Readonly<{ chatAvailable: boolean }>;
+/** `accounts: "none"` starts a Business that has no account yet, as a new one does. */
+export type FixtureOptions = Readonly<{ chatAvailable: boolean; accounts?: "none" }>;
 
 /** Sample access: the owner and one accountant with read and prepare. */
 const access: { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] } = {
@@ -316,8 +317,10 @@ const access: { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] }
 const seenGrants = new Set<string>();
 
 export function createFixtureBusinessDataSource(
-  { chatAvailable }: FixtureOptions = { chatAvailable: true },
+  { chatAvailable, accounts: start }: FixtureOptions = { chatAvailable: true },
 ): BusinessDataSource {
+  const accounts: BusinessAccount[] = start === "none" ? [] : [...ACCOUNTS];
+  const createdAccounts = new Map<string, BusinessAccount>();
   let receipts = seedReceipts();
   let expenses = seedExpenses();
   let counter = 0;
@@ -370,8 +373,8 @@ export function createFixtureBusinessDataSource(
     workspace: async () => {
       await delay();
       return {
-        accounts: ACCOUNTS,
-        currencies: ["DOP", "USD"],
+        accounts: [...accounts],
+        currencies: [...new Set(accounts.map((item) => item.currency))].sort(),
         assistant_available: true,
         chat_available: chatAvailable,
         receipt_limits: {
@@ -565,7 +568,7 @@ export function createFixtureBusinessDataSource(
       if (current.missing_fields.length > 0) {
         throw Object.assign(new Error("missing_fields"), { status: 422, code: "missing_fields" });
       }
-      const account = ACCOUNTS.find((item) => item.id === current.account_id);
+      const account = accounts.find((item) => item.id === current.account_id);
       if (account && account.currency !== current.currency) {
         throw Object.assign(new Error("currency_mismatch"), { status: 422, code: "currency_mismatch" });
       }
@@ -599,14 +602,14 @@ export function createFixtureBusinessDataSource(
           .filter((item) => !listed.has(item.expense_id ?? ""))
           .filter((item) => matches(query, [item.merchant, item.filename, item.amount].join(" ")))
           .slice(0, 5),
-        accounts: ACCOUNTS.filter((item) =>
+        accounts: accounts.filter((item) =>
           matches(query, [item.nickname, item.type, item.currency].join(" ")),
         ).slice(0, 5),
       };
     },
     recordExpense: async (input) => {
       await delay();
-      const account = ACCOUNTS.find((item) => item.id === input.account_id) ?? ACCOUNTS[0];
+      const account = accounts.find((item) => item.id === input.account_id) ?? accounts[0];
       const injected = injectedWriteError();
       if (injected) throw injected;
       counter += 1;
@@ -624,10 +627,15 @@ export function createFixtureBusinessDataSource(
       expenses = [created, ...expenses];
       return created;
     },
-    createAccount: async (input) => {
+    createAccount: async (input, key) => {
       await delay();
-      const created = { id: `acct-${Date.now()}`, ...input };
-      ACCOUNTS.push(created);
+      const replayed = createdAccounts.get(key);
+      if (replayed) return replayed;
+      const injected = injectedWriteError();
+      if (injected) throw injected;
+      const created = { id: `acct-${createdAccounts.size + 1}-${key.slice(0, 8)}`, ...input };
+      createdAccounts.set(key, created);
+      accounts.push(created);
       return created;
     },
     emailIntake: async () => {
