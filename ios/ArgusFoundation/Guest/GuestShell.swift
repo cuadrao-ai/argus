@@ -164,6 +164,12 @@ struct GuestShell: View {
         toast = CuadraoToastMessage(text: GuestNoticeCopy(spanish: spanish).firstOpenNote)
     }
 
+    /// The one Undo notice for a delete or archive, on the tab the person is on. A result opened from Search returns to Search first.
+    private func offerUndo(_ offer: GuestUndoOffer) {
+        toast = CuadraoToastMessage(text: offer.text, actionTitle: spanish ? "Deshacer" : "Undo", actionIdentifier: offer.identifier,
+                                    action: { offer.restore(); toast = nil })
+    }
+
     /// After the save's own sheet has closed, so the save is never covered or delayed.
     private func presentFirstSaveWhenFree() {
         guard firstSavePending, sheet == nil, capturing == nil else { return }
@@ -273,9 +279,9 @@ struct GuestShell: View {
     @ViewBuilder private func content(_ item: CuadraoTab) -> some View {
         switch item {
         case .home:
-            GuestHome(model: model, scroll: navigationScroll, active: tab == .home, path: $homePath, sheet: $sheet)
+            GuestHome(model: model, scroll: navigationScroll, active: tab == .home, path: $homePath, sheet: $sheet, offerUndo: offerUndo)
         case .plan:
-            GuestPlanTab(model: model, scroll: planScroll, active: tab == .plan, path: $planPath, sheet: $sheet)
+            GuestPlanTab(model: model, scroll: planScroll, active: tab == .plan, path: $planPath, sheet: $sheet, offerUndo: offerUndo)
         case .search:
             GuestSearchTab(model: model, scroll: searchScroll, active: tab == .search, open: open)
         case .profile:
