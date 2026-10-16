@@ -449,6 +449,17 @@ persistence, providers, or the interpreter.
   `500 internal_error` Problem Details with that same correlation value and no
   request body, secret, provider detail, or stack trace.
 
+### Deployment health
+
+The API and web service expose unauthenticated `GET /health`. The API keeps
+`status: healthy` and `version: 1.0.0-alpha`. Both include `git_sha`, the full
+40-character hexadecimal commit supplied by Render in `RENDER_GIT_COMMIT`.
+Missing or invalid metadata returns `git_sha: null`. Each service reports its
+own deployed commit, so matching values confirm that the two services run the
+same revision. The web response uses `Cache-Control: no-store` and runs at
+request time. Neither handler reads Git nor exposes other environment values.
+Render supplies this metadata automatically; it is not a configured secret.
+
 <a id="contract-openapi-authority"></a>
 ### OpenAPI authority and allowed differences
 
@@ -2538,12 +2549,15 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   inside the staging web origin; nonempty recovery redirects use `/auth/recovery`.
   The existing recovery request, CAPTCHA, limits, generic `202`, PKCE exchange
   and session revocation contracts above do not change.
-- Explicit renderers preserve captured subjects and bodies for confirmation,
-  invitation, magic link, secure email change and reauthentication. Secure email
+- Account renderers share the Spanish email layout with the personal waitlist.
+  Signup subjects start with the unbroken provider code. Other account subjects
+  contain no code. Account emails have no leave-list link or unsubscribe headers. Secure email
   change sends both addresses with the provider's hash mapping. Unknown actions,
   including currently disabled notifications, are refused rather than dropped.
-- Recovery uses the approved Spanish React Email template and preview. Its
-  HTML and plain text come from one tree. Sender is
+- Recovery uses the shared Spanish account layout and preview. HTML and plain
+  text derive from the same typed content. The canonical dependency-free renderer
+  lives in `marketing/lib/email/account-layout.ts`; a checked generated copy keeps
+  the web deployment independent of the marketing root. Sender is
   `Cuadrao <hola@mail.cuadrao.ai>` and Reply-To is `hola@cuadrao.ai`.
   Each recipient has a stable provider idempotency key; transport has one
   four-second total budget and no automatic retry or payload logging.
@@ -9263,7 +9277,10 @@ person starts their space, every route below except POST `/space` answers 404
   `language` is `en`. Concurrent calls create one space. A name is 1 to 80
   characters after trimming, else 422.
 - GET `/api/v1/business/space` returns `{id, name}`, or 404
-  `business_space_missing` before the space is started.
+  `business_space_missing` before the space is started. The web bootstrap reads
+  this endpoint before creation. It sends POST only after that exact 404, and
+  propagates other failures without creating a space. Existing concurrent-call
+  idempotency and selected-client behavior remain unchanged.
 - PATCH `/api/v1/business/space` takes `{name}` and returns the renamed space,
   or 404 `business_space_missing` before the space is started.
 - Access (owner only, the grant in `business_client_grants` is the only
