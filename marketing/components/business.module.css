@@ -1891,7 +1891,7 @@
   .businessFooterGrid { margin-inline: 24px; grid-template-columns: 1fr 1fr; gap: 36px 24px; padding: 48px 0; }
   .businessFooterGrid nav > span { font-size: 12px; }
   .businessFooterGrid nav > a { min-height: 40px; }
-  .site .wordmarkCrop { border-top: 1px solid #52665d; padding-top: 10px; height: 22vw; }
+  .site .wordmarkCrop { border-top: 0; padding-top: 10px; height: 22vw; }
 }
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
