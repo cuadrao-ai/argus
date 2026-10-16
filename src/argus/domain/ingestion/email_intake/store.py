@@ -13,6 +13,7 @@ from threading import RLock
 from typing import Any, Callable, Iterator, Protocol, TypedDict, TypeVar
 from uuid import uuid4
 
+from loguru import logger
 from psycopg import Cursor
 from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
@@ -47,6 +48,10 @@ class EmailRelation(TypedDict):
     grouped: bool
     #: When the earliest of those deliveries arrived.
     first_received_at: datetime | None
+
+
+class RecipientTaken(RuntimeError):
+    """The receiving address already belongs to a route, active or retired."""
 
 
 class LeaseLost(RuntimeError):
@@ -164,6 +169,8 @@ class PostgresEmailStore:
                 ).fetchone()
                 return _route(row)
         except UniqueViolation as error:
+            if error.diag.constraint_name == "business_email_routes_recipient_key":
+                raise RecipientTaken() from None
             if error.diag.constraint_name != "business_email_routes_one_active":
                 raise
         existing = self.route_for_space(space_id)
@@ -252,6 +259,8 @@ class PostgresEmailStore:
                         (provider, external_id),
                     ).fetchone()
                 )
+            if reject_code:
+                logger.bind(route_id=route_id).warning(reject_code)
             if route_id and not reject_code:
                 now = cursor.execute("select clock_timestamp() as now").fetchone()["now"]
                 usage = self._usage_locked(cursor, route_id, now)
@@ -572,7 +581,7 @@ class InMemoryEmailStore:
         if existing is not None:
             return existing
         if any(route.recipient == recipient for route in self._routes.values()):
-            raise ValueError("email_route_exists")
+            raise RecipientTaken()
         route = RecipientRoute(
             str(uuid4()), recipient, space_id, principal_id, granted_by, grant_id, True
         )
@@ -644,6 +653,7 @@ class InMemoryEmailStore:
         self._deliveries[delivery.id] = delivery
         self._available[delivery.id] = now
         if reject_code:
+            logger.bind(route_id=route_id).warning(reject_code)
             delivery = replace(delivery, error_code=reject_code)
         elif route_id:
             day = now.astimezone(timezone.utc).date()
