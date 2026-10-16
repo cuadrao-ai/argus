@@ -494,6 +494,7 @@ async def slow_processing_times_out_as_failed_and_recovers(world: World) -> None
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media["700000000000113"] = Media(RECEIPT_PNG, "image/png")
     media = world.intake.media
+    processing_seconds = world.intake.processing_seconds
 
     class Stalled:
         async def fetch(self, media_id: str):  # noqa: ANN202
@@ -510,6 +511,7 @@ async def slow_processing_times_out_as_failed_and_recovers(world: World) -> None
     )
 
     world.intake.media = media
+    world.intake.processing_seconds = processing_seconds
     await world.deliver(image("700000000000113", "wamid.CASE-SLOW"))
     assert world.record("wamid.CASE-SLOW").status == "captured"
     assert len(world.captures(world.alice)) == 1

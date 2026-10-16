@@ -2,22 +2,11 @@
 
 from __future__ import annotations
 
-import io
-import os
 import re
-import selectors
-import shutil
-import subprocess
-import sys
 import tempfile
-import time
-import warnings
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-
-import psutil
-from PIL import Image, ImageOps
 
 from argus.domain.business.contracts.checks import DgiiQr
 from argus.domain.ingestion.documents.config import (
@@ -27,22 +16,22 @@ from argus.domain.ingestion.documents.config import (
 from argus.domain.ingestion.documents.dgii_qr import read_dgii_qr
 from argus.domain.ingestion.documents.ecf_checks import EcfDocument, read_ecf
 from argus.domain.ingestion.documents.models import DocumentExtractionError
+from argus.domain.ingestion.documents.rebuilt import (
+    MAX_PIXELS,
+    MAX_TEXT_BYTES,
+    image_pixels,
+)
+from argus.domain.ingestion.documents.rebuilt import (
+    rebuild_image as _image,
+)
+from argus.domain.ingestion.documents.rebuilt import (
+    run_capped as _run,
+)
 from argus.domain.ingestion.documents.tabular import (
     FLAT_MEDIA_TYPES,
     XML_MEDIA_TYPES,
     document_currency,
     flat_text,
-)
-
-MAX_PIXELS = 20_000_000
-MAX_TEXT_BYTES = 200_000
-# Set limits in a fresh child, never preexec_fn in the threaded API process.
-_RESOURCE_WRAPPER = (
-    "import os,resource,sys; "
-    "resource.setrlimit(resource.RLIMIT_AS,(536870912,536870912)) if sys.platform == 'linux' else None; "
-    "resource.setrlimit(resource.RLIMIT_CPU,(20,20)); "
-    "resource.setrlimit(resource.RLIMIT_FSIZE,(10485760,10485760)); "
-    "os.execvp(sys.argv[1],sys.argv[1:])"
 )
 
 
@@ -59,25 +48,6 @@ class PreparedDocument:
     dgii_qr: DgiiQr | None = None
 
 
-def image_pixels(content: bytes, media_type: str) -> int:
-    """Read dimensions before any full image decode or pixel allocation."""
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(content)) as source:
-                expected = {"image/png": "PNG", "image/jpeg": "JPEG"}[media_type]
-                pixels = source.width * source.height
-                if source.format != expected or pixels > MAX_PIXELS:
-                    raise DocumentExtractionError("invalid_document")
-                if getattr(source, "n_frames", 1) != 1:
-                    raise DocumentExtractionError("unsupported_image_frames")
-                return pixels
-    except DocumentExtractionError:
-        raise
-    except Exception:
-        raise DocumentExtractionError("invalid_document") from None
-
-
 def email_image_budget(parts: Iterable[tuple[bytes, str]]) -> None:
     """All image attachments together share the existing single-image cap."""
     total = 0
@@ -86,76 +56,6 @@ def email_image_budget(parts: Iterable[tuple[bytes, str]]) -> None:
             total += image_pixels(content, media_type)
             if total > MAX_PIXELS:
                 raise DocumentExtractionError("document_email_limit")
-
-
-def _image(content: bytes, media_type: str) -> bytes:
-    image_pixels(content, media_type)
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(content)) as source:
-                source.load()
-                oriented = ImageOps.exif_transpose(source).convert("RGBA")
-                background = Image.new("RGBA", oriented.size, "white")
-                image = Image.alpha_composite(background, oriented).convert("RGB")
-                image.thumbnail((1600, 1600))
-                output = io.BytesIO()
-                image.save(output, format="JPEG", quality=90)
-                return output.getvalue()
-    except DocumentExtractionError:
-        raise
-    except Exception:
-        raise DocumentExtractionError("invalid_document") from None
-
-
-def _run(args: list[str], output: Path) -> None:
-    if not shutil.which(args[0]):
-        raise DocumentExtractionError("document_tools_unavailable")
-    try:
-        with subprocess.Popen(
-            [sys.executable, "-c", _RESOURCE_WRAPPER, *args],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            env={"PATH": os.environ.get("PATH", ""), "LC_ALL": "C"},
-        ) as process:
-            assert process.stdout is not None
-            monitored = psutil.Process(process.pid)
-            deadline = time.monotonic() + 20
-            size = 0
-            try:
-                with output.open("wb") as target, selectors.DefaultSelector() as reader:
-                    reader.register(process.stdout, selectors.EVENT_READ)
-                    while True:
-                        try:
-                            if monitored.memory_info().rss > 536870912:
-                                raise DocumentExtractionError("document_memory_limit")
-                        except psutil.NoSuchProcess:
-                            pass
-                        if time.monotonic() >= deadline:
-                            raise DocumentExtractionError(
-                                "document_preparation_timeout", True
-                            )
-                        if not reader.select(timeout=0.1):
-                            continue
-                        chunk = os.read(process.stdout.fileno(), 65536)
-                        if not chunk:
-                            break
-                        size += len(chunk)
-                        if size > MAX_TEXT_BYTES:
-                            raise DocumentExtractionError("document_text_limit")
-                        target.write(chunk)
-                if process.wait(timeout=max(0.01, deadline - time.monotonic())):
-                    raise DocumentExtractionError("invalid_document")
-            finally:
-                if process.poll() is None:
-                    process.kill()
-                    process.wait()
-    except FileNotFoundError:
-        raise DocumentExtractionError("document_tools_unavailable") from None
-    except subprocess.TimeoutExpired:
-        raise DocumentExtractionError("document_preparation_timeout", True) from None
-    except OSError:
-        raise DocumentExtractionError("invalid_document") from None
 
 
 def prepare_document(

@@ -37,7 +37,10 @@ from argus.domain.ingestion.documents.models import (
     ProjectionIssue,
     ReceiptDetails,
 )
-from argus.domain.ingestion.documents.preparation import prepare_document
+from argus.domain.ingestion.documents.preparation import (
+    PreparedDocument,
+    prepare_document,
+)
 from argus.llm.openrouter import (
     begin_openrouter_route_receipt_capture,
     end_openrouter_route_receipt_capture,
@@ -297,6 +300,7 @@ class DocumentExtractor:
         media_type: str,
         connection_id: str,
         observed_at: datetime,
+        prepared: PreparedDocument | None = None,
     ) -> ExtractionBatch:
         if not self.settings.enabled:
             raise DocumentExtractionError("document_extraction_disabled")
@@ -309,9 +313,10 @@ class DocumentExtractor:
             raise DocumentExtractionError("missing_api_key") from None
         if not key:
             raise DocumentExtractionError("missing_api_key")
-        prepared = await asyncio.to_thread(
-            prepare_document, content, media_type, self.settings
-        )
+        if prepared is None:
+            prepared = await asyncio.to_thread(
+                prepare_document, content, media_type, self.settings
+            )
         blocks: list[dict[str, object]] = [
             {"type": "text", "text": f"Read all {prepared.pages} pages."}
         ]

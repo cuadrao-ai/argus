@@ -134,10 +134,11 @@ def test_reading_turned_off_while_a_read_is_in_flight_stops_before_the_provider(
 
     def revoke_while_reading(**kwargs):  # noqa: ANN003, ANN202
         # The owner turns reading off after the read began, before the provider.
-        web.documents.business_receipt_consent.set(
-            web.alice.space_id, web.alice.id, enabled=False, version=1
-        )
-        revoked.append(kwargs["connection_id"])
+        if not revoked:
+            web.documents.business_receipt_consent.set(
+                web.alice.space_id, web.alice.id, enabled=False, version=1
+            )
+            revoked.append(kwargs["connection_id"])
         return source(**kwargs)
 
     monkeypatch.setattr(store, "source", revoke_while_reading)
