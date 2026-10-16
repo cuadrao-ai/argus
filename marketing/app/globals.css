@@ -36,3 +36,8 @@ body:has([data-page-background="personal"]) {
 :where(button:disabled, [aria-disabled="true"], input:disabled, textarea:disabled) {
   cursor: not-allowed;
 }
+
+html[data-page-background="not-found"],
+html[data-page-background="not-found"] body {
+  background: #fafbf8;
+}

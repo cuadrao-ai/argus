@@ -23,7 +23,7 @@ export function LegalPage({ page, locale = "es" }: { page: LegalPageName; locale
   const documents = locale === "es" ? spanish : english;
   const document = documents[slugs[page]];
   return (
-    <div className={styles.site} lang={htmlLang(locale)} id="top">
+    <div className={styles.site} lang={htmlLang(locale)} id="top" data-page-background="business">
       <BusinessHeader locale={locale} page={page} />
       <main id="business-main" tabIndex={-1} className={legal.layout}>
         <article className={legal.document} aria-labelledby="legal-title">

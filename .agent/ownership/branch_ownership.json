@@ -3164,7 +3164,10 @@
         "marketing/e2e/footer-background.spec.ts",
         "docs/reports/evidence/marketing-footer-bounded/**",
         "docs/reports/evidence/marketing-footer-background/**",
-        "docs/reports/evidence/marketing-footer-routes/**"
+        "docs/reports/evidence/marketing-footer-routes/**",
+        "marketing/components/business-footer.tsx",
+        "marketing/components/touchup-shell.module.css",
+        "marketing/e2e/footer.spec.ts"
       ],
       "deny": [
         "web/**",

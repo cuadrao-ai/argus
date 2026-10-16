@@ -22,9 +22,11 @@ The initial baseline check reproduced the missing local-credit line. A first fol
 
 | State | Home | Personal |
 | --- | --- | --- |
-| Original | ![Home before](before-business.png) | ![Personal before](before-personal.png) |
-| Rest | ![Home rest](business-footer-rest.png) | ![Personal rest](personal-footer-rest.png) |
-| Hover | ![Home hover](business-footer-hover.png) | ![Personal hover](personal-footer-hover.png) |
-| Mouseout | ![Home restored](business-footer-restored.png) | ![Personal restored](personal-footer-restored.png) |
-| Reduced motion | ![Home reduced motion](business-footer-reduced-motion.png) | ![Personal reduced motion](personal-footer-reduced-motion.png) |
-| Mobile | ![Home mobile](business-footer-mobile.png) | ![Personal mobile](personal-footer-mobile.png) |
+| Original | ![Home before](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/before-business.png) | ![Personal before](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/before-personal.png) |
+| Rest | ![Home rest](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/business-footer-rest.png) | ![Personal rest](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/personal-footer-rest.png) |
+| Hover | ![Home hover](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/business-footer-hover.png) | ![Personal hover](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/personal-footer-hover.png) |
+| Mouseout | ![Home restored](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/business-footer-restored.png) | ![Personal restored](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/personal-footer-restored.png) |
+| Reduced motion | ![Home reduced motion](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/business-footer-reduced-motion.png) | ![Personal reduced motion](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/personal-footer-reduced-motion.png) |
+| Mobile | ![Home mobile](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/business-footer-mobile.png) | ![Personal mobile](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/personal-footer-mobile.png) |
+
+Binary evidence is preserved outside Git. The [artifact manifest](../marketing-footer-routes/relocated-artifacts.json) records each original path, external path, byte count and SHA-256. These local artifact links require access to the sprint evidence folder.

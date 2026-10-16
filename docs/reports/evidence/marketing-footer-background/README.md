@@ -20,9 +20,9 @@ The desktop logo already uses the same light-ink SVG on `/` and `/en`. Its filen
 
 | Route | Before | After | Recording |
 | --- | --- | --- | --- |
-| `/` | ![Spanish before](ios-before-es.png) | ![Spanish after](ios-after-es.png) | [Before](ios-before-es.mp4), [after](ios-after-es.mp4) |
-| `/en` | ![English before](ios-before-en.png) | ![English after](ios-after-en.png) | [Before](ios-before-en.mp4), [after](ios-after-en.mp4) |
-| `/personal` | Not claimed defective | ![Personal cream](ios-after-personal.png) | [After](ios-after-personal.mp4) |
+| `/` | ![Spanish before](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-before-es.png) | ![Spanish after](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-es.png) | [Before](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-before-es.mp4), [after](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-es.mp4) |
+| `/en` | ![English before](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-before-en.png) | ![English after](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-en.png) | [Before](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-before-en.mp4), [after](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-en.mp4) |
+| `/personal` | Not claimed defective | ![Personal cream](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-personal.png) | [After](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-personal.mp4) |
 
 ## Layout and logo checks
 
@@ -30,8 +30,10 @@ The desktop logo already uses the same light-ink SVG on `/` and `/en`. Its filen
 
 | Page | 390px after | Desktop after |
 | --- | --- | --- |
-| Spanish home | ![Spanish mobile](after-es-390.png) | ![Spanish desktop logo](after-es-1440.png) |
-| English home | ![English mobile](after-en-390.png) | ![English desktop logo](after-en-1440.png) |
-| Personal | ![Personal mobile](after-personal-390.png) | ![Personal desktop](after-personal-1440.png) |
+| Spanish home | ![Spanish mobile](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-es-390.png) | ![Spanish desktop logo](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-es-1440.png) |
+| English home | ![English mobile](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-en-390.png) | ![English desktop logo](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-en-1440.png) |
+| Personal | ![Personal mobile](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-personal-390.png) | ![Personal desktop](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-personal-1440.png) |
 
 Run `bun run build --webpack` in `marketing/`, then `bunx playwright test e2e/footer-background.spec.ts e2e/footer.spec.ts` using the existing local synthetic provider configuration. No form submissions, hosted changes or paid model calls were used.
+
+Binary evidence is preserved outside Git. The [artifact manifest](../marketing-footer-routes/relocated-artifacts.json) records each original path, external path, byte count and SHA-256. These local artifact links require access to the sprint evidence folder.
