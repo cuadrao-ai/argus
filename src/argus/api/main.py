@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 from argus.api import app_setup, openapi_compat, pagination, search_utils
 from argus.api import state as api_state
@@ -45,9 +49,20 @@ app = FastAPI(
 app_setup.add_core_middleware_and_handlers(app)
 
 
+class DeploymentMetadata(BaseSettings):
+    git_sha: str | None = Field(default=None, validation_alias="RENDER_GIT_COMMIT")
+
+
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "healthy", "version": "1.0.0-alpha"}
+def health() -> dict[str, str | None]:
+    commit = DeploymentMetadata().git_sha
+    return {
+        "status": "healthy",
+        "version": "1.0.0-alpha",
+        "git_sha": commit
+        if commit and re.fullmatch(r"[0-9a-fA-F]{40}", commit)
+        else None,
+    }
 
 
 for api_router in (

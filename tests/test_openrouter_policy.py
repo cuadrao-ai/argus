@@ -358,6 +358,7 @@ def test_openrouter_factory_applies_task_token_budget(
             "timeout": 20,
             "max_retries": 1,
             "openrouter_api_key": "test-key",
+            "openrouter_provider": openrouter.openrouter_provider_policy(),
         }
     ]
 
@@ -652,6 +653,7 @@ def test_structured_interpreter_uses_bounded_interpretation_profile(
         "timeout": 20,
         "max_retries": 1,
         "openrouter_api_key": "test-key",
+            "openrouter_provider": openrouter.openrouter_provider_policy(),
     }
 
 
@@ -2934,6 +2936,7 @@ async def test_agent_runtime_turn_uses_interpretation_profile_without_legacy_com
             "timeout": 20,
             "max_retries": 1,
             "openrouter_api_key": "test-key",
+            "openrouter_provider": openrouter.openrouter_provider_policy(),
         }
     ]
 
@@ -3078,7 +3081,7 @@ def test_direct_json_schema_payload_uses_interpretation_profile_reasoning(
 
     assert result is not None
     assert observed_payloads[0]["reasoning"] == {"effort": "medium"}
-    assert observed_payloads[0]["provider"] == {"require_parameters": True}
+    assert observed_payloads[0]["provider"] == openrouter.openrouter_provider_policy()
     receipts = openrouter.get_openrouter_route_receipts()
     assert len(receipts) == 1
     receipt = receipts[0]
@@ -3142,7 +3145,7 @@ def test_field_fidelity_json_schema_uses_structured_route_without_reasoning(
     assert result.capital_amount == 100000
     assert observed_payloads[0]["model"] == "qwen/qwen3.5-9b"
     assert observed_payloads[0]["reasoning"] == {"effort": "none"}
-    assert observed_payloads[0]["provider"] == {"require_parameters": True}
+    assert observed_payloads[0]["provider"] == openrouter.openrouter_provider_policy()
     receipts = openrouter.get_openrouter_route_receipts()
     assert len(receipts) == 1
     receipt = receipts[0]
@@ -3205,7 +3208,7 @@ def test_capability_conflict_json_schema_uses_context_route_with_reasoning(
     assert result.drop_unsupported_strategy_logic is True
     assert observed_payloads[0]["model"] == "openai/gpt-oss-120b"
     assert observed_payloads[0]["reasoning"] == {"effort": "medium"}
-    assert observed_payloads[0]["provider"] == {"require_parameters": True}
+    assert observed_payloads[0]["provider"] == openrouter.openrouter_provider_policy()
     receipts = openrouter.get_openrouter_route_receipts()
     assert len(receipts) == 1
     receipt = receipts[0]
@@ -3771,7 +3774,7 @@ def test_anthropic_structured_calls_use_schema_in_prompt_not_response_format() -
     grok_payload = _payload("x-ai/grok-4.3")
 
     assert "response_format" not in anthropic_payload
-    assert "provider" not in anthropic_payload
+    assert anthropic_payload["provider"] == openrouter.openrouter_provider_policy()
     schema_message = anthropic_payload["messages"][0]
     assert schema_message["role"] == "system"
     schema_content = schema_message["content"]
@@ -3782,7 +3785,7 @@ def test_anthropic_structured_calls_use_schema_in_prompt_not_response_format() -
     grok_schema = grok_payload["response_format"]["json_schema"]
     assert grok_schema["strict"] is True
     assert "minimum" in _json.dumps(grok_schema["schema"])
-    assert grok_payload["provider"] == {"require_parameters": True}
+    assert grok_payload["provider"] == openrouter.openrouter_provider_policy()
 
     # Client-side enforcement stays the real gate for both providers.
     with pytest.raises(ValueError):

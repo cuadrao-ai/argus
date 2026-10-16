@@ -164,7 +164,7 @@ services:
       - key: SUPABASE_URL
         value: https://lgdhvepyrzbnscqssgqq.supabase.co
       - key: SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnZGh2ZXB5cnpibnNjcXNzZ3FxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NzkwOTksImV4cCI6MjA4ODI1NTA5OX0.mc7KjmJYuAp01Mj96gceGsAW2UPI2_HQsv0_kyWaQmo
+        sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_JWT_SECRET
@@ -225,7 +225,7 @@ services:
       - key: NEXT_PUBLIC_SUPABASE_URL
         value: https://lgdhvepyrzbnscqssgqq.supabase.co
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnZGh2ZXB5cnpibnNjcXNzZ3FxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NzkwOTksImV4cCI6MjA4ODI1NTA5OX0.mc7KjmJYuAp01Mj96gceGsAW2UPI2_HQsv0_kyWaQmo
+        sync: false
       - key: NEXT_PUBLIC_POSTHOG_KEY
         sync: false
       - key: NEXT_PUBLIC_MOCK_AUTH

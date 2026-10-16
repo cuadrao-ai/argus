@@ -9,6 +9,7 @@ import spanish from "@/public/locales/es-419/common.json";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import BusinessNamingProvider, { useBusinessNaming } from "@/components/business-app/BusinessNamingProvider";
 import { invalidateBrowserAuth } from "@/lib/browser-auth-generation";
+import { ChatWorkspaceProvider, type ChatWorkspace } from "@/components/chat/ChatWorkspace";
 import { ReceiptPeriodExport } from "@/components/business-app/ReceiptDossierReview";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 
@@ -21,7 +22,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const state = (id: string, show = false) => ({ id, name: "Mi negocio", name_required: true, name_prompt_seen: true, show_prompt: show });
 const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { resolve, promise }; };
 
-async function mount(fetcher: typeof fetch, options: { strict?: boolean; export?: boolean } = {}) {
+async function mount(fetcher: typeof fetch, options: { strict?: boolean; export?: boolean; profile?: boolean } = {}) {
   const originalFetch = globalThis.fetch;
   const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
@@ -36,7 +37,9 @@ async function mount(fetcher: typeof fetch, options: { strict?: boolean; export?
   const dossier = await createDossierFixtures([{ id: "account-fixture", nickname: "Caja", type: "cash", currency: "DOP" }]).dossier(dossierFixtureIds.ready);
   const render = async (id: string, role: "owner" | "accountant" = "owner") => {
     const context = { chosen: { space_id: id, role }, source: { mode: "live" }, reload() {} } as unknown as BusinessContextValue;
-    const child = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><BusinessNamingProvider><Probe />{options.export ? <ReceiptPeriodExport dossier={dossier} start="2026-10-01" end="2026-10-31" available /> : null}</BusinessNamingProvider></BusinessContext.Provider></I18nextProvider>;
+    const ProfileMenu = options.profile ? (await import("@/components/sidebar/ProfileMenu")).default : null;
+    const workspace = { conversationSurface: "business" } as ChatWorkspace;
+    const child = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><BusinessNamingProvider><Probe />{ProfileMenu ? <ChatWorkspaceProvider value={workspace}><ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: host }} /></ChatWorkspaceProvider> : null}{options.export ? <ReceiptPeriodExport dossier={dossier} start="2026-10-01" end="2026-10-31" available /> : null}</BusinessNamingProvider></BusinessContext.Provider></I18nextProvider>;
     await act(async () => { root.render(options.strict ? <StrictMode>{child}</StrictMode> : child); });
   };
   return { render, naming: () => naming!, close: async () => { await act(async () => root.unmount()); host.remove(); globalThis.fetch = originalFetch; if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; } };
@@ -150,3 +153,21 @@ test("leaving the Business while its required check is pending cancels the conti
   await act(async () => read.resolve(Response.json(state("owner-space"))));
   assert.equal(await Promise.race([ready!, new Promise(resolve => setTimeout(() => resolve("stranded"), 100))]), false);
 });
+
+for (const role of ["owner", "accountant"] as const) {
+  test(`Business ${role} preferences preserve naming access and hide personal country settings`, async () => {
+    const view = await mount(async (url, init) => String(url).endsWith("name-prompt")
+      ? Response.json(state(JSON.parse(String(init?.body)).space_id))
+      : Response.json({ user: { id: "settings-owner", display_name: "Test owner", email: "owner@example.test", language: "es-419" }, account_kind: "registered", available: false }), { profile: true });
+    try {
+      await view.render("settings-space", role);
+      const button = (text: string) => [...document.querySelectorAll("button")].find(item => item.textContent?.trim() === text);
+      await act(async () => { button("Preferencias")!.click(); });
+      assert.equal(button("País y moneda"), undefined);
+      assert.equal(Boolean(button("¿Cómo se llama tu negocio?")), role === "owner");
+    } finally {
+      await view.close();
+      (await import("@/components/layout/overlayStack")).resetOverlayStack();
+    }
+  });
+}
