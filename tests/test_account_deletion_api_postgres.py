@@ -321,3 +321,98 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
     finally:
         objects.delete(f"{a}/")
         objects.delete(f"{b}/")
+
+
+def _deployed(monkeypatch, *, posthog_token: str | None) -> None:  # noqa: ANN001
+    """A hosted deployment: not a local or test environment, no PostHog
+    deletion adapter, and the server's event token set or not."""
+    for name in ("ARGUS_ENV", "ARGUS_APP_ENV", "ENVIRONMENT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("APP_ENV", "staging")
+    monkeypatch.delenv("ARGUS_ANALYTICS_DELETION_ENABLED", raising=False)
+    if posthog_token is None:
+        monkeypatch.delenv("POSTHOG_PROJECT_TOKEN", raising=False)
+    else:
+        monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", posthog_token)
+
+
+def _delete_as_deployed(lane, world, route) -> tuple:  # noqa: ANN001, F811
+    """One POST through the route with the analytics step chosen from the
+    environment the way the runtime chooses it; returns the response and the
+    steps of the run it opened."""
+    from argus.observability.analytics_deletion import (
+        analytics_deletion_from_env,
+        fake_analytics_allowed,
+    )
+
+    a = world["a"]
+    session = _session(a)
+    route["sessions"].append(session)
+    with psycopg.connect(DSN) as c:
+        before = {
+            row[0]
+            for row in c.execute("select id from argus_private.account_deletion_runs")
+        }
+    admin = SqlAuthAdmin()
+    service = _service(
+        lane,
+        admin,
+        analytics=analytics_deletion_from_env(),
+        allow_fake=fake_analytics_allowed(),
+    )
+    try:
+        with patch.object(account_route, "account_deletion_service", return_value=service):
+            response = route["client"].post(
+                URL, json={"confirm": True}, headers=_bearer(_token(a, session))
+            )
+    finally:
+        world["placeholders"] += admin.created
+    with psycopg.connect(DSN) as c:
+        (steps,) = [
+            steps
+            for run_id, steps in c.execute(
+                "select id, steps from argus_private.account_deletion_runs"
+            )
+            if run_id not in before
+        ]
+    return response, steps
+
+
+def test_without_posthog_events_the_analytics_step_is_not_applicable(
+    lane,  # noqa: ANN001, F811
+    world,  # noqa: ANN001, F811
+    route,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """Decision 1B: a deployment that sends no PostHog events has nothing at
+    PostHog to delete. The step records not_applicable with its reason, never
+    deleted, and the run finishes."""
+    _deployed(monkeypatch, posthog_token=None)
+    response, steps = _delete_as_deployed(lane, world, route)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"status": "done", "pending": []}
+    assert steps["analytics"] == "not_applicable"
+    assert steps["analytics_evidence"] == {"reason": "posthog_not_configured"}
+    with psycopg.connect(DSN) as c:
+        assert not c.execute(
+            "select 1 from auth.users where id=%s", (world["a"],)
+        ).fetchone()
+
+
+def test_with_posthog_events_and_no_adapter_the_analytics_step_stays_pending(
+    lane,  # noqa: ANN001, F811
+    world,  # noqa: ANN001, F811
+    route,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """Unchanged where the server sends events: nothing was deleted at
+    PostHog, so the step stays pending and the account stays locked."""
+    _deployed(monkeypatch, posthog_token="ph_project_token")
+    response, steps = _delete_as_deployed(lane, world, route)
+    assert response.status_code == 202, response.text
+    assert response.json() == {"status": "in_progress", "pending": ["analytics"]}
+    assert steps["analytics"] == "pending"
+    assert steps["last_error"] == {"analytics": "analytics_adapter_unconfigured"}
+    assert "analytics_evidence" not in steps
+    assert _locked(world["a"]) == (True, True)
+    _still_locked_then_finish(lane, world)

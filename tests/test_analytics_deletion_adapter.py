@@ -164,7 +164,41 @@ def test_factory_is_disabled_without_flag_even_with_credentials(monkeypatch):
 
     monkeypatch.delenv("ARGUS_ANALYTICS_DELETION_ENABLED", raising=False)
     monkeypatch.setenv("ARGUS_POSTHOG_DELETION_API_KEY", "synthetic")
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "ph_project_token")
     assert isinstance(analytics_deletion_from_env(), RecordingAnalyticsDeletion)
+
+
+def test_a_server_that_sends_no_posthog_events_has_nothing_to_delete(monkeypatch):
+    """Decision 1B: with no POSTHOG_PROJECT_TOKEN the server never sent an
+    event under the person's distinct id, so the step is not applicable."""
+    from argus.observability.analytics_deletion import analytics_deletion_from_env
+
+    monkeypatch.delenv("ARGUS_ANALYTICS_DELETION_ENABLED", raising=False)
+    monkeypatch.delenv("POSTHOG_PROJECT_TOKEN", raising=False)
+    assert analytics_deletion_from_env().delete_person("anyone") == "not_applicable"
+
+
+def test_a_server_that_sends_events_without_an_adapter_records_only(monkeypatch):
+    from argus.observability.analytics_deletion import analytics_deletion_from_env
+
+    monkeypatch.delenv("ARGUS_ANALYTICS_DELETION_ENABLED", raising=False)
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "ph_project_token")
+    assert analytics_deletion_from_env().delete_person("anyone") == "recorded_by_fake"
+
+
+def test_the_real_adapter_still_runs_when_no_events_are_sent_now(monkeypatch):
+    """Events sent before the token was removed are still owed a deletion."""
+    from argus.observability.analytics_deletion import analytics_deletion_from_env
+
+    for name, value in {
+        "ARGUS_ANALYTICS_DELETION_ENABLED": "true",
+        "ARGUS_POSTHOG_DELETION_HOST": "https://us.posthog.com",
+        "ARGUS_POSTHOG_DELETION_PROJECT_ID": "1",
+        "ARGUS_POSTHOG_DELETION_API_KEY": "synthetic",
+    }.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.delenv("POSTHOG_PROJECT_TOKEN", raising=False)
+    assert isinstance(analytics_deletion_from_env(), PostHogEventDeletion)
 
 
 def test_enabled_factory_requires_dedicated_configuration(monkeypatch):
