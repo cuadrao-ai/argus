@@ -9,6 +9,8 @@ from __future__ import annotations
 import hashlib
 import time
 import uuid
+from contextlib import contextmanager
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import jwt
@@ -20,6 +22,7 @@ from argus.api.auth_sessions import auth_session_is_active
 from argus.api.main import app
 from argus.api.routers import account as account_route
 from argus.api.schemas import User
+from argus.observability.posthog_deletion import EventDeletionResult
 from fastapi.testclient import TestClient
 
 from tests.document_sources_support import LOCAL_STORAGE, source_objects, stored_paths
@@ -336,10 +339,17 @@ def _deployed(monkeypatch, *, posthog_token: str | None) -> None:  # noqa: ANN00
         monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", posthog_token)
 
 
-def _delete_as_deployed(lane, world, route) -> tuple:  # noqa: ANN001, F811
+def _delete_as_deployed(  # noqa: ANN202
+    lane,  # noqa: ANN001, F811
+    world,  # noqa: ANN001, F811
+    route,  # noqa: ANN001
+    *,
+    analytics=None,  # noqa: ANN001
+    admin=None,  # noqa: ANN001
+) -> tuple:
     """One POST through the route with the analytics step chosen from the
-    environment the way the runtime chooses it; returns the response and the
-    steps of the run it opened."""
+    environment the way the runtime chooses it (or the adapter given);
+    returns the response and the steps of the run it opened."""
     from argus.observability.analytics_deletion import (
         analytics_deletion_from_env,
         fake_analytics_allowed,
@@ -353,11 +363,11 @@ def _delete_as_deployed(lane, world, route) -> tuple:  # noqa: ANN001, F811
             row[0]
             for row in c.execute("select id from argus_private.account_deletion_runs")
         }
-    admin = SqlAuthAdmin()
+    admin = admin or SqlAuthAdmin()
     service = _service(
         lane,
         admin,
-        analytics=analytics_deletion_from_env(),
+        analytics=analytics or analytics_deletion_from_env(),
         allow_fake=fake_analytics_allowed(),
     )
     try:
@@ -417,4 +427,153 @@ def test_with_posthog_events_and_no_adapter_the_analytics_step_stays_pending(
     assert steps["last_error"] == {"analytics": "analytics_adapter_unconfigured"}
     assert "analytics_evidence" not in steps
     assert _locked(world["a"]) == (True, True)
+    _still_locked_then_finish(lane, world)
+
+
+@contextmanager
+def _operator_pass(lane, world):  # noqa: ANN001, ANN202, F811
+    """A sweep or force run from an operator's environment eight days on,
+    with the analytics step chosen from that environment."""
+    from argus.observability.analytics_deletion import (
+        analytics_deletion_from_env,
+        fake_analytics_allowed,
+    )
+
+    admin = SqlAuthAdmin()
+    try:
+        yield _service(
+            lane,
+            admin,
+            analytics=analytics_deletion_from_env(),
+            allow_fake=fake_analytics_allowed(),
+            clock=lambda: NOW + timedelta(days=8),
+        )
+    finally:
+        world["placeholders"] += admin.created
+
+
+def _run_steps(user_id: str) -> dict:
+    with psycopg.connect(DSN) as c:
+        (steps,) = c.execute(
+            "select steps from argus_private.account_deletion_runs where user_id=%s",
+            (user_id,),
+        ).fetchone()
+    return steps
+
+
+def _auth_user_exists(user_id: str) -> bool:
+    with psycopg.connect(DSN) as c:
+        return bool(
+            c.execute("select 1 from auth.users where id=%s", (user_id,)).fetchone()
+        )
+
+
+def test_a_sweep_without_the_token_never_finishes_a_pending_analytics_step(
+    lane,  # noqa: ANN001, F811
+    world,  # noqa: ANN001, F811
+    route,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """The API, which sends events, left the step pending. A sweep from an
+    environment without the token must not decide there were none."""
+    _deployed(monkeypatch, posthog_token="ph_project_token")
+    response, _ = _delete_as_deployed(lane, world, route)
+    assert response.status_code == 202, response.text
+    _deployed(monkeypatch, posthog_token=None)
+    with _operator_pass(lane, world) as service:
+        service.resume_pending()
+    assert _auth_user_exists(world["a"])
+    assert _locked(world["a"]) == (True, True)
+    steps = _run_steps(world["a"])
+    assert steps["analytics"] == "pending"
+    assert "analytics_evidence" not in steps
+    assert steps["last_error"] == {"analytics": "analytics_adapter_unconfigured"}
+    _still_locked_then_finish(lane, world)
+
+
+class _AuthDownOnLock(SqlAuthAdmin):
+    def lock_user(self, user_id: str) -> None:
+        raise RuntimeError("admin api down")
+
+
+def test_a_sweep_without_the_token_never_decides_a_step_the_api_never_reached(
+    lane,  # noqa: ANN001, F811
+    world,  # noqa: ANN001, F811
+    route,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """The API, which sends events, opened the run and stopped before the
+    analytics step. The sweep's own environment still never decides."""
+    _deployed(monkeypatch, posthog_token="ph_project_token")
+    response, steps = _delete_as_deployed(lane, world, route, admin=_AuthDownOnLock())
+    assert response.status_code != 200, response.text
+    assert "analytics" not in steps
+    _deployed(monkeypatch, posthog_token=None)
+    with _operator_pass(lane, world) as service:
+        service.resume_pending()
+    assert _auth_user_exists(world["a"])
+    steps = _run_steps(world["a"])
+    assert steps["analytics"] == "pending"
+    assert "analytics_evidence" not in steps
+    _still_locked_then_finish(lane, world)
+
+
+def test_forcing_the_analytics_step_without_the_token_records_operator_forced(
+    lane,  # noqa: ANN001, F811
+    world,  # noqa: ANN001, F811
+    route,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    _deployed(monkeypatch, posthog_token="ph_project_token")
+    response, _ = _delete_as_deployed(lane, world, route)
+    assert response.status_code == 202, response.text
+    _deployed(monkeypatch, posthog_token=None)
+    with _operator_pass(lane, world) as service:
+        result = service.force_complete_step(
+            user_id=world["a"],
+            step="analytics",
+            reason="PostHog person deletion confirmed by hand",
+            operator="on-call",
+            confirm=True,
+        )
+    assert result["forced"] is True
+    assert result["revoke_attempt"] == "analytics_adapter_unconfigured"
+    steps = _run_steps(world["a"])
+    assert steps["analytics"] == "operator_forced"
+    assert steps["forced"]["analytics"]["operator"] == "on-call"
+    assert "analytics_evidence" not in steps
+    _still_locked_then_finish(lane, world)
+
+
+class _SubmittedAtPostHog:
+    """The deletion adapter after PostHog accepted the request."""
+
+    def advance(self, distinct_id, submission_id, request_id):  # noqa: ANN001, ANN201
+        return EventDeletionResult(
+            outcome="pending",
+            request_id="posthog-request-1",
+            provider_status="queued",
+            http_status=200,
+        )
+
+
+def test_a_later_pass_without_the_adapter_keeps_the_submitted_request(
+    lane,  # noqa: ANN001, F811
+    world,  # noqa: ANN001, F811
+    route,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    _deployed(monkeypatch, posthog_token=None)
+    response, steps = _delete_as_deployed(
+        lane, world, route, analytics=_SubmittedAtPostHog()
+    )
+    assert response.status_code == 202, response.text
+    assert steps["analytics_evidence"]["request_id"] == "posthog-request-1"
+    with _operator_pass(lane, world) as service:
+        service.resume_pending()
+    assert _auth_user_exists(world["a"])
+    steps = _run_steps(world["a"])
+    assert steps["analytics"] == "pending"
+    assert steps["analytics_evidence"]["request_id"] == "posthog-request-1"
+    assert steps["analytics_evidence"]["provider_status"] == "queued"
     _still_locked_then_finish(lane, world)
