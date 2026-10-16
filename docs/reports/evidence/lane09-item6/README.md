@@ -126,3 +126,51 @@ Additional engine-named captures show the [shortcut sheet](chromium-after-shortc
 Removed only lane-owned build and test outputs: 410237015 logical bytes. Retained dependencies, ignored test configs, this worktree and all evidence. Port 3196 had no listener. APFS clone allocation prevents equating logical bytes with disk space recovered. [Measured cleanup and df](cleanup.txt).
 
 Phone evidence correction: the original capture used a message-only dossier whose inherited synthetic name contained English text. The phone test now opens the existing receipt fixture, saves its review fields, expands its original image, and checks the actual approval footer against the tabs. Its existing record name is Mi negocio; no locale or product copy changed.
+
+
+## Locked navigation test repair, 2026-10-16
+
+Parent and frozen source head is `4fafd03f77b254fa2250192430e49e94ea626d5c`.
+The repair changes only this report and `web/__tests__/business-locked-polish.dom.test.tsx`.
+Root retains all remote, reconciliation, full-suite and independent Eval actions.
+
+The old sidebar assertion reproduced alone with 0 pass, 1 fail and 12 filtered tests.
+It counted hidden shortcut hints as label text and expected Acceso as a fifth section.
+The repaired assertion excludes `aria-hidden` descendants before reading the name.
+It retains the numeric count handling and checks exactly Resumen, Bandeja, Gastos and Novedades.
+Each section must still have an icon in expanded and collapsed layouts.
+A separate test mounts the real workspace footer, checks the Spanish Acceso name and its icon,
+and clicks it to verify that the canonical panel changes from overview to access in both layouts.
+All other assertions remain unchanged. The inherited auth and owner-boundary tests were not edited.
+This applies the Test Behavior, Not Implementation principle to the approved navigation contract.
+
+From `web/`, the following process environment was used for every test command:
+
+```sh
+env -i PATH=/opt/homebrew/bin:/usr/bin:/bin HOME=/private/tmp NEXT_PUBLIC_MOCK_AUTH=true NEXT_PUBLIC_ENABLE_SPANISH=true NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ARGUS_API_URL=http://127.0.0.1:9/api/v1 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:9 NEXT_PUBLIC_SUPABASE_ANON_KEY=synthetic /opt/homebrew/bin/bun test __tests__/business-locked-polish.dom.test.tsx -t 'every sidebar icon'
+```
+
+That command reproduced the failure before editing. Provider credentials were absent.
+The topology check reported missing environment files. This test-only assignment used the
+explicitly authorized synthetic process environment without setup or environment-file writes.
+
+After the repair, using the same environment prefix:
+
+| Command after the environment prefix | Result |
+| --- | --- |
+| `bun test __tests__/business-locked-polish.dom.test.tsx` | 14 pass, 0 fail, 1 file |
+| `bun test __tests__/business-locked-polish.dom.test.tsx __tests__/business-switcher.dom.test.tsx __tests__/workspace-keyboard-shortcuts.test.ts __tests__/keyboard-shortcuts.test.ts __tests__/chat-keyboard-shortcut-policy.test.ts` | 39 pass, 0 fail, 5 files, 81 expect calls |
+| `bun node_modules/eslint/bin/eslint.js __tests__/business-locked-polish.dom.test.tsx` | exit 0, no diagnostics |
+| `git diff --check` from the checkout root | exit 0 |
+
+Both successful test runs also emitted two existing state-update `act(...)` warnings during the search case.
+The new footer test passed without those warnings. No full-suite, browser, login or model run was made.
+The runtime component tree remains `58e4176c46db9f66a98b081c53ab78185c2fe62e`.
+The runtime library tree remains `fcea6fe5efe16999343adaccba866fec6781d465`.
+Final root Eval must recheck this shared locked-polish test after integration reconciliation.
+
+No temporary files, services, build outputs or dependency installations were created by this repair.
+Owned scratch bytes created and removed are both 0. The checkout, dependencies, configuration and
+all existing evidence were retained. Before and after `df -k /private/tmp` reported 971298980 total,
+760000000 used and 179600000 available 1024-byte blocks, with 81 percent capacity.
+The two changed tracked files and local commit are retained delivery artifacts.
