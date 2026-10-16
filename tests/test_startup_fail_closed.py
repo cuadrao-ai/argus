@@ -17,7 +17,7 @@ from loguru import logger
 
 FLAGS = ("NEXT_PUBLIC_MOCK_AUTH", "ARGUS_MOCK_AUTH", "ARGUS_DEV_ENDPOINTS_ENABLED")
 ENV_NAMES = ("APP_ENV", "ENVIRONMENT", "ARGUS_ENV", "ARGUS_APP_ENV")
-LOCAL_ENVS = ("local", "development", "dev", "test")
+LOCAL_ENVS = ("local", "development", "dev", "test", "local-smoke")
 fake = Faker()
 
 
@@ -67,7 +67,7 @@ def test_hosted_flags_refuse_startup_before_resources(
     assert any("startup_config_refused" in line and flag in line for line in records)
 
 
-@pytest.mark.parametrize("environment", (None, "", "unknown"))
+@pytest.mark.parametrize("environment", (None, "", "unknown", "private-alpha"))
 @pytest.mark.parametrize("flag", FLAGS)
 def test_flags_require_an_explicit_local_environment(
     startup, monkeypatch: pytest.MonkeyPatch, environment: str | None, flag: str
@@ -100,11 +100,16 @@ def test_local_flags_preserve_startup(
     ("name", "value"),
     (("ENVIRONMENT", "staging"), ("RENDER", "true"), ("RENDER_SERVICE_ID", "srv-test")),
 )
+@pytest.mark.parametrize("local_environment", ("test", "local-smoke"))
 def test_hosted_markers_override_a_local_label(
-    startup, monkeypatch: pytest.MonkeyPatch, name: str, value: str
+    startup,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    value: str,
+    local_environment: str,
 ) -> None:
     app, checkpointer, _ = startup
-    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("APP_ENV", local_environment)
     monkeypatch.setenv(name, value)
     monkeypatch.setenv("ARGUS_MOCK_AUTH", "true")
     with pytest.raises(RuntimeError, match="ARGUS_MOCK_AUTH"):
@@ -202,6 +207,18 @@ def test_process_exits_nonzero_for_hosted_bypass(flag: str) -> None:
     assert result.returncode != 0
     assert "startup_config_refused" in result.stderr
     assert flag in result.stderr
+
+
+def test_process_starts_for_local_smoke_configuration() -> None:
+    result = _startup_process(
+        {
+            "APP_ENV": "local-smoke",
+            "ARGUS_MOCK_AUTH": "true",
+            "NEXT_PUBLIC_MOCK_AUTH": "true",
+        }
+    )
+    assert result.returncode == 0, result.stderr
+    assert "startup_config_refused" not in result.stderr
 
 
 def test_process_exits_nonzero_without_public_key_in_supabase_mode() -> None:

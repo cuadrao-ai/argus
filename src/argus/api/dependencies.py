@@ -47,7 +47,13 @@ def validate_startup_configuration() -> None:
         for name in ("APP_ENV", "ENVIRONMENT", "ARGUS_ENV", "ARGUS_APP_ENV")
         if (value := os.getenv(name, "").strip().lower())
     }
-    local = bool(environments) and environments <= {"local", "development", "dev", "test"}
+    local = bool(environments) and environments <= {
+        "local",
+        "development",
+        "dev",
+        "test",
+        "local-smoke",
+    }
     hosted = os.getenv("RENDER", "").strip().lower() == "true" or bool(
         os.getenv("RENDER_SERVICE_ID", "").strip()
     )
