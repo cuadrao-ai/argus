@@ -1,17 +1,21 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import MoneyInput, { type MoneyInputChange } from "@/components/money/MoneyInput";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { EXPENSE_ACCOUNT_TYPES, type BusinessAccount, type ExpenseAccountType } from "@/lib/business-api";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
 import { RECEIPT_CATEGORY_IDS } from "./business-format";
-import { primaryButtonClass, secondaryButtonClass, useCategoryLabel } from "./business-ui";
+import { primaryButtonClass, secondaryButtonClass, useCategoryLabel, useOwnerView } from "./business-ui";
 
 const inputClass =
   "mt-1.5 block min-h-11 w-full rounded-[12px] border border-black/10 bg-white px-3 text-[16px] text-black outline-none focus-visible:border-black/30 focus-visible:ring-[0.125rem] focus-visible:ring-black/10 dark:border-white/10 dark:bg-[#141517] dark:text-white";
+
+/** The currencies a new account is offered in; the API accepts more, this list is the product's. */
+const ACCOUNT_CURRENCIES = ["DOP", "USD"] as const;
 
 function today(): string {
   const now = new Date();
@@ -35,7 +39,13 @@ function RecordExpenseSurface({ onClose, onRecorded }: { onClose: () => void; on
   const { t } = useTranslation();
   const categoryLabel = useCategoryLabel();
   const { source, records } = useBusiness();
-  const accounts = records.workspace?.accounts ?? [];
+  const owner = useOwnerView();
+  // The account made here is the server's answer; it stands until the workspace reload lists it.
+  const [added, setAdded] = useState<BusinessAccount | null>(null);
+  const listed = records.workspace?.accounts ?? [];
+  const accounts = added && !listed.some((item) => item.id === added.id) ? [...listed, added] : listed;
+  const settingUp = owner && accounts.length === 0;
+  const noteId = useId();
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState<MoneyInputChange>({ value: null, invalid: false });
   const [amountError, setAmountError] = useState<string | null>(null);
@@ -102,9 +112,18 @@ function RecordExpenseSurface({ onClose, onRecorded }: { onClose: () => void; on
     >
       <div className="space-y-4 px-4 pb-2">
         {accounts.length === 0 ? (
-          <p className="text-[14px] text-black/65 dark:text-white/65">
+          <p id={noteId} className="text-[14px] text-black/65 dark:text-white/65">
             {t("business.record.no_accounts", "Add a business account first so we know where this expense was paid from.")}
           </p>
+        ) : null}
+        {settingUp ? (
+          <AddPaidFromAccount
+            labelledBy={noteId}
+            onAdded={(account) => {
+              setAdded(account);
+              setAccountId(account.id);
+            }}
+          />
         ) : null}
         <label className="block text-[13px] font-medium text-black/60 dark:text-white/60">
           {t("business.review.merchant", "Merchant")}
@@ -132,14 +151,14 @@ function RecordExpenseSurface({ onClose, onRecorded }: { onClose: () => void; on
             <input type="date" className={inputClass} value={occurredOn} onChange={(event) => setOccurredOn(event.target.value)} />
           </label>
         </div>
-        <label className="block text-[13px] font-medium text-black/60 dark:text-white/60">
+        {settingUp ? null : <label className="block text-[13px] font-medium text-black/60 dark:text-white/60">
           {t("business.review.account", "Paid from")}
           <select className={inputClass} value={accountId} onChange={(event) => setAccountId(event.target.value)}>
             {accounts.map((item) => (
               <option key={item.id} value={item.id}>{`${item.nickname ?? item.type} · ${item.currency}`}</option>
             ))}
           </select>
-        </label>
+        </label>}
         <label className="block text-[13px] font-medium text-black/60 dark:text-white/60">
           {t("business.review.category", "Category")}
           <select className={inputClass} value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
@@ -156,5 +175,69 @@ function RecordExpenseSurface({ onClose, onRecorded }: { onClose: () => void; on
         ) : null}
       </div>
     </AdaptivePanel>
+  );
+}
+
+/** The owner's first account, set up where the expense is recorded; the dialog chooses it once the server answers. */
+function AddPaidFromAccount({ labelledBy, onAdded }: { labelledBy: string; onAdded: (account: BusinessAccount) => void }) {
+  const { t } = useTranslation();
+  const { source, reload } = useBusiness();
+  const [nickname, setNickname] = useState("");
+  const [type, setType] = useState<ExpenseAccountType>("cash");
+  const [currency, setCurrency] = useState<(typeof ACCOUNT_CURRENCIES)[number]>("DOP");
+  const [state, setState] = useState<"idle" | "adding" | "failed">("idle");
+  // One key per account request, so a retry after a lost answer replays it instead of adding a second account.
+  const key = useRef<{ payload: string; key: string } | null>(null);
+  const adding = state === "adding";
+  const input = { nickname: nickname.trim(), type, currency };
+  const label = "block text-[13px] font-medium text-black/60 dark:text-white/60";
+
+  const add = async () => {
+    if (!input.nickname || adding) return;
+    setState("adding");
+    const payload = JSON.stringify(input);
+    if (key.current?.payload !== payload) key.current = { payload, key: randomId() };
+    try {
+      const account = await source.createAccount(input, key.current.key);
+      reload();
+      onAdded(account);
+    } catch {
+      setState("failed");
+    }
+  };
+
+  return (
+    <div role="group" aria-labelledby={labelledBy} className="space-y-3 rounded-[12px] border border-black/10 p-3 dark:border-white/10">
+      <label className={label}>
+        {t("business.record.account_name", "Name")}
+        <input className={inputClass} value={nickname} maxLength={60} onChange={(event) => setNickname(event.target.value)} disabled={adding} autoComplete="off" />
+      </label>
+      <div className="grid grid-cols-2 items-start gap-3">
+        <label className={label}>
+          {t("business.record.account_type", "Account type")}
+          <select className={inputClass} value={type} onChange={(event) => setType(event.target.value as ExpenseAccountType)} disabled={adding}>
+            {EXPENSE_ACCOUNT_TYPES.map((item) => (
+              <option key={item} value={item}>{t(`business.record.account_types.${item}`)}</option>
+            ))}
+          </select>
+        </label>
+        <label className={label}>
+          {t("business.review.currency", "Currency")}
+          <select className={inputClass} value={currency} onChange={(event) => setCurrency(event.target.value as (typeof ACCOUNT_CURRENCIES)[number])} disabled={adding}>
+            {ACCOUNT_CURRENCIES.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {state === "failed" ? (
+        <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">
+          {t("common.error_occurred", "An error occurred")}
+        </p>
+      ) : null}
+      <button type="button" className={secondaryButtonClass} disabled={!input.nickname || adding} aria-busy={adding} onClick={() => void add()}>
+        {t("business.record.add_account", "Add account")}
+      </button>
+    </div>
   );
 }
