@@ -69,3 +69,25 @@ No worker server remains on port 3195. Removed only owned build and temporary so
 | Total | 221,634,560 |
 
 Whole-volume `df -k` available space changed from 185,663,256 KiB to 185,880,488 KiB. Other processes share the volume. The path measurements above identify this cleanup's actual scope.
+
+## PR #1181 CI repair, October 16
+
+The failure reproduced at frozen head `89a47f6dfc3cbdb89fd2b0650c8dc92f44b9c527`, on integration base `2e30fe8979b384361d73093b7ac5cd2f497ce85d`. CI run `38907141011` reported `2648 pass, 1 fail`. The failing test was `approving the last receipt waiting returns to the Bandeja and its empty state` in `business-approve-next.dom.test.tsx`.
+
+From `web`, the reproduction command was:
+
+```sh
+env -i PATH=/opt/homebrew/bin:/usr/bin:/bin /opt/homebrew/bin/bun --no-env-file test __tests__/business-approve-next.dom.test.tsx -t 'approving the last receipt waiting returns to the Bandeja and its empty state'
+```
+
+Bun 1.4.2 returned `0 pass, 18 filtered out, 1 fail` at line 286, with `AssertionError: the empty Bandeja says everything is reviewed`. The test expected the superseded `Todo revisado` copy. Its `receiptPage` fixture also ignored the requested view and returned only pending rows for `all`.
+
+A copy-only probe still returned `0 pass, 18 filtered out, 1 fail`. This proves that changing the expected text alone cannot pass without a nonempty complete set of confirmed receipts. The repair makes the fixture return all saved receipts for `all`, keeps the pending count independent of that view, and checks the locked approved copy inside the empty Bandeja. The existing return-to-inbox and zero-badge assertions remain. Production code, locales, and the other approval, version, idempotency, focus, and error assertions are unchanged.
+
+The focused command used the same clean environment and ran `business-approve-next.dom.test.tsx`, `business-access-dismissal.dom.test.tsx`, and `business-clutter-owner-boundary.dom.test.tsx`. It returned `23 pass, 0 fail` across three files. This includes all 19 approval-navigation tests, three dismissal tests, and the real application account-boundary test. The latter now passes on the reconciled item 5 tree.
+
+The existing `business-clutter.playwright.config.ts` suite returned `10 passed`. It retains the new, dismissed, filtered, unknown, unapproved, and unavailable negative cases, plus the approved and English cases and both viewport checks. Requests outside localhost and 127.0.0.1 were blocked. Root authorized two absent, ignored files, `.env` and `web/.env.local`, to be created as empty regular files. The topology check reports both as `worktree-local`. Empty files suffice because the browser fixture supplies synthetic records and the test process supplies only local mock flags.
+
+The full frontend command, `env -i PATH=/Users/garces/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin /Users/garces/.bun/bin/bun --no-env-file test`, ran from `web` with CI-matching Bun 1.3.14. It returned `2649 pass, 0 fail`, with 19,387 expectations across 274 files. Targeted ESLint and `git diff --check` passed. Fresh independent Eval, remote CI, push, and landing remain with root. The tradeoff is a slightly richer mock receipt query. The benefit is that this intermediate item 5 commit now detects missing approval evidence on its own, without relying on later navigation work.
+
+The browser server exited. This repair removed only its own `web/.next` cache and `web/temp/clutter-results` output, totaling 168,624,128 allocated bytes. Whole-volume available space changed from 173,321,952 KiB to 173,486,660 KiB during cleanup. The empty environment files remain. Other processes share the volume.
