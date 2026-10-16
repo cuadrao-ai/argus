@@ -57,3 +57,13 @@ test("a refusal after a lost response cannot release a possibly sent reservation
   }) as typeof fetch);
   expect(await send("confirmation", row)).toBe("unknown");
 });
+
+
+test("runtime allows only the approved subdomain sender on staging", () => {
+  const env = { SUPABASE_URL: "https://skedzwocnmrhfigiwyzi.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "fixture", RESEND_API_KEY: "fixture", MARKETING_WAITLIST_FROM: "Cuadrao <no-responder@mail.cuadrao.ai>", MARKETING_POSTAL_ADDRESS: config.postalAddress, CUADRAO_WAITLIST_ORIGIN: config.origin, CUADRAO_WAITLIST_TURNSTILE_SECRET: "fixture" };
+  expect(waitlistDeps(env)).not.toBeNull();
+  expect(waitlistDeps({ ...env, SUPABASE_URL: "https://other-project.supabase.co" })).toBeNull();
+  for (const from of ["Cuadrao <other@mail.cuadrao.ai>", "Cuadrao <no-responder@other.cuadrao.ai>", "Cuadrao <no-responder@mail.cuadrao.ai.example.test>", "Other <no-responder@mail.cuadrao.ai>"]) {
+    expect(waitlistDeps({ ...env, MARKETING_WAITLIST_FROM: from })).toBeNull();
+  }
+});

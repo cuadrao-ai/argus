@@ -52,3 +52,16 @@ test("method and database errors cannot report successful maintenance", async ()
   const failing = (async () => { throw new Error("private provider detail"); }) as typeof fetch;
   const response = await handleReminderRequest(request(), env, failing); expect(response.status).toBe(503); expect(await response.text()).not.toContain("private");
 });
+
+
+test("scheduler accepts only the approved subdomain sender and keeps the reply mailbox", async () => {
+  const f = transport();
+  const approved = "Cuadrao <no-responder@mail.cuadrao.ai>";
+  expect((await handleReminderRequest(request(), { ...env, MARKETING_WAITLIST_FROM: approved }, f.fetcher)).status).toBe(200);
+  expect(f.calls[2].body).toMatchObject({ from: approved, reply_to: "hola@cuadrao.ai" });
+  for (const from of ["Cuadrao <other@mail.cuadrao.ai>", "Cuadrao <no-responder@other.cuadrao.ai>", "Cuadrao <no-responder@mail.cuadrao.ai.example.test>", "Other <no-responder@mail.cuadrao.ai>"]) {
+    const rejected = transport();
+    expect((await handleReminderRequest(request(), { ...env, MARKETING_WAITLIST_FROM: from }, rejected.fetcher)).status).toBe(503);
+    expect(rejected.calls).toEqual([]);
+  }
+});

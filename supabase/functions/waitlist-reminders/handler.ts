@@ -22,7 +22,7 @@ export async function handleReminderRequest(request: Request, env: Env, doFetch:
     const apiKey = env.RESEND_API_KEY?.trim();
     const mailbox = parseMailbox(/^Cuadrao <([^<>\r\n]+)>$/.exec(from ?? "")?.[1]);
     const origin = new URL(env.CUADRAO_WAITLIST_ORIGIN ?? "");
-    if (!from || !mailbox?.endsWith("@cuadrao.ai") || !postalAddress || !apiKey || origin.protocol !== "https:" || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) throw new Error("Missing delivery configuration");
+    if (!from || (!mailbox?.endsWith("@cuadrao.ai") && mailbox !== "no-responder@mail.cuadrao.ai") || !postalAddress || !apiKey || origin.protocol !== "https:" || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) throw new Error("Missing delivery configuration");
     const store = waitlistStore({ supabaseUrl: STAGING_URL, supabaseServiceKey: key }, doFetch);
     const send = waitlistMail({ apiKey, apiUrl: "https://api.resend.com", from, postalAddress, origin: origin.origin }, doFetch);
     const result = await remindWaitlist({ store, send }, 2);
