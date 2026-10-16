@@ -7,7 +7,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useBusiness } from "./BusinessWorkspace";
 import { inboxCount } from "./inbox-count";
 import { formatBusinessName, formatDay, formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, LoadingRows } from "./business-ui";
+import { cardClass, LoadingRows, pillButtonClass } from "./business-ui";
 import BusinessPeriodControl, { usePeriodLabel } from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
 
@@ -17,6 +17,7 @@ export default function BusinessOverviewPanel() {
   const { isBelowTablet } = useResponsiveLayout();
   const { records, period, setPeriod, openPanel, actions, chosen } = useBusiness();
   const overview = records.overview;
+  const upload = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
   const periodLabel = usePeriodLabel();
   // The Bandeja's own counts, from the same server answer as the sidebar badge.
   const inbox = inboxCount(records);
@@ -28,7 +29,14 @@ export default function BusinessOverviewPanel() {
         <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
           {formatBusinessName(chosen?.name, t("business.overview.title", "My business"))}
         </h2>
-        <BusinessPeriodControl period={period} setPeriod={setPeriod} />
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <BusinessPeriodControl period={period} setPeriod={setPeriod} />
+          {upload ? (
+            <button type="button" data-testid="business-primary-upload" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>
+              {upload.label}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {records.error ? (
@@ -159,7 +167,7 @@ export default function BusinessOverviewPanel() {
       <div className="mt-8">
         <StarterActions
           onSelect={() => undefined}
-          entries={actions.starterEntries}
+          entries={actions.starterEntries.filter((entry) => !upload || entry.key !== "upload_receipt")}
           layout={isBelowTablet ? "scroll" : "wrap"}
         />
       </div>
