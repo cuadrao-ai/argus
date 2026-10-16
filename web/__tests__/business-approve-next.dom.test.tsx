@@ -24,8 +24,17 @@ afterAll(async () => {
 
 type Role = "owner" | "accountant";
 type Refusal = { status: number; code: string };
+type Options = {
+  role?: Role;
+  refuse?: Refusal | null;
+  /** A 200 whose approval did not record. */
+  unrecorded?: "failed" | "outcome_unknown";
+  /** Holds the approval or the Bandeja read that follows it until release(). */
+  hold?: "approval" | "bandeja";
+  bandejaFails?: boolean;
+};
 
-async function mount({ role = "owner" as Role, refuse = null as Refusal | null } = {}) {
+async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaFails = false }: Options = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -65,9 +74,17 @@ async function mount({ role = "owner" as Role, refuse = null as Refusal | null }
   const pending = () => receipts.filter((item) => item.status !== "confirmed");
   const approvals: [string, number, string][] = [];
   let pageReads = 0;
+  let bandejaReads = 0;
+  let release = () => undefined as void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
   const source = {
     ...fixture,
-    receipts: async () => pending() as ReceiptSummary[],
+    receipts: async () => {
+      bandejaReads += 1;
+      if (hold === "bandeja") await held;
+      if (bandejaFails) throw Object.assign(new Error("unavailable"), { status: 503 });
+      return pending() as ReceiptSummary[];
+    },
     receiptPage: async () => {
       pageReads += 1;
       const rows = pending();
@@ -77,8 +94,10 @@ async function mount({ role = "owner" as Role, refuse = null as Refusal | null }
     dossier: async (id: string) => structuredClone(dossiers.get(id)!),
     approveDraft: async (id: string, version: number, key: string) => {
       approvals.push([id, version, key]);
+      if (hold === "approval") await held;
       if (refuse) throw Object.assign(new Error(refuse.code), refuse);
       const current = dossiers.get(id)!;
+      if (unrecorded) return { ...structuredClone(current), approval_result: { status: unrecorded, code: "ledger_unavailable", reviewed_version: current.version } } as BusinessDossier;
       const recorded: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_result: { status: "recorded", activity_id: `expense-${id}`, actor: { actor_id: "a", actor_kind: "owner", display_name: "Lucía", grant_id: "g", issuer_id: "a", issuer_display_name: "Lucía" } } as BusinessDossier["approval_result"] };
       dossiers.set(id, recorded);
       receipts = receipts.map((item) => (item.draft_id === id ? { ...item, status: "confirmed", version: item.version + 1 } : item));
@@ -129,7 +148,17 @@ async function mount({ role = "owner" as Role, refuse = null as Refusal | null }
     await act(async () => target.click());
     await settle(done);
   };
-  return { act, root, host, settle, open, click, button, badge, heading, approvals, pageReads: () => pageReads, panel: () => api!.panel };
+  return {
+    act, root, host, settle, open, click, button, badge, heading, approvals,
+    pageReads: () => pageReads,
+    bandejaReads: () => bandejaReads,
+    panel: () => api!.panel,
+    workspace: () => api!,
+    release: async () => {
+      await act(async () => release());
+      await settle(() => false);
+    },
+  };
 }
 
 describe("Aprobar y siguiente on the receipt review page", () => {
@@ -229,6 +258,69 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
     assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"]')?.textContent, "Todavía no se conoce el resultado de la acción. Consulta el estado guardado antes de realizar otra acción.");
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("a 200 whose approval failed stays on the receipt and reads nothing more", async () => {
+    const page = await mount({ unrecorded: "failed" });
+    await page.open("rcpt-uno");
+    await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
+    await page.settle(() => false);
+    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
+    assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"]')?.textContent, "La aprobación no terminó. Consulta el registro actual antes de realizar otra acción.");
+    assert.equal(page.bandejaReads(), 0);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("a 200 whose outcome is unknown stays on the receipt and reads nothing more", async () => {
+    const page = await mount({ unrecorded: "outcome_unknown" });
+    await page.open("rcpt-uno");
+    await page.click("Aprobar y siguiente", () => (page.host.textContent ?? "").includes("Todavía no se conoce el resultado"));
+    await page.settle(() => false);
+    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
+    assert.equal(page.bandejaReads(), 0);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("when the Bandeja cannot be read after a recorded approval, the Bandeja opens", async () => {
+    const page = await mount({ bandejaFails: true });
+    await page.open("rcpt-uno");
+    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox");
+    assert.deepEqual(page.panel(), { kind: "inbox" });
+    assert.equal(page.approvals.length, 1);
+    assert.equal(page.bandejaReads(), 1);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("opening Gastos while the approval is pending keeps Gastos open when it records", async () => {
+    const page = await mount({ hold: "approval" });
+    await page.open("rcpt-uno");
+    await page.click("Aprobar y siguiente", () => page.approvals.length === 1);
+    await page.act(async () => page.workspace().openPanel({ kind: "expenses" }));
+    await page.release();
+    assert.deepEqual(page.panel(), { kind: "expenses" });
+    assert.equal(page.bandejaReads(), 0, "nothing reads the Bandeja for a page the owner left");
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("switching Business while the approval is pending opens no receipt when it records", async () => {
+    const page = await mount({ hold: "approval" });
+    await page.open("rcpt-uno");
+    await page.click("Aprobar y siguiente", () => page.approvals.length === 1);
+    await page.act(async () => page.workspace().chooseBusiness("fixture-grant-client"));
+    await page.release();
+    assert.deepEqual(page.panel(), { kind: "overview" });
+    assert.equal(page.bandejaReads(), 0);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("switching Business while the Bandeja read is pending opens no receipt from the old Business", async () => {
+    const page = await mount({ hold: "bandeja" });
+    await page.open("rcpt-uno");
+    await page.click("Aprobar y siguiente", () => page.bandejaReads() === 1);
+    await page.act(async () => page.workspace().chooseBusiness("fixture-grant-client"));
+    await page.release();
+    assert.deepEqual(page.panel(), { kind: "overview" });
     await page.act(async () => page.root.unmount());
   });
 

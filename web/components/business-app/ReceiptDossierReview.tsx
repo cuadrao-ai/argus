@@ -251,15 +251,23 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     } finally { inFlight.current = false; }
   };
 
-  // Only a recorded approval moves on, to the next row of the Bandeja as the server lists it now.
+  const pageOpen = useRef(true);
+  useEffect(() => {
+    pageOpen.current = true;
+    return () => { pageOpen.current = false; };
+  }, []);
+
+  // Only a recorded approval moves on, to the next row of the Bandeja as the server lists it now,
+  // and only while the owner is still on this receipt: leaving it or switching Business unmounts the page.
   const approveAndNext = async () => {
     if (!receipt) return;
     const seen = records.inbox;
     setAdvancing(true);
     try {
       const approved = await write("approve");
-      if (approved?.approval_result?.status !== "recorded") return;
+      if (approved?.approval_result?.status !== "recorded" || !pageOpen.current) return;
       const fresh = await source.receipts("inbox").catch(() => null);
+      if (!pageOpen.current) return;
       const next = fresh ? nextBandejaReceipt(receipt.id, seen, fresh) : null;
       openPanel(next ? { kind: "receipt", receiptId: next } : { kind: "inbox" });
     } finally {
