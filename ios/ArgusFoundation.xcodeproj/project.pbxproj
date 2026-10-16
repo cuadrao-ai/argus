@@ -18,7 +18,8 @@
  A00000000000000000000001 = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = YES; LastUpgradeCheck = 1600; TargetAttributes = {A00000000000000000000010 = {CreatedOnToolsVersion = 16.0;}; A00000000000000000000011 = {CreatedOnToolsVersion = 16.0; TestTargetID = A00000000000000000000010;};};}; buildConfigurationList = A00000000000000000000020; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, "es-419", Base); mainGroup = A00000000000000000000002; preferredProjectObjectVersion = 77; productRefGroup = A00000000000000000000005; packageReferences = (B00000000000000000000001, B00000000000000000000004, B00000000000000000000009); projectDirPath = ""; projectRoot = ""; targets = (A00000000000000000000010, A00000000000000000000011);};
  A00000000000000000000002 = {isa = PBXGroup; children = (A00000000000000000000003, A00000000000000000000004, A00000000000000000000006, A00000000000000000000009, A00000000000000000000005); sourceTree = "<group>";};
  A00000000000000000000003 = {isa = PBXFileSystemSynchronizedRootGroup; path = ArgusFoundation; sourceTree = "<group>";};
- A00000000000000000000004 = {isa = PBXFileSystemSynchronizedRootGroup; path = ArgusFoundationUITests; sourceTree = "<group>";};
+ A00000000000000000000004 = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (A00000000000000000000042); path = ArgusFoundationUITests; sourceTree = "<group>";};
+ A00000000000000000000042 = {isa = PBXFileSystemSynchronizedBuildFileExceptionSet; membershipExceptions = (Info.plist); target = A00000000000000000000011;};
  A00000000000000000000005 = {isa = PBXGroup; children = (A00000000000000000000007, A00000000000000000000008); name = Products; sourceTree = "<group>";};
  A00000000000000000000006 = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Development.xcconfig; sourceTree = "<group>";};
  A00000000000000000000009 = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Release.xcconfig; sourceTree = "<group>";};
@@ -41,8 +42,8 @@
  A00000000000000000000051 = {isa = XCBuildConfiguration; baseConfigurationReference = A00000000000000000000009; buildSettings = {SWIFT_COMPILATION_MODE = wholemodule;}; name = Release;};
  A00000000000000000000052 = {isa = XCBuildConfiguration; buildSettings = {GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Config/Info.plist; PRODUCT_BUNDLE_IDENTIFIER = "$(ARGUS_LOCAL_BUNDLE_IDENTIFIER)"; PRODUCT_NAME = "$(TARGET_NAME)";}; name = Debug;};
  A00000000000000000000053 = {isa = XCBuildConfiguration; buildSettings = {GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Config/Info.plist; PRODUCT_BUNDLE_IDENTIFIER = "$(ARGUS_LOCAL_BUNDLE_IDENTIFIER)"; PRODUCT_NAME = "$(TARGET_NAME)";}; name = Release;};
- A00000000000000000000054 = {isa = XCBuildConfiguration; buildSettings = {GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = "$(ARGUS_LOCAL_BUNDLE_IDENTIFIER).uitests"; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_TARGET_NAME = ArgusFoundation;}; name = Debug;};
- A00000000000000000000055 = {isa = XCBuildConfiguration; buildSettings = {GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = "$(ARGUS_LOCAL_BUNDLE_IDENTIFIER).uitests"; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_TARGET_NAME = ArgusFoundation;}; name = Release;};
+ A00000000000000000000054 = {isa = XCBuildConfiguration; buildSettings = {GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = ArgusFoundationUITests/Info.plist; PRODUCT_BUNDLE_IDENTIFIER = "$(ARGUS_LOCAL_BUNDLE_IDENTIFIER).uitests"; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_TARGET_NAME = ArgusFoundation;}; name = Debug;};
+ A00000000000000000000055 = {isa = XCBuildConfiguration; buildSettings = {GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = ArgusFoundationUITests/Info.plist; PRODUCT_BUNDLE_IDENTIFIER = "$(ARGUS_LOCAL_BUNDLE_IDENTIFIER).uitests"; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_TARGET_NAME = ArgusFoundation;}; name = Release;};
  };
  rootObject = A00000000000000000000001;
 }
