@@ -137,6 +137,7 @@ export function ContactPage({ locale }: { locale: BusinessLocale }) {
       className={`${styles.site} ${touchup.site}`}
       lang={locale === "es" ? "es-DO" : "en"}
       id="top"
+      data-page-background="business"
     >
       <BusinessHeader locale={locale} page="contact" />
       <main id="business-main" tabIndex={-1} className={styles.demoLayout}>

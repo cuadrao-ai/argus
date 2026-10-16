@@ -48,7 +48,7 @@ test("Spanish legal navigation opens each document and rejects Spanish slugs in 
   for (const path of ["/en/terminos", "/en/eliminar-datos"]) expect((await request.get(path)).status()).toBe(404);
 });
 
-for (const [path, title] of [["/en/privacy", "Privacy Policy"], ["/en/terms", "Cuadrao Website Terms of Use"], ["/en/delete-data", "Delete your data"]]) {
+for (const [path, title] of [["/en/privacy", "Privacy policy for the Cuadrao website"], ["/en/terms", "Cuadrao Website Terms of Use"], ["/en/delete-data", "Delete your data"]]) {
   test(`English source renders at ${path}`, async ({ page }) => {
     await page.goto(path);
     await expect(page.locator("main h1")).toContainText(title);
@@ -56,5 +56,18 @@ for (const [path, title] of [["/en/privacy", "Privacy Policy"], ["/en/terms", "C
     await expect(page.locator("footer")).toContainText("© Cuadrao LLC 2026");
     await expect(page.locator("footer")).not.toContainText("Mountain Road");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+for (const [path, title] of [
+  ["/privacidad", "Política de privacidad del sitio web de Cuadrao"],
+  ["/en/privacy", "Privacy policy for the Cuadrao website"],
+  ["/eliminar-datos", "Eliminar tus datos"],
+  ["/en/delete-data", "Delete your data"],
+]) {
+  test(`${path} uses the approved title in the tab and page heading`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page).toHaveTitle(title);
+    await expect(page.locator("main h1")).toHaveText(title);
   });
 }

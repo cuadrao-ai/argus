@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-for (const [path, background] of [["/", "rgb(23, 43, 38)"], ["/en", "rgb(23, 43, 38)"], ["/personal", "rgb(247, 245, 239)"]]) {
+for (const [path, background] of [...["/", "/en", "/contacto", "/en/contact", "/privacidad", "/terminos", "/eliminar-datos", "/en/privacy", "/en/terms", "/en/delete-data"].map((path) => [path, "rgb(23, 43, 38)"]), ["/personal", "rgb(247, 245, 239)"], ["/en/personal", "rgb(247, 245, 239)"]]) {
   test(`${path} uses its footer color for the root canvas`, async ({ page }) => {
     await page.goto(path);
     await expect(page.locator("html")).toHaveCSS("background-color", background);
@@ -27,5 +27,16 @@ for (const path of ["/", "/en"]) {
     expect(await response.text()).toContain('fill="#fafbf8"');
     await expect(logo).toBeVisible();
     await expect(page.locator("footer")).toHaveCSS("background-color", "rgb(23, 43, 38)");
+  });
+}
+
+for (const path of ["/missing-footer-page", "/en/missing-footer-page"]) {
+  test(`${path} matches the missing-page canvas without adding a footer`, async ({ page }) => {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(404);
+    await expect(page.locator("html")).toHaveCSS("background-color", "rgb(250, 251, 248)");
+    await expect(page.locator("body")).toHaveCSS("background-color", "rgb(250, 251, 248)");
+    await expect(page.locator("footer")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()!.width);
   });
 }

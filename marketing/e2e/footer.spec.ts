@@ -5,7 +5,7 @@ for (const path of ["/", "/en", "/personal", "/en/personal"]) {
     await page.goto(path);
     await page.evaluate(() => document.fonts.ready);
     const footer = page.locator("footer");
-    if (path.startsWith("/en")) await expect(footer.locator("[data-footer-credits]")).toHaveCount(0);
+    await expect(footer.locator("[data-footer-credits]")).toHaveCount(1);
     const brand = footer.getByRole("img", { name: "cuadrao", exact: true });
     await expect(footer.locator("img")).toHaveCount(1);
     await expect(brand).toHaveAttribute("src", `/cuadrao-site/cuadrao-lockup-${path.includes("personal") ? "light" : "dark"}.svg`);
@@ -32,14 +32,14 @@ for (const path of ["/", "/en", "/personal", "/en/personal"]) {
   });
 }
 
-for (const path of ["/", "/personal"]) {
+for (const path of ["/", "/personal", "/contacto", "/privacidad", "/terminos", "/eliminar-datos", "/en", "/en/personal", "/en/contact", "/en/privacy", "/en/terms", "/en/delete-data"]) {
   test(`${path} reveals the local credit beside the copyright`, async ({ page }, info) => {
     await page.goto(path);
     await page.emulateMedia({ reducedMotion: "no-preference" });
     const footer = page.locator("footer");
     const credits = footer.locator("[data-footer-credits]");
     const copyright = credits.getByText("© Cuadrao LLC 2026", { exact: true });
-    const local = credits.getByText("Hecho con ♥ para la República Dominicana", { exact: true });
+    const local = credits.getByText(path.startsWith("/en") ? "Made with ♥ for the Dominican Republic" : "Hecho con ♥ para la República Dominicana", { exact: true });
     const reveal = credits.locator(":scope > div");
     await expect(copyright).toHaveCount(1);
     await expect(footer).not.toContainText("Mountain Road");
