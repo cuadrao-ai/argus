@@ -519,17 +519,21 @@ def test_a_sweep_without_the_token_never_decides_a_step_the_api_never_reached(
     _still_locked_then_finish(lane, world)
 
 
+@pytest.mark.parametrize("configured_adapter", [False, True])
 def test_forcing_the_analytics_step_without_the_token_keeps_it_pending(
     lane,  # noqa: ANN001, F811
     world,  # noqa: ANN001, F811
     route,  # noqa: ANN001
     monkeypatch,  # noqa: ANN001
+    configured_adapter: bool,
 ) -> None:
     _deployed(monkeypatch, posthog_token="ph_project_token")
     response, _ = _delete_as_deployed(lane, world, route)
     assert response.status_code == 202, response.text
     _deployed(monkeypatch, posthog_token=None)
     with _operator_pass(lane, world) as service:
+        if configured_adapter:
+            service._analytics = _SubmittedAtPostHog()
         result = service.force_complete_step(
             user_id=world["a"],
             step="analytics",
@@ -538,13 +542,18 @@ def test_forcing_the_analytics_step_without_the_token_keeps_it_pending(
             confirm=True,
         )
     assert result["forced"] is False
-    assert result["revoke_attempt"] == "analytics_adapter_unconfigured"
+    assert result["revoke_attempt"] == (
+        "analytics_delete_pending" if configured_adapter else "analytics_adapter_unconfigured"
+    )
     steps = _run_steps(world["a"])
     assert steps["analytics"] == "pending"
     assert steps["analytics_origin"] == "force"
     assert "analytics" not in steps.get("forced", {})
     assert _auth_user_exists(world["a"])
-    assert "analytics_evidence" not in steps
+    if configured_adapter:
+        assert steps["analytics_evidence"]["request_id"] == "posthog-request-1"
+    else:
+        assert "analytics_evidence" not in steps
     _still_locked_then_finish(lane, world)
 
 
