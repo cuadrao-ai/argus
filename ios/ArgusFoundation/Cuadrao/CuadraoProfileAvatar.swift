@@ -44,7 +44,7 @@ struct CuadraoProfileAvatarPicker: View {
                     .accessibilityIdentifier("cuadrao.profile.photo.remove")
             }
             if loadFailed {
-                Text(spanish ? "No pudimos abrir esa foto. Intenta con otra." : "We couldn’t open that photo. Try another.")
+                Text(spanish ? "No pudimos abrir esa foto. Intenta con otra." : "We couldn't open that photo. Try another.")
                     .font(.footnote).foregroundStyle(.secondary)
                     .accessibilityIdentifier("cuadrao.profile.photo.error")
             }
@@ -59,7 +59,7 @@ struct CuadraoProfileAvatarPicker: View {
             Text(spanish ? "Tu foto o avatar" : "Your photo or avatar")
         } footer: {
             Text(spanish ? "Tu foto se queda en esta vista previa. No se sube a tu cuenta."
-                 : "Your photo stays in this preview. It isn’t uploaded to your account.")
+                 : "Your photo stays in this preview. It isn't uploaded to your account.")
         }
             .listRowBackground(CanvasSettingsStyle.surface)
             .task(id: selectedPhoto) {

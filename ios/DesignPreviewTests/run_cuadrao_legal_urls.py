@@ -31,6 +31,16 @@ precondition(overridden.hasTermsAndPrivacy, "both documents set supports the acc
 #else
 precondition(overridden == empty, "a Release build ignores the test argument")
 #endif
+for (argument, termsExpected) in [("--cuadrao-legal-test-terms-only", true), ("--cuadrao-legal-test-privacy-only", false)] {
+    let single = CuadraoLegalURLs.current(arguments: [argument])
+    #if DEBUG
+    precondition(single.hasPages && !single.hasTermsAndPrivacy)
+    precondition((single.terms != nil) == termsExpected)
+    precondition((single.privacy != nil) != termsExpected)
+    #else
+    precondition(single == empty, "Release ignores single-page fixtures")
+    #endif
+}
 let termsOnly = CuadraoLegalURLs(terms: URL(string: "https://legal.example.test/t"))
 let privacyOnly = CuadraoLegalURLs(privacy: URL(string: "https://legal.example.test/p"))
 precondition(termsOnly.hasPages && privacyOnly.hasPages, "one page is enough for a link group")

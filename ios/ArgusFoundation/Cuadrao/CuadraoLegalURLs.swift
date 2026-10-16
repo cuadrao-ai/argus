@@ -17,6 +17,12 @@ struct CuadraoLegalURLs: Equatable {
 
     static func current(arguments: [String]) -> CuadraoLegalURLs {
         #if DEBUG
+        if arguments.contains("--cuadrao-legal-test-terms-only") {
+            return CuadraoLegalURLs(terms: URL(string: "https://legal.example.test/terminos"))
+        }
+        if arguments.contains("--cuadrao-legal-test-privacy-only") {
+            return CuadraoLegalURLs(privacy: URL(string: "https://legal.example.test/privacidad"))
+        }
         if arguments.contains(testArgument) {
             return CuadraoLegalURLs(privacy: URL(string: "https://legal.example.test/privacidad"),
                                     terms: URL(string: "https://legal.example.test/terminos"),

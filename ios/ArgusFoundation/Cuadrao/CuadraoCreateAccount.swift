@@ -51,7 +51,7 @@ struct CuadraoCreateAccount: View {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier(signingIn ? "cuadrao.signin.emailChoice" : "cuadrao.signup.email")
                     }
-                    if !signingIn {
+                    if !signingIn && CuadraoLegalURLs.current.hasTermsAndPrivacy {
                         VStack(spacing: 0) {
                             Text(spanish ? "Al crear tu cuenta, aceptas los términos."
                                  : "By creating an account, you accept the terms.")

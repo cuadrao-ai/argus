@@ -6,13 +6,13 @@ extension FinancialLoopUITests {
     private static let legalTestURLs = "--cuadrao-legal-test-urls"
     private static let acceptanceSentence = "Al crear tu cuenta, aceptas los términos."
 
-    private func launchLegal(testURLs: Bool, dark: Bool = false) {
+    private func launchLegal(testURLs: Bool, dark: Bool = false, arguments: [String] = []) {
         continueAfterFailure = false
         app.terminate()
         app.launchArguments = ["-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO",
                                "-appearancePreference", dark ? "dark" : "light",
                                "--cuadrao-guest-book", "--cuadrao-guest-notices-seen", "--cuadrao-guest-reset"]
-            + (testURLs ? [Self.legalTestURLs] : [])
+            + (testURLs ? [Self.legalTestURLs] : []) + arguments
         app.launch()
     }
 
@@ -75,6 +75,41 @@ extension FinancialLoopUITests {
         XCTAssertTrue(app.descendants(matching: .any)["cuadrao.signup.privacy"].exists)
         XCTAssertTrue(app.staticTexts[Self.acceptanceSentence].exists, "the sentence returns with both documents")
         capture("legal-registro-con-enlaces")
+    }
+
+    func testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists() throws {
+        for preview in [false, true] {
+            for document in ["terms", "privacy"] {
+                launchLegal(testURLs: false, arguments: ["--cuadrao-legal-test-\(document)-only"] + (preview ? ["--cuadrao-design"] : []))
+                if preview {
+                    let signUp = app.buttons["Crear cuenta"]
+                    XCTAssertTrue(signUp.waitForExistence(timeout: 15))
+                    signUp.tap()
+                    XCTAssertTrue(app.buttons["cuadrao.signup.email"].waitForExistence(timeout: 10))
+                } else {
+                    openSignUp()
+                }
+                capture("registro-un-documento-\(document)-\(preview ? "vista-previa" : "cuadrao")")
+                XCTAssertFalse(app.staticTexts[Self.acceptanceSentence].exists)
+                XCTAssertFalse(app.descendants(matching: .any)["cuadrao.signup.terms"].exists)
+                XCTAssertFalse(app.descendants(matching: .any)["cuadrao.signup.privacy"].exists)
+                XCTAssertFalse(app.buttons["Términos"].exists)
+                XCTAssertFalse(app.buttons["Privacidad"].exists)
+            }
+        }
+    }
+
+    func testSignUpRemainsReachableAtLargeTextSizes() throws {
+        for size in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryXXXL", "UICTContentSizeCategoryAccessibilityXXXL"] {
+            launchLegal(testURLs: false, arguments: ["-UIPreferredContentSizeCategoryName", size])
+            openSignUp()
+            let title = app.staticTexts["Crea tu cuenta."]
+            XCTAssertTrue(title.exists)
+            capture("registro-texto-" + size)
+            let email = app.buttons["cuadrao.signup.email"]
+            tapVisible(email)
+            XCTAssertTrue(app.textFields["auth.email"].waitForExistence(timeout: 5))
+        }
     }
 
     /// Needs the isolated synthetic identity; the first run records the Profile screenshots.
