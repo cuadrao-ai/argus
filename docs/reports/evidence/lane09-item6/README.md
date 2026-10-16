@@ -174,3 +174,60 @@ Owned scratch bytes created and removed are both 0. The checkout, dependencies, 
 all existing evidence were retained. Before and after `df -k /private/tmp` reported 971298980 total,
 760000000 used and 179600000 available 1024-byte blocks, with 81 percent capacity.
 The two changed tracked files and local commit are retained delivery artifacts.
+
+
+## CI upload entry repair, 2026-10-16
+
+Frozen source head is `f1bc7bb9162425bfc4953b90848c13c0e1844383`.
+CI run `38913248734`, frontend job `117014264582`, timed out in both upload
+recovery viewport cases while waiting for the removed `business-create` control.
+The exact head reproduced locally with 2 failed cases at 1280px and 390px.
+The decisive output was `waiting for getByTestId('business-create')` in `openIntake`.
+Both rendered page snapshots showed one `Subir recibo` button inside the workspace.
+This fixture returns no spaces, so it uses the existing content section action.
+The owner-only `business-primary-upload` control is not present in that fixture.
+
+Only `openIntake` in `web/e2e/business-receipt-upload-recovery.spec.ts` changes.
+It clicks the exact `Subir recibo` button within `workspace-panel-region`.
+Both viewport test bodies remain byte-identical, including inline failure,
+same-file bytes, consent absence, same idempotency key, unsupported-file and
+replacement assertions. Test count remains 2. The ownership allowlist adds
+only this test path to the existing item6 entry, in sorted position.
+This applies Test Behavior, Not Implementation to the current content action.
+The owning upload lane Eval must recheck the shared `openIntake` method.
+
+From `web/`, the reproduction and repaired run used this same command:
+
+```sh
+env -i PATH=/opt/homebrew/bin:/usr/bin:/bin HOME=/Users/garces NEXT_PUBLIC_MOCK_AUTH=true NEXT_PUBLIC_ENABLE_SPANISH=true NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_CUADRAO_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ARGUS_API_URL=http://localhost:3197/api/v1 NEXT_PUBLIC_SUPABASE_URL=http://localhost:3197 NEXT_PUBLIC_SUPABASE_ANON_KEY=synthetic PLAYWRIGHT_PORT=3197 NEXT_DIST_DIR=.next-upload-repair /opt/homebrew/bin/bunx playwright test e2e/business-receipt-upload-recovery.spec.ts
+```
+
+Before the repair, `2 failed`. After the repair, `2 passed (3.3s)`.
+With the same environment, `bunx playwright test e2e/business-upload-controls.spec.ts`
+returned `6 passed (5.6s)`, covering owner controls, server permissions and accountant suppression.
+`bun test __tests__/business-upload-controls.dom.test.tsx __tests__/receipt-upload-queue.test.ts`
+returned `11 pass`, `0 fail`, `52 expect() calls`, across 2 files.
+Focused ESLint and `git diff --check` exited 0 without diagnostics.
+Browser processes emitted the existing Node module.register deprecation warning.
+The first topology check used the web directory and found no script; the corrected
+root topology check reported both existing empty environment files as worktree-local.
+One interrupted duplicate reproduction followed a wrong-directory edit script;
+that script made no change and that interrupted run is not counted as evidence.
+
+No runtime, workflow, model-facing, locale or environment configuration change.
+The component tree remains `11b1f4135a17108b9fc359e4abae4e88d16d60ee`.
+The library tree remains `bb6c09be52f8b0a119e76103b753f1f1dfa14fbc`.
+The existing full-suite, build and lint evidence is retained; these checks were not rerun.
+All browser traffic was locally intercepted and external traffic was refused.
+No hosted, paid, production, main, merge, deploy or model action was taken.
+Root owns the new-head push, CI and independent Eval.
+
+Raw red/green logs, related-test logs, rendered failure snapshots and four successful
+upload screenshots remain in the root sprint evidence directory `item6-upload-repair`.
+Removed only this repair's cache, browser outputs and temporary logs after retaining evidence.
+Removed 230868632 logical bytes and 231571456 allocated bytes.
+Port 3197 had no listener after the tests. Next's generated tsconfig changes were restored.
+Dependencies, owned empty environment files, existing configurations and worktree remain.
+Before df reported 772000000 used and 169200000 available 1024-byte blocks.
+After df reported 774107600 used and 169468760 available blocks, on a shared APFS volume.
+These shared-volume values do not measure this repair's reclaimed space.

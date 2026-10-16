@@ -2210,6 +2210,7 @@
         "web/e2e/business-navigation-focus.spec.ts",
         "web/e2e/business-navigation-shortcuts.spec.ts",
         "web/e2e/business-navigation.playwright.config.ts",
+        "web/e2e/business-receipt-upload-recovery.spec.ts",
         "web/e2e/support/breakpoint-fixture.ts",
         "web/lib/keyboard-shortcuts.ts"
       ],
