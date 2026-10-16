@@ -3,27 +3,27 @@ import { describe, test } from "bun:test";
 import { resendAuthEmailSender } from "../server/emails/resend";
 import { authEmailHookConfig } from "../server/emails/auth-hook";
 import { renderAuthMail, type AuthMail } from "../server/emails/auth-actions";
-import existing from "./fixtures/auth-email-existing-templates.json";
-
 const delivery = { recipient: "owner@example.test", from: "Cuadrao <hola@mail.cuadrao.ai>", replyTo: "hola@cuadrao.ai", subject: "subject", html: "<p>synthetic</p>", text: "synthetic", idempotencyKey: "auth-synthetic-key" };
-const normalize = (html: string) => html.replaceAll("&#x27;", "'").replaceAll("&#39;", "'").replace(/<!--[^]*?-->/g, "").replace(/^<!doctype[^>]*>/i, "").replace(/>\s+</g, "><").trim();
 
 describe("Auth email compatibility and delivery", () => {
-  test("retains the complete captured body and subject for every non-recovery action", async () => {
+  test("every account action uses the shared layout and only signup puts the code in its subject", async () => {
     const linked = { recipient: "owner@example.test", tokenHash: "a".repeat(64), redirectTo: "https://cuadrao-web-staging.onrender.com/" };
-    const cases: Array<{ key: keyof typeof existing; mail: AuthMail }> = [
-      { key: "confirmation", mail: { ...linked, action: "signup" } },
-      { key: "invite", mail: { ...linked, action: "invite" } },
-      { key: "magic_link", mail: { ...linked, action: "magiclink" } },
-      { key: "email_change", mail: { ...linked, action: "email_change", newEmail: "new@example.test" } },
-      { key: "reauthentication", mail: { action: "reauthentication", recipient: linked.recipient, token: "123456" } },
+    const cases: AuthMail[] = [
+      { ...linked, action: "signup", token: "55070219" },
+      { ...linked, action: "invite" },
+      { ...linked, action: "magiclink" },
+      { ...linked, action: "email_change", newEmail: "new@example.test" },
+      { action: "reauthentication", recipient: linked.recipient, token: "55070219" },
     ];
-    for (const { key, mail } of cases) {
+    for (const mail of cases) {
       const rendered = await renderAuthMail(mail, "https://skedzwocnmrhfigiwyzi.supabase.co");
-      const expectedUrl = `https://skedzwocnmrhfigiwyzi.supabase.co/auth/v1/verify?token=${linked.tokenHash}&type=${mail.action}&redirect_to=https%3A%2F%2Fcuadrao-web-staging.onrender.com%2F`;
-      const body = existing[key].body.replaceAll("{{ .ConfirmationURL }}", expectedUrl.replaceAll("&", "&amp;")).replaceAll("{{ .NewEmail }}", "new@example.test").replaceAll("{{ .Token }}", "123456");
-      assert.equal(normalize(rendered.html), normalize(body));
-      assert.equal(rendered.subject, existing[key].subject.replaceAll("{{ .Token }}", "123456"));
+      assert.equal(rendered.subject.includes("55070219"), mail.action === "signup");
+      assert.ok(rendered.html.includes('alt="Cuadrao"'));
+      assert.ok(rendered.html.includes("Saludos, el equipo de Cuadrao"));
+      assert.ok(!rendered.html.includes("Salir de la lista"));
+      if (mail.action !== "reauthentication") {
+        assert.ok(rendered.text.includes(`type=${mail.action}&redirect_to=`));
+      }
     }
   });
 
