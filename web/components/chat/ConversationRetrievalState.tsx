@@ -2,8 +2,10 @@
 
 import { MessageSquareWarning } from "lucide-react";
 import { CuadraoMark } from "@/components/CuadraoMark";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { panelFailureIconClass } from "@/lib/failure-treatment";
+import { COLD_TRANSCRIPT_RETRIEVAL_DELAY_MS } from "@/lib/chat-conversation-view-helpers";
 
 type ConversationRetrievalStateProps =
   | Readonly<{
@@ -15,8 +17,9 @@ type ConversationRetrievalStateProps =
       onRetry: () => void;
     }>;
 
-export function ConversationRetrievalAnnouncement() {
-  const { t } = useTranslation();
+export function ConversationRetrievalAnnouncement({ business = false, initial = false }: { business?: boolean; initial?: boolean }) {
+  const { t, i18n } = useTranslation();
+  const spanishBusiness = business && (i18n.resolvedLanguage ?? i18n.language).startsWith("es");
 
   return (
     <span
@@ -25,15 +28,29 @@ export function ConversationRetrievalAnnouncement() {
       role="status"
       aria-live="polite"
     >
-      {t("chat.opening_conversation", "Opening conversation…")}
+      {spanishBusiness ? "Cargando Cuadrao" : initial ? t("guest.entry.loading", "Opening Argus") : t("chat.opening_conversation", "Opening conversation…")}
     </span>
   );
 }
 
+export function InitialConversationRetrievalState({ business = false }: { business?: boolean }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setVisible(true), COLD_TRANSCRIPT_RETRIEVAL_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  if (!visible) return null;
+  return <>
+    <ConversationRetrievalAnnouncement business={business} initial />
+    <ConversationRetrievalState state="loading" business={business} />
+  </>;
+}
+
 export default function ConversationRetrievalState(
-  props: ConversationRetrievalStateProps,
+  props: ConversationRetrievalStateProps & { business?: boolean },
 ) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const spanishBusiness = props.business && (i18n.resolvedLanguage ?? i18n.language).startsWith("es");
 
   if (props.state === "error") {
     return (
@@ -67,8 +84,8 @@ export default function ConversationRetrievalState(
       className="flex min-h-[45vh] flex-col items-center justify-center gap-4 px-6 text-center"
     >
       <CuadraoMark size={28} className="h-7 w-7 animate-pulse motion-reduce:animate-none" />
-      <p className="text-[13px] text-black/45 dark:text-white/45">
-        {t("chat.opening_conversation", "Opening conversation…")}
+      <p className="text-[13px] text-black/60 dark:text-white/65">
+        {spanishBusiness ? "Cuadrando…" : t("chat.opening_conversation", "Opening conversation…")}
       </p>
     </div>
   );

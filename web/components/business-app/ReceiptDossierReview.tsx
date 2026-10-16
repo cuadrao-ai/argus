@@ -287,7 +287,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       <button type="button" disabled={checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
     </section>{captureDialog}</>
   );
-  if (!dossier) return <>{captureRecovery}<LoadingRows rows={4} />{captureDialog}</>;
+  if (!dossier) return <>{captureRecovery}<LoadingRows rows={4} layout="detail" />{captureDialog}</>;
 
   const accounts = dossier.accounts;
   const amount = dossier.facts.amount.state === "known" ? dossier.facts.amount.value : null;
