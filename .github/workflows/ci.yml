@@ -58,6 +58,9 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Reject credential literals in tracked configuration
+        run: python scripts/check_config_credentials.py
+
       - name: Run branch ownership gate
         run: python .agent/scripts/ownership/verify_branch_ownership.py
 

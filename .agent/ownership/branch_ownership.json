@@ -2951,6 +2951,41 @@
       ],
       "deny": []
     },
+    "codex/lane07-security-retention": {
+      "description": "Lane07 provider retention and tracked configuration hardening. Lane08 owns all advisor fixes and password settings. No migration or hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        ".github/workflows/ci.yml",
+        "render.yaml",
+        "scripts/check_config_credentials.py",
+        "src/argus/llm/openrouter.py",
+        "src/argus/llm/openrouter_retention.py",
+        "src/argus/llm/openrouter_langchain.py",
+        "src/argus/llm/openrouter_transport.py",
+        "src/argus/llm/openrouter_request_policy.py",
+        "src/argus/agent_runtime/interpreter/contract_recovery.py",
+        "src/argus/agent_runtime/llm_interpreter.py",
+        "src/argus/domain/research/search/http_post.py",
+        "src/argus/domain/research/search/openrouter_web_search.py",
+        "tests/test_openrouter_retention.py",
+        "tests/test_openrouter_policy.py",
+        "tests/test_openrouter_request_policy.py",
+        "tests/test_openrouter_sonnet_policy.py",
+        "tests/test_render_release_profile_contract.py",
+        "tests/test_config_credentials.py",
+        "tests/test_environment_scripts.py",
+        "docs/reports/evidence/lane07-security-retention/**",
+        "tests/agent_runtime/test_business_runtime.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "supabase/**",
+        "ios/**",
+        "marketing/**"
+      ]
+    },
     "codex/lane08-pr1-migration-drift": {
       "description": "Reconcile three applied staging migration identities and document merged-PR-only staging applies. No hosted writes or other schema changes.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -2971,6 +3006,31 @@
         "web/**",
         "ios/**",
         "marketing/**"
+      ]
+    },
+    "codex/shared-account-email-layout": {
+      "description": "Shared staging account and waitlist email presentation, with code-safe signup rendering and generated package copies. No hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/reports/evidence/shared-account-email/**",
+        "marketing/lib/email/account-layout.ts",
+        "marketing/public/email/**",
+        "scripts/emails/**",
+        "web/server/emails/**",
+        "web/__tests__/auth-email-hook.test.ts",
+        "web/__tests__/auth-email-transport.test.ts",
+        "web/__tests__/reset-password-email.test.tsx",
+        "web/__tests__/shared-account-email.test.ts",
+        "web/public/email/**"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "supabase/migrations/**",
+        "render.yaml",
+        "marketing/lib/waitlist/**"
       ]
     }
   }
