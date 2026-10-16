@@ -404,6 +404,7 @@ from argus.agent_runtime.turn_execution_evidence import (
     current_turn_has_material_execution_evidence,
 )
 from argus.domain.market_data import is_ticker_like_query, resolve_asset
+from argus.llm.openrouter_retention import OpenRouterZDRUnavailableError
 from argus.llm.openrouter import (
     OpenRouterTask,
     annotate_latest_openrouter_route_receipt,
@@ -527,6 +528,8 @@ class OpenRouterStructuredInterpreter(BusinessInterpreterMethods):
                     )
                     self.last_status = "used" if index == 0 else "fallback_used"
                     return self._to_runtime_interpretation(response, request=request)
+                except OpenRouterZDRUnavailableError:
+                    raise
                 except Exception as exc:
                     recovered = await contract_recovery.handle_candidate_failure(
                         interpreter=self,
@@ -602,22 +605,10 @@ class OpenRouterStructuredInterpreter(BusinessInterpreterMethods):
                     )
                     self.last_status = "used"
                     return self._to_runtime_interpretation(response, request=request)
+            except OpenRouterZDRUnavailableError:
+                raise
             except Exception as exc:
-                record_openrouter_route_receipt(
-                    task="interpretation",
-                    model_name=self.model_name,
-                    mode="chat_model",
-                    schema_name="LLMInterpretationResponse",
-                    latency_ms=_elapsed_ms(started_at),
-                    outcome="failed",
-                    failure_mode=type(exc).__name__,
-                )
-                log_openrouter_failure(
-                    task="interpretation",
-                    model_name=self.model_name,
-                    exc=exc,
-                    message="Primary LLM interpretation failed; attempting fallback",
-                )
+                contract_recovery.record_legacy_failure(self.model_name, started_at, exc)
 
         # 2. Try Fallback Model (if primary failed or was unavailable)
         from argus.llm.openrouter import resolve_openrouter_model
@@ -666,6 +657,8 @@ class OpenRouterStructuredInterpreter(BusinessInterpreterMethods):
                     )
                     self.last_status = "fallback_used"
                     return self._to_runtime_interpretation(response, request=request)
+            except OpenRouterZDRUnavailableError:
+                raise
             except Exception as exc:
                 self.last_status = "failed"
                 record_openrouter_route_receipt(
