@@ -17,6 +17,49 @@ from tests.ingestion.test_document_service import rig  # noqa: F401
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("reuse", [False, True])
+async def test_receipt_stub_reuses_preparation_and_keeps_original_provenance(
+    monkeypatch, reuse
+):
+    from argus.domain.ingestion.documents import preparation
+
+    from tests.business.receipt_stub import ReceiptStub
+
+    original = image_bytes()
+    prepared = PreparedDocument(1, (b"rebuilt-jpeg",), document_currency="DOP")
+    prepare = Mock(return_value=prepared)
+    monkeypatch.setattr(preparation, "prepare_document", prepare)
+    stub = ReceiptStub()
+
+    batch = await stub.extract(
+        content=original,
+        filename="source.png",
+        media_type="image/png",
+        connection_id="receipt",
+        observed_at=datetime.now(timezone.utc),
+        **({"prepared": prepared} if reuse else {}),
+    )
+
+    assert stub.calls == ["receipt"]
+    if reuse:
+        prepare.assert_not_called()
+    else:
+        prepare.assert_called_once_with(original, "image/png")
+    digest = hashlib.sha256(original).hexdigest()
+    assert batch.metadata["document_currency"] == "DOP"
+    assert batch.metadata["sha256"] == digest
+    assert batch.metadata["media_type"] == "image/png"
+    candidate = batch.candidates[0]
+    assert candidate.source.external_id.startswith(digest + ":")
+    attachment = candidate.attachments[0]
+    assert attachment.sha256 == digest
+    assert attachment.external_id == digest
+    assert attachment.size_bytes == len(original)
+    assert attachment.media_type == "image/png"
+    assert attachment.filename == "source.png"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("download_first", [False, True])
 async def test_image_extraction_reuses_one_copy_and_preserves_original_identity(
     rig, monkeypatch, download_first  # noqa: F811
