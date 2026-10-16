@@ -192,6 +192,8 @@ describe("one-pass receipt review", () => {
         assert.equal(page.host.querySelector('[data-testid="receipt-review-footer"]'), null);
         if (capabilities.length === 1) {
           assert.equal(page.host.querySelector('[data-fact="amount"] button'), null);
+          assert.equal(page.host.querySelector<HTMLInputElement>('[placeholder="dd/mm/aaaa"]')?.value, "");
+          assert.equal(page.host.querySelector<HTMLInputElement>('[placeholder="dd/mm/aaaa"]')?.disabled, true);
           assert.ok(![...page.host.querySelectorAll("button")].some((item) => item.textContent?.startsWith("Confirmar ")));
         }
         assert.equal(page.approvals(), 0);
