@@ -155,7 +155,7 @@ ARGUS_SESSION_LIVE_CONFIG="$PWD/ios/.build/auth-local/client.json" \
   swift test --package-path ios/Packages/ArgusSession --filter LiveSessionTests
 xcrun simctl list devices available
 python3 ios/scripts/auth/run-ui.py <lane-owned-iPhone-UDID>
-SIMULATOR_ID=<UDID> ios/scripts/verify.sh test ARGUS_AUTH_ENABLED=false
+TEST_RUNNER_ARGUS_UI_TESTS_ALLOW_PREVIEW_BUILD=true SIMULATOR_ID=<UDID> ios/scripts/verify.sh test ARGUS_AUTH_ENABLED=false
 ```
 
 Live package tests use four login attempts plus one signup; native journey uses
