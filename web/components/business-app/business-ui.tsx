@@ -120,13 +120,31 @@ export function useAttentionLabel() {
       : "";
 }
 
-export function LoadingRows({ rows = 3 }: { rows?: number }) {
+export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layout?: "rows" | "overview" | "detail" }) {
   const { t } = useTranslation();
+  const line = "rounded-md bg-black/[0.06] dark:bg-white/[0.08]";
+  const pulse = "animate-pulse motion-reduce:animate-none";
+  const fields = Array.from({ length: rows }, (_, index) => (
+    <div key={index} className={layout === "overview" ? `${cardClass} min-h-40 space-y-4` : "flex min-h-20 items-center gap-3 px-3 py-3"}>
+      {layout === "rows" ? <div className={`${line} h-11 w-11 shrink-0 rounded-[12px]`} /> : null}
+      <div className="min-w-0 flex-1 space-y-3">
+        <div className={`${line} h-3 w-2/5`} />
+        <div className={`${line} ${layout === "overview" ? "h-7 w-3/5" : "h-4 w-3/4"}`} />
+      </div>
+      {layout === "rows" ? <div className={`${line} h-4 w-16 shrink-0`} /> : null}
+    </div>
+  ));
   return (
-    <div role="status" aria-label={t("common.loading", "Loading")} className="space-y-3">
-      {Array.from({ length: rows }, (_, index) => (
-        <div key={index} className="h-16 animate-pulse rounded-[16px] bg-black/[0.04] dark:bg-white/[0.04]" />
-      ))}
+    <div role="status" aria-label={t("common.loading", "Loading")} data-testid="business-loading" data-layout={layout}>
+      <div aria-hidden="true" className={pulse}>
+        {layout === "detail" ? <>
+          <div className="mb-5 space-y-4 py-3"><div className={`${line} h-4 w-20`} /><div className={`${line} h-7 w-48 max-w-full`} /></div>
+          <div className="grid items-start gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className={`${cardClass} h-28 desktop:h-80`} />
+            <div className={`${cardClass} divide-y divide-black/[0.05] dark:divide-white/[0.05]`}>{fields}</div>
+          </div>
+        </> : <div className={layout === "overview" ? "grid gap-3 tablet:grid-cols-2" : `${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>{fields}</div>}
+      </div>
     </div>
   );
 }

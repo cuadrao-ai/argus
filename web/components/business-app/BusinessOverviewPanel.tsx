@@ -36,7 +36,7 @@ export default function BusinessOverviewPanel() {
           {t("business.overview.error", "We couldn't load your business records. Your saved receipts and expenses are safe. Try again.")}
         </div>
       ) : !overview ? (
-        <LoadingRows rows={3} />
+        <LoadingRows rows={3} layout="overview" />
       ) : (
         <div className="grid gap-3 tablet:grid-cols-2">
           <button

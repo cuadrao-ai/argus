@@ -181,6 +181,7 @@ import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
 import ConversationRetrievalState, {
   ConversationRetrievalAnnouncement,
+  InitialConversationRetrievalState,
 } from "./ConversationRetrievalState";
 import FeedbackDialog from "../feedback/FeedbackDialog";
 import { feedbackContextForSubmission } from "@/lib/feedback-context";
@@ -2174,11 +2175,7 @@ export default function ChatInterface() {
   if (profileState === "probing" || profileState === "unavailable") {
     return (
       <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
-        <div
-          aria-label={t("guest.entry.loading", "Opening Argus")}
-          className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
-          role="status"
-        />
+        <InitialConversationRetrievalState business={workspace?.id === "business"} />
       </div>
     );
   }
@@ -2429,7 +2426,7 @@ export default function ChatInterface() {
                 <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-32 bg-[#f9f9f9]/80 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] dark:bg-[#141517]/80" />
 
                 {showConversationRetrievalState && isHydratingConversation && (
-                  <ConversationRetrievalAnnouncement />
+                  <ConversationRetrievalAnnouncement business={workspace?.id === "business"} />
                 )}
 
                 {/* Messages */}
@@ -2447,7 +2444,7 @@ export default function ChatInterface() {
                   <div className="space-y-8">
                     {showConversationRetrievalState &&
                       isHydratingConversation && (
-                        <ConversationRetrievalState state="loading" />
+                        <ConversationRetrievalState state="loading" business={workspace?.id === "business"} />
                       )}
                     {hasConversationLoadFailure && (
                       <ConversationRetrievalState

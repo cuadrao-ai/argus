@@ -122,7 +122,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       </p>
     );
   }
-  if (!detail || !draft) return <LoadingRows rows={4} />;
+  if (!detail || !draft) return <LoadingRows rows={4} layout="detail" />;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />) => (
     <ReceiptReviewFrame
