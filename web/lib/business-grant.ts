@@ -9,11 +9,24 @@ import { readStored, removeStored, writeStored } from "./browser-storage";
 
 const KEY = "argus:business-grant:v1";
 let current: string | null | undefined;
+let owner: string | null = null;
 const listeners = new Set<() => void>();
 
 function read(): string | null {
   const stored = readStored(KEY);
-  return stored && /^[0-9a-f-]{36}$/i.test(stored) ? stored : null;
+  if (!stored || !owner) return null;
+  try {
+    const choice = JSON.parse(stored);
+    return choice.userId === owner && typeof choice.grantId === "string" && /^[0-9a-f-]{36}$/i.test(choice.grantId) ? choice.grantId : null;
+  } catch { return null; }
+}
+
+export function synchronizeBusinessAccount(userId: string | null): void {
+  if (owner === userId) return;
+  owner = userId;
+  current = read();
+  if (!current) removeStored(KEY);
+  for (const listener of listeners) listener();
 }
 
 export function getChosenGrant(): string | null {
@@ -24,7 +37,7 @@ export function getChosenGrant(): string | null {
 export function setChosenGrant(grantId: string | null): void {
   current = grantId;
   // The memory is a convenience; the server decides on every request.
-  if (grantId) writeStored(KEY, grantId);
+  if (grantId) writeStored(KEY, JSON.stringify({ userId: owner, grantId }));
   else removeStored(KEY);
   for (const listener of listeners) listener();
 }

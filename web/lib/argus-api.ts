@@ -1,3 +1,5 @@
+import { browserAuthGeneration, browserLogoutGeneration, invalidateBrowserAuth, requireBrowserAuthGeneration } from "./browser-auth-generation";
+import { synchronizeBusinessAccount } from "./business-grant";
 import { rememberReceiptFollowupClaim } from './receipt-followup-storage';
 import { parseToolProgress, type ToolProgress, type ToolResultCard, type ToolScalar } from "./tool-result-card";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
@@ -582,6 +584,7 @@ export async function persistBrowserSession(payload: AuthResponsePayload) {
   if (!supabase) {
     return;
   }
+  const logoutGeneration = browserLogoutGeneration();
   const { data, error } = await supabase.auth.setSession({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
@@ -589,6 +592,8 @@ export async function persistBrowserSession(payload: AuthResponsePayload) {
   if (error) {
     throw error;
   }
+  if (logoutGeneration !== browserLogoutGeneration()) throw new Error("Browser session changed");
+  synchronizeBusinessAccount(data?.session?.user.id ?? null);
   if (payload.guest_claim && data?.session?.user.id) {
     rememberReceiptFollowupClaim(data.session.user.id, payload.guest_claim.conversation_id);
   }
@@ -661,11 +666,13 @@ export async function signupWithEmail(payload: {
   display_name?: string | null;
   username?: string | null;
 }) {
+  const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
   const response = await unauthenticatedApiFetch<AuthResponsePayload>("/auth/signup", {
     method: "POST",
     body: JSON.stringify({ ...payload, captcha_token: captchaToken, ...attributionBody() }),
   });
+  requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);
   return { response, needsEmailConfirmation: !response.session };
 }
@@ -674,6 +681,7 @@ export async function loginWithEmail(payload: {
   email: string;
   password: string;
 }) {
+  const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
   const response = await unauthenticatedApiFetch<AuthResponsePayload>(
     "/auth/login",
@@ -682,6 +690,7 @@ export async function loginWithEmail(payload: {
       body: JSON.stringify({ ...payload, captcha_token: captchaToken }),
     },
   );
+  requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);
   return response;
 }
@@ -715,6 +724,8 @@ export async function synchronizeCurrentBrowserLogout<T>(
 }
 
 export async function logoutFromApi() {
+  invalidateBrowserAuth();
+  synchronizeBusinessAccount(null);
   return synchronizeCurrentBrowserLogout(
     async () => {
       const supabase = getSupabaseClient();

@@ -317,6 +317,7 @@ export default function ChatInterface() {
     refreshHistory,
     refreshHistoryForActivity,
   } = useRecentConversations({
+    enabled: workspace?.chatAvailable !== false,
     guestExpiresAt: account?.guest?.expires_at,
     activityCausalClock,
   });

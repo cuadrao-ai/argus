@@ -13,7 +13,7 @@ export type LeaveSessionDeps = {
   boundary: { beginConversion: () => void; finishConversion: (userId: string | null) => void };
   currentUserId: string | null;
   /** Resolves null when the session already ended elsewhere and no sign-out is owed. */
-  signOut: () => Promise<{ revocation: "complete" | "failed" } | null>;
+  signOut: () => Promise<{ revocation: "complete" | "failed"; cookieSync?: "cleared" | "failed" } | null>;
   clearLocalState: () => void;
   navigate: (href: string) => void;
   onFailed: () => void;
@@ -30,7 +30,7 @@ export async function leaveSession(deps: LeaveSessionDeps): Promise<"left" | "fa
   deps.boundary.beginConversion();
   try {
     const result = await deps.signOut();
-    if (result?.revocation === "failed") {
+    if (result?.revocation === "failed" || result?.cookieSync === "failed") {
       deps.boundary.finishConversion(deps.currentUserId);
       deps.onFailed();
       return "failed";

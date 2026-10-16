@@ -1,3 +1,4 @@
+import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { chosenGrantHeader } from "./business-grant";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { publicApiUrl } from "./public-env";
@@ -59,16 +60,20 @@ export async function apiFetch<T>(
   options?: AccountRequestOptions,
 ): Promise<T> {
   const { expectedUserId, ...requestOptions } = options ?? {};
+  const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders(expectedUserId);
+  requireBrowserAuthGeneration(generation);
   requestOptions.signal?.throwIfAborted();
 
   const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, {
     ...requestOptions,
-    credentials: expectedUserId === undefined ? "include" : "omit",
+    credentials: expectedUserId === undefined && (authHeaders.Authorization || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") ? "include" : "omit",
     headers: argusApiRequestHeaders(requestOptions.headers, authHeaders, path),
   });
+  requireBrowserAuthGeneration(generation);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
+    requireBrowserAuthGeneration(generation);
     const detail = (body as { detail?: unknown }).detail;
     const errorMsg =
       typeof detail === "object" && detail !== null
@@ -84,7 +89,9 @@ export async function apiFetch<T>(
     error.context = (body as Record<string, unknown>).context;
     throw error;
   }
-  return response.json() as Promise<T>;
+  const body = await response.json() as T;
+  requireBrowserAuthGeneration(generation);
+  return body;
 }
 
 export async function unauthenticatedApiFetch<T>(

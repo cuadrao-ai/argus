@@ -14,7 +14,7 @@ afterAll(async () => {
 
 type Log = string[];
 
-async function mount(options: { businessBuild: boolean; revocation?: "complete" | "failed"; throws?: boolean; accountDeleted?: boolean }) {
+async function mount(options: { businessBuild: boolean; revocation?: "complete" | "failed"; throws?: boolean; cookieSync?: "cleared" | "failed"; accountDeleted?: boolean }) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const log: Log = [];
@@ -24,7 +24,7 @@ async function mount(options: { businessBuild: boolean; revocation?: "complete" 
     signOut: async () => {
       log.push("signOut");
       if (options.throws) throw new Error("network");
-      return { revocation: options.revocation ?? ("complete" as const) };
+      return { revocation: options.revocation ?? ("complete" as const), cookieSync: options.cookieSync ?? "cleared" as const };
     },
     clearLocalState: () => log.push("clear"),
     navigate: (href: string) => log.push(`navigate:${href}`),
@@ -70,6 +70,13 @@ describe("logout on the first click", () => {
 
   test("a failed revocation hands the surface back to the signed-in account, says so, clears nothing and stays", async () => {
     const page = await mount({ businessBuild: true, revocation: "failed" });
+    await page.clickOnce();
+    assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("failed API cookie clearing cannot report successful logout", async () => {
+    const page = await mount({ businessBuild: true, cookieSync: "failed" });
     await page.clickOnce();
     assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
     await page.act(async () => page.root.unmount());
