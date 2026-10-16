@@ -3119,7 +3119,8 @@
         ".agent/ownership/branch_ownership.json",
         "marketing/components/business-footer.tsx",
         "marketing/e2e/footer.spec.ts",
-        "docs/reports/evidence/marketing-footer-bounded/**"
+        "docs/reports/evidence/marketing-footer-bounded/**",
+        "marketing/components/touchup-shell.module.css"
       ],
       "deny": [
         "web/**",

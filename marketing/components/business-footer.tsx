@@ -46,9 +46,8 @@ function FooterBar({ c, localCredit = false }: { c: FooterCopy; localCredit?: bo
     socialPreviewEnabled(process.env.CUADRAO_SOCIAL_PREVIEW),
   );
   return (
-    <div className={styles.footerBar}>
-      <p>© Cuadrao LLC 2026</p>
-      {localCredit && <p>Hecho con ♥ para la República Dominicana</p>}
+    <div className={`${styles.footerBar} ${localCredit ? shell.footerBarWithCredits : ""}`}>
+      {!localCredit && <p>© Cuadrao LLC 2026</p>}
       {socials.length > 0 && (
         <div className={styles.footerSocial} role="group" aria-label={c.socialLabel}>
           {socials.map(({ id, label, href }) => {
@@ -69,6 +68,16 @@ function FooterBar({ c, localCredit = false }: { c: FooterCopy; localCredit?: bo
         {c.top}
         <ArrowUpRight size={16} aria-hidden="true" />
       </a>
+      {localCredit && (
+        <div className={shell.footerCredits} data-footer-credits>
+          <p>© Cuadrao LLC 2026</p>
+          <div className={shell.footerCreditReveal}>
+            <div className={shell.footerCreditClip}>
+              <span className={shell.footerCreditText}>Hecho con ♥ para la República Dominicana</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
