@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
@@ -190,9 +190,36 @@ export function usePersonalMark() {
   return { mark, toast: toast ? <UndoToast text={toast.text} onUndo={toast.undo} onClose={close} /> : null };
 }
 
+function EmptyInbox() {
+  const { t, i18n } = useTranslation();
+  const { source, records } = useBusiness();
+  const [proof, setProof] = useState<{ source: typeof source; activity: typeof records.receiptActivity; approved: boolean } | null>(null);
+  const approved = !records.notesTruncated && proof?.source === source && proof.activity === records.receiptActivity && proof.approved;
+  useEffect(() => {
+    let current = true;
+    if (records.notesTruncated || records.receiptActivity?.pending_review_count !== 0 || !source.receiptPage) return;
+    const controller = new AbortController();
+    source.receiptPage("all", controller.signal).then((page) => {
+      const receipts = bandejaReceipts(page.items);
+      if (current) setProof({ source, activity: records.receiptActivity, approved: page.activity?.pending_review_count === 0 && receipts.length > 0 && receipts.every((receipt) => receipt.status === "confirmed") });
+    }).catch(() => undefined);
+    return () => { current = false; controller.abort(); };
+  }, [source, records.receiptActivity, records.notesTruncated]);
+  return (
+    <div data-testid="business-inbox-empty" className={`${cardClass} text-center`}>
+      {approved ? <p className="font-display text-[18px] font-medium text-black dark:text-white">
+        {i18n.resolvedLanguage === "es-419" ? "Todo aprobado. Pa'que cuadre." : t("business.inbox.all_reviewed", "All reviewed")}
+      </p> : null}
+      <p className={`${approved ? "mt-1 " : ""}text-[14px] text-black/65 dark:text-white/70`}>
+        {t("business.inbox.empty_body", "Upload a receipt or send one by WhatsApp. It will wait here for your review.")}
+      </p>
+    </div>
+  );
+}
+
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
-  const { records, openPanel, actions, panel, chosen, source, reload } = useBusiness();
+  const { records, openPanel, actions, panel, chosen, source, reload, revision } = useBusiness();
   const personal = usePersonalMark();
   const items = records.inbox ? bandejaReceipts(records.inbox) : null;
   const notes = records.notes === null ? null : openNotesByDraft(records.notes);
@@ -201,7 +228,7 @@ export default function BusinessInboxPanel() {
 
   return (
     <section>
-      <ReceiptReadingControl />
+      <ReceiptReadingControl hideWhenEnabled />
       <PanelHeading
         title={t("business.inbox.title", "Inbox")}
         subtitle={t("business.inbox.subtitle", "Receipts waiting for you to review. Nothing here is an expense until you confirm it.")}
@@ -221,14 +248,7 @@ export default function BusinessInboxPanel() {
       ) : items === null || notes === null ? (
         <LoadingRows />
       ) : items.length === 0 && notes.length === 0 && !records.notesError ? (
-        <div className={`${cardClass} text-center`}>
-          <p className="font-display text-[18px] font-medium text-black dark:text-white">
-            {t("business.inbox.all_reviewed", "All reviewed")}
-          </p>
-          <p className="mt-1 text-[14px] text-black/55 dark:text-white/55">
-            {t("business.inbox.empty_body", "Upload a receipt or send one by WhatsApp. It will wait here for your review.")}
-          </p>
-        </div>
+        <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} />
       ) : (
         <>
           <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />

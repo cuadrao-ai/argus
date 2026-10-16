@@ -200,6 +200,7 @@ export function BusinessWorkspaceProvider({
   // The chosen Business: a grant id the client remembers, proven by the server on every request.
   const chosenGrant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
   const [spaces, setSpaces] = useState<GrantedSpace[] | null>(null);
+  const [accessRevision, setAccessRevision] = useState(0);
   const [lostAccess, setLostAccess] = useState(false);
   const chosen = useMemo(
     () => spaces?.find((space) => (chosenGrant ? space.grant_id === chosenGrant : space.role === "owner")) ?? null,
@@ -221,10 +222,11 @@ export function BusinessWorkspaceProvider({
       () => { if (!cancelled) setSpaces((current) => current ?? []); },
     );
     return () => { cancelled = true; };
-  }, [source, revision]);
+  }, [source, revision, accessRevision]);
   const markAccessSeen = useCallback(async () => {
     if (!chosen || chosen.role === "owner") return;
     await source.markAccessSeen(chosen.grant_id);
+    setAccessRevision((value) => value + 1);
     setSpaces((current) => current?.map((space) => (space.grant_id === chosen.grant_id ? { ...space, access_seen: true } : space)) ?? current);
   }, [chosen, source]);
   const [bridge, setBridge] = useState<ChatShellBridge | null>(null);

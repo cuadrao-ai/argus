@@ -86,10 +86,10 @@ async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaF
       if (bandejaFails) throw Object.assign(new Error("unavailable"), { status: 503 });
       return pending() as ReceiptSummary[];
     },
-    receiptPage: async () => {
+    receiptPage: async (view: "inbox" | "all") => {
       pageReads += 1;
-      const rows = pending();
-      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: rows.filter((item) => !item.email_original).length, needs_attention_count: 0 } };
+      const rows = view === "all" ? receipts : pending();
+      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: pending().filter((item) => !item.email_original).length, needs_attention_count: 0 } };
     },
     receipt: async (id: string) => {
       if (id === "rcpt-dos") {
@@ -281,9 +281,9 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
     await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
-    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && (page.host.textContent ?? "").includes("Todo revisado"));
+    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && (page.host.textContent ?? "").includes("Todo aprobado. Pa'que cuadre."));
     assert.deepEqual(page.panel(), { kind: "inbox" });
-    assert.ok((page.host.textContent ?? "").includes("Todo revisado"), "the empty Bandeja says everything is reviewed");
+    assert.ok(page.host.querySelector('[data-testid="business-inbox-empty"]')?.textContent?.includes("Todo aprobado. Pa'que cuadre."), "the empty Bandeja says everything is approved after the server confirms every receipt");
     assert.equal(page.badge(), null, "the badge shows no number once the server counts nothing waiting");
     await page.act(async () => page.root.unmount());
   });

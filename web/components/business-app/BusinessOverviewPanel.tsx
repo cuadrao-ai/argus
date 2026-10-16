@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ArrowRight, Inbox } from "lucide-react";
+import { ArrowRight, Inbox } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import StarterActions from "@/components/chat/StarterActions";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -49,16 +49,32 @@ export default function BusinessOverviewPanel() {
         <div className="grid gap-3 tablet:grid-cols-2">
           <button
             type="button"
+            data-testid="overview-inbox"
+            onClick={() => openPanel({ kind: "inbox" })}
+            className={`${cardClass} flex items-center gap-3 text-left tablet:col-span-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40`}
+          >
+            <Inbox className="h-5 w-5 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-display text-[20px] font-medium text-black dark:text-white">
+                {inbox === null ? t("business.overview.in_inbox", "In your inbox") : <><span data-testid="overview-inbox-count">{inbox}</span>{" "}{locale === "es-419" ? "por revisar" : t("business.overview.in_inbox", "In your inbox")}</>}
+                {attention !== null && attention > 0 ? <span data-testid="overview-attention" className="text-[15px] font-normal text-black/70 dark:text-white/75">{locale === "es-419" ? ` · ${attention} con problema` : ` · ${t("business.overview.attention", "{{count}} receipts need your attention", { count: attention })}`}</span> : null}
+              </span>
+              <span className="mt-1 block text-[13px] text-black/60 dark:text-white/65">{t("business.overview.open_inbox", "Open inbox")}</span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-black/60 dark:text-white/65" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
             data-testid="overview-real-expenses"
             onClick={() => openPanel({ kind: "expenses" })}
             className={`${cardClass} group flex flex-col text-left transition-colors hover:border-black/15 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:border-white/15`}
           >
-            <span className="text-[13px] font-medium text-black/55 dark:text-white/55">
+            <span className={`${overview.totals.length === 0 ? "sr-only" : ""} text-[13px] font-medium text-black/55 dark:text-white/55`}>
               {t("business.marks.real_expenses", "Actual expenses")} · {periodLabel(period.key).toLowerCase()}
             </span>
             {overview.totals.length === 0 ? (
-              <span className="mt-3 text-[15px] text-black/60 dark:text-white/60">
-                {t("business.overview.no_expenses", "No expenses saved in this period yet.")}
+              <span className="flex w-full items-center justify-between gap-3 text-[14px] text-black/70 dark:text-white/75">
+                {t("business.overview.no_expenses", "No expenses saved in this period yet.")}<ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
               </span>
             ) : (
               <ul className="mt-3 space-y-1">
@@ -74,7 +90,7 @@ export default function BusinessOverviewPanel() {
                 ))}
               </ul>
             )}
-            <span className="mt-auto pt-3 text-[12px] text-black/45 dark:text-white/45">
+            <span className={`${overview.totals.length === 0 ? "hidden" : "mt-auto pt-3"} text-[12px] text-black/45 dark:text-white/45`}>
               {t("business.overview.separate_currencies", "Each currency is totaled on its own. No conversion.")}
             </span>
           </button>
@@ -85,12 +101,12 @@ export default function BusinessOverviewPanel() {
             onClick={() => openPanel({ kind: "expenses" })}
             className={`${cardClass} group flex flex-col text-left transition-colors hover:border-black/15 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:border-white/15`}
           >
-            <span className="text-[13px] font-medium text-black/55 dark:text-white/55">
+            <span className={`${(overview.fiscal_totals ?? []).length === 0 ? "sr-only" : ""} text-[13px] font-medium text-black/55 dark:text-white/55`}>
               {t("business.marks.fiscal_expenses", "With fiscal value")} · {periodLabel(period.key).toLowerCase()}
             </span>
             {(overview.fiscal_totals ?? []).length === 0 ? (
-              <span className="mt-3 text-[15px] text-black/60 dark:text-white/60">
-                {t("business.marks.none_fiscal", "None with fiscal value in this period.")}
+              <span className="flex w-full items-center justify-between gap-3 text-[14px] text-black/70 dark:text-white/75">
+                {t("business.marks.none_fiscal", "None with fiscal value in this period.")}<ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
               </span>
             ) : (
               <ul className="mt-3 space-y-1">
@@ -106,28 +122,8 @@ export default function BusinessOverviewPanel() {
                 ))}
               </ul>
             )}
-            <span className="mt-auto pt-3 text-[12px] text-black/55 dark:text-white/55" data-testid="overview-without-fiscal">
+            <span className={`${(overview.fiscal_totals ?? []).length === 0 && !(overview.without_fiscal_totals ?? []).some((total) => total.count > 0) ? "hidden" : "mt-auto pt-3"} text-[12px] text-black/55 dark:text-white/55`} data-testid="overview-without-fiscal">
               {(overview.without_fiscal_totals ?? []).filter((total) => total.count > 0).map((total) => t("business.marks.without_fiscal", "No fiscal receipt: {{amount}} does not go into the 606", { amount: formatMoney(total.amount, total.currency, locale) })).join(" · ") || t("business.overview.separate_currencies", "Each currency is totaled on its own. No conversion.")}
-            </span>
-          </button>
-          <button
-            type="button"
-            data-testid="overview-inbox"
-            onClick={() => openPanel({ kind: "inbox" })}
-            className={`${cardClass} group flex flex-col text-left transition-colors hover:border-black/15 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:border-white/15`}
-          >
-            <span className="flex items-center gap-2 text-[13px] font-medium text-black/55 dark:text-white/55">
-              <Inbox className="h-4 w-4" />
-              {t("business.overview.in_inbox", "In your inbox")}
-            </span>
-            {inbox === null ? null : (
-              <span data-testid="overview-inbox-count" className="mt-3 font-display text-[34px] font-medium tabular-nums tracking-tight text-black dark:text-white">
-                {inbox}
-              </span>
-            )}
-            <span className="mt-auto flex items-center gap-1 pt-3 text-[13px] text-black/55 group-hover:text-black dark:text-white/55 dark:group-hover:text-white">
-              {t("business.overview.open_inbox", "Open inbox")}
-              <ArrowRight className="h-3.5 w-3.5" />
             </span>
           </button>
 
@@ -135,21 +131,6 @@ export default function BusinessOverviewPanel() {
             <div className="tablet:col-span-2">
               <OutsidePeriodNote count={overview.outside_period_count} latestOn={overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} />
             </div>
-          ) : null}
-
-          {attention !== null && attention > 0 ? (
-            <button
-              type="button"
-              data-testid="overview-attention"
-              onClick={() => openPanel({ kind: "inbox" })}
-              className={`${cardClass} flex items-center gap-3 text-left tablet:col-span-2 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25`}
-            >
-              <AlertCircle className="h-5 w-5 shrink-0 text-[#d66d75]" />
-              <span className="flex-1 text-[14px] text-black/75 dark:text-white/75">
-                {t("business.overview.attention", "{{count}} receipts need your attention", { count: attention })}
-              </span>
-              <ArrowRight className="h-4 w-4 text-black/40 dark:text-white/40" />
-            </button>
           ) : null}
 
           <p className="text-[12px] text-black/45 tablet:col-span-2 dark:text-white/45">
