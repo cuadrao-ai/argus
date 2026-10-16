@@ -14,8 +14,11 @@ Signup sends confirmation immediately. Welcome is sent only after confirmation.
    marketing imports; deploy from the repository root.
 3. Privately set these Edge secrets using existing approved values:
    `RESEND_API_KEY`, `MARKETING_WAITLIST_FROM`, `MARKETING_POSTAL_ADDRESS`, and
-   `CUADRAO_WAITLIST_ORIGIN`. Supabase supplies `SUPABASE_URL` and the existing
-   legacy `SUPABASE_SERVICE_ROLE_KEY`. No CAPTCHA secret is needed by this function.
+   `CUADRAO_WAITLIST_ORIGIN`. Also set `CUADRAO_WAITLIST_SCHEDULER_KEY` to the
+   same existing staging service-role credential used by the caller and Vault.
+   This explicit setting owns the bearer comparison; do not create a new key.
+   A missing value returns 503 before any database or provider call. Supabase supplies `SUPABASE_URL` and the existing
+   legacy `SUPABASE_SERVICE_ROLE_KEY` for database access only. No CAPTCHA secret is needed by this function.
 4. Through the existing private staging database connection, use parameterized
    `vault.create_secret` or `vault.update_secret` calls to set the names
    `cuadrao_waitlist_service_role_key` and `cuadrao_waitlist_project_url`.
