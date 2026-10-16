@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import io
 import os
 import re
 import selectors
@@ -11,13 +10,12 @@ import subprocess
 import sys
 import tempfile
 import time
-import warnings
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import psutil
-from PIL import Image, ImageOps
+from loguru import logger
 
 from argus.domain.business.contracts.checks import DgiiQr
 from argus.domain.ingestion.documents.config import (
@@ -46,6 +44,45 @@ _RESOURCE_WRAPPER = (
 )
 
 
+# Standalone child code avoids importing the application before resource limits apply.
+_IMAGE_REBUILD = """
+import sys, warnings
+from PIL import Image, ImageOps
+
+source_path, target_path, media_type, maximum, mode = sys.argv[1:]
+Image.MAX_IMAGE_PIXELS = int(maximum)
+warnings.simplefilter("error", Image.DecompressionBombWarning)
+try:
+    with Image.open(source_path, formats=[{"image/png": "PNG", "image/jpeg": "JPEG"}[media_type]]) as source:
+        pixels = source.width * source.height
+        if pixels > Image.MAX_IMAGE_PIXELS:
+            sys.exit(10)
+        if getattr(source, "n_frames", 1) != 1:
+            sys.exit(12)
+        if mode == "pixels":
+            sys.stdout.write(str(pixels))
+        else:
+            source.load()
+            oriented = ImageOps.exif_transpose(source).convert("RGBA")
+            background = Image.new("RGBA", oriented.size, "white")
+            image = Image.alpha_composite(background, oriented).convert("RGB")
+            image.thumbnail((1600, 1600))
+            image.save(target_path, format="JPEG", quality=90)
+except (Image.DecompressionBombError, Image.DecompressionBombWarning):
+    sys.exit(10)
+except MemoryError:
+    sys.exit(13)
+except Exception:
+    sys.exit(11)
+"""
+_IMAGE_EXIT_CODES = {
+    10: ("invalid_document", "pixels"),
+    11: ("invalid_document", "format"),
+    12: ("unsupported_image_frames", "frames"),
+    13: ("document_memory_limit", "memory"),
+}
+
+
 @dataclass(frozen=True)
 class PreparedDocument:
     pages: int
@@ -60,22 +97,8 @@ class PreparedDocument:
 
 
 def image_pixels(content: bytes, media_type: str) -> int:
-    """Read dimensions before any full image decode or pixel allocation."""
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(content)) as source:
-                expected = {"image/png": "PNG", "image/jpeg": "JPEG"}[media_type]
-                pixels = source.width * source.height
-                if source.format != expected or pixels > MAX_PIXELS:
-                    raise DocumentExtractionError("invalid_document")
-                if getattr(source, "n_frames", 1) != 1:
-                    raise DocumentExtractionError("unsupported_image_frames")
-                return pixels
-    except DocumentExtractionError:
-        raise
-    except Exception:
-        raise DocumentExtractionError("invalid_document") from None
+    """Read dimensions in the capped child before any pixel allocation."""
+    return int(_image_process(content, media_type, "pixels"))
 
 
 def email_image_budget(parts: Iterable[tuple[bytes, str]]) -> None:
@@ -89,26 +112,63 @@ def email_image_budget(parts: Iterable[tuple[bytes, str]]) -> None:
 
 
 def _image(content: bytes, media_type: str) -> bytes:
-    image_pixels(content, media_type)
+    return _image_process(content, media_type, "rebuild")
+
+
+def _image_process(content: bytes, media_type: str, mode: str) -> bytes:
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(content)) as source:
-                source.load()
-                oriented = ImageOps.exif_transpose(source).convert("RGBA")
-                background = Image.new("RGBA", oriented.size, "white")
-                image = Image.alpha_composite(background, oriented).convert("RGB")
-                image.thumbnail((1600, 1600))
-                output = io.BytesIO()
-                image.save(output, format="JPEG", quality=90)
-                return output.getvalue()
-    except DocumentExtractionError:
+        with tempfile.TemporaryDirectory(prefix="argus-image-") as temporary:
+            root = Path(temporary)
+            source, rebuilt, dimensions = (
+                root / "source",
+                root / "rebuilt.jpg",
+                root / "dimensions",
+            )
+            source.write_bytes(content)
+            _run(
+                [
+                    sys.executable,
+                    "-c",
+                    _IMAGE_REBUILD,
+                    str(source),
+                    str(rebuilt),
+                    media_type,
+                    str(MAX_PIXELS),
+                    mode,
+                ],
+                dimensions,
+                image=True,
+            )
+            return (dimensions if mode == "pixels" else rebuilt).read_bytes()
+    except DocumentExtractionError as exc:
+        reason = str(
+            exc.metadata.get(
+                "reason",
+                {
+                    "document_memory_limit": "memory",
+                    "document_preparation_timeout": "timeout",
+                }.get(exc.code, "format"),
+            )
+        )
+        signal = exc.metadata.get("signal", 0)
+        alert = reason in {"memory", "timeout"} or bool(signal)
+        logger.bind(
+            metric="document_image_rejected",
+            reason=reason,
+            value=1,
+            signal=signal,
+            alert=alert,
+        ).log(
+            "ERROR" if alert else "WARNING",
+            'document_image_rejected{{reason="{}"}} 1 signal={} alert={}',
+            reason,
+            signal,
+            alert,
+        )
         raise
-    except Exception:
-        raise DocumentExtractionError("invalid_document") from None
 
 
-def _run(args: list[str], output: Path) -> None:
+def _run(args: list[str], output: Path, *, image: bool = False) -> None:
     if not shutil.which(args[0]):
         raise DocumentExtractionError("document_tools_unavailable")
     try:
@@ -144,8 +204,18 @@ def _run(args: list[str], output: Path) -> None:
                         if size > MAX_TEXT_BYTES:
                             raise DocumentExtractionError("document_text_limit")
                         target.write(chunk)
-                if process.wait(timeout=max(0.01, deadline - time.monotonic())):
-                    raise DocumentExtractionError("invalid_document")
+                returncode = process.wait(timeout=max(0.01, deadline - time.monotonic()))
+                if returncode:
+                    code, reason = (
+                        _IMAGE_EXIT_CODES.get(returncode, ("invalid_document", "format"))
+                        if image
+                        else ("invalid_document", "format")
+                    )
+                    error = DocumentExtractionError(code)
+                    error.metadata["reason"] = reason
+                    if returncode < 0:
+                        error.metadata["signal"] = -returncode
+                    raise error
             finally:
                 if process.poll() is None:
                     process.kill()

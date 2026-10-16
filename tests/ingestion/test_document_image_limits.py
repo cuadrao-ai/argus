@@ -1,6 +1,8 @@
 import io
 import struct
+import time
 import zlib
+from types import SimpleNamespace
 
 import psutil
 import pytest
@@ -21,6 +23,28 @@ def png(width=24, height=16, *, frames=1):
 
 
 def oversized_png(width, height):
+    if width * height == 30_000_000:
+
+        def chunk(kind, value):
+            return (
+                struct.pack(">I", len(value))
+                + kind
+                + value
+                + struct.pack(">I", zlib.crc32(kind + value))
+            )
+
+        compressor = zlib.compressobj()
+        compressed = b"".join(
+            compressor.compress(b"\0" * (width + 1)) for _ in range(height)
+        )
+        compressed += compressor.flush()
+        header = struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)
+        return (
+            b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", header)
+            + chunk(b"IDAT", compressed)
+            + chunk(b"IEND", b"")
+        )
     data = bytearray(png())
     data[16:24] = struct.pack(">II", width, height)
     data[29:33] = struct.pack(">I", zlib.crc32(data[12:29]))
@@ -88,3 +112,108 @@ def test_email_dimension_check_does_not_open_source_in_parent(monkeypatch):
 
     monkeypatch.setattr(Image, "open", parent_parse)
     assert preparation.image_pixels(content, "image/png") == 24 * 16
+
+
+def test_child_has_cpu_memory_file_limits_and_no_provider_environment(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "must-not-reach-child")
+    monkeypatch.setattr(
+        preparation,
+        "_IMAGE_REBUILD",
+        """
+import os, resource, sys
+assert resource.getrlimit(resource.RLIMIT_CPU) == (20, 20)
+assert resource.getrlimit(resource.RLIMIT_FSIZE) == (10485760, 10485760)
+if sys.platform == "linux":
+    assert resource.getrlimit(resource.RLIMIT_AS) == (536870912, 536870912)
+assert "OPENROUTER_API_KEY" not in os.environ
+sys.stdout.write("1")
+""",
+    )
+    assert preparation.image_pixels(png(), "image/png") == 1
+
+
+def test_signal_exit_is_logged_and_child_is_reaped(monkeypatch, tmp_path):
+    monkeypatch.setattr(preparation.tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(
+        preparation,
+        "_IMAGE_REBUILD",
+        "import os,signal; os.kill(os.getpid(), signal.SIGTERM)",
+    )
+    records = []
+    sink = logger.add(lambda message: records.append(message.record))
+    processes = []
+    spawn = preparation.subprocess.Popen
+
+    def track(*args, **kwargs):
+        process = spawn(*args, **kwargs)
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(preparation.subprocess, "Popen", track)
+    try:
+        with pytest.raises(DocumentExtractionError, match="invalid_document"):
+            preparation._image(png(), "image/png")
+    finally:
+        logger.remove(sink)
+    assert len(processes) == 1
+    assert processes[0].returncode == -15
+    assert not list(tmp_path.iterdir())
+    assert records[-1]["extra"]["signal"] == 15
+    assert records[-1]["extra"]["alert"] is True
+    assert records[-1]["level"].name == "ERROR"
+
+
+def test_child_file_limit_rejects_oversized_output(monkeypatch, tmp_path):
+    monkeypatch.setattr(preparation.tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(
+        preparation,
+        "_IMAGE_REBUILD",
+        """
+import sys
+with open(sys.argv[2], "wb") as output:
+    for _ in range(11):
+        output.write(b"x" * 1048576)
+""",
+    )
+    with pytest.raises(DocumentExtractionError, match="invalid_document"):
+        preparation._image(png(), "image/png")
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("reason", ["memory", "timeout"])
+def test_resource_failure_kills_child_and_emits_alert(monkeypatch, reason):
+    monkeypatch.setattr(preparation, "_IMAGE_REBUILD", "import time; time.sleep(60)")
+    records = []
+    processes = []
+    sink = logger.add(lambda message: records.append(message.record))
+    spawn = preparation.subprocess.Popen
+
+    def track(*args, **kwargs):
+        process = spawn(*args, **kwargs)
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(preparation.subprocess, "Popen", track)
+    if reason == "memory":
+        monkeypatch.setattr(
+            preparation.psutil,
+            "Process",
+            lambda pid: SimpleNamespace(
+                memory_info=lambda: SimpleNamespace(rss=536870913)
+            ),
+        )
+    else:
+        clock = iter([0.0, 21.0])
+        monkeypatch.setattr(
+            preparation, "time", SimpleNamespace(monotonic=lambda: next(clock))
+        )
+    started = time.monotonic()
+    try:
+        with pytest.raises(DocumentExtractionError):
+            preparation._image(png(), "image/png")
+    finally:
+        logger.remove(sink)
+    assert time.monotonic() - started < 5
+    assert len(processes) == 1 and processes[0].returncode is not None
+    assert records[-1]["extra"]["reason"] == reason
+    assert records[-1]["extra"]["alert"] is True
