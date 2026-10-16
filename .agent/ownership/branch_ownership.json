@@ -2185,6 +2185,7 @@
       "allow": [
         ".agent/ownership/branch_ownership.json",
         "supabase/migrations/20261016154607_adopt_staging_rls_auto_enable.sql",
+        "tests/test_client_grants_postgres.py",
         "tests/test_rls_auto_enable_postgres.py",
         "docs/reports/evidence/cuadrao-business/lane08-rls-forward/**"
       ],

@@ -57,8 +57,11 @@ supabase db push --linked --dry-run --skip-vault \
 ```
 
 The staging checks used the existing staging session-pooler credential only in
-process memory. The dry run enforced read-only transactions. The schema diff
-creates a local shadow database and reads staging. No secret is in this evidence.
+process memory. The CLI used explicit `--dry-run --skip-vault` flags and applied
+no migration. The pooler did not honor the startup `PGOPTIONS` read-only setting
+in independent review, so that setting is not evidence of server enforcement.
+The schema diff creates a local shadow database and reads staging. The direct
+MCP catalog queries were SELECT statements. No secret is in this evidence.
 Provider keys were blanked for the local tests. No live model calls were needed.
 
 ## Scope and handoff
@@ -79,3 +82,20 @@ later correction requires another reviewed forward migration.
 The owned test database container and volume are removed after verification.
 The worktree, ignored local config, and evidence remain for independent review.
 Root must run a fresh independent Eval against the final PR head before landing.
+
+## Client grant inventory correction
+
+CI at `33c152cad9a3411e0be853800ad54560659693b3` found that the canonical client
+grant inventory lacked the adopted function. Local reproduction after a full
+migration replay reported exactly one extra entry, `public.rls_auto_enable()`
+for `anon` and `authenticated`. The inventory now includes those observed grants.
+Its full equality assertion, catalog query, and all other entries are unchanged.
+The migration SQL and function grants are unchanged. M0 owns the later revocation.
+
+The reviewed head remains preserved at branch
+`codex/lane08-rls-forward-reviewed-33c152cad`. The correction's real PostgreSQL
+run passed 131 tests with zero skips, including all 29 client-grant cases and
+the previous 102 cases. Results are retained in
+[the grant regression log](client-grants-regression.log).
+The [reproduction log](client-grants-red-complete-reset.log) retains the original
+assertion failure. Lint, ownership, modularity, and whitespace checks also pass.
