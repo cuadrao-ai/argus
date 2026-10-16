@@ -24,13 +24,14 @@ async function mount(overrides: (fixture: BusinessDataSource) => Partial<Busines
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const english = (await import("@/public/locales/en/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
   const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
   // The email's own document stands in for a receipt saved with reading off.
   const source = {
@@ -79,7 +80,7 @@ async function mount(overrides: (fixture: BusinessDataSource) => Partial<Busines
       title: page?.querySelector("#receipt-review-title")?.textContent ?? null,
     };
   };
-  return { act, root, host, wait, open, frame, source, api: () => api! };
+  return { act, root, host, wait, open, frame, source, i18n, api: () => api! };
 }
 
 function button(host: Element, text: string) {
@@ -135,6 +136,32 @@ async function fill(page: Awaited<ReturnType<typeof setup>>, selector: string, v
 }
 
 describe("one-pass receipt review", () => {
+  test("receipt copy follows the selected language and keeps canonical labels on other surfaces", async () => {
+    const page = await setup();
+    try {
+      const count = Object.keys(page.confirmations()).length;
+      assert.ok(button(page.host, `Confirmar ${count} datos leídos`));
+      assert.ok(button(page.host, "Aprobar"));
+      assert.ok(page.host.textContent?.includes("Leído del recibo"));
+      assert.ok(page.host.textContent?.includes("Agrega la fecha para aprobar"));
+      assert.equal(page.i18n.t("business.dossier.approve"), "Aprobar gasto");
+      assert.equal(page.i18n.t("business.dossier.confirm_value"), "Confirmar");
+      await page.act(async () => { await page.i18n.changeLanguage("en"); });
+      assert.ok(button(page.host, `Confirm ${count}`));
+      assert.ok(button(page.host, "Approve expense"));
+      assert.ok(page.host.textContent?.includes("Read from source · not verified"));
+      assert.ok(page.host.textContent?.includes("Needs a decision before approval"));
+      for (const copy of ["Leído del recibo", "Agrega la fecha para aprobar", "datos leídos"]) assert.ok(!page.host.textContent?.includes(copy));
+      await page.act(async () => { await page.i18n.changeLanguage("es-419"); });
+      assert.ok(button(page.host, `Confirmar ${count} datos leídos`));
+      assert.ok(button(page.host, "Aprobar"));
+      assert.ok(page.host.textContent?.includes("Leído del recibo"));
+      assert.ok(page.host.textContent?.includes("Agrega la fecha para aprobar"));
+      assert.equal(page.saved.length, 0);
+      assert.equal(page.approvals(), 0);
+    } finally { await page.act(async () => page.root.unmount()); }
+  });
+
   test("confirmation preserves edited and missing values, hides at zero, and never approves", async () => {
     const page = await setup();
     try {

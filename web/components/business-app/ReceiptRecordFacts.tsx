@@ -34,6 +34,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, editor }
   const { t, i18n } = useTranslation();
   const categoryLabel = useCategoryLabel();
   const locale = i18n.resolvedLanguage ?? "en";
+  const spanishReview = locale === "es-419";
   const fiscal = dossier.facts.fiscal;
   const labels = {
     unknown: t("business.dossier.unknown", "Unknown"),
@@ -75,9 +76,9 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, editor }
         <div className="min-w-0 flex-1">
           <dt className="text-[12px] font-medium text-black/55 dark:text-white/55">{label}</dt>
           <dd className="mt-0.5 break-words text-[15px] text-black/85 dark:text-white/85">{control ?? (key === "occurred_on" && standing === "empty" ? <input disabled aria-label={label} placeholder="dd/mm/aaaa" className="mt-1 min-h-11 w-full rounded-[12px] border border-black/10 bg-transparent px-3 text-[16px] dark:border-white/15" value="" readOnly /> : edit ? <button type="button" onClick={edit} className="min-h-11 w-full rounded-lg text-left underline decoration-black/20 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)] dark:decoration-white/20" aria-label={`${t("business.dossier.edit", "Edit details")} · ${label}`}>{value}</button> : value)}</dd>
-          {standing === "suggestion" ? <p className="mt-1 text-[12px] text-black/60 dark:text-white/65">{t("business.dossier.read_from_receipt", t("business.dossier.origin.extracted", "Read from source · not verified"))}</p> : null}
+          {standing === "suggestion" ? <p className="mt-1 text-[12px] text-black/60 dark:text-white/65">{spanishReview ? "Leído del recibo" : t("business.dossier.origin.extracted", "Read from source · not verified")}</p> : null}
           {showChip && !(key === "occurred_on" && standing === "empty") ? <p className="mt-1.5"><span className={`inline-flex min-h-6 items-center rounded-full border px-2 text-[11px] font-medium ${chip}`}>{standingText(standing, origin, blocked)}</span></p> : null}
-          {blocked || asked ? <p className="mt-1 text-[12px] font-medium text-[var(--rui-color-danger)]">{key === "occurred_on" && standing === "empty" ? t("business.dossier.add_date_to_approve", "Agrega la fecha para aprobar") : t("business.dossier.needs_resolution", "Needs a decision before approval")}</p> : null}
+          {blocked || asked ? <p className="mt-1 text-[12px] font-medium text-[var(--rui-color-danger)]">{key === "occurred_on" && standing === "empty" && spanishReview ? "Agrega la fecha para aprobar" : t("business.dossier.needs_resolution", "Needs a decision before approval")}</p> : null}
         </div>
       </div>
     );
