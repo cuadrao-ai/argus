@@ -449,6 +449,17 @@ persistence, providers, or the interpreter.
   `500 internal_error` Problem Details with that same correlation value and no
   request body, secret, provider detail, or stack trace.
 
+### Deployment health
+
+The API and web service expose unauthenticated `GET /health`. The API keeps
+`status: healthy` and `version: 1.0.0-alpha`. Both include `git_sha`, the full
+40-character hexadecimal commit supplied by Render in `RENDER_GIT_COMMIT`.
+Missing or invalid metadata returns `git_sha: null`. Each service reports its
+own deployed commit, so matching values confirm that the two services run the
+same revision. The web response uses `Cache-Control: no-store` and runs at
+request time. Neither handler reads Git nor exposes other environment values.
+Render supplies this metadata automatically; it is not a configured secret.
+
 <a id="contract-openapi-authority"></a>
 ### OpenAPI authority and allowed differences
 
@@ -9263,7 +9274,10 @@ person starts their space, every route below except POST `/space` answers 404
   `language` is `en`. Concurrent calls create one space. A name is 1 to 80
   characters after trimming, else 422.
 - GET `/api/v1/business/space` returns `{id, name}`, or 404
-  `business_space_missing` before the space is started.
+  `business_space_missing` before the space is started. The web bootstrap reads
+  this endpoint before creation. It sends POST only after that exact 404, and
+  propagates other failures without creating a space. Existing concurrent-call
+  idempotency and selected-client behavior remain unchanged.
 - PATCH `/api/v1/business/space` takes `{name}` and returns the renamed space,
   or 404 `business_space_missing` before the space is started.
 - Access (owner only, the grant in `business_client_grants` is the only

@@ -7,7 +7,7 @@ afterEach(() => {
   else process.env.RENDER_GIT_COMMIT = original;
 });
 
-test.each(["a".repeat(40), "B".repeat(40), undefined, "", "abc123", "invalid".repeat(8)])("health reports deployment metadata %s", async (commit) => {
+test.each(["a".repeat(40), "B".repeat(40), undefined, "", "abc123", "invalid".repeat(8), "a".repeat(40) + "\n"])("health reports deployment metadata %s", async (commit) => {
   if (commit === undefined) delete process.env.RENDER_GIT_COMMIT;
   else process.env.RENDER_GIT_COMMIT = commit;
   const response = GET();
