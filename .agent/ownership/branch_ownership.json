@@ -3066,6 +3066,22 @@
         "marketing/**"
       ]
     },
+    "codex/waitlist-scheduler-auth": {
+      "description": "Explicit staging waitlist scheduler caller credential; no hosted writes or migration.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "supabase/functions/waitlist-reminders/handler.ts",
+        "supabase/functions/waitlist-reminders/README.md",
+        "marketing/__tests__/waitlist-scheduler.test.ts"
+      ],
+      "deny": [
+        "src/**",
+        "web/**",
+        "ios/**",
+        "supabase/migrations/**"
+      ]
+    },
     "codex/waitlist-supabase-scheduling": {
       "description": "Staging Supabase cron retention and authenticated reminder Edge Function. Root owns merge, deployment, and scheduled hosted proof.",
       "base_ref": "origin/codex/private-alpha-next",
