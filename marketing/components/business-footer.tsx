@@ -17,7 +17,7 @@ export function ContactLink({
   return (
     <a
       className={`${styles.button} ${light ? styles.buttonLight : ""}`}
-      href={businessPath(locale, "contact")}
+      href={businessPath("es", "contact")}
     >
       {siteCopy[locale].cta}
       <ArrowUpRight size={19} aria-hidden="true" />
@@ -118,7 +118,7 @@ export function BusinessFooter({
           <nav aria-label={c.footerTalk}>
             <span>{c.footerTalk}</span>
             <a href={`${businessPath(locale)}#nosotros`}>{c.about}</a>
-            <a href={businessPath(locale, "contact")}>{c.contact}</a>
+            <a href={businessPath("es", "contact")}>{c.contact}</a>
             <a href={`mailto:${businessContactEmail}`}>{businessContactEmail}</a>
             <a
               href="https://www.linkedin.com/in/lucasgarces"
@@ -168,7 +168,7 @@ export function BusinessFooter({
                 {locale === "es" ? "Acceso anticipado" : "Early access"}
               </a>
             ) : (
-              <a href={businessPath(locale, "contact")}>{c.contact}</a>
+              <a href={businessPath("es", "contact")}>{c.contact}</a>
             )}
             <a href={`mailto:${businessContactEmail}`}>{businessContactEmail}</a>
           </nav>
