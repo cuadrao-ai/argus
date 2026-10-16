@@ -3606,18 +3606,19 @@ migration accepts legacy and sealed paths. New `rebuilt_bucket`, `rebuilt_path`,
 all null. The rebuilt path uses the original digest; `rebuilt_sha256` verifies the
 actual rebuilt bytes. Checks bind both references to the owner, digest, allowed
 media types and 1 to 10 MiB size limits. Legacy `source_bytes` remains unchanged
-and is verified against the draft digest on internal reads. It is never a user
-download fallback. No existing objects or inline bytes move in this migration.
+and is verified against the draft digest on reads. Non-image legacy sources may
+still download from inline bytes; images require a rebuilt copy. No existing
+objects or inline bytes move in this migration.
 
-User downloads and attachment exports read only the rebuilt reference after the
-existing permission check. Lane 06B stores bytes supplied by a producer; it does
-not produce them. Missing rebuilt bytes make the download unavailable, even
-when an original exists. Delivery is held pending producer compatibility,
-including the approved representation for PDF, EML, XML, CSV and XLSX. Existing
-extraction and email retry readers temporarily keep verified original access
-until the assigned 06C follow-up. Original reads log their internal caller;
-integrity mismatches log and fail closed. A service-role audit response with
-attachment and nosniff headers remains a held contract item, not a new endpoint.
+User downloads and attachment exports select verified originals for PDF, text,
+CSV, XLSX, XML and EML, and verified rebuilt JPEGs for PNG/JPEG images. Lane 06C's
+bounded helper builds a missing image on its first download; later downloads
+reuse the stored copy. Originals always remain retained. There is no bulk rebuild
+and no original-image fallback. Conversion runs outside export snapshot locks;
+permission and source identity are rechecked before release. Existing extraction
+and email retry readers keep verified original access. Original reads identify
+their storage reader in logs; integrity mismatches log and fail closed. A separate
+service-role audit response remains a held contract item, not a new endpoint.
 
 Capture commits a pending reference before the external write, then publishes
 availability after the upload and capture hook commit. Pending sources are not

@@ -8624,14 +8624,15 @@ client reads it. Poll `GET /financial-documents/{connection_id}` for current sta
   observations, receipt detail, candidates, completeness/readability and projection
   issues. Internal provider/route metadata is excluded. The connection ID links to
   existing import review; no duplicate approval state is stored here.
-- `GET /financial-documents/{connection_id}/source` returns only a rebuilt copy
-  as an attachment with a safe generic filename, its stored media type,
-  `Cache-Control: no-store` and `nosniff`. Missing rebuilt bytes return 422
-  `document_source_unavailable`; sealed and legacy originals are never fallback
-  downloads. The API proxies private Storage bytes; no signed URL leaves the
-  server. Another person's connection is 404. A Storage outage is a
-  retryable 503 `document_storage_unavailable`, during upload and preparation
-  alike.
+- `GET /financial-documents/{connection_id}/source` returns verified original
+  bytes for PDF, text, CSV, XLSX, XML and EML. PNG/JPEG images return a rebuilt
+  JPEG, made on first download if missing and reused on later downloads. The
+  original remains retained; there is no bulk rebuild or original-image fallback.
+  Responses are attachments with a safe generic filename, their download media
+  type, `Cache-Control: no-store` and `nosniff`. Missing or unreadable images
+  return 422 `document_source_unavailable`. The API proxies private Storage
+  bytes; no signed URL leaves the server. Another person's connection is 404.
+  A Storage outage is a retryable 503 `document_storage_unavailable`.
 - `POST /financial-documents/{connection_id}/prepare` and `/resume` queue explicit
   preparation or replay saved candidate delivery. A fresh provider attempt requires
   `X-Extraction-Consent: true`; replay of saved preparation makes no provider call.
@@ -9671,13 +9672,16 @@ accept path recorded.
   `check_details` (a purchase is ready but the read was incomplete) or
   `other`. `error_code` stays the precise cause. Nothing is retried
   automatically because of it.
-- GET `/api/v1/business/receipts/{id}/source` returns only the stored rebuilt
-  copy as an attachment with its own media type and
-  `X-Content-Type-Options: nosniff`, after the existing owner or grant check.
-  Missing rebuilt bytes return 422 `document_source_unavailable`; originals
-  are never served. Lane 06B delivery is held until producers support the
-  accepted source formats. Internal extraction and email retry original reads
-  remain temporarily unchanged. No public audit endpoint is introduced.
+- GET `/api/v1/business/receipts/{id}/source` returns verified original bytes
+  for PDF, text, CSV, XLSX, XML and EML, and rebuilt JPEGs for PNG/JPEG images.
+  A missing image copy is built on its first download and then reused; no bulk
+  rebuild occurs and originals remain retained. These rules also apply to export
+  attachments. Responses use attachment, `no-store` and `nosniff` headers after
+  existing authorization checks. Missing or unreadable image copies return 422
+  `document_source_unavailable`; original images are never a fallback. Export
+  releases snapshot locks before image conversion, then rechecks permission and
+  source identity before serving the archive. Internal extraction and email retry
+  original reads remain unchanged. No public audit endpoint is introduced.
 - POST `/api/v1/business/receipts/{id}/prepare` requires
   `X-Extraction-Consent: true`, else 422
   `document_extraction_consent_required`. While the owner's receipt-reading

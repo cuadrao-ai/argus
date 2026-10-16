@@ -98,7 +98,7 @@ def storage_rig(request):
         connections = InMemoryConnectionRepository()
         store = InMemoryDocumentStore(connections, objects)
 
-    def capture(*, write=True, media_type="image/png"):
+    def capture(*, write=True, media_type="image/png", content=ORIGINAL):
         now = datetime.now(timezone.utc)
         connection = connections.create(
             user_id=owner,
@@ -112,14 +112,14 @@ def storage_rig(request):
             connection_id=connection.id,
             filename="receipt.png",
             media_type=media_type,
-            sha256=DIGEST,
-            size_bytes=len(ORIGINAL),
+            sha256=hashlib.sha256(content).hexdigest(),
+            size_bytes=len(content),
             source_available=True,
             created_at=now,
             updated_at=now,
         )
         if write:
-            assert store.capture(user_id=owner, draft=draft, content=ORIGINAL)
+            assert store.capture(user_id=owner, draft=draft, content=content)
         return draft
 
     try:
@@ -312,13 +312,14 @@ def test_postgres_crash_intent_is_not_extracted_and_disconnect_erases_it(
     assert store.draft(**key) is None
 
 
-def test_postgres_legacy_inline_bytes_stay_internal_and_are_verified(storage_rig) -> None:
+@pytest.mark.parametrize("media_type", ["image/png", "application/pdf"])
+def test_postgres_legacy_inline_bytes_are_verified_and_selected_by_format(storage_rig, media_type) -> None:
     store, _, owner, capture, pool = storage_rig
     if pool is None:
         pytest.skip("legacy inline storage is PostgreSQL only")
     from psycopg.types.json import Jsonb
 
-    draft = capture(write=False)
+    draft = capture(write=False, media_type=media_type)
     with pool.connection() as connection:
         connection.execute(
             "insert into public.financial_document_extractions(connection_id,user_id,draft,source_bytes) values(%s,%s,%s,%s)",
@@ -327,6 +328,7 @@ def test_postgres_legacy_inline_bytes_stay_internal_and_are_verified(storage_rig
     key = dict(user_id=owner, connection_id=draft.connection_id)
     assert store.source(**key) == ORIGINAL
     assert store.rebuilt(**key) is None
+    assert store.download_source(**key) == ((media_type, ORIGINAL) if media_type == "application/pdf" else None)
     with pool.connection() as connection:
         connection.execute(
             "update public.financial_document_extractions set source_bytes=%s where connection_id=%s",
@@ -403,3 +405,32 @@ def test_image_download_never_falls_back_to_original(storage_rig):
     assert store.save_rebuilt(**key, content=REBUILT, media_type="image/jpeg")
     assert store.download_source(**key) == ("image/jpeg", REBUILT)
     assert store.source(**key) == ORIGINAL
+
+
+def test_concurrent_first_image_downloads_share_one_immutable_copy(storage_rig, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from pathlib import Path
+    from threading import Barrier
+
+    from argus.domain.ingestion.documents import rebuilt
+
+    store, objects, owner, capture, _ = storage_rig
+    content = (Path(__file__).parents[1] / "document_extraction_fixtures/receipt-dop.png").read_bytes()
+    draft = capture(content=content)
+    key = dict(user_id=owner, connection_id=draft.connection_id)
+    waiting = Barrier(3)
+    produce = rebuilt.rebuild_image
+    def concurrent(content, media_type):
+        waiting.wait(timeout=5)
+        return produce(content, media_type)
+    monkeypatch.setattr(rebuilt, "rebuild_image", concurrent)
+    def download(_attempt):
+        rebuilt.ensure_rebuilt_image(store=store, **key)
+        return store.download_source(**key)
+    with ThreadPoolExecutor(max_workers=3) as workers:
+        results = list(workers.map(download, range(3)))
+    assert len(set(results)) == 1
+    assert results[0][0] == "image/jpeg"
+    assert results[0][1].startswith(b"\xff\xd8") and results[0][1] != content
+    assert store.source(**key) == content
+    assert len(objects.objects) == 2

@@ -837,3 +837,61 @@ def test_missing_source_does_not_strand_other_unread_receipts(alice, stub):
     assert alice.detail(second["id"])["activity"]["state"] in ("ready", "read_failed")
     assert len(stub.calls) == 1
     assert alice.detail(first["id"])["activity"]["state"] == "saved_unread"
+
+
+@pytest.mark.parametrize("change", ["disconnect", "delete"])
+def test_source_rechecks_connection_after_image_conversion(alice: Owner, monkeypatch, change):
+    from datetime import datetime, timezone
+
+    from argus.domain.ingestion.documents import rebuilt
+
+    receipt_id = prepared(alice)
+    service = documents_service()
+    owner = alice.scope().person_id
+    real = rebuilt.ensure_rebuilt_image
+    def changing(**kwargs):
+        real(**kwargs)
+        if change == "disconnect":
+            service.hub.connections.disconnect(user_id=owner, connection_id=receipt_id, now=datetime.now(timezone.utc))
+        else:
+            service.store.forget(user_id=owner, connection_id=receipt_id)
+    monkeypatch.setattr(rebuilt, "ensure_rebuilt_image", changing)
+    response = alice.get(f"/receipts/{receipt_id}/source")
+    assert response.status_code == (410 if change == "disconnect" else 422)
+    assert not response.content.startswith(b"\xff\xd8")
+
+
+@pytest.mark.parametrize("media_type", [
+    "application/pdf", "text/plain", "text/csv", "application/xml", "text/xml",
+    "message/rfc822", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+])
+def test_nonimage_source_download_keeps_exact_bytes_without_image_producer(alice: Owner, monkeypatch, media_type):
+    from argus.domain.ingestion.documents import rebuilt
+
+    def forbidden(**_kwargs):
+        pytest.fail("non-image source must not invoke an image producer")
+
+    # The helper is allowed to classify the draft; decoding is not.
+    monkeypatch.setattr(rebuilt, "rebuild_image", forbidden)
+    from tests.ingestion.test_document_flat_files import workbook
+
+    fixtures = Path(__file__).parents[1] / "document_extraction_fixtures"
+    content = {
+        "application/pdf": (fixtures / "hotel-ecf.pdf").read_bytes(),
+        "application/xml": (fixtures / "hotel-ecf.xml").read_bytes(),
+        "text/xml": (fixtures / "hotel-ecf.xml").read_bytes(),
+        "message/rfc822": (fixtures / "hotel-ecf.eml").read_bytes(),
+        "text/plain": b"Paid 850 pesos\n",
+        "text/csv": b"date,amount\n2026-10-01,850\n",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": workbook(),
+    }[media_type]
+    saved = alice.upload(content=content, media_type=media_type, consent=False)
+    assert saved.status_code == 200, saved.text
+    source = alice.get(f"/receipts/{saved.json()['id']}/source")
+    assert source.status_code == 200
+    assert source.content == content
+    assert source.headers["content-type"].split(";")[0] == media_type
+    assert source.headers["cache-control"] == "no-store"
+    assert source.headers["x-content-type-options"] == "nosniff"
+    assert source.headers["content-disposition"].startswith("attachment;")
+    assert len(documents_service().store.objects.objects) == 1

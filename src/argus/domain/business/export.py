@@ -340,6 +340,7 @@ def build_archive(
 
 
 def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
+    from loguru import logger
     from psycopg.rows import dict_row
 
     from argus.domain.business.authority import ActionError, authorize
@@ -593,6 +594,7 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 try:
                     if path is None:
                         legacy = row["legacy_bytes"]
+                        logger.info("document_original_read caller=export_inline_reader")
                         return verify_content(
                             bytes(legacy) if legacy is not None else None, digest or ""
                         )
