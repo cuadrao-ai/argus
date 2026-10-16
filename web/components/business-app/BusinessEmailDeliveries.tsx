@@ -161,7 +161,6 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business.email.title", "Received emails")}</h3>
-          <p className="mt-0.5 text-[13px] text-black/55 dark:text-white/55">{t("business.email.subtitle", "Each email keeps its attachments together. Nothing here is an expense until you confirm it.")}</p>
         </div>
         <button type="button" className={secondaryButtonClass} onClick={() => setAttempt((value) => value + 1)}>{t("business.email.reload", "Refresh")}</button>
       </div>

@@ -7,7 +7,7 @@ import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { useBusiness } from "./BusinessWorkspace";
 import { secondaryButtonClass } from "./business-ui";
 
-export default function ReceiptReadingControl() {
+export default function ReceiptReadingControl({ hideWhenEnabled = false }: { hideWhenEnabled?: boolean }) {
   const { source, reload, chosen } = useBusiness();
   const { t, i18n } = useTranslation();
   const language = normalizeEnabledLanguage(i18n.resolvedLanguage ?? "en");
@@ -30,7 +30,7 @@ export default function ReceiptReadingControl() {
     source.receiptReading?.(language, controller.signal).then((value) => { if (current) setReading(value); }, () => { if (current) setFailed(true); });
     return () => { current = false; controller.abort(); };
   }, [source, language, businessKey]);
-  if (!source.receiptReading) return null;
+  if (!source.receiptReading || (hideWhenEnabled && (reading?.enabled || (!reading && !failed)))) return null;
   const change = async () => {
     if (!reading || !source.setReceiptReading || busy) return;
     const current = generation.current;
