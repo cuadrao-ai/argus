@@ -1,6 +1,7 @@
 # English Personal waitlist copy for Iris
 
-Status: proposed, not approved. Lucas relays this table to Iris before go-live.
+Status: Iris approved this copy through Lucas on October 16, 2026, with the
+explicit Spanish-email sentence now included in the success detail.
 Every English string in the form is listed beside its Spanish counterpart.
 The page introduction, button, navigation and phone preview already existed.
 All other visible English form strings are new in this draft.
@@ -32,7 +33,7 @@ All other visible English form strings are new in this draft.
 | Rate limit | Hiciste varios intentos seguidos. Espera unos minutos e inténtalo de nuevo. | You've made several attempts in a row. Wait a few minutes and try again. |
 | Unavailable or network failure | No pudimos guardar tu correo. Inténtalo de nuevo o escríbenos a hola@cuadrao.ai. | We couldn't save your email. Try again or email us at hola@cuadrao.ai. |
 | Success heading | Revisa tu correo. | Check your email. |
-| Success detail | Te enviamos un enlace a {email} para confirmar tu lugar en la lista de la app personal de Cuadrao. Vence en 48 horas. | We sent a link to {email} to confirm your place on the Cuadrao personal app waitlist. It expires in 48 hours. |
+| Success detail | Te enviamos un enlace a {email} para confirmar tu lugar en la lista de la app personal de Cuadrao. Vence en 48 horas. | We sent a link to {email} to confirm your place on the Cuadrao personal app waitlist. It expires in 48 hours. The email is in Spanish. |
 | JavaScript disabled | Activa JavaScript para usar este formulario. | Enable JavaScript to use this form. |
 | Hidden honeypot label | Sitio web | Website |
 | Phone image description, existing | Pantalla de bienvenida de Cuadrao Personal con su logo y el botón para crear una cuenta. | Cuadrao Personal welcome screen with its logo and create-account button. |

@@ -61,7 +61,7 @@ const copy = {
     contact: "Is it for your business? Contact us",
     rateLimited: "You've made several attempts in a row. Wait a few minutes and try again.",
     success: "Check your email.",
-    next: (email: string) => `We sent a link to ${email} to confirm your place on the Cuadrao personal app waitlist. It expires in 48 hours.`,
+    next: (email: string) => `We sent a link to ${email} to confirm your place on the Cuadrao personal app waitlist. It expires in 48 hours. The email is in Spanish.`,
     error: `We couldn't save your email. Try again or email us at ${businessContactEmail}.`,
     invalid: "Check your email address and try again.",
     noScript: "Enable JavaScript to use this form.",

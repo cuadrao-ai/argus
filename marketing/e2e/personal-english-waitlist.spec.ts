@@ -28,7 +28,7 @@ test("English answers use the shared form, canonical choices and existing Spanis
   await page.getByRole("button", { name: "Let me know when I can try it", exact: true }).click();
   expect((await submission).postDataJSON()).toEqual({ email: "english@example.test", expenseMethod: "En una libreta o notas", wish: "Keep my expenses in order", website: "", captchaToken: "fixture-token" });
   await expect(page.getByRole("heading", { name: "Check your email.", exact: true })).toBeFocused();
-  await expect(page.getByText("We sent a link to english@example.test to confirm your place on the Cuadrao personal app waitlist. It expires in 48 hours.", { exact: true })).toBeVisible();
+  await expect(page.getByText("We sent a link to english@example.test to confirm your place on the Cuadrao personal app waitlist. It expires in 48 hours. The email is in Spanish.", { exact: true })).toBeVisible();
   const state = await mockState(request);
   expect(state.signups).toHaveLength(1);
   expect(state.emails).toHaveLength(1);
