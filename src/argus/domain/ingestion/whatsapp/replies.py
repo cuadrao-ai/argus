@@ -90,7 +90,7 @@ REPLIES: dict[str, tuple[str, str]] = {
         "The file is larger than {limit_mb} MB. Send a smaller photo or PDF.",
     ),
     "whatsapp_media_invalid": (
-        "No pudimos abrir ese archivo. Envía otra foto o PDF del recibo.",
+        "No pudimos leer este archivo. Envíalo como foto o PDF.",
         "We couldn't open that file. Send another photo or PDF of the receipt.",
     ),
     "whatsapp_media_expired": _RESEND,
@@ -143,15 +143,17 @@ def compose_reply(
     return body if link or not body.endswith(": ") else body[:-2] + "."
 
 
-def reply_payload(*, to: str, in_reply_to: str, body: str) -> dict[str, Any]:
-    return {
+def reply_payload(*, to: str, in_reply_to: str | None, body: str) -> dict[str, Any]:
+    payload = {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",
         "to": to,
-        "context": {"message_id": in_reply_to},
         "type": "text",
         "text": {"preview_url": False, "body": body},
     }
+    if in_reply_to is not None:
+        payload["context"] = {"message_id": in_reply_to}
+    return payload
 
 
 class ReplyTransport(Protocol):
@@ -159,7 +161,9 @@ class ReplyTransport(Protocol):
 
 
 class ReplyFailed(Exception):
-    pass
+    def __init__(self, reason: str, *, outcome_unknown: bool = False) -> None:
+        super().__init__(reason)
+        self.outcome_unknown = outcome_unknown
 
 
 class CloudApiTransport:
@@ -182,8 +186,13 @@ class CloudApiTransport:
             response = await self._client.post(
                 self._url, json=payload, headers=self._headers, timeout=10.0
             )
-        except httpx.HTTPError:
-            raise ReplyFailed("transport") from None
+        except httpx.HTTPError as error:
+            raise ReplyFailed(
+                "transport",
+                outcome_unknown=not isinstance(
+                    error, (httpx.ConnectError, httpx.ConnectTimeout)
+                ),
+            ) from None
         if response.status_code >= 300:
             from argus.domain.ingestion.whatsapp.media import graph_error
 

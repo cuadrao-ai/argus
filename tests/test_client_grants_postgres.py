@@ -228,6 +228,9 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.whatsapp_inbound_messages_arrival_sequence_seq",
         "public.whatsapp_link_codes",
         "public.whatsapp_outbox",
+        "public.whatsapp_reply_attempts",
+        "public.whatsapp_reply_days",
+        "public.whatsapp_reply_groups",
         "public.whatsapp_sender_links",
     }
 )

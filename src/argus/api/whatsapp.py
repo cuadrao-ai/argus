@@ -49,6 +49,7 @@ from argus.domain.ingestion.whatsapp.intake import (
 from argus.domain.ingestion.whatsapp.media import GraphMedia
 from argus.domain.ingestion.whatsapp.payload import TextMessage
 from argus.domain.ingestion.whatsapp.replies import CloudApiTransport
+from argus.domain.ingestion.whatsapp.reply_worker import FailureReplyWorker
 from argus.domain.ingestion.whatsapp.store import (
     SENDER_LINK_REVOKED,
     InMemoryWhatsAppStore,
@@ -290,6 +291,7 @@ class WhatsAppRuntime:
     consent: AIConsentStore | None = None
     work: BackgroundWork | None = None
     receipts: AIConsentStore | None = None
+    failure_replies: FailureReplyWorker | None = None
 
 
 _runtime: WhatsAppRuntime | None = None
@@ -348,6 +350,26 @@ def build_whatsapp(
     keys = WhatsAppKeys(settings.sender_key.get_secret_value())
     reading = None
     receipts = None
+    failure_replies = None
+    reply_codec = None
+    if pool is not None and documents.hub.box is not None:
+        from argus.domain.ingestion.whatsapp.reply_groups import ReplyGroupCodec
+        from argus.domain.ingestion.whatsapp.reply_groups_postgres import (
+            PostgresReplyGroups,
+        )
+
+        reply_codec = ReplyGroupCodec(documents.hub.box, keys)
+        failure_replies = FailureReplyWorker(
+            store=PostgresReplyGroups(pool),
+            codec=reply_codec,
+            transport=transport,
+            clock=documents.hub.clock,
+            enabled=lambda: business_pilot_enabled()
+            and load_document_extraction_settings().enabled
+            and load_whatsapp_settings().intake_ready
+            and load_whatsapp_settings().outbound_enabled,
+            limit=settings.reply_daily_limit,
+        )
     if pool is not None:
         from argus.domain.ingestion.whatsapp.receipt_consent import (
             receipt_consent_store,
@@ -410,8 +432,12 @@ def build_whatsapp(
         capture_text=_capture_when_enabled(worker) if worker is not None else None,
         background=work.start if work is not None else None,
         send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
+        reply_codec=reply_codec,
+        reply_group_wait_seconds=settings.reply_group_wait_seconds,
     )
-    return WhatsAppRuntime(intake, settings, worker, consent, work, receipts)
+    return WhatsAppRuntime(
+        intake, settings, worker, consent, work, receipts, failure_replies
+    )
 
 
 def start_whatsapp(app: object) -> None:

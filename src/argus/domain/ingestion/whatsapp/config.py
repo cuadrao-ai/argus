@@ -73,6 +73,12 @@ class WhatsAppSettings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("CUADRAO_APP_ORIGIN", "ARGUS_APP_ORIGIN"),
     )
+    reply_group_wait_seconds: int = Field(
+        default=120, ge=1, le=3600, validation_alias=_names("REPLY_GROUP_WAIT_SECONDS")
+    )
+    reply_daily_limit: int = Field(
+        default=10, ge=1, le=100, validation_alias=_names("REPLY_DAILY_LIMIT")
+    )
 
     @property
     def intake_ready(self) -> bool:
