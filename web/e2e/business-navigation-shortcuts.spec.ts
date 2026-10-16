@@ -67,12 +67,20 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
 });
 test("phone tabs have 44px targets and the approval footer stays above them", async ({ page }) => {
   await setup(page, 390);
-  await page.goto(`/dev/business-preview?chat=off&draft=${dossierFixtureIds.ready}`);
+  await page.goto("/dev/business-preview?chat=off&receipt=rcpt-ferreteria");
+  await page.getByLabel("Pagado desde").selectOption({ index: 1 });
+  await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Aprobar y siguiente", exact: true })).toBeEnabled();
+  const original = page.getByTestId("receipt-original-source");
+  await original.getByRole("button", { name: "Recibo original", exact: true }).click();
+  await expect(original.getByRole("img", { name: "Recibo original", exact: true })).toBeVisible();
+  await expect(page.getByTestId("receipt-current-facts")).toBeVisible();
+  await expect(page.getByText("Mi negocio", { exact: true }).first()).toBeVisible();
   const tabs = page.getByTestId("business-bottom-tabs");
   await expect(tabs).toBeVisible();
   const footer = page.getByTestId("receipt-review-footer");
   await expect(footer).toBeVisible();
-  await footer.scrollIntoViewIfNeeded();
+  await original.scrollIntoViewIfNeeded();
   const tabBox = (await tabs.boundingBox())!;
   const footerBox = (await footer.boundingBox())!;
   expect(footerBox.y + footerBox.height).toBeLessThanOrEqual(tabBox.y + 1);
@@ -82,6 +90,10 @@ test("phone tabs have 44px targets and the approval footer stays above them", as
     expect(box.height).toBeGreaterThanOrEqual(44);
   }
   await screenshot(page, "after-review-390");
+  await page.getByTestId("receipt-current-facts").scrollIntoViewIfNeeded();
+  const fieldsFooterBox = (await footer.boundingBox())!;
+  expect(fieldsFooterBox.y + fieldsFooterBox.height).toBeLessThanOrEqual(tabBox.y + 1);
+  await screenshot(page, "after-review-fields-390");
   await chord(page, "Slash");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await tabs.getByRole("button", { name: "Resumen", exact: true }).click();

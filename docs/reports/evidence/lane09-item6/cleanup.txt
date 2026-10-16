@@ -25,3 +25,11 @@ Total logical bytes removed: 410237015
 APFS clones mean logical bytes are not uniquely freed physical bytes.
 Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on
 /dev/disk3s5   971298980 761144608 182431752    81% 8579198 1824317520    0%   /System/Volumes/Data
+
+Evidence follow-up cleanup:
+web/.next-navigation: 161869314 logical bytes removed
+web/temp/navigation-results: 45 logical bytes removed
+web/temp/navigation-phone-final.log: 2577 logical bytes removed
+Additional logical bytes removed: 161871936
+Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on
+/dev/disk3s5   971298980 761198544 182377816    81% 8579557 1823778160    0%   /System/Volumes/Data
