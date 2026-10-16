@@ -68,7 +68,7 @@ export async function confirmWaitlist(token: string, deps: Pick<WaitlistDeps, "s
 export async function leaveWaitlist(token: string, deps: Pick<WaitlistDeps, "store" | "now">): Promise<boolean> {
   const prefix = tokenPrefix(token);
   if (!prefix) return false;
-  const row = await deps.store.find(prefix);
+  const row = await deps.store.find(prefix, "deletion");
   if (!row) return true;
   if (!verifyWaitlistToken(token, row.verification_id, "leave", deps.now())) return false;
   await deps.store.leave(row.verification_id);

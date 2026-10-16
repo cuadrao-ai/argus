@@ -28,7 +28,10 @@ six legal routes ship together after an independent exact-head Eval. This PR has
 - Retention: unconfirmed rows expire seven days after signup; confirmed rows
   expire twelve calendar months after signup. Leave immediately removes the
   entire row, including answers and email_digest. No suppression row remains.
-  Previously collected rows are unchanged until fresh consent is submitted.
+  Operator removal by email follows the same whole-row rule, including rows
+  previously soft-removed. Repeated requests leave absent addresses absent.
+  Existing legacy rows retain their suppression behavior until fresh consent
+  is submitted; operator removal no longer creates suppression for absent addresses.
 - Idempotency: registration locks the existing email row. Confirmation sends
   reserve a timestamp at least ten minutes apart. Reminder selection claims each
   row once with skip-locked. Provider retries use the same key and body.

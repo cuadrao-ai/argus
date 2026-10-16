@@ -28,12 +28,12 @@ const template: NoticeTemplate = {
 };
 
 describe("removal", () => {
-  test("erases the address of an active signup and keeps its digest", async () => {
+  test("erases an existing legacy address and keeps its suppression digest", async () => {
     const { fetch: doFetch, calls } = recordingFetch(() => Response.json([{ email_digest: "x" }]));
     const result = await removeSignup(ops, " Ana@Example.INVALID ", doFetch, () => new Date("2026-10-08T00:00:00Z"));
     expect(result).toBe("removed");
-    expect(calls).toHaveLength(1);
-    expect(calls[0].url).toContain(`email_digest=eq.${emailDigest("ana@example.invalid")}&removed_at=is.null`);
+    expect(calls).toHaveLength(2);
+    expect(calls[0].url).toContain(`email_digest=eq.${emailDigest("ana@example.invalid")}&privacy_policy_version=is.null&removed_at=is.null`);
     expect(calls[0].init.method).toBe("PATCH");
     expect(JSON.parse(String(calls[0].init.body))).toEqual({
       email: null,
@@ -41,15 +41,21 @@ describe("removal", () => {
     });
   });
 
-  test("an address that never registered is recorded as suppressed", async () => {
-    const { fetch: doFetch, calls } = recordingFetch((call) =>
-      call.init.method === "PATCH" ? Response.json([]) : new Response(null, { status: 201 }),
-    );
-    expect(await removeSignup(ops, "ghost@example.invalid", doFetch)).toBe("suppressed");
-    const body = JSON.parse(String(calls[1].init.body));
-    expect(body.email).toBeNull();
-    expect(body.email_digest).toBe(emailDigest("ghost@example.invalid"));
-    expect(calls[1].init.headers).toMatchObject({ Prefer: "resolution=ignore-duplicates,return=minimal" });
+  test("an absent address stays absent on repeated operator removal", async () => {
+    const { fetch: doFetch, calls } = recordingFetch(() => Response.json([]));
+    expect(await removeSignup(ops, "ghost@example.invalid", doFetch)).toBe("absent");
+    expect(await removeSignup(ops, "ghost@example.invalid", doFetch)).toBe("absent");
+    expect(calls.map((call) => call.init.method)).toEqual(["PATCH", "DELETE", "PATCH", "DELETE"]);
+    expect(calls[1].url).toContain(`email_digest=eq.${emailDigest("ghost@example.invalid")}&privacy_policy_version=not.is.null`);
+  });
+
+  test("personal removal deletes rather than clears a row and a failed delete throws", async () => {
+    const { fetch: doFetch, calls } = recordingFetch((call) => Response.json(call.init.method === "DELETE" ? [{ email_digest: "x" }] : []));
+    expect(await removeSignup(ops, "ana@example.invalid", doFetch)).toBe("removed");
+    expect(calls[1].init.method).toBe("DELETE");
+    expect(calls[1].url).not.toContain("removed_at");
+    const failed = recordingFetch((call) => call.init.method === "DELETE" ? new Response(null, { status: 503 }) : Response.json([]));
+    await expect(removeSignup(ops, "ana@example.invalid", failed.fetch)).rejects.toThrow("HTTP 503");
   });
 
   test("a database error is raised, not reported as done", async () => {

@@ -22,9 +22,10 @@ export function waitlistStore(config: WaitlistDatabaseConfig, doFetch: typeof fe
     async register(input) {
       return (await rows("register", { p_email: input.email, p_expense_method: input.expenseMethod, p_wish: input.wish, p_verification_id: randomBytes(32).toString("hex"), p_privacy_policy_version: PRIVACY_POLICY_VERSION }))[0] ?? null;
     },
-    async find(prefix) {
+    async find(prefix, scope = "active") {
       if (!/^[0-9a-f]{32}$/.test(prefix)) return null;
-      const found = await request(`cuadrao_early_access_signups?verification_id=like.${prefix}*&privacy_policy_version=not.is.null&removed_at=is.null&limit=1`) as WaitlistRow[];
+      const active = scope === "active" ? "&removed_at=is.null" : "";
+      const found = await request(`cuadrao_early_access_signups?verification_id=like.${prefix}*&privacy_policy_version=not.is.null${active}&limit=1`) as WaitlistRow[];
       return found[0] ?? null;
     },
     async confirm(id, issuedAt) { return (await rows("confirm", { p_verification_id: id, p_issued_at: issuedAt }))[0] ?? null; },

@@ -11,7 +11,7 @@ export type WaitlistRow = {
 
 export type WaitlistStore = {
   register(input: { email: string; expenseMethod: string | null; wish: string | null }): Promise<WaitlistRow | null>;
-  find(prefix: string): Promise<WaitlistRow | null>;
+  find(prefix: string, scope?: "active" | "deletion"): Promise<WaitlistRow | null>;
   confirm(id: string, issuedAt: string): Promise<WaitlistRow | null>;
   leave(id: string): Promise<void>;
   release(id: string, reservedAt: string, reminder: boolean): Promise<void>;

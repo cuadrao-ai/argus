@@ -73,19 +73,18 @@ export async function signupCounts(config: OpsConfig, doFetch: typeof fetch) {
   };
 }
 
-// Erases the address and keeps the digest as the suppression record. An address
-// that never registered still gets a suppression row, so a later signup from it
-// is ignored too.
+// Only existing legacy rows retain suppression. Personal consent requires whole-row
+// deletion; absent addresses stay absent, including repeated removal requests.
 export async function removeSignup(
   config: OpsConfig,
   rawEmail: string,
   doFetch: typeof fetch,
   now: () => Date = () => new Date(),
-): Promise<"removed" | "suppressed"> {
+): Promise<"removed" | "absent"> {
   const digest = emailDigest(normalizeEmail(rawEmail));
   const removedAt = now().toISOString();
   const updated = await checked(
-    await doFetch(table(config, `?email_digest=eq.${digest}&removed_at=is.null`), {
+    await doFetch(table(config, `?email_digest=eq.${digest}&privacy_policy_version=is.null&removed_at=is.null`), {
       method: "PATCH",
       headers: restHeaders(config, { Prefer: "return=representation" }),
       body: JSON.stringify({ email: null, removed_at: removedAt }),
@@ -93,24 +92,17 @@ export async function removeSignup(
     }),
     "removing the signup",
   );
-  if (((await updated.json()) as unknown[]).length > 0) return "removed";
-  await checked(
-    await doFetch(table(config, "?on_conflict=email_digest"), {
-      method: "POST",
-      headers: restHeaders(config, { Prefer: "resolution=ignore-duplicates,return=minimal" }),
-      body: JSON.stringify({
-        email_digest: digest,
-        email: null,
-        language: "es",
-        consent_version: "removal-request",
-        source: "operator-removal",
-        removed_at: removedAt,
-      }),
+  const legacyRemoved = ((await updated.json()) as unknown[]).length > 0;
+  const deleted = await checked(
+    await doFetch(table(config, `?email_digest=eq.${digest}&privacy_policy_version=not.is.null`), {
+      method: "DELETE",
+      headers: restHeaders(config, { Prefer: "return=representation" }),
       signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     }),
-    "recording the suppression",
+    "deleting the personal signup",
   );
-  return "suppressed";
+  const personalRemoved = ((await deleted.json()) as unknown[]).length > 0;
+  return legacyRemoved || personalRemoved ? "removed" : "absent";
 }
 
 export function validateTemplate(template: NoticeTemplate): string[] {
