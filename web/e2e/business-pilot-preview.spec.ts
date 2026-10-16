@@ -23,10 +23,11 @@ async function openPreview(
   });
   if (options.sidebarMode) {
     await page.addInitScript((mode) => {
-      window.localStorage.setItem("argus:sidebar_mode", mode);
+      window.localStorage.setItem("cuadrao:business:sidebar_modes", JSON.stringify({ "breakpoint-user": mode }));
     }, options.sidebarMode);
   }
   await page.goto(url);
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
 }
 
 /** The amount field's message region, the last id it is described by. */
@@ -54,13 +55,16 @@ test.describe("Business preview", () => {
       await page.getByTestId("business-switcher").getByRole("button").click();
       await page.getByRole("menuitem", { name: "Switch Business" }).click();
       await page.getByRole("option", { name: new RegExp(name) }).click();
-      await expect(page.getByTestId("business-current-name")).toHaveText(name);
+      await expect(page.getByTestId("business-mark-trigger")).toHaveAccessibleName(new RegExp(name));
       await expect(page.getByText("Your account changed", { exact: false })).toHaveCount(0);
     };
     await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
     for (let round = 0; round < 6; round += 1) {
       // Each round: a receipt open in the own Business, a switch to the client, a draft typed, a switch back.
-      if (round > 0) await page.goto(`${PREVIEW}?receipt=rcpt-ferreteria`);
+      if (round > 0) {
+        await page.goto(`${PREVIEW}?receipt=rcpt-ferreteria`);
+        await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+      }
       await expect(panelHeading(page, "Review receipt")).toBeVisible();
       await switchTo("Colmado Peña");
       await expect(page).not.toHaveURL(/receipt=|expense=|draft=/);
