@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ConversationShellGuard from "@/components/chat/ConversationShellGuard";
+import BusinessNamingProvider from "./BusinessNamingProvider";
 import ConversationUnavailableNotice from "./ConversationUnavailableNotice";
 import { BusinessWorkspaceProvider } from "./BusinessWorkspace";
 import { liveBusinessDataSource, type BusinessDataSource } from "./business-data";
@@ -40,9 +41,11 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
   }
   return (
     <BusinessWorkspaceProvider key={owner ?? "fixture"} source={source}>
+      <BusinessNamingProvider>
       <ConversationShellGuard />
       <ConversationUnavailableNotice />
       <ChatInterface />
+      </BusinessNamingProvider>
     </BusinessWorkspaceProvider>
   );
 }

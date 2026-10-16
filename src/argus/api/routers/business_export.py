@@ -12,6 +12,7 @@ from pydantic import BeforeValidator
 
 from argus.api.business import BusinessPerson, require_business_person
 from argus.api.business_drafts import DraftContext, action_problem, require_drafts
+from argus.api.business_naming import require_business_name
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE, require_saved_documents
 from argus.domain.business.authority import ActionError
@@ -120,6 +121,8 @@ def download_export(
             if draft_id is not None
             else context.for_space(request, person.spaces)
         )
+        if str(actor.actor.actor_id) == str(actor.owner_id):
+            require_business_name(request, person.spaces, str(actor.actor.space_id))
         objects = getattr(documents.store, "objects", None)
         if objects is None:
             raise problem(

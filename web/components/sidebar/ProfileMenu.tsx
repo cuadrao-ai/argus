@@ -15,6 +15,7 @@ import ProfileDeleteRequestDialog, {
   type DeleteRequestState,
 } from "./ProfileDeleteRequestDialog";
 import ProfileDetailsDialog from "./ProfileDetailsDialog";
+import { useBusinessNaming } from "@/components/business-app/BusinessNamingProvider";
 import ProfileSettingsPanels, {
   type SettingsPanel,
 } from "./ProfileSettingsPanels";
@@ -182,6 +183,8 @@ export default function ProfileMenu({
     evidenceReceiptSharingEnabled && accountKind === "registered";
   // A country is a registered-account setting; a guest has nowhere to keep one.
   const homeCountryAvailable = accountKind === "registered";
+  const naming = useBusinessNaming();
+  const businessNameAvailable = naming?.canEdit === true;
   const whatsappLinkAvailable = businessPilotEnabled && accountKind === "registered";
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
@@ -744,6 +747,7 @@ export default function ProfileMenu({
         ...(homeCountryAvailable
           ? [{ id: "country", onSelect: () => openModal("country") }]
           : []),
+        ...(businessNameAvailable ? [{ id: "business_name", onSelect: () => openModal("business_name") }] : []),
         ...(whatsappLinkAvailable
           ? [{ id: "whatsapp", onSelect: () => openModal("whatsapp") }]
           : []),
@@ -816,6 +820,7 @@ export default function ProfileMenu({
     handleSubmenuToggle,
     homeCountryAvailable,
     whatsappLinkAvailable,
+    businessNameAvailable,
     memoryControlsAvailable,
     receiptsAvailable,
     onClose,
@@ -1216,6 +1221,12 @@ export default function ProfileMenu({
                   {t("settings.app.home_country", "Country and currency")}
                 </span>
                 <span className="ml-auto flex shrink-0">{quickJumpBadge("country")}</span>
+              </button>
+            )}
+            {businessNameAvailable && (
+              <button onClick={() => openModal("business_name")} className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5">
+                <span>{t("business.naming.title", "¿Cómo se llama tu negocio?")}</span>
+                <span className="ml-auto flex shrink-0">{quickJumpBadge("business_name")}</span>
               </button>
             )}
             {whatsappLinkAvailable && (

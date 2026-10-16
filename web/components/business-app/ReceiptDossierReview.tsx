@@ -1,5 +1,8 @@
 "use client";
 
+import { useBusinessNaming } from "./BusinessNamingProvider";
+
+
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 
@@ -98,6 +101,7 @@ export function saveBlobDownload(blob: Blob, filename: string, revokeAfterMs = 3
 /** Exports belong to a period surface, not to one record; this stays for that surface and is not mounted on the record page. */
 export function ReceiptPeriodExport({ dossier, start, end, available }: { dossier: BusinessDossier; start: string; end: string; available: boolean }) {
   const { t } = useTranslation();
+  const naming = useBusinessNaming();
   const [from, setFrom] = useState(start);
   const [to, setTo] = useState(end);
   const [busy, setBusy] = useState(false);
@@ -112,6 +116,8 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
     if (!controller) return;
     setProblem(null);
     try {
+      if (naming && !await naming.requireName()) return;
+      controller.signal.throwIfAborted();
       const blob = await fetchBusinessExport(dossier.draft_id, from, to, controller.signal);
       controller.signal.throwIfAborted();
       saveBlobDownload(blob, `business-export-${from}-${to}.zip`);

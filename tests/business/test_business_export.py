@@ -299,7 +299,9 @@ def export_client(monkeypatch):
 
     calls = []
     actor_id, space_id = uuid4(), uuid4()
-    resolved = object()
+    resolved = SimpleNamespace(
+        actor=SimpleNamespace(actor_id=actor_id, space_id=space_id), owner_id=actor_id
+    )
 
     class Service:
         authority = object()
@@ -310,10 +312,14 @@ def export_client(monkeypatch):
 
         def context_for_draft(self, actor, draft, **_pin):
             calls.append(("draft", actor, draft))
+            resolved.owner_id = uuid4()
             return resolved
 
     class Spaces:
         value = Space(str(space_id), "Synthetic Business")
+
+        def get(self, space):
+            return self.value if self.value and self.value.id == space else None
 
         def open_space(self, person):
             calls.append(("space", person))

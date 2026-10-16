@@ -2805,6 +2805,50 @@
         "docs/reports/evidence/cuadrao-business/approve-next-20261015/**"
       ],
       "deny": []
+    },
+    "codex/lane09-business-name-prompt": {
+      "description": "Owner-only Business naming: durable first-visit claim, current-Business rename, shared invite/export requirement and editable settings. Additive migration requires staging application before landing. Shared methods granted by coordinator; BusinessWorkspace and auth logic stay unchanged.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "docs/reports/evidence/lane09-business-name/**",
+        "src/argus/api/business_naming.py",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/api/routers/business_export.py",
+        "src/argus/domain/business/spaces.py",
+        "supabase/migrations/20261016153000_business_name_prompt.sql",
+        "tests/business/test_business_access_api.py",
+        "tests/business/test_business_export.py",
+        "tests/business/test_business_naming.py",
+        "tests/test_business_name_prompt_postgres.py",
+        "web/__tests__/bottom-sheet.test.tsx",
+        "web/__tests__/business-naming-provider.dom.test.tsx",
+        "web/components/business-app/BusinessAccessPanel.tsx",
+        "web/components/business-app/BusinessApp.tsx",
+        "web/components/business-app/BusinessNameDialog.tsx",
+        "web/components/business-app/BusinessNamingProvider.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/settings/BusinessNameSettings.tsx",
+        "web/components/sidebar/ProfileMenu.tsx",
+        "web/components/sidebar/ProfileSettingsPanels.tsx",
+        "web/components/ui/AdaptivePanel.tsx",
+        "web/components/ui/BottomSheet.tsx",
+        "web/e2e/business-name-prompt.spec.ts",
+        "web/lib/business-naming-api.ts",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "ios/**",
+        "marketing/**",
+        "web/public/locales/en/**",
+        "web/components/business-app/BusinessWorkspace.tsx"
+      ]
     }
   }
 }

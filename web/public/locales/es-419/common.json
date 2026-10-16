@@ -2206,6 +2206,14 @@
     }
   },
   "business": {
+    "naming": {
+      "title": "¿Cómo se llama tu negocio?",
+      "explanation": "Así lo verán tu contador y tu equipo.",
+      "placeholder": "Ej. Colmado La Esquina",
+      "save": "Guardar",
+      "skip": "Ahora no",
+      "continue": "Guardar y continuar"
+    },
     "activity": {
       "all_channels": "La lectura de recibos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
       "error": "No se pudo actualizar la lectura de recibos. Inténtalo de nuevo.",
