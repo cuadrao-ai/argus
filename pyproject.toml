@@ -34,7 +34,7 @@ starlette = ">=0.48.0,<1.0.0"
 uvicorn = {version = "^0.32.0", extras = ["standard"]}
 python-multipart = "^0.0.20"
 # Decode bounded receipt photos and strip metadata before provider submission.
-pillow = "^12.2.0"
+pillow = "^12.3.0"
 # CommonMark link destinations in public receipt privacy checks.
 markdown-it-py = "4.0.0"
 # Supabase Auth
@@ -51,7 +51,7 @@ babel = "^2.17.0"
 mem0ai = "^2.0.17"
 number-parser = "0.3.2"
 xlsxwriter = ">=3.2.9,<4"
-lxml = "6.0.2"
+lxml = "6.1.3"
 zxing-cpp = "2.3.0"
 
 [build-system]
