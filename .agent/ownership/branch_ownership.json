@@ -2223,6 +2223,30 @@
         "marketing/**"
       ]
     },
+    "codex/lane09-item7-personal-action": {
+      "description": "Lane09 item7 Personal row menu. Existing mark mutation remains unchanged. The shared upload-controls test edit only waits for Escape history traversal. Root owns independent Eval and landing.",
+      "base_ref": "ebc3cbf762b2512156997a074429f8d81be64e54",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/reports/evidence/lane09-item7-personal-action/**",
+        "web/__tests__/receipt-marks.dom.test.tsx",
+        "web/components/business-app/ActionMenu.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/e2e/business-personal-menu.playwright.config.ts",
+        "web/e2e/business-personal-menu.spec.ts",
+        "web/e2e/business-upload-controls.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        ".env.*",
+        "web/.env.*",
+        "ios/**",
+        "src/**",
+        "supabase/migrations/**",
+        "marketing/**",
+        "web/public/locales/**"
+      ]
+    },
     "codex/receipt-auto-read-activity": {
       "description": "Business owner consent for automatic receipt reading across email, WhatsApp and uploads, with canonical per-person receipt activity and visible Inbox refresh.",
       "base_ref": "origin/codex/private-alpha-next",

@@ -56,7 +56,9 @@ for (const width of [1280, 390]) {
       await upload.focus();
       await page.keyboard.press("Enter");
       await expect(page.getByRole("dialog", { name: "Subir recibos", exact: true })).toBeVisible();
+      const historyReturned = page.evaluate(() => new Promise<void>((resolve) => window.addEventListener("popstate", () => resolve(), { once: true })));
       await page.keyboard.press("Escape");
+      await historyReturned;
       await expect(page.getByRole("dialog")).toHaveCount(0);
     }
     await page.goto("/biz?view=inbox");

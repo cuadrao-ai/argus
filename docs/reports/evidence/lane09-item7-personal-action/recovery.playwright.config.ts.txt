@@ -1,0 +1,3 @@
+import { defineConfig } from "@playwright/test";
+import config from "../e2e/business-personal-menu.playwright.config";
+export default defineConfig({ ...config, testDir: "../e2e", testMatch: "business-upload-controls.spec.ts" });

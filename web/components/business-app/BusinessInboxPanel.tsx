@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
+import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, MoreHorizontal, NotebookPen, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
+import ActionMenu from "./ActionMenu";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
@@ -98,12 +99,11 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: Rece
     }
   };
   return (
-    // On a phone the Personal toggle wraps under the row so the merchant keeps its column.
     <li className="flex flex-wrap items-center gap-1">
       <button
         type="button"
         onClick={onOpen}
-        className={`flex min-w-0 flex-1 ${needsAttention ? "basis-full items-start" : "basis-80 items-center"} gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]`}
+        className={`flex min-w-0 flex-1 ${needsAttention ? "items-start" : "items-center"} gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]`}
       >
         <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
           {receipt.activity?.state === "reading" ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[12px] border-2 border-teal-500/50 border-t-transparent motion-safe:animate-spin" /> : receipt.activity?.unread ? <span aria-hidden="true" data-testid="receipt-unread-dot" className="absolute right-0 top-0 h-2 w-2 rounded-full bg-teal-600" /> : null}
@@ -127,15 +127,37 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: Rece
                   : savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
                 : formatRelativeTime(receipt.received_at, locale)}
           </span>
-          {needsAttention ? <span className="mt-2 block"><StatusPill status={receipt.status} /></span> : null}
+          <span className="mt-1 block text-[15px] font-medium tabular-nums mobile:hidden">{formatMoney(receipt.amount, receipt.currency, locale)}</span>
+          <span className={`mt-2 block ${needsAttention ? "" : "mobile:hidden"}`}><StatusPill status={receipt.status} /></span>
           <RecordMarks personal={receipt.personal} fiscalValue={receipt.fiscal_value} known={receipt.fiscal_known === true} markedBy={receipt.personal_marked_by} className="mt-1" />
         </span>
         <span className="hidden text-right text-[15px] font-medium tabular-nums text-black dark:text-white mobile:block">
           {formatMoney(receipt.amount, receipt.currency, locale)}
         </span>
-        {!needsAttention ? <StatusPill status={receipt.status} /> : null}
+        {!needsAttention ? <span className="hidden mobile:block"><StatusPill status={receipt.status} /></span> : null}
         <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" />
       </button>
+      {onMark && receipt.personal_editable ? (
+        <ActionMenu
+          label={t("chat.more_actions", "More actions")}
+          placement="below-end"
+          actions={[{ id: "mark_personal", icon: UserRound, label: receipt.personal ? t("business.marks.unmark_personal_label", "No longer personal") : t("business.marks.mark_personal_label", "Mark as personal"), run: () => onMark(receipt) }]}
+          renderTrigger={({ ref, open, toggle, menuId }) => (
+            <button
+              ref={ref}
+              type="button"
+              aria-label={t("chat.more_actions", "More actions")}
+              aria-haspopup="menu"
+              aria-expanded={open}
+              aria-controls={open ? menuId : undefined}
+              onClick={toggle}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 dark:text-white/75 dark:hover:bg-white/[0.06]"
+            >
+              <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+            </button>
+          )}
+        />
+      ) : null}
       {needsAttention && (receipt.enterable || (receipt.preparable && onRetry)) ? (
         <div className="w-full min-w-0 px-3 pb-3">
           {receipt.preparable && onRetry ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}</p> : null}
@@ -145,18 +167,6 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: Rece
           </div>
           {retry === "failed" ? <p role="alert" className="mt-2 break-words text-[13px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again.")}</p> : null}
         </div>
-      ) : null}
-      {onMark && receipt.personal_editable ? (
-        <button
-          type="button"
-          data-testid={`mark-personal-${receipt.id}`}
-          aria-pressed={receipt.personal === true}
-          aria-label={receipt.personal ? t("business.marks.unmark_personal_label", "No longer personal") : t("business.marks.mark_personal_label", "Mark as personal")}
-          onClick={() => onMark(receipt)}
-          className={`ml-auto inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 ${receipt.personal ? "border-[var(--cuadrao-green)] bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : "border-black/15 text-black/70 hover:bg-black/[0.04] dark:border-white/20 dark:text-white/75 dark:hover:bg-white/[0.06]"}`}
-        >
-          {t("business.marks.mark_personal", "Personal")}
-        </button>
       ) : null}
     </li>
   );
