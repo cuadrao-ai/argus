@@ -240,6 +240,9 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
 CLIENT_EXECUTABLE_FUNCTIONS: dict[str, frozenset[str]] = {
     "public.argus_search_symbol_casefold(text)": frozenset({"anon", "authenticated"}),
     "public.is_active_household_member(uuid, uuid)": frozenset({"authenticated"}),
+    # Migration 20261016154607 adopts these existing staging grants unchanged.
+    # The separate M0 hardening migration owns their revocation.
+    "public.rls_auto_enable()": frozenset({"anon", "authenticated"}),
     "public.set_updated_at()": frozenset({"anon", "authenticated"}),
 }
 
