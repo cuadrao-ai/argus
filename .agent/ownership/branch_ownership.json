@@ -2974,6 +2974,37 @@
         "render.yaml",
         "marketing/lib/waitlist/**"
       ]
+    },
+    "codex/staging-health-space-followups": {
+      "description": "Business settings cleanup and read-before-create bootstrap; deployment SHA on API/web health. Root owns staging and merge. Naming prompts and provider transport remain separately owned.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "src/argus/api/main.py",
+        "tests/test_health_deployment.py",
+        "web/app/health/route.ts",
+        "web/lib/business-api.ts",
+        "web/components/sidebar/ProfileMenu.tsx",
+        "web/components/settings/LanguageModal.tsx",
+        "web/components/feedback/FeedbackDialog.tsx",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json",
+        "web/__tests__/business-space-api.test.ts",
+        "web/__tests__/health-route.test.ts",
+        "web/__tests__/business-settings-cleanup.dom.test.tsx",
+        "web/__tests__/home-country.test.ts",
+        "docs/reports/evidence/business-settings-cleanup/**"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "render.yaml",
+        ".github/workflows/**",
+        "supabase/migrations/**",
+        "ios/**",
+        "marketing/**"
+      ]
     }
   }
 }
