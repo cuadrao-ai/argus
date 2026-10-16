@@ -27,7 +27,6 @@ struct GuestProfile: View {
     @ObservedObject var model: GuestBookModel
     @Binding var appearance: AppearancePreference
     @Binding var path: [GuestProfileRoute]
-    let webURL: URL?
     let leave: () -> Void
     let deleteData: () async -> Bool
     @Environment(\.locale) private var locale
@@ -131,15 +130,20 @@ struct GuestProfile: View {
     }
 
     @ViewBuilder private var legal: some View {
-        if let webURL {
+        let legal = CuadraoLegalURLs.current
+        if legal.hasPages {
             group(spanish ? "Acerca de Cuadrao" : "About Cuadrao") {
-                Link(destination: webURL.appendingPathComponent("terms")) {
-                    rowLabel(symbol: "doc.text", title: spanish ? "Términos de uso" : "Terms of use", chevron: false)
-                }.buttonStyle(.plain).accessibilityIdentifier("guest.profile.terms")
-                separator
-                Link(destination: webURL.appendingPathComponent("privacy")) {
-                    rowLabel(symbol: "hand.raised", title: spanish ? "Política de privacidad" : "Privacy policy", chevron: false)
-                }.buttonStyle(.plain).accessibilityIdentifier("guest.profile.legal")
+                if let terms = legal.terms {
+                    Link(destination: terms) {
+                        rowLabel(symbol: "doc.text", title: spanish ? "Términos de uso" : "Terms of use", chevron: false)
+                    }.buttonStyle(.plain).accessibilityIdentifier("guest.profile.terms")
+                }
+                if legal.terms != nil, legal.privacy != nil { separator }
+                if let privacy = legal.privacy {
+                    Link(destination: privacy) {
+                        rowLabel(symbol: "hand.raised", title: spanish ? "Política de privacidad" : "Privacy policy", chevron: false)
+                    }.buttonStyle(.plain).accessibilityIdentifier("guest.profile.legal")
+                }
             }
         }
     }

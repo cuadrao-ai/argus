@@ -267,11 +267,16 @@ struct CuadraoProfilePage: View {
                     previewAction(spanish ? "Términos de uso" : "Terms of use")
                     previewAction(spanish ? "Política de privacidad" : "Privacy policy")
                 case .connected(_, let profile):
-                    if let webURL = profile.configuration?.webURL {
-                        Link(spanish ? "Términos de uso" : "Terms of use", destination: webURL.appendingPathComponent("terms"))
-                            .accessibilityIdentifier("release.legal.terms")
-                        Link(spanish ? "Política de privacidad" : "Privacy policy", destination: webURL.appendingPathComponent("privacy"))
-                            .accessibilityIdentifier("release.legal.privacy")
+                    let legal = CuadraoLegalURLs.current
+                    if legal.hasPages {
+                        if let terms = legal.terms {
+                            Link(spanish ? "Términos de uso" : "Terms of use", destination: terms)
+                                .accessibilityIdentifier("release.legal.terms")
+                        }
+                        if let privacy = legal.privacy {
+                            Link(spanish ? "Política de privacidad" : "Privacy policy", destination: privacy)
+                                .accessibilityIdentifier("release.legal.privacy")
+                        }
                     } else {
                         Text(spanish ? "Los enlaces no están disponibles en este momento." : "These links aren't available right now.")
                     }

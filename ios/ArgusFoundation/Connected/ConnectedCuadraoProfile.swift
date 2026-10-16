@@ -103,19 +103,23 @@ private struct ConnectedProfileInvitationsRow: View {
 }
 
 struct CuadraoLegalLinks: View {
-    let webURL: URL?
+    var legal: CuadraoLegalURLs = .current
     @Environment(\.locale) private var locale
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
 
     var body: some View {
         List {
-            if let webURL {
-                Link(destination: webURL.appendingPathComponent("privacy")) {
-                    Label(spanish ? "Privacidad" : "Privacy", systemImage: "hand.raised")
-                }.accessibilityIdentifier("release.legal.privacy")
-                Link(destination: webURL.appendingPathComponent("terms")) {
-                    Label(spanish ? "Términos de uso" : "Terms of use", systemImage: "doc.text")
-                }.accessibilityIdentifier("release.legal.terms")
+            if legal.hasPages {
+                if let privacy = legal.privacy {
+                    Link(destination: privacy) {
+                        Label(spanish ? "Privacidad" : "Privacy", systemImage: "hand.raised")
+                    }.accessibilityIdentifier("release.legal.privacy")
+                }
+                if let terms = legal.terms {
+                    Link(destination: terms) {
+                        Label(spanish ? "Términos de uso" : "Terms of use", systemImage: "doc.text")
+                    }.accessibilityIdentifier("release.legal.terms")
+                }
             } else {
                 Text(spanish ? "Los enlaces no están disponibles en este momento." : "These links aren’t available right now.")
             }

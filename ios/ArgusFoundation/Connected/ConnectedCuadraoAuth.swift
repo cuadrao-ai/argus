@@ -200,15 +200,20 @@ struct ConnectedCreateAccount: View {
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
-                            if let web = auth.configuration?.webURL {
+                            let legal = CuadraoLegalURLs.current
+                            if legal.hasPages {
                                 HStack(spacing: 20) {
-                                    Link(destination: web.appendingPathComponent("terms")) {
-                                        Text(spanish ? "Términos" : "Terms").underline().font(.footnote)
-                                            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                                    if let terms = legal.terms {
+                                        Link(destination: terms) {
+                                            Text(spanish ? "Términos" : "Terms").underline().font(.footnote)
+                                                .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                                        }.accessibilityIdentifier("cuadrao.signup.terms")
                                     }
-                                    Link(destination: web.appendingPathComponent("privacy")) {
-                                        Text(spanish ? "Privacidad" : "Privacy").underline().font(.footnote)
-                                            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                                    if let privacy = legal.privacy {
+                                        Link(destination: privacy) {
+                                            Text(spanish ? "Privacidad" : "Privacy").underline().font(.footnote)
+                                                .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                                        }.accessibilityIdentifier("cuadrao.signup.privacy")
                                     }
                                 }
                             }

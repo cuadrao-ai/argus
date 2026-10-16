@@ -5,7 +5,6 @@ import CuadraoBook
 struct GuestRoot: View {
     @ObservedObject var model: GuestBookModel
     @Binding var appearance: AppearancePreference
-    let webURL: URL?
     let leave: () -> Void
     let deleteData: () async -> Bool
     @Environment(\.locale) private var locale
@@ -19,7 +18,7 @@ struct GuestRoot: View {
         case .loading:
             WelcomePalette.brandPaper.ignoresSafeArea()
         case .ready:
-            GuestShell(model: model, appearance: $appearance, webURL: webURL, leave: leave, deleteData: deleteData)
+            GuestShell(model: model, appearance: $appearance, leave: leave, deleteData: deleteData)
                 .preferredColorScheme(appearance.colorScheme)
         case .newerVersion:
             notice(title: spanish ? "Actualiza Cuadrao para abrir este libro." : "Update Cuadrao to open this book.",
@@ -81,7 +80,6 @@ enum GuestDeleteCopy {
 struct GuestShell: View {
     @ObservedObject var model: GuestBookModel
     @Binding var appearance: AppearancePreference
-    let webURL: URL?
     let leave: () -> Void
     let deleteData: () async -> Bool
     @Environment(\.locale) private var locale
@@ -281,7 +279,7 @@ struct GuestShell: View {
         case .search:
             GuestSearchTab(model: model, scroll: searchScroll, active: tab == .search, open: open)
         case .profile:
-            GuestProfile(model: model, appearance: $appearance, path: $profilePath, webURL: webURL, leave: leave, deleteData: deleteData)
+            GuestProfile(model: model, appearance: $appearance, path: $profilePath, leave: leave, deleteData: deleteData)
                 .modifier(CuadraoNavigationScrollObserver(scroll: profileScroll, enabled: tab == .profile && profilePath.isEmpty))
         case .assistant:
             EmptyView()

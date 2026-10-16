@@ -3,8 +3,7 @@ import SwiftUI
 
 public struct ReleaseIdentityGallery: View {
     @Environment(\.locale) private var locale
-    private let webURL: URL?
-    public init(webURL: URL? = nil) { self.webURL = webURL }
+    public init() {}
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
 
     public var body: some View {
@@ -12,7 +11,7 @@ public struct ReleaseIdentityGallery: View {
             Section {
                 NavigationLink(spanish ? "Eliminar cuenta" : "Delete account") { DeletionFixture() }
                     .accessibilityIdentifier("identity.gallery.delete")
-                NavigationLink(spanish ? "Apple y Google" : "Apple and Google") { SocialFixture(webURL: webURL) }
+                NavigationLink(spanish ? "Apple y Google" : "Apple and Google") { SocialFixture() }
                     .accessibilityIdentifier("identity.gallery.social")
                 NavigationLink(spanish ? "Permiso para IA" : "AI permission") { ConsentFixture() }
                     .accessibilityIdentifier("identity.gallery.ai")
@@ -92,7 +91,6 @@ private struct DeletionFixture: View {
 }
 
 private struct SocialFixture: View {
-    let webURL: URL?
     @Environment(\.locale) private var locale
     @State private var state: ReleaseSocialSignInState = .idle
     @State private var hasInvite = true
@@ -103,7 +101,6 @@ private struct SocialFixture: View {
     }
     var body: some View {
         ReleaseSocialSignInView(state: state, pendingInvite: invite,
-                               webURL: webURL,
                                onSignIn: { provider, _ in state = .loading(provider) },
                                onSaveName: { _, _ in state = .savingName },
                                onContinue: { _ in continuing = true })
