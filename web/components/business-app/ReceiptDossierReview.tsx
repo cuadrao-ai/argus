@@ -20,7 +20,7 @@ import ReceiptReviewQuestions from "./ReceiptReviewQuestions";
 import ReceiptHistory from "./ReceiptHistory";
 import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
-import { formatMoney } from "./business-format";
+import { formatBusinessName, formatMoney } from "./business-format";
 import { handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
 import { cardClass, LoadingRows, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 
@@ -131,7 +131,7 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
   };
   return <section className={cardClass} aria-label={t("business.export.title", "Export Business records")}>
     <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.export.title", "Export Business records")}</h3>
-    <p className="mt-2 text-[13px] text-black/65 dark:text-white/65">{t("business.export.scope", "{{name}} · CSV, Excel and retained originals in one ZIP.", { name: dossier.space_name })}</p>
+    <p className="mt-2 text-[13px] text-black/65 dark:text-white/65">{t("business.export.scope", "{{name}} · CSV, Excel and retained originals in one ZIP.", { name: formatBusinessName(dossier.space_name, t("business.overview.title", "My business")) })}</p>
     <form className="mt-4 space-y-3" onSubmit={(event) => { event.preventDefault(); void download(); }}>
       <div className="grid grid-cols-2 gap-3">{[{ field: "start", value: from, setValue: setFrom }, { field: "end", value: to, setValue: setTo }].map(({ field, value, setValue }) => <label key={field} className="block text-[13px] text-black/65 dark:text-white/65">{t(`business.export.${field}`, field === "start" ? "From" : "Through")}<input type="date" required value={value} disabled={busy} onChange={(event) => setValue(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-black/15 bg-transparent px-2 text-black dark:border-white/20 dark:text-white" /></label>)}</div>
       <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.export.period_hint", "Choose 1–366 days, including both dates. Pending records are separate from recorded money; the manifest reports missing originals.")}</p>
@@ -307,7 +307,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     <ReceiptReviewFrame
       recordId={receipt?.id ?? draftId}
       back={recorded ? "expenses" : "inbox"}
-      eyebrow={dossier.space_name}
+      eyebrow={formatBusinessName(dossier.space_name, t("business.overview.title", "My business"))}
       title={title}
       badge={<span className="rounded-full bg-black/5 px-3 py-1.5 text-[12px] text-black/70 dark:bg-white/10 dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
       summary={<><p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{amount === null ? t("business.dossier.amount_unknown", "Amount unknown") : currency === null ? `${amount} · ${t("business.dossier.currency_unknown", "Currency unknown")}` : formatMoney(amount, currency, i18n.resolvedLanguage ?? "en")}</p><span className="text-[12px] text-black/50 dark:text-white/50">{t("business.dossier.revision", "Revision {{version}}", { version: factsRevision(dossier) })}</span></>}

@@ -6,7 +6,7 @@ import StarterActions from "@/components/chat/StarterActions";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useBusiness } from "./BusinessWorkspace";
 import { inboxCount } from "./inbox-count";
-import { formatDay, formatMoney, formatRelativeTime } from "./business-format";
+import { formatBusinessName, formatDay, formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows } from "./business-ui";
 import BusinessPeriodControl, { usePeriodLabel } from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
@@ -26,7 +26,7 @@ export default function BusinessOverviewPanel() {
     <section aria-labelledby="business-overview-title">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
-          {chosen?.name || t("business.overview.title", "My business")}
+          {formatBusinessName(chosen?.name, t("business.overview.title", "My business"))}
         </h2>
         <BusinessPeriodControl period={period} setPeriod={setPeriod} />
       </div>

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReceiptDetail } from "@/lib/business-api";
+import type { BusinessDataSource } from "@/components/business-app/business-data";
 
 // The real workspace and panel router over the sample source: every state of
 // a receipt opens the same review page (source on the left, fields and their
@@ -21,7 +22,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-async function mount() {
+async function mount(overrides: (fixture: BusinessDataSource) => Partial<BusinessDataSource> = () => ({})) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -42,6 +43,7 @@ async function mount() {
       const found = await fixture.receipt(id, signal);
       return id === "rcpt-saved" ? { ...found, email_original: false, activity: { state: "saved_unread", unread: true, completion_cursor: null } } : found;
     },
+    ...overrides(fixture),
   };
   let api: ReturnType<typeof useBusiness> | null = null;
   function Probe() {
@@ -85,6 +87,29 @@ async function mount() {
 }
 
 describe("one receipt review page", () => {
+  test("prepared and unread receipts show the saved English default in Spanish", async () => {
+    const page = await mount((fixture) => ({
+      dossier: async (id) => ({ ...await fixture.dossier(id), space_name: "My business" }),
+      receipt: async (id, signal) => {
+        const found = await fixture.receipt(id, signal);
+        assert.ok(found.record_context);
+        return { ...found, email_original: false, record_context: { ...found.record_context, space_name: "My business" } };
+      },
+    }));
+    const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+    for (const panel of [
+      { kind: "draft", draftId: dossierFixtureIds.ready },
+      { kind: "receipt", receiptId: "rcpt-saved" },
+    ] as const) {
+      await page.open(panel, () => page.frame().fields !== null);
+      const review = page.host.querySelector('[data-testid="business-record-review"]');
+      assert.ok(review?.querySelector("header")?.textContent?.includes("Mi negocio"));
+      assert.ok(!review?.textContent?.includes("My business"));
+      await page.open({ kind: "inbox" }, () => page.frame().count === 0);
+    }
+    await page.act(async () => page.root.unmount());
+  });
+
   test("a read receipt, a failed read and a receipt saved unread all open the same page", async () => {
     const page = await mount();
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");

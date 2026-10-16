@@ -2,6 +2,10 @@ import { currencyDigits, currencySymbol } from "@/lib/money-entry";
 
 const DECIMAL_AMOUNT = /^(-?)(\d+)(?:\.(\d+))?$/;
 
+export function formatBusinessName(name: string | null | undefined, fallback: string): string {
+  return !name?.trim() || name === "My business" ? fallback : name;
+}
+
 function separators(locale: string): { group: string; decimal: string } {
   try {
     const parts = new Intl.NumberFormat(locale).formatToParts(11111.1);

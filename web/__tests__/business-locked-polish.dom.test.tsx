@@ -114,6 +114,17 @@ describe("§1.8 line 100: the Business is named by its name, and Argus is not na
     await page.close();
   });
 
+  test("a saved English default uses the Spanish fallback without changing a custom name", async () => {
+    const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
+    for (const [saved, displayed] of [["My business", "Mi negocio"], ["My business supplies", "My business supplies"]]) {
+      const page = await mount(() => <BusinessOverviewPanel />, ownSpace(saved));
+      await page.settle(() => page.business().spaces !== null);
+      assert.equal(overviewTitle(page), displayed);
+      assert.equal(page.business().chosen?.name, saved, "the saved name remains unchanged");
+      await page.close();
+    }
+  });
+
   test("the name question asks how we should call you, in both languages", () => {
     assert.equal(SPANISH.get("settings.profile.preferred_name"), "¿Cómo quieres que te llamemos?");
     assert.equal(ENGLISH.get("settings.profile.preferred_name"), "What should we call you?");
