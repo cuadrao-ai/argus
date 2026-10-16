@@ -45,6 +45,7 @@ export function BusinessLanding({ locale }: { locale: BusinessLocale }) {
       className={`${styles.site} ${touchup.site}`}
       lang={locale === "es" ? "es-DO" : "en"}
       id="top"
+      data-page-background="business"
     >
       <BusinessHeader locale={locale} />
       <main id="business-main" tabIndex={-1}>
@@ -174,6 +175,7 @@ export function PersonalPage({ locale }: { locale: BusinessLocale }) {
       className={`${styles.site} ${styles.personalSite} ${touchup.site}`}
       lang={locale === "es" ? "es-DO" : "en"}
       id="top"
+      data-page-background="personal"
     >
       <BusinessHeader locale={locale} page="personal" />
       <main id="business-main" tabIndex={-1}>
