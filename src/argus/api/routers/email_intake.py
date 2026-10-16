@@ -12,6 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.concurrency import run_in_threadpool
+from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
 from argus.api.business import (
@@ -33,6 +34,7 @@ from argus.domain.ingestion.email_intake.signatures import (
     WebhookSignatureError,
     verify_webhook,
 )
+from argus.domain.ingestion.email_intake.store import RecipientTaken
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 
 webhook_router = APIRouter(prefix="/webhooks/resend", tags=["business-email"])
@@ -176,6 +178,10 @@ def _require_usable(request: Request, runtime: EmailCapture, route) -> None:  # 
         raise _problem(request, 409, error.code, detail) from None
 
 
+def _receiving_address(domain: str) -> str:
+    return f"recibos-{secrets.token_hex(16)}@{domain}"
+
+
 @router.post("", status_code=201)
 def create_receiving_address(
     request: Request,
@@ -223,13 +229,25 @@ def create_receiving_address(
         raise _problem(
             request, 403, error.code, "Your current access cannot receive email."
         ) from None
-    route = runtime.store.create_route(
-        recipient=f"recibos-{secrets.token_hex(4)}@{domain}",
-        space_id=space_id,
-        principal_id=actor.owner_id,
-        granted_by=context.scope.person_id,
-        grant_id=str(actor.grant_id),
-    )
+    # One initial attempt and at most three retries, each with fresh entropy.
+    for _ in range(4):
+        try:
+            route = runtime.store.create_route(
+                recipient=_receiving_address(domain),
+                space_id=space_id,
+                principal_id=actor.owner_id,
+                granted_by=context.scope.person_id,
+                grant_id=str(actor.grant_id),
+            )
+            break
+        except RecipientTaken:
+            # A rejected insert has no route id; never log its bearer address.
+            logger.bind(route_id=None).warning("email_route_collision")
+    else:
+        logger.bind(route_id=None).error("email_route_collision_exhausted")
+        raise _problem(
+            request, 503, "email_route_unavailable", "Email receiving is unavailable."
+        ) from None
     if route.granted_by != context.scope.person_id:
         _require_usable(request, runtime, route)
         response.status_code = 200
