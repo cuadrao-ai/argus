@@ -10,9 +10,10 @@ type Env = Record<string, string | undefined>;
 export async function handleReminderRequest(request: Request, env: Env, doFetch: typeof fetch = fetch): Promise<Response> {
   if (request.method !== "POST") return Response.json({ error: "method_not_allowed" }, { status: 405 });
   const key = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (env.SUPABASE_URL !== STAGING_URL || !key) return Response.json({ error: "unavailable" }, { status: 503 });
+  const schedulerKey = env.CUADRAO_WAITLIST_SCHEDULER_KEY?.trim();
+  if (env.SUPABASE_URL !== STAGING_URL || !key || !schedulerKey) return Response.json({ error: "unavailable" }, { status: 503 });
   const supplied = new TextEncoder().encode(request.headers.get("authorization") ?? "");
-  const expected = new TextEncoder().encode(`Bearer ${key}`);
+  const expected = new TextEncoder().encode(`Bearer ${schedulerKey}`);
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
