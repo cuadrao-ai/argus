@@ -3211,6 +3211,26 @@
         "marketing/components/WaitlistCaptcha.tsx",
         "marketing/.env*"
       ]
+    },
+    "codex/marketing-mobile-footer-crop": {
+      "description": "Mobile shared footer crop parity with the Spanish home reference; desktop and colors unchanged.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "marketing/components/business.module.css",
+        "marketing/e2e/footer-crop.spec.ts",
+        "docs/reports/evidence/marketing-footer-crop/**"
+      ],
+      "deny": [
+        "web/**",
+        "src/**",
+        "supabase/**",
+        "render.yaml",
+        "marketing/content/**",
+        "marketing/lib/**",
+        "marketing/components/business-footer.tsx",
+        "marketing/components/personal-early-access.tsx"
+      ]
     }
   }
 }
