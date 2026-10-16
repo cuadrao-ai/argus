@@ -2179,6 +2179,48 @@
         "web/.env.local"
       ]
     },
+    "codex/lane09-item6-navigation": {
+      "description": "Lane09 item6 and final9a-9h Business navigation and keyboard shortcuts. Optional shared shell and registry methods only; existing receipt callback registration and focus handoff, no approval/auth/API changes. Root owns reconciliation, independent Eval, merge and staging.",
+      "base_ref": "9104dc11b39be993089c3c402061ea63eb51ed9f",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/reports/evidence/lane09-item6/**",
+        "web/__tests__/business-approve-next.dom.test.tsx",
+        "web/__tests__/business-switcher.dom.test.tsx",
+        "web/__tests__/workspace-keyboard-shortcuts.test.ts",
+        "web/components/business-app/BusinessBottomTabs.tsx",
+        "web/components/business-app/BusinessPanel.tsx",
+        "web/components/business-app/BusinessReviewShortcuts.tsx",
+        "web/components/business-app/BusinessSectionActions.tsx",
+        "web/components/business-app/BusinessSidebarNav.tsx",
+        "web/components/business-app/BusinessSwitcher.tsx",
+        "web/components/business-app/BusinessWorkspace.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/ReceiptReviewPanel.tsx",
+        "web/components/business-app/bandeja-order.ts",
+        "web/components/business-app/business-keyboard-shortcuts.ts",
+        "web/components/chat/ChatInterface.tsx",
+        "web/components/chat/ChatWorkspace.tsx",
+        "web/components/chat/WorkspaceMain.tsx",
+        "web/components/keyboard/useChatKeyboardShortcuts.ts",
+        "web/components/sidebar/ChatSidebar.tsx",
+        "web/components/sidebar/KeyboardShortcutsOverlay.tsx",
+        "web/components/sidebar/SidebarNavButton.tsx",
+        "web/e2e/business-navigation-focus.spec.ts",
+        "web/e2e/business-navigation-shortcuts.spec.ts",
+        "web/e2e/business-navigation.playwright.config.ts",
+        "web/e2e/support/breakpoint-fixture.ts",
+        "web/lib/keyboard-shortcuts.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "ios/**",
+        "supabase/migrations/**",
+        "src/**",
+        "marketing/**"
+      ]
+    },
     "codex/receipt-auto-read-activity": {
       "description": "Business owner consent for automatic receipt reading across email, WhatsApp and uploads, with canonical per-person receipt activity and visible Inbox refresh.",
       "base_ref": "origin/codex/private-alpha-next",

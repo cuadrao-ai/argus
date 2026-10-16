@@ -5,7 +5,7 @@ import { conversationPreviewText } from "@/lib/conversation-preview-display";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useChatAvailable, useConversationSurface, type ChatShellView } from "@/components/chat/ChatWorkspace";
+import { useChatWorkspace, useChatAvailable, useConversationSurface, type ChatShellView } from "@/components/chat/ChatWorkspace";
 import {
   ChevronDown,
   History,
@@ -200,6 +200,7 @@ export default function ChatSidebar({
   const { t, i18n } = useTranslation();
   const surface = useConversationSurface();
   const chatAvailable = useChatAvailable();
+  const workspaceShortcuts = useChatWorkspace()?.keyboardShortcuts;
   const { selectPresentation, selectAggregatePresentation, selectOperationLabel } =
     useConversationActivityPresentation();
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -367,7 +368,7 @@ export default function ChatSidebar({
   );
   const { isQuickJumpActive, numberFor } = useQuickJump({
     enabled:
-      chatAvailable &&
+      chatAvailable && !workspaceShortcuts &&
       isOpen &&
       isRecentsExpanded &&
       renamingId === null &&
@@ -523,7 +524,7 @@ export default function ChatSidebar({
 
       <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-[6px] pb-4 pt-2">
         {/* Main Navigation */}
-        {chatAvailable && (
+        {chatAvailable && !workspaceShortcuts && (
           <SidebarNavButton
             icon={MessageCirclePlus}
             label={t("chat.new_chat")}
@@ -543,7 +544,7 @@ export default function ChatSidebar({
             label={t("common.search", "Search")}
             collapsed={!isOpen}
             shortcutHint={keyboardShortcutHintDisplay("omnisearch", usesCommandKey)}
-            showShortcutHint={shortcutHintsVisible}
+            showShortcutHint={Boolean(workspaceShortcuts) || shortcutHintsVisible}
             onClick={onOpenSearch}
             iconSize={20}
           />
@@ -552,7 +553,7 @@ export default function ChatSidebar({
         {primaryNav}
 
         {/* Recents Accordion */}
-        {chatAvailable && (
+        {chatAvailable && !workspaceShortcuts && (
           <div className="mb-2 mt-2">
             <SidebarNavButton
               icon={History}
