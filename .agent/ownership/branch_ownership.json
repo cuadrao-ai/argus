@@ -3065,6 +3065,34 @@
         "ios/**",
         "marketing/**"
       ]
+    },
+    "codex/waitlist-supabase-scheduling": {
+      "description": "Staging Supabase cron retention and authenticated reminder Edge Function. Root owns merge, deployment, and scheduled hosted proof.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/specs/cuadrao-personal-waitlist.md",
+        "marketing/lib/forms/config.ts",
+        "marketing/lib/forms/validation.ts",
+        "marketing/lib/waitlist/email.ts",
+        "marketing/lib/waitlist/service.ts",
+        "marketing/lib/waitlist/store.ts",
+        "marketing/lib/waitlist/types.ts",
+        "marketing/lib/waitlist/reminders.ts",
+        "marketing/scripts/waitlist-maintenance.ts",
+        "marketing/tsconfig.json",
+        "marketing/__tests__/waitlist-scheduler.test.ts",
+        "supabase/config.toml",
+        "supabase/functions/waitlist-reminders/**",
+        "supabase/tests/waitlist-scheduler.sql",
+        "supabase/migrations/20261017020000_waitlist_supabase_scheduling.sql"
+      ],
+      "deny": [
+        "web/**",
+        "ios/**",
+        "src/**"
+      ]
     }
   }
 }

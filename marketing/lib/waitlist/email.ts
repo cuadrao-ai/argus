@@ -1,8 +1,8 @@
-import { renderAccountEmail } from "../email/account-layout";
-import { PROVIDER_TIMEOUT_MS } from "../forms/config";
-import { unsubscribeHeaders, WAITLIST_EMAILS, type AutomaticWaitlistEmail } from "./email-content";
-import { makeWaitlistToken } from "./tokens";
-import type { WaitlistRow } from "./types";
+import { renderAccountEmail } from "../email/account-layout.ts";
+import { PROVIDER_TIMEOUT_MS } from "../forms/config.ts";
+import { unsubscribeHeaders, WAITLIST_EMAILS, type AutomaticWaitlistEmail } from "./email-content.ts";
+import { makeWaitlistToken } from "./tokens.ts";
+import type { WaitlistRow } from "./types.ts";
 
 export type WaitlistMailConfig = {
   apiKey: string;

@@ -77,10 +77,11 @@ branch directly. Required marketing-server configuration:
 - CUADRAO_WAITLIST_ORIGIN: the HTTPS marketing origin, staging for this release.
 - CUADRAO_WAITLIST_TURNSTILE_SITE_KEY and CUADRAO_WAITLIST_TURNSTILE_SECRET.
 
-Schedule `bun scripts/waitlist-maintenance.ts` hourly from the marketing root.
-It purges bounded batches first, then sends due reminders. Its output contains
-only aggregate counts. A failed send or job exits nonzero. Root owns scheduling
-and the first hosted checks; this writer has run only synthetic local deletion.
+Supabase Cron owns scheduled retention and reminders on staging. The SQL job
+calls the existing bounded purge RPC; a separate job invokes the authenticated
+Edge Function for reminders. The CLI is manual recovery only. See the
+[scheduler deployment and verification guide](../../supabase/functions/waitlist-reminders/README.md).
+Root owns activation and actual scheduled-run proof after integration merge.
 
 Run `bun test __tests__`, lint, typecheck, a production build, the marketing
 browser suite and `marketing/__tests__/waitlist-postgres.sql` in an isolated local
