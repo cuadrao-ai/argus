@@ -417,6 +417,7 @@ def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
         "argus-api",
         "argus-app",
         "cuadrao-web-staging",
+        "cuadrao-marketing-staging",
     }
     stage = _render_env("cuadrao-web-staging")
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
@@ -429,6 +430,26 @@ def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
     for entry in entries:
         if "value" in entry:
             assert stage[entry["name"]]["value"] == entry["value"]
+
+    marketing = next(
+        service
+        for service in render_config["services"]
+        if service["name"] == "cuadrao-marketing-staging"
+    )
+    assert marketing["plan"] == "free"
+    assert marketing["autoDeployTrigger"] == "off"
+    assert marketing["branch"] == "codex/private-alpha-next"
+    assert marketing["rootDir"] == "marketing"
+    assert marketing["buildCommand"] == (
+        "bun install --frozen-lockfile && bun run build --webpack"
+    )
+    assert marketing["startCommand"] == "bun run start -- -p $PORT"
+    assert _render_env("cuadrao-marketing-staging") == {
+        "CUADRAO_SITE_INDEXING": {
+            "key": "CUADRAO_SITE_INDEXING",
+            "value": "private",
+        }
+    }
 
 
 def test_render_web_declares_exact_server_only_https_app_origin() -> None:
