@@ -253,3 +253,30 @@ def test_explicitly_configured_factory_uses_event_adapter(monkeypatch):
     }.items():
         monkeypatch.setenv(name, value)
     assert isinstance(analytics_deletion_from_env(), PostHogEventDeletion)
+
+
+@pytest.mark.parametrize(
+    "failures,attempts,delays", [(0, 1, []), (1, 2, [0.1]), (3, 3, [0.1, 0.2])]
+)
+def test_transient_retries_are_bounded_and_keep_the_submission(
+    failures, attempts, delays, monkeypatch
+):
+    from argus.observability import analytics_deletion
+    from argus.observability.posthog_deletion import EventDeletionResult
+
+    calls, sleeps = [], []
+    submission = str(uuid4())
+
+    class Adapter:
+        def advance(self, distinct_id, submission_id, request_id):
+            calls.append((distinct_id, submission_id, request_id))
+            return EventDeletionResult("failed" if len(calls) <= failures else "pending")
+
+    monkeypatch.setattr(analytics_deletion.time, "sleep", sleeps.append)
+    result, count = analytics_deletion.advance_with_retry(
+        Adapter(), "synthetic", submission, None
+    )
+    assert count == attempts == len(calls)
+    assert len(set(calls)) == 1
+    assert sleeps == delays
+    assert result.outcome == ("failed" if failures == 3 else "pending")

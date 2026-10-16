@@ -404,6 +404,7 @@ def test_without_posthog_events_the_analytics_step_is_not_applicable(
     assert response.status_code == 200, response.text
     assert response.json() == {"status": "done", "pending": []}
     assert steps["analytics"] == "not_applicable"
+    assert steps["analytics_origin"] == "route_first_pass"
     assert steps["analytics_evidence"] == {"reason": "posthog_not_configured"}
     with psycopg.connect(DSN) as c:
         assert not c.execute(
@@ -518,7 +519,7 @@ def test_a_sweep_without_the_token_never_decides_a_step_the_api_never_reached(
     _still_locked_then_finish(lane, world)
 
 
-def test_forcing_the_analytics_step_without_the_token_records_operator_forced(
+def test_forcing_the_analytics_step_without_the_token_keeps_it_pending(
     lane,  # noqa: ANN001, F811
     world,  # noqa: ANN001, F811
     route,  # noqa: ANN001
@@ -536,11 +537,13 @@ def test_forcing_the_analytics_step_without_the_token_records_operator_forced(
             operator="on-call",
             confirm=True,
         )
-    assert result["forced"] is True
+    assert result["forced"] is False
     assert result["revoke_attempt"] == "analytics_adapter_unconfigured"
     steps = _run_steps(world["a"])
-    assert steps["analytics"] == "operator_forced"
-    assert steps["forced"]["analytics"]["operator"] == "on-call"
+    assert steps["analytics"] == "pending"
+    assert steps["analytics_origin"] == "force"
+    assert "analytics" not in steps.get("forced", {})
+    assert _auth_user_exists(world["a"])
     assert "analytics_evidence" not in steps
     _still_locked_then_finish(lane, world)
 
@@ -577,3 +580,97 @@ def test_a_later_pass_without_the_adapter_keeps_the_submitted_request(
     assert steps["analytics_evidence"]["request_id"] == "posthog-request-1"
     assert steps["analytics_evidence"]["provider_status"] == "queued"
     _still_locked_then_finish(lane, world)
+
+
+@pytest.fixture(autouse=True)
+def analytics_integrity():
+    """Check only this test's runs, including the durable completed receipts."""
+    with psycopg.connect(DSN) as c:
+        before = [
+            row[0]
+            for row in c.execute("select id from argus_private.account_deletion_runs")
+        ]
+    yield
+    with psycopg.connect(DSN) as c:
+        assert (
+            c.execute(
+                "select id from argus_private.account_deletion_runs "
+                "where not (id = any(%s::uuid[])) and completed_at is not null "
+                "and steps ->> 'analytics' = 'pending'",
+                (before,),
+            ).fetchall()
+            == []
+        )
+        assert (
+            c.execute(
+                "select id from argus_private.account_deletion_runs "
+                "where not (id = any(%s::uuid[])) "
+                "and steps ->> 'analytics' = 'not_applicable' "
+                "and (steps ->> 'analytics_origin') is distinct from 'route_first_pass'",
+                (before,),
+            ).fetchall()
+            == []
+        )
+
+
+@pytest.mark.parametrize("outcome", ["deleted", "failed"])
+def test_sweep_with_adapter_records_origin_and_bounded_attempts(
+    lane, world, route, monkeypatch, outcome  # noqa: F811
+):
+    _deployed(monkeypatch, posthog_token="synthetic-event-token")
+    response, _ = _delete_as_deployed(lane, world, route)
+    assert response.status_code == 202
+    with psycopg.connect(DSN) as c:
+        (target_id,) = c.execute(
+            "select id from argus_private.account_deletion_runs where user_id=%s",
+            (world["a"],),
+        ).fetchone()
+    calls = []
+
+    class Adapter:
+        def advance(self, distinct_id, submission_id, request_id):
+            calls.append((distinct_id, submission_id, request_id))
+            return EventDeletionResult(outcome=outcome)
+
+    admin = SqlAuthAdmin()
+    service = _service(
+        lane,
+        admin,
+        analytics=Adapter(),
+        allow_fake=False,
+        clock=lambda: NOW + timedelta(days=8),
+    )
+    try:
+        first = service.resume_pending()
+        with psycopg.connect(DSN) as c:
+            run_id, status, steps = c.execute(
+                "select id, status, steps from argus_private.account_deletion_runs "
+                "where id = %s",
+                (target_id,),
+            ).fetchone()
+        assert steps["analytics_origin"] == "sweep"
+        if outcome == "deleted":
+            assert first["done"] >= 1
+            assert status == "done"
+            assert steps["analytics_attempts"] == 1
+            assert not _auth_user_exists(world["a"])
+            service.resume_pending(idle_seconds=0)
+            assert len([call for call in calls if call[1] == str(target_id)]) == 1
+        else:
+            assert first["pending"] >= 1
+            assert status == "data_deleted"
+            assert steps["analytics"] == "pending"
+            assert steps["analytics_attempts"] == 3
+            assert steps["last_error"]["analytics"] == "analytics_delete_failed"
+            target_calls = [call for call in calls if call[1] == str(target_id)]
+            assert len(target_calls) == 3
+            assert len(set(target_calls)) == 1
+            assert _auth_user_exists(world["a"])
+            _still_locked_then_finish(lane, world)
+        with psycopg.connect(DSN) as c:
+            assert c.execute(
+                "select count(*) from argus_private.account_deletion_runs where id=%s",
+                (run_id,),
+            ).fetchone() == (1,)
+    finally:
+        world["placeholders"] += admin.created
