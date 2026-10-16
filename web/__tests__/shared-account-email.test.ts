@@ -42,6 +42,16 @@ describe("shared account email layout", () => {
     expect(rendered.html).not.toContain('<p class="code"');
     expect(rendered.text).toContain("Este enlace vence en 48 horas.");
   });
+  test("only waitlist mail accepts the configured postal address", () => {
+    const address = "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.";
+    const rendered = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: link, postalAddress: address});
+    expect(rendered.text).toContain(address);
+    expect(rendered.html).toContain(address);
+    expect(rendered.html.indexOf(address)).toBeGreaterThan(rendered.html.indexOf("hola@cuadrao.ai"));
+    // @ts-expect-error Account mail cannot contain a postal address.
+    expect(() => renderAccountEmail({title: "Cuenta", paragraphs: [], postalAddress: address})).toThrow();
+    expect(renderAccountEmail({title: "Cuenta", paragraphs: []}).text).not.toContain(address);
+  });
   test("rejects script, credential and header-injection URLs", () => {
     for (const url of ["javascript:alert(1)", "https://user:pass@example.test", "https://example.test/\r\nx"]) {
       expect(() => renderAccountEmail({title: "x", paragraphs: [], action: {label: "x", url}})).toThrow();

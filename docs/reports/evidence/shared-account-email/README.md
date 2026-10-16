@@ -21,8 +21,8 @@ These drafts remove codes from non-signup subjects as required by the latest loc
 
 The screenshots use synthetic tokens and locally served wordmark assets. There
 are light and dark renders for six account actions and four waitlist templates.
-Waitlist copy comes from the separate waitlist writer. The launch preview has no
-body because no launch wording was supplied. It cannot send automatically.
+Waitlist copy comes from the separate waitlist writer. The waitlist footer uses the configured postal address and has no Business pitch.
+The launch preview has no body because no launch wording was supplied. It cannot send automatically.
 
 Local verification covers HTML escaping, unsafe URL refusal, unbroken codes,
 mutually exclusive waitlist unsubscribe and account code content, footer position,
@@ -36,7 +36,7 @@ Detection signals remain the existing Auth hook HTTP result and provider deliver
 status. No recipient, code, token or raw message is added to logs.
 
 Verification on the delivery tree passed 2,662 web tests in 276 files with 19,455
-assertions. The focused email set passed 17 tests. The production web build,
+assertions. The final focused email set passed 18 tests. The production web build,
 changed-file lint, whitespace checks and modularity budget passed. Twenty-two
 local screenshots show the old recovery layout and the new account and waitlist
 layouts in both color schemes. No hosted inbox result is claimed by these checks.
