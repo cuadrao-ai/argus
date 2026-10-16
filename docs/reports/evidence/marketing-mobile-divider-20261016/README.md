@@ -1,65 +1,59 @@
-# Mobile footer divider correction
+# Complete mobile footer wordmark
 
-The physical-phone retest after PR #1202 failed. Its previous mobile crop
-acceptance is superseded. This correction removes the extra horizontal divider
-above the outline wordmark on `/`, `/personal`, `/en`, and `/en/personal`.
-It does not claim to fix the remaining Safari toolbar crop.
+Lucas's latest October 16 decision supersedes the earlier screen-bottom crop
+target, its blocked status, and the divider-only evaluation at `a84e5206`.
+On `/`, `/personal`, `/en`, and `/en/personal`, mobile now shows the complete
+outline wordmark above Safari's floating toolbar. No divider appears directly
+above the wordmark at mobile or desktop sizes. Desktop keeps its existing crop.
 
-## Cause and change
+## Cause and shared correction
 
-PR #1202 extended the Business mobile crop rule to every page and added its
-1px border to Personal. The shared component already supplied the same wordmark
-markup and crop geometry to all four landing routes. Home had a lower-contrast
-version of the same divider.
+The fixed mobile crop box was shorter than the wordmark. Hidden overflow cut the
+letters, while the downward text translation pushed them farther below the box.
+The existing shared mobile rule now uses automatic height, visible overflow and
+`env(safe-area-inset-bottom)` as bottom padding. The mobile text translation is
+removed. This lets document scrolling reach the complete wordmark and its inset.
 
-The correction changes only `border-top` in the shared mobile rule to `0`.
-Desktop rules, wordmark markup, crop height, top padding, overflow and page
-colors stay unchanged. The footer test now rejects that extra mobile divider.
-It no longer repeats the crop height or padding values as acceptance criteria.
+The Business desktop border becomes transparent. Its original 1px box remains
+so the desktop letters do not move. Desktop crop height, text position, font,
+colors and overflow stay unchanged. All routes reuse the existing component.
+No viewport metadata, new copy, dependency or application behavior changes.
 
 ## Verification
 
-The fetched integration base and the refreshed integration tip are both
+The original and refreshed integration base are
 `5f793ad2dc4b8df97e91f4315dd20dab8a4cc884`. No reconciliation merge or semantic
-overlap exists. The failing test precedes the fix in commit
-`dc63a045dc557968e51fe2c44488c4a3cb2f5b3c`.
+overlap exists. New failing tests precede the fix at
+`f32416f8940275b185896969b6a12349258dac63`.
 
-- Four mobile routes failed with `Expected: "0px"`, `Received: "1px"` before the fix.
-- The corrected footer suites pass 74 tests across desktop and mobile Chromium.
-- Eight desktop comparisons across four routes and Chromium/WebKit are byte-identical.
-- Marketing lint, typecheck and production build pass.
-- Baseline unit tests pass 212, skip 4 and fail 0. The runtime delta is CSS only.
-- The modularity budget reports no violations on the would-be merged tree.
-- Read-only comment review reports zero comments or suppressions introduced.
+- Before the change, six focused cases failed and two passed. Both Business desktop dividers were visible; all four mobile wordmark boxes extended below the crop.
+- After the change, all 74 focused footer browser tests pass.
+- All 32 mobile geometry probes pass across four routes, widths of 320, 390, 430 and 800px, and Chromium/WebKit.
+- All eight desktop comparisons preserve wordmark pixels and relative crop geometry exactly. One initial absolute-coordinate check differed by 0.28px from fractional scrolling; the corrected relative-geometry probe passes all eight.
+- Marketing build, lint and typecheck pass. Unit tests pass 212, skip four and fail zero.
+- Modularity reports no violations. Read-only comment review reports no comments, suppressions or blocking source findings.
 
-The focused browser command uses mock-only local services:
+The root coordinator captured native iPhone 17e Safari on iOS 27.0 at 390×844.
+All four captures show complete letters above the visible floating toolbar and
+no divider directly above the wordmark. The other footer separators remain.
+The root reached document end through an id added to the existing crop by a
+local test proxy. No extra element or style was added for that anchor.
 
-```sh
-MARKETING_E2E_SITE_PORT=4793 MARKETING_E2E_PUBLIC_PORT=4794 \
-MARKETING_E2E_MOCK_PORT=4795 bun run test:e2e \
-  e2e/footer-crop.spec.ts e2e/footer.spec.ts e2e/footer-background.spec.ts --trace off
-```
+CUA finger gestures did not reach the simulated webpage. These captures prove
+native rendering after anchor navigation, not finger scrolling or physical-phone
+acceptance. The browser geometry tests inspect element boxes, not glyph ink;
+the native captures establish that the letters are visible. The tests do not
+claim that every device reports a nonzero safe-area inset.
 
-Media remains outside Git as requested. Local evidence is under
-`/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-safari-toolbar`.
-`targeted-green.log`, `divider-red.txt`, `desktop-parity.json`,
-`native-probe-results.md`, and the native screenshots record these checks.
-The root coordinator owns the final native captures, independent evaluation,
-exact-head CI, integration landing and staging decision.
+## Evidence and delivery
 
-## Safari toolbar item remains blocked
+Media remains outside Git as requested. Evidence lives under
+`/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/`.
+`footer-full-wordmark/` contains red/green logs, unit results and geometry/pixel
+probes. `footer-safari-toolbar/native-whole-{home,personal,en,en-personal}.jpg`
+contains the root's native captures. Earlier experiments remain historical
+records, not acceptance of the new target.
 
-Native iPhone 17e Safari on iOS 27.0 shows the hard crop above its floating toolbar
-on both the unchanged home and Personal pages. This does not reproduce the good
-home behavior reported on Lucas's physical phone.
-
-Temporary probes tested viewport coverage, visible overflow, an opaque Personal
-footer, and normal root overscroll. None produced the requested crop at the
-physical screen edge. These probes did not become source changes.
-
-The simulator accepted native address navigation to an id on the existing crop.
-CUA finger click, drag and scroll did not reach the simulated webpage. The
-captures therefore show native Safari chrome after anchor navigation, not the
-physical finger-scroll state. This limit prevents a toolbar acceptance claim.
-Lucas's phone retest still gates main promotion. No merge, deployment, public
-publication or paid provider call is part of this worker change.
+The root owns the fresh independent evaluation, exact-head CI, integration and
+staging actions. Lucas's physical-phone acceptance remains separate. This worker
+performs no merge, deployment, public publication or paid provider call.
