@@ -2504,7 +2504,6 @@
     },
     "inbox": {
       "empty_body": "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.",
-      "empty_title": "Estás al día",
       "error": "No pudimos cargar tu bandeja. Reintenta.",
       "notes_title": "Notas en revisión",
       "notes_subtitle": "Guardadas con tus palabras. Abre una para agregar datos o un recibo.",

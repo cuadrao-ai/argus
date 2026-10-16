@@ -30,11 +30,12 @@ type Options = {
   /** A 200 whose approval did not record. */
   unrecorded?: "failed" | "outcome_unknown";
   /** Holds the approval or the Bandeja read that follows it until release(). */
-  hold?: "approval" | "bandeja";
+  hold?: "approval" | "bandeja" | "next-receipt";
+  nextUnavailable?: "receipt" | "dossier";
   bandejaFails?: boolean;
 };
 
-async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaFails = false }: Options = {}) {
+async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaFails = false, nextUnavailable }: Options = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -90,8 +91,17 @@ async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaF
       const rows = pending();
       return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: rows.filter((item) => !item.email_original).length, needs_attention_count: 0 } };
     },
-    receipt: async (id: string) => structuredClone(receipts.find((item) => item.id === id)!),
-    dossier: async (id: string) => structuredClone(dossiers.get(id)!),
+    receipt: async (id: string) => {
+      if (id === "rcpt-dos") {
+        if (hold === "next-receipt") await held;
+        if (nextUnavailable === "receipt") throw Object.assign(new Error("unavailable"), { status: 503 });
+      }
+      return structuredClone(receipts.find((item) => item.id === id)!);
+    },
+    dossier: async (id: string) => {
+      if (id === "draft-rcpt-dos" && nextUnavailable === "dossier") throw Object.assign(new Error("unavailable"), { status: 503 });
+      return structuredClone(dossiers.get(id)!);
+    },
     approveDraft: async (id: string, version: number, key: string) => {
       approvals.push([id, version, key]);
       if (hold === "approval") await held;
@@ -235,6 +245,32 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.click("Aprobar y siguiente", () => page.heading() === "Dos" && document.activeElement?.id === "receipt-review-title");
     assert.equal(document.activeElement?.id, "receipt-review-title");
     assert.equal(document.activeElement?.textContent, "Dos");
+    await page.act(async () => page.root.unmount());
+  });
+
+  for (const nextUnavailable of ["receipt", "dossier"] as const) {
+    test(`an unavailable next ${nextUnavailable} never hands focus to a later receipt`, async () => {
+      const page = await mount({ nextUnavailable });
+      await page.open("rcpt-uno");
+      await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
+      assert.ok(page.host.querySelector('[data-testid="panel"] [role="alert"]'), "the next page failed to load");
+      await page.open("rcpt-tres");
+      assert.equal(page.heading(), "Tres");
+      assert.notEqual(document.activeElement?.id, "receipt-review-title", "manual navigation must not consume another receipt's focus handoff");
+      await page.act(async () => page.root.unmount());
+    });
+  }
+
+  test("leaving the next receipt while it loads never hands focus to a later page", async () => {
+    const page = await mount({ hold: "next-receipt" });
+    await page.open("rcpt-uno");
+    await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-dos");
+    assert.equal(page.heading(), null, "the intended receipt is still loading");
+    await page.act(async () => page.workspace().openPanel({ kind: "expenses" }));
+    await page.release();
+    await page.open("rcpt-tres");
+    assert.equal(page.heading(), "Tres");
+    assert.notEqual(document.activeElement?.id, "receipt-review-title");
     await page.act(async () => page.root.unmount());
   });
 

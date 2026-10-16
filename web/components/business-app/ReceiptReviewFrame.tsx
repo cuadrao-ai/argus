@@ -12,7 +12,8 @@ import { takeTitleFocus } from "./bandeja-order";
  * right. On a phone the source comes first and the fields follow. Every
  * state of a receipt renders inside this frame, read or not, prepared or not.
  */
-export default function ReceiptReviewFrame({ back, eyebrow, title, badge, summary, source, children }: {
+export default function ReceiptReviewFrame({ recordId, back, eyebrow, title, badge, summary, source, children }: {
+  recordId: string;
   back: "inbox" | "expenses";
   eyebrow?: ReactNode;
   title: ReactNode;
@@ -25,8 +26,8 @@ export default function ReceiptReviewFrame({ back, eyebrow, title, badge, summar
   const { openPanel } = useBusiness();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    if (takeTitleFocus()) heading.current?.focus();
-  }, []);
+    if (takeTitleFocus(recordId)) heading.current?.focus();
+  }, [recordId]);
   return (
     <section aria-labelledby="receipt-review-title" data-testid="business-record-review">
       <button type="button" onClick={() => openPanel({ kind: back })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/65">

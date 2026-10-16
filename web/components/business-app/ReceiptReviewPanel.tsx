@@ -11,6 +11,7 @@ import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
+import { takeTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
@@ -62,6 +63,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const [amountError, setAmountError] = useState<string | null>(null);
   const [unprepared, setUnprepared] = useState(false);
   const retainReceipt = useCallback(() => setUnprepared(true), []);
+  // Leaving a receipt before its frame renders cancels that receipt's handoff.
+  useEffect(() => () => { takeTitleFocus(receiptId); }, [receiptId]);
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -123,6 +126,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />) => (
     <ReceiptReviewFrame
+      recordId={receiptId}
       back={confirmed ? "expenses" : "inbox"}
       eyebrow={detail.record_context?.space_name || null}
       title={confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt")}

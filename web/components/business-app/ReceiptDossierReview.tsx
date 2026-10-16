@@ -269,7 +269,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       const fresh = await source.receipts("inbox").catch(() => null);
       if (!pageOpen.current) return;
       const next = fresh ? nextBandejaReceipt(receipt.id, seen, fresh) : null;
-      if (next) handTitleFocus();
+      if (next) handTitleFocus(next);
       openPanel(next ? { kind: "receipt", receiptId: next } : { kind: "inbox" });
     } finally {
       setAdvancing(false);
@@ -305,6 +305,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   return (<>
     {captureRecovery}
     <ReceiptReviewFrame
+      recordId={receipt?.id ?? draftId}
       back={recorded ? "expenses" : "inbox"}
       eyebrow={dossier.space_name}
       title={title}

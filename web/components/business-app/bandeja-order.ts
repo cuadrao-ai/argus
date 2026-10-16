@@ -21,15 +21,15 @@ export function nextBandejaReceipt(
   return bandejaReceipts(fresh).find((receipt) => receipt.id !== approvedId && order.indexOf(receipt.id) > position)?.id ?? null;
 }
 
-let titleFocusPending = false;
+let titleFocusPending: string | null = null;
 
-/** Aprobar y siguiente hands keyboard focus to the heading of the receipt it opens; the next review page to mount takes it once. */
-export function handTitleFocus(): void {
-  titleFocusPending = true;
+/** Only the receipt opened by Aprobar y siguiente can take its heading focus, once. */
+export function handTitleFocus(receiptId: string): void {
+  titleFocusPending = receiptId;
 }
 
-export function takeTitleFocus(): boolean {
-  const pending = titleFocusPending;
-  titleFocusPending = false;
-  return pending;
+export function takeTitleFocus(receiptId: string): boolean {
+  if (titleFocusPending !== receiptId) return false;
+  titleFocusPending = null;
+  return true;
 }
