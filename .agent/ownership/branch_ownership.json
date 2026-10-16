@@ -3174,7 +3174,8 @@
         "marketing/content/legal-waitlist-source/eliminar-datos.md",
         "marketing/lib/page-metadata.ts",
         "marketing/content/legal-waitlist-source/manifest.json",
-        "marketing/e2e/legal.spec.ts"
+        "marketing/e2e/legal.spec.ts",
+        "marketing/e2e/site.spec.ts"
       ],
       "deny": [
         "web/**",
