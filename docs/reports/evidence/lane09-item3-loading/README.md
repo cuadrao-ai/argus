@@ -105,9 +105,9 @@ No environment files, shared caches or other workers' processes were changed.
   approved strings and scope. Neither external brief was copied into the repo.
 - The existing [Argus design guide](../../../../.agent/designs/argus/DESIGN.md)
   supplies the shared mark sizing, calm motion and reduced-motion treatment.
-- [Apple HIG Loading](https://developer.apple.com/design/human-interface-guidelines/loading)
+- [Loading guidance](https://developer.apple.com/design/human-interface-guidelines/loading)
   and [Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility)
   were consulted for loading feedback and reduced motion.
-- The cited [Square skeleton reference](https://mobbin.com/screens/09371ef3-f0d0-4fc9-8ab1-607ab3d0e4ab)
+- The cited [Skeleton reference](https://mobbin.com/screens/09371ef3-f0d0-4fc9-8ab1-607ab3d0e4ab)
   was opened and visually inspected in the browser. Its content-shaped neutral
   placeholders informed the list layout.
