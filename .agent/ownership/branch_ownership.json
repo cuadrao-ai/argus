@@ -2908,6 +2908,28 @@
         "ios/**",
         "marketing/**"
       ]
+    },
+    "codex/lane08-pr1-migration-drift": {
+      "description": "Reconcile three applied staging migration identities and document merged-PR-only staging applies. No hosted writes or other schema changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "supabase/README.md",
+        "supabase/migrations/20261016010000_whatsapp_reply_grouping.sql",
+        "supabase/migrations/20261016065035_whatsapp_reply_grouping.sql",
+        "supabase/migrations/20261016180000_document_source_prefixes.sql",
+        "supabase/migrations/20261016090033_document_source_prefixes.sql",
+        "supabase/migrations/20261016142927_business_name_prompt.sql",
+        "docs/reports/evidence/cuadrao-business/lane08-pr1-migration-drift/**"
+      ],
+      "deny": [
+        ".env",
+        ".env.*",
+        "src/**",
+        "web/**",
+        "ios/**",
+        "marketing/**"
+      ]
     }
   }
 }
