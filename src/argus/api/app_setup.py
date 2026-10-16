@@ -18,6 +18,7 @@ from argus.api.chat.refusal_evidence import record_http_rejection
 from argus.api.dependencies import (
     ChatRequestBoundaryMiddleware,
     request_id_middleware,
+    validate_startup_configuration,
     validation_problem_body,
 )
 from argus.api.public_excerpts import EvidenceReceiptFlagGateMiddleware
@@ -51,6 +52,7 @@ def cors_allow_origins() -> list[str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_startup_configuration()
     validate_hosted_openrouter_configuration()
     checkpointer_cm = None
     if api_state.CHECKPOINTER_MODE == "postgres":

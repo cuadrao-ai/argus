@@ -30,6 +30,39 @@ from argus.api.schemas import CHAT_STREAM_MAX_BODY_BYTES, ChatStreamRequest, Use
 CHAT_STREAM_PATH = "/api/v1/chat/stream"
 
 
+def validate_startup_configuration() -> None:
+    enabled_flags = [
+        name
+        for name in (
+            "NEXT_PUBLIC_MOCK_AUTH",
+            "ARGUS_MOCK_AUTH",
+            "ARGUS_DEV_ENDPOINTS_ENABLED",
+        )
+        if os.getenv(name, "").strip().lower() == "true"
+    ]
+    if not enabled_flags:
+        return
+    environments = {
+        value
+        for name in ("APP_ENV", "ENVIRONMENT", "ARGUS_ENV", "ARGUS_APP_ENV")
+        if (value := os.getenv(name, "").strip().lower())
+    }
+    local = bool(environments) and environments <= {
+        "local",
+        "development",
+        "dev",
+        "test",
+        "local-smoke",
+    }
+    hosted = os.getenv("RENDER", "").strip().lower() == "true" or bool(
+        os.getenv("RENDER_SERVICE_ID", "").strip()
+    )
+    if not local or hosted:
+        reason = "local_environment_required_for_" + ",".join(enabled_flags)
+        logger.error("startup_config_refused{{reason={}}}", reason)
+        raise RuntimeError(reason)
+
+
 class ChatRequestBoundaryMiddleware:
     """Bound the chat ingress and validate it before FastAPI resolves dependencies."""
 

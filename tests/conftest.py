@@ -18,6 +18,7 @@ def _live_evals_requested() -> bool:
 
 @pytest.fixture(autouse=True)
 def mock_auth_env(monkeypatch):
+    monkeypatch.setenv("APP_ENV", os.getenv("APP_ENV", "test"))
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "true")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "true")
     monkeypatch.setenv("ARGUS_CONTEXT_PACKETS_ENABLED", "false")
