@@ -1,7 +1,11 @@
 # Personal app waitlist
 
 Owner: the personal waitlist lane. The root coordinator owns integration and
-staging deployment. The English signup CTA links to the Spanish form and collects no data. The old
+staging deployment. The English form draft uses the same fields, CAPTCHA and
+handler as Spanish. English copy must pass Iris review before go-live.
+The [English draft record](../reports/evidence/marketing-english-waitlist/README.md)
+contains the proposed strings and local proof. Existing approved Spanish
+waitlist emails remain unchanged until Product explicitly approves more scope. The old
 public signup route uses the same CAPTCHA and opt-in handler. The waitlist and all
 six legal routes ship together after an independent exact-head Eval. This PR has made no hosted write, send or purge.
 

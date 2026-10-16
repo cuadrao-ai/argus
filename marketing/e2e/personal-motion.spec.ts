@@ -58,6 +58,7 @@ test("failed and unexpected responses preserve the email without a flight, then 
 
 for (const locale of [
   { path: "/personal", invalid: "Revisa tu correo e inténtalo de nuevo." },
+  { path: "/en/personal", invalid: "Check your email address and try again." },
 ]) {
   for (const attempt of [
     { name: "empty click", email: "", enter: false },

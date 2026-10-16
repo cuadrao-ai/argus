@@ -11,7 +11,7 @@ import {
 
 const COPY = {
   es: { path: "/personal", button: "Avísame cuando pueda probarla", success: "Revisa tu correo." },
-  en: { path: "/en/personal", button: "Let me know when I can try it", success: "You're on the list." },
+  en: { path: "/en/personal", button: "Let me know when I can try it", success: "Check your email." },
 } as const;
 
 test.beforeEach(async ({ request, context, page }, info) => {
@@ -20,7 +20,7 @@ test.beforeEach(async ({ request, context, page }, info) => {
   await asNewClient(context, info);
 });
 
-for (const locale of ["es"] as const) {
+for (const locale of ["es", "en"] as const) {
   const copy = COPY[locale];
 
   test.describe(`personal signup ${locale}`, () => {
@@ -32,7 +32,7 @@ for (const locale of ["es"] as const) {
       await expect(page.getByRole("heading", { name: copy.success })).toBeFocused();
       const { signups } = await mockState(request);
       expect(signups).toHaveLength(1);
-      expect(signups[0]).toMatchObject({ email: address, language: locale });
+      expect(signups[0]).toMatchObject({ email: address, language: "es" });
       await expectNothingStoredInBrowser(page);
     });
 
@@ -83,13 +83,13 @@ for (const locale of ["es"] as const) {
   });
 }
 
-test("English signup links to the Spanish form and collects nothing", async ({ page, request }) => {
+test("English early access navigation stays on the English form", async ({ page }) => {
   await page.goto("/en/personal");
-  await expect(page.locator("main form")).toHaveCount(0);
-  const link = page.getByRole("link", { name: "Let me know when I can try it", exact: true });
-  await expect(link).toHaveAttribute("href", "/personal#early-access");
-  await link.click();
-  await expect(page).toHaveURL(/\/personal#early-access$/);
-  await expect(page.getByRole("textbox", { name: "Correo", exact: true })).toBeVisible();
-  expect((await mockState(request)).signups).toHaveLength(0);
+  const earlyAccess = page.locator("header").getByRole("link", { name: "Early access", exact: true }).filter({ visible: true });
+  if (await earlyAccess.count() === 0) await page.getByRole("button", { name: "Open menu", exact: true }).click();
+  await earlyAccess.click();
+  await expect(page).toHaveURL(/\/en\/personal#early-access$/);
+  await expect(page.getByRole("textbox", { name: "Email", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: COPY.en.button })).toBeVisible();
+  await expect(page.locator('main a[href="/personal#early-access"]')).toHaveCount(0);
 });
