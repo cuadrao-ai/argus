@@ -3,13 +3,13 @@ import { createFixtureBusinessDataSource } from "../components/business-app/fixt
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 const baseline = process.env.CUADRAO_PERSONAL_BASELINE === "true";
 const evidence = process.env.CUADRAO_PERSONAL_EVIDENCE_DIR;
-async function setup(page: Page, options: { editable?: boolean; personal?: boolean; owner?: boolean } = {}) {
+async function setup(page: Page, options: { editable?: boolean; personal?: boolean; owner?: boolean; needsAttention?: boolean } = {}) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   const original = await source.receipt("rcpt-ferreteria");
-  const receipt = { ...original, personal: options.personal ?? false, personal_editable: options.editable ?? true, version: 7 };
-  const state = { writes: [] as { version: number; personal: boolean; key: string | null }[], reads: 0, failed: false, release: null as (() => void) | null, hold: false };
+  const receipt = { ...original, draft_id: "fixture-draft", personal: options.personal ?? false, personal_editable: options.editable ?? true, status: options.needsAttention ? "needs_attention" as const : original.status, preparable: options.needsAttention ?? original.preparable, enterable: options.needsAttention ?? original.enterable, version: 7 };
+  const state = { preparations: 0, writes: [] as { version: number; personal: boolean; key: string | null }[], reads: 0, failed: false, release: null as (() => void) | null, hold: false };
   await page.route("**/api/v1/business/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.split("/business/")[1];
@@ -18,6 +18,7 @@ async function setup(page: Page, options: { editable?: boolean; personal?: boole
     if (path === "spaces") return route.fulfill({ json: { spaces: (await source.spaces()).slice(0, 1).map((space) => ({ ...space, role: options.owner === false ? "accountant" : space.role })) } });
     if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
     if (path === "receipts") return route.fulfill({ json: { items: [receipt], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 1, needs_attention_count: 0 } } });
+    if (path === `receipts/${receipt.id}/prepare`) { state.preparations++; return route.fulfill({ status: 503, json: { code: "synthetic_failure" } }); }
     if (path === `receipts/${receipt.id}`) { state.reads++; return route.fulfill({ json: receipt }); }
     if (path === `drafts/${receipt.draft_id}/personal`) {
       const body = request.postDataJSON();
@@ -48,6 +49,10 @@ for (const width of [1280, 390]) {
     const row = rowFor(page);
     await expect(row).toContainText("Ferretería");
     await capture(page, `inbox-${width}`);
+    if (!baseline) {
+      const name = row.locator("button > span.min-w-0 > span").first();
+      expect(await name.evaluate((element) => element.scrollLeft)).toBe(0);
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (baseline) {
       const toggle = row.getByRole("button", { name: "Marcar como personal", exact: true });
@@ -63,11 +68,17 @@ for (const width of [1280, 390]) {
     const openBox = (await row.getByRole("button").first().boundingBox())!;
     expect(box.y).toBeLessThan(openBox.y + openBox.height);
     await more.focus();
+    expect(await more.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe("none");
     await capture(page, `focus-${width}`);
     await page.keyboard.press("Enter");
     const mark = page.getByRole("menuitem", { name: "Marcar como personal", exact: true });
     await expect(mark).toBeFocused();
+    for (const key of ["ArrowDown", "ArrowUp", "Home", "End"]) {
+      await page.keyboard.press(key);
+      await expect(mark).toBeFocused();
+    }
     expect((await mark.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await capture(page, `menu-${width}`);
     await page.keyboard.press("Escape");
     await expect(more).toBeFocused();
@@ -134,3 +145,28 @@ test("pending and failed saves do not claim a Personal change", async ({ page })
   await expect(row.locator('[data-mark="personal"]')).toHaveCount(0);
   expect(state.writes).toHaveLength(1);
 });
+
+for (const width of [1280, 390]) {
+  test(`failed receipt keeps its recovery actions at ${width}px`, async ({ page }) => {
+    test.skip(baseline);
+    await page.setViewportSize({ width, height: 900 });
+    const { state } = await setup(page, { needsAttention: true });
+    await page.goto("/biz?view=inbox");
+    const row = rowFor(page);
+    await expect(row).toContainText("Necesita atención");
+    const retry = row.getByRole("button", { name: "Reintentar", exact: true });
+    const manual = row.getByRole("button", { name: "Escribir datos", exact: true });
+    for (const button of [retry, manual, row.getByRole("button", { name: "Más acciones", exact: true })]) {
+      await expect(button).toBeVisible();
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    await retry.click();
+    await expect(row.getByRole("alert")).toContainText("Tu recibo está guardado");
+    expect(state.preparations).toBe(1);
+    expect(state.writes).toHaveLength(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await capture(page, `recovery-${width}`);
+    await manual.click();
+    await expect(page).toHaveURL(/receipt=rcpt-ferreteria/);
+  });
+}
