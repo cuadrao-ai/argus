@@ -218,11 +218,23 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("approving the last row in the Bandeja opens the first one still waiting", async () => {
+  test("approving the last row returns to the Bandeja, which lists the rows skipped before it", async () => {
     const page = await mount();
     await page.open("rcpt-tres");
-    await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-uno");
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
+    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
+    await page.settle(() => false);
+    assert.deepEqual(page.panel(), { kind: "inbox" }, "no jump back to an earlier row");
+    const rows = page.host.querySelector('[data-testid="business-inbox-receipts"]')?.textContent ?? "";
+    assert.ok(rows.includes("Uno") && rows.includes("Dos") && !rows.includes("Tres"), rows);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("after advancing, keyboard focus is on the next receipt's heading", async () => {
+    const page = await mount();
+    await page.open("rcpt-uno");
+    await page.click("Aprobar y siguiente", () => page.heading() === "Dos" && document.activeElement?.id === "receipt-review-title");
+    assert.equal(document.activeElement?.id, "receipt-review-title");
+    assert.equal(document.activeElement?.textContent, "Dos");
     await page.act(async () => page.root.unmount());
   });
 
@@ -233,9 +245,9 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
     await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
-    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && (page.host.textContent ?? "").includes("Estás al día"));
+    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && (page.host.textContent ?? "").includes("Todo revisado"));
     assert.deepEqual(page.panel(), { kind: "inbox" });
-    assert.ok((page.host.textContent ?? "").includes("Estás al día"), "the Bandeja shows its existing empty state");
+    assert.ok((page.host.textContent ?? "").includes("Todo revisado"), "the empty Bandeja says everything is reviewed");
     assert.equal(page.badge(), null, "the badge shows no number once the server counts nothing waiting");
     await page.act(async () => page.root.unmount());
   });

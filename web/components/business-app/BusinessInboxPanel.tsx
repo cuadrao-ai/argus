@@ -196,7 +196,7 @@ export default function BusinessInboxPanel() {
       ) : items.length === 0 && notes.length === 0 && !records.notesError ? (
         <div className={`${cardClass} text-center`}>
           <p className="font-display text-[18px] font-medium text-black dark:text-white">
-            {t("business.inbox.empty_title", "You're all caught up")}
+            {t("business.inbox.all_reviewed", "All reviewed")}
           </p>
           <p className="mt-1 text-[14px] text-black/55 dark:text-white/55">
             {t("business.inbox.empty_body", "Upload a receipt or send one by WhatsApp. It will wait here for your review.")}

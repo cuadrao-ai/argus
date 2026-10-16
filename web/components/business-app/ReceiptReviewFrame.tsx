@@ -1,9 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useBusiness } from "./BusinessWorkspace";
+import { takeTitleFocus } from "./bandeja-order";
 
 /**
  * The one receipt review page: a way back, the record's name and standing,
@@ -22,6 +23,10 @@ export default function ReceiptReviewFrame({ back, eyebrow, title, badge, summar
 }) {
   const { t } = useTranslation();
   const { openPanel } = useBusiness();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (takeTitleFocus()) heading.current?.focus();
+  }, []);
   return (
     <section aria-labelledby="receipt-review-title" data-testid="business-record-review">
       <button type="button" onClick={() => openPanel({ kind: back })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/65">
@@ -31,7 +36,7 @@ export default function ReceiptReviewFrame({ back, eyebrow, title, badge, summar
       <header className="mb-5">
         {eyebrow ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{eyebrow}</p> : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="receipt-review-title" className="min-w-0 break-words font-display text-[25px] font-medium tracking-tight text-black dark:text-white">{title}</h2>
+          <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className="min-w-0 break-words rounded-md font-display focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/30 text-[25px] font-medium tracking-tight text-black dark:text-white">{title}</h2>
           {badge}
         </div>
         {summary ? <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">{summary}</div> : null}

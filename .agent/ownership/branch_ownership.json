@@ -2,7 +2,7 @@
   "default_base_ref": "codex/alpha-functional",
   "branches": {
     "claude/business-approved-version": {
-      "description": "Lane a: a recorded Business approval names the facts revision that was approved (approved_revision) and when (approved_at), not the latest revision a later mark added. Backend owns the value; the receipt review renders it with the existing recorded line plus the existing recorded-on line. No migration, model-facing text or Field descriptions.",
+      "description": "Lane a: a recorded Business approval names the facts revision that was approved (approved_revision) and when (approved_at), not the latest revision a later mark added; the receipt review renders both. Aprobar y siguiente stops at the last row and returns to the Bandeja (no wrap-around), the empty Bandeja reads Todo revisado, and focus moves to the next receipt's heading (#1154). No migration, model-facing text or Field descriptions.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
@@ -15,7 +15,13 @@
         "web/lib/business-dossier.ts",
         "web/components/business-app/ReceiptDossierReview.tsx",
         "web/components/business-app/dossier-fixtures.ts",
-        "web/__tests__/business-approved-revision.dom.test.tsx"
+        "web/__tests__/business-approved-revision.dom.test.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/bandeja-order.ts",
+        "web/components/business-app/ReceiptReviewFrame.tsx",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json",
+        "web/__tests__/business-approve-next.dom.test.tsx"
       ],
       "deny": [
         ".env",
@@ -23,8 +29,7 @@
         "ios/**",
         "supabase/migrations/**",
         "marketing/**",
-        "web/components/business-app/RecordExpenseDialog.tsx",
-        "web/public/locales/**"
+        "web/components/business-app/RecordExpenseDialog.tsx"
       ]
     },
     "claude/business-accountant-first-signin": {

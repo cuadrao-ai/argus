@@ -2531,7 +2531,8 @@
       "note_more_one": "{{count}} earlier note",
       "note_more_other": "{{count}} earlier notes",
       "empty_title": "You're all caught up",
-      "empty_body": "Upload a receipt or send one by WhatsApp. It will wait here for your review."
+      "empty_body": "Upload a receipt or send one by WhatsApp. It will wait here for your review.",
+      "all_reviewed": "All reviewed"
     },
     "email": {
       "title": "Received emails",

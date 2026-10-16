@@ -2513,7 +2513,8 @@
       "note_more_one": "{{count}} nota anterior",
       "note_more_other": "{{count}} notas anteriores",
       "subtitle": "Recibos que esperan tu revisión. Nada aquí es un gasto hasta que lo confirmes.",
-      "title": "Bandeja"
+      "title": "Bandeja",
+      "all_reviewed": "Todo revisado"
     },
     "email": {
       "title": "Correos recibidos",

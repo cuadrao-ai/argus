@@ -21,7 +21,7 @@ import ReceiptHistory from "./ReceiptHistory";
 import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { formatMoney } from "./business-format";
-import { nextBandejaReceipt } from "./bandeja-order";
+import { handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
 import { cardClass, LoadingRows, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
@@ -269,6 +269,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       const fresh = await source.receipts("inbox").catch(() => null);
       if (!pageOpen.current) return;
       const next = fresh ? nextBandejaReceipt(receipt.id, seen, fresh) : null;
+      if (next) handTitleFocus();
       openPanel(next ? { kind: "receipt", receiptId: next } : { kind: "inbox" });
     } finally {
       setAdvancing(false);
