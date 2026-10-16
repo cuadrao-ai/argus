@@ -11,7 +11,7 @@ const PROCESSORS = ["Render", "Resend", "Apple", "Supabase", "Cloudflare"] as co
 const sectionText = (section: { paragraphs?: string[]; items?: string[] }) =>
   [...(section.paragraphs ?? []), ...(section.items ?? [])].join("\n");
 
-describe.each(LOCALES)("privacy text (%s)", (locale) => {
+describe.each(["en"] as const)("privacy text (%s)", (locale) => {
   const copy = privacyCopy[locale];
   const byId = (id: string) => {
     const section = copy.sections.find((candidate) => candidate.id === id);

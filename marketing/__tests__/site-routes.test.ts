@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   LOCALES,
   PAGES,
+  pagesForLocale,
   SITE_ORIGIN,
   SITE_ROUTES,
   alternateLanguages,
@@ -22,6 +23,8 @@ describe("public URL map", () => {
       "/personal",
       "/contacto",
       "/privacidad",
+      "/terminos",
+      "/eliminar-datos",
       "/en",
       "/en/personal",
       "/en/contact",
@@ -36,7 +39,7 @@ describe("public URL map", () => {
   });
 
   test.each(LOCALES)("slugs resolve back to their page in %s", (locale) => {
-    for (const page of PAGES) {
+    for (const page of pagesForLocale(locale)) {
       expect(pageFromSlug(locale, slugSegments(locale, page))).toBe(page);
     }
   });
@@ -73,7 +76,8 @@ describe("alternates", () => {
   test.each(PAGES)("%s links both languages and defaults to Spanish", (page) => {
     const alternates = alternateLanguages(page);
     expect(alternates.es).toBe(pageUrl("es", page));
-    expect(alternates.en).toBe(pageUrl("en", page));
+    if (page === "terms" || page === "deletion") expect(alternates.en).toBeUndefined();
+    else expect(alternates.en).toBe(pageUrl("en", page));
     expect(alternates["x-default"]).toBe(alternates.es);
   });
 });

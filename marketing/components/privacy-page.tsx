@@ -1,14 +1,13 @@
 import { ArrowUpRight } from "lucide-react";
 import { BusinessHeader } from "./business-header";
 import { BusinessFooter } from "./business-footer";
-import type { BusinessLocale } from "./content";
 import { privacyCopy } from "./privacy-copy";
 import { htmlLang } from "@/lib/site-routes";
 import { businessContactEmail } from "./site-copy";
 import styles from "./business.module.css";
 import privacyStyles from "./privacy.module.css";
 
-export function PrivacyPage({ locale }: { locale: BusinessLocale }) {
+export function PrivacyPage({ locale }: { locale: "en" }) {
   const copy = privacyCopy[locale];
   return (
     <div className={styles.site} lang={htmlLang(locale)} id="top">

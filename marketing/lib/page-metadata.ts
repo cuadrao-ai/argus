@@ -5,7 +5,7 @@ type PageMetadata = { title: string; description: string };
 
 export const PAGE_METADATA: Record<
   BusinessLocale,
-  Record<BusinessPage, PageMetadata>
+  Record<BusinessPage, PageMetadata | null>
 > = {
   es: {
     home: {
@@ -22,6 +22,8 @@ export const PAGE_METADATA: Record<
       description:
         "Conoce Cuadrao Personal y deja tu correo para recibir noticias sobre el acceso anticipado.",
     },
+    terms: { title: "Términos | Cuadrao", description: "Términos de uso del sitio web de Cuadrao." },
+    deletion: { title: "Eliminar tus datos | Cuadrao", description: "Cómo pedir que borremos tus datos en Cuadrao." },
     privacy: {
       title: "Privacidad | Cuadrao",
       description:
@@ -43,6 +45,8 @@ export const PAGE_METADATA: Record<
       description:
         "Meet Cuadrao Personal and leave your email to hear about early access.",
     },
+    terms: null,
+    deletion: null,
     privacy: {
       title: "Privacy | Cuadrao",
       description:
