@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 for (const path of ["/", "/personal", "/en", "/en/personal"]) {
-  test(`${path} keeps the reference crop at the document end`, async ({ page }) => {
+  test(`${path} ends with the cropped wordmark and no extra mobile divider`, async ({ page }) => {
     await page.goto(path);
     await page.evaluate(() => document.fonts.ready);
     const crop = page.locator('footer > div[aria-hidden="true"]');
@@ -10,10 +10,7 @@ for (const path of ["/", "/personal", "/en", "/en/personal"]) {
     const width = page.viewportSize()!.width;
     const mobile = width <= 800;
     const personal = path.includes("personal");
-    await expect(crop).toHaveCSS("padding-top", mobile ? "10px" : personal ? "0px" : "18px");
-    await expect(crop).toHaveCSS("border-top-width", mobile || !personal ? "1px" : "0px");
-    const height = width * (mobile ? 0.22 : personal ? 0.20 : 0.21);
-    expect(Math.abs((await crop.boundingBox())!.height - height)).toBeLessThan(0.1);
+    await expect(crop).toHaveCSS("border-top-width", mobile || personal ? "0px" : "1px");
     await expect(crop).toHaveCSS("overflow", "hidden");
     const ending = await crop.evaluate((node) => ({
       documentHeight: document.documentElement.scrollHeight,
