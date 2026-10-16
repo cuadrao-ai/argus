@@ -63,6 +63,7 @@ for (const width of [1280, 390]) {
       await page.keyboard.press("Escape");
       await expect(dialog).toBeVisible();
       expect(state.invites).toBe(0);
+      await page.screenshot({ path: testInfo.outputPath(`business-name-required-${width}.png`) });
       await dialog.getByPlaceholder("Ej. Colmado La Esquina").fill("Colmado La Esquina");
       await dialog.getByRole("button", { name: "Guardar y continuar" }).click();
       await expect(dialog).toHaveCount(0);
@@ -74,6 +75,7 @@ for (const width of [1280, 390]) {
       await page.getByRole("button", { name: "Preferencias", exact: true }).click();
       await page.getByRole("button", { name: "¿Cómo se llama tu negocio?", exact: true }).click();
       await expect(dialog.getByRole("textbox")).toHaveValue("Colmado La Esquina");
+      await page.screenshot({ path: testInfo.outputPath(`business-name-settings-${width}.png`) });
       await dialog.getByRole("textbox").fill("Colmado La Esquina Norte");
       await dialog.getByRole("button", { name: "Guardar", exact: true }).click();
       await expect(dialog).toHaveCount(0);

@@ -2,7 +2,6 @@
 
 import { useBusinessNaming } from "./BusinessNamingProvider";
 
-
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 

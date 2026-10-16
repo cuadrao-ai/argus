@@ -18,7 +18,10 @@ export default function BusinessNamingProvider({ children }: { children: ReactNo
   const claims = useRef(new Map<string, Promise<BusinessNamePrompt>>());
   const ownerId = chosen?.role === "owner" && source.mode === "live" ? chosen.space_id : null;
   const current = useRef(ownerId);
-  useLayoutEffect(() => { current.current = ownerId; }, [ownerId]);
+  useLayoutEffect(() => {
+    current.current = ownerId;
+    return () => { current.current = null; };
+  }, [ownerId]);
 
   useEffect(() => {
     let active = true;

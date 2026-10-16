@@ -139,3 +139,14 @@ test("a late first-visit claim cannot replace a required continuation", async ()
     assert.equal(await ready!, false);
   } finally { await view.close(); }
 });
+
+test("leaving the Business while its required check is pending cancels the continuation", async () => {
+  const read = deferred<Response>();
+  const view = await mount(async (url, init) => String(url).endsWith("name-prompt") ? Response.json(state(JSON.parse(String(init?.body)).space_id)) : read.promise);
+  await view.render("owner-space");
+  let ready: Promise<boolean>;
+  await act(async () => { ready = view.naming().requireName(); });
+  await view.close();
+  await act(async () => read.resolve(Response.json(state("owner-space"))));
+  assert.equal(await Promise.race([ready!, new Promise(resolve => setTimeout(() => resolve("stranded"), 100))]), false);
+});

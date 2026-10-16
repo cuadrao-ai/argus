@@ -9,6 +9,7 @@ mock.module("@/lib/supabase-client", () => ({ getSupabaseClient: () => ({ auth: 
   getSession: () => new Promise(resolve => { releaseInitial = resolve; }),
 } }) }));
 mock.module("@/components/business-app/BusinessWorkspace", () => ({ BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children }));
+mock.module("@/components/business-app/BusinessNamingProvider", () => ({ default: ({ children }: { children: ReactNode }) => children }));
 mock.module("@/components/chat/ChatInterface", () => ({ default: () => <input aria-label="Account draft" defaultValue="" /> }));
 mock.module("@/components/chat/ConversationShellGuard", () => ({ default: () => null }));
 mock.module("@/components/business-app/ConversationUnavailableNotice", () => ({ default: () => null }));

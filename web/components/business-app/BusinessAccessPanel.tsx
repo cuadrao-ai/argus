@@ -2,7 +2,6 @@
 
 import { useBusinessNaming } from "./BusinessNamingProvider";
 
-
 import { useEffect, useState, type FormEvent } from "react";
 import { Mail, ShieldCheck, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";

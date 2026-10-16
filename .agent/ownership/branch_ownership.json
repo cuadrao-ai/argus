@@ -2827,19 +2827,21 @@
         "tests/test_business_name_prompt_postgres.py",
         "web/__tests__/bottom-sheet.test.tsx",
         "web/__tests__/business-naming-provider.dom.test.tsx",
+        "web/__tests__/fixtures/auth-account-transition/business-boundary.tsx",
+        "web/__tests__/mobile-shell-layout.test.tsx",
         "web/components/business-app/BusinessAccessPanel.tsx",
         "web/components/business-app/BusinessApp.tsx",
         "web/components/business-app/BusinessNameDialog.tsx",
         "web/components/business-app/BusinessNamingProvider.tsx",
         "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/business-name-copy.ts",
         "web/components/settings/BusinessNameSettings.tsx",
         "web/components/sidebar/ProfileMenu.tsx",
         "web/components/sidebar/ProfileSettingsPanels.tsx",
         "web/components/ui/AdaptivePanel.tsx",
         "web/components/ui/BottomSheet.tsx",
         "web/e2e/business-name-prompt.spec.ts",
-        "web/lib/business-naming-api.ts",
-        "web/public/locales/es-419/common.json"
+        "web/lib/business-naming-api.ts"
       ],
       "deny": [
         ".env",

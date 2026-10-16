@@ -625,14 +625,18 @@ describe("omnisearch below threshold", () => {
     expect(
       imported.map((match) => match[1]).filter((name) => !registry.includes(name)),
     ).toEqual([]);
+    const hasManagedSurface = (file: string, visited = new Set<string>()): boolean => {
+      if (visited.has(file)) return false;
+      visited.add(file);
+      const source = readFileSync(join(import.meta.dir, file), "utf-8");
+      if (/useModalSurface|AdaptivePanel|BottomSheet/.test(source)) return true;
+      return [...source.matchAll(/import (\w+) from "@\/components\/([\w/-]+)"/g)]
+        .some((match) => new RegExp(`<${match[1]}\\b`).test(source)
+          && hasManagedSurface(`../components/${match[2]}.tsx`, visited));
+    };
     const unmanaged = imported
       .map((match) => `../components/settings/${match[2]}.tsx`)
-      .filter(
-        (file) =>
-          !/useModalSurface|AdaptivePanel|BottomSheet/.test(
-            readFileSync(join(import.meta.dir, file), "utf-8"),
-          ),
-      );
+      .filter((file) => !hasManagedSurface(file));
     expect(unmanaged).toEqual([]);
   });
 
