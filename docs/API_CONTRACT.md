@@ -9123,6 +9123,12 @@ that web action as their answer source. Questions carry stable IDs, field, recip
 channel, state, prompt and allowed answer states. History includes readable actor
 and issuer labels with grant provenance, time and before/after facts. A failed
 history read is an error, never an empty successful history.
+A recorded `approval_result` carries `activity_id`, the approving `actor`,
+`reviewed_version` (the draft version the approval named, which also counts
+approvals and settlements), `approved_revision` (the latest `history` version
+at or below `reviewed_version`: the facts revision the person approved) and
+`approved_at` (when the approval receipt was written). Marks and 606 answers
+after approval add `history` revisions without changing either field.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
 and `Idempotency-Key`. The same existing

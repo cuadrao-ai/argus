@@ -94,6 +94,10 @@ class RecordedApproval(Contract):
     status: Literal["recorded"] = "recorded"
     activity_id: UUID
     reviewed_version: int = Field(ge=1)
+    #: The facts revision the person approved: the latest history version at or
+    #: below reviewed_version, which also counts approvals and settlements.
+    approved_revision: int = Field(ge=1)
+    approved_at: datetime
     actor: ActorProvenance
 
 

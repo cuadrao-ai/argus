@@ -7,17 +7,29 @@ export function bandejaReceipts<T extends Pick<ReceiptSummary, "email_original">
 
 /**
  * The receipt to open once `approvedId` has left the Bandeja: the first row
- * still waiting that followed it in the order the person saw, else the first
- * row still waiting. Null when nothing is left to review.
+ * still waiting that followed it in the order the person saw. Null past the
+ * last row, so the Bandeja opens and lists any row the person skipped.
  */
 export function nextBandejaReceipt(
   approvedId: string,
   seen: readonly Pick<ReceiptSummary, "id" | "email_original">[] | null,
   fresh: readonly Pick<ReceiptSummary, "id" | "email_original">[],
 ): string | null {
-  const waiting = bandejaReceipts(fresh).filter((receipt) => receipt.id !== approvedId);
   const order = (seen ?? []).map((receipt) => receipt.id);
   const position = order.indexOf(approvedId);
-  const after = position < 0 ? undefined : waiting.find((receipt) => order.indexOf(receipt.id) > position);
-  return (after ?? waiting[0])?.id ?? null;
+  if (position < 0) return null;
+  return bandejaReceipts(fresh).find((receipt) => receipt.id !== approvedId && order.indexOf(receipt.id) > position)?.id ?? null;
+}
+
+let titleFocusPending: string | null = null;
+
+/** Only the receipt opened by Aprobar y siguiente can take its heading focus, once. */
+export function handTitleFocus(receiptId: string): void {
+  titleFocusPending = receiptId;
+}
+
+export function takeTitleFocus(receiptId: string): boolean {
+  if (titleFocusPending !== receiptId) return false;
+  titleFocusPending = null;
+  return true;
 }

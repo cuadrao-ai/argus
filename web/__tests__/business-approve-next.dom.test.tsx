@@ -30,11 +30,12 @@ type Options = {
   /** A 200 whose approval did not record. */
   unrecorded?: "failed" | "outcome_unknown";
   /** Holds the approval or the Bandeja read that follows it until release(). */
-  hold?: "approval" | "bandeja";
+  hold?: "approval" | "bandeja" | "next-receipt";
+  nextUnavailable?: "receipt" | "dossier";
   bandejaFails?: boolean;
 };
 
-async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaFails = false }: Options = {}) {
+async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaFails = false, nextUnavailable }: Options = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -90,15 +91,24 @@ async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaF
       const rows = pending();
       return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: rows.filter((item) => !item.email_original).length, needs_attention_count: 0 } };
     },
-    receipt: async (id: string) => structuredClone(receipts.find((item) => item.id === id)!),
-    dossier: async (id: string) => structuredClone(dossiers.get(id)!),
+    receipt: async (id: string) => {
+      if (id === "rcpt-dos") {
+        if (hold === "next-receipt") await held;
+        if (nextUnavailable === "receipt") throw Object.assign(new Error("unavailable"), { status: 503 });
+      }
+      return structuredClone(receipts.find((item) => item.id === id)!);
+    },
+    dossier: async (id: string) => {
+      if (id === "draft-rcpt-dos" && nextUnavailable === "dossier") throw Object.assign(new Error("unavailable"), { status: 503 });
+      return structuredClone(dossiers.get(id)!);
+    },
     approveDraft: async (id: string, version: number, key: string) => {
       approvals.push([id, version, key]);
       if (hold === "approval") await held;
       if (refuse) throw Object.assign(new Error(refuse.code), refuse);
       const current = dossiers.get(id)!;
       if (unrecorded) return { ...structuredClone(current), approval_result: { status: unrecorded, code: "ledger_unavailable", reviewed_version: current.version } } as BusinessDossier;
-      const recorded: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_result: { status: "recorded", activity_id: `expense-${id}`, actor: { actor_id: "a", actor_kind: "owner", display_name: "Lucía", grant_id: "g", issuer_id: "a", issuer_display_name: "Lucía" } } as BusinessDossier["approval_result"] };
+      const recorded: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_result: { status: "recorded", activity_id: `expense-${id}`, reviewed_version: current.version, approved_revision: current.version, approved_at: "2026-10-10T14:40:00Z", actor: { actor_id: "a", actor_kind: "owner", display_name: "Lucía", grant_id: "g", issuer_id: "a", issuer_display_name: "Lucía" } } as BusinessDossier["approval_result"] };
       dossiers.set(id, recorded);
       receipts = receipts.map((item) => (item.draft_id === id ? { ...item, status: "confirmed", version: item.version + 1 } : item));
       return structuredClone(recorded);
@@ -218,11 +228,49 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("approving the last row in the Bandeja opens the first one still waiting", async () => {
+  test("approving the last row returns to the Bandeja, which lists the rows skipped before it", async () => {
     const page = await mount();
     await page.open("rcpt-tres");
-    await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-uno");
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
+    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
+    await page.settle(() => false);
+    assert.deepEqual(page.panel(), { kind: "inbox" }, "no jump back to an earlier row");
+    const rows = page.host.querySelector('[data-testid="business-inbox-receipts"]')?.textContent ?? "";
+    assert.ok(rows.includes("Uno") && rows.includes("Dos") && !rows.includes("Tres"), rows);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("after advancing, keyboard focus is on the next receipt's heading", async () => {
+    const page = await mount();
+    await page.open("rcpt-uno");
+    await page.click("Aprobar y siguiente", () => page.heading() === "Dos" && document.activeElement?.id === "receipt-review-title");
+    assert.equal(document.activeElement?.id, "receipt-review-title");
+    assert.equal(document.activeElement?.textContent, "Dos");
+    await page.act(async () => page.root.unmount());
+  });
+
+  for (const nextUnavailable of ["receipt", "dossier"] as const) {
+    test(`an unavailable next ${nextUnavailable} never hands focus to a later receipt`, async () => {
+      const page = await mount({ nextUnavailable });
+      await page.open("rcpt-uno");
+      await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
+      assert.ok(page.host.querySelector('[data-testid="panel"] [role="alert"]'), "the next page failed to load");
+      await page.open("rcpt-tres");
+      assert.equal(page.heading(), "Tres");
+      assert.notEqual(document.activeElement?.id, "receipt-review-title", "manual navigation must not consume another receipt's focus handoff");
+      await page.act(async () => page.root.unmount());
+    });
+  }
+
+  test("leaving the next receipt while it loads never hands focus to a later page", async () => {
+    const page = await mount({ hold: "next-receipt" });
+    await page.open("rcpt-uno");
+    await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-dos");
+    assert.equal(page.heading(), null, "the intended receipt is still loading");
+    await page.act(async () => page.workspace().openPanel({ kind: "expenses" }));
+    await page.release();
+    await page.open("rcpt-tres");
+    assert.equal(page.heading(), "Tres");
+    assert.notEqual(document.activeElement?.id, "receipt-review-title");
     await page.act(async () => page.root.unmount());
   });
 
@@ -233,9 +281,9 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
     await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
-    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && (page.host.textContent ?? "").includes("Estás al día"));
+    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && (page.host.textContent ?? "").includes("Todo revisado"));
     assert.deepEqual(page.panel(), { kind: "inbox" });
-    assert.ok((page.host.textContent ?? "").includes("Estás al día"), "the Bandeja shows its existing empty state");
+    assert.ok((page.host.textContent ?? "").includes("Todo revisado"), "the empty Bandeja says everything is reviewed");
     assert.equal(page.badge(), null, "the badge shows no number once the server counts nothing waiting");
     await page.act(async () => page.root.unmount());
   });

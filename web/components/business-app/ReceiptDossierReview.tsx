@@ -21,7 +21,7 @@ import ReceiptHistory from "./ReceiptHistory";
 import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { formatMoney } from "./business-format";
-import { nextBandejaReceipt } from "./bandeja-order";
+import { handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
 import { cardClass, LoadingRows, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
@@ -269,6 +269,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       const fresh = await source.receipts("inbox").catch(() => null);
       if (!pageOpen.current) return;
       const next = fresh ? nextBandejaReceipt(receipt.id, seen, fresh) : null;
+      if (next) handTitleFocus(next);
       openPanel(next ? { kind: "receipt", receiptId: next } : { kind: "inbox" });
     } finally {
       setAdvancing(false);
@@ -289,7 +290,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const accounts = dossier.accounts;
   const amount = dossier.facts.amount.state === "known" ? dossier.facts.amount.value : null;
   const currency = dossier.facts.currency.state === "known" ? dossier.facts.currency.value : null;
-  const recorded = dossier.approval_result?.status === "recorded";
+  const approval = dossier.approval_result?.status === "recorded" ? dossier.approval_result : null;
+  const recorded = approval !== null;
   const expense = dossier.facts.kind.state === "known" && dossier.facts.kind.value === "expense";
   const mutable = !capturePending && !captureOpen && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
   const canPrepare = dossier.capabilities.includes("prepare");
@@ -303,6 +305,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   return (<>
     {captureRecovery}
     <ReceiptReviewFrame
+      recordId={receipt?.id ?? draftId}
       back={recorded ? "expenses" : "inbox"}
       eyebrow={dossier.space_name}
       title={title}
@@ -328,7 +331,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           <ReceiptApprovalGuidance dossier={dossier} />
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
           <div className={cardClass}>
-            {recorded ? <><p role="status" className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: factsRevision(dossier) })}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{dossier.approval_result?.status === "recorded" ? t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: dossier.approval_result.actor.display_name, issuer: dossier.approval_result.actor.issuer_display_name }) : null}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p></> : <>
+            {approval ? <><div role="status"><p className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: approval.approved_revision })}</p><p className="mt-1 pl-6 text-[13px] text-black/65 dark:text-white/65">{t("business.expenses.recorded_on", "Recorded on {{when}}", { when: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" }).format(new Date(approval.approved_at)) })}</p></div><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: approval.actor.display_name, issuer: approval.actor.issuer_display_name })}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p></> : <>
               {canApprove && expense ? <div className="flex flex-wrap items-center gap-3">
                 {receipt ? <button type="button" className={primaryButtonClass} disabled={!approvable} onClick={() => void approveAndNext()}>{operation.kind === "approving" && advancing ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve_next", "Approve and next")}</button> : null}
                 <button type="button" className={receipt ? secondaryButtonClass : primaryButtonClass} disabled={!approvable} onClick={() => void write("approve")}>{operation.kind === "approving" && !advancing ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve", "Approve expense")}</button>

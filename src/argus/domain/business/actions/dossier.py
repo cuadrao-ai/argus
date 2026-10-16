@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from pydantic import TypeAdapter
@@ -10,6 +12,7 @@ from argus.domain.business.actions.marks import draft_marks
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
+    ApprovalResult,
     Blocker,
     BusinessDossier,
     DraftRevision,
@@ -108,6 +111,42 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
     return result
 
 
+def approval_of(
+    receipt: Mapping[str, Any] | None,
+    activity_id: UUID | None,
+    history: tuple[DraftRevision, ...],
+) -> ApprovalResult | None:
+    """What the latest approval receipt says: recorded once the draft holds its
+    activity, else the unsettled outcome it left, else nothing to show."""
+
+    if receipt is None:
+        return None
+    version = receipt["command"]["request"]["version"]
+    outcome = receipt["outcome"] or {}
+    if activity_id:
+        return RecordedApproval(
+            activity_id=activity_id,
+            reviewed_version=version,
+            approved_revision=max(
+                (item.version for item in history if item.version <= version),
+                default=version,
+            ),
+            approved_at=receipt["created_at"],
+            actor=receipt["actor"],
+        )
+    if outcome.get("outcome") == "outcome_unknown":
+        return UnsettledApproval(
+            status="outcome_unknown", reviewed_version=version, code=outcome["code"]
+        )
+    if outcome.get("outcome") not in {None, "applied", "replayed"}:
+        return UnsettledApproval(
+            status="failed",
+            reviewed_version=version,
+            code=outcome.get("code", "approval_failed"),
+        )
+    return None
+
+
 def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
     try:
         event = tx.imports.event(str(draft_id))
@@ -166,34 +205,19 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
     approval_filter = "" if pointer is None else " and actor_id=%s and idempotency_key=%s"
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
     approvals = tx.rows(
-        "select actor,command,outcome from public.business_action_receipts"
+        "select actor,command,outcome,created_at from public.business_action_receipts"
         " where space_id=%s and command->>'action' in ('approve_expense','approve_income')"
         " and command->>'draft_id'=%s"
         + approval_filter
         + " order by created_at desc limit 1",
         (tx.context.actor.space_id, str(draft_id), *approval_params),
     )
-    approval = None
-    if approvals:
-        row = approvals[0]
-        version = row["command"]["request"]["version"]
-        outcome = row["outcome"] or {}
-        if event.activity_id and event.accept_key:
-            approval = RecordedApproval(
-                activity_id=event.activity_id,
-                reviewed_version=version,
-                actor=row["actor"],
-            )
-        elif outcome.get("outcome") == "outcome_unknown":
-            approval = UnsettledApproval(
-                status="outcome_unknown", reviewed_version=version, code=outcome["code"]
-            )
-        elif outcome.get("outcome") not in {None, "applied", "replayed"}:
-            approval = UnsettledApproval(
-                status="failed",
-                reviewed_version=version,
-                code=outcome.get("code", "approval_failed"),
-            )
+    revisions = tuple(DraftRevision.model_validate(row) for row in history)
+    approval = approval_of(
+        approvals[0] if approvals else None,
+        event.activity_id if event.accept_key else None,
+        revisions,
+    )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
     return BusinessDossier(
         **context.model_dump(),
@@ -203,7 +227,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         facts=facts,
         sources=tuple(evidence),
         questions=questions,
-        history=tuple(DraftRevision.model_validate(row) for row in history),
+        history=revisions,
         blockers=tuple(blocked),
         approval_available=not blocked and "approve" in tx.authorization.capabilities,
         approval_result=approval,

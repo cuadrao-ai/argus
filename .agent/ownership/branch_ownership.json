@@ -1,6 +1,40 @@
 {
   "default_base_ref": "codex/alpha-functional",
   "branches": {
+    "claude/business-approved-version": {
+      "description": "Lane a: a recorded Business approval names the facts revision that was approved (approved_revision) and when (approved_at), not the latest revision a later mark added; the receipt review renders both. Aprobar y siguiente stops at the last row and returns to the Bandeja (no wrap-around), the empty Bandeja reads Todo revisado, and focus moves to the next receipt's heading (#1154). No migration, model-facing text or Field descriptions.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/api/openapi.yaml",
+        "src/argus/domain/business/actions/dossier.py",
+        "src/argus/domain/business/contracts/dossier.py",
+        "tests/business/test_approved_revision.py",
+        "tests/test_business_approved_version_postgres.py",
+        "web/lib/business-dossier.ts",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/dossier-fixtures.ts",
+        "web/__tests__/business-approved-revision.dom.test.tsx",
+        "web/components/business-app/BusinessInboxPanel.tsx",
+        "web/components/business-app/bandeja-order.ts",
+        "web/components/business-app/ReceiptReviewFrame.tsx",
+        "web/components/business-app/ReceiptReviewPanel.tsx",
+        "web/components/business-app/RecordExpenseDialog.tsx",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json",
+        "web/__tests__/business-approve-next.dom.test.tsx",
+        "web/__tests__/business-record-expense-account.dom.test.tsx",
+        "docs/reports/evidence/cuadrao-business/approved-revision-20261015/**"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "ios/**",
+        "supabase/migrations/**",
+        "marketing/**"
+      ]
+    },
     "claude/business-accountant-first-signin": {
       "description": "Issue #1081 accountant first sign-in: GET /business/spaces accepts the caller's pending invites through the one accept seam GET /me uses, plus a real-Postgres allowlist-mode route proof of the owner-to-accountant path. No migration, admission-policy, model-facing text, web or iOS changes.",
       "base_ref": "origin/codex/private-alpha-next",
