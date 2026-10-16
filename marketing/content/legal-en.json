@@ -1,6 +1,6 @@
 {
   "privacidad": {
-    "title": "Privacy Policy — Cuadrao website",
+    "title": "Privacy policy for the Cuadrao website",
     "blocks": [
       {
         "kind": "paragraph",
@@ -174,7 +174,7 @@
     ]
   },
   "eliminar-datos": {
-    "title": "Delete your data — Cuadrao",
+    "title": "Delete your data",
     "blocks": [
       {
         "kind": "paragraph",

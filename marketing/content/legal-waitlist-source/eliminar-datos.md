@@ -1,4 +1,4 @@
-# Eliminar tus datos — Cuadrao
+# Eliminar tus datos
 
 Vigente desde: 15 de octubre de 2026
 Última actualización: 16 de octubre de 2026
@@ -22,7 +22,7 @@ En caso de diferencia, prevalece la versión en español.
 
 ---
 
-# Delete your data — Cuadrao
+# Delete your data
 
 Effective: October 15, 2026
 Last updated: October 16, 2026

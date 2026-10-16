@@ -28,3 +28,7 @@ Native evidence is simulator Safari, not a physical-phone claim. The original sh
 [New verification artifacts](verification-artifacts.json) records the new native recordings and browser screenshots. Binary evidence lives outside the checkout under the shared sprint `footer-artifacts` directory. The old report links now point there. This keeps the checkout smaller but requires access to that local evidence directory.
 
 Model the Domain kept the existing page-background markers and made footer locale the sole credit-copy input. Prove It Works required native Safari swipes and hash comparisons, rather than inferring success from a build.
+
+## Approved legal titles
+
+The four privacy/deletion titles now match the exact Spanish and English text supplied by Lucas through Iris. Visible h1 and metadata title agree. The named `/workspace/cuadrao-legal-pages/marketing` source directory was unavailable on this Mac; the direct approved strings were used. Only those four source headings and their generated titles/hash records changed; legal paragraphs and terms headings are unchanged.

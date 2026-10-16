@@ -3167,7 +3167,14 @@
         "docs/reports/evidence/marketing-footer-routes/**",
         "marketing/components/business-footer.tsx",
         "marketing/components/touchup-shell.module.css",
-        "marketing/e2e/footer.spec.ts"
+        "marketing/e2e/footer.spec.ts",
+        "marketing/content/legal-es.json",
+        "marketing/content/legal-en.json",
+        "marketing/content/legal-waitlist-source/privacidad.md",
+        "marketing/content/legal-waitlist-source/eliminar-datos.md",
+        "marketing/lib/page-metadata.ts",
+        "marketing/content/legal-waitlist-source/manifest.json",
+        "marketing/e2e/legal.spec.ts"
       ],
       "deny": [
         "web/**",

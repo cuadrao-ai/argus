@@ -1,4 +1,4 @@
-# Política de privacidad — sitio web de Cuadrao
+# Política de privacidad del sitio web de Cuadrao
 
 Vigente desde: 15 de octubre de 2026
 Última actualización: 16 de octubre de 2026
@@ -78,7 +78,7 @@ En caso de diferencia, prevalece la versión en español. Preguntas: hola@cuadra
 
 ---
 
-# Privacy Policy — Cuadrao website
+# Privacy policy for the Cuadrao website
 
 Effective: October 15, 2026
 Last updated: October 16, 2026
