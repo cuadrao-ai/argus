@@ -9,7 +9,7 @@ def test_prompt_is_claimed_once_for_each_business():
     first, _ = store.create("owner", "Mi negocio")
     with ThreadPoolExecutor(max_workers=4) as workers:
         claims = list(
-            workers.map(lambda _: store.claim_name_prompt("owner", first.id), range(8))
+            workers.map(lambda _: store.claim_naming_visit("owner", first.id), range(8))
         )
     assert sum(claims) == 1
     assert store.open_space("owner").name == "Mi negocio"
@@ -20,19 +20,19 @@ def test_prompt_uses_current_owned_business():
     store = InMemorySpaceStore()
     own, _ = store.create("owner", "Mi negocio")
     other, _ = store.create("other", "Mi negocio")
-    assert not store.claim_name_prompt("owner", other.id)
+    assert not store.claim_naming_visit("owner", other.id)
     assert not store.open_space("owner").name_prompt_seen
-    assert store.claim_name_prompt("owner", own.id)
+    assert store.claim_naming_visit("owner", own.id)
 
 
 def test_custom_name_does_not_trigger_prompt_and_rename_preserves_seen():
     store = InMemorySpaceStore()
     space, _ = store.create("owner", "Colmado La Esquina")
-    assert not store.claim_name_prompt("owner", space.id)
+    assert not store.claim_naming_visit("owner", space.id)
     assert not space.name_required
     default, _ = store.create("new-owner", "My business")
     assert default.name_required
-    assert store.claim_name_prompt("new-owner", default.id)
+    assert store.claim_naming_visit("new-owner", default.id)
     renamed = store.rename("new-owner", "Colmado La Esquina")
     assert renamed.name_prompt_seen
     assert not renamed.name_required
@@ -81,7 +81,7 @@ def test_owner_prompt_persists_and_invite_requires_custom_name(biz, identities):
 def test_default_name_remains_required_after_skip(name):
     store = InMemorySpaceStore()
     space, _ = store.create("owner", name)
-    store.claim_name_prompt("owner", space.id)
+    store.claim_naming_visit("owner", space.id)
     assert store.open_space("owner").name_required
 
 

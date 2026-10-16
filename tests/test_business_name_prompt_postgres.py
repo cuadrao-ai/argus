@@ -37,7 +37,7 @@ def test_concurrent_claims_have_one_winner_and_survive_new_store(naming):
     with ThreadPoolExecutor(max_workers=8) as workers:
         claimed = list(
             workers.map(
-                lambda _: store.claim_name_prompt(owners[0], spaces[0]), range(16)
+                lambda _: store.claim_naming_visit(owners[0], spaces[0]), range(16)
             )
         )
     assert sum(claimed) == 1
@@ -52,7 +52,7 @@ def test_concurrent_claims_have_one_winner_and_survive_new_store(naming):
 
 def test_wrong_owner_and_closed_business_cannot_claim_or_rename(naming):
     store, owners, spaces = naming
-    assert not store.claim_name_prompt(owners[1], spaces[0])
+    assert not store.claim_naming_visit(owners[1], spaces[0])
     assert store.rename(owners[1], "Changed", spaces[0]) is None
     with psycopg.connect(DSN) as connection:
         connection.execute(
@@ -64,9 +64,9 @@ def test_wrong_owner_and_closed_business_cannot_claim_or_rename(naming):
                 (owners[0],),
             ).fetchone()[0]
         )
-    assert not store.claim_name_prompt(owners[0], spaces[0])
+    assert not store.claim_naming_visit(owners[0], spaces[0])
     assert store.rename(owners[0], "Changed", spaces[0]) is None
-    assert store.claim_name_prompt(owners[0], new)
+    assert store.claim_naming_visit(owners[0], new)
     assert store.open_space(owners[0]).id == new
 
 

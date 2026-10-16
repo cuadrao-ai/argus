@@ -191,7 +191,9 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
             _create(found, found.owner)
             _signed_in(found, found.owner)
             started = client.post(
-                f"{API}/business/space", json={}, headers=found.owner.headers
+                f"{API}/business/space",
+                json={"name": "Ferretería Prueba"},
+                headers=found.owner.headers,
             )
             assert started.status_code == 201, started.text
             found.space_id = started.json()["id"]

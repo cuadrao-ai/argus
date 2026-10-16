@@ -40,6 +40,10 @@ def _grant(alice: Owner, bob: Owner) -> str:  # noqa: F811
 
     store = business_access()
     assert store is not None
+    renamed = alice.client.patch(
+        BASE + "/space", json={"name": "Ferretería Prueba"}, headers=alice.auth
+    )
+    assert renamed.status_code == 200, renamed.text
     store.confirm(bob.person, "bob@example.test")
     given = alice.post("/access", {"email": "bob@example.test"})
     assert given.status_code == 201, given.text

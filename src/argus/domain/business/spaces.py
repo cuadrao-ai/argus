@@ -53,7 +53,7 @@ class SpaceStore(Protocol):
         """
         ...
 
-    def claim_name_prompt(self, person_id: str, space_id: str) -> bool: ...
+    def claim_naming_visit(self, person_id: str, space_id: str) -> bool: ...
 
     def rename(
         self, person_id: str, name: str, space_id: str | None = None
@@ -101,7 +101,7 @@ class PostgresSpaceStore:
             raise LookupError("business space vanished during create")
         return existing, False
 
-    def claim_name_prompt(self, person_id: str, space_id: str) -> bool:
+    def claim_naming_visit(self, person_id: str, space_id: str) -> bool:
         with self._pool.connection() as connection:
             row = connection.execute(
                 "update public.spaces set business_name_prompt_seen_at = now()"
@@ -147,7 +147,7 @@ class InMemorySpaceStore:
             self._spaces[person_id] = space
             return space, True
 
-    def claim_name_prompt(self, person_id: str, space_id: str) -> bool:
+    def claim_naming_visit(self, person_id: str, space_id: str) -> bool:
         with self._lock:
             space = self._spaces.get(person_id)
             if (

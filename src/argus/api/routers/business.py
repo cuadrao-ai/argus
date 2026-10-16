@@ -273,7 +273,7 @@ def claim_business_name_prompt(
     space = person.spaces.open_space(person.person_id)
     if space is None or space.id != str(body.space_id):
         raise space_missing_problem(request)
-    show = person.spaces.claim_name_prompt(person.person_id, str(body.space_id))
+    show = person.spaces.claim_naming_visit(person.person_id, str(body.space_id))
     current = person.spaces.open_space(person.person_id)
     if current is None or current.id != str(body.space_id):
         raise space_missing_problem(request)
