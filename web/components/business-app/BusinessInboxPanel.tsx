@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
@@ -10,7 +10,7 @@ import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
 import { bandejaReceipts } from "./bandeja-order";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel } from "./business-ui";
+import { cardClass, LoadingRows, PanelHeading, pillButtonClass, secondaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel } from "./business-ui";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
@@ -76,28 +76,44 @@ export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }:
   );
 }
 
-export function ReceiptRow({ receipt, onOpen, onMark }: { receipt: ReceiptSummary; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void }) {
+export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: ReceiptSummary; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void; onRetry?: () => Promise<void> }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const attentionLabel = useAttentionLabel();
   const Icon = receipt.media_type === "application/pdf" ? FileText : ImageIcon;
+  const needsAttention = receipt.status === "needs_attention";
+  const [retry, setRetry] = useState<"idle" | "retrying" | "failed">("idle");
+  const inFlight = useRef(false);
+  const tryAgain = async () => {
+    if (inFlight.current || !receipt.preparable || !onRetry) return;
+    inFlight.current = true;
+    setRetry("retrying");
+    try {
+      await onRetry();
+      setRetry("idle");
+    } catch {
+      setRetry("failed");
+    } finally {
+      inFlight.current = false;
+    }
+  };
   return (
     // On a phone the Personal toggle wraps under the row so the merchant keeps its column.
     <li className="flex flex-wrap items-center gap-1">
       <button
         type="button"
         onClick={onOpen}
-        className="flex min-w-0 flex-1 basis-80 items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]"
+        className={`flex min-w-0 flex-1 ${needsAttention ? "basis-full items-start" : "basis-80 items-center"} gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]`}
       >
         <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
           {receipt.activity?.state === "reading" ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[12px] border-2 border-teal-500/50 border-t-transparent motion-safe:animate-spin" /> : receipt.activity?.unread ? <span aria-hidden="true" data-testid="receipt-unread-dot" className="absolute right-0 top-0 h-2 w-2 rounded-full bg-teal-600" /> : null}
           <Icon className="h-5 w-5 text-black/55 dark:text-white/55" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-medium text-black dark:text-white">
+          <span className={`block ${needsAttention ? "break-words" : "truncate"} text-[15px] font-medium text-black dark:text-white`}>
             {receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt")}
           </span>
-          <span className="mt-0.5 flex items-center gap-1.5 truncate text-[13px] text-black/50 dark:text-white/50">
+          <span className={`mt-0.5 flex gap-1.5 ${needsAttention ? "items-start whitespace-normal break-words text-black/70 dark:text-white/75" : "items-center truncate text-black/50 dark:text-white/50"} text-[13px]`}>
             {receipt.channel === "whatsapp" ? (
               <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-label="WhatsApp" />
             ) : receipt.channel === "email" ? (
@@ -111,14 +127,25 @@ export function ReceiptRow({ receipt, onOpen, onMark }: { receipt: ReceiptSummar
                   : savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
                 : formatRelativeTime(receipt.received_at, locale)}
           </span>
+          {needsAttention ? <span className="mt-2 block"><StatusPill status={receipt.status} /></span> : null}
           <RecordMarks personal={receipt.personal} fiscalValue={receipt.fiscal_value} known={receipt.fiscal_known === true} markedBy={receipt.personal_marked_by} className="mt-1" />
         </span>
         <span className="hidden text-right text-[15px] font-medium tabular-nums text-black dark:text-white mobile:block">
           {formatMoney(receipt.amount, receipt.currency, locale)}
         </span>
-        <StatusPill status={receipt.status} />
+        {!needsAttention ? <StatusPill status={receipt.status} /> : null}
         <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" />
       </button>
+      {needsAttention && (receipt.enterable || (receipt.preparable && onRetry)) ? (
+        <div className="w-full min-w-0 px-3 pb-3">
+          {receipt.preparable && onRetry ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}</p> : null}
+          <div className="flex flex-wrap gap-2">
+            {receipt.preparable && onRetry ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={() => void tryAgain()}>{t("common.retry", "Retry")}</button> : null}
+            {receipt.enterable ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={onOpen}>{locale === "es-419" ? "Escribir datos" : t("business.actions.record_expense", "Record expense")}</button> : null}
+          </div>
+          {retry === "failed" ? <p role="alert" className="mt-2 break-words text-[13px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again.")}</p> : null}
+        </div>
+      ) : null}
       {onMark && receipt.personal_editable ? (
         <button
           type="button"
@@ -165,12 +192,12 @@ export function usePersonalMark() {
 
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
-  const { records, openPanel, actions, panel } = useBusiness();
+  const { records, openPanel, actions, panel, chosen, source, reload } = useBusiness();
   const personal = usePersonalMark();
   const items = records.inbox ? bandejaReceipts(records.inbox) : null;
   const notes = records.notes === null ? null : openNotesByDraft(records.notes);
 
-  const upload = actions.create.find((action) => action.id === "upload_receipt");
+  const upload = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
 
   return (
     <section>
@@ -180,7 +207,7 @@ export default function BusinessInboxPanel() {
         subtitle={t("business.inbox.subtitle", "Receipts waiting for you to review. Nothing here is an expense until you confirm it.")}
         action={
           upload ? (
-            <button type="button" className={primaryButtonClass} onClick={upload.run}>
+            <button type="button" data-testid="business-primary-upload" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>
               {upload.label}
             </button>
           ) : null
@@ -213,6 +240,9 @@ export default function BusinessInboxPanel() {
                   receipt={receipt}
                   onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
                   onMark={personal.mark}
+                  onRetry={async () => {
+                    try { await source.prepareReceipt(receipt.id); } finally { reload(); }
+                  }}
                 />
               ))}
             </ul>
