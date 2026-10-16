@@ -21,7 +21,8 @@
         "web/components/business-app/ReceiptReviewFrame.tsx",
         "web/public/locales/en/common.json",
         "web/public/locales/es-419/common.json",
-        "web/__tests__/business-approve-next.dom.test.tsx"
+        "web/__tests__/business-approve-next.dom.test.tsx",
+        "docs/reports/evidence/cuadrao-business/approved-revision-20261015/**"
       ],
       "deny": [
         ".env",

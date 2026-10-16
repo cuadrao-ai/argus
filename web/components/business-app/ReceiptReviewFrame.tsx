@@ -36,7 +36,7 @@ export default function ReceiptReviewFrame({ back, eyebrow, title, badge, summar
       <header className="mb-5">
         {eyebrow ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{eyebrow}</p> : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className="min-w-0 break-words rounded-md font-display focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/30 text-[25px] font-medium tracking-tight text-black dark:text-white">{title}</h2>
+          <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className="-mx-1.5 min-w-0 break-words rounded-md px-1.5 font-display focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/30 text-[25px] font-medium tracking-tight text-black dark:text-white">{title}</h2>
           {badge}
         </div>
         {summary ? <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">{summary}</div> : null}
