@@ -4,6 +4,7 @@ import XCTest
 /// While it is empty no screen shows a legal link; `--cuadrao-legal-test-urls` (Debug only) fills it with test pages.
 extension FinancialLoopUITests {
     private static let legalTestURLs = "--cuadrao-legal-test-urls"
+    private static let acceptanceSentence = "Al crear tu cuenta, aceptas los términos."
 
     private func launchLegal(testURLs: Bool, dark: Bool = false) {
         continueAfterFailure = false
@@ -62,6 +63,7 @@ extension FinancialLoopUITests {
             openSignUp()
             XCTAssertFalse(app.descendants(matching: .any)["cuadrao.signup.terms"].exists)
             XCTAssertFalse(app.descendants(matching: .any)["cuadrao.signup.privacy"].exists)
+            XCTAssertFalse(app.staticTexts[Self.acceptanceSentence].exists, "no acceptance sentence without both documents")
             capture("legal-registro-sin-enlaces-" + (dark ? "dark" : "light"))
         }
     }
@@ -71,6 +73,7 @@ extension FinancialLoopUITests {
         openSignUp()
         XCTAssertTrue(app.descendants(matching: .any)["cuadrao.signup.terms"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["cuadrao.signup.privacy"].exists)
+        XCTAssertTrue(app.staticTexts[Self.acceptanceSentence].exists, "the sentence returns with both documents")
         capture("legal-registro-con-enlaces")
     }
 
