@@ -84,7 +84,7 @@ Migration `supabase/migrations/20260920000000_cuadrao_early_access_signups.sql`.
 | `source` | `personal-page`, `operator-removal`. |
 | `created_at`, `notified_at`, `removed_at` | Registration, one availability notice sent, removal. |
 
-Checks make the table refuse inconsistent rows: an address exists exactly while `removed_at` is null, and the digest must equal the SHA-256 of the stored address. RLS is on with no policy, `anon` and `authenticated` hold no privilege, and `service_role` holds select, insert and update but not delete. The migration revokes from `service_role` explicitly because hosted Supabase grants it every privilege on new tables by default. Visitors have no Argus account, so nothing references `auth.users`.
+Checks make the table refuse inconsistent rows: an address exists exactly while `removed_at` is null, and the digest must equal the SHA-256 of the stored address. RLS is on with no policy, and `anon` and `authenticated` hold no privilege. The [personal waitlist migration](cuadrao-personal-waitlist.md) adds service-role delete to the original select, insert and update grants so removal and retention can erase the whole personal consent row. Existing legacy rows keep their suppression behavior. The original migration revokes from `service_role` explicitly because hosted Supabase grants it every privilege on new tables by default. Visitors have no Argus account, so nothing references `auth.users`.
 
 ## Removal and suppression
 
