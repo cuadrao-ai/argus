@@ -1,5 +1,6 @@
 "use client";
 
+import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 
@@ -16,7 +17,7 @@ import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptFactEditor from "./ReceiptFactEditor";
-import { extractedConfirmationPatch } from "./receipt-fact-rows";
+import { recordFactRows, extractedConfirmationPatch } from "./receipt-fact-rows";
 import ReceiptReviewQuestions from "./ReceiptReviewQuestions";
 import ReceiptHistory from "./ReceiptHistory";
 import ReceiptMarksCard from "./ReceiptMarksCard";
@@ -306,7 +307,21 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const confirmations = extractedConfirmationPatch(dossier, edits);
   const confirmationCount = Object.keys(confirmations).length;
 
+  const canMove = mutable && !dirty && !editing.length && !advancing && !settling;
   return (<>
+    <ReceiptShortcutRegistration actions={{
+      ...(canApprove && expense && approvable ? { approve: () => { void write("approve"); }, ...(receipt ? { approve_next: () => { void approveAndNext(); } } : {}) } : {}),
+      ...(canMove && receipt ? receiptNavigationActions(receipt.id, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {}),
+      ...(canPrepare && mutable ? { edit: () => {
+        const focused = document.activeElement?.closest<HTMLElement>("[data-fact]")?.dataset.fact;
+        const rows = recordFactRows(dossier);
+        const field = rows.find((row) => row.key === focused)?.key ?? rows[0]?.key;
+        if (!field) return;
+        const control = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-testid="edit-${field}"] input, [data-testid="edit-${field}"] select`);
+        if (control) control.focus();
+        else setEditing((current) => current.includes(field) ? current : [...current, field]);
+      } } : {}),
+    }} />
     {captureRecovery}
     <ReceiptReviewFrame
       recordId={receipt?.id ?? draftId}

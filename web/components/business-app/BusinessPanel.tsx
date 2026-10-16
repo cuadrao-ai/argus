@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useBusiness } from "./BusinessWorkspace";
+import BusinessSectionActions from "./BusinessSectionActions";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
 import BusinessExpensesPanel from "./BusinessExpensesPanel";
@@ -55,6 +56,7 @@ export default function BusinessPanel() {
     <div className="mx-auto w-full max-w-3xl pb-6">
       <SampleDataNotice />
       <BusinessContextCue />
+      <BusinessSectionActions />
       <PanelErrorBoundary key={panel.kind === "receipt" ? `receipt:${panel.receiptId}` : panel.kind === "draft" ? `draft:${panel.draftId}` : panel.kind === "expense" ? `expense:${panel.expenseId}` : panel.kind}>
         {panel.kind === "overview" ? <BusinessOverviewPanel /> : null}
         {panel.kind === "inbox" ? <BusinessInboxPanel /> : null}

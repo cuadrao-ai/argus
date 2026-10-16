@@ -223,9 +223,37 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
       const nav = page.host.querySelector('[data-testid="business-sidebar-nav"]');
       assert.equal(nav?.getAttribute("aria-label"), "Negocio");
       const items = [...(nav?.querySelectorAll("button") ?? [])];
-      assert.deepEqual(items.map((button) => button.textContent?.replace(/\d+$/, "").trim()), ["Resumen", "Bandeja", "Gastos", "Novedades", "Acceso"]);
+      const names = items.map((button) => {
+        const accessible = button.cloneNode(true) as HTMLElement;
+        accessible.querySelectorAll('[aria-hidden="true"]').forEach((element) => element.remove());
+        return accessible.getAttribute("aria-label") ?? accessible.textContent?.replace(/\d+$/, "").trim();
+      });
+      assert.deepEqual(names, ["Resumen", "Bandeja", "Gastos", "Novedades"]);
       assert.ok(items.every((button) => button.querySelector("svg")), "each name sits with its icon");
       await page.close();
+    }
+  });
+
+  test("Acceso keeps its Spanish name and icon in the footer and opens access in either sidebar layout", async () => {
+    const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
+    function Footer({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
+      const workspace = useChatWorkspace();
+      return <footer>{workspace?.sidebarFooter(shell({ sidebarCollapsed }))}</footer>;
+    }
+    for (const sidebarCollapsed of [false, true]) {
+      const page = await mount(() => <Footer sidebarCollapsed={sidebarCollapsed} />);
+      try {
+        const access = page.host.querySelector("footer button");
+        assert.ok(access, "Acceso is reachable in the footer");
+        assert.equal(access.textContent?.trim(), "Acceso");
+        assert.equal(access.getAttribute("aria-hidden"), null);
+        assert.ok(access.querySelector("svg"), "Acceso keeps its icon");
+        assert.equal(page.business().panel.kind, "overview");
+        await page.click(access);
+        assert.equal(page.business().panel.kind, "access", "the footer action opens access");
+      } finally {
+        await page.close();
+      }
     }
   });
 

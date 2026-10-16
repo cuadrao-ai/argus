@@ -26,6 +26,7 @@ type SidebarNavButtonProps = {
   shortcutHint?: string;
   /** Whether the keyboard hint is currently visible */
   showShortcutHint?: boolean;
+  shortcutOnInteraction?: boolean;
   /** Icon size override (default: 22) */
   iconSize?: number;
   /** Optional aggregate conversation activity rendered over the icon */
@@ -49,12 +50,14 @@ export default function SidebarNavButton({
   trailing,
   shortcutHint,
   showShortcutHint = false,
+  shortcutOnInteraction = false,
   iconSize = 22,
   activityPresentation = "none",
 }: SidebarNavButtonProps) {
   const button = (
     <button
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={`group mb-1 flex h-11 w-full items-center rounded-[14px] transition-colors duration-200 ${
         active
           ? "bg-black/5 dark:bg-white/5"
@@ -91,7 +94,10 @@ export default function SidebarNavButton({
       </span>
       {!collapsed && (shortcutHint || trailing) && (
         <div className="ml-auto flex h-[22px] shrink-0 items-center justify-end pr-4">
-          {showShortcutHint && shortcutHint ? (
+          {shortcutOnInteraction && shortcutHint ? <>
+            <span className="group-hover:hidden group-focus-visible:hidden">{trailing}</span>
+            <KeyboardShortcutKeycap className="hidden group-hover:inline-flex group-focus-visible:inline-flex">{shortcutHint}</KeyboardShortcutKeycap>
+          </> : showShortcutHint && shortcutHint ? (
             <KeyboardShortcutKeycap className="select-none">
               {shortcutHint}
             </KeyboardShortcutKeycap>
@@ -105,7 +111,7 @@ export default function SidebarNavButton({
 
   if (collapsed) {
     return (
-      <Tooltip content={label} side="right" delay={150}>
+      <Tooltip content={shortcutOnInteraction && shortcutHint ? `${label} · ${shortcutHint}` : label} side="right" delay={150}>
         {button}
       </Tooltip>
     );

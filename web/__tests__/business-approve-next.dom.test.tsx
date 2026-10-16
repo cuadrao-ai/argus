@@ -25,6 +25,7 @@ afterAll(async () => {
 type Role = "owner" | "accountant";
 type Refusal = { status: number; code: string };
 type Options = {
+  strict?: boolean;
   role?: Role;
   refuse?: Refusal | null;
   /** A 200 whose approval did not record. */
@@ -35,8 +36,9 @@ type Options = {
   bandejaFails?: boolean;
 };
 
-async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaFails = false, nextUnavailable }: Options = {}) {
-  const { act } = await import("react");
+async function mount({ strict = false, role = "owner", refuse = null, unrecorded, hold, bandejaFails = false, nextUnavailable }: Options = {}) {
+  const { act, StrictMode, Fragment } = await import("react");
+  const Boundary = strict ? StrictMode : Fragment;
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
@@ -131,11 +133,11 @@ async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaF
   const root = createRoot(host);
   await act(async () => {
     root.render(
-      <I18nextProvider i18n={i18n}>
+      <Boundary><I18nextProvider i18n={i18n}>
         <BusinessWorkspaceProvider source={source as never}>
           <Probe />
         </BusinessWorkspaceProvider>
-      </I18nextProvider>,
+      </I18nextProvider></Boundary>,
     );
   });
   const settle = async (done: () => boolean) => {
@@ -239,8 +241,8 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("after advancing, keyboard focus is on the next receipt's heading", async () => {
-    const page = await mount();
+  for (const strict of [false, true]) test(`after advancing, keyboard focus is on the next receipt heading (Strict Mode ${strict})`, async () => {
+    const page = await mount({ strict });
     await page.open("rcpt-uno");
     await page.click("Aprobar y siguiente", () => page.heading() === "Dos" && document.activeElement?.id === "receipt-review-title");
     assert.equal(document.activeElement?.id, "receipt-review-title");

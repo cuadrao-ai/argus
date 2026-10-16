@@ -34,9 +34,14 @@ import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
+import { clearTitleFocusUnless } from "./bandeja-order";
 import BusinessSidebarNav from "./BusinessSidebarNav";
 import BusinessSwitcher from "./BusinessSwitcher";
-import BusinessCreateMenu from "./BusinessCreateMenu";
+import { BusinessReviewShortcutsProvider } from "./BusinessReviewShortcuts";
+import { useBusinessKeyboardShortcuts } from "./business-keyboard-shortcuts";
+import BusinessBottomTabs from "./BusinessBottomTabs";
+import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
+import { Users } from "lucide-react";
 import BusinessPanel from "./BusinessPanel";
 import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
@@ -163,7 +168,7 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
   }
 }
 
-export function BusinessWorkspaceProvider({
+function BusinessWorkspaceContent({
   source: apiSource,
   children,
 }: {
@@ -239,6 +244,7 @@ export function BusinessWorkspaceProvider({
   // text, the attached receipt, and every list. Nothing of A shows under B.
   const chooseBusiness = useCallback((grantId: string | null) => {
     if (grantId === getChosenGrant()) return;
+    clearTitleFocusUnless();
     setLostAccess(false);
     setChosenGrant(grantId);
     setPanel({ kind: "overview" });
@@ -348,6 +354,7 @@ export function BusinessWorkspaceProvider({
 
   const openPanel = useCallback(
     (next: BusinessPanelState) => {
+      clearTitleFocusUnless(next.kind === "receipt" ? next.receiptId : undefined);
       setPanel(next);
       bridge?.showWorkspace();
     },
@@ -395,6 +402,7 @@ export function BusinessWorkspaceProvider({
     setPeriod,
   });
 
+  const keyboardShortcuts = useBusinessKeyboardShortcuts({ openPanel, actions, chosen });
   const composerPlaceholder = records.workspace?.assistant_available
     ? t("business.composer.placeholder_ask", "Ask about your saved expenses")
     : t("business.composer.placeholder", "Write a message");
@@ -405,16 +413,18 @@ export function BusinessWorkspaceProvider({
       conversationSurface: "business",
       chatAvailable,
       initialView,
-      profileInHeader: true,
+      profileInHeader: false,
+      keyboardShortcuts,
+      bottomNavigation: (shell) => shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview",
       sidebarHeader: (shell) => <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} />,
       sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
-      sidebarFooter: (shell) => <BusinessCreateMenu shell={shell} />,
+      sidebarFooter: (shell) => <SidebarNavButton icon={Users} label={t("business_access.nav", "Access")} collapsed={shell.sidebarCollapsed} onClick={() => openPanel({ kind: "access" })} />,
       headerActions: (shell) => <>
         {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-sm text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
         </button> : null}
-        {shell.isBelowTablet ? <BusinessCreateMenu shell={shell} compact /> : null}
+        {shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={false} onChoose={chooseBusiness} /> : null}
       </>,
       panel: () => <BusinessPanel />,
       starterEntries: () => actions.starterEntries,
@@ -439,7 +449,7 @@ export function BusinessWorkspaceProvider({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, chosen, chooseBusiness]);
+  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, chosen, chooseBusiness, openPanel]);
 
   return (
     <BusinessContext.Provider value={value}>
@@ -474,4 +484,8 @@ export function BusinessWorkspaceProvider({
       </ChatWorkspaceProvider>
     </BusinessContext.Provider>
   );
+}
+
+export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; children: ReactNode }) {
+  return <BusinessReviewShortcutsProvider><BusinessWorkspaceContent {...props} /></BusinessReviewShortcutsProvider>;
 }
