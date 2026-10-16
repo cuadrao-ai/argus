@@ -3413,7 +3413,7 @@ Proven by `tests/test_whatsapp_intake_postgres.py`.
 ### Business name prompt
 
 `spaces.business_name_prompt_seen_at` stores the first owner visit that claimed
-its optional naming prompt. Migration `20261016153000_business_name_prompt.sql`
+its optional naming prompt. Migration `20261016142927_business_name_prompt.sql`
 adds the nullable timestamp without changing existing names, grants or RLS.
 The conditional update requires the authenticated owner, the currently open
 Business, its expected ID, a default name and a null timestamp. Concurrent

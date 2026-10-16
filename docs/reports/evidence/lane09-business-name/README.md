@@ -13,7 +13,7 @@ The direct October 16, 08:45 CT lock supplies all new Spanish copy. The coordina
 - Worktree: `/private/tmp/cuadrao-lane09-business-name-20261016`.
 - Branch: `codex/lane09-business-name-prompt`.
 
-The evidence commit changes only this report and screenshots. Root must reconcile subsequent navigation and Personal work, run independent Eval, apply and read back the staging migration, and run terminal CI after marking the PR ready. Draft skips do not satisfy CI. No hosted change, user login, provider call, production action, or merge was performed by this worker.
+The evidence commit changes only this report and screenshots. Root must reconcile subsequent navigation and Personal work, run independent Eval, verify the recorded staging migration, and run terminal CI after marking the PR ready. Draft skips do not satisfy CI. No hosted change, user login, provider call, production action, or merge was performed by this worker.
 
 Before images used the reconciled integration `BusinessApp` mount with the naming wrapper absent. Other working-tree naming files were present but unreachable in that view. The mount was restored before after captures. After images use the frozen implementation. All browser requests outside localhost were blocked; fixtures represent saved synthetic server state. This proves the rendered owner flow, not hosted persistence or real login.
 
@@ -90,7 +90,7 @@ BusinessWorkspace's acknowledgement fence arrives solely from the integration me
 
 ## Migration gate and rollback
 
-Apply `supabase/migrations/20261016153000_business_name_prompt.sql` to staging before deploying this code. It only adds nullable `public.spaces.business_name_prompt_seen_at timestamptz`; no existing migration, row, permission or default is changed. Root must verify:
+The already-applied staging migration is `supabase/migrations/20261016142927_business_name_prompt.sql`, recorded by PR #1185. The unapplied `20261016153000` duplicate is removed. Deploy this application change only after its integration merge. Do not apply another naming migration or alter the applied file. The migration adds nullable `public.spaces.business_name_prompt_seen_at timestamptz`; no existing row, permission or default is changed. Root's staging verification uses:
 
 ```sql
 select data_type, is_nullable, column_default
@@ -100,7 +100,7 @@ where table_schema = 'public' and table_name = 'spaces'
 select relrowsecurity from pg_class where oid = 'public.spaces'::regclass;
 ```
 
-Local results were `timestamp with time zone | YES | NULL` and `true`. Both `anon` and `authenticated` were denied direct select/update of the new state. Root still owes full-schema and staging proof. Rollback can revert application code while retaining the harmless nullable column; do not drop data or edit an applied migration.
+Local results were `timestamp with time zone | YES | NULL` and `true`. Both `anon` and `authenticated` were denied direct select/update of the new state. The original local proof does not establish hosted acceptance. Rollback changes repository files only. Retain the nullable staging column and applied migration history; do not run a down migration, drop data or edit an applied migration.
 
 ## Cleanup
 
