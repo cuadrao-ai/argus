@@ -37,8 +37,8 @@ final class AccountDeletionModel: ObservableObject {
         else { await submit() }
     }
 
-    /// Launch and post-sign-out readback. Confirmed receipts are acknowledged here when an earlier cleanup
-    /// was interrupted; the controller refuses them while any account is signed in.
+    /// Launch and post-sign-out readback. Confirmed and accepted deletions are acknowledged here when an earlier
+    /// cleanup was interrupted; the controller refuses them while any account is signed in.
     func load() async {
         guard state != .submitting else { return }
         let statuses = (try? await controller.accountDeletionStatuses()) ?? []
@@ -47,6 +47,7 @@ final class AccountDeletionModel: ObservableObject {
             await acknowledge(receipt)
             confirmed = true
         }
+        for case .pending(let userID) in statuses { await acknowledgeAccepted(userID) }
         switch await controller.snapshot().phase {
         case .accountDeletionUncertain: state = uncertainState(statuses)
         case .accountDeletionPending: state = .pending
@@ -75,7 +76,8 @@ final class AccountDeletionModel: ObservableObject {
         case .completed(let receipt):
             await acknowledge(receipt)
             state = .completed
-        case .pending:
+        case .pending(let userID):
+            await acknowledgeAccepted(userID)
             state = .pending
         case .uncertain(_, _, let canRetry, let recovery):
             state = uncertain(canRetry: canRetry, recovery: recovery)
@@ -98,6 +100,10 @@ final class AccountDeletionModel: ObservableObject {
     /// A failed cleanup keeps the controller's journal as the obligation for the next `load()`.
     private func acknowledge(_ receipt: ConfirmedAccountDeletion) async {
         try? await controller.acknowledgeConfirmedAccountDeletion(receipt, cleanup: cleanup)
+    }
+
+    private func acknowledgeAccepted(_ userID: UUID) async {
+        try? await controller.acknowledgeAcceptedAccountDeletion(userID: userID, cleanup: cleanup)
     }
 
     private func uncertainState(_ statuses: [AccountDeletionResult]) -> ReleaseDeletionState {

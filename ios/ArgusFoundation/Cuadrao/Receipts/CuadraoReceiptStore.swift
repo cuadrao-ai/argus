@@ -32,7 +32,7 @@ enum ReceiptPostingCapability {
     static func connectedDrafts(userID: UUID, applicationSupport: URL? = nil) -> CuadraoReceiptStore {
         CuadraoReceiptStore(directory: connectedDirectory(userID: userID, applicationSupport: applicationSupport), postingCapability: .draftOnly)
     }
-    /// Confirmed account deletion only: the session owner passes the validated owner after its identity fence.
+    /// Account deletion only (confirmed or accepted): the session owner passes the validated owner after its identity fence.
     /// A missing directory is already clean, so a retried cleanup converges.
     static func removeConnectedDrafts(userID: UUID, applicationSupport: URL? = nil) throws {
         do { try FileManager.default.removeItem(at: connectedDirectory(userID: userID, applicationSupport: applicationSupport)) }
