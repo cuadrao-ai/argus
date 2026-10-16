@@ -1,4 +1,4 @@
-import { render, toPlainText } from "@react-email/render";
+import { renderAccountEmail } from "./account-layout.generated";
 import { z } from "zod";
 import { renderResetPasswordEmail } from "./reset-password";
 
@@ -18,8 +18,9 @@ const payloadSchema = z.object({
   }),
 });
 
-type LinkedAction = "signup" | "invite" | "magiclink" | "recovery";
+type LinkedAction = "invite" | "recovery";
 export type AuthMail =
+  | { action: "signup" | "magiclink"; recipient: string; tokenHash: string; redirectTo: string; token: string }
   | { action: LinkedAction; recipient: string; tokenHash: string; redirectTo: string }
   | { action: "email_change"; recipient: string; tokenHash: string; redirectTo: string; newEmail: string }
   | { action: "reauthentication"; recipient: string; token: string };
@@ -50,30 +51,47 @@ export function parseAuthMail(value: unknown, appOrigin: string): AuthMail[] {
     ];
   }
   if (data.email_action_type === "recovery" && data.redirect_to && data.redirect_to !== `${appOrigin}/auth/recovery`) throw new Error("Invalid recovery redirect");
+  if (data.email_action_type === "signup" || data.email_action_type === "magiclink") {
+    return [{ action: data.email_action_type, recipient: user.email, tokenHash: hash, redirectTo: data.redirect_to, token: otp.parse(data.token) }];
+  }
   return [{ action: data.email_action_type, recipient: user.email, tokenHash: hash, redirectTo: data.redirect_to }];
 }
 
-const existingLinkCopy = {
-  signup: { subject: "Confirm your email address", title: "Confirm your email address", paragraph: "Follow the link below to confirm this email address and finish signing up.", button: "Confirm email address" },
-  invite: { subject: "You've been invited", title: "You've been invited", paragraph: "You've been invited to create an account. Follow the link below to accept.", button: "Accept invitation" },
-  magiclink: { subject: "Your sign-in link", title: "Your sign-in link", paragraph: "Follow the link below to sign in. This link expires shortly and can only be used once.", button: "Sign in" },
+const linkCopy = {
+  invite: { subject: "Te invitaron a Cuadrao", paragraph: "Te invitaron a usar Cuadrao.", button: "Acepta aquí" },
+  magiclink: { subject: "Tu enlace para entrar", button: "O entra aquí", security: "Si no lo pediste, ignora este correo." },
 } as const;
 
 export async function renderAuthMail(mail: AuthMail, supabaseUrl: string) {
   if (mail.action === "reauthentication") {
-    const html = await render(<><h2>Your verification code</h2><p>Use the code below to verify your identity. It expires shortly.</p><p>{mail.token}</p></>);
-    return { subject: `${mail.token} is your verification code`, html, text: toPlainText(html) };
+    return { subject: "Tu código de verificación", ...renderAccountEmail({
+      title: "Tu código de verificación", paragraphs: [], code: mail.token,
+    }) };
   }
   const url = new URL("/auth/v1/verify", supabaseUrl);
   url.searchParams.set("token", mail.tokenHash);
   url.searchParams.set("type", mail.action);
   url.searchParams.set("redirect_to", mail.redirectTo);
   if (mail.action === "recovery") return renderResetPasswordEmail(url.href);
-  if (mail.action === "email_change") {
-    const html = await render(<><h2>Confirm your new email address</h2><p>Follow the link below to confirm {mail.newEmail} as your new email address.</p><p><a href={url.href}>Confirm new email address</a></p><p>If you didn&apos;t request this change, you can safely ignore this email.</p></>);
-    return { subject: "Confirm your new email address", html, text: toPlainText(html) };
+  if (mail.action === "signup") {
+    return { subject: `${mail.token} es tu código de Cuadrao`, ...renderAccountEmail({
+      title: "Tu código de Cuadrao", code: mail.token,
+      paragraphs: ["Úsalo para confirmar tu cuenta."],
+      action: { label: "También puedes entrar aquí", url: url.href },
+      expiryNote: "Vence en 60 minutos.",
+      afterAction: "Si no creaste una cuenta, ignora este correo.",
+    }) };
   }
-  const copy = existingLinkCopy[mail.action];
-  const html = await render(<><h2>{copy.title}</h2><p>{copy.paragraph}</p><p><a href={url.href}>{copy.button}</a></p></>);
-  return { subject: copy.subject, html, text: toPlainText(html) };
+  if (mail.action === "email_change") {
+    return { subject: "Confirma tu nuevo correo", ...renderAccountEmail({
+      title: "Confirma tu nuevo correo", paragraphs: ["Confirma que quieres usar este correo en Cuadrao."],
+      action: { label: "Confirma tu nuevo correo", url: url.href },
+      afterAction: "Si no lo pediste, escríbenos.",
+    }) };
+  }
+  const copy = linkCopy[mail.action];
+  return { subject: copy.subject, ...renderAccountEmail({
+    title: copy.subject, code: mail.action === "magiclink" ? mail.token : undefined, paragraphs: "paragraph" in copy ? [copy.paragraph] : [], action: { label: copy.button, url: url.href },
+    afterAction: "security" in copy ? copy.security : undefined,
+  }) };
 }
