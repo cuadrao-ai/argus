@@ -171,17 +171,16 @@ def test_gateway_auth_uses_only_the_explicit_public_key(
     auth.assert_called_once_with("http://127.0.0.1:9", public_key)
 
 
-@pytest.mark.parametrize("flag", FLAGS)
-def test_process_exits_nonzero_for_hosted_bypass(flag: str) -> None:
+def _startup_process(config: dict[str, str]) -> subprocess.CompletedProcess[str]:
     environment = {
         "PATH": os.defpath,
         "PYTHONPATH": os.pathsep.join(sys.path),
         "APP_ENV": "staging",
         "ARGUS_PERSISTENCE_MODE": "memory",
         "ARGUS_CHECKPOINTER_MODE": "memory",
-        flag: "true",
+        **config,
     }
-    result = subprocess.run(
+    return subprocess.run(
         [
             sys.executable,
             "-c",
@@ -195,6 +194,26 @@ def test_process_exits_nonzero_for_hosted_bypass(flag: str) -> None:
         text=True,
         timeout=30,
     )
+
+
+@pytest.mark.parametrize("flag", FLAGS)
+def test_process_exits_nonzero_for_hosted_bypass(flag: str) -> None:
+    result = _startup_process({flag: "true"})
     assert result.returncode != 0
     assert "startup_config_refused" in result.stderr
     assert flag in result.stderr
+
+
+def test_process_exits_nonzero_without_public_key_in_supabase_mode() -> None:
+    service_key = fake.pystr(min_chars=32, max_chars=32)
+    result = _startup_process(
+        {
+            "ARGUS_PERSISTENCE_MODE": "supabase",
+            "SUPABASE_URL": "http://127.0.0.1:9",
+            "SUPABASE_SERVICE_ROLE_KEY": service_key,
+            "DATABASE_URL": "postgresql://test@127.0.0.1:9/test",
+        }
+    )
+    assert result.returncode != 0
+    assert "startup_config_refused{reason=missing_SUPABASE_ANON_KEY}" in result.stderr
+    assert service_key not in result.stdout + result.stderr
