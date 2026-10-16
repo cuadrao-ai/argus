@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Eye, EyeClosed } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
 import { blockingErrorBannerClass } from "@/lib/failure-treatment";
 
 export type AuthFormMode = "login" | "signup";
@@ -161,6 +162,9 @@ export function localizedAuthErrorMessage(
   return translate(message.key, message.fallback);
 }
 
+const LEGAL_LINK_CLASS =
+  "font-semibold text-zinc-800 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white";
+
 export default function AuthForm({
   mode,
   brand = "cuadrao",
@@ -179,6 +183,7 @@ export default function AuthForm({
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   const confirmationHeadingRef = useRef<HTMLHeadingElement>(null);
   const isSignup = mode === "signup";
+  const acceptance = acceptanceLinks();
 
   useEffect(() => {
     setNeedsEmailConfirmation(false);
@@ -370,28 +375,24 @@ export default function AuthForm({
             </p>
           )}
 
-          <p className="mt-5 w-full px-4 text-center text-[11px] tracking-tight text-zinc-500 md:text-[12px]">
-            {isSignup
-              ? t("landing.legal_prefix", "By signing up, you agree to our")
-              : t(
-                  "auth.legal.continuing_prefix",
-                  "By continuing, you agree to our",
-                )}{" "}
-            <a
-              href="/terms"
-              className="font-semibold text-zinc-800 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
-            >
-              {t("landing.terms", "Terms")}
-            </a>{" "}
-            {t("common.and", "and")}{" "}
-            <a
-              href="/privacy"
-              className="font-semibold text-zinc-800 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
-            >
-              {t("landing.privacy", "Privacy Policy")}
-            </a>
-            .
-          </p>
+          {acceptance ? (
+            <p className="mt-5 w-full px-4 text-center text-[11px] tracking-tight text-zinc-500 md:text-[12px]">
+              {isSignup
+                ? t("landing.legal_prefix", "By signing up, you agree to our")
+                : t(
+                    "auth.legal.continuing_prefix",
+                    "By continuing, you agree to our",
+                  )}{" "}
+              <a href={acceptance.terms} className={LEGAL_LINK_CLASS}>
+                {t("landing.terms", "Terms")}
+              </a>{" "}
+              {t("common.and", "and")}{" "}
+              <a href={acceptance.privacy} className={LEGAL_LINK_CLASS}>
+                {t("landing.privacy", "Privacy Policy")}
+              </a>
+              .
+            </p>
+          ) : null}
         </>
       )}
     </div>

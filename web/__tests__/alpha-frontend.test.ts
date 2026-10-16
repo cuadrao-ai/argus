@@ -2888,8 +2888,9 @@ describe("Argus Alpha frontend contract", () => {
     expect(page).toContain('updateAuthMode("request")');
     expect(page).toContain('updateAuthMode("signup")');
     expect(page).toContain('const showLogin = () => updateAuthMode("login")');
-    expect(page).toContain('href="/terms"');
-    expect(page).toContain('href="/privacy"');
+    expect(page).toContain("acceptanceLinks()");
+    expect(page).not.toContain('href="/terms"');
+    expect(page).not.toContain('href="/privacy"');
     expect(page).not.toContain('const authHref = "/chat"');
     expect(page).not.toContain("href={authHref}");
     expect(page).not.toContain('href="/login"');
