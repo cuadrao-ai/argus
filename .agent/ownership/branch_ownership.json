@@ -3095,6 +3095,24 @@
         "ios/**",
         "src/**"
       ]
+    },
+    "codex/marketing-footer-bounded": {
+      "description": "Spanish marketing home and personal footer copy and product anchor only. No forms, email, runtime configuration or hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "marketing/components/business-footer.tsx",
+        "marketing/e2e/footer.spec.ts",
+        "docs/reports/evidence/marketing-footer-bounded/**"
+      ],
+      "deny": [
+        "web/**",
+        "src/**",
+        "supabase/**",
+        "render.yaml",
+        ".env",
+        "marketing/.env*"
+      ]
     }
   }
 }

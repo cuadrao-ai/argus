@@ -30,3 +30,22 @@ for (const path of ["/", "/en", "/personal", "/en/personal"]) {
     await expect(footer.locator("img")).toHaveCount(1);
   });
 }
+
+for (const path of ["/", "/personal"]) {
+  test(`${path} shows the approved company and local credit`, async ({ page }) => {
+    await page.goto(path);
+    const footer = page.locator("footer");
+    await expect(footer.getByText("© Cuadrao LLC 2026", { exact: true })).toHaveCount(1);
+    await expect(footer.getByText("Hecho con ♥ para la República Dominicana", { exact: true })).toBeVisible();
+    await expect(footer).not.toContainText("Mountain Road");
+  });
+}
+
+test("the Business footer opens the same product section as the hero", async ({ page }) => {
+  await page.goto("/");
+  const link = page.locator("footer").getByRole("link", { name: "Ver cómo funciona", exact: true });
+  await expect(link).toHaveAttribute("href", "/#el-producto");
+  await link.click();
+  await expect(page).toHaveURL(/\/#el-producto$/);
+  await expect(page.locator("#el-producto")).toBeInViewport();
+});
