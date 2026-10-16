@@ -2179,6 +2179,24 @@
         "web/.env.local"
       ]
     },
+    "codex/lane08-rls-drift-forward": {
+      "description": "Adopt the existing staging rls_auto_enable function and ensure_rls event trigger through one forward migration. Preserve observed behavior and grants. No hosted writes or advisor hardening.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "supabase/migrations/20261016154607_adopt_staging_rls_auto_enable.sql",
+        "tests/test_rls_auto_enable_postgres.py",
+        "docs/reports/evidence/cuadrao-business/lane08-rls-forward/**"
+      ],
+      "deny": [
+        ".env",
+        ".env.*",
+        "src/**",
+        "web/**",
+        "ios/**",
+        "marketing/**"
+      ]
+    },
     "codex/lane09-item6-navigation": {
       "description": "Lane09 item6 and final9a-9h Business navigation and keyboard shortcuts. Optional shared shell and registry methods only; existing receipt callback registration and focus handoff, no approval/auth/API changes. Root owns reconciliation, independent Eval, merge and staging.",
       "base_ref": "d547945ea51ecb08dc3f7a6d160256da3a3cb770",
