@@ -193,29 +193,23 @@ struct ConnectedCreateAccount: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier(signingIn ? "cuadrao.signin.emailChoice" : "cuadrao.signup.email")
-                    if !signingIn {
+                    let legal = CuadraoLegalURLs.current
+                    if !signingIn, legal.hasTermsAndPrivacy, let terms = legal.terms, let privacy = legal.privacy {
                         VStack(spacing: 0) {
                             Text(spanish ? "Al crear tu cuenta, aceptas los términos."
                                  : "By creating an account, you accept the terms.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
-                            let legal = CuadraoLegalURLs.current
-                            if legal.hasPages {
-                                HStack(spacing: 20) {
-                                    if let terms = legal.terms {
-                                        Link(destination: terms) {
-                                            Text(spanish ? "Términos" : "Terms").underline().font(.footnote)
-                                                .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                                        }.accessibilityIdentifier("cuadrao.signup.terms")
-                                    }
-                                    if let privacy = legal.privacy {
-                                        Link(destination: privacy) {
-                                            Text(spanish ? "Privacidad" : "Privacy").underline().font(.footnote)
-                                                .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                                        }.accessibilityIdentifier("cuadrao.signup.privacy")
-                                    }
-                                }
+                            HStack(spacing: 20) {
+                                Link(destination: terms) {
+                                    Text(spanish ? "Términos" : "Terms").underline().font(.footnote)
+                                        .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                                }.accessibilityIdentifier("cuadrao.signup.terms")
+                                Link(destination: privacy) {
+                                    Text(spanish ? "Privacidad" : "Privacy").underline().font(.footnote)
+                                        .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                                }.accessibilityIdentifier("cuadrao.signup.privacy")
                             }
                         }
                         .frame(maxWidth: .infinity)

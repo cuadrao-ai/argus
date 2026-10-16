@@ -27,4 +27,7 @@ struct CuadraoLegalURLs: Equatable {
     }
 
     var hasPages: Bool { privacy != nil || terms != nil }
+
+    /// Sign-up states the acceptance sentence only when the reader can open both documents it names.
+    var hasTermsAndPrivacy: Bool { privacy != nil && terms != nil }
 }
