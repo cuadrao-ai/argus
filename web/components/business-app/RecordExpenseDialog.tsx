@@ -204,7 +204,7 @@ function AddPaidFromAccount({ labelledBy, onAdded }: { labelledBy: string; onAdd
   const [type, setType] = useState<ExpenseAccountType | "">(() => preferredAccountType(records.workspace?.accounts ?? []) ?? "");
   const [currency, setCurrency] = useState<(typeof ACCOUNT_CURRENCIES)[number]>("DOP");
   const [attempt, setAttempt] = useState<Attempt>({ kind: "idle" });
-  // One key per account request, so a retry after a lost answer replays it instead of adding a second account.
+  // One key per account request, so the same retry after a lost answer replays it instead of adding a second account.
   const key = useRef<{ payload: string; key: string } | null>(null);
   const adding = attempt.kind === "adding";
   const nickname = typedName ?? t("business.record.account_name_suggestion", "{{currency}} account", { currency });
@@ -222,8 +222,17 @@ function AddPaidFromAccount({ labelledBy, onAdded }: { labelledBy: string; onAdd
     const input = { nickname: nickname.trim(), type, currency };
     setAttempt({ kind: "adding" });
     const payload = JSON.stringify(input);
-    if (key.current?.payload !== payload) key.current = { payload, key: randomId() };
     try {
+      if (key.current?.payload !== payload) {
+        // A new key could add a second account if an earlier answer was lost, so it is minted only while the server lists none.
+        const [existing] = (await source.workspace()).accounts;
+        if (existing) {
+          reload();
+          onAdded(existing);
+          return;
+        }
+        key.current = { payload, key: randomId() };
+      }
       const account = await source.createAccount(input, key.current.key);
       reload();
       onAdded(account);
