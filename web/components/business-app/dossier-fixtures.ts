@@ -1,5 +1,5 @@
 import type { BusinessAccount, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
-import type { BusinessActor, BusinessDossier, BusinessFact, BusinessFactPatch, BusinessFacts } from "@/lib/business-dossier";
+import { factsRevision, type BusinessActor, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts } from "@/lib/business-dossier";
 
 export const dossierFixtureIds = {
   unknown: "10000000-0000-4000-8000-000000000001",
@@ -16,6 +16,7 @@ export const dossierFixtureIds = {
   proposal: "10000000-0000-4000-8000-000000000012",
   saveUnknown: "10000000-0000-4000-8000-000000000013",
   saveConcurrent: "10000000-0000-4000-8000-000000000014",
+  recordedThenMarked: "10000000-0000-4000-8000-000000000015",
 } as const;
 
 const sourceId = "20000000-0000-4000-8000-000000000001";
@@ -88,6 +89,12 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   dossiers.set(fiscalDossier.draft_id, { ...fiscalDossier, fiscal_value: "ncf", ecf_checks: fiscalChecks, dgii_qr: fiscalQr, facts: fiscalAfter, sources: [{ id: sourceId, kind: "message", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", text: "El RNC es 131999888, el NCF es B0100000099 y el ITBIS es 526.27. No sé el e-CF." }], history: [{ draft_id: fiscalDossier.draft_id, version: 2, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo via Cuadrao" }, before: fiscalBefore, after: fiscalAfter, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }] });
   const proposalDossier = dossiers.get(dossierFixtureIds.proposal)!;
   dossiers.set(proposalDossier.draft_id, { ...proposalDossier, facts: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } }, sources: [{ id: sourceId, kind: "agent_proposal", channel: "web", received_at: "2026-10-10T14:20:00Z", text: "Propuesta: gasto de 3,450 DOP en Ferretería La Esquina para pintura del taller. Revisar antes de aprobar." }], history: [{ ...proposalDossier.history[0], after: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } } }] });
+  // Revision 2 approved (the approval took version 3), then Elena marked it Personal: revision 4.
+  const marked = dossiers.get(dossierFixtureIds.recordedThenMarked)!;
+  const elena: BusinessActor = { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" };
+  const personalSourceId = "20000000-0000-4000-8000-000000000016";
+  const personalFacts: BusinessFacts = { ...marked.facts, business_share: { state: "known", value: { kind: "none" }, origin: "member_set", verified: true, source_ids: [personalSourceId] } };
+  dossiers.set(marked.draft_id, { ...marked, version: 4, review_state: "accepted", approval_available: false, personal: true, personal_marked_by: elena.display_name, facts: personalFacts, sources: [...marked.sources, { id: personalSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T15:05:00Z", text: JSON.stringify({ version: 3, personal: true }) }], history: [...marked.history, { draft_id: marked.draft_id, version: 4, actor: elena, before: marked.facts, after: personalFacts, source_ids: [personalSourceId], turn_key: null, created_at: "2026-10-10T15:05:00Z" }], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000002", reviewed_version: 2, approved_revision: 2, approved_at: "2026-10-10T14:40:00Z", actor } });
   const reviewReceipts = new Map<string, { input: string; result: BusinessDossier }>();
   const fail = (status: number, code: string): never => { throw Object.assign(new Error(code), { status, code }); };
   const get = (id: string) => {
@@ -215,7 +222,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         dossiers.set(id, next);
         throw new TypeError("Synthetic connection interrupted");
       }
-      const next: BusinessDossier = { ...current, review_state: "accepted", approval_available: false, approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: version, actor } };
+      const next: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_available: false, approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: version, approved_revision: factsRevision(current), approved_at: "2026-10-10T14:40:00Z", actor } };
       dossiers.set(id, next);
       return get(id);
     },

@@ -98,7 +98,7 @@ async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaF
       if (refuse) throw Object.assign(new Error(refuse.code), refuse);
       const current = dossiers.get(id)!;
       if (unrecorded) return { ...structuredClone(current), approval_result: { status: unrecorded, code: "ledger_unavailable", reviewed_version: current.version } } as BusinessDossier;
-      const recorded: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_result: { status: "recorded", activity_id: `expense-${id}`, actor: { actor_id: "a", actor_kind: "owner", display_name: "Lucía", grant_id: "g", issuer_id: "a", issuer_display_name: "Lucía" } } as BusinessDossier["approval_result"] };
+      const recorded: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_result: { status: "recorded", activity_id: `expense-${id}`, reviewed_version: current.version, approved_revision: current.version, approved_at: "2026-10-10T14:40:00Z", actor: { actor_id: "a", actor_kind: "owner", display_name: "Lucía", grant_id: "g", issuer_id: "a", issuer_display_name: "Lucía" } } as BusinessDossier["approval_result"] };
       dossiers.set(id, recorded);
       receipts = receipts.map((item) => (item.draft_id === id ? { ...item, status: "confirmed", version: item.version + 1 } : item));
       return structuredClone(recorded);

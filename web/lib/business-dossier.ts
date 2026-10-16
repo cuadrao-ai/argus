@@ -108,5 +108,6 @@ export type BusinessDossier = BusinessRecordContext & {
   history: BusinessDraftRevision[];
   blockers: { code: string; field: BusinessFactField | null }[];
   approval_available: boolean;
-  approval_result: { status: "recorded"; activity_id: string; reviewed_version: number; actor: BusinessActor } | { status: "outcome_unknown" | "failed"; code: string; reviewed_version: number } | null;
+  /** A recorded approval names the facts revision the person approved and when; later marks add history revisions without changing either. */
+  approval_result: { status: "recorded"; activity_id: string; reviewed_version: number; approved_revision: number; approved_at: string; actor: BusinessActor } | { status: "outcome_unknown" | "failed"; code: string; reviewed_version: number } | null;
 };
