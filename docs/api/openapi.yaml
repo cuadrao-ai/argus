@@ -23257,6 +23257,12 @@ components:
         reviewed_version:
           type: integer
           minimum: 1.0
+        approved_revision:
+          type: integer
+          minimum: 1.0
+        approved_at:
+          type: string
+          format: date-time
         actor:
           $ref: '#/components/schemas/ActorProvenance'
       additionalProperties: false
@@ -23264,6 +23270,8 @@ components:
       required:
       - activity_id
       - reviewed_version
+      - approved_revision
+      - approved_at
       - actor
     RedeemResult:
       properties:
