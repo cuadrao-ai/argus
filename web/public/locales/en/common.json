@@ -2656,7 +2656,9 @@
         "credit_card": "Credit card",
         "savings": "Savings"
       },
-      "add_account": "Add account"
+      "add_account": "Add account",
+      "account_failed": "We couldn't create the account. Check the name and try again.",
+      "account_name_suggestion": "{{currency}} account"
     },
     "intake": {
       "replayed": "Already saved before. This is that receipt.",
