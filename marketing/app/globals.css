@@ -13,6 +13,16 @@ body {
   color: #000000;
 }
 
+html:has([data-page-background="business"]),
+body:has([data-page-background="business"]) {
+  background: #172b26;
+}
+
+html:has([data-page-background="personal"]),
+body:has([data-page-background="personal"]) {
+  background: #f7f5ef;
+}
+
 :where(
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
