@@ -27,7 +27,12 @@ const CLIENT: GrantedSpace = { space_id: "s-client", name: "Taller Brito", grant
 
 type Created = { input: { nickname: string; type: string; currency: string }; key: string };
 
-async function mount({ grant = null as string | null, failCreates = 0 } = {}) {
+/** What the server does with the next create: answers it, refuses it, rejects one field, or saves it and the answer is lost. */
+type Outcome = "ok" | "unavailable" | "nickname_invalid" | "answer_lost";
+
+const unavailable = () => Object.assign(new Error("Service Unavailable"), { status: 503, code: "service_unavailable" });
+
+async function mount({ grant = null as string | null, outcomes = [] as Outcome[] } = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -43,7 +48,7 @@ async function mount({ grant = null as string | null, failCreates = 0 } = {}) {
   const accounts: BusinessAccount[] = [];
   const creates: Created[] = [];
   const recorded: ExpenseInput[] = [];
-  let failures = failCreates;
+  const pending = [...outcomes];
   const source = {
     ...fixture,
     spaces: async () => (grant ? [OWN, CLIENT] : [OWN]),
@@ -51,14 +56,20 @@ async function mount({ grant = null as string | null, failCreates = 0 } = {}) {
     // The server's contract: one account per Idempotency-Key, an exact replay answers the same account.
     createAccount: async (input: Created["input"], key: string) => {
       creates.push({ input, key });
-      if (failures > 0) {
-        failures -= 1;
-        throw Object.assign(new Error("Service Unavailable"), { status: 503 });
+      const outcome = pending.shift() ?? "ok";
+      if (outcome === "unavailable") throw unavailable();
+      if (outcome === "nickname_invalid") {
+        throw Object.assign(new Error("Validation Error"), {
+          status: 422,
+          code: "validation_error",
+          context: { errors: [{ loc: ["body", "nickname"], type: "string_too_long", msg: "String should have at most 200 characters" }] },
+        });
       }
       const replayed = accounts.find((item) => item.id === `acct-${key}`);
       if (replayed) return replayed;
       const created: BusinessAccount = { id: `acct-${key}`, ...input };
       accounts.push(created);
+      if (outcome === "answer_lost") throw unavailable();
       return created;
     },
     recordExpense: async (input: ExpenseInput, key: string) => {
@@ -113,6 +124,13 @@ async function mount({ grant = null as string | null, failCreates = 0 } = {}) {
     assert.ok(element, "the control is on screen");
     await act(async () => { element.click(); });
   };
+  const alert = () => document.body.querySelector('[role="alert"]');
+  /** The message a field points to with aria-describedby, if the field is marked invalid. */
+  const fieldError = (element: HTMLElement | undefined) => {
+    assert.ok(element, "the field is on screen");
+    if (element.getAttribute("aria-invalid") !== "true") return null;
+    return document.getElementById(element.getAttribute("aria-describedby") ?? "");
+  };
   const open = async () => {
     const record = business!.actions.create.find((action) => action.id === "record_expense");
     await act(async () => { record!.run(); });
@@ -122,36 +140,69 @@ async function mount({ grant = null as string | null, failCreates = 0 } = {}) {
     await act(async () => root.unmount());
     host.remove();
   };
-  return { settle, button, field, type, choose, click, open, close, accounts, creates, recorded, business: () => business! };
+  return { settle, button, field, type, choose, click, open, close, alert, fieldError, accounts, creates, recorded, business: () => business! };
 }
 
 const NOTE = "Primero agrega una cuenta del negocio para saber desde dónde se pagó este gasto.";
+const CREATE_FAILED = "No pudimos crear la cuenta. Revisa el nombre e inténtalo de nuevo.";
 
 describe("Registrar gasto in a Business with no account", () => {
-  test("the owner adds the account inside the dialog, it is chosen, and the expense is saved against it", async () => {
+  test("the form starts with Cuenta DOP in DOP and no account type, and waits for a type", async () => {
     const page = await mount();
     await page.open();
     assert.ok(document.body.textContent?.includes(NOTE), "the existing note explains why");
     assert.equal(page.button("Guardar gasto")?.disabled, true, "nothing to save from yet");
-    assert.deepEqual([...(page.field<HTMLSelectElement>("Tipo de cuenta")?.options ?? [])].map((option) => [option.value, option.textContent]), [
-      ["cash", "Efectivo"],
-      ["checking", "Cuenta corriente"],
-      ["savings", "Ahorros"],
-      ["credit_card", "Tarjeta de crédito"],
-    ]);
+    assert.equal(page.field<HTMLInputElement>("Nombre")?.value, "Cuenta DOP");
+    assert.equal(page.field<HTMLSelectElement>("Moneda")?.value, "DOP");
     assert.deepEqual([...(page.field<HTMLSelectElement>("Moneda")?.options ?? [])].map((option) => option.value), ["DOP", "USD"]);
-    assert.equal(page.button("Añadir cuenta")?.disabled, true, "a name is required");
+    assert.equal(page.field<HTMLSelectElement>("Tipo de cuenta")?.value, "", "no account type is chosen for the person");
+    assert.deepEqual(
+      [...(page.field<HTMLSelectElement>("Tipo de cuenta")?.options ?? [])].filter((option) => !option.disabled).map((option) => [option.value, option.textContent]),
+      [
+        ["cash", "Efectivo"],
+        ["checking", "Cuenta corriente"],
+        ["savings", "Ahorros"],
+        ["credit_card", "Tarjeta de crédito"],
+      ],
+    );
+    assert.equal(page.button("Añadir cuenta")?.disabled, true, "a type is required");
 
-    await page.type(page.field<HTMLInputElement>("Nombre"), "  Caja chica  ");
-    await page.choose(page.field<HTMLSelectElement>("Tipo de cuenta"), "cash");
+    await page.choose(page.field<HTMLSelectElement>("Tipo de cuenta"), "checking");
+    assert.equal(page.button("Añadir cuenta")?.disabled, false);
+    await page.type(page.field<HTMLInputElement>("Nombre"), "   ");
+    assert.equal(page.button("Añadir cuenta")?.disabled, true, "a name is required");
+    await page.close();
+  });
+
+  test("the suggested name follows the currency until the person types one, and a typed name is never replaced", async () => {
+    const page = await mount();
+    await page.open();
     await page.choose(page.field<HTMLSelectElement>("Moneda"), "USD");
+    assert.equal(page.field<HTMLInputElement>("Nombre")?.value, "Cuenta USD");
+    await page.choose(page.field<HTMLSelectElement>("Moneda"), "DOP");
+    assert.equal(page.field<HTMLInputElement>("Nombre")?.value, "Cuenta DOP");
+
+    await page.type(page.field<HTMLInputElement>("Nombre"), "Caja chica");
+    await page.choose(page.field<HTMLSelectElement>("Moneda"), "USD");
+    assert.equal(page.field<HTMLInputElement>("Nombre")?.value, "Caja chica");
+    await page.type(page.field<HTMLInputElement>("Nombre"), "");
+    await page.choose(page.field<HTMLSelectElement>("Moneda"), "DOP");
+    assert.equal(page.field<HTMLInputElement>("Nombre")?.value, "", "a name the person cleared stays cleared");
+    await page.close();
+  });
+
+  test("the owner adds the account inside the dialog, it is chosen, and the expense is saved against it", async () => {
+    const page = await mount();
+    await page.open();
+    await page.choose(page.field<HTMLSelectElement>("Moneda"), "USD");
+    await page.choose(page.field<HTMLSelectElement>("Tipo de cuenta"), "cash");
     await page.click(page.button("Añadir cuenta"));
     await page.settle(() => page.field<HTMLSelectElement>("Pagado desde")?.value === page.accounts[0]?.id);
 
-    assert.deepEqual(page.creates.map((call) => call.input), [{ nickname: "Caja chica", type: "cash", currency: "USD" }]);
+    assert.deepEqual(page.creates.map((call) => call.input), [{ nickname: "Cuenta USD", type: "cash", currency: "USD" }]);
     assert.equal(page.button("Añadir cuenta"), undefined, "the form is done once the account exists");
     assert.equal(page.field("Nombre"), undefined);
-    assert.equal(page.field<HTMLSelectElement>("Pagado desde")?.selectedOptions[0]?.textContent, "Caja chica · USD");
+    assert.equal(page.field<HTMLSelectElement>("Pagado desde")?.selectedOptions[0]?.textContent, "Cuenta USD · USD");
     await page.settle(() => page.business().records.workspace?.accounts.length === 1);
 
     await page.type(document.body.querySelector('[data-testid="record-expense-amount"]') as HTMLInputElement, "850");
@@ -163,15 +214,16 @@ describe("Registrar gasto in a Business with no account", () => {
     await page.close();
   });
 
-  test("a failed create keeps the form and its answers, and the retry replays the same request", async () => {
-    const page = await mount({ failCreates: 1 });
+  test("a failed create says so under the form, keeps the answers, and the retry replays the same request", async () => {
+    const page = await mount({ outcomes: ["unavailable"] });
     await page.open();
     await page.type(page.field<HTMLInputElement>("Nombre"), "Cuenta Popular");
     await page.choose(page.field<HTMLSelectElement>("Tipo de cuenta"), "checking");
     await page.click(page.button("Añadir cuenta"));
-    await page.settle(() => document.body.querySelector('[role="alert"]') !== null);
+    await page.settle(() => page.alert() !== null);
 
-    assert.equal(document.body.querySelector('[role="alert"]')?.textContent, "Ha ocurrido un error");
+    assert.equal(page.alert()?.textContent, CREATE_FAILED);
+    assert.equal(page.fieldError(page.field<HTMLInputElement>("Nombre")), null, "nothing points at one field");
     assert.equal(page.field<HTMLInputElement>("Nombre")?.value, "Cuenta Popular");
     assert.equal(page.field<HTMLSelectElement>("Tipo de cuenta")?.value, "checking");
     assert.equal(page.field<HTMLSelectElement>("Moneda")?.value, "DOP");
@@ -183,7 +235,42 @@ describe("Registrar gasto in a Business with no account", () => {
     assert.equal(page.creates.length, 2);
     assert.equal(page.creates[1].key, page.creates[0].key);
     assert.equal(page.accounts.length, 1);
-    assert.equal(document.body.querySelector('[role="alert"]'), null);
+    assert.equal(page.alert(), null);
+    await page.close();
+  });
+
+  test("a create the server refuses for the name says so under Nombre, not under the form", async () => {
+    const page = await mount({ outcomes: ["nickname_invalid"] });
+    await page.open();
+    await page.choose(page.field<HTMLSelectElement>("Tipo de cuenta"), "cash");
+    await page.click(page.button("Añadir cuenta"));
+    const name = () => page.field<HTMLInputElement>("Nombre");
+    await page.settle(() => page.fieldError(name()) !== null);
+
+    const message = page.fieldError(name());
+    assert.equal(message?.textContent, CREATE_FAILED);
+    assert.equal(message?.previousElementSibling?.contains(name()!), true, "the message sits right under the Nombre field");
+    assert.equal(page.fieldError(page.field<HTMLSelectElement>("Tipo de cuenta")), null);
+    assert.equal(document.body.textContent?.split(CREATE_FAILED).length, 2, "said once, at the field");
+    assert.ok(!document.body.textContent?.includes("validation_error"), "no codes");
+    await page.close();
+  });
+
+  test("a create whose answer was lost finds the saved account, and closing and reopening adds no second one", async () => {
+    const page = await mount({ outcomes: ["answer_lost"] });
+    await page.open();
+    await page.choose(page.field<HTMLSelectElement>("Tipo de cuenta"), "cash");
+    await page.click(page.button("Añadir cuenta"));
+    await page.settle(() => page.field<HTMLSelectElement>("Pagado desde")?.value === page.accounts[0]?.id);
+    assert.equal(page.button("Añadir cuenta"), undefined, "the saved account replaces the form");
+    assert.equal(page.field<HTMLSelectElement>("Pagado desde")?.selectedOptions[0]?.textContent, "Cuenta DOP · DOP");
+
+    await page.click(page.button("Cancelar"));
+    await page.open();
+    assert.equal(page.button("Añadir cuenta"), undefined, "reopening offers no second account");
+    assert.equal(page.field<HTMLSelectElement>("Pagado desde")?.value, page.accounts[0].id);
+    assert.equal(page.creates.length, 1);
+    assert.equal(page.accounts.length, 1);
     await page.close();
   });
 
@@ -198,5 +285,17 @@ describe("Registrar gasto in a Business with no account", () => {
     assert.equal(page.button("Guardar gasto")?.disabled, true);
     assert.equal(page.creates.length, 0);
     await page.close();
+  });
+});
+
+describe("the account type a new account starts with", () => {
+  const account = (id: string, type: string): BusinessAccount => ({ id, nickname: null, type, currency: "DOP" });
+
+  test("is the type most of the Business's accounts have, and none on a tie or with no account", async () => {
+    const { preferredAccountType } = await import("@/components/business-app/business-data");
+    assert.equal(preferredAccountType([account("a", "checking"), account("b", "cash"), account("c", "checking")]), "checking");
+    assert.equal(preferredAccountType([account("a", "checking"), account("b", "cash")]), null);
+    assert.equal(preferredAccountType([account("a", "property")]), null, "only a type the form offers");
+    assert.equal(preferredAccountType([]), null);
   });
 });
