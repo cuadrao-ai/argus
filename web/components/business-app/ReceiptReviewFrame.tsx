@@ -12,7 +12,7 @@ import { takeTitleFocus } from "./bandeja-order";
  * right. On a phone the source comes first and the fields follow. Every
  * state of a receipt renders inside this frame, read or not, prepared or not.
  */
-export default function ReceiptReviewFrame({ recordId, back, eyebrow, title, badge, summary, source, children }: {
+export default function ReceiptReviewFrame({ recordId, back, eyebrow, title, badge, summary, source, children, footer }: {
   recordId: string;
   back: "inbox" | "expenses";
   eyebrow?: ReactNode;
@@ -21,6 +21,7 @@ export default function ReceiptReviewFrame({ recordId, back, eyebrow, title, bad
   summary?: ReactNode;
   source: ReactNode;
   children: ReactNode;
+  footer?: ReactNode;
 }) {
   const { t } = useTranslation();
   const { openPanel } = useBusiness();
@@ -46,6 +47,7 @@ export default function ReceiptReviewFrame({ recordId, back, eyebrow, title, bad
         <div className="min-w-0 space-y-4" data-testid="receipt-review-source">{source}</div>
         <div className="min-w-0 space-y-4" data-testid="receipt-review-fields">{children}</div>
       </div>
+      {footer ? <div data-testid="receipt-review-footer" className="sticky bottom-0 z-10 mt-4 border-t border-black/10 bg-[var(--cuadrao-cream)] px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-white/15 dark:bg-[#141517]">{footer}</div> : null}
     </section>
   );
 }

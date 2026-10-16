@@ -7,7 +7,7 @@ import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 import ReceiptRecordFacts from "@/components/business-app/ReceiptRecordFacts";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
-import { blockedFields, factStanding, fiscalFactRows, recordFactRows, reviewCounts } from "@/components/business-app/receipt-fact-rows";
+import { blockedFields, factStanding, fiscalFactRows, recordFactRows, reviewCounts, extractedConfirmationPatch } from "@/components/business-app/receipt-fact-rows";
 import type { BusinessDossier, BusinessFact } from "@/lib/business-dossier";
 
 const known = (origin: BusinessFact<string>["origin"] & string, verified = false): BusinessFact<string> => ({ state: "known", value: "x", origin, verified, source_ids: [] });
@@ -30,7 +30,7 @@ async function render(dossier: BusinessDossier, lng: "es-419" | "en" = "es-419",
   const confirmed: string[] = [];
   const html = renderToStaticMarkup(
     <I18nextProvider i18n={instance}>
-      <ReceiptRecordFacts dossier={dossier} accounts={[]} confirmable={confirmable} onConfirm={(key) => confirmed.push(key)} />
+      <ReceiptRecordFacts dossier={dossier} accounts={[]} onEdit={confirmable ? (key) => { confirmed.push(key); } : undefined} />
     </I18nextProvider>,
   );
   return { html, confirmed };
@@ -50,7 +50,7 @@ describe("where each fact stands", () => {
     assert.equal(factStanding(ownerUnknown), "owner_unknown");
   });
 
-  test("rows lead with what is settled, then suggestions, then defaults, then what has no value; blockers and open questions mark their fields", () => {
+  test("rows lead with missing data, then preserve the standing order; blockers and open questions mark their fields", () => {
     const dossier = {
       facts: { kind: known("member_set"), counterparty: known("extracted"), occurred_on: known("qr_decoded"), amount: known("extracted"), currency: known("default"), category_id: unknown, funding: unknown, business_share: known("owner_stated", true), receipt_state: ownerUnknown, fiscal: null },
       blockers: [{ code: "missing_fields", field: "amount" }, { code: "unknown_funding", field: "funding" }, { code: "unsupported_kind", field: null }],
@@ -58,6 +58,8 @@ describe("where each fact stands", () => {
     } as unknown as BusinessDossier;
     const rows = recordFactRows(dossier);
     assert.deepEqual(rows.map((row) => `${row.key}:${row.standing}${row.blocked ? ":blocked" : ""}${row.asked ? ":asked" : ""}`), [
+      "category_id:empty",
+      "funding:empty:blocked",
       "business_share:verified",
       "kind:person",
       "occurred_on:qr",
@@ -65,8 +67,6 @@ describe("where each fact stands", () => {
       "amount:suggestion:blocked",
       "currency:default",
       "receipt_state:owner_unknown:asked",
-      "category_id:empty",
-      "funding:empty:blocked",
     ]);
     // The numbers are the rows' own: a blocker with no field is the guidance card's; amount has a value
     // (a blocked suggestion) and receipt_state has an open question, so they are "to resolve", not missing.
@@ -149,7 +149,7 @@ describe("the counts line agrees with 'Antes de aprobar'", () => {
 });
 
 describe("the record facts on the review page", () => {
-  test("Spanish: AI-read, QR, person-set and linked values each read as what they are; a suggestion has Confirmar for a preparer", async () => {
+  test("Spanish: AI-read, QR, person-set and linked values each read as what they are; each read value has receipt provenance and one-tap editing for a preparer", async () => {
     const base = await fixture();
     const dossier = {
       ...base,
@@ -160,20 +160,18 @@ describe("the record facts on the review page", () => {
       questions: [],
     } as unknown as BusinessDossier;
     const { html } = await render(dossier);
-    // What was read and nobody confirmed is said once, as the card's banner, never under each field.
     assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"'));
-    assert.equal((html.match(/Leído de la fuente · sin verificar/g) ?? []).length, 1);
-    assert.ok(html.includes('data-testid="receipt-read-banner"'));
+    assert.equal((html.match(/Leído del recibo/g) ?? []).length, 2);
+    assert.ok(!html.includes('data-testid="receipt-read-banner"'));
     assert.ok(!html.includes("Leído de la fuente · sugerencia sin verificar"));
-    assert.ok(html.includes('data-testid="confirm-counterparty"') && html.includes(">Confirmar<"));
+    assert.ok(html.includes("Editar detalles · Comercio"));
+    assert.ok(!html.includes("confirm-counterparty") && !html.includes("lucide-sparkles"));
     assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && html.includes("Del código QR · sin verificar"));
     assert.ok(html.includes('data-fact="category_id" data-standing="linked"') && html.includes("Vinculado a la fuente · sin verificar"));
     assert.ok(html.includes("Indicado por el dueño · sin verificar"));
-    // Fiscal suggestions keep their standing under the same banner and have no in-place confirm (the review patch carries no fiscal fields).
     assert.ok(html.includes('data-fact="ecf" data-standing="suggestion"') && !html.includes("confirm-ecf"));
-    // Settled rows come before suggestions, which come before the empty ones; the value cell still reads Desconocido.
     assert.ok(html.indexOf('data-fact="occurred_on"') < html.indexOf('data-fact="counterparty"'));
-    assert.ok(html.indexOf('data-fact="counterparty"') < html.indexOf('data-fact="amount"'));
+    assert.ok(html.indexOf('data-fact="amount"') < html.indexOf('data-fact="counterparty"'));
     assert.ok(html.includes("Desconocido"));
     assert.ok(!html.includes("verificada") && !html.includes("—"));
   });
@@ -211,4 +209,11 @@ describe("the record facts on the review page", () => {
     assert.ok(!html.includes("confirm-counterparty"));
     assert.ok(html.includes("suggestion to confirm") || html.includes("suggestions to confirm"));
   });
+});
+
+test("bulk confirmation excludes edits, gaps, defaults, verified facts and unresolved questions", async () => {
+  const base = await fixture();
+  const dossier = { ...base, facts: { ...base.facts, amount: known("extracted"), counterparty: known("extracted"), occurred_on: unknown, currency: known("default"), category_id: known("extracted", true), kind: known("extracted"), receipt_state: known("extracted") }, blockers: [{ code: "invalid_amount", field: "amount" }], questions: [{ field: "receipt_state", state: "open" }] } as unknown as BusinessDossier;
+  const patch = extractedConfirmationPatch(dossier, { counterparty: { state: "unknown", value: null } });
+  assert.deepEqual(patch, { kind: { state: "known", value: "x" } });
 });

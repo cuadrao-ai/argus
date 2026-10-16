@@ -150,7 +150,7 @@ async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaF
   await settle(() => badge() !== null);
   const open = async (receiptId: string) => {
     await act(async () => api!.openPanel({ kind: "receipt", receiptId }));
-    await settle(() => heading() === names[receiptId as keyof typeof names] && (button("Aprobar gasto") !== null || (host.textContent ?? "").includes("Tu permiso")));
+    await settle(() => heading() === names[receiptId as keyof typeof names] && (button("Aprobar") !== null || (host.textContent ?? "").includes("Puedes revisar")));
   };
   const click = async (name: string, done: () => boolean) => {
     const target = button(name);
@@ -172,15 +172,15 @@ async function mount({ role = "owner", refuse = null, unrecorded, hold, bandejaF
 }
 
 describe("Aprobar y siguiente on the receipt review page", () => {
-  test("the owner sees Aprobar y siguiente as the primary action, with Aprobar gasto beside it", async () => {
+  test("the owner sees green Aprobar as the primary action, with Aprobar y siguiente beside it", async () => {
     const page = await mount();
     await page.open("rcpt-uno");
     const next = page.button("Aprobar y siguiente");
-    const plain = page.button("Aprobar gasto");
+    const plain = page.button("Aprobar");
     assert.ok(next, "Aprobar y siguiente is shown");
-    assert.ok(plain, "Aprobar gasto stays");
-    assert.ok(next.className.includes("bg-black"), "Aprobar y siguiente is the primary button");
-    assert.ok(!plain.className.includes("bg-black"), "Aprobar gasto is secondary");
+    assert.ok(plain, "Aprobar stays");
+    assert.ok(next.className.includes("border"), "Aprobar y siguiente is the secondary button");
+    assert.ok(plain.className.includes("bg-[var(--cuadrao-green)]"), "Aprobar is the green primary button");
     await page.act(async () => page.root.unmount());
   });
 
@@ -198,7 +198,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("the approve request is the one Aprobar gasto sends: same record, same version, one key", async () => {
+  test("the approve request is the one Aprobar sends: same record, same version, one key", async () => {
     const viaNext = await mount();
     await viaNext.open("rcpt-uno");
     await viaNext.click("Aprobar y siguiente", () => viaNext.approvals.length === 1);
@@ -206,9 +206,9 @@ describe("Aprobar y siguiente on the receipt review page", () => {
 
     const viaPlain = await mount();
     await viaPlain.open("rcpt-uno");
-    await viaPlain.click("Aprobar gasto", () => viaPlain.approvals.length === 1);
+    await viaPlain.click("Aprobar", () => viaPlain.approvals.length === 1);
     await viaPlain.settle(() => false);
-    assert.deepEqual(viaPlain.panel(), { kind: "receipt", receiptId: "rcpt-uno" }, "Aprobar gasto stays on the record");
+    assert.deepEqual(viaPlain.panel(), { kind: "receipt", receiptId: "rcpt-uno" }, "Aprobar stays on the record");
     await viaPlain.act(async () => viaPlain.root.unmount());
 
     assert.equal(viaNext.approvals.length, 1);
@@ -375,9 +375,9 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("a person without approval permission never sees Aprobar y siguiente", async () => {
     const page = await mount({ role: "accountant" });
     await page.open("rcpt-uno");
-    await page.settle(() => (page.host.textContent ?? "").includes("Tu permiso"));
+    await page.settle(() => (page.host.textContent ?? "").includes("Puedes revisar"));
     assert.equal(page.button("Aprobar y siguiente"), null);
-    assert.equal(page.button("Aprobar gasto"), null);
+    assert.equal(page.button("Aprobar"), null);
     await page.act(async () => page.root.unmount());
   });
 });

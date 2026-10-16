@@ -17,6 +17,7 @@ export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptS
   // The API lists deliveries earliest first; the first one is where the file first arrived by email.
   const firstEmail = detail.email_delivery_ids?.[0];
   const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; url: string } | { kind: "failed" }>({ kind: "loading" });
+  const [expanded, setExpanded] = useState(false);
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
@@ -35,7 +36,11 @@ export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptS
 
   return (
     <figure className={`${cardClass} p-3`} data-testid="receipt-original-source">
-      <div className="flex min-h-[200px] items-center justify-center overflow-hidden rounded-[14px] bg-black/[0.03] dark:bg-white/[0.04] desktop:min-h-[280px]">
+      <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="flex min-h-11 w-full items-center gap-3 rounded-lg text-left text-[14px] font-medium text-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)] dark:text-white/85 desktop:hidden">
+        {!expanded && state.kind === "ready" && (detail.media_type.startsWith("image/") || source.mode === "fixture") ? <Image unoptimized src={state.url} width={64} height={80} alt="" className="h-20 w-16 rounded-md object-contain" /> : null}
+        {expanded ? t("common.close", "Close") : t("business.review.source", "Original receipt")}
+      </button>
+      <div className={`${expanded ? "mt-3 flex desktop:mt-0" : "hidden desktop:flex"} min-h-[200px] items-center justify-center overflow-hidden rounded-[14px] bg-black/[0.03] dark:bg-white/[0.04] desktop:min-h-[280px]`}>
         {state.kind === "failed" ? (
           <div className="p-5 text-center">
             <p role="alert" className="text-[14px] text-black/65 dark:text-white/65">{t("business.review.source_error", "We couldn't open the original receipt with your current access.")}</p>
@@ -53,7 +58,7 @@ export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptS
           <p className="p-5 text-[14px] text-black/65 dark:text-white/65">{t("business.dossier.download_source", "Download the original to read this file.")}</p>
         )}
       </div>
-      <figcaption className="mt-3 px-1 text-[13px] text-black/60 dark:text-white/60">
+      <figcaption className={`${expanded ? "" : "hidden desktop:block"} mt-3 px-1 text-[13px] text-black/60 dark:text-white/60`}>
         <div className="flex items-center justify-between gap-2">
           <span className="min-w-0 break-all">{detail.filename ?? t("business.review.source", "Original receipt")}</span>
           {state.kind === "ready" ? <a href={state.url} download={detail.filename ?? "receipt"} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 font-medium hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:hover:bg-white/5 dark:focus-visible:ring-white/20"><Download className="h-4 w-4" aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}

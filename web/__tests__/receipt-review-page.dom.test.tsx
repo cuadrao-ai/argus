@@ -133,7 +133,7 @@ describe("one receipt review page", () => {
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     const id = dossierFixtureIds.ready;
     await page.open({ kind: "draft", draftId: id }, () => page.frame().fields !== null);
-    const approve = [...page.host.querySelectorAll('[data-testid="receipt-review-fields"] button')].filter((button) => button.textContent === "Aprobar gasto");
+    const approve = [...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button')].filter((button) => button.textContent === "Aprobar");
     assert.equal(approve.length, 1);
     const before = await page.source.dossier(id);
     await page.act(async () => {
