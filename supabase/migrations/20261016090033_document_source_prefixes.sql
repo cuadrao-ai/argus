@@ -1,3 +1,5 @@
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
 -- One row remains one document connection. Each copy has its own reference;
 -- owner/hash objects may be shared by several connections for the same owner.
 alter table public.financial_document_extractions
