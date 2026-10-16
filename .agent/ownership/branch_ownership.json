@@ -2893,6 +2893,41 @@
       ],
       "deny": []
     },
+    "codex/lane07-security-retention": {
+      "description": "Lane07 provider retention and tracked configuration hardening. Lane08 owns all advisor fixes and password settings. No migration or hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        ".github/workflows/ci.yml",
+        "render.yaml",
+        "scripts/check_config_credentials.py",
+        "src/argus/llm/openrouter.py",
+        "src/argus/llm/openrouter_retention.py",
+        "src/argus/llm/openrouter_langchain.py",
+        "src/argus/llm/openrouter_transport.py",
+        "src/argus/llm/openrouter_request_policy.py",
+        "src/argus/agent_runtime/interpreter/contract_recovery.py",
+        "src/argus/agent_runtime/llm_interpreter.py",
+        "src/argus/domain/research/search/http_post.py",
+        "src/argus/domain/research/search/openrouter_web_search.py",
+        "tests/test_openrouter_retention.py",
+        "tests/test_openrouter_policy.py",
+        "tests/test_openrouter_request_policy.py",
+        "tests/test_openrouter_sonnet_policy.py",
+        "tests/test_render_release_profile_contract.py",
+        "tests/test_config_credentials.py",
+        "tests/test_environment_scripts.py",
+        "docs/reports/evidence/lane07-security-retention/**",
+        "tests/agent_runtime/test_business_runtime.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "supabase/**",
+        "ios/**",
+        "marketing/**"
+      ]
+    },
     "codex/lane08-pr1-migration-drift": {
       "description": "Reconcile three applied staging migration identities and document merged-PR-only staging applies. No hosted writes or other schema changes.",
       "base_ref": "origin/codex/private-alpha-next",

@@ -9,6 +9,7 @@ from argus.llm import openrouter
 from argus.llm.openrouter import (
     openrouter_profile_for_task,
 )
+from argus.llm.openrouter_request_policy import guard_openrouter_request
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from tests.test_openrouter_policy import FakeChatOpenRouter
@@ -54,6 +55,7 @@ def test_luna_pro_factory_omits_unsupported_sampling_only(monkeypatch, model) ->
             "timeout": 20,
             "max_retries": 1,
             "openrouter_api_key": "test-key",
+            "openrouter_provider": openrouter.openrouter_provider_policy(),
         }
     ]
 
@@ -121,7 +123,7 @@ def test_openai_optional_object_schema_is_delivered_exactly_in_prompt(
         profile=profile,
     )
     assert "response_format" not in payload
-    assert payload["provider"] == {"require_parameters": True}
+    assert payload["provider"] == openrouter.openrouter_provider_policy()
     assert "temperature" not in payload
     assert payload["max_tokens"] == profile.max_tokens
     assert payload["reasoning"] == {"effort": profile.reasoning_effort}
@@ -295,7 +297,7 @@ def test_openai_structured_wire_retains_exact_local_validation(
         with pytest.raises(ValidationError):
             invoke()
     assert len(submitted) == 1
-    assert submitted[0]["provider"] == {"require_parameters": True}
+    assert submitted[0]["provider"] == openrouter.openrouter_provider_policy()
     assert "temperature" not in submitted[0]
     receipts = openrouter.get_openrouter_route_receipts()
     assert len(receipts) == 1
@@ -318,21 +320,23 @@ def test_nested_request_observers_preserve_order_and_restore_on_exception(failur
     with openrouter.openrouter_request_guard(observer("outer")):
         try:
             with openrouter.openrouter_request_guard(observer("inner")):
-                assert openrouter._guard_request("interpretation", payload) == {
+                assert guard_openrouter_request("interpretation", payload) == {
                     **payload,
                     "outer": True,
                     "inner": True,
+                    "provider": openrouter.openrouter_provider_policy(),
                 }
                 if failure:
                     raise RuntimeError("interrupted")
         except RuntimeError:
             assert failure
-        assert openrouter._guard_request("interpretation", payload) == {
+        assert guard_openrouter_request("interpretation", payload) == {
             **payload,
             "outer": True,
+            "provider": openrouter.openrouter_provider_policy(),
         }
     assert events == ["outer", "inner", "outer"]
-    assert openrouter._guard_request("interpretation", payload) is payload
+    assert guard_openrouter_request("interpretation", payload) == {**payload, "provider": openrouter.openrouter_provider_policy()}
 
 
 class _Inner(BaseModel):
@@ -395,7 +399,7 @@ def test_consumer_routes_keep_their_whole_payload_for_sparse_schemas(model, task
             "type": "json_schema",
             "json_schema": {"name": task, "strict": True, "schema": _SPARSE_SCHEMA},
         },
-        "provider": {"require_parameters": True},
+        "provider": openrouter.openrouter_provider_policy(),
         "max_tokens": 700,
         **extra,
     }
@@ -432,7 +436,7 @@ def test_consumer_interpretation_and_composer_keep_their_whole_payload(model, ta
             "type": "json_schema",
             "json_schema": {"name": task, "strict": True, "schema": _SPARSE_SCHEMA},
         },
-        "provider": {"require_parameters": True},
+        "provider": openrouter.openrouter_provider_policy(),
         "max_tokens": max_tokens,
         "reasoning": {"effort": effort},
         "temperature": temperature,
