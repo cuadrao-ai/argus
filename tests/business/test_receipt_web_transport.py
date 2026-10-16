@@ -101,7 +101,13 @@ def test_web_request_uses_saved_owner_reading_permission_and_replays_once(
     assert detail["status"] == ("review_ready" if reading else "saved")
     assert detail["record_context"]["space_id"] == started.json()["id"]
     assert detail["expense_id"] is None
-    assert owner.get(f"/receipts/{saved['id']}/source").json()["code"] == "document_source_unavailable"
+    source = owner.get(f"/receipts/{saved['id']}/source")
+    assert source.status_code == 200
+    assert source.headers["content-type"] == media_type
+    if media_type == "image/jpeg":
+        assert source.content.startswith(b"\xff\xd8") and source.content != content
+    else:
+        assert source.content == content
     again = send(biz, request)
     assert again.status_code == 200
     assert again.json()["id"] == saved["id"]

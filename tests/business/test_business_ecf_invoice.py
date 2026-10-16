@@ -84,7 +84,9 @@ def test_each_hotel_invoice_file_is_one_receipt_at_the_dop_total(
         "DOP" if media_type != "application/pdf" else None
     )
     assert stub.calls == [receipt_id]
-    assert alice.get(f"/receipts/{receipt_id}/source").json()["code"] == "document_source_unavailable"
+    source = alice.get(f"/receipts/{receipt_id}/source")
+    assert source.status_code == 200
+    assert source.content == content
     # The XML, alone or attached, is checked locally; the PDF render cannot be.
     if media_type == "application/pdf":
         assert batch.ecf_checks is None

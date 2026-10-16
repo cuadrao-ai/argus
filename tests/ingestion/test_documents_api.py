@@ -294,18 +294,13 @@ def test_source_reopen_failure_and_explicit_recovery(client, extraction):
     assert draft.headers["cache-control"] == "no-store"
     assert draft.json()["source_available"] is True
     source = client.get(f"{DOCUMENTS}/{connection}/source", headers=bearer(ALICE))
-    assert source.json()["code"] == "document_source_unavailable"
-    from argus.api.documents import documents_service
-
+    assert source.status_code == 200
+    assert source.content.startswith(b"\xff\xd8")
     service = documents_service()
     owner = service.store.owner(connection_id=connection)
-    safe = b"rebuilt JPEG fixture"
-    assert service.store.save_rebuilt(
-        user_id=owner, connection_id=connection, content=safe, media_type="image/jpeg"
-    )
-    source = client.get(f"{DOCUMENTS}/{connection}/source", headers=bearer(ALICE))
-    assert source.status_code == 200
-    assert source.content == safe
+    sealed = service.store.source(user_id=owner, connection_id=connection)
+    assert sealed.startswith(b"\x89PNG") and sealed != source.content
+    assert client.get(f"{DOCUMENTS}/{connection}/source", headers=bearer(ALICE)).content == source.content
     assert source.headers["content-type"] == "image/jpeg"
     assert source.headers["cache-control"] == "no-store"
     assert source.headers["x-content-type-options"] == "nosniff"
@@ -314,7 +309,7 @@ def test_source_reopen_failure_and_explicit_recovery(client, extraction):
     from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
 
     with patch.object(
-        service.store, "rebuilt", side_effect=SourceStorageUnavailable("unavailable")
+        service.store, "download_source", side_effect=SourceStorageUnavailable("unavailable")
     ):
         unavailable = client.get(
             f"{DOCUMENTS}/{connection}/source", headers=bearer(ALICE)

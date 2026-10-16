@@ -15,6 +15,7 @@ from typing import Any, Literal, Protocol
 from loguru import logger
 
 SOURCE_BUCKET = "financial-document-sources"
+IMAGE_MEDIA_TYPES = frozenset({"image/png", "image/jpeg"})
 _PAGE = 1000
 
 
@@ -49,7 +50,7 @@ def verify_content(content: bytes | None, sha256: str) -> bytes | None:
 
 def _original(path: str, content: bytes | None) -> bytes | None:
     if not path.startswith("rebuilt/"):
-        logger.info("document_original_read caller=internal_source_reader")
+        logger.info("document_original_read caller=source_storage_reader")
         return verify_content(content, path.rsplit("/", 1)[-1])
     return content
 

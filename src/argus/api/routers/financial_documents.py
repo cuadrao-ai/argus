@@ -190,22 +190,36 @@ def get_source(
     context: DocumentContext = Depends(require_saved_document_context),  # noqa: B008
 ) -> Response:
     try:
-        context.service.get(
+        before = context.service.get(
             user_id=context.user_id, connection_id=connection_id, scope=PERSONAL
         )
+        from argus.domain.ingestion.documents.models import DocumentExtractionError
         from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+        from argus.domain.ingestion.documents.rebuilt import ensure_rebuilt_image
 
         try:
-            rebuilt = context.service.store.rebuilt(
+            ensure_rebuilt_image(
+                store=context.service.store,
+                user_id=context.user_id,
+                connection_id=connection_id,
+            )
+            download = context.service.store.download_source(
                 user_id=context.user_id, connection_id=connection_id
             )
         except SourceStorageUnavailable:
             raise DocumentServiceError(
                 "document_storage_unavailable", retryable=True
             ) from None
-        if rebuilt is None:
+        except DocumentExtractionError:
+            raise DocumentServiceError("document_source_unavailable") from None
+        after = context.service.get(
+            user_id=context.user_id, connection_id=connection_id, scope=PERSONAL
+        )
+        if (before.sha256, before.media_type) != (after.sha256, after.media_type):
             raise DocumentServiceError("document_source_unavailable")
-        media_type, content = rebuilt
+        if download is None:
+            raise DocumentServiceError("document_source_unavailable")
+        media_type, content = download
         suffix = SOURCE_MEDIA_TYPES[media_type]
         return Response(
             content,

@@ -208,22 +208,36 @@ class BusinessService:
         )
 
     def source(self, scope: BusinessScope, receipt_id: str) -> tuple[str, bytes]:
-        self.documents.get(
+        before = self.documents.get(
             user_id=scope.person_id, connection_id=receipt_id, scope=scope.owner
         )
+        from argus.domain.ingestion.documents.models import DocumentExtractionError
         from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+        from argus.domain.ingestion.documents.rebuilt import ensure_rebuilt_image
 
         try:
-            rebuilt = self.documents.store.rebuilt(
+            ensure_rebuilt_image(
+                store=self.documents.store,
+                user_id=scope.person_id,
+                connection_id=receipt_id,
+            )
+            download = self.documents.store.download_source(
                 user_id=scope.person_id, connection_id=receipt_id
             )
         except SourceStorageUnavailable:
             raise DocumentServiceError(
                 "document_storage_unavailable", retryable=True
             ) from None
-        if rebuilt is None:
+        except DocumentExtractionError:
+            raise DocumentServiceError("document_source_unavailable") from None
+        after = self.documents.get(
+            user_id=scope.person_id, connection_id=receipt_id, scope=scope.owner
+        )
+        if (before.sha256, before.media_type) != (after.sha256, after.media_type):
             raise DocumentServiceError("document_source_unavailable")
-        return rebuilt
+        if download is None:
+            raise DocumentServiceError("document_source_unavailable")
+        return download
 
     async def start_entry(
         self,

@@ -21,6 +21,7 @@ from argus.domain.ingestion.documents.models import (
     PreparationJob,
 )
 from argus.domain.ingestion.documents.objects import (
+    IMAGE_MEDIA_TYPES,
     InMemorySourceObjects,
     SourceObjects,
     SourceStorageUnavailable,
@@ -40,6 +41,9 @@ class DocumentStore(Protocol):
     def draft(self, *, user_id: str, connection_id: str) -> DocumentDraft | None: ...
     def earliest_saved(self, *, space_id: str, sha256: str) -> datetime | None: ...
     def source(self, *, user_id: str, connection_id: str) -> bytes | None: ...
+    def download_source(
+        self, *, user_id: str, connection_id: str
+    ) -> tuple[str, bytes] | None: ...
     def rebuilt(
         self, *, user_id: str, connection_id: str
     ) -> tuple[str, bytes] | None: ...
@@ -113,6 +117,18 @@ class DocumentStore(Protocol):
         the version that attempt is for. ``unmarked`` also requires the current
         attempt never to have marked a provider call."""
         ...
+
+
+def download_source(
+    store: DocumentStore, *, user_id: str, connection_id: str
+) -> tuple[str, bytes] | None:
+    draft = store.draft(user_id=user_id, connection_id=connection_id)
+    if draft is None:
+        return None
+    if draft.media_type in IMAGE_MEDIA_TYPES:
+        return store.rebuilt(user_id=user_id, connection_id=connection_id)
+    content = store.source(user_id=user_id, connection_id=connection_id)
+    return (draft.media_type, content) if content is not None else None
 
 
 class InMemoryDocumentStore:
@@ -233,6 +249,11 @@ class InMemoryDocumentStore:
                 self._drafts[key] = draft.model_dump_json()
                 self._sources[key] = path
             return True
+
+    def download_source(
+        self, *, user_id: str, connection_id: str
+    ) -> tuple[str, bytes] | None:
+        return download_source(self, user_id=user_id, connection_id=connection_id)
 
     def rebuilt(self, *, user_id: str, connection_id: str) -> tuple[str, bytes] | None:
         with self.connections._lock, self._lock:

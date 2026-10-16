@@ -98,7 +98,7 @@ def storage_rig(request):
         connections = InMemoryConnectionRepository()
         store = InMemoryDocumentStore(connections, objects)
 
-    def capture(*, write=True):
+    def capture(*, write=True, media_type="image/png"):
         now = datetime.now(timezone.utc)
         connection = connections.create(
             user_id=owner,
@@ -111,7 +111,7 @@ def storage_rig(request):
         draft = DocumentDraft(
             connection_id=connection.id,
             filename="receipt.png",
-            media_type="image/png",
+            media_type=media_type,
             sha256=DIGEST,
             size_bytes=len(ORIGINAL),
             source_available=True,
@@ -368,3 +368,38 @@ def test_unchanged_account_deletion_caller_removes_every_owner_prefix():
     assert service._erase_sources("owner", "subject", run) is None
     assert objects.objects == {theirs: ORIGINAL}
     service._record_step.assert_called_once_with("subject", "storage", "deleted", run=run)
+
+
+@pytest.mark.parametrize(
+    "media_type",
+    [
+        "application/pdf",
+        "text/plain",
+        "text/csv",
+        "message/rfc822",
+        "application/xml",
+        "text/xml",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ],
+)
+def test_non_image_download_preserves_verified_original(storage_rig, media_type):
+    store, objects, owner, capture, _ = storage_rig
+    draft = capture(media_type=media_type)
+    key = dict(user_id=owner, connection_id=draft.connection_id)
+    assert store.download_source(**key) == (media_type, ORIGINAL)
+    assert store.rebuilt(**key) is None
+    assert list(objects.objects) == [f"sealed/{owner}/{DIGEST}"]
+    objects.objects[f"sealed/{owner}/{DIGEST}"] = b"corrupted"
+    with pytest.raises(SourceStorageUnavailable):
+        store.download_source(**key)
+
+
+def test_image_download_never_falls_back_to_original(storage_rig):
+    store, _, owner, capture, _ = storage_rig
+    draft = capture()
+    key = dict(user_id=owner, connection_id=draft.connection_id)
+    assert store.source(**key) == ORIGINAL
+    assert store.download_source(**key) is None
+    assert store.save_rebuilt(**key, content=REBUILT, media_type="image/jpeg")
+    assert store.download_source(**key) == ("image/jpeg", REBUILT)
+    assert store.source(**key) == ORIGINAL

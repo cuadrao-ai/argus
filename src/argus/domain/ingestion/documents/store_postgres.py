@@ -29,7 +29,7 @@ from argus.domain.ingestion.documents.objects import (
     source_path,
     verify_content,
 )
-from argus.domain.ingestion.documents.store import CaptureHook
+from argus.domain.ingestion.documents.store import CaptureHook, download_source
 
 
 class PostgresDocumentStore:
@@ -111,8 +111,13 @@ class PostgresDocumentStore:
             return self.objects.get(path)
         content = bytes(legacy) if legacy is not None else None
         if content is not None:
-            logger.info("document_original_read caller=internal_inline_source_reader")
+            logger.info("document_original_read caller=source_inline_reader")
         return verify_content(content, (draft or {}).get("sha256", ""))
+
+    def download_source(
+        self, *, user_id: str, connection_id: str
+    ) -> tuple[str, bytes] | None:
+        return download_source(self, user_id=user_id, connection_id=connection_id)
 
     def rebuilt(self, *, user_id: str, connection_id: str) -> tuple[str, bytes] | None:
         row = self._read(

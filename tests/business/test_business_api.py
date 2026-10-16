@@ -181,7 +181,9 @@ def test_document_intake_off_keeps_saved_receipts_and_owner_actions(
     assert alice.get("/space").status_code == 200
     assert receipt_id in [r["id"] for r in alice.get("/receipts").json()["items"]]
     source = alice.get(f"/receipts/{receipt_id}/source")
-    assert source.json()["code"] == "document_source_unavailable"
+    assert source.status_code == 200
+    assert source.headers["content-type"] == "image/jpeg"
+    assert source.content.startswith(b"\xff\xd8") and source.content != RECEIPT
     refused = [
         alice.upload(content=RECEIPT + b"new"),
         alice.post(
@@ -657,20 +659,14 @@ def test_updates_follow_receipt_states(alice: Owner) -> None:
 
 def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner) -> None:
     receipt_id = prepared(alice)
-    assert (
-        alice.get(f"/receipts/{receipt_id}/source").json()["code"]
-        == "document_source_unavailable"
-    )
-    safe = b"rebuilt JPEG fixture"
-    assert documents_service().store.save_rebuilt(
-        user_id=alice.scope().person_id,
-        connection_id=receipt_id,
-        content=safe,
-        media_type="image/jpeg",
-    )
     source = alice.get(f"/receipts/{receipt_id}/source")
     assert source.status_code == 200
-    assert source.content == safe
+    assert source.content.startswith(b"\xff\xd8") and source.content != RECEIPT
+    store = documents_service().store
+    assert store.source(user_id=alice.scope().person_id, connection_id=receipt_id) == RECEIPT
+    before = dict(store.objects.objects)
+    assert alice.get(f"/receipts/{receipt_id}/source").content == source.content
+    assert store.objects.objects == before
     assert (source.headers["Cache-Control"], source.headers["Content-Type"]) == (
         "no-store",
         "image/jpeg",
@@ -682,7 +678,7 @@ def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner
 
     with patch.object(
         documents_service().store,
-        "rebuilt",
+        "download_source",
         side_effect=SourceStorageUnavailable("unavailable"),
     ):
         unavailable = alice.get(f"/receipts/{receipt_id}/source")
@@ -750,10 +746,9 @@ def test_a_multi_row_csv_waits_for_attention_with_every_row_kept(
     assert batch.candidates == ()
     assert [row.amount for row in batch.observations] == ["3450.00", "100.00"]
     assert "receipt_purchase_ambiguous" in {issue.code for issue in batch.issues}
-    assert (
-        alice.get(f"/receipts/{receipt_id}/source").json()["code"]
-        == "document_source_unavailable"
-    )
+    source = alice.get(f"/receipts/{receipt_id}/source")
+    assert source.status_code == 200
+    assert source.content == rows
     assert alice.get(
         "/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}
     ).json() == {"items": []}

@@ -66,7 +66,9 @@ def test_extraction_off_keeps_reading_and_removal_and_refuses_intake(
     opened = client.get(f"{DOCUMENTS}/{document}", headers=bearer(ALICE))
     assert (opened.status_code, opened.json()["status"]) == (200, "saved")
     source = client.get(f"{DOCUMENTS}/{document}/source", headers=bearer(ALICE))
-    assert source.json()["code"] == "document_source_unavailable"
+    assert source.status_code == 200
+    assert source.headers["content-type"] == "image/jpeg"
+    assert source.content.startswith(b"\xff\xd8") and source.content != RECEIPT
 
     unavailable = (404, "financial_connections_unavailable")
     assert _code(upload(client)) == unavailable
@@ -108,7 +110,9 @@ def test_ingestion_off_still_reads_and_removes_only_a_document(
     monkeypatch.setenv("ARGUS_INGESTION_ENABLED", "false")
 
     source = client.get(f"{DOCUMENTS}/{document}/source", headers=bearer(ALICE))
-    assert source.json()["code"] == "document_source_unavailable"
+    assert source.status_code == 200
+    assert source.headers["content-type"] == "image/jpeg"
+    assert source.content.startswith(b"\xff\xd8") and source.content != RECEIPT
     assert _code(client.get(CONNECTIONS, headers=bearer(ALICE))) == (
         404,
         "financial_connections_unavailable",

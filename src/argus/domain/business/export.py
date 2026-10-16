@@ -5,7 +5,7 @@ import hashlib
 import io
 import json
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from typing import Any
 from uuid import UUID
@@ -74,6 +74,7 @@ class ExportSource:
     text: str | None = None
     connection_id: UUID | None = None
     expected_sha256: str | None = None
+    original_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -277,6 +278,8 @@ def build_archive(
                             "text/plain": "txt",
                             "text/csv": "csv",
                             "message/rfc822": "eml",
+                            "application/xml": "xml",
+                            "text/xml": "xml",
                             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
                         }.get(source.media_type, "bin")
                     )
@@ -341,7 +344,14 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
 
     from argus.domain.business.authority import ActionError, authorize
     from argus.domain.business.contracts.facts import BusinessResolution, Known
-    from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+    from argus.domain.ingestion.documents.models import DocumentExtractionError
+    from argus.domain.ingestion.documents.objects import (
+        IMAGE_MEDIA_TYPES,
+        SourceStorageUnavailable,
+        verify_content,
+    )
+    from argus.domain.ingestion.documents.rebuilt import ensure_rebuilt_image
+    from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
     from argus.domain.recording.canonical_groups import VisibleAccounts, load
     from argus.domain.recording.money_reads import current_activities
     from argus.domain.recording.postgres_repository import (
@@ -426,7 +436,7 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                     }
                 )
             cursor.execute(
-                "select s.id,s.kind,s.text_content,s.connection_id,d.draft,d.rebuilt_sha256,d.rebuilt_media_type,"
+                "select s.id,s.kind,s.text_content,s.connection_id,d.draft,d.source_sha256,"
                 " array_agg(distinct l.draft_id) as draft_ids,"
                 " array_remove(array_agg(distinct e.activity_id),null) as activity_ids"
                 " from public.business_sources s join public.business_draft_sources l"
@@ -434,7 +444,7 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 " join public.financial_import_events e on e.id=l.draft_id and e.owner_space_id=l.space_id"
                 " left join public.financial_document_extractions d on d.connection_id=s.connection_id and d.user_id=e.user_id"
                 " where s.space_id=%s and e.user_id=%s and l.draft_id=any(%s::uuid[])"
-                " group by s.id,d.draft,d.rebuilt_sha256,d.rebuilt_media_type order by s.id limit %s",
+                " group by s.id,d.draft,d.source_sha256 order by s.id limit %s",
                 (
                     context.actor.space_id,
                     context.owner_id,
@@ -449,10 +459,13 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                     activity_ids=tuple(row["activity_ids"]),
                     kind=row["kind"],
                     filename=(row["draft"] or {}).get("filename"),
-                    media_type=row["rebuilt_media_type"],
+                    media_type=(row["draft"] or {}).get("media_type"),
                     text=row["text_content"],
                     connection_id=row["connection_id"],
-                    expected_sha256=row["rebuilt_sha256"],
+                    expected_sha256=row["source_sha256"]
+                    or (row["draft"] or {}).get("sha256"),
+                    original_sha256=row["source_sha256"]
+                    or (row["draft"] or {}).get("sha256"),
                 )
                 for row in cursor.fetchall()
             )
@@ -478,34 +491,114 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 utcnow(),
             )
 
-            def original(source: ExportSource) -> bytes | None:
-                authorize(connection, context.actor, context.grant_id).require("read")
-                cursor.execute(
-                    "select d.rebuilt_path,d.rebuilt_size_bytes,"
-                    " d.draft->>'sha256' as original_sha256"
-                    " from public.financial_document_extractions d"
-                    " join public.financial_source_connections c on c.id=d.connection_id and c.user_id=d.user_id"
-                    " join public.business_sources s on s.connection_id=c.id and s.space_id=c.owner_space_id"
-                    " where s.id=%s and s.space_id=%s and c.user_id=%s"
-                    " and c.status <> 'disconnected' and c.source='statement' for share of c",
+    store = PostgresDocumentStore(authority.pool, objects)
+    downloads = []
+    for source in snapshot.sources:
+        if source.text is None and source.media_type in IMAGE_MEDIA_TYPES:
+            # Rebuilding writes through another connection. Release snapshot
+            # locks before the capped producer; recheck access before and after.
+            with authority.pool.connection() as check, check.transaction():
+                authorize(check, context.actor, context.grant_id).require("read")
+                live = check.execute(
+                    "select 1 from public.business_sources s "
+                    "join public.financial_source_connections c on c.id=s.connection_id "
+                    "where s.id=%s and s.space_id=%s and c.id=%s and c.user_id=%s "
+                    "and c.owner_space_id=s.space_id and c.status <> 'disconnected'",
                     (
                         source.source_id,
                         context.actor.space_id,
+                        source.connection_id,
+                        context.owner_id,
+                    ),
+                ).fetchone()
+            if live is not None:
+                try:
+                    ensure_rebuilt_image(
+                        store=store,
+                        user_id=context.owner_id,
+                        connection_id=str(source.connection_id),
+                    )
+                    rebuilt = store.rebuilt(
+                        user_id=context.owner_id, connection_id=str(source.connection_id)
+                    )
+                except (SourceStorageUnavailable, DocumentExtractionError):
+                    rebuilt = None
+                if rebuilt is not None:
+                    source = replace(
+                        source,
+                        media_type=rebuilt[0],
+                        expected_sha256=hashlib.sha256(rebuilt[1]).hexdigest(),
+                    )
+        downloads.append(source)
+    snapshot = replace(snapshot, sources=tuple(downloads))
+
+    with authority.pool.connection() as connection, connection.transaction():
+        connection.execute("set transaction isolation level repeatable read")
+        current = authorize(connection, context.actor, context.grant_id)
+        current.require("read")
+        if current.context.owner_id != context.owner_id:
+            raise ActionError("not_found", "business_record_not_found")
+        with connection.cursor(row_factory=dict_row) as cursor:
+
+            def original(source: ExportSource) -> bytes | None:
+                authorize(connection, context.actor, context.grant_id).require("read")
+                cursor.execute(
+                    "select d.draft->>'sha256' as original_sha256, "
+                    "d.draft->>'media_type' as original_media_type, "
+                    "d.source_path,d.rebuilt_path,d.rebuilt_media_type,d.rebuilt_sha256, "
+                    "d.source_size_bytes, d.rebuilt_size_bytes, octet_length(d.source_bytes) as legacy_size, "
+                    "case when octet_length(d.source_bytes)<=%s then d.source_bytes end as legacy_bytes "
+                    "from public.financial_document_extractions d "
+                    "join public.financial_source_connections c on c.id=d.connection_id and c.user_id=d.user_id "
+                    "join public.business_sources s on s.connection_id=c.id and s.space_id=c.owner_space_id "
+                    "where s.id=%s and s.space_id=%s and c.id=%s and c.user_id=%s "
+                    "and c.status <> 'disconnected' and c.source='statement' for share of c,d",
+                    (
+                        MAX_SOURCE_BYTES,
+                        source.source_id,
+                        context.actor.space_id,
+                        source.connection_id,
                         context.owner_id,
                     ),
                 )
                 row = cursor.fetchone()
                 if row is None:
                     return None
-                if (row["rebuilt_size_bytes"] or 0) > MAX_SOURCE_BYTES:
+                if row["original_sha256"] != source.original_sha256:
+                    raise OriginalUnavailable("source_changed")
+                is_image = row["original_media_type"] in IMAGE_MEDIA_TYPES
+                size = (
+                    row["rebuilt_size_bytes"]
+                    if is_image
+                    else max(row["source_size_bytes"] or 0, row["legacy_size"] or 0)
+                )
+                if (size or 0) > MAX_SOURCE_BYTES:
                     raise OriginalUnavailable("size_limit")
-                if row["rebuilt_path"] is None:
-                    return None
-                expected_path = f"rebuilt/{context.owner_id}/{row['original_sha256']}"
-                if row["rebuilt_path"] != expected_path:
-                    raise OriginalUnavailable("path_mismatch")
+                path = row["rebuilt_path"] if is_image else row["source_path"]
+                if is_image:
+                    if path is None:
+                        return None
+                    expected_paths = {
+                        f"rebuilt/{context.owner_id}/{source.original_sha256}"
+                    }
+                    digest = row["rebuilt_sha256"]
+                    if row["rebuilt_media_type"] != source.media_type:
+                        raise OriginalUnavailable("source_changed")
+                else:
+                    expected_paths = {
+                        f"sealed/{context.owner_id}/{source.original_sha256}",
+                        f"{context.owner_id}/{source.connection_id}/{source.original_sha256}",
+                    }
+                    digest = source.original_sha256
                 try:
-                    return objects.get(row["rebuilt_path"])
+                    if path is None:
+                        legacy = row["legacy_bytes"]
+                        return verify_content(
+                            bytes(legacy) if legacy is not None else None, digest or ""
+                        )
+                    if path not in expected_paths:
+                        raise OriginalUnavailable("path_mismatch")
+                    return verify_content(objects.get(path), digest or "")
                 except SourceStorageUnavailable:
                     return None
 
