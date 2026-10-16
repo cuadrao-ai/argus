@@ -3416,8 +3416,8 @@ set, the step stays pending as `analytics_adapter_unconfigured` and keeps the
 account locked. A retry or the operator sweep never records `not_applicable`
 from its own environment, and never replaces existing `analytics_evidence`.
 The existing `steps` JSON also records `analytics_origin` (`route_first_pass`,
-`sweep`, or `force`) and `analytics_attempts`. A force run with no configured
-event adapter and no event token leaves analytics pending, even with operator
+`sweep`, or `force`) and `analytics_attempts`. A force run with no event token
+leaves analytics pending until the adapter confirms deletion, even with operator
 confirmation; missing configuration is not proof of erasure. Transient adapter
 failures get at most three attempts per pass with bounded backoff and the same
 submission identity, then remain pending with `last_error`. The flag-on

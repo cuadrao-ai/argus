@@ -91,6 +91,7 @@ from argus.observability.analytics_deletion import (
     NoAnalyticsEvents,
     advance_with_retry,
 )
+from argus.observability.envelope import posthog_project_token_configured
 from argus.observability.product_events import actor_hash_for_user
 
 RunStatus = Literal["started", "data_deleted", "done"]
@@ -479,7 +480,7 @@ class AccountDeletionService:
             plan["revoke_attempt"] = left or "completed"
             if left is None:
                 return {**plan, "dry_run": False, "forced": False}
-            if step == "analytics" and isinstance(self._analytics, NoAnalyticsEvents):
+            if step == "analytics" and not posthog_project_token_configured():
                 self._track_pending(subject, {**steps.get("last_error", {}), step: left})
                 return {**plan, "dry_run": False, "forced": False}
             self._force(run, user_id, subject, step, reason, operator)

@@ -543,7 +543,9 @@ def test_forcing_the_analytics_step_without_the_token_keeps_it_pending(
         )
     assert result["forced"] is False
     assert result["revoke_attempt"] == (
-        "analytics_delete_pending" if configured_adapter else "analytics_adapter_unconfigured"
+        "analytics_delete_pending"
+        if configured_adapter
+        else "analytics_adapter_unconfigured"
     )
     steps = _run_steps(world["a"])
     assert steps["analytics"] == "pending"
@@ -624,7 +626,11 @@ def analytics_integrity():
 
 @pytest.mark.parametrize("outcome", ["deleted", "failed"])
 def test_sweep_with_adapter_records_origin_and_bounded_attempts(
-    lane, world, route, monkeypatch, outcome  # noqa: F811
+    lane,  # noqa: F811
+    world,  # noqa: F811
+    route,
+    monkeypatch,
+    outcome,  # noqa: F811
 ):
     _deployed(monkeypatch, posthog_token="synthetic-event-token")
     response, _ = _delete_as_deployed(lane, world, route)
