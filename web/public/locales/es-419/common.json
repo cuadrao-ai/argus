@@ -2648,7 +2648,9 @@
       "untitled": "Recibo"
     },
     "record": {
+      "account_failed": "No pudimos crear la cuenta. Revisa el nombre e inténtalo de nuevo.",
       "account_name": "Nombre",
+      "account_name_suggestion": "Cuenta {{currency}}",
       "account_type": "Tipo de cuenta",
       "account_types": {
         "cash": "Efectivo",

@@ -8,6 +8,7 @@ import { EXPENSE_ACCOUNT_TYPES, type BusinessAccount, type ExpenseAccountType } 
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
+import { preferredAccountType } from "./business-data";
 import { RECEIPT_CATEGORY_IDS } from "./business-format";
 import { primaryButtonClass, secondaryButtonClass, useCategoryLabel, useOwnerView } from "./business-ui";
 
@@ -178,64 +179,101 @@ function RecordExpenseSurface({ onClose, onRecorded }: { onClose: () => void; on
   );
 }
 
+type AccountField = "nickname" | "type" | "currency";
+type Attempt = { kind: "idle" } | { kind: "adding" } | { kind: "failed"; field: AccountField | null };
+const ACCOUNT_FIELDS: readonly AccountField[] = ["nickname", "type", "currency"];
+
+/** The field a 422 from POST /business/accounts names, if it names one of the form's. */
+function rejectedField(error: unknown): AccountField | null {
+  const { status, context } = error as { status?: number; context?: { errors?: { loc?: unknown[] }[] } };
+  if (status !== 422) return null;
+  for (const { loc } of context?.errors ?? []) {
+    const field = ACCOUNT_FIELDS.find((item) => loc?.[0] === "body" && loc[1] === item);
+    if (field) return field;
+  }
+  return null;
+}
+
 /** The owner's first account, set up where the expense is recorded; the dialog chooses it once the server answers. */
 function AddPaidFromAccount({ labelledBy, onAdded }: { labelledBy: string; onAdded: (account: BusinessAccount) => void }) {
   const { t } = useTranslation();
-  const { source, reload } = useBusiness();
-  const [nickname, setNickname] = useState("");
-  const [type, setType] = useState<ExpenseAccountType>("cash");
+  const { source, reload, records } = useBusiness();
+  const errorId = useId();
+  // Null while the person has not typed a name, so the suggestion follows the currency.
+  const [typedName, setTypedName] = useState<string | null>(null);
+  const [type, setType] = useState<ExpenseAccountType | "">(() => preferredAccountType(records.workspace?.accounts ?? []) ?? "");
   const [currency, setCurrency] = useState<(typeof ACCOUNT_CURRENCIES)[number]>("DOP");
-  const [state, setState] = useState<"idle" | "adding" | "failed">("idle");
+  const [attempt, setAttempt] = useState<Attempt>({ kind: "idle" });
   // One key per account request, so a retry after a lost answer replays it instead of adding a second account.
   const key = useRef<{ payload: string; key: string } | null>(null);
-  const adding = state === "adding";
-  const input = { nickname: nickname.trim(), type, currency };
+  const adding = attempt.kind === "adding";
+  const nickname = typedName ?? t("business.record.account_name_suggestion", "{{currency}} account", { currency });
+  const ready = Boolean(nickname.trim() && type) && !adding;
   const label = "block text-[13px] font-medium text-black/60 dark:text-white/60";
+  const failedAt = (field: AccountField | null) => attempt.kind === "failed" && attempt.field === field;
+  const message = t("business.record.account_failed", "We couldn't create the account. Check the name and try again.");
+  const errorClass = "mt-1.5 text-[14px] text-[#a8434c] dark:text-[#ec9aa0]";
+  const invalid = (field: AccountField) => (failedAt(field) ? { "aria-invalid": true, "aria-describedby": errorId } : {});
+  const errorUnder = (field: AccountField) =>
+    failedAt(field) ? <p id={errorId} role="alert" className={errorClass}>{message}</p> : null;
 
   const add = async () => {
-    if (!input.nickname || adding) return;
-    setState("adding");
+    if (!ready || !type) return;
+    const input = { nickname: nickname.trim(), type, currency };
+    setAttempt({ kind: "adding" });
     const payload = JSON.stringify(input);
     if (key.current?.payload !== payload) key.current = { payload, key: randomId() };
     try {
       const account = await source.createAccount(input, key.current.key);
       reload();
       onAdded(account);
-    } catch {
-      setState("failed");
+    } catch (error) {
+      setAttempt({ kind: "failed", field: rejectedField(error) });
+      // A lost answer may still have saved the account; the reload lists it and the dialog chooses it.
+      reload();
     }
   };
 
   return (
     <div role="group" aria-labelledby={labelledBy} className="space-y-3 rounded-[12px] border border-black/10 p-3 dark:border-white/10">
-      <label className={label}>
-        {t("business.record.account_name", "Name")}
-        <input className={inputClass} value={nickname} maxLength={60} onChange={(event) => setNickname(event.target.value)} disabled={adding} autoComplete="off" />
-      </label>
-      <div className="grid grid-cols-2 items-start gap-3">
+      <div>
         <label className={label}>
-          {t("business.record.account_type", "Account type")}
-          <select className={inputClass} value={type} onChange={(event) => setType(event.target.value as ExpenseAccountType)} disabled={adding}>
-            {EXPENSE_ACCOUNT_TYPES.map((item) => (
-              <option key={item} value={item}>{t(`business.record.account_types.${item}`)}</option>
-            ))}
-          </select>
+          {t("business.record.account_name", "Name")}
+          <input className={inputClass} value={nickname} maxLength={60} onChange={(event) => setTypedName(event.target.value)} disabled={adding} autoComplete="off" {...invalid("nickname")} />
         </label>
-        <label className={label}>
-          {t("business.review.currency", "Currency")}
-          <select className={inputClass} value={currency} onChange={(event) => setCurrency(event.target.value as (typeof ACCOUNT_CURRENCIES)[number])} disabled={adding}>
-            {ACCOUNT_CURRENCIES.map((item) => (
-              <option key={item} value={item}>{item}</option>
-            ))}
-          </select>
-        </label>
+        {errorUnder("nickname")}
       </div>
-      {state === "failed" ? (
+      <div className="grid grid-cols-2 items-start gap-3">
+        <div>
+          <label className={label}>
+            {t("business.record.account_type", "Account type")}
+            <select className={inputClass} value={type} onChange={(event) => setType(event.target.value as ExpenseAccountType)} disabled={adding} {...invalid("type")}>
+              <option value="" disabled hidden />
+              {EXPENSE_ACCOUNT_TYPES.map((item) => (
+                <option key={item} value={item}>{t(`business.record.account_types.${item}`)}</option>
+              ))}
+            </select>
+          </label>
+          {errorUnder("type")}
+        </div>
+        <div>
+          <label className={label}>
+            {t("business.review.currency", "Currency")}
+            <select className={inputClass} value={currency} onChange={(event) => setCurrency(event.target.value as (typeof ACCOUNT_CURRENCIES)[number])} disabled={adding} {...invalid("currency")}>
+              {ACCOUNT_CURRENCIES.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </label>
+          {errorUnder("currency")}
+        </div>
+      </div>
+      {failedAt(null) ? (
         <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">
-          {t("common.error_occurred", "An error occurred")}
+          {message}
         </p>
       ) : null}
-      <button type="button" className={secondaryButtonClass} disabled={!input.nickname || adding} aria-busy={adding} onClick={() => void add()}>
+      <button type="button" className={secondaryButtonClass} disabled={!ready} aria-busy={adding} onClick={() => void add()}>
         {t("business.record.add_account", "Add account")}
       </button>
     </div>

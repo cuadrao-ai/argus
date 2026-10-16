@@ -198,3 +198,14 @@ export function withBusinessSpace(
     markAccessSeen: source.markAccessSeen,
   };
 }
+
+/** The type most of the Business's accounts have, so a new one starts there; none on a tie. */
+export function preferredAccountType(accounts: readonly BusinessAccount[]): api.ExpenseAccountType | null {
+  const counts = new Map<api.ExpenseAccountType, number>();
+  for (const { type } of accounts) {
+    const known = api.EXPENSE_ACCOUNT_TYPES.find((item) => item === type);
+    if (known) counts.set(known, (counts.get(known) ?? 0) + 1);
+  }
+  const ranked = [...counts].sort((a, b) => b[1] - a[1]);
+  return ranked.length > 0 && ranked[0][1] !== ranked[1]?.[1] ? ranked[0][0] : null;
+}
