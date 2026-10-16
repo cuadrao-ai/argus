@@ -1,4 +1,5 @@
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
+import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, ARGUS_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
@@ -369,11 +370,18 @@ export type ExpenseInput = {
 export type BusinessSpace = { id: string; name: string };
 
 /**
- * Starts the owner's Business space, or returns the one they already have.
- * Every other Business route answers 404 until it exists. The server names a
- * new space in `language`.
+ * Reads the owner's Business space and creates it only when the server
+ * confirms it is missing. The server names a new space in `language`.
  */
 export async function startBusinessSpace(language: ArgusLanguage): Promise<BusinessSpace> {
+  const generation = browserAuthGeneration();
+  try {
+    return await apiFetch<BusinessSpace>("/business/space");
+  } catch (error) {
+    const problem = error as { status?: number; code?: string } | null;
+    if (problem?.status !== 404 || problem.code !== "business_space_missing") throw error;
+  }
+  requireBrowserAuthGeneration(generation);
   return apiFetch("/business/space", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
