@@ -4,6 +4,7 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { GrantedSpace } from "@/lib/business-api";
+import { formatBusinessName } from "./business-format";
 
 /**
  * The Business the person is working in, always visible at the top left, and
@@ -50,7 +51,8 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
 
   if (!current) return null;
   const roleLine = current.role === "owner" ? t("business.switcher.own", "Your Business") : t("business.switcher.role_accountant", "View and prepare");
-  const name = current.name || t("business.switcher.label", "Business");
+  const fallback = t("business.overview.title", "My business");
+  const name = formatBusinessName(current.name, fallback);
 
   const choose = (space: GrantedSpace) => {
     setOpen(false);
@@ -67,8 +69,8 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
     else if (event.key === "Escape" || event.key === "Tab") { setOpen(false); buttonRef.current?.focus(); if (event.key === "Escape") event.preventDefault(); }
     else if (event.key.length === 1 && /\S/.test(event.key)) {
       const letter = event.key.toLocaleLowerCase();
-      const index = options.findIndex((space, i) => i > active && space.name.toLocaleLowerCase().startsWith(letter));
-      const wrapped = index >= 0 ? index : options.findIndex((space) => space.name.toLocaleLowerCase().startsWith(letter));
+      const index = options.findIndex((space, i) => i > active && formatBusinessName(space.name, fallback).toLocaleLowerCase().startsWith(letter));
+      const wrapped = index >= 0 ? index : options.findIndex((space) => formatBusinessName(space.name, fallback).toLocaleLowerCase().startsWith(letter));
       if (wrapped >= 0) setActive(wrapped);
     }
   };
@@ -131,6 +133,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
         >
           {options.map((space, index) => {
             const selected = space.grant_id === current.grant_id;
+            const optionName = formatBusinessName(space.name, fallback);
             return (
               <li
                 key={space.grant_id}
@@ -142,9 +145,9 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
                 onClick={() => choose(space)}
                 className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[12px] px-2 text-[14px] ${index === active ? "bg-black/5 dark:bg-white/5" : ""}`}
               >
-                <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] text-[12px] font-semibold ${space.role === "owner" ? "bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : "bg-[var(--cuadrao-cream)] text-[var(--cuadrao-green)] ring-1 ring-[var(--cuadrao-green)]/30"}`}>{initial(space.name)}</span>
+                <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] text-[12px] font-semibold ${space.role === "owner" ? "bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : "bg-[var(--cuadrao-cream)] text-[var(--cuadrao-green)] ring-1 ring-[var(--cuadrao-green)]/30"}`}>{initial(optionName)}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-black dark:text-white">{space.name || t("business.switcher.label", "Business")}</span>
+                  <span className="block truncate font-medium text-black dark:text-white">{optionName}</span>
                   <span className="block truncate text-[11.5px] text-black/50 dark:text-white/50">{space.role === "owner" ? t("business.switcher.own", "Your Business") : `${t("business.switcher.client", "Client")} · ${t("business.switcher.role_accountant", "View and prepare")}`}</span>
                 </span>
                 {selected ? <Check className="h-4 w-4 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" /> : null}

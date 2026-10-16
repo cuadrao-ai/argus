@@ -17,7 +17,7 @@ import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
+import { formatBusinessName, formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
 import {
   cardClass,
   LoadingRows,
@@ -128,7 +128,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     <ReceiptReviewFrame
       recordId={receiptId}
       back={confirmed ? "expenses" : "inbox"}
-      eyebrow={detail.record_context?.space_name || null}
+      eyebrow={detail.record_context ? formatBusinessName(detail.record_context.space_name, t("business.overview.title", "My business")) : null}
       title={confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt")}
       badge={<StatusPill status={detail.status} />}
       summary={detail.amount && detail.currency ? <p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{formatMoney(detail.amount, detail.currency, locale)}</p> : null}

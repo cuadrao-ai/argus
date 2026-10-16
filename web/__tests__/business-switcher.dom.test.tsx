@@ -51,6 +51,20 @@ async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace
 const key = (target: Element, key: string) => target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 
 describe("the Business switcher at the top left", () => {
+  test("the English default is Spanish in the collapsed label and open options", async () => {
+    const unnamed = { ...CLIENT, name: "My business" };
+    const page = await mountSwitcher([OWN, unnamed], unnamed, true);
+    const button = page.host.querySelector("button[aria-haspopup=listbox]") as HTMLButtonElement;
+    assert.equal(page.host.querySelector('[data-testid="business-current-name"]')?.textContent, "Mi negocio");
+    assert.ok(button.getAttribute("aria-label")?.includes("Mi negocio"));
+    assert.ok(button.getAttribute("title")?.includes("Mi negocio"));
+    await page.act(async () => button.click());
+    assert.ok([...page.host.querySelectorAll('[role="option"]')][1].textContent?.includes("Mi negocio"));
+    assert.ok(!page.host.textContent?.includes("My business"));
+    assert.equal(unnamed.name, "My business");
+    await page.act(async () => page.root.unmount());
+  });
+
   test("with only the own Business it is a plain label naming it; nothing opens", async () => {
     const page = await mountSwitcher([OWN], OWN);
     const control = page.host.querySelector('[data-testid="business-switcher"]')!;
@@ -162,6 +176,14 @@ describe("inside a client's Business every screen says so", () => {
     await page.setChosen(OWN);
     assert.equal(page.host.querySelector('[data-testid="business-client-cue"]'), null);
     assert.equal(page.host.querySelector('[data-testid="business-access-line"]'), null);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("the client cue and access banner localize the saved English default", async () => {
+    const page = await mountCue({ ...CLIENT, name: "My business" });
+    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]')?.textContent, "Cliente: Mi negocio");
+    assert.ok(page.host.querySelector('[data-testid="business-access-line"]')?.textContent?.includes("Ahora tienes acceso a Mi negocio"));
+    assert.ok(!page.host.textContent?.includes("My business"));
     await page.act(async () => page.root.unmount());
   });
 
