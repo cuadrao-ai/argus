@@ -981,6 +981,19 @@ The founder selected the existing approved Preview3427 interface for mobile reco
   contact details, permitted source use, actual retention/backups, deletion,
   provider sharing, and approved reachable Privacy/Terms pages. Do not substitute
   vendor maximums or promises for the actual configured behavior.
+- [ ] Before external TestFlight or App Review, fill `CuadraoLegalURLs.published`
+  on iOS with the published Privacy, Terms and data-deletion URLs (Lucas, October
+  15, 2026; [#1160](https://github.com/lagarcess/argus/pull/1160)). It is empty
+  today, so the app hides its legal links.
+- [ ] Before public signup and App Review, restore the acceptance line on iOS and
+  web as "Al continuar, aceptas los [Términos] y la [Política de privacidad]." and
+  "By continuing, you agree to the [Terms] and [Privacy Policy].", both linked, with
+  no checkbox (Lucas, October 15, 2026). It stays hidden until both URLs are set.
+- [ ] For web, set `NEXT_PUBLIC_CUADRAO_TERMS_URL`, `NEXT_PUBLIC_CUADRAO_PRIVACY_URL`
+  and `NEXT_PUBLIC_CUADRAO_DATA_DELETION_URL` on the target service and rebuild the
+  web, because they are read at build time (Lucas, October 15, 2026;
+  [#1156](https://github.com/lagarcess/argus/pull/1156),
+  [#1162](https://github.com/lagarcess/argus/issues/1162)).
 - [ ] Reconcile App Store privacy answers, app/SDK privacy manifests and required
   API reasons with actual collection. Check permission purpose strings and
   denied-access recovery. Finish VoiceOver, large text, contrast, reduced motion,
