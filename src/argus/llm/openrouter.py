@@ -18,8 +18,12 @@ from pydantic import BaseModel
 from argus.agent_runtime import turn_execution
 from argus.env import load_project_dotenv
 from argus.llm import openrouter_model_env as model_policy
+from argus.llm import openrouter_transport as transport
 from argus.llm.openrouter_key_policy import resolve_openrouter_api_key
 from argus.llm.openrouter_langchain import ChatOpenRouter
+from argus.llm.openrouter_request_policy import (
+    guard_openrouter_request as _guard_request,  # noqa: F401
+)
 from argus.llm.openrouter_request_policy import (
     openrouter_request_guard as openrouter_request_guard,
 )
@@ -36,10 +40,7 @@ from argus.llm.openrouter_tasks import (
     OpenRouterReasoningEffort,
     OpenRouterTask,
 )
-from argus.llm.openrouter_transport import (
-    _post_openrouter_json_schema,
-    _post_openrouter_json_schema_sync,
-)
+from argus.llm.openrouter_transport import OpenRouterRetryAttempt
 from argus.llm.openrouter_usage import (
     merge_openrouter_token_usage,
     normalize_openrouter_token_usage,
@@ -490,7 +491,6 @@ async def invoke_openrouter_json_schema(
                         client=client,
                         api_key=api_key,
                         payload=payload,
-                        reserve_attempt=_reserve_openrouter_attempt,
                         retry_attempt=(task, profile.timeout_seconds, candidate_model, "json_schema", schema_name, context_packet_ids),
                     ),
                     timeout=permit.timeout_seconds,
@@ -612,7 +612,6 @@ async def invoke_openrouter_chat_completion(
                         client=client,
                         api_key=api_key,
                         payload=payload,
-                        reserve_attempt=_reserve_openrouter_attempt,
                         retry_attempt=(task, profile.timeout_seconds, candidate_model, "chat_model", None, context_packet_ids),
                     ),
                     timeout=permit.timeout_seconds,
@@ -740,7 +739,6 @@ def invoke_openrouter_json_schema_sync(
                     client=client,
                     api_key=api_key,
                     payload=payload,
-                    reserve_attempt=_reserve_openrouter_attempt,
                     retry_attempt=(task, profile.timeout_seconds, candidate_model, "json_schema", schema_name, context_packet_ids),
                 )
             if response is None:
@@ -980,6 +978,14 @@ def _json_content_without_code_fences(content: str) -> str:
     if closing != -1:
         text = text[:closing]
     return text.strip()
+
+
+async def _post_openrouter_json_schema(*, client: httpx.AsyncClient, api_key: str, payload: dict[str, object], retry_attempt: OpenRouterRetryAttempt) -> httpx.Response | None:
+    return await transport._post_openrouter_json_schema(client=client, api_key=api_key, payload=payload, retry_attempt=retry_attempt, reserve_attempt=_reserve_openrouter_attempt)
+
+
+def _post_openrouter_json_schema_sync(*, client: httpx.Client, api_key: str, payload: dict[str, object], retry_attempt: OpenRouterRetryAttempt) -> httpx.Response | None:
+    return transport._post_openrouter_json_schema_sync(client=client, api_key=api_key, payload=payload, retry_attempt=retry_attempt, reserve_attempt=_reserve_openrouter_attempt)
 
 
 def _raise_openrouter_payload_error(data: dict[str, object], model: str) -> None:

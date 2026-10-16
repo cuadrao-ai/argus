@@ -91,8 +91,8 @@ def test_request_guard_cannot_opt_out_of_retention():
     def weaken(task, value):
         return {**value, "provider": {"zdr": False, "data_collection": "allow", "allow_fallbacks": True}}
     with openrouter_request_guard(weaken):
-        protected = guard_openrouter_request("interpretation", payload)
-    assert protected["provider"] == openrouter.openrouter_provider_policy()
+        with pytest.raises(PermissionError, match="openrouter_retention_policy_changed"):
+            guard_openrouter_request("interpretation", payload)
 
 
 @pytest.mark.parametrize("status", [200, 404])
@@ -132,7 +132,7 @@ async def test_langchain_enforces_policy_at_invocation(monkeypatch, mode):
     for name, fake in [("_generate", sync), ("_agenerate", asynchronous), ("_stream", stream), ("_astream", astream)]:
         monkeypatch.setattr(BaseChatOpenRouter, name, fake)
     model = ChatOpenRouter(model_name="openai/test", openrouter_api_key="synthetic-test-key")
-    args = {"provider": {"zdr": False, "data_collection": "allow"}}
+    args = {"provider": {"zdr": True, "data_collection": "deny"}}
     if mode == "sync":
         assert model._generate([], **args) == "ok"
     elif mode == "async":
@@ -199,7 +199,7 @@ async def test_real_langchain_sdk_wire_policy_and_failure(status):
         sdk = OpenRouter(api_key="synthetic-test-key", async_client=client)
         model = ChatOpenRouter(model_name="openai/test", openrouter_api_key="synthetic-test-key", client=sdk)
         if status == 200:
-            assert (await model.ainvoke("synthetic", provider={"zdr": False})).content == "ok"
+            assert (await model.ainvoke("synthetic")).content == "ok"
         else:
             with pytest.raises(OpenRouterZDRUnavailableError):
                 await model.ainvoke("synthetic")
@@ -218,3 +218,22 @@ async def test_real_langchain_sdk_embedded_error_is_typed():
         model = ChatOpenRouter(model_name="openai/test", openrouter_api_key="synthetic", client=OpenRouter(api_key="synthetic", async_client=client))
         with pytest.raises(OpenRouterZDRUnavailableError):
             await model.ainvoke("synthetic")
+
+
+@pytest.mark.parametrize("setting", ["zdr", "data_collection", "allow_fallbacks", "require_parameters"])
+def test_langchain_rejects_policy_override_before_sdk_dispatch(monkeypatch, setting):
+    from argus.llm.openrouter_langchain import BaseChatOpenRouter, ChatOpenRouter
+    def unexpected(*args, **kwargs):
+        pytest.fail("Policy override reached the SDK")
+    monkeypatch.setattr(BaseChatOpenRouter, "_generate", unexpected)
+    model = ChatOpenRouter(model_name="openai/test", openrouter_api_key="synthetic")
+    value = "allow" if setting == "data_collection" else not openrouter.openrouter_provider_policy()[setting]
+    with pytest.raises(PermissionError, match="openrouter_retention_policy_changed"):
+        model._generate([], provider={setting: value})
+
+
+@pytest.mark.parametrize("key,value", [("zdr", 1), ("require_parameters", 1), ("allow_fallbacks", 0)])
+def test_retention_boolean_parameters_require_json_booleans(key, value):
+    from argus.llm.openrouter_retention import enforce_openrouter_retention
+    with pytest.raises(PermissionError, match="openrouter_retention_policy_changed"):
+        enforce_openrouter_retention({"provider": {key: value}})

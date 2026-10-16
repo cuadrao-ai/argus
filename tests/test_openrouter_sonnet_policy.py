@@ -28,7 +28,6 @@ async def test_async_sonnet_http400_never_strips_reasoning() -> None:
                 client=client,
                 api_key="synthetic",
                 payload=PAYLOAD,
-                reserve_attempt=openrouter._reserve_openrouter_attempt,
                 retry_attempt=ATTEMPT,
             )
     assert len(requests) == 1
@@ -48,7 +47,6 @@ def test_sync_sonnet_http400_never_strips_reasoning() -> None:
                 client=client,
                 api_key="synthetic",
                 payload=PAYLOAD,
-                reserve_attempt=openrouter._reserve_openrouter_attempt,
                 retry_attempt=ATTEMPT,
             )
     assert len(requests) == 1

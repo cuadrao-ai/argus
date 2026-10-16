@@ -22,13 +22,13 @@ def openrouter_provider_policy() -> dict[str, object]:
 
 def enforce_openrouter_retention(payload: dict[str, object]) -> dict[str, object]:
     provider = payload.get("provider")
-    return {
-        **payload,
-        "provider": {
-            **(provider if isinstance(provider, dict) else {}),
-            **openrouter_provider_policy(),
-        },
-    }
+    policy = openrouter_provider_policy()
+    if isinstance(provider, dict):
+        if any(key in provider and (provider[key] != value or type(provider[key]) is not type(value)) for key, value in policy.items()):
+            raise PermissionError("openrouter_retention_policy_changed")
+        if all(provider.get(key) == value for key, value in policy.items()):
+            return payload
+    return {**payload, "provider": {**(provider if isinstance(provider, dict) else {}), **policy}}
 
 
 def raise_for_retention_error(model: str, status: object, body: object = None) -> None:
