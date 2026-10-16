@@ -235,6 +235,22 @@ describe("Registrar gasto in a Business with no account", () => {
     await page.close();
   });
 
+  test("the native account-type select keeps the complete Spanish label without ellipsis", async () => {
+    const page = await mount();
+    await page.open();
+    const picker = page.field<HTMLSelectElement>("Tipo de cuenta");
+    await page.choose(picker, "checking");
+    assert.ok(picker);
+    assert.equal(picker.value, "checking");
+    assert.equal([...picker.options].find((option) => option.selected)?.textContent, "Cuenta corriente");
+    assert.notEqual(getComputedStyle(picker).textOverflow, "ellipsis");
+    await page.choose(picker, "credit_card");
+    assert.equal(picker.value, "credit_card");
+    assert.equal([...picker.options].find((option) => option.selected)?.textContent, "Tarjeta de crédito");
+    assert.notEqual(getComputedStyle(picker).textOverflow, "ellipsis");
+    await page.close();
+  });
+
   test("a failed create says so under the form, keeps the answers, and the retry replays the same request", async () => {
     const page = await mount({ outcomes: ["unavailable"] });
     await page.open();

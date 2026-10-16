@@ -252,7 +252,7 @@ function AddPaidFromAccount({ labelledBy, onAdded }: { labelledBy: string; onAdd
         </label>
         {errorUnder("nickname")}
       </div>
-      <div className="grid grid-cols-2 items-start gap-3">
+      <div className="grid grid-cols-1 items-start gap-3 tablet:grid-cols-2">
         <div>
           <label className={label}>
             {t("business.record.account_type", "Account type")}
