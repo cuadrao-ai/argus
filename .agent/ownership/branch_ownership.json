@@ -2897,6 +2897,7 @@
         "tests/test_openrouter_sonnet_policy.py",
         "tests/test_render_release_profile_contract.py",
         "tests/test_config_credentials.py",
+        "tests/test_environment_scripts.py",
         "docs/reports/evidence/lane07-security-retention/**",
         "tests/agent_runtime/test_business_runtime.py"
       ],

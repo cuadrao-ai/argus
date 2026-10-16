@@ -404,7 +404,7 @@ from argus.agent_runtime.turn_execution_evidence import (
     current_turn_has_material_execution_evidence,
 )
 from argus.domain.market_data import is_ticker_like_query, resolve_asset
-from argus.llm.openrouter_retention import OpenRouterZDRUnavailableError
+from argus.llm.openrouter_retention import OpenRouterRoutingError
 from argus.llm.openrouter import (
     OpenRouterTask,
     annotate_latest_openrouter_route_receipt,
@@ -528,7 +528,7 @@ class OpenRouterStructuredInterpreter(BusinessInterpreterMethods):
                     )
                     self.last_status = "used" if index == 0 else "fallback_used"
                     return self._to_runtime_interpretation(response, request=request)
-                except OpenRouterZDRUnavailableError:
+                except OpenRouterRoutingError:
                     raise
                 except Exception as exc:
                     recovered = await contract_recovery.handle_candidate_failure(
@@ -605,7 +605,7 @@ class OpenRouterStructuredInterpreter(BusinessInterpreterMethods):
                     )
                     self.last_status = "used"
                     return self._to_runtime_interpretation(response, request=request)
-            except OpenRouterZDRUnavailableError:
+            except OpenRouterRoutingError:
                 raise
             except Exception as exc:
                 contract_recovery.record_legacy_failure(self.model_name, started_at, exc)
@@ -657,7 +657,7 @@ class OpenRouterStructuredInterpreter(BusinessInterpreterMethods):
                     )
                     self.last_status = "fallback_used"
                     return self._to_runtime_interpretation(response, request=request)
-            except OpenRouterZDRUnavailableError:
+            except OpenRouterRoutingError:
                 raise
             except Exception as exc:
                 self.last_status = "failed"

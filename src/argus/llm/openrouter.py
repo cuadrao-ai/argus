@@ -28,7 +28,7 @@ from argus.llm.openrouter_request_policy import (
     openrouter_request_guard as openrouter_request_guard,
 )
 from argus.llm.openrouter_retention import (
-    OpenRouterZDRUnavailableError,
+    OpenRouterRoutingError,
     openrouter_provider_policy,
     raise_for_retention_error,
 )
@@ -527,7 +527,7 @@ async def invoke_openrouter_json_schema(
                 usage_cost_usd=openrouter_usage_cost_from_payload(data),
                 context_packet_ids=context_packet_ids,
             )
-            if isinstance(exc, OpenRouterZDRUnavailableError):
+            if isinstance(exc, OpenRouterRoutingError):
                 raise
             if index + 1 < len(candidate_models):
                 log_openrouter_failure(
@@ -632,7 +632,7 @@ async def invoke_openrouter_chat_completion(
                 failure_mode=type(exc).__name__,
                 context_packet_ids=context_packet_ids,
             )
-            if isinstance(exc, OpenRouterZDRUnavailableError):
+            if isinstance(exc, OpenRouterRoutingError):
                 raise
             if index + 1 < len(candidate_models):
                 log_openrouter_failure(
@@ -765,7 +765,7 @@ def invoke_openrouter_json_schema_sync(
                 failure_mode=type(exc).__name__,
                 context_packet_ids=context_packet_ids,
             )
-            if isinstance(exc, OpenRouterZDRUnavailableError):
+            if isinstance(exc, OpenRouterRoutingError):
                 raise
             if index + 1 < len(candidate_models):
                 log_openrouter_failure(

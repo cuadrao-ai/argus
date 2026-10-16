@@ -460,15 +460,16 @@ def test_render_blueprint_syncs_public_supabase_coordinates() -> None:
     api_env = _render_env("argus-api")
     web_env = _render_env("argus-app")
 
-    for env, public_keys in (
-        (api_env, ("SUPABASE_URL", "SUPABASE_ANON_KEY")),
-        (web_env, ("NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY")),
+    for env, url_key, anon_key in (
+        (api_env, "SUPABASE_URL", "SUPABASE_ANON_KEY"),
+        (web_env, "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     ):
-        for key in public_keys:
-            assert "value" in env[key]
-            assert env[key].get("sync") is not False
-            assert "YOUR_" not in str(env[key]["value"])
-            assert "your_" not in str(env[key]["value"])
+        assert "value" in env[url_key]
+        assert env[url_key].get("sync") is not False
+        assert "YOUR_" not in str(env[url_key]["value"])
+        assert "your_" not in str(env[url_key]["value"])
+        assert env[anon_key]["sync"] is False
+        assert "value" not in env[anon_key]
 
 
 def test_render_blueprint_syncs_non_secret_model_routing() -> None:

@@ -104,7 +104,7 @@ def test_web_search_uses_policy_and_typed_error(status):
     requests = []
     def respond(request):
         requests.append(json.loads(request.content))
-        return httpx.Response(status, json={"choices": [{"message": {"content": "", "annotations": []}}]})
+        return httpx.Response(status, json={"error": {"code": 404, "message": "No endpoints matching your data policy"}} if status == 404 else {"choices": [{"message": {"content": "", "annotations": []}}]})
     provider = OpenRouterWebSearchProvider(api_key="synthetic-test-key", model="openai/test", transport=httpx.MockTransport(respond))
     if status == 404:
         with pytest.raises(OpenRouterZDRUnavailableError):
@@ -150,6 +150,7 @@ async def test_langchain_maps_sdk_404_to_typed_error(monkeypatch):
     from argus.llm.openrouter_retention import OpenRouterZDRUnavailableError
     class SDKError(Exception):
         status_code = 404
+        body = {"error": {"code": 404, "message": "No endpoints matching your data policy"}}
     async def fail(*a, **k):
         raise SDKError("synthetic-private-provider-body")
     monkeypatch.setattr(BaseChatOpenRouter, "_agenerate", fail)
@@ -213,7 +214,7 @@ async def test_real_langchain_sdk_embedded_error_is_typed():
     from argus.llm.openrouter_retention import OpenRouterZDRUnavailableError
     from openrouter import OpenRouter
     def respond(request):
-        return httpx.Response(200, json={"error": {"code": 404, "message": "No endpoints available"}})
+        return httpx.Response(200, json={"error": {"code": 404, "message": "No endpoints matching your data policy"}})
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
         model = ChatOpenRouter(model_name="openai/test", openrouter_api_key="synthetic", client=OpenRouter(api_key="synthetic", async_client=client))
         with pytest.raises(OpenRouterZDRUnavailableError):
@@ -268,3 +269,74 @@ async def test_legacy_fallback_zdr_failure_stops_before_repairs(configured, monk
     with pytest.raises(OpenRouterZDRUnavailableError):
         await interpreter.ainvoke(request)
     assert models == ["openai/primary", "openai/fallback"]
+
+
+@pytest.mark.parametrize("status", [200, 404])
+@pytest.mark.parametrize("mode", ["sync", "async", "chat"])
+@pytest.mark.parametrize("error_body", [
+    {"code": 404, "message": "No endpoints found for unknown/model"},
+    {"code": 404, "message": "private data policy text", "metadata": {"error_type": "not_found"}},
+])
+@pytest.mark.asyncio
+async def test_unknown_model_is_not_reported_as_zdr(configured, monkeypatch, mode, status, error_body):
+    from argus.llm.openrouter_retention import OpenRouterNotFoundError
+    from loguru import logger
+
+    requests, records = [], []
+    def respond(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(status, json={"error": error_body})
+    transport = httpx.MockTransport(respond)
+    client = httpx.Client(transport=transport) if mode == "sync" else httpx.AsyncClient(transport=transport)
+    monkeypatch.setattr(openrouter.httpx, "Client" if mode == "sync" else "AsyncClient", lambda **kwargs: client)
+    monkeypatch.setattr(openrouter, "openrouter_model_candidates", lambda *a, **k: ["unknown/model", "openai/fallback"])
+    monkeypatch.setattr(openrouter, "openrouter_structured_model_candidates", lambda *a, **k: ["unknown/model", "openai/fallback"])
+    args = dict(task="interpretation", messages=[])
+    sink = logger.add(lambda message: records.append(message.record))
+    try:
+        with pytest.raises(OpenRouterNotFoundError) as error:
+            if mode == "chat":
+                await openrouter.invoke_openrouter_chat_completion(**args)
+            elif mode == "async":
+                await openrouter.invoke_openrouter_json_schema(**args, schema_model=Result, schema_name="Result")
+            else:
+                openrouter.invoke_openrouter_json_schema_sync(**args, schema_model=Result, schema_name="Result")
+    finally:
+        logger.remove(sink)
+    assert len(requests) == 1
+    assert str(error.value) == "llm_route_not_found"
+    assert error.value.model == "unknown/model"
+    assert not any(record["message"] == "llm_zdr_unavailable" for record in records)
+    events = [record for record in records if record["message"] == "llm_route_not_found"]
+    assert len(events) == 1
+    assert events[0]["extra"] == {"model": "unknown/model"}
+    assert error_body["message"] not in str(records)
+
+
+@pytest.mark.parametrize("status", [200, 404])
+@pytest.mark.asyncio
+async def test_real_langchain_sdk_unknown_model_is_not_zdr(status):
+    from argus.llm.openrouter_langchain import ChatOpenRouter
+    from argus.llm.openrouter_retention import OpenRouterNotFoundError
+    from openrouter import OpenRouter
+
+    requests = []
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(status, json={"error": {"code": 404, "message": "No endpoints found for unknown/model", "metadata": {"error_type": "not_found"}}})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        model = ChatOpenRouter(model_name="unknown/model", openrouter_api_key="synthetic", client=OpenRouter(api_key="synthetic", async_client=client))
+        with pytest.raises(OpenRouterNotFoundError, match="llm_route_not_found"):
+            await model.ainvoke("synthetic")
+    assert len(requests) == 1
+
+
+def test_unclassified_404_does_not_claim_zdr_unavailable():
+    from argus.llm.openrouter_retention import (
+        OpenRouterNotFoundError,
+        check_retention_response,
+    )
+
+    response = httpx.Response(404, text="synthetic non-JSON body")
+    with pytest.raises(OpenRouterNotFoundError, match="llm_route_not_found"):
+        check_retention_response(response, "unknown/model")

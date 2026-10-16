@@ -27,12 +27,18 @@ requests, chat, memory, document extraction, the legacy LangChain adapter and
 OpenRouter web search use it. Request guards and SDK invocation reject explicit
 attempts to weaken that policy. There is no retention exception or opt-out.
 
-A provider routing 404, an embedded 404 error, or a privacy-related 400/403 raises
+An explicit privacy-related 400/403/404 error raises
 `OpenRouterZDRUnavailableError`. It emits `llm_zdr_unavailable` with the model ID
 only. No provider body, prompt, receipt, key or exception text enters that event.
 The HTTP model loops and both primary and fallback legacy interpretation stop on
 this error.
 Reasoning retries still require retention and recheck access.
+
+A typed `not_found` error or an otherwise unclassified 404 instead raises
+`OpenRouterNotFoundError` and logs `llm_route_not_found` with only the model ID.
+The documented `error.metadata.error_type` takes priority over message text.
+Both routing errors stop fallback and repair calls. A bare 404 does not establish
+that a model exists or that retention policy caused the refusal.
 
 The existing HTTP helpers moved to `openrouter_transport.py`; the entry points
 in `openrouter.py` keep their signatures. The existing legacy failure receipt and
@@ -46,7 +52,8 @@ are unchanged.
 
 Provider reference checked on October 16, 2026:
 [OpenRouter provider routing](https://openrouter.ai/docs/guides/routing/provider-selection).
-Endpoint availability was not tested live. Models without an eligible endpoint
+The Render vision model was not probed. Endpoint availability was not tested live.
+Models without an eligible endpoint
 will stop instead of routing under weaker retention.
 
 ## Configuration and Lucas handoff
@@ -101,3 +108,17 @@ The added typed-error catch stops before repairs. The coordinator authorized
 folding this regression and fix into the provider policy commit, preserving the
 three-commit delivery. The prior remote head remains available through the backup
 tag. No independent final review had been completed on that prior head.
+
+
+## Review correction
+
+The first exact-head CI run failed one stale blueprint assertion in
+`test_environment_scripts.py`; 12,259 other backend tests passed. The corrected
+assertion keeps Supabase URLs literal and requires both public anon-key entries
+to use `sync: false` with no value. Twelve new unknown-model transport cases first
+failed, then passed after separating not-found from ZDR refusal. SDK wire tests
+also cover both statuses and malformed non-JSON 404 responses remain fail closed.
+
+The initial three logical commits remain intact. One focused correction commit
+preserves the independently reviewed head and the NO-SHIP evidence without
+rewriting history. Integration reconciliation remains owned by the coordinator.
