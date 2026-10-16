@@ -1,0 +1,27 @@
+Lane09 item6 cleanup; only own generated outputs.
+Retained: node_modules, ignored Playwright configs, worktree, committed evidence.
+Port 3196: no listener before cleanup.
+web/.next: 207835737 logical bytes removed
+web/.next-navigation: 162890397 logical bytes removed
+web/.next-navigation-argus: 39426142 logical bytes removed
+web/test-results: 45 logical bytes removed
+web/temp/navigation-production-baseline-build.log: 1451 logical bytes removed
+web/temp/navigation-focus-production-after.log: 1030 logical bytes removed
+web/temp/navigation-production-final.log: 2255 logical bytes removed
+web/temp/navigation-unit.log: 7685 logical bytes removed
+web/temp/navigation-browser.log: 1832 logical bytes removed
+web/temp/navigation-regressions.log: 7120 logical bytes removed
+web/temp/navigation-build.log: 1451 logical bytes removed
+web/temp/navigation-argus-keyboard.log: 4337 logical bytes removed
+web/temp/navigation-matrix.log: 5021 logical bytes removed
+web/temp/navigation-argus-build.log: 1815 logical bytes removed
+web/temp/navigation-focus-strict-before.log: 1331 logical bytes removed
+web/temp/navigation-focus-production-before.log: 1015 logical bytes removed
+web/temp/navigation-focus-unit.log: 3632 logical bytes removed
+web/temp/navigation-lint.log: 1121 logical bytes removed
+web/temp/ReceiptReviewPanel.snapshot: 23137 logical bytes removed
+web/temp/BusinessWorkspace.snapshot: 20461 logical bytes removed
+Total logical bytes removed: 410237015
+APFS clones mean logical bytes are not uniquely freed physical bytes.
+Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on
+/dev/disk3s5   971298980 761144608 182431752    81% 8579198 1824317520    0%   /System/Volumes/Data
