@@ -12,7 +12,6 @@ from threading import Lock
 from typing import Literal, TypeVar, cast
 
 import httpx
-from langchain_openrouter import ChatOpenRouter
 from loguru import logger
 from pydantic import BaseModel
 
@@ -20,11 +19,14 @@ from argus.agent_runtime import turn_execution
 from argus.env import load_project_dotenv
 from argus.llm import openrouter_model_env as model_policy
 from argus.llm.openrouter_key_policy import resolve_openrouter_api_key
-from argus.llm.openrouter_request_policy import (
-    guard_openrouter_request as _guard_request,
-)
+from argus.llm.openrouter_langchain import ChatOpenRouter
 from argus.llm.openrouter_request_policy import (
     openrouter_request_guard as openrouter_request_guard,
+)
+from argus.llm.openrouter_retention import (
+    OpenRouterZDRUnavailableError,
+    openrouter_provider_policy,
+    raise_for_retention_error,
 )
 from argus.llm.openrouter_tasks import (
     OPENROUTER_PROFILES,
@@ -33,6 +35,10 @@ from argus.llm.openrouter_tasks import (
     OpenRouterProfile,
     OpenRouterReasoningEffort,
     OpenRouterTask,
+)
+from argus.llm.openrouter_transport import (
+    _post_openrouter_json_schema,
+    _post_openrouter_json_schema_sync,
 )
 from argus.llm.openrouter_usage import (
     merge_openrouter_token_usage,
@@ -48,8 +54,6 @@ from argus.llm.tool_call_receipts import (
 from argus.log_sink import exception_origin
 
 load_project_dotenv()
-
-_OpenRouterRetryAttempt = tuple[OpenRouterTask, float, str, Literal["json_schema", "chat_model"], str | None, list[str] | None]
 
 SchemaModelT = TypeVar("SchemaModelT", bound=BaseModel)
 
@@ -209,6 +213,7 @@ def build_openrouter_model(
         timeout=profile.timeout_seconds,
         max_retries=profile.max_retries,
         openrouter_api_key=api_key,
+        openrouter_provider=openrouter_provider_policy(),
     )
 
 
@@ -485,6 +490,7 @@ async def invoke_openrouter_json_schema(
                         client=client,
                         api_key=api_key,
                         payload=payload,
+                        reserve_attempt=_reserve_openrouter_attempt,
                         retry_attempt=(task, profile.timeout_seconds, candidate_model, "json_schema", schema_name, context_packet_ids),
                     ),
                     timeout=permit.timeout_seconds,
@@ -494,7 +500,7 @@ async def invoke_openrouter_json_schema(
             if not isinstance(body, dict):
                 raise ValueError("Invalid OpenRouter response")
             data = body
-            _raise_openrouter_payload_error(data)
+            _raise_openrouter_payload_error(data, candidate_model)
             if task == "document_extraction":
                 choices = data.get("choices")
                 if not isinstance(choices, list) or len(choices) != 1 or not isinstance(choices[0], dict) or choices[0].get("finish_reason") != "stop":
@@ -521,6 +527,8 @@ async def invoke_openrouter_json_schema(
                 usage_cost_usd=openrouter_usage_cost_from_payload(data),
                 context_packet_ids=context_packet_ids,
             )
+            if isinstance(exc, OpenRouterZDRUnavailableError):
+                raise
             if index + 1 < len(candidate_models):
                 log_openrouter_failure(
                     task=task,
@@ -604,6 +612,7 @@ async def invoke_openrouter_chat_completion(
                         client=client,
                         api_key=api_key,
                         payload=payload,
+                        reserve_attempt=_reserve_openrouter_attempt,
                         retry_attempt=(task, profile.timeout_seconds, candidate_model, "chat_model", None, context_packet_ids),
                     ),
                     timeout=permit.timeout_seconds,
@@ -611,7 +620,7 @@ async def invoke_openrouter_chat_completion(
                 if response is None:
                     return None
                 data = response.json()
-                _raise_openrouter_payload_error(data)
+                _raise_openrouter_payload_error(data, candidate_model)
         except Exception as exc:
             last_exc = exc
             record_openrouter_route_receipt(
@@ -624,6 +633,8 @@ async def invoke_openrouter_chat_completion(
                 failure_mode=type(exc).__name__,
                 context_packet_ids=context_packet_ids,
             )
+            if isinstance(exc, OpenRouterZDRUnavailableError):
+                raise
             if index + 1 < len(candidate_models):
                 log_openrouter_failure(
                     task=task,
@@ -729,12 +740,13 @@ def invoke_openrouter_json_schema_sync(
                     client=client,
                     api_key=api_key,
                     payload=payload,
+                    reserve_attempt=_reserve_openrouter_attempt,
                     retry_attempt=(task, profile.timeout_seconds, candidate_model, "json_schema", schema_name, context_packet_ids),
                 )
             if response is None:
                 return None
             data = response.json()
-            _raise_openrouter_payload_error(data)
+            _raise_openrouter_payload_error(data, candidate_model)
             content = _openrouter_message_content(data)
             if not content:
                 raise ValueError(
@@ -755,6 +767,8 @@ def invoke_openrouter_json_schema_sync(
                 failure_mode=type(exc).__name__,
                 context_packet_ids=context_packet_ids,
             )
+            if isinstance(exc, OpenRouterZDRUnavailableError):
+                raise
             if index + 1 < len(candidate_models):
                 log_openrouter_failure(
                     task=task,
@@ -819,7 +833,6 @@ def _apply_reasoning_for_structured_artifact(
     profile: OpenRouterProfile,
 ) -> None:
     if profile.task == "document_extraction":
-        payload["provider"] = {"require_parameters": True, "data_collection": "deny", "zdr": True, "allow_fallbacks": False}
         if payload["model"] != model_policy.SONNET_5_5_MODEL:
             return
     payload["reasoning"] = model_policy.model_reasoning_parameters(
@@ -904,8 +917,7 @@ def _json_schema_payload(
             **sampling_parameters,
             "max_tokens": profile.max_tokens,
         }
-        if model.startswith("openai/"):
-            payload["provider"] = {"require_parameters": True}
+        payload["provider"] = openrouter_provider_policy()
         _apply_reasoning_for_structured_artifact(payload, profile)
         return payload
     payload = {
@@ -919,7 +931,7 @@ def _json_schema_payload(
                 "schema": _document_wire_schema(schema) if projected_document else schema,
             },
         },
-        "provider": {"require_parameters": True},
+        "provider": openrouter_provider_policy(),
         **sampling_parameters,
         "max_completion_tokens" if profile.task == "document_extraction" and model.startswith("openai/") else "max_tokens": profile.max_tokens,
     }
@@ -970,64 +982,8 @@ def _json_content_without_code_fences(content: str) -> str:
     return text.strip()
 
 
-async def _post_openrouter_json_schema(
-    *,
-    client: httpx.AsyncClient,
-    api_key: str,
-    payload: dict[str, object],
-    retry_attempt: _OpenRouterRetryAttempt,
-) -> httpx.Response | None:
-    response = await client.post(
-        "https://openrouter.ai/api/v1/chat/completions", headers=_openrouter_headers(api_key), json=_guard_request(retry_attempt[0], payload)
-    )
-    try:
-        response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        if exc.response.status_code != 400 or not model_policy.can_retry_without_reasoning(payload):
-            raise
-        if (permit := _reserve_openrouter_attempt(*retry_attempt)) is None:
-            return None
-        fallback_payload = {key: value for key, value in payload.items() if key != "reasoning"}
-        response = await client.post(
-            "https://openrouter.ai/api/v1/chat/completions", headers=_openrouter_headers(api_key),
-            json=_guard_request(retry_attempt[0], fallback_payload),
-            timeout=permit.timeout_seconds,
-        )
-        response.raise_for_status()
-    return response
-
-
-def _post_openrouter_json_schema_sync(
-    *,
-    client: httpx.Client,
-    api_key: str,
-    payload: dict[str, object],
-    retry_attempt: _OpenRouterRetryAttempt,
-) -> httpx.Response | None:
-    response = client.post(
-        "https://openrouter.ai/api/v1/chat/completions", headers=_openrouter_headers(api_key), json=_guard_request(retry_attempt[0], payload)
-    )
-    try:
-        response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        if exc.response.status_code != 400 or not model_policy.can_retry_without_reasoning(payload):
-            raise
-        if (permit := _reserve_openrouter_attempt(*retry_attempt)) is None:
-            return None
-        fallback_payload = {key: value for key, value in payload.items() if key != "reasoning"}
-        response = client.post(
-            "https://openrouter.ai/api/v1/chat/completions", headers=_openrouter_headers(api_key),
-            json=_guard_request(retry_attempt[0], fallback_payload),
-            timeout=permit.timeout_seconds,
-        )
-        response.raise_for_status()
-    return response
-
-def _openrouter_headers(api_key: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-
-
-def _raise_openrouter_payload_error(data: dict[str, object]) -> None:
+def _raise_openrouter_payload_error(data: dict[str, object], model: str) -> None:
+    raise_for_retention_error(model, None, data)
     error = data.get("error")
     if isinstance(error, dict):
         message = str(error.get("message") or "OpenRouter returned an error payload")

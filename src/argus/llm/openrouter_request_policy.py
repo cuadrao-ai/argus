@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from copy import deepcopy
 
+from argus.llm.openrouter_retention import enforce_openrouter_retention
 from argus.llm.openrouter_tasks import OpenRouterTask
 
 RequestGuard = Callable[[OpenRouterTask, dict[str, object]], dict[str, object]]
@@ -32,6 +33,7 @@ def guard_openrouter_request(
     for guard, is_final in guards:
         if not is_final:
             payload = guard(task, payload)
+    payload = enforce_openrouter_retention(payload)
     validators = [guard for guard, is_final in guards if is_final]
     if not validators:
         return payload
