@@ -65,9 +65,9 @@ both recovery buttons fit in the capture.
 | Bandeja | [Before](before-inbox-1280.png) | [After](after-inbox-1280.png) | [Before](before-inbox-390.png) | [After](after-inbox-390.png) |
 
 Retry failure, manual entry and reduced-motion captures use the same `after-`
-filename prefixes in this folder. The cited Mercury Home Mobbin reference was
-opened and visually inspected in the signed-in in-app browser. Its filled first
-action and quieter secondary pills informed the hierarchy only.
+filename prefixes in this folder. The cited [Home action hierarchy](https://mobbin.com/screens/d8564614-5b4c-4cdc-8088-0891fc9260df)
+was opened and visually inspected in the signed-in in-app browser. Its filled
+first action and quieter secondary pills informed the hierarchy only.
 
 ## Handoff and limits
 
