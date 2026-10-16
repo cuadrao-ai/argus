@@ -48,7 +48,7 @@ run_checks() {
   {
     for runner in run_home_balance run_plan_preview run_group_preview run_receipt_preview \
                   run_temporary_chat run_avatar_crop run_release_updates run_release_identity run_tap_targets \
-                  run_money_format; do
+                  run_money_format run_cuadrao_legal_urls; do
       echo "== $runner"
       python3 "$ios_dir/DesignPreviewTests/$runner.py" || { echo "FAILED $runner"; failed=1; }
     done

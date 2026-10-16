@@ -59,8 +59,8 @@ extension FinancialLoopUITests {
         XCTAssertTrue(app.buttons["tab.home"].waitForExistence(timeout: 5))
 
         tapVisible(app.buttons["cuadrao.profile.help"])
-        XCTAssertTrue(app.descendants(matching: .any)["release.legal.terms"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["release.legal.privacy"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["release.legal.terms"].exists, "legal links wait for the published pages")
+        XCTAssertFalse(app.descendants(matching: .any)["release.legal.privacy"].exists)
         tapVisible(app.buttons["Feedback"])
         XCTAssertTrue(app.navigationBars["Feedback"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["tab.home"].exists)
