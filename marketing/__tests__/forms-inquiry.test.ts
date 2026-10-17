@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFormsConfig } from "../lib/forms/config";
 import { handleInquiry } from "../lib/forms/inquiry";
 import {
   CONFIG,
@@ -36,6 +37,23 @@ describe("inquiry delivery", () => {
     expect(sent.reply_to).toBe("marisol@example.invalid");
     expect(sent.text).toContain("Nombre: Marisol Peña");
     expect(sent.text).toContain("Llevo las cuentas de una ferretería.");
+  });
+
+  test("passes the approved quoted sender through and preserves replies to the visitor", async () => {
+    const config = readFormsConfig({
+      RESEND_API_KEY: "fixture-key",
+      RESEND_API_URL: "https://resend.test",
+      CUADRAO_INQUIRY_FROM: '\"Cuadrao\" <no-responder@mail.cuadrao.ai>',
+      CUADRAO_INQUIRY_TO: "inbox@example.test",
+    });
+    const { provider, deps: d } = deps(accepted, config);
+    const response = await handleInquiry(jsonRequest("/api/inquiries", inquiryBody()), d);
+    expect(response.status).toBe(202);
+    expect(provider.calls).toHaveLength(1);
+    expect(JSON.parse(String(provider.calls[0].init.body))).toMatchObject({
+      from: '\"Cuadrao\" <no-responder@mail.cuadrao.ai>',
+      reply_to: "marisol@example.invalid",
+    });
   });
 
   test("a retry of the same submission carries the same idempotency key", async () => {
