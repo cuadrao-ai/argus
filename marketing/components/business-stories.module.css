@@ -1,0 +1,83 @@
+.capabilities, .expense { max-width: 1376px; margin: 0 auto; padding: 48px 48px 86px; scroll-margin-top: 100px; }
+.capabilityHeading { display: grid; grid-template-columns: 1fr 1fr; gap: 70px; align-items: start; }
+.capabilityHeading h2 { font-size: clamp(29px, 3vw, 40px); max-width: 470px; }
+.capabilityHeading > p { color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 560px; }
+.capabilityLinks { display: grid; grid-template-columns: repeat(2, 1fr); column-gap: 40px; margin-top: 34px; border-top: 1px solid var(--line); }
+.capabilityLinks a { min-width: 0; display: flex; align-items: center; gap: 15px; padding: 24px 20px 24px 0; border-bottom: 1px solid var(--line); transition: color .18s ease; }
+.capabilityLinks a > svg { flex-shrink: 0; }
+.capabilityLinks a > svg:last-child { margin-left: auto; }
+.capabilityLinks a > span { display: grid; gap: 5px; }
+.capabilityLinks strong { font-size: 16px; font-weight: 500; }
+.capabilityLinks small { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.capabilityLinks a:hover { color: #536c3c; }
+.capabilityLinks a:focus-visible, .stepList button:focus-visible, .example:focus-visible, .exampleBottom button:focus-visible, .reviewList a:focus-visible { outline: 2px solid #6e805c; outline-offset: 4px; }
+.expense { padding-top: 90px; padding-bottom: 70px; }
+.expenseHeading { max-width: 720px; margin-bottom: 38px; }
+.index { font-size: 12px; letter-spacing: .08em; margin-bottom: 18px; }
+.expenseHeading h2 { font-size: clamp(34px, 3.6vw, 50px); }
+.expenseHeading > p:last-child { max-width: 650px; color: var(--muted); font-size: 16px; line-height: 1.7; margin-top: 18px; }
+.walkthrough { display: grid; grid-template-columns: .78fr 1.22fr; gap: 64px; align-items: start; }
+.explanation { padding-top: 20px; }
+.stepList { display: grid; }
+.stepList button { display: grid; grid-template-columns: 24px 1fr; gap: 18px; border: none; border-left: 2px solid #d1d6c8; background: transparent; padding: 22px 0 22px 22px; text-align: left; color: var(--muted); }
+.stepNumber { font-size: 12px; padding-top: 5px; }
+.stepList strong { display: block; font-size: 22px; font-weight: 500; letter-spacing: -.025em; line-height: 1.3; }
+.stepList small { display: block; font-size: 14px; line-height: 1.7; margin-top: 10px; }
+.stepList button[aria-selected="true"] { color: var(--ink); border-left-color: var(--ink); background: #e8eadd66; }
+.intake { display: flex; gap: 12px; font-size: 13px; line-height: 1.7; color: var(--muted); padding: 25px 0 0 24px; }
+.intake svg { flex-shrink: 0; margin-top: 3px; }
+.example { border: 1px solid #c9cebd; border-radius: 8px; background: #f1f1e6; overflow: hidden; min-width: 0; }
+.exampleTop { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 19px 24px; border-bottom: 1px solid #c9cebd; font-size: 12px; }
+.exampleTop > span:last-child { display: inline-flex; align-items: center; gap: 6px; color: #526353; }
+.exampleBody { min-height: 475px; padding: 26px; }
+.missingRecord { max-width: 380px; margin: 3px auto 0; }
+.recordIcon { width: 46px; height: 46px; border: 1px solid #c9cebd; border-radius: 9px; display: grid; place-items: center; margin-bottom: 20px; }
+.missingRecord > small { font-size: 12px; color: #526353; }
+.missingRecord h3 { font-size: 27px; margin-top: 8px; }
+.missingRecord .expenseAmount { font-family: var(--font-space-grotesk), sans-serif; font-size: 42px; letter-spacing: -.045em; margin: 9px 0 20px; }
+.example dl { margin: 0; }
+.example dl div { display: flex; justify-content: space-between; gap: 15px; padding: 10px 0; font-size: 13px; border-bottom: 1px solid #d9ddce; }
+.example dt { color: #526353; }
+.example dd { margin: 0; text-align: right; }
+.emptyReceipt { display: flex; align-items: center; gap: 15px; border: 1px dashed #9ea98b; border-radius: 5px; padding: 20px; margin-top: 24px; font-size: 14px; }
+.emptyReceipt svg { flex-shrink: 0; }
+.emptyReceipt small { display: block; font-size: 12px; line-height: 1.5; color: #526353; margin-top: 7px; }
+.panelLead { font-size: 15px; margin-bottom: 23px; }
+.documentPair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.receiptPaper { background: #fffdf5; padding: 24px 20px; box-shadow: 0 3px 14px #23372a0c; border: 1px solid #e0dfd0; min-width: 0; }
+.receiptPaper > small { display: block; font-size: 12px; margin-top: 14px; color: #526353; }
+.receiptPaper h3 { font-size: 20px; letter-spacing: -.04em; line-height: 1.3; margin-top: 7px; }
+.receiptPaper > span { display: block; margin: 7px 0 20px; font-size: 12px; color: #526353; }
+.receiptPaper > p { font-family: var(--font-space-grotesk), sans-serif; font-size: 27px; letter-spacing: -.04em; margin-top: 21px; }
+.receiptPaper .fiscalNote { line-height: 1.5; margin-top: 20px; }
+.receiptPaper dl div { flex-direction: column; gap: 5px; }
+.receiptPaper dd { text-align: left; }
+.proposal { min-width: 0; }
+.proposal > span { display: block; font-size: 12px; color: #526353; margin: 8px 0 15px; }
+.proposal dl div { flex-direction: column; gap: 5px; }
+.proposal dd { text-align: left; font-size: 14px; }
+.linkedRecord { border-top: 1px solid #98a18b; padding-top: 18px; margin-top: 17px; display: grid; gap: 8px; }
+.linkedRecord small { font-size: 12px; color: #526353; }
+.linkedRecord strong { font-size: 13px; line-height: 1.5; font-weight: 500; }
+.linkedRecord > span { font-size: 14px; font-variant-numeric: tabular-nums; }
+.reviewNote { margin-top: 21px; color: #526353; font-size: 13px; line-height: 1.6; }
+.exampleBottom { padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #c9cebd; }
+.exampleBottom > span { font-size: 12px; color: #526353; line-height: 1.5; max-width: 260px; }
+.exampleBottom button { border: 0; background: transparent; padding: 6px 0; color: var(--ink); font-size: 13px; min-height: 44px; display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.preparation { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; border-top: 1px solid var(--line); margin-top: 56px; padding-top: 38px; scroll-margin-top: 100px; }
+.preparation h3 { font-size: 25px; letter-spacing: -.035em; line-height: 1.3; }
+.preparation p { font-size: 14px; line-height: 1.7; color: var(--muted); margin-top: 14px; }
+.preparation > div > small { display: block; font-size: 12px; line-height: 1.7; margin-top: 14px; color: var(--muted); }
+.reviewList > div { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.reviewList > div > span:first-child { display: grid; grid-template-columns: 17px 1fr; gap: 5px 10px; }
+.reviewList strong { font-size: 14px; font-weight: 500; }
+.reviewList small { font-size: 12px; color: var(--muted); grid-column: 2; }
+.reviewList > div > span:last-child { max-width: 120px; text-align: right; color: #526353; }
+.reviewList a { min-height: 44px; display: inline-flex; align-items: center; gap: 10px; font-size: 13px; margin-top: 6px; }
+@media (prefers-reduced-motion: no-preference) { .exampleBody { animation: reveal .2s ease-out both; } }
+@keyframes reveal { from { opacity: .5; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .capabilityLinks a { transition: none; } }
+@media (max-width: 1050px) { .capabilities, .expense { padding-inline: 32px; } .walkthrough { gap: 32px; grid-template-columns: .7fr 1.3fr; } .documentPair { gap: 14px; } .exampleBody { padding: 20px; } .receiptPaper { padding: 20px 16px; } .exampleBottom { flex-direction: column; align-items: flex-start; gap: 5px; } .exampleBottom > span { max-width: none; } .preparation { gap: 40px; } }
+@media (max-width: 800px) { .capabilities, .expense { padding: 35px 24px 50px; } .capabilityHeading { grid-template-columns: 1fr; gap: 18px; } .capabilityLinks { grid-template-columns: repeat(2, 1fr); column-gap: 25px; margin-top: 24px; } .capabilityLinks a { align-items: flex-start; padding: 20px 0; gap: 10px; } .capabilityLinks a > svg:first-child { display: none; } .capabilityLinks a > svg:last-child { width: 14px; margin-top: 4px; } .capabilityLinks strong { font-size: 15px; } .capabilityLinks small { font-size: 12px; } .walkthrough { grid-template-columns: 1fr; gap: 26px; } .explanation { padding-top: 0; } .stepList button { padding-block: 17px; } .stepList strong { font-size: 20px; } .stepList small { display: none; } .stepList button[aria-selected="true"] small { display: block; } .intake { padding-top: 18px; } .exampleTop { padding: 17px; flex-wrap: wrap; gap: 8px; } .exampleBody { min-height: 490px; } .exampleBottom { padding: 15px 20px; } .preparation { grid-template-columns: 1fr; gap: 24px; margin-top: 38px; padding-top: 30px; } .expenseHeading { margin-bottom: 24px; } .expenseHeading > p:last-child { font-size: 15px; } }
+@media (max-width: 420px) { .documentPair { grid-template-columns: 1fr; gap: 20px; } .receiptPaper { display: grid; grid-template-columns: 1fr auto; column-gap: 10px; padding: 20px; } .receiptPaper > svg { grid-column: 2; grid-row: 1 / 3; } .receiptPaper > small { margin-top: 0; } .receiptPaper > h3, .receiptPaper > span, .receiptPaper > dl, .receiptPaper > p, .receiptPaper > .fiscalNote { grid-column: 1 / -1; } .receiptPaper > span { margin-bottom: 8px; } .receiptPaper dl div { flex-direction: row; } .receiptPaper > p { font-size: 25px; margin-top: 14px; } .receiptPaper > .fiscalNote { margin-top: 10px; } .proposal dl { display: grid; grid-template-columns: 1fr 1fr; column-gap: 15px; } .proposal dl div:first-child { grid-column: 1 / -1; } .linkedRecord { grid-template-columns: 17px 1fr; gap: 5px 9px; padding-top: 14px; } .linkedRecord svg { grid-row: 1 / 4; } .linkedRecord small, .linkedRecord strong, .linkedRecord > span { grid-column: 2; } }
+@media (max-width: 360px) { .capabilities, .expense { padding-inline: 16px; } .capabilityLinks { gap: 0 18px; } .exampleBody { padding: 17px; } .stepList button { gap: 12px; padding-left: 15px; } .intake { padding-left: 0; } }
