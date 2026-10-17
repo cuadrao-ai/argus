@@ -55,11 +55,11 @@ FOR LUCAS: the October 16 read-only Resend check found sending enabled and verif
 
 [Render's environment-variable guide](https://render.com/docs/configure-environment-variables) says that linking a group starts a new deployment. Auto-deploy off does not prevent this explicit action. The [group-link API](https://api-docs.render.com/reference/link-service-to-env-group) has no documented `deploy=false` option.
 
-1. Lucas creates and populates the four groups above without linking them to any service. This PR performs none of those writes.
+1. Lucas opens Render **Dashboard > Environment Groups > New Environment Group**. Enter `cuadrao-prod-shared`, add its four required keys from the table, and select **Create** without linking a service. Repeat for `cuadrao-prod-web`, `cuadrao-staging-shared`, and `cuadrao-staging-web` with their matching keys and environment-specific values. If project environment controls are available, use **Manage > Move group** to place each group in its matching production or staging environment. This PR performs none of those writes.
 2. Compare group key names. Shared and web must have no duplicate key in the same environment. Never link a production group to staging or a staging group to production.
 3. Audit service-level settings by key name. Render gives direct service values precedence over linked groups. Remove or replace an obsolete override only in an approved deployment window, after reviewing its effect.
 4. Keep group linking held while the instruction remains "no deploy." Do not use **Link** as an environment-only save action.
-5. If Lucas wants **Manual Deploy** to be the only launch action, Lucas prepares the same values directly on `cuadrao-web` and selects **Save only**. Do not select **Save, rebuild, and deploy** or **Save, deploy**. Keep the prepared groups unlinked. Direct values are a temporary configuration until a later approved group-link deployment.
+5. If Lucas wants **Manual Deploy** to be the only launch action, Lucas opens **cuadrao-web > Environment > Add variables**, enters the same values, and selects **Save only**. Do not select **Save, rebuild, and deploy** or **Save, deploy**. Keep the prepared groups unlinked. Direct values are a temporary configuration until a later approved group-link deployment.
 6. Read back only target service identity, key names, set/unset status, group links, and deploy metadata. Do not copy secret values into evidence. Confirm auto-deploy remains off and no new deployment has started.
 
 A later group-link change requires its own approved deployment window. Audit duplicate direct keys before that window so an old direct secret cannot mask the group. The groups are a planned configuration, not evidence that this PR linked or populated them.
