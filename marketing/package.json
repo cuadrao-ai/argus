@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "check:env": "bun scripts/check-env-example.ts",
     "test": "bun test __tests__",
     "test:e2e": "playwright test"
   },
