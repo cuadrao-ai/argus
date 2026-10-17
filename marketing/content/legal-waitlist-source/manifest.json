@@ -1,0 +1,17 @@
+{
+  "privacidad": {
+    "source_sha256": "516424f5131eda2af72e9a0cc397658136d0dc62c66e41a4cc7c25dcfe1b13e7",
+    "spanish_text_sha256": "95840f2dd32b91743929f4ba491065ce511bad534be632fdb12b6af131e3f1e9",
+    "english_text_sha256": "19ae4b4a9dd7876dde8e50899d84a1aad793d05a79fcfaf399991d19a1348e4f"
+  },
+  "eliminar-datos": {
+    "source_sha256": "fc6c2bd6cdbe58c1969ab9bd67c2005fb04a2e9aa80c1d8492742f7905cadffe",
+    "spanish_text_sha256": "f7acaa81cb92ea215748d92e02f68bbe41d129e1a27e8e8ef9ef607f2f171b18",
+    "english_text_sha256": "510d76e04bee3dc19fa2e511edcc794e7eff14c54e2e93f10316b8d10bee23bf"
+  },
+  "terminos": {
+    "source_sha256": "9fa9e03865a59d08fa408a9efc32ba7139542994ca06b27fdc8494149365ef0e",
+    "spanish_text_sha256": "e15f03d6849fd6c46ad68159fbe9f9091f407df6ec688b44cda1b0b10d9ecda4",
+    "english_text_sha256": "c313274529ec06095e13ba8a45aebdbb7cd76d454ecdcdab8edbb76216501101"
+  }
+}

@@ -1,0 +1,57 @@
+.overview { max-width: 1376px; margin: 0 auto; padding: 36px 48px 74px; scroll-margin-top: 100px; }
+.heading { max-width: 760px; margin-bottom: 30px; }
+.heading > p:first-child { font-size: 12px; letter-spacing: .08em; margin-bottom: 16px; }
+.heading h2 { font-size: clamp(34px, 3.6vw, 50px); }
+.heading > p:last-child { font-size: 16px; color: var(--muted); line-height: 1.6; margin-top: 16px; max-width: 660px; }
+.workspace { border: 1px solid #29463b; border-radius: 10px; overflow: hidden; background: #172b26; }
+.masthead { padding: 23px 30px; display: flex; justify-content: space-between; align-items: center; gap: 18px; color: #f4f2e7; border-bottom: 1px solid #f4f2e71f; }
+.masthead > span:first-child { font-size: 16px; font-weight: 500; }
+.masthead > span:last-child { font-size: 12px; color: #c9d0c3; }
+.records { display: grid; grid-template-columns: 1.12fr 1fr; }
+.list { padding: 22px; }
+.row { width: 100%; display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 15px; border: 1px solid transparent; border-bottom-color: #f4f2e719; border-radius: 5px; background: transparent; color: #e7eadf; padding: 24px 16px; text-align: left; transition: background .18s ease, border-color .18s ease; }
+.row:hover { background: #f4f2e70a; }
+.row[aria-pressed="true"] { background: #f3f1e7; color: #172b26; border-color: #f3f1e7; box-shadow: 0 4px 12px #00000012; }
+.row:focus-visible, .invoiceLink:focus-visible { outline: 2px solid #b0bc8c; outline-offset: 3px; }
+.icon { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 6px; opacity: .75; }
+.rowText { display: grid; gap: 4px; min-width: 0; }
+.rowText small { font-size: 12px; }
+.rowText strong { font-size: 15px; font-weight: 500; }
+.rowText > span { font-size: 12px; opacity: .72; }
+.rowAmount { font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; display: flex; align-items: center; gap: 12px; }
+.detail { min-width: 0; padding: 37px 38px 28px; background: #faf8f0; }
+.detailContent { min-height: 395px; }
+.status { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: #526353; }
+.detail h3 { font-size: 27px; letter-spacing: -.045em; line-height: 1.15; margin-top: 19px; }
+.detail .amount { font-family: var(--font-space-grotesk), sans-serif; font-size: 43px; letter-spacing: -.05em; line-height: 1.2; margin-top: 16px; font-variant-numeric: tabular-nums; }
+.detail .amountLabel { font-size: 12px; color: #526353; margin-top: 3px; }
+.payment { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 24px; margin-top: 13px; font-size: 13px; color: #526353; }
+.payment strong { font-weight: 500; color: #172b26; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.detail .reason { font-size: 14px; line-height: 1.6; color: #526353; margin-top: 19px; max-width: 420px; min-height: 68px; }
+.next { border-top: 1px solid #d8d9ca; padding-top: 16px; margin-top: 16px; }
+.next > span { font-size: 12px; color: #526353; }
+.next > p { font-size: 14px; line-height: 1.55; margin-top: 5px; }
+.invoiceLink { display: inline-flex; gap: 12px; align-items: center; min-height: 44px; font-size: 13px; margin-top: 11px; border-bottom: 1px solid #9ba893; }
+.caption { padding: 13px 30px; font-size: 12px; color: #c9d0c3; border-top: 1px solid #f4f2e71f; }
+@media (prefers-reduced-motion: no-preference) { .detailContent { animation: focusRecord .18s ease-out both; } }
+@keyframes focusRecord { from { opacity: .55; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .row { transition: none; } }
+@media (max-width: 1050px) { .overview { padding-inline: 32px; } .records { grid-template-columns: 1fr 1fr; } .list { padding: 14px; } .row { gap: 9px; grid-template-columns: 1fr auto; padding: 23px 12px; } .icon { display: none; } .detail { padding-inline: 26px; } .rowAmount { gap: 4px; font-size: 13px; } }
+@media (max-width: 800px) { .overview { padding: 20px 24px 50px; } .heading { margin-bottom: 23px; } .heading > p:last-child { font-size: 15px; } .masthead { padding: 18px; } .masthead > span:first-child { font-size: 14px; } .masthead > span:last-child { font-size: 12px; } .records { grid-template-columns: 1fr; } .list { padding: 9px; } .row { padding: 14px 12px; gap: 9px; } .rowText { gap: 2px; } .rowText strong { font-size: 14px; } .rowAmount { font-size: 13px; } .rowText > span { font-size: 12px; } .detail { padding: 24px; } .detail h3 { font-size: 27px; margin-top: 14px; } .detail .reason { min-height: 68px; } .caption { padding: 12px 20px; } }
+@media (max-width: 360px) { .overview { padding-inline: 16px; } .row { padding-inline: 8px; } .rowAmount svg { display: none; } .masthead { align-items: flex-start; flex-direction: column; gap: 3px; } }
+
+.listHeader { display: flex; justify-content: space-between; gap: 16px; padding: 6px 16px 15px; color: #bcc6ba; font-size: 12px; }
+.payableFacts { margin: 0; padding: 0; font-size: 13px; }
+.payableFacts div { display: flex; justify-content: space-between; gap: 14px; padding: 7px 0; border-bottom: 1px solid #d8d9ca; }
+.payableFacts dt { color: #526353; }
+.payableFacts dd { margin: 0; }
+.assistant { border-top: 1px solid #f4f2e71f; padding: 28px 30px; color: #f4f2e7; display: grid; grid-template-columns: .7fr 1.3fr; gap: 34px; }
+.assistantLabel { display: grid; grid-template-columns: 20px 1fr; gap: 9px; align-content: start; }
+.assistantLabel h3 { font-size: 18px; line-height: 1.4; letter-spacing: -.025em; }
+.assistantLabel small { grid-column: 2; color: #bdc8b6; font-size: 12px; }
+.assistantExchange > p { width: fit-content; margin-left: auto; padding: 10px 15px; border: 1px solid #526554; border-radius: 8px 8px 0 8px; font-size: 14px; }
+.assistantExchange > div { margin-top: 18px; }
+.assistantExchange > div > p { font-size: 14px; line-height: 1.7; color: #e0e5d7; }
+.assistantExchange a { display: inline-flex; align-items: center; gap: 9px; font-size: 13px; min-height: 44px; text-decoration: underline; text-underline-offset: 4px; }
+.assistantExchange a:focus-visible { outline: 2px solid #b0bc8c; outline-offset: 4px; }
+@media (max-width: 800px) { .assistant { grid-template-columns: 1fr; padding: 24px; gap: 23px; } .detailContent { min-height: 380px; } .assistantLabel h3 { font-size: 17px; } }

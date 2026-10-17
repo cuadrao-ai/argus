@@ -1,0 +1,31 @@
+.hero { max-width: 1376px; margin: auto; padding: 68px 48px 62px; display: grid; grid-template-columns: 1.05fr 1fr; align-items: center; gap: 54px; }
+.hero .copy h1 { font-size: clamp(60px, 6.1vw, 88px); line-height: 1.01; letter-spacing: -.07em; }
+.hero .description { margin-top: 25px; max-width: 500px; font-size: 17px; line-height: 1.65; color: var(--muted); }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 24px; margin-top: 28px; }
+.hero .audience { margin-top: 24px; font-size: 12px; color: var(--muted); }
+.scene { min-width: 0; position: relative; padding: 20px 0 0; }
+.folio { display: block; position: relative; isolation: isolate; padding: 32px 36px 56px; background: #29463b; border: 1px solid #162f25; border-radius: 9px 18px 18px 9px; box-shadow: inset 7px 0 6px -7px #050e09, inset 0 0 0 4px #ffffff07, 0 22px 26px -21px #172b2670, 0 3px 3px #172b2620; transform: rotate(2deg); }
+.folio::before { content: ''; position: absolute; inset: 9px; border: 1px solid #e8efd016; border-radius: 3px 11px 11px 3px; z-index: -1; background-image: repeating-linear-gradient(95deg, transparent 0 2px, #00000005 2px 3px); }
+.backPaper { position: absolute; inset: 27px 42px 65px; background: #ebe7dc; border: 1px solid #d4cfbf; transform: rotate(-3deg); box-shadow: 0 2px 3px #0002; }
+.note { position: relative; padding: 25px 28px 18px; background: linear-gradient(110deg, #fffdf5 0%, #f6f1e4 100%); box-shadow: 0 2px 4px #0002, 1px 8px 11px -6px #06150a60; transform: rotate(-2deg); color: #263b31; }
+.noteTop { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 1px solid #b9bdae; padding-bottom: 21px; }
+.noteTop > span { font-family: var(--font-space-grotesk), sans-serif; font-weight: 600; font-size: 26px; letter-spacing: -.07em; }
+.noteTop small { font-size: 12px; letter-spacing: .09em; }
+.noteTitle { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 22px; font-size: 13px; }
+.noteTitle > span:last-child { border: 1px solid #c4c8b9; border-radius: 50%; width: 28px; height: 28px; display: grid; place-items: center; font-size: 12px; }
+.collection { padding: 27px 0 22px; }
+.collection > span { font-size: 12px; }
+.collection > strong { display: block; font-family: var(--font-space-grotesk), sans-serif; font-size: clamp(32px, 3.3vw, 46px); font-weight: 500; letter-spacing: -.045em; line-height: 1.3; }
+.collection > p { font-size: 13px; }
+.supporting { border-top: 1px solid #cbd0c0; display: grid; grid-template-columns: 1fr 1fr; padding: 17px 0; gap: 18px; }
+.supporting > div { display: grid; gap: 4px; }
+.supporting span { font-size: 12px; }
+.supporting strong { font-size: 15px; font-weight: 500; }
+.noteBottom { display: flex; justify-content: space-between; border-top: 1px solid #d4d5c8; padding-top: 13px; align-items: center; font-size: 12px; }
+.folioMark { position: absolute; bottom: 14px; right: 34px; color: #a3b2a68c; font-family: var(--font-space-grotesk), sans-serif; font-size: 17px; letter-spacing: -.05em; }
+.scene figcaption { margin-top: 23px; text-align: center; font-size: 12px; color: var(--muted); }
+.folio:focus-visible { outline: 2px solid var(--ink); outline-offset: 8px; }
+@media (prefers-reduced-motion: no-preference) { .scene { animation: settle .55s ease-out both; } .folio { transition: transform .22s ease; } .folio:hover { transform: rotate(1deg); } }
+@keyframes settle { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 1050px) { .hero { gap: 32px; padding-inline: 32px; } .hero .copy h1 { font-size: 65px; } .folio { padding: 27px 25px 47px; } .note { padding: 22px; } .noteTop small { font-size: 12px; } }
+@media (max-width: 800px) { .hero { grid-template-columns: 1fr; padding: 40px 24px 38px; gap: 24px; } .hero .copy h1 { font-size: clamp(49px, 9vw, 72px); } .hero .description { font-size: 16px; margin-top: 19px; max-width: 580px; } .actions { margin-top: 21px; } .hero .audience { margin-top: 15px; } .scene { max-width: 460px; width: 100%; margin-inline: auto !important; padding: 8px 6px 0; } .folio { padding: 20px 23px 41px; } .note { padding: 18px 20px 13px; } .noteTop { padding-bottom: 12px; } .noteTitle { margin-top: 13px; } .collection { padding: 15px 0; } .collection > strong { font-size: 35px; } .supporting { padding: 12px 0; } .scene figcaption { margin-top: 16px; } }

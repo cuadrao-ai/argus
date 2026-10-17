@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  overscroll-behavior-y: none;
+}
+
+body {
+  background: #ffffff;
+  color: #000000;
+}
+
+html:has([data-page-background="business"]),
+body:has([data-page-background="business"]) {
+  background: #172b26;
+}
+
+html:has([data-page-background="personal"]),
+body:has([data-page-background="personal"]) {
+  background: #f7f5ef;
+}
+
+:where(
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  summary,
+  label[for]
+) {
+  cursor: pointer;
+}
+
+:where(button:disabled, [aria-disabled="true"], input:disabled, textarea:disabled) {
+  cursor: not-allowed;
+}
+
+html[data-page-background="not-found"],
+html[data-page-background="not-found"] body {
+  background: #fafbf8;
+}
