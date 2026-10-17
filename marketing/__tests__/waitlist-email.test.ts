@@ -3,7 +3,7 @@ import { waitlistMail } from "../lib/waitlist/email";
 import { waitlistDeps } from "../lib/waitlist/runtime";
 import type { WaitlistRow } from "../lib/waitlist/types";
 const row: WaitlistRow = { email: "fixture@example.test", email_digest: "cd".repeat(32), verification_id: "ab".repeat(32), created_at: "2026-10-16T12:00:00Z", confirmed_at: "2026-10-16T13:00:00Z", last_confirmation_sent_at: "2026-10-16T12:00:00Z", reminder_sent_at: null, privacy_policy_version: "2026-10-16" };
-const config = { apiKey: "fixture-key", apiUrl: "https://provider.example.test", origin: "https://cuadrao.example.test", from: "Cuadrao <lista@cuadrao.ai>", postalAddress: "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU." };
+const config = { apiKey: "fixture-key", apiUrl: "https://provider.example.test", origin: "https://cuadrao.example.test", from: '"Cuadrao" <no-responder@mail.cuadrao.ai>', postalAddress: "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU." };
 
 test("all automatic mail uses the shared layout, leave headers, address and reply mailbox", async () => {
   const payloads: Record<string, unknown>[] = [];
@@ -59,11 +59,15 @@ test("a refusal after a lost response cannot release a possibly sent reservation
 });
 
 
-test("runtime allows only the approved subdomain sender on staging", () => {
-  const env = { SUPABASE_URL: "https://skedzwocnmrhfigiwyzi.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "fixture", RESEND_API_KEY: "fixture", MARKETING_WAITLIST_FROM: "Cuadrao <no-responder@mail.cuadrao.ai>", MARKETING_POSTAL_ADDRESS: config.postalAddress, CUADRAO_WAITLIST_ORIGIN: config.origin, CUADRAO_WAITLIST_TURNSTILE_SECRET: "fixture" };
-  expect(waitlistDeps(env)).not.toBeNull();
-  expect(waitlistDeps({ ...env, SUPABASE_URL: "https://other-project.supabase.co" })).toBeNull();
-  for (const from of ["Cuadrao <other@mail.cuadrao.ai>", "Cuadrao <no-responder@other.cuadrao.ai>", "Cuadrao <no-responder@mail.cuadrao.ai.example.test>", "Other <no-responder@mail.cuadrao.ai>"]) {
+test.each([
+  "https://lgdhvepyrzbnscqssgqq.supabase.co",
+  "https://skedzwocnmrhfigiwyzi.supabase.co",
+])("runtime accepts the approved quoted sender for %s", (supabaseUrl) => {
+  const env = { SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: "fixture", RESEND_API_KEY: "fixture", MARKETING_WAITLIST_FROM: config.from, MARKETING_POSTAL_ADDRESS: config.postalAddress, CUADRAO_WAITLIST_ORIGIN: config.origin, CUADRAO_WAITLIST_TURNSTILE_SECRET: "fixture" };
+  for (const from of [config.from, "Cuadrao <no-responder@mail.cuadrao.ai>", "Cuadrao <lista@cuadrao.ai>"]) {
+    expect(waitlistDeps({ ...env, MARKETING_WAITLIST_FROM: from })?.hostname).toBe("cuadrao.example.test");
+  }
+  for (const from of ["Cuadrao <other@mail.cuadrao.ai>", "Cuadrao <no-responder@other.cuadrao.ai>", "Cuadrao <no-responder@mail.cuadrao.ai.example.test>", "Cuadrao <no-responder@evilcuadrao.ai>", "Other <no-responder@mail.cuadrao.ai>", '\"Cuadrao <no-responder@mail.cuadrao.ai>', 'Cuadrao\" <no-responder@mail.cuadrao.ai>']) {
     expect(waitlistDeps({ ...env, MARKETING_WAITLIST_FROM: from })).toBeNull();
   }
 });

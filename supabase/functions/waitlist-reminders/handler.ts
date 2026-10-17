@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { waitlistMail } from "../../../marketing/lib/waitlist/email.ts";
 import { waitlistStore } from "../../../marketing/lib/waitlist/store.ts";
 import { remindWaitlist } from "../../../marketing/lib/waitlist/reminders.ts";
-import { parseMailbox } from "../../../marketing/lib/forms/validation.ts";
+import { parseWaitlistSender } from "../../../marketing/lib/forms/validation.ts";
 
 export const STAGING_URL = "https://skedzwocnmrhfigiwyzi.supabase.co";
 type Env = Record<string, string | undefined>;
@@ -18,12 +18,11 @@ export async function handleReminderRequest(request: Request, env: Env, doFetch:
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
   try {
-    const from = env.MARKETING_WAITLIST_FROM?.trim();
+    const from = parseWaitlistSender(env.MARKETING_WAITLIST_FROM);
     const postalAddress = env.MARKETING_POSTAL_ADDRESS?.trim();
     const apiKey = env.RESEND_API_KEY?.trim();
-    const mailbox = parseMailbox(/^Cuadrao <([^<>\r\n]+)>$/.exec(from ?? "")?.[1]);
     const origin = new URL(env.CUADRAO_WAITLIST_ORIGIN ?? "");
-    if (!from || (!mailbox?.endsWith("@cuadrao.ai") && mailbox !== "no-responder@mail.cuadrao.ai") || !postalAddress || !apiKey || origin.protocol !== "https:" || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) throw new Error("Missing delivery configuration");
+    if (!from || !postalAddress || !apiKey || origin.protocol !== "https:" || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) throw new Error("Missing delivery configuration");
     const store = waitlistStore({ supabaseUrl: STAGING_URL, supabaseServiceKey: key }, doFetch);
     const send = waitlistMail({ apiKey, apiUrl: "https://api.resend.com", from, postalAddress, origin: origin.origin }, doFetch);
     const result = await remindWaitlist({ store, send }, 2);
