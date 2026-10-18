@@ -108,7 +108,7 @@ export default function ExpiredGuestSession({
               allowModeSwitch={publicAccountAccessEnabled}
               embedded
               onModeChange={setAuthMode}
-              onSubmit={async ({ mode, displayName, email, password }) => {
+              onSubmit={async ({ mode, displayName, email, password, ageConfirmedAt }) => {
                 if (mode === "signup") {
                   const result = await signupWithEmail({
                     email,
@@ -117,6 +117,7 @@ export default function ExpiredGuestSession({
                       i18n.resolvedLanguage ?? i18n.language,
                     ),
                     display_name: displayName || null,
+                    age_confirmed_at: ageConfirmedAt ?? "",
                   });
                   if (result.needsEmailConfirmation) {
                     return { status: "email_confirmation_required" as const };

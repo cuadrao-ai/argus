@@ -2724,16 +2724,17 @@ emailless permanent identities require a separate schema and Auth slice.
 
 `POST /api/v1/auth/signup` and `POST /api/v1/auth/guest/signup` require
 `age_confirmed_at`, a string containing an RFC 3339 timestamp with an explicit
-timezone offset. New `POST /api/v1/auth/guest` identities require it too. Reusing
-an already verified guest session remains compatible without a new attestation.
-The client captures the instant when the person checks
-"Confirmo que tengo 18 años o más." It retains that same instant locally through
-conversion and retries, so conversion does not ask again. The web gate precedes
-the first guest action, including campaign-attribution bootstrap.
+timezone offset. The client captures the instant when the person checks the box
+during account creation and sends it on that request. English says
+"I confirm I'm 18 or older." Spanish says "Confirmo que tengo 18 años o más."
+The browser does not store the confirmation. `POST /api/v1/auth/guest` does not
+accept or require it. Reusing an already verified guest session stays compatible.
 
-The API rejects missing signup confirmation, null, booleans, numbers, invalid or
-naive timestamps and times more than five minutes in the future with `422`.
-It normalizes valid offsets to UTC. Existing admission, CAPTCHA, email-confirmation
+A missing `age_confirmed_at` returns `422` with code `age_confirmation_required`.
+An invalid or unsavable value returns `422` with code `age_confirmation_invalid`.
+That includes null, a boolean, a number, a naive timestamp, a time more than
+five minutes ahead, and an instant the clock cannot store. The provider is not
+called. The API normalizes valid offsets to UTC. Existing admission, CAPTCHA, email-confirmation
 and handoff rules still apply. The server stores the first attestation in
 `profiles.age_confirmed_at`; retries cannot replace it. Provider user metadata
 carries the timestamp only to recover an interrupted initial profile write.
@@ -9826,9 +9827,18 @@ route.
 ### Waitlist staging scheduler
 
 `POST /functions/v1/waitlist-reminders` is an internal Supabase Edge Function.
-It requires the staging service-role bearer credential and the exact staging
-project URL. It sends at most two due reminders using the existing reservation
-RPC and shared email renderer. It returns counts; failures return HTTP 503.
+It requires `X-Cuadrao-Waitlist-Scheduler-Key` with the dedicated secret from
+Edge `CUADRAO_WAITLIST_SCHEDULER_KEY` and Vault `cuadrao_waitlist_scheduler_key`.
+Vault `cuadrao_waitlist_project_url` and Edge `SUPABASE_URL` must equal
+`https://skedzwocnmrhfigiwyzi.supabase.co`. Edge `SUPABASE_SERVICE_ROLE_KEY`
+is used only for database access. A missing database or scheduler key, reuse of
+the database key as the scheduler key, or a wrong Edge project URL returns HTTP 503.
+A missing or incorrect scheduler header returns HTTP 401. These checks run
+before database or provider calls. Authorization bearer credentials do not
+authenticate this endpoint. The [scheduler deployment guide](../supabase/functions/waitlist-reminders/README.md)
+owns secret setup and scheduled-run verification.
+It sends at most two due reminders using the existing reservation RPC and
+shared email renderer. It returns counts; failures return HTTP 503.
 It never purges records. A separate SQL cron job calls the existing retention
 RPC. Both schedules run every five minutes, with retention offset by two minutes.
 Signup still sends confirmation immediately; welcome follows confirmation.

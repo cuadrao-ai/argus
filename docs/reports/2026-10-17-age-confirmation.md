@@ -1,26 +1,24 @@
 # Age confirmation delivery record
 
-This branch adds the approved 18+ checkbox before web guest entry or password
-signup. It stores one client attestation instant, never a birthday or raw Apple
+This branch adds the approved 18+ checkbox on account signup. It stores one client attestation instant, never a birthday or raw Apple
 age range. The shared API field is `age_confirmed_at`. The iOS writer agreed to
 that field before implementation.
 
-The PR is held. Iris approved the exact English and Spanish privacy disclosure
-for the age-confirmation storage concept. Independent exact-head review,
+The PR is held. Iris approved the exact English and Spanish account-creation disclosure. Independent exact-head review,
 three passing receipt-gate runs, and root merge authority remain required.
 There is no hosted, production, TestFlight, real signup or provider proof here.
 
 ## Technical contract
 
-- The checkbox says `Confirmo que tengo 18 años o más.` on both web locales.
-- New `POST /api/v1/auth/guest`, `POST /api/v1/auth/signup`, and
-  `POST /api/v1/auth/guest/signup` require a timestamp with an explicit timezone.
-  Existing verified guest reuse remains compatible without another attestation.
+- The checkbox says `I confirm I'm 18 or older.` in English and `Confirmo que tengo 18 años o más.` in Spanish.
+- `POST /api/v1/auth/signup` and `POST /api/v1/auth/guest/signup` require a
+  timestamp with an explicit timezone. `POST /api/v1/auth/guest` does not accept
+  or require it.
 - The API rejects non-string, naive, malformed and more-than-five-minutes-future
-  values. It normalizes valid offsets to UTC. The browser retains the first
-  instant through conversion and retry. No second boolean can disagree with it.
+  values. It normalizes valid offsets to UTC. Account creation sends the checkbox
+  instant on that request. The browser does not store it.
 - Existing admission, CAPTCHA, email confirmation and guest handoff behavior
-  remain. The browser gate includes campaign-triggered anonymous bootstrap.
+  remain.
 - Supabase Auth metadata carries the unverified timestamp for interrupted first
   profile creation. Profile creation validates it again. An existing profile is
   never backfilled from editable metadata. Signup initializes a legacy null value
@@ -36,7 +34,7 @@ There is no hosted, production, TestFlight, real signup or provider proof here.
 | Need | Retain the explicit 18+ attestation through account creation and recovery. |
 | Grain and history | One nullable instant per profile. Existing profiles stay null until an explicit request attests. No new history table. |
 | Constraints | `timestamptz`, backend-only initialization, first value immutable, finite, bounded future skew. |
-| Retention | Profile deletion follows existing Auth cascade. Browser confirmation remains until local storage is cleared; page memory supports blocked storage. |
+| Retention | Profile deletion follows existing Auth cascade. The browser does not keep the confirmation. |
 | Raw input | No birthday, numeric age or Apple range. Only the checkbox instant. |
 | Idempotency | Duplicate profile creation rereads the existing row. Existing metadata does not replace the first value. |
 | Query cost | Existing profile primary-key access. No new index or background task. |
@@ -47,11 +45,7 @@ There is no hosted, production, TestFlight, real signup or provider proof here.
   selection passed 199 tests. No prompt or field-description fingerprint changed.
 - The full web unit suite passed all 2699 tests after the approved privacy copy.
 - Focused web auth and guest selection passed 145 tests.
-- Chromium fixture browser probes passed three tests. They prove zero guest POSTs
-  before confirmation, campaign bootstrap after confirmation, retained browser
-  timestamp after reload, required signup confirmation, exact submitted timestamp
-  the sessionless check-email state and the approved privacy disclosure. All API calls were intercepted. These
-  probes do not prove real Supabase signup or hosted readiness.
+- Chromium fixture probes at an earlier head covered a guest browser gate. That gate and its stored confirmation are removed. Signup still requires the checkbox and submits the instant on the account request.
 - Inspected screenshots live in [age-confirmation evidence](evidence/age-confirmation/).
 - The isolated Next production build passed. It used process-only fixture
   settings and a separate build directory. No environment file changed.
@@ -83,8 +77,9 @@ No nested helper was started. Model and provider calls were not used.
 
 ## Detection and cleanup
 
-The main risk is old clients missing a now-required signup field. API `422`
-validation and the `age_confirmation_required` guest code expose that failure.
+The main risk is old clients missing a now-required signup field. A missing
+field returns `422` with `age_confirmation_required`. An invalid or unsavable
+timestamp returns `422` with `age_confirmation_invalid`.
 Existing sessions and login remain available. Rollback reverts the code while
 leaving the nullable column in place, then removes the forward migration only
 before any shared application. No staging migration was applied.

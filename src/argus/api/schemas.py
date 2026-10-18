@@ -1085,7 +1085,6 @@ class AccessApprovalResponse(BaseModel):
 
 
 class GuestBootstrapRequest(BaseModel):
-    age_confirmed_at: AgeConfirmation | None = None
     captcha_token: str = Field(min_length=1, max_length=4096)
     language: Language = "en"
 

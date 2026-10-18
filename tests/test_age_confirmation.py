@@ -68,24 +68,61 @@ def test_routed_signup_refuses_absent_confirmation_before_provider():
             ),
         )
     assert response.status_code == 422
+    assert response.json()["code"] == "age_confirmation_required"
+    assert "Confirmo que tengo 18 años o más." not in response.text
     gateway.signup.assert_not_called()
 
 
-def test_new_guest_refuses_missing_confirmation_before_provider(monkeypatch):
+@pytest.mark.parametrize(
+    "path",
+    ["/api/v1/auth/signup", "/api/v1/auth/guest/signup"],
+)
+@pytest.mark.parametrize(
+    "confirmation",
+    ["0001-01-01T00:00:00+14:00", "9999-12-31T23:59:59-14:00", "not-a-timestamp"],
+)
+def test_invalid_confirmation_is_422_before_provider(path, confirmation):
+    gateway = MagicMock()
+    payload = {
+        "email": "adult@example.com",
+        "password": "strong-password",
+        "captcha_token": "proof",
+        "age_confirmed_at": confirmation,
+    }
+    with (
+        patch.object(api_state, "supabase_gateway", gateway),
+        TestClient(app, raise_server_exceptions=False) as client,
+    ):
+        response = client.post(path, json=payload)
+    assert response.status_code == 422
+    assert response.json()["code"] == "age_confirmation_invalid"
+    assert "Confirmo que tengo 18 años o más." not in response.text
+    gateway.signup.assert_not_called()
+    gateway.sign_in_anonymously.assert_not_called()
+
+
+def test_guest_bootstrap_does_not_accept_age_confirmation(monkeypatch):
     from argus.api.routers import auth as auth_router
     from fastapi import HTTPException
 
     gateway = MagicMock()
+    gateway.sign_in_anonymously.side_effect = RuntimeError("stop after the call")
     monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
     with (
         patch.object(api_state, "supabase_gateway", gateway),
         patch.object(auth_router, "current_user", side_effect=HTTPException(401)),
-        TestClient(app) as client,
+        TestClient(app, raise_server_exceptions=False) as client,
     ):
-        response = client.post("/api/v1/auth/guest", json={"captcha_token": "proof"})
-    assert response.status_code == 422
-    assert response.json()["code"] == "age_confirmation_required"
-    gateway.sign_in_anonymously.assert_not_called()
+        missing = client.post("/api/v1/auth/guest", json={"captcha_token": "proof"})
+        invalid = client.post(
+            "/api/v1/auth/guest",
+            json={"captcha_token": "proof", "age_confirmed_at": "not-a-timestamp"},
+        )
+    assert missing.json().get("code") != "age_confirmation_required"
+    assert invalid.json().get("code") != "age_confirmation_invalid"
+    assert gateway.sign_in_anonymously.call_count == 2
+    for call in gateway.sign_in_anonymously.call_args_list:
+        assert call.kwargs == {"captcha_token": "proof", "language": "en"}
 
 
 def test_provider_metadata_recovers_sessionless_profile_without_reconfirming():

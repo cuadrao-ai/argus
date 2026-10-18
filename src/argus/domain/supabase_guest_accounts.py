@@ -56,17 +56,13 @@ class GuestAccountPersistenceMixin:
         *,
         captcha_token: str,
         language: Language,
-        age_confirmed_at: datetime | None = None,
     ) -> dict[str, Any]:
         try:
             response = self._auth().sign_in_anonymously(
                 {
                     "options": {
                         "captcha_token": captcha_token,
-                        "data": {
-                            "language": language,
-                            **({"age_confirmed_at": age_confirmed_at.isoformat()} if age_confirmed_at is not None else {}),
-                        },
+                        "data": {"language": language},
                     }
                 }
             )

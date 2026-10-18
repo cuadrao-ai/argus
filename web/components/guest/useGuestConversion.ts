@@ -95,6 +95,7 @@ export function useGuestConversion({
             password: submission.password,
             language: normalizeApiLanguage(account?.user.language),
             display_name: submission.displayName || null,
+            age_confirmed_at: submission.ageConfirmedAt ?? "",
           });
           destinationUserId = registered.response.user?.id;
           if (registered.needsEmailConfirmation) {
@@ -119,6 +120,7 @@ export function useGuestConversion({
                   conversation_id: sourceConversationId,
                   action_id: randomId(),
                 },
+            age_confirmed_at: submission.ageConfirmedAt ?? "",
           });
           handoffPreparedRef.current = true;
           destinationUserId = registered.response.user?.id;

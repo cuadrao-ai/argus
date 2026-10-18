@@ -1,6 +1,3 @@
-import { confirmAge } from "../lib/age-confirmation";
-import { beforeEach as beforeAgeTest } from "bun:test";
-beforeAgeTest(() => { confirmAge(); });
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";

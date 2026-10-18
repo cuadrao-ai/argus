@@ -1,7 +1,5 @@
 "use client";
 
-import { useAgeConfirmation } from "@/lib/use-age-confirmation";
-
 import {
   useCallback,
   useEffect,
@@ -115,7 +113,6 @@ export function useGuestExperience({
   onStartOverError,
   omnisearchShortcutEnabled,
 }: UseGuestExperienceInput) {
-  const ageConfirmedAt = useAgeConfirmation();
   const [isNewConversationOpen, setIsNewConversationOpen] = useState(false);
   const [isReplacingConversation, setIsReplacingConversation] = useState(false);
   const [resumeDecisionTarget, setResumeDecisionTarget] =
@@ -132,14 +129,14 @@ export function useGuestExperience({
   );
 
   useEffect(() => {
-    if (!guestBootstrapRequired || !ageConfirmedAt || !hasCampaignAttribution()) return;
+    if (!guestBootstrapRequired || !hasCampaignAttribution()) return;
     void startGuestSession(account?.user.language ?? null).catch((error) => {
       if (isGuestBootstrapAbortError(error)) return;
     });
     return () => {
       cancelPendingGuestBootstrap();
     };
-  }, [account?.user.language, ageConfirmedAt, guestBootstrapRequired]);
+  }, [account?.user.language, guestBootstrapRequired]);
 
   const resumeGuestAction = useCallback(
     async (action: GuestPendingAction) => {

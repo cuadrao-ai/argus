@@ -1,4 +1,3 @@
-import { confirmAge, requireAgeConfirmation } from "../lib/age-confirmation";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -45,7 +44,6 @@ afterEach(() => {
 
 beforeEach(() => {
   installStorage();
-  confirmAge();
 });
 
 describe("landing attribution on auth requests", () => {
@@ -60,13 +58,13 @@ describe("landing attribution on auth requests", () => {
     }) as typeof fetch;
 
     await bootstrapGuest({ captcha_token: "token", language: "en" });
-    expect(bodies[0]).toEqual({ captcha_token: "token", language: "en", age_confirmed_at: requireAgeConfirmation() });
+    expect(bodies[0]).toEqual({ captcha_token: "token", language: "en" });
+    expect(bodies[0]).not.toHaveProperty("age_confirmed_at");
     expect(bodies[0]).not.toHaveProperty("attribution");
 
     captureLandingIntent("utm_campaign=x&starter=backtest", "/");
     await bootstrapGuest({ captcha_token: "token", language: "en" });
     expect(bodies[1]).toEqual({
-      age_confirmed_at: requireAgeConfirmation(),
       captcha_token: "token",
       language: "en",
       attribution: {
@@ -88,6 +86,7 @@ describe("landing attribution on auth requests", () => {
       email: "alpha@example.com",
       password: "password123",
       language: "en",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
     expect(bodies.at(-1)).toMatchObject({
       email: "alpha@example.com",
@@ -130,6 +129,7 @@ describe("landing attribution on auth requests", () => {
       email: "shared@example.com",
       password: "password123",
       language: "en",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
     expect(bodies.at(-1)).toMatchObject({
       attribution: {

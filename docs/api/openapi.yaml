@@ -17388,11 +17388,6 @@ components:
       - feedback_limit
     GuestBootstrapRequest:
       properties:
-        age_confirmed_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
         captcha_token:
           type: string
           maxLength: 4096
