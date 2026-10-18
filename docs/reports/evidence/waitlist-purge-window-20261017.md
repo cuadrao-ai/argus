@@ -84,3 +84,40 @@ later authorized application, restore the prior purge body through a new forward
 migration and revoke or remove the unused completion hook if needed. Returning the
 setting to 12 restores the default retention window. Deleted rows cannot be
 recovered by a code rollback, so staging activation remains a coordinator action.
+
+## Batch-limit correction after independent Eval
+
+The earlier passing local cap checks did not establish the cap across PostgreSQL
+plans. Independent Eval on `927a3bdba2de4db040c53028808ed10aa2229137`
+observed 160 deletions for a requested batch of 80. Required CI run
+`39091376245` independently observed 101 deletions for a cap of 100.
+[Independent Eval](https://github.com/lagarcess/argus/pull/1219#issuecomment-6244965569)
+records the failing observations and their limits.
+
+The integration function has the same limited locking `IN` subquery shape.
+New local probes of both the exact base body and the unchanged candidate returned
+80 for 160 eligible rows with a requested batch of 80. Default, nested-loop,
+non-materializing, analyzed and stale-eligibility-statistics probes did not
+reproduce the over-deletion locally. The eight new boundary and worker cases also
+passed before this correction. No fresh local failing-before result is claimed,
+and this evidence does not establish that M3 introduced the defect.
+
+The unapplied M3 migration now materializes one bounded set of locked candidate
+keys before deleting through that set. Eligibility, calendar-month configuration,
+whole-row deletion, the 100-row cap and `SKIP LOCKED` stay unchanged. No previously
+applied migration was edited.
+
+The new regression cases check requested batches of 1 and 80 and the hard cap of
+100 against 160 eligible rows. Each runs with the normal planner and with hash
+and merge joins disabled. A two-worker case keeps both transactions open, verifies
+80 deletions per worker, and verifies a third call cannot take their locked rows.
+The existing single-row lock check remains.
+
+Corrected verification used only `fix_m3_db` at local port 59432, built from the two
+existing waitlist migrations and the new M3 migration. Python 3.10.20 ran with an
+empty environment apart from the local database URL, source path and synthetic
+provider mode. The two waitlist PostgreSQL modules passed all 46 tests, with no
+skips. The unchanged SQL acceptance script passed all 29 checks. Ruff and
+`git diff --check` passed. Integration was fetched again and remained
+`651870a54be4e5506dbb38f3902fef1a97eef8df`, so no reconciliation merge was needed.
+These local proofs require fresh exact-head CI and an independent delta Eval.

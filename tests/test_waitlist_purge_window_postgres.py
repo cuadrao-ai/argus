@@ -174,11 +174,37 @@ def test_public_roles_cannot_purge_or_complete_invites(db, role):
     ).fetchone()[0]
 
 
-def test_purge_keeps_the_existing_hundred_row_batch_limit(db):
-    for _ in range(101):
+@pytest.mark.parametrize("nested_loop", [False, True], ids=["default", "nested-loop"])
+@pytest.mark.parametrize("requested,expected", [(1, 1), (80, 80), (1000, 100)])
+def test_purge_keeps_the_requested_batch_and_hundred_row_cap(
+    db, nested_loop, requested, expected
+):
+    if nested_loop:
+        db.execute("set local enable_hashjoin = off")
+        db.execute("set local enable_mergejoin = off")
+    for _ in range(160):
         signup(db, "13 months")
-    assert purge(db, 1000) == 100
-    assert purge(db) == 1
+    assert purge(db, requested) == expected
+    assert db.execute(f"select count(*) from {TABLE}").fetchone()[0] == 160 - expected
+
+
+@pytest.mark.parametrize("nested_loop", [False, True], ids=["default", "nested-loop"])
+def test_purge_workers_each_take_one_bounded_unlocked_batch(db, nested_loop):
+    with psycopg.connect(DSN, autocommit=True) as owner:
+        digests = [signup(owner, "13 months")[0] for _ in range(160)]
+        try:
+            with psycopg.connect(DSN) as other:
+                for worker in (db, other):
+                    worker.execute("set local statement_timeout = '5s'")
+                    if nested_loop:
+                        worker.execute("set local enable_hashjoin = off")
+                        worker.execute("set local enable_mergejoin = off")
+                assert purge(db, 80) == 80
+                assert purge(other, 80) == 80
+                assert purge(db, 80) == 0
+        finally:
+            db.rollback()
+            owner.execute(f"delete from {TABLE} where email_digest = any(%s)", (digests,))
 
 
 def test_purge_skips_a_signup_locked_by_another_worker(db):

@@ -12,13 +12,16 @@ begin
         raise exception 'Waitlist retention must be between 1 and 120 calendar months'
             using errcode = '22023';
     end if;
-    delete from public.cuadrao_early_access_signups where email_digest in (
+    with candidates as materialized (
         select email_digest from public.cuadrao_early_access_signups
         where privacy_policy_version is not null and (
             (confirmed_at is null and created_at <= now() - interval '7 days')
             or created_at + pg_catalog.make_interval(months => v_months) <= now()
         ) order by created_at limit greatest(1, least(p_limit, 100)) for update skip locked
-    );
+    )
+    delete from public.cuadrao_early_access_signups as signup
+    using candidates
+    where signup.email_digest = candidates.email_digest;
     get diagnostics v_count = row_count;
     return v_count;
 end;
