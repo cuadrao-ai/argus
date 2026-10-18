@@ -75,14 +75,10 @@ describe("notes awaiting review in the Inbox", () => {
 });
 
 describe("the inbox count on the Overview card and the sidebar badge", () => {
-  const activity = (pending: number, unread: number) => ({ reading_count: 0, unread_count: unread, presentation: unread ? "unread" as const : "none" as const, pending_review_count: pending, needs_attention_count: 0 });
-  test("is the server's pending review count, never the unread count and never a client recount", () => {
-    // Five rows wait in the Bandeja and three are unread: the number is five.
-    assert.equal(inboxCount({ receiptActivity: activity(5, 3) }), 5);
-    assert.equal(inboxCount({ receiptActivity: activity(0, 0) }), 0);
-  });
-  test("is unknown, not zero, until the server answers", () => {
-    assert.equal(inboxCount({ receiptActivity: null }), null);
+  test("is countPorRevisar of the receipt list, and unknown until that list arrives", () => {
+    assert.equal(inboxCount({ inbox: [{ status: "review_ready" }, { status: "review_ready" }, { status: "needs_attention", attention: "unreadable" }] }), 2);
+    assert.equal(inboxCount({ inbox: [] }), 0);
+    assert.equal(inboxCount({ inbox: null }), null);
     assert.equal(inboxCount({}), null);
   });
 });
