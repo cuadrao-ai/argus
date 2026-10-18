@@ -224,7 +224,7 @@ def test_re_inviting_an_expired_email_makes_a_fresh_live_invite(pool, users) -> 
             (first_id,),
         )
         db.commit()
-    assert access.list(space.id, users["owner"]).invites == ()
+    assert access.list(space.id, users["owner"]).invites[0].state == "expired"
     created, listed = access.give(space.id, users["owner"], email)
     assert created and [i.email for i in listed.invites] == [email]
     assert listed.invites[0].expires_at > first_expiry

@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 
 import {
   createConversation,
-  deleteAllConversations,
   listConversations,
   listHistory,
   searchGlobal,
@@ -40,7 +39,6 @@ async function everyCall(surface?: "personal" | "business") {
   await listConversations({ limit: 30, surface });
   await listHistory({ limit: 50, surface });
   await searchGlobal({ q: "renta", limit: 30, includeLedgerGroups: true, surface });
-  await deleteAllConversations(surface);
   await listComputedAnswers("price_multiple", "m-1", surface);
   return calls;
 }
@@ -62,7 +60,6 @@ describe("the chat surface a request names", () => {
       { path: "/conversations?limit=30", method: "GET", body: null },
       { path: "/history?limit=50", method: "GET", body: null },
       { path: "/search?q=renta&limit=30&include_ledger_groups=true", method: "GET", body: null },
-      { path: "/conversations", method: "DELETE", body: null },
       { path: "/computations/answers?kind=price_multiple&exclude_message_id=m-1", method: "GET", body: null },
     ];
     expect(await everyCall()).toEqual(expected);
@@ -84,7 +81,6 @@ describe("the chat surface a request names", () => {
         method: "GET",
         body: null,
       },
-      { path: "/conversations?surface=business", method: "DELETE", body: null },
       {
         path: "/computations/answers?kind=price_multiple&exclude_message_id=m-1&surface=business",
         method: "GET",

@@ -57,15 +57,15 @@
     "back_to_argus": "Volver a Cuadrao",
     "terms": {
       "title": "Términos de uso",
-      "intro": "Argus es un producto en acceso anticipado para investigación educativa de inversión. Estos términos describen cómo funciona Argus hoy. Argus sigue en construcción, así que estos términos van a cambiar conforme cambie el producto.",
+      "intro": "Cuadrao es un producto en acceso anticipado para investigación educativa de inversión. Estos términos describen cómo funciona Cuadrao hoy. Cuadrao sigue en construcción, así que estos términos van a cambiar conforme cambie el producto.",
       "sections": {
         "no_investment_advice": {
           "title": "No es asesoría de inversión",
-          "body": "Argus ofrece herramientas educativas que te ayudan a estructurar y revisar ideas de inversión. Argus no ofrece asesoría de inversión, legal, fiscal, contable ni financiera. Tú eres responsable de tus propias decisiones."
+          "body": "Cuadrao ofrece herramientas educativas que te ayudan a estructurar y revisar ideas de inversión. Cuadrao no ofrece asesoría de inversión, legal, fiscal, contable ni financiera. Tú eres responsable de tus propias decisiones."
         },
         "no_brokerage": {
           "title": "Sin relación de corretaje ni trading",
-          "body": "Argus no es broker, dealer, asesor de inversión, fiduciario, bolsa, custodio ni centro de negociación. Argus no custodia fondos, no coloca órdenes, no ejecuta operaciones ni se conecta a cuentas de corretaje."
+          "body": "Cuadrao no es broker, dealer, asesor de inversión, fiduciario, bolsa, custodio ni centro de negociación. Cuadrao no custodia fondos, no coloca órdenes, no ejecuta operaciones ni se conecta a cuentas de corretaje."
         },
         "historical_simulations": {
           "title": "Las simulaciones históricas son hipotéticas",
@@ -73,23 +73,23 @@
         },
         "early_access_changes": {
           "title": "Disponibilidad y cambios del acceso anticipado",
-          "body": "Argus está en acceso anticipado y se ofrece tal cual, sin garantías. Las funciones pueden cambiar, fallar, reiniciarse o eliminarse sin aviso, y algunas podrían no llegar nunca a una versión final. Podemos limitar el acceso, suspender cuentas o retirar contenido que genere riesgos de seguridad, abuso, cumplimiento u operación."
+          "body": "Cuadrao está en acceso anticipado y se ofrece tal cual, sin garantías. Las funciones pueden cambiar, fallar, reiniciarse o eliminarse sin aviso, y algunas podrían no llegar nunca a una versión final. Podemos limitar el acceso, suspender cuentas o retirar contenido que genere riesgos de seguridad, abuso, cumplimiento u operación."
         },
         "eligibility": {
           "title": "Elegibilidad",
-          "body": "Debes tener edad suficiente para celebrar un acuerdo vinculante en tu jurisdicción y poder usar Argus conforme a la ley aplicable. No uses Argus en nombre de otra persona u organización salvo que tengas autorización para hacerlo."
+          "body": "Debes tener edad suficiente para celebrar un acuerdo vinculante en tu jurisdicción y poder usar Cuadrao conforme a la ley aplicable. No uses Cuadrao en nombre de otra persona u organización salvo que tengas autorización para hacerlo."
         },
         "acceptable_use": {
           "title": "Uso aceptable",
-          "body": "No uses Argus para infringir la ley, abusar del servicio, aplicar ingeniería inversa a sistemas privados, sobrecargar proveedores, enviar datos sensibles de terceros ni presentar resultados generados como asesoría profesional."
+          "body": "No uses Cuadrao para infringir la ley, abusar del servicio, aplicar ingeniería inversa a sistemas privados, sobrecargar proveedores, enviar datos sensibles de terceros ni presentar resultados generados como asesoría profesional."
         },
         "third_party_services": {
           "title": "Servicios de terceros",
-          "body": "Argus depende de servicios de terceros para hosting, autenticación, datos de mercado, acceso a modelos, protección contra bots y renderizado de gráficos. TradingView Lightweight Charts se usa para renderizar gráficos y mostrar atribución, no como fuente de datos de mercado de Argus."
+          "body": "Cuadrao depende de servicios de terceros para hosting, autenticación, datos de mercado, acceso a modelos, protección contra bots y renderizado de gráficos. TradingView Lightweight Charts se usa para renderizar gráficos y mostrar atribución, no como fuente de datos de mercado de Cuadrao."
         },
         "account_support": {
           "title": "Soporte de cuenta",
-          "body_before_email": "Mientras Argus está en acceso anticipado, las solicitudes de soporte y de eliminación de cuenta las atiende una persona. Contacta a",
+          "body_before_email": "Mientras Cuadrao está en acceso anticipado, las solicitudes de soporte y de eliminación de cuenta las atiende una persona. Contacta a",
           "body_after_email": " o usa la solicitud de eliminación de cuenta dentro de la app."
         }
       }
@@ -1101,7 +1101,7 @@
       "upgrade_pro": "Prueba Pro gratis"
     },
     "app": {
-      "title": "App",
+      "title": "Preferencias",
       "language": "Idioma de la app",
       "close_language_modal": "Cerrar selector de idioma",
       "sidebar": "Barra lateral",
@@ -1189,16 +1189,6 @@
       "deleted_item_note": "Se puede restaurar actualmente.",
       "no_deleted_items": "No hay elementos borrados recientemente",
       "chat_item": "Chat",
-      "delete_all_conversations": "Eliminar todas las conversaciones",
-      "delete_all_confirm": {
-        "title": "¿Eliminar todas las conversaciones?",
-        "description": "Esto mueve todas las conversaciones activas y archivadas a Borrados recientemente. Puedes restaurarlas antes de que se eliminen permanentemente.",
-        "confirm": "Eliminar todas las conversaciones"
-      },
-      "delete_all_success_one": "Se movió {{count}} conversación a Borrados recientemente.",
-      "delete_all_success_other": "Se movieron {{count}} conversaciones a Borrados recientemente.",
-      "delete_all_empty": "No hay conversaciones para eliminar.",
-      "delete_all_error": "No se pudieron eliminar las conversaciones. Inténtalo de nuevo.",
       "security": "Seguridad",
       "usage": "Uso",
       "usage_panel": {
@@ -1233,8 +1223,8 @@
     },
     "help": {
       "title": "Ayuda y legal",
-      "terms": "Términos de uso",
-      "privacy": "Política de privacidad"
+      "terms": "Términos",
+      "privacy": "Privacidad"
     },
     "about": {
       "title": "Acerca de",
@@ -1511,7 +1501,10 @@
       "new_account": "¿Nuevo en Cuadrao?",
       "password_requirement": "Mínimo 8 caracteres.",
       "confirmation_title": "Revisa tu correo",
-      "confirmation_description": "Usa el enlace de confirmación que enviamos para terminar de crear tu cuenta. Luego vuelve aquí para iniciar sesión."
+      "confirmation_description": "Escribe el código del correo, o abre el enlace de confirmación. Cualquiera de los dos termina de crear tu cuenta.",
+      "confirmation_code_label": "Código de confirmación",
+      "confirmation_submit": "Confirmar",
+      "confirmation_loading": "Confirmando..."
     },
     "legal": {
       "continuing_prefix": "Al continuar, aceptas nuestros"
@@ -1552,6 +1545,8 @@
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
       "captcha_unavailable": "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
+      "browser_check_failed": "No pudimos verificar tu navegador. Intenta de nuevo.",
+      "browser_check_retry": "Intentar de nuevo",
       "unauthorized": "No pudimos verificar los datos de la cuenta. Revísalos e inténtalo de nuevo.",
       "auth_signup_failed": "No pudimos crear la cuenta. Inténtalo de nuevo.",
       "too_many_requests": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
@@ -1573,7 +1568,8 @@
       "guest_handoff_source_not_anonymous": "Esta conversación ya no pertenece a una cuenta temporal.",
       "guest_handoff_unsafe_product_graph": "No pudimos transferir esta conversación de forma segura. La conversación original no cambió.",
       "guest_handoff_workspace_unavailable": "Esta conversación temporal ya no está disponible.",
-      "guest_handoff_claim_unavailable": "No pudimos conservar la conversación temporal en este momento. Inténtalo de nuevo."
+      "guest_handoff_claim_unavailable": "No pudimos conservar la conversación temporal en este momento. Inténtalo de nuevo.",
+      "otp_rejected": "Ese código no fue aceptado. Revisa el correo e inténtalo de nuevo."
     }
   },
   "account_security": {
@@ -2513,6 +2509,8 @@
       "title": "¿Qué hacemos hoy por tu negocio?"
     },
     "inbox": {
+      "aside_reading_placeholder": "{{count}} todavía leyéndose",
+      "aside_unreadable_placeholder": "{{count}} no se pudo leer",
       "empty_body": "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.",
       "error": "No pudimos cargar tu bandeja. Reintenta.",
       "notes_title": "Notas en revisión",
@@ -2521,6 +2519,8 @@
       "notes_latest": "Se muestran las últimas 50 notas guardadas. Las notas abiertas más antiguas se encuentran con la búsqueda.",
       "note_more_one": "{{count}} nota anterior",
       "note_more_other": "{{count}} notas anteriores",
+      "por_revisar": "{{count}} por revisar",
+      "review_receipts": "Revisar recibos",
       "subtitle": "Recibos que esperan tu revisión. Nada aquí es un gasto hasta que lo confirmes.",
       "title": "Bandeja",
       "all_reviewed": "Todo revisado"
@@ -2837,7 +2837,7 @@
     "title": "Acceso",
     "subtitle": "Quién puede ver y preparar los registros de tu negocio. Solo tú apruebas.",
     "owner": "Dueño",
-    "member": "Ve y prepara",
+    "member": "Miembro",
     "since": "Desde {{date}}",
     "pending_title": "Invitaciones pendientes",
     "pending_until": "Vence {{date}}",

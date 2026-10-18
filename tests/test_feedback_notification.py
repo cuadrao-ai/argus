@@ -220,9 +220,10 @@ def test_notification_goes_to_support_through_the_shared_resend_transport(
     )
     assert (smtp.host, smtp.port) == ("smtp.resend.com", 465)
     assert smtp.login_args == ("resend", "re_test_password")
-    assert smtp.mail_from == "noreply@get-argus.com"
+    assert smtp.mail_from == "no-responder@mail.cuadrao.ai"
     assert smtp.recipient == FEEDBACK_NOTIFICATION_RECIPIENT
     sent = message_from_string(smtp.message or "")
+    assert sent["From"] == "Cuadrao <no-responder@mail.cuadrao.ai>"
     assert sent["To"] == FEEDBACK_NOTIFICATION_RECIPIENT
     assert str(sent["Subject"]) == "Argus feedback (bug): Search is slow"
     assert sent["Resend-Idempotency-Key"] is None
