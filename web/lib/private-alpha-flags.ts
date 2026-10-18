@@ -33,6 +33,16 @@ export function businessPilotEnabledFromEnv(
 
 export const businessPilotEnabled = businessPilotEnabledFromEnv();
 
+// Business is the only web app. Unset is on. The string "false" restores the
+// consumer web (root, guest chat, and /chat).
+export function businessOnlyWebFromEnv(value: string | undefined): boolean {
+  return value !== "false";
+}
+
+export const businessOnlyWebEnabled = businessOnlyWebFromEnv(
+  process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB,
+);
+
 // Business Preferencias WhatsApp number. Default off. The row stays hidden
 // until intake is connected. Personal preferences do not read this flag.
 export function businessWhatsappPreferencesEnabledFromEnv(

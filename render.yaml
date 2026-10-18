@@ -244,6 +244,8 @@ services:
         value: "true"
       - key: NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED
         value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
+        value: "true"
       - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
         value: "false"
       - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
@@ -283,6 +285,8 @@ services:
       - key: NEXT_PUBLIC_MOCK_AUTH
         value: "false"
       - key: NEXT_PUBLIC_BUSINESS_PILOT_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
         value: "true"
       - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
         value: "false"
