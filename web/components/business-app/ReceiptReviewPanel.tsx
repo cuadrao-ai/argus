@@ -27,6 +27,7 @@ import {
   StatusPill,
   useAttentionLabel,
   useCategoryLabel,
+  useTerminalRead,
 } from "./business-ui";
 
 type Draft = Record<keyof ReceiptReviewFields, string>;
@@ -52,7 +53,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
   const attentionLabel = useAttentionLabel();
-  const { source, reload, openPanel, revision, records } = useBusiness();
+  const terminalRead = useTerminalRead();
+  const { source, reload, openPanel, revision, records, actions, chosen } = useBusiness();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [failed, setFailed] = useState(false);
@@ -122,6 +124,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     );
   }
   if (!detail || !draft) return <LoadingRows rows={4} layout="detail" />;
+  const terminal = terminalRead(detail.attention, detail.error_code);
+  const uploadAnother = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />) => (
     <ReceiptReviewFrame
@@ -139,6 +143,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   if (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading") return frame(<><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
   const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
+  const canEnter = detail.enterable && canPrepare && !locked;
 
   const changedFields = (): Partial<ReceiptReviewFields> =>
     Object.fromEntries(
@@ -277,10 +282,38 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           {incompleteBridge ? <div className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p>{uncertainVersion === null ? <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}</div> : null}
           {detail.status === "needs_attention" ? (
             <div role="alert" data-testid="receipt-attention" className={`${cardClass} text-[14px] text-black/75 dark:text-white/75`}>
-              <p className="flex gap-2.5">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
-                <span>{attentionLabel(detail.attention)}</span>
-              </p>
+              {terminal ? (
+                <>
+                  <p className="flex gap-2.5">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
+                    <span>
+                      <span className="block font-medium">{terminal.title}</span>
+                      <span className="mt-1 block">{terminal.body}</span>
+                    </span>
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {terminal.upload && uploadAnother ? (
+                      <button type="button" className={secondaryButtonClass} onClick={uploadAnother.run}>
+                        {terminal.uploadLabel}
+                      </button>
+                    ) : null}
+                    {canEnter ? (
+                      <button
+                        type="button"
+                        className={secondaryButtonClass}
+                        onClick={() => document.querySelector<HTMLElement>('[data-testid="receipt-review-fields"] input:not(:disabled), [data-testid="receipt-review-fields"] select:not(:disabled)')?.focus()}
+                      >
+                        {terminal.enterLabel}
+                      </button>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <p className="flex gap-2.5">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
+                  <span>{attentionLabel(detail.attention)}</span>
+                </p>
+              )}
               {detail.duplicate_of ? (
                 <button type="button" data-testid="receipt-duplicate-original" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "receipt", receiptId: detail.duplicate_of as string })}>
                   {t("business.review.see_original", "See the receipt already saved")}
@@ -307,7 +340,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               ) : null}
             </div>
           ) : null}
-          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={detail.enterable && canPrepare && !locked} preparable={detail.preparable && canPrepare} />
+          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={canEnter} preparable={detail.preparable && canPrepare} />
           {waitingForAi && readStalled ? (
             <div role="status" data-testid="receipt-read-stalled" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>
               <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
