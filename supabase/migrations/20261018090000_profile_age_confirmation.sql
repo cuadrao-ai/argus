@@ -1,3 +1,6 @@
+set local lock_timeout = '5s';
+set local statement_timeout = '60s';
+
 alter table public.profiles
   add column age_confirmed_at timestamptz;
 

@@ -92,3 +92,35 @@ before any shared application. No staging migration was applied.
 The local browser server and owned disposable database are retained while the
 review checkpoint is open. The root coordinator owns final cleanup.
 No other simulator, database, checkout, environment or service was changed.
+
+## Migration timeout correction
+
+The unapplied age migration now begins with `set local lock_timeout = '5s'`
+and `set local statement_timeout = '60s'`. No trigger, function, grant or column
+behavior changed.
+
+The exact amended migration applied inside one transaction in the owned local
+`age_confirmation_testdb`, created from `template0` with minimal Auth and profile
+tables. The approved container is `supabase_db_cuadrao-schema-item0-20261017`
+on port 59432. The shared `postgres` baseline was inspected only and retained
+145 applied migrations. No shared database was cloned, reset or written.
+
+The SQL probe ran after the migration and before commit:
+
+```sql
+select current_database(), current_setting('lock_timeout'),
+       current_setting('statement_timeout');
+-- age_confirmation_testdb | 5s | 1min
+```
+
+Assertions verified both values and verified that commit restored both settings
+to their original `0` values. The four existing tests in
+`tests/test_age_confirmation_postgres.py` passed on Python 3.10.20 against that
+fixture. This proves the amended migration and age constraints, not a complete
+Supabase reset or hosted readiness. Ownership, modularity and whitespace checks
+passed. Only this owned disposable database was dropped after verification.
+
+The earlier browser, web and API evidence is retained because this correction
+changes only migration transaction limits. Root owns the independent delta
+review and terminal CI follow-up. The receipt gate and merge hold remain.
+The correction owner used GPT-6.1-sol low, with no nested helpers.
