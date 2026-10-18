@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { leaveSession, signedOutLanding } from "@/lib/logout-flow";
+import { leaveSession, resetLeavingSession, signedOutLanding } from "@/lib/logout-flow";
 
 // A real DOM: the Log out control is clicked once and the flow runs from that click.
 beforeAll(() => {
@@ -9,6 +9,7 @@ beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterAll(async () => {
+  resetLeavingSession();
   await GlobalRegistrator.unregister();
 });
 

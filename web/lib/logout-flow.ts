@@ -16,6 +16,11 @@ let inFlight: Promise<"left" | "failed"> | null = null;
 export function isLeavingSession(): boolean {
   return leavingSession;
 }
+
+export function resetLeavingSession(): void {
+  leavingSession = false;
+  inFlight = null;
+}
 export type LeaveSessionDeps = {
   boundary: { beginConversion: () => void; finishConversion: (userId: string | null) => void };
   currentUserId: string | null;
