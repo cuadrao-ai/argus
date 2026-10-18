@@ -166,20 +166,31 @@ export default function LandingPage() {
       if (result.needsEmailConfirmation) {
         return { status: "email_confirmation_required" as const };
       }
-    } else {
-      await loginWithEmail({
-        email: submission.email,
-        password: submission.password,
-      });
-      // The choice made on this page outlives the sign-in: saved on the
-      // account now, so the workspace does not switch back to the account's
-      // earlier language. A failed save keeps the shown language for this visit.
-      if (chosenLanguage) {
-        await saveProfileLanguage(i18n, chosenLanguage, { onSaved: () => undefined }).catch(() => false);
-      }
+      router.replace(postAuthPath());
+      router.refresh();
+      return;
     }
 
+    await loginWithEmail({
+      email: submission.email,
+      password: submission.password,
+    });
+    await continueWithChosenLanguage();
+    router.refresh();
+  };
+
+  async function continueWithChosenLanguage() {
+    // The choice made on this page outlives the sign-in: saved on the
+    // account now, so the workspace does not switch back to the account's
+    // earlier language. A failed save keeps the shown language for this visit.
+    if (chosenLanguage) {
+      await saveProfileLanguage(i18n, chosenLanguage, { onSaved: () => undefined }).catch(() => false);
+    }
     router.replace(postAuthPath());
+  }
+
+  const finishConfirmedSignup = async () => {
+    await continueWithChosenLanguage();
     router.refresh();
   };
 
@@ -241,6 +252,7 @@ export default function LandingPage() {
                   brand="cuadrao"
                   onModeChange={(mode) => updateAuthMode(mode)}
                   onSubmit={handleAuthSubmit}
+                  onEmailConfirmed={finishConfirmedSignup}
                 />
               )}
             </div>

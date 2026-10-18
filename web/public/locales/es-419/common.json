@@ -1511,7 +1511,10 @@
       "new_account": "¿Nuevo en Cuadrao?",
       "password_requirement": "Mínimo 8 caracteres.",
       "confirmation_title": "Revisa tu correo",
-      "confirmation_description": "Usa el enlace de confirmación que enviamos para terminar de crear tu cuenta. Luego vuelve aquí para iniciar sesión."
+      "confirmation_description": "Escribe el código del correo, o abre el enlace de confirmación. Cualquiera de los dos termina de crear tu cuenta.",
+      "confirmation_code_label": "Código de confirmación",
+      "confirmation_submit": "Confirmar",
+      "confirmation_loading": "Confirmando..."
     },
     "legal": {
       "continuing_prefix": "Al continuar, aceptas nuestros"
@@ -1573,7 +1576,8 @@
       "guest_handoff_source_not_anonymous": "Esta conversación ya no pertenece a una cuenta temporal.",
       "guest_handoff_unsafe_product_graph": "No pudimos transferir esta conversación de forma segura. La conversación original no cambió.",
       "guest_handoff_workspace_unavailable": "Esta conversación temporal ya no está disponible.",
-      "guest_handoff_claim_unavailable": "No pudimos conservar la conversación temporal en este momento. Inténtalo de nuevo."
+      "guest_handoff_claim_unavailable": "No pudimos conservar la conversación temporal en este momento. Inténtalo de nuevo.",
+      "otp_rejected": "Ese código no fue aceptado. Revisa el correo e inténtalo de nuevo."
     }
   },
   "account_security": {
