@@ -58,7 +58,7 @@ authorize Apple TestFlight or change public signup or marketing publication.
 | Which core flows exist for both apps, and when was each last walked? | [Core flows](CORE_FLOWS.md) | Owns the flow list, labels and last-walked evidence. It is the founder's test checklist and claims no more than a row's walk date. Other documents link here and do not repeat the list. |
 | What is an agent authorized to build now? | Explicit assignment and its scoped package/spec | MVEE approval does not assign every feature, unlock stages, or authorize provider integrations |
 | What is next, who owns it, and what counts as done? | [Private iPhone execution manifest](specs/argus-execution-board.md) | One execution map; states and evidence links do not authorize a restart, merge or deployment |
-| How is work reviewed and released? | Yelena's ship playbooks (internal), [CI/CD discipline](specs/private-alpha-ci-cd-sota.md), [launch runbook](PRIVATE_LAUNCH_RUNBOOK.md), [manifest template](release-manifests/TEMPLATE.md) | Existing evaluation, privacy, branch, merge, and deployment gates remain in force |
+| How is work reviewed and released? | Yelena's ship playbooks (internal), [CI/CD discipline](specs/private-alpha-ci-cd-sota.md), [launch runbook](PRIVATE_LAUNCH_RUNBOOK.md), [manifest template](release-manifests/TEMPLATE.md) | Existing evaluation, privacy, branch, merge, and deployment gates remain in force. The ordered staging-to-production checklist is the runbook's [Cuadrao production promotion](PRIVATE_LAUNCH_RUNBOOK.md#cuadrao-production-promotion). |
 | What evidence or thinking informed a direction? | Linked research and historical strategy docs | Inputs and provenance, not independent scope authority |
 
 ## Constitution source material

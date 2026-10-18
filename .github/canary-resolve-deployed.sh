@@ -34,6 +34,7 @@ deployed_sha="$(python3 "$SCRIPT_DIR/canary-deployed-sha.py" \
   --api-status "$api_status" \
   --web-status "$web_status" \
   --workflow-status "$workflow_status")"
+web_sha="$(printf '%s\n' "$web_status" | sed -n 's/^commit=//p' | head -n 1)"
 git cat-file -e "${deployed_sha}^{commit}"
 
 harness_sha="$(git rev-parse HEAD)"
@@ -42,8 +43,6 @@ if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
   git checkout --detach "$deployed_sha"
   harness_sha="$(git rev-parse HEAD)"
 else
-  # workflow_dispatch proves branch harness changes against the exact release
-  # currently served by API, web, and the workflow service.
   allow_harness_mismatch="true"
 fi
 
@@ -54,5 +53,6 @@ fi
 } >> "$GITHUB_ENV"
 
 echo "canary_deployed_sha=$deployed_sha"
+echo "canary_web_deploy_sha=$web_sha"
 echo "canary_harness_sha=$harness_sha"
 echo "canary_allow_harness_mismatch=$allow_harness_mismatch"

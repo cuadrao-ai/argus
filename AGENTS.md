@@ -112,6 +112,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 ## Commits, PRs and review
 
 - Conventional commits: `type(scope): summary (#issue)`. One job per PR, no stacks.
+- Every pull request description opens with the Merge Danger block in `.github/pull_request_template.md`.
 - Merge `codex/private-alpha-next` in before the last push. Never rebase a published branch.
 - Attach visual evidence on the pull request, or upload it with actions/upload-artifact. Do not commit it. Capture it at the exact head.
 - Never merge your own PR. Report the PR link, head SHA, tests added and the proof.
