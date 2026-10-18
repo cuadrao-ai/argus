@@ -21,6 +21,7 @@ from argus.domain.business.contracts.actions import (
     Applied,
     ApproveExpense,
     ApproveIncome,
+    ApproveRefund,
     AttachmentPreparationBinding,
     CaptureNote,
     DecideFiscalInclusion,
@@ -310,6 +311,7 @@ class BusinessActions:
                             request.facts,
                             (source_id,),
                             tx.authorization.provenance,
+                            fiscal_review=request.dgii,
                         )
                 except ActionError as error:
                     result = error.result
@@ -569,6 +571,13 @@ class BusinessActions:
         draft_id: UUID,
         request: ApproveIncome,
         key: str,
+    ) -> ActionOutcome:
+        from argus.domain.business.actions.approval import approve
+
+        return approve(self, context, draft_id, request, key)
+
+    def approve_refund(
+        self, context: ActionContext, draft_id: UUID, request: ApproveRefund, key: str
     ) -> ActionOutcome:
         from argus.domain.business.actions.approval import approve
 

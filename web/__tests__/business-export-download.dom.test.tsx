@@ -28,7 +28,11 @@ beforeAll(() => {
   URL.createObjectURL = (blob) => { downloads.push({ filename: "", blob: blob as Blob }); return "blob:export"; };
   URL.revokeObjectURL = () => undefined;
   HTMLAnchorElement.prototype.click = function () { downloads.at(-1)!.filename = this.download; };
-  globalThis.fetch = async (input, init) => { calls.push({ url: new URL(String(input)), init }); return respond(init); };
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/business/fiscal-profile")) return Response.json({ rnc: null, can_edit: false });
+    calls.push({ url, init }); return respond(init);
+  };
 });
 afterAll(async () => {
   globalThis.fetch = original.fetch;

@@ -12,6 +12,7 @@ export type AuthSecurityPort = {
   signOut: (options: {
     scope: "local" | "others" | "global";
   }) => Promise<{ error: unknown | null }>;
+  hasSession?: () => Promise<boolean>;
 };
 
 export type SessionActionResult = {
@@ -85,6 +86,15 @@ export function createAuthSecurityActions(
       throwOnAuthError(error);
     },
 
+    async hasRecoverySession(): Promise<boolean> {
+      if (!auth.hasSession) return false;
+      try {
+        return await auth.hasSession();
+      } catch {
+        return false;
+      }
+    },
+
     async resetRecoveredPassword(
       newPassword: string,
     ): Promise<SessionActionResult> {
@@ -130,6 +140,10 @@ export function getAuthSecurityActions() {
     exchangeCodeForSession: (code) => supabase.auth.exchangeCodeForSession(code),
     updateUser: (attributes) => supabase.auth.updateUser(attributes),
     signOut: (options) => supabase.auth.signOut(options),
+    hasSession: async () => {
+      const { data, error } = await supabase.auth.getUser();
+      return error === null && data.user !== null;
+    },
   };
   return createAuthSecurityActions(auth, async () => {
     await clearArgusSessionCookies();

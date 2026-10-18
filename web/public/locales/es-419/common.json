@@ -308,29 +308,6 @@
       "announce_needs_input": "{{title}} necesita tu respuesta.",
       "announce_new_activity": "{{title}} ya está lista."
     },
-    "starter_actions": {
-      "tsla": {
-        "label": "Prueba Apple vs SPY",
-        "value": "Compara Apple con SPY durante los últimos 12 meses."
-      },
-      "btc": {
-        "label": "Prueba mantener Bitcoin (BTC)",
-        "value": "¿Qué habría pasado si compraba Bitcoin en lo que va del año?"
-      },
-      "dca": {
-        "label": "Prueba compras semanales de Nvidia",
-        "value": "¿Qué habría pasado si compraba $250 de Nvidia cada semana durante el último año?"
-      }
-    },
-    "landing_starters": {
-      "backtest": "¿Qué habría pasado si hubiera comprado un fondo del S&P 500 en los últimos 12 meses?",
-      "savings": "Si aparto $200 cada mes, ¿cuánto tendría en un año?"
-    },
-    "example_queries": {
-      "q1": "¿Cómo gana dinero Netflix?",
-      "q2": "Compara Costco con Walmart y Target",
-      "q3": "¿Y si hubiera comprado Coca-Cola cada mes durante cinco años?"
-    },
     "research_job": {
       "queued": {
         "title": "Investigación en espera",
@@ -1506,10 +1483,15 @@
       "new_account": "¿Nuevo en Cuadrao?",
       "password_requirement": "Mínimo 8 caracteres.",
       "confirmation_title": "Revisa tu correo",
-      "confirmation_description": "Escribe el código del correo, o abre el enlace de confirmación. Cualquiera de los dos termina de crear tu cuenta.",
+      "confirmation_description": "Escribe el código que te enviamos a {{correo}}.",
       "confirmation_code_label": "Código de confirmación",
       "confirmation_submit": "Confirmar",
       "confirmation_loading": "Confirmando..."
+    },
+    "confirm": {
+      "error_title": "Este enlace no funcionó",
+      "error_body": "Falta, venció o ya se usó. Pide uno nuevo e inténtalo otra vez.",
+      "back_to_sign_in": "Volver a iniciar sesión"
     },
     "legal": {
       "continuing_prefix": "Al continuar, aceptas nuestros"
@@ -1630,78 +1612,15 @@
     "privacy": "Política de Privacidad"
   },
   "guest": {
-    "entry": {
-      "loading": "Abriendo Cuadrao",
-      "sending": "Enviando...",
-      "error": "Cuadrao no pudo abrir un chat temporal. Inténtalo de nuevo.",
-      "reload": "Actualizar"
-    },
-    "expired": {
-      "title": "Este chat temporal venció",
-      "detail": "Sus mensajes y resultados no se pueden recuperar.",
-      "start_new": "Iniciar un nuevo chat temporal",
-      "sign_in": "Iniciar sesión",
-      "create_account": "Crear cuenta",
-      "restart_error": "Cuadrao no pudo iniciar un nuevo chat temporal. Inténtalo de nuevo."
-    },
-    "conversion": {
-      "eyebrow": "Sigue con Cuadrao",
-      "sign_in_title": "Iniciar sesión",
-      "create_title": "Crea tu cuenta",
-      "simulation_limit": "Inicia sesión para ejecutar otra simulación.",
-      "simulation_limit_reset": "Este chat temporal alcanzó el límite de simulaciones de hoy. Se restablece el {{date}}. Crea una cuenta para continuar ahora.",
-      "simulation_limit_request_access": "Este chat temporal alcanzó el límite de simulaciones de hoy. Se restablece el {{date}}. Solicita acceso o inicia sesión para continuar.",
-      "simulation_workspace_limit_reset": "Este chat temporal alcanzó el límite de simulaciones. Vence el {{date}}. Crea una cuenta para continuar ahora.",
-      "simulation_workspace_limit_request_access": "Este chat temporal alcanzó el límite de simulaciones. Vence el {{date}}. Solicita acceso o inicia sesión para continuar.",
-      "save_decision": "Inicia sesión para guardar esta decisión.",
-      "new_conversation": "Inicia sesión para conservar esta conversación y comenzar otra.",
-      "new_conversation_create": "Crea una cuenta para conservar esta conversación y comenzar otra.",
-      "keep_history": "Inicia sesión para conservar esta conversación y comenzar otra.",
-      "discovery_searches": "Inicia sesión para más búsquedas con fuentes.",
-      "share_result": "Crea una cuenta o inicia sesión para compartir esta respuesta y mantener el control de su enlace."
-    },
-    "new_conversation": {
-      "title": "¿Quieres iniciar otra conversación?",
-      "description": "Empezar de nuevo reemplaza esta conversación temporal. Inicia sesión para conservarla y comenzar otra.",
-      "public_description": "Empezar de nuevo reemplaza esta conversación temporal. Crea una cuenta para conservarla y comenzar otra.",
-      "start_over": "Empezar de nuevo",
-      "sign_in": "Iniciar sesión para conservarla",
-      "create_account": "Crear cuenta",
-      "error": "El chat temporal no cambió."
-    },
-    "history": {
-      "expires_at": "Disponible hasta {{date}}",
-      "keep_history": "Inicia sesión para conservar tu historial"
-    },
     "shell": {
-      "value_title": "Prueba una idea de inversión con datos históricos.",
-      "input_placeholder": "Pregunta sobre cualquier empresa o idea",
-      "input_placeholder_prerail": "¿Qué quieres probar?",
       "sign_in": "Iniciar sesión",
       "settings": "Ajustes de invitado",
       "language": "Idioma",
       "feedback": "Comentarios",
-      "temporary_until": "Chat temporal · disponible hasta {{date}}",
-      "before_message": {
-        "prefix": "Al enviar mensajes a Argus, aceptas los ",
-        "terms": "Términos",
-        "middle": " y reconoces la ",
-        "privacy": "Privacidad"
-      },
-      "after_message": {
-        "safety": "Argus puede equivocarse. Solo con fines educativos. No es asesoría financiera.",
-        "terms": "Términos",
-        "privacy": "Privacidad"
-      },
       "new_chat_unavailable": "Inicia sesión para conservar esta conversación y comenzar otra.",
       "search_unavailable": "La búsqueda aún no está disponible para chats temporales.",
       "decision_unavailable": "Inicia sesión para guardar esta decisión.",
       "sign_in_unavailable": "El inicio de sesión no está disponible en esta vista previa. Tu chat temporal permanece aquí."
-    },
-    "hints": {
-      "confirmation": "Revisa los supuestos y luego ejecuta la prueba.",
-      "result": "Cambia el rango del gráfico o haz una pregunta de seguimiento.",
-      "dismiss": "Descartar sugerencia"
     }
   },
   "receipt": {
@@ -2216,6 +2135,32 @@
     }
   },
   "business": {
+    "dgii": {
+      "business_rnc": "RNC del negocio",
+      "save_rnc": "Guardar RNC",
+      "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
+      "details": "Datos fiscales para 606 / 607",
+      "review_note": "Usa los montos del comprobante y tu clasificación fiscal. Deja en blanco los datos que no sabes. Guardar crea una revisión; aprobar es otro paso.",
+      "form": "Formato",
+      "load_failed": "No se pudieron cargar los campos fiscales.",
+      "save_failed": "No se confirmó que los datos fiscales se guardaran. Revisa el registro actual antes de aprobar.",
+      "actual_refund": "Se recibió un reembolso de dinero por esta nota de crédito",
+      "original_purchase": "Compra original",
+      "purchases_failed": "No se pudieron cargar las compras originales.",
+      "save": "Guardar revisión fiscal",
+      "revision": "Datos fiscales de esta revisión",
+      "period_hint": "El 606 y el 607 requieren un mes completo y cerrado. El Excel muestra los datos fiscales pendientes y el resumen de consumo por separado.",
+      "approve_income": "Aprobar ingreso",
+      "approve_refund": "Aprobar reembolso",
+      "recorded_income": "Se registró un ingreso después de aprobar la revisión {{version}}.",
+      "recorded_refund": "Se registró un reembolso después de aprobar la revisión {{version}}.",
+      "error": {
+        "fiscal_duplicate_document": "Este comprobante fiscal ya pertenece a otro registro guardado. Revísalo antes de aprobar.",
+        "fiscal_credit_settlement_required": "Registra un reembolso solo después de confirmar que se recibió el dinero y elegir la compra original.",
+        "recorded_correction_unsupported": "Los datos fiscales de un registro aprobado no se pueden cambiar en este flujo.",
+        "stale_version": "Este registro cambió. Abre la revisión actual antes de guardar."
+      }
+    },
     "activity": {
       "all_channels": "La lectura de recibos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
       "error": "No se pudo actualizar la lectura de recibos. Inténtalo de nuevo.",

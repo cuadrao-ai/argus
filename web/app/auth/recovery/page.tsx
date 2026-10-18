@@ -28,7 +28,10 @@ export default function RecoveryPage() {
     const code = new URLSearchParams(window.location.search).get("code");
     window.history.replaceState(null, "", "/auth/recovery");
     if (!code) {
-      setState("invalid");
+      getAuthSecurityActions()
+        .hasRecoverySession()
+        .then((ready) => setState(ready ? "ready" : "invalid"))
+        .catch(() => setState("invalid"));
       return;
     }
     try {

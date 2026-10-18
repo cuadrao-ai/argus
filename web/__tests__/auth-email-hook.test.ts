@@ -75,7 +75,7 @@ describe("staging Auth email hook", () => {
     }
   });
 
-  test("sends approved recovery with fixed sender headers and an exact staging Supabase verification link", async () => {
+  test("sends approved recovery with fixed sender headers and an app-origin confirm link", async () => {
     const sent: AuthDelivery[] = [];
     const response = await handleAuthEmailHook(request(payload()), config, async (email) => { sent.push(email); });
     assert.equal(response.status, 200);
@@ -84,14 +84,16 @@ describe("staging Auth email hook", () => {
     assert.equal(sent[0].from, "Cuadrao <no-responder@mail.cuadrao.ai>");
     assert.equal(sent[0].replyTo, "hola@cuadrao.ai");
     assert.equal(sent[0].subject, "Cambio de contraseña en Cuadrao");
-    assert.ok((sent[0].text).includes(`https://skedzwocnmrhfigiwyzi.supabase.co/auth/v1/verify?token=${"a".repeat(64)}&type=recovery&redirect_to=https%3A%2F%2Fcuadrao-web-staging.onrender.com%2Fauth%2Frecovery`));
+    assert.ok((sent[0].text).includes(`https://cuadrao-web-staging.onrender.com/auth/confirm?token_hash=${"a".repeat(64)}&type=recovery&next=%2Fauth%2Frecovery`));
+    assert.ok(!(sent[0].text).includes("supabase.co"));
     assert.ok((sent[0].text).includes("El enlace vence en 1 hora y solo se puede usar una vez."));
   });
 
   test("renders the approved Spanish copy and shared layout for each action", async () => {
     const cases = [
-      ["signup", "123456 es tu código de Cuadrao", "Usa este código para confirmar tu cuenta de Cuadrao:"],
-      ["magiclink", "123456 es tu código para entrar a Cuadrao", "Entrar a Cuadrao"],
+      ["signup", "123456 es tu código de Cuadrao", "Escribe este código en Cuadrao para confirmar tu cuenta:"],
+      ["magiclink", "123456 es tu código para entrar a Cuadrao", "Escribe este código en Cuadrao para entrar:"],
+      ["invite", "Te invitaron a Cuadrao", "Te invitaron a usar Cuadrao."],
       ["reauthentication", "123456 es tu código de verificación de Cuadrao", "123456"],
     ];
     for (const [action, subject, body] of cases) {
@@ -103,6 +105,17 @@ describe("staging Auth email hook", () => {
       assert.ok((sent[0].text).includes(body));
       assert.ok(sent[0].html.includes("Saludos,<br>Cuadrao"));
       assert.ok(!sent[0].html.includes("Salir de la lista"));
+      if (action === "signup" || action === "magiclink") {
+        assert.ok(sent[0].subject.startsWith("123456 "));
+        assert.ok(sent[0].text.includes("Lo pediste para owner@example.test."));
+        assert.equal(/https?:\/\//.test(sent[0].text), false);
+        assert.equal(sent[0].html.includes('href="https:'), false);
+        assert.ok(!sent[0].text.includes("/auth/"));
+      }
+      if (action === "invite") {
+        assert.ok(sent[0].text.includes(`https://cuadrao-web-staging.onrender.com/auth/confirm?token_hash=${"a".repeat(64)}&type=invite&next=`));
+        assert.ok(!sent[0].text.includes("supabase.co"));
+      }
     }
   });
 
@@ -120,13 +133,17 @@ describe("staging Auth email hook", () => {
     assert.equal(accepted.size, 2);
     const deliveries = [...accepted.values()];
     assert.equal(deliveries[0].recipient, "owner@example.test");
-    assert.ok((deliveries[0].text).includes(`token=${"b".repeat(64)}`));
+    assert.ok((deliveries[0].text).includes(`token_hash=${"b".repeat(64)}`));
     assert.equal(deliveries[1].recipient, "new@example.test");
-    assert.ok((deliveries[1].text).includes(`token=${"a".repeat(64)}`));
+    assert.ok((deliveries[1].text).includes(`token_hash=${"a".repeat(64)}`));
     assert.equal(deliveries[0].subject, "Cambio de correo en tu cuenta de Cuadrao");
     assert.ok(deliveries[0].text.includes("no confirmes el cambio y escríbenos."));
     assert.equal(deliveries[1].subject, "Confirma tu nuevo correo");
     assert.ok(deliveries[1].text.includes("Confirmar mi correo"));
+    assert.ok(deliveries[0].text.includes("/auth/confirm?token_hash="));
+    assert.ok(deliveries[1].text.includes("/auth/confirm?token_hash="));
+    assert.equal(deliveries[0].text.includes("supabase.co"), false);
+    assert.equal(deliveries[1].text.includes("supabase.co"), false);
   });
 
   test("preserves PKCE token prefixes and Supabase empty-redirect defaults", async () => {
@@ -134,14 +151,25 @@ describe("staging Auth email hook", () => {
     pkce.email_data.token_hash = `pkce_${"c".repeat(64)}`;
     const sent: AuthDelivery[] = [];
     assert.equal((await handleAuthEmailHook(request(pkce), config, async (email) => { sent.push(email); })).status, 200);
-    assert.ok((sent[0].text).includes(`token=pkce_${"c".repeat(64)}`));
-    for (const action of ["signup", "magiclink", "recovery", "email_change", "reauthentication"]) {
+    assert.ok((sent[0].text).includes(`token_hash=pkce_${"c".repeat(64)}`));
+    for (const action of ["signup", "magiclink", "recovery", "invite", "email_change", "reauthentication"]) {
       const empty = payload(action);
       empty.email_data.redirect_to = "";
       const emails: AuthDelivery[] = [];
       assert.equal((await handleAuthEmailHook(request(empty), config, async (email) => { emails.push(email); })).status, 200);
       assert.equal(emails.length, action === "email_change" ? 2 : 1);
-      if (action !== "reauthentication") assert.ok((emails[0].text).includes("redirect_to="));
+      if (action === "reauthentication") continue;
+      if (action === "signup" || action === "magiclink") {
+        assert.equal(/https?:\/\//.test(emails[0].text), false);
+        assert.ok(!(emails[0].text).includes("/auth/confirm"));
+        assert.ok(!(emails[0].text).includes("redirect_to="));
+        continue;
+      }
+      const next = action === "recovery" ? "%2Fauth%2Frecovery" : "%2F";
+      assert.ok((emails[0].text).includes(`/auth/confirm?`));
+      assert.ok((emails[0].text).includes(`next=${next}`));
+      assert.ok(!(emails[0].text).includes("supabase.co"));
+      assert.ok(!(emails[0].text).includes("redirect_to="));
     }
   });
 
@@ -163,7 +191,7 @@ describe("staging Auth email hook", () => {
     for (const candidate of [
       badSignature, stale,
       new Request(mutated.url, { method: "POST", headers: mutated.headers, body: `${mutatedBody} ` }),
-      request(payload("invite")),
+      request(payload("not_an_action")),
       request(unsafeRecipient), request(unsafeRedirect), request(wrongSite), request(missingSecond),
       request({ private: "synthetic".repeat(10000) }),
     ]) {
