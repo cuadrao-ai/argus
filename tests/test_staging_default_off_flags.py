@@ -8,7 +8,16 @@ ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
 MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
 
-APPROVED_STAGING_OVERRIDES: dict[str, str] = {}
+APPROVED_STAGING_OVERRIDES: dict[str, str] = {
+    "ARGUS_BETA_INVITES_ENABLED": (
+        "Staging tests the invite flow end to end (7-day invite expiry from "
+        "#1228; invite email under #1226/#1267). Prod stays false."
+    ),
+    "ARGUS_HOUSEHOLDS_ENABLED": (
+        "The Consumer staging proof uses households ahead of the iOS beta "
+        "build. Prod stays false."
+    ),
+}
 
 
 def _is_feature_flag(name: str) -> bool:
@@ -93,6 +102,40 @@ def test_temp_manifest_true_flag_fails_and_a_reasoned_override_passes() -> None:
     assert turned_on_default_off_flags(profile, false_value, {}) == []
     absent = {"services": {"api": {"entries": []}}}
     assert turned_on_default_off_flags(profile, absent, {}) == []
+
+
+def prod_values_other_than_false(
+    profile: dict,
+    render_config: dict,
+    overrides: Mapping[str, str],
+) -> list[str]:
+    return []
+
+
+def test_override_true_in_prod_fails() -> None:
+    overrides = {"SAMPLE_FLAG_ENABLED": "staging sample is approved"}
+    profile_true = {
+        "services": {"api": {"env": {"SAMPLE_FLAG_ENABLED": "true"}}}
+    }
+    render_false = {
+        "services": [
+            {"envVars": [{"key": "SAMPLE_FLAG_ENABLED", "value": "false"}]}
+        ]
+    }
+    assert prod_values_other_than_false(profile_true, render_false, overrides) == [
+        "SAMPLE_FLAG_ENABLED"
+    ]
+    profile_false = {
+        "services": {"api": {"env": {"SAMPLE_FLAG_ENABLED": "false"}}}
+    }
+    render_true = {
+        "services": [
+            {"envVars": [{"key": "SAMPLE_FLAG_ENABLED", "value": "true"}]}
+        ]
+    }
+    assert prod_values_other_than_false(profile_false, render_true, overrides) == [
+        "SAMPLE_FLAG_ENABLED"
+    ]
 
 
 def test_approved_staging_overrides_record_a_reason() -> None:
