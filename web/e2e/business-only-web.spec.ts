@@ -19,15 +19,14 @@ test.describe("business-only web", () => {
     });
   });
 
-  test("business sign-up still renders", async ({ page }) => {
+  test("business sign-up still renders", async ({ page }, testInfo) => {
     await page.goto("/?auth=signup");
     await expect(page).toHaveURL(/\/\?auth=signup$/);
     await expect(
       page.getByRole("button", { name: "Sign up", exact: true }),
     ).toBeVisible();
-    mkdirSync(evidenceDir, { recursive: true });
     await page.screenshot({
-      path: join(evidenceDir, "signup.png"),
+      path: testInfo.outputPath("signup.png"),
       fullPage: true,
     });
   });
