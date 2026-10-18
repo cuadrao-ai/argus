@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { LOCALES, type BusinessLocale } from "../site-routes";
+import { LOCALES, type BusinessLocale } from "../site-routes.ts";
 
 export const LIMITS = {
   name: 120,

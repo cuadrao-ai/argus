@@ -29,6 +29,8 @@ describe("public URL map", () => {
       "/en/personal",
       "/en/contact",
       "/en/privacy",
+      "/en/terms",
+      "/en/delete-data",
     ]);
   });
 
@@ -76,8 +78,7 @@ describe("alternates", () => {
   test.each(PAGES)("%s links both languages and defaults to Spanish", (page) => {
     const alternates = alternateLanguages(page);
     expect(alternates.es).toBe(pageUrl("es", page));
-    if (page === "terms" || page === "deletion") expect(alternates.en).toBeUndefined();
-    else expect(alternates.en).toBe(pageUrl("en", page));
+    expect(alternates.en).toBe(pageUrl("en", page));
     expect(alternates["x-default"]).toBe(alternates.es);
   });
 });

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import type { BusinessAction } from "./business-actions";
 
 type ActionMenuProps = {
-  actions: readonly BusinessAction[];
+  actions: readonly (Omit<BusinessAction, "id"> & { id: BusinessAction["id"] | "mark_personal" })[];
   label: string;
   /** Where the menu opens relative to its trigger. */
   placement: "above-start" | "below-end" | "above-start-compact";

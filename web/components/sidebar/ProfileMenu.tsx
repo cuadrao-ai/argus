@@ -49,6 +49,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import {
@@ -138,6 +139,7 @@ export default function ProfileMenu({
   placement = "rail",
 }: ProfileMenuProps) {
   const { t, i18n } = useTranslation();
+  const isBusiness = useConversationSurface() === "business";
   const { isBelowDesktop } = useResponsiveLayout();
   /*
    * Below the panel line this menu is a sheet, whatever the sidebar is doing.
@@ -181,7 +183,7 @@ export default function ProfileMenu({
   const receiptsAvailable =
     evidenceReceiptSharingEnabled && accountKind === "registered";
   // A country is a registered-account setting; a guest has nowhere to keep one.
-  const homeCountryAvailable = accountKind === "registered";
+  const homeCountryAvailable = !isBusiness && accountKind === "registered";
   const whatsappLinkAvailable = businessPilotEnabled && accountKind === "registered";
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
@@ -725,14 +727,14 @@ export default function ProfileMenu({
         ...(receiptsAvailable
           ? [{ id: "receipts", onSelect: () => openModal("receipts") }]
           : []),
-        { id: "archived", onSelect: () => openModal("archived") },
+        ...(!isBusiness ? [{ id: "archived", onSelect: () => openModal("archived") }] : []),
         { id: "deleted", onSelect: () => openModal("deleted") },
         {
           id: "security",
           onSelect: () =>
             navigateFromOverlay("/account/security", onClose),
         },
-        { id: "usage", onSelect: () => openModal("usage") },
+        ...(!isBusiness ? [{ id: "usage", onSelect: () => openModal("usage") }] : []),
         { id: "delete-all", onSelect: handleDeleteAllConversations },
         { id: "delete-account", onSelect: handleOpenDeleteRequest },
       ];
@@ -766,6 +768,7 @@ export default function ProfileMenu({
           id: "keyboard-shortcuts",
           onSelect: handleOpenKeyboardShortcuts,
         },
+        ...(!isBusiness ? [
         {
           id: "terms",
           onSelect: () => navigateFromOverlay("/terms", onClose),
@@ -774,6 +777,7 @@ export default function ProfileMenu({
           id: "privacy",
           onSelect: () => navigateFromOverlay("/privacy", onClose),
         },
+        ] : []),
       ];
     }
     if (activeSubmenu === "feedback") {
@@ -810,6 +814,7 @@ export default function ProfileMenu({
     ];
   }, [
     activeSubmenu,
+    isBusiness,
     handleDeleteAllConversations,
     handleOpenDeleteRequest,
     handleOpenKeyboardShortcuts,
@@ -1083,6 +1088,7 @@ export default function ProfileMenu({
                 </span>
               </button>
             ) : null}
+            {!isBusiness && (
             <button
               onClick={() => openModal("archived")}
               className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
@@ -1093,6 +1099,7 @@ export default function ProfileMenu({
               </span>
               <span className="ml-auto flex shrink-0">{quickJumpBadge("archived")}</span>
             </button>
+            )}
             <button
               onClick={() => openModal("deleted")}
               className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
@@ -1115,6 +1122,7 @@ export default function ProfileMenu({
               </span>
               <span className="ml-auto flex shrink-0">{quickJumpBadge("security")}</span>
             </button>
+            {!isBusiness && (
             <button
               onClick={() => openModal("usage")}
               className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
@@ -1125,6 +1133,7 @@ export default function ProfileMenu({
               </span>
               <span className="ml-auto flex shrink-0">{quickJumpBadge("usage")}</span>
             </button>
+            )}
             <div role="separator" className="my-1 border-t border-black/5 dark:border-white/5" />
             <button
               onClick={handleDeleteAllConversations}
@@ -1289,6 +1298,7 @@ export default function ProfileMenu({
               <span className="ml-auto flex shrink-0">{quickJumpBadge("keyboard-shortcuts")}</span>
             </button>
             )}
+            {!isBusiness && <>
             <a
               href="/terms"
               onClick={(event) => handlePageLinkClick(event, "/terms")}
@@ -1311,6 +1321,7 @@ export default function ProfileMenu({
               </span>
               <span className="ml-auto flex shrink-0">{quickJumpBadge("privacy")}</span>
             </a>
+            </>}
           </div>
         )}
       </div>
@@ -1399,6 +1410,7 @@ export default function ProfileMenu({
         {t("settings.logout", "Log out")}
       </button>
 
+      {!isBusiness && <>
       {/* Footer links */}
       <div className={`my-1 border-t border-black/5 dark:border-white/5${rootRow}`} />
       <div className={`flex items-center gap-1 px-3.5 py-1.5 text-[10px] text-black/25 dark:text-white/25${rootRow}`}>
@@ -1418,6 +1430,7 @@ export default function ProfileMenu({
           {t("settings.help.privacy", "Privacy Policy")}
         </a>
       </div>
+      </>}
     </div>
   );
 

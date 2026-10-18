@@ -5,10 +5,6 @@ import type { BusinessOverview, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 
-// A real DOM: the Personal control sits beside the row's button for anyone
-// holding prepare, the owner sees who else marked it and takes it back in one
-// tap, the review page names a missing fiscal number in the chip's words, and
-// the 606 answer belongs to the accountant alone.
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -102,33 +98,39 @@ describe("the Personal control in the Bandeja", () => {
     return env;
   }
 
-  test("anyone the server lets prepare gets a sibling button next to the row; a read-only grant gets the chip only", async () => {
+  test("anyone the server lets prepare gets a row menu; a read-only grant gets the chip only", async () => {
     const marked: string[] = [];
     const owner = await mountRow(receipt({ personal_editable: true, fiscal_known: true, fiscal_value: null }), (r) => marked.push(r.id));
-    const button = owner.host.querySelector('[data-testid="mark-personal-rcpt-1"]') as HTMLButtonElement;
+    const trigger = owner.host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement;
+    assert.ok(trigger, "a row menu");
+    assert.equal(owner.host.querySelector('[role="menuitem"]'), null);
+    await owner.act(async () => trigger.click());
+    const button = owner.host.querySelector('[role="menuitem"]') as HTMLButtonElement;
     assert.ok(button, "a Personal control");
     assert.equal(button.closest("button"), button, "not nested in the row's button");
-    assert.equal(button.getAttribute("aria-pressed"), "false");
-    assert.equal(button.getAttribute("aria-label"), "Marcar como personal");
+    assert.equal(button.textContent, "Marcar como personal");
     assert.ok(button.className.includes("min-h-11"));
     await owner.act(async () => { button.click(); });
     assert.deepEqual(marked, ["rcpt-1"]);
     assert.ok(owner.host.querySelector('[data-mark="no_fiscal"]'), "the grey chip on the row");
     await owner.act(async () => owner.root.unmount());
     const reader = await mountRow(receipt({ personal: true, fiscal_value: "ncf" }), () => undefined);
-    assert.equal(reader.host.querySelector('[data-testid="mark-personal-rcpt-1"]'), null);
+    assert.equal(reader.host.querySelector('[aria-haspopup="menu"]'), null);
     assert.equal(reader.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
     await reader.act(async () => reader.root.unmount());
   });
 
-  test("the owner sees the dot on a receipt the accountant marked and takes the mark back in one tap", async () => {
+  test("the owner sees who marked the receipt and takes the mark back through its menu", async () => {
     const marked: ReceiptSummary[] = [];
     const owner = await mountRow(receipt({ personal: true, personal_marked_by: "Marta", personal_editable: true, fiscal_value: "ncf" }), (r) => marked.push(r));
     assert.ok(owner.host.querySelector('[data-mark="personal"] [data-testid="personal-marked-dot"]'), "the dot on the chip");
     assert.equal(owner.host.querySelector('[data-mark="personal"] .sr-only')?.textContent, "Marcado por Marta");
-    const button = owner.host.querySelector('[data-testid="mark-personal-rcpt-1"]') as HTMLButtonElement;
-    assert.equal(button.getAttribute("aria-pressed"), "true");
-    assert.equal(button.getAttribute("aria-label"), "Ya no es personal");
+    const trigger = owner.host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement;
+    assert.ok(trigger, "a row menu");
+    assert.equal(owner.host.querySelector('[role="menuitem"]'), null);
+    await owner.act(async () => trigger.click());
+    const button = owner.host.querySelector('[role="menuitem"]') as HTMLButtonElement;
+    assert.equal(button.textContent, "Ya no es personal");
     await owner.act(async () => { button.click(); });
     assert.equal(marked.length, 1, "one tap");
     assert.equal(marked[0].personal, true, "the unmark of the receipt as listed");
@@ -366,19 +368,25 @@ describe("the server states what the browser used to guess", () => {
   });
 });
 
-describe("the Bandeja row on a phone", () => {
-  test("the Personal toggle may wrap under the row: the open button keeps a basis and both the merchant and the 44px toggle stay", async () => {
+describe("the Bandeja row menu", () => {
+  test("opening and dismissing the menu never opens or changes a receipt", async () => {
     const env = await setup();
     const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
-    await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ul><ReceiptRow receipt={receipt({ personal: true, personal_marked_by: "Marta", personal_editable: true, fiscal_known: true, fiscal_value: null })} onOpen={() => undefined} onMark={() => undefined} /></ul></env.I18nextProvider>); });
-    const li = env.host.querySelector("li")!;
-    assert.ok(li.className.split(" ").includes("flex-wrap"), "the row wraps");
-    const open = li.querySelector("button")!;
-    assert.ok(open.className.split(" ").includes("basis-80") && open.className.split(" ").includes("min-w-0"));
-    assert.equal(open.textContent?.includes("Ferretería Luna"), true, "the merchant is there");
-    const toggle = env.host.querySelector('[data-testid="mark-personal-rcpt-1"]')!;
-    assert.ok(toggle.className.includes("min-h-11"));
-    for (const chip of env.host.querySelectorAll("[data-mark]")) assert.ok(chip.className.includes("whitespace-nowrap"), "a chip never wraps inside");
+    let opened = 0;
+    let marked = 0;
+    await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><ul><ReceiptRow receipt={receipt({ personal_editable: true })} onOpen={() => { opened++; }} onMark={() => { marked++; }} /></ul></env.I18nextProvider>));
+    const trigger = env.host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement;
+    assert.ok(trigger);
+    await env.act(async () => trigger.click());
+    const item = env.host.querySelector('[role="menuitem"]') as HTMLButtonElement;
+    assert.equal(document.activeElement, item);
+    await env.act(async () => item.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    assert.equal(env.host.querySelector('[role="menu"]'), null);
+    assert.equal(document.activeElement, trigger);
+    assert.equal(opened, 0);
+    assert.equal(marked, 0);
+    await env.act(async () => (env.host.querySelector("li > button") as HTMLButtonElement).click());
+    assert.equal(opened, 1);
     await env.act(async () => env.root.unmount());
   });
 });

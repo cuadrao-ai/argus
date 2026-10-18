@@ -19,7 +19,7 @@ for (const slug of Object.keys(documents) as (keyof typeof documents)[]) {
       await expect(page.locator("main h1")).toHaveCount(1);
       expect(await page.locator("main h3, main h4, main h5, main h6").count()).toBe(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await expect(page.locator('div[lang="es-419"]')).toBeVisible();
+      await expect(page.locator('div[lang="es-DO"]')).toBeVisible();
       const audit = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
       expect(audit.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
       for (const name of ["Términos", "Privacidad", "hola@cuadrao.ai"]) {
@@ -39,7 +39,7 @@ for (const slug of Object.keys(documents) as (keyof typeof documents)[]) {
   }
 }
 
-test("Spanish legal navigation opens each document and adds no English routes", async ({ page, request }) => {
+test("Spanish legal navigation opens each document and rejects Spanish slugs in English", async ({ page, request }) => {
   await page.goto("/privacidad");
   await page.locator("footer").getByRole("link", { name: "Términos", exact: true }).click();
   await expect(page).toHaveURL(/\/terminos$/);
@@ -47,3 +47,27 @@ test("Spanish legal navigation opens each document and adds no English routes", 
   await expect(page).toHaveURL(/\/eliminar-datos$/);
   for (const path of ["/en/terminos", "/en/eliminar-datos"]) expect((await request.get(path)).status()).toBe(404);
 });
+
+for (const [path, title] of [["/en/privacy", "Privacy policy for the Cuadrao website"], ["/en/terms", "Cuadrao Website Terms of Use"], ["/en/delete-data", "Delete your data"]]) {
+  test(`English source renders at ${path}`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page.locator("main h1")).toContainText(title);
+    await expect(page.locator("article")).toContainText("October 16, 2026");
+    await expect(page.locator("footer")).toContainText("© Cuadrao LLC 2026");
+    await expect(page.locator("footer")).not.toContainText("Mountain Road");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+for (const [path, title] of [
+  ["/privacidad", "Política de privacidad del sitio web de Cuadrao"],
+  ["/en/privacy", "Privacy policy for the Cuadrao website"],
+  ["/eliminar-datos", "Eliminar tus datos"],
+  ["/en/delete-data", "Delete your data"],
+]) {
+  test(`${path} uses the approved title in the tab and page heading`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page).toHaveTitle(title);
+    await expect(page.locator("main h1")).toHaveText(title);
+  });
+}

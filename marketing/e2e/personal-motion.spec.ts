@@ -1,3 +1,4 @@
+import { mockWaitlistWidget } from "./waitlist-fixture";
 import { expect, test, type Page } from "@playwright/test";
 import { uniqueAddress } from "./support";
 
@@ -8,6 +9,8 @@ async function desktop(page: Page) {
   await expect(page.locator("#personal-email")).toBeEnabled();
 }
 
+test.beforeEach(async ({ page }) => mockWaitlistWidget(page));
+
 const hero = (page: Page) => page.locator("[data-signup-state]");
 
 test("waits for confirmed registration, then delivers once while confirmation receives focus", async ({ page }, info) => {
@@ -15,7 +18,7 @@ test("waits for confirmed registration, then delivers once while confirmation re
   const titleTop = (await page.locator("#personal-title").boundingBox())!.y;
   let accept: (() => void) | undefined;
   const gate = new Promise<void>((resolve) => { accept = resolve; });
-  await page.route("**/api/signups", async (route) => {
+  await page.route(/\/api\/(waitlist\/)?signups$/, async (route) => {
     await gate;
     await route.fulfill({ json: { status: "registered" } });
   });
@@ -25,7 +28,7 @@ test("waits for confirmed registration, then delivers once while confirmation re
   await expect(page.locator("[data-signup-pet]")).toHaveAttribute("data-pose", "excited");
   await expect(page.locator("[data-signup-flight]")).toHaveCount(0);
   accept?.();
-  await expect(page.getByRole("heading", { name: "Ya estás en la lista." })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Revisa tu correo." })).toBeFocused();
   await expect(hero(page)).toHaveAttribute("data-flight-state", "flying");
   expect((await page.locator("#personal-title").boundingBox())!.y).toBeCloseTo(titleTop, 0);
   await expect(hero(page)).toHaveAttribute("data-flight-state", "settled");
@@ -37,7 +40,7 @@ test("failed and unexpected responses preserve the email without a flight, then 
   await desktop(page);
   const address = uniqueAddress(info);
   let attempt = 0;
-  await page.route("**/api/signups", (route) => {
+  await page.route(/\/api\/(waitlist\/)?signups$/, (route) => {
     attempt += 1;
     return route.fulfill(attempt === 1 ? { status: 503, json: { status: "unavailable" } } : attempt === 2 ? { json: { status: "pending" } } : { json: { status: "registered" } });
   });
@@ -66,7 +69,7 @@ for (const locale of [
       const input = page.locator("#personal-email");
       const pet = page.locator("[data-signup-pet]");
       let requests = 0;
-      await page.route("**/api/signups", (route) => {
+      await page.route(/\/api\/(waitlist\/)?signups$/, (route) => {
         requests += 1;
         return route.fulfill({ json: { status: "registered" } });
       });
@@ -102,7 +105,7 @@ for (const failure of [
 ]) {
   test(`${failure.name} uses the appropriate pet expression`, async ({ page }, info) => {
     await page.goto("/personal");
-    await page.route("**/api/signups", (route) => failure.status === null
+    await page.route(/\/api\/(waitlist\/)?signups$/, (route) => failure.status === null
       ? route.abort()
       : route.fulfill({ status: failure.status, json: { status: "unavailable" } }));
     const input = page.locator("#personal-email");
@@ -140,7 +143,7 @@ test("fine-pointer eyes follow and reset without changing form focus", async ({ 
 test("reduced motion confirms directly with a still pet", async ({ page }, info) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await desktop(page);
-  await page.route("**/api/signups", (route) => route.fulfill({ json: { status: "registered" } }));
+  await page.route(/\/api\/(waitlist\/)?signups$/, (route) => route.fulfill({ json: { status: "registered" } }));
   await page.locator("#personal-email").fill("incomplete");
   await page.locator("#personal-email").press("Enter");
   await expect(page.locator("[data-signup-pet]")).toHaveAttribute("data-pose", "checking");
@@ -148,7 +151,7 @@ test("reduced motion confirms directly with a still pet", async ({ page }, info)
   await page.locator("#personal-email").fill(uniqueAddress(info));
   await expect(page.locator("[data-signup-pet]")).toHaveAttribute("data-pose", "rest");
   await page.locator("#personal-email").press("Enter");
-  await expect(page.getByRole("heading", { name: "Ya estás en la lista." })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Revisa tu correo." })).toBeFocused();
   await expect(hero(page)).toHaveAttribute("data-flight-state", "settled");
   await expect(page.locator("[data-signup-flight]")).toHaveCount(0);
   expect(await page.locator("[data-signup-pet]").evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
@@ -157,29 +160,29 @@ test("reduced motion confirms directly with a still pet", async ({ page }, info)
 for (const width of [320, 390]) {
   test(`narrow ${width}px form confirms without scrolling toward the offscreen phone`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 844 });
-    await page.goto("/en/personal");
-    await page.route("**/api/signups", (route) => route.fulfill({ json: { status: "registered" } }));
+    await page.goto("/personal");
+    await page.route(/\/api\/(waitlist\/)?signups$/, (route) => route.fulfill({ json: { status: "registered" } }));
     await page.locator("#personal-email").fill(uniqueAddress(info));
     await page.locator('button[type="submit"]').scrollIntoViewIfNeeded();
     const before = await page.evaluate(() => window.scrollY);
     await page.locator("#personal-email").press("Enter");
-    await expect(page.getByRole("heading", { name: "You're on the list." })).toBeFocused();
+    await expect(page.getByRole("heading", { name: "Revisa tu correo." })).toBeFocused();
     await expect(page.locator("[data-signup-flight]")).toHaveCount(0);
     expect(await page.evaluate(() => window.scrollY)).toBe(before);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await expect(page.getByAltText(/welcome screen with its logo/)).toBeVisible();
+    await expect(page.getByAltText(/Pantalla de bienvenida/)).toBeVisible();
   });
 }
 
 test("scrolling during delivery removes the flight and keeps the true confirmation", async ({ page }, info) => {
   await desktop(page);
-  await page.route("**/api/signups", (route) => route.fulfill({ json: { status: "registered" } }));
+  await page.route(/\/api\/(waitlist\/)?signups$/, (route) => route.fulfill({ json: { status: "registered" } }));
   await page.locator("#personal-email").fill(uniqueAddress(info));
   await page.locator("#personal-email").press("Enter");
   await expect(hero(page)).toHaveAttribute("data-flight-state", "flying");
   await page.mouse.wheel(0, 120);
   await expect(hero(page)).toHaveAttribute("data-flight-state", "settled");
-  await expect(page.getByRole("heading", { name: "Ya estás en la lista." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Revisa tu correo." })).toBeVisible();
   await expect(page.locator("[data-signup-flight]")).toHaveCount(0);
 });
 

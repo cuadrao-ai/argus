@@ -73,13 +73,13 @@ describe("the home country picker's codes", () => {
     expect(sizes.filter((size) => size < 16)).toEqual([]);
   });
 
-  test("only a registered account is offered the setting", () => {
+  test("only a registered Personal account is offered the setting", () => {
     // A guest has no account to keep a country in, and the API omits it for guests.
     const menu = readFileSync(
       join(import.meta.dir, "../components/sidebar/ProfileMenu.tsx"),
       "utf-8",
     );
-    expect(menu).toContain('const homeCountryAvailable = accountKind === "registered";');
+    expect(menu).toContain('const homeCountryAvailable = !isBusiness && accountKind === "registered";');
     const opens = [...menu.matchAll(/openModal\("country"\)/g)];
     // The Preferences row and its quick jump, each behind the same gate.
     expect(opens).toHaveLength(2);

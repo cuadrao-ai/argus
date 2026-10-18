@@ -4,7 +4,6 @@ import {
   BusinessLanding,
   ContactPage,
   PersonalPage,
-  PrivacyPage,
 } from "@/components/business-pages";
 import { LegalPage } from "@/components/legal-page";
 import { PAGE_METADATA, shareImage } from "@/lib/page-metadata";
@@ -84,9 +83,8 @@ export default async function SitePage({ params }: Props) {
     case "personal":
       return <PersonalPage locale={locale} />;
     case "privacy":
-      return locale === "es" ? <LegalPage page="privacy" /> : <PrivacyPage locale={locale} />;
     case "terms":
     case "deletion":
-      return <LegalPage page={page} />;
+      return <LegalPage page={page} locale={locale} />;
   }
 }

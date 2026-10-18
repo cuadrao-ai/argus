@@ -1,0 +1,35 @@
+(node:52009) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:52023) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 21 tests using 1 worker
+
+(node:52024) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:52024) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:52024) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/keyboard-layers.spec.ts:28:7 › keyboard layer behavior › system back closes Omnisearch rather than leaving Argus (3.7s)
+  ✓   2 [chromium] › e2e/keyboard-layers.spec.ts:49:7 › keyboard layer behavior › Enter and Space on the three-dot open the menu, never the row (5.5s)
+  ✓   3 [chromium] › e2e/keyboard-layers.spec.ts:70:7 › keyboard layer behavior › Escape closes the row menu without taking the palette (3.5s)
+  ✓   4 [chromium] › e2e/keyboard-layers.spec.ts:90:7 › keyboard layer behavior › Escape closes a sheet without taking the palette (2.8s)
+  ✓   5 [chromium] › e2e/keyboard-layers.spec.ts:134:7 › keyboard layer behavior › a phone width neither acts on a shortcut nor swallows it (1.7s)
+  ✓   6 [chromium] › e2e/keyboard-layers.spec.ts:142:7 › keyboard layer behavior › a width that offers shortcuts still takes the same press (1.7s)
+  ✓   7 [chromium] › e2e/keyboard-layers.spec.ts:155:7 › keyboard layer behavior › Tab cannot escape a confirmation opened from the drawer (3.4s)
+  ✓   8 [chromium] › e2e/keyboard-passes.spec.ts:37:7 › Escape closes exactly one level › a sheet over the drawer: the drawer survives (3.6s)
+  ✓   9 [chromium] › e2e/keyboard-passes.spec.ts:55:7 › Escape closes exactly one level › the whole drawer ladder unwinds one press at a time (5.4s)
+  ✓  10 [chromium] › e2e/keyboard-passes.spec.ts:94:7 › Escape closes exactly one level › a panel at desktop replaces the menu rather than stacking on it (3.7s)
+  ✓  11 [chromium] › e2e/keyboard-passes.spec.ts:125:7 › Escape closes exactly one level › a confirmation over a row menu over the palette: both survive (4.1s)
+  ✓  12 [chromium] › e2e/keyboard-passes.spec.ts:145:7 › focus stays inside a modal with nothing enabled in it › Tab cannot leave a confirmation while it is busy (4.5s)
+  ✓  13 [chromium] › e2e/keyboard-passes.spec.ts:199:9 › a panel that opens for typing starts in the field › language search takes focus at 390 (4.0s)
+  ✓  14 [chromium] › e2e/keyboard-passes.spec.ts:199:9 › a panel that opens for typing starts in the field › language search takes focus at 1280 (3.6s)
+  ✓  15 [chromium] › e2e/keyboard-passes.spec.ts:251:7 › no shortcut acts behind a surface at tablet width › Open Recents does nothing while the settings sheet is up (2.8s)
+  ✓  16 [chromium] › e2e/keyboard-passes.spec.ts:274:7 › no shortcut acts behind a surface at tablet width › and still opens at that width with nothing covering it (2.2s)
+  ✓  17 [chromium] › e2e/keyboard-passes.spec.ts:285:7 › no shortcut acts behind a surface at tablet width › the shortcuts sheet can still close itself (2.7s)
+  ✓  18 [chromium] › e2e/keyboard-passes.spec.ts:306:9 › the Omnisearch key never reaches a covered surface › inert while the drawer is open (registered) (2.5s)
+  ✓  19 [chromium] › e2e/keyboard-passes.spec.ts:306:9 › the Omnisearch key never reaches a covered surface › inert while the drawer is open (guest) (2.5s)
+  ✓  20 [chromium] › e2e/keyboard-passes.spec.ts:321:7 › the Omnisearch key never reaches a covered surface › inert behind an open panel at a width that does have the key (3.7s)
+  ✓  21 [chromium] › e2e/keyboard-passes.spec.ts:347:7 › the Omnisearch key never reaches a covered surface › and opens normally at that width with nothing covering it (2.3s)
+
+  21 passed (1.2m)

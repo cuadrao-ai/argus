@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
-import documents from "../content/legal-es.json";
+import spanish from "../content/legal-es.json";
+import english from "../content/legal-en.json";
+import { htmlLang, type BusinessLocale } from "@/lib/site-routes";
 import { BusinessHeader } from "./business-header";
 import { BusinessFooter } from "./business-footer";
 import styles from "./business.module.css";
@@ -17,11 +19,12 @@ function inline(text: string): ReactNode[] {
   });
 }
 
-export function LegalPage({ page }: { page: LegalPageName }) {
+export function LegalPage({ page, locale = "es" }: { page: LegalPageName; locale?: BusinessLocale }) {
+  const documents = locale === "es" ? spanish : english;
   const document = documents[slugs[page]];
   return (
-    <div className={styles.site} lang="es-419" id="top">
-      <BusinessHeader locale="es" page={page} />
+    <div className={styles.site} lang={htmlLang(locale)} id="top" data-page-background="business">
+      <BusinessHeader locale={locale} page={page} />
       <main id="business-main" tabIndex={-1} className={legal.layout}>
         <article className={legal.document} aria-labelledby="legal-title">
           <h1 id="legal-title">{document.title}</h1>
@@ -35,7 +38,7 @@ export function LegalPage({ page }: { page: LegalPageName }) {
           })}
         </article>
       </main>
-      <BusinessFooter locale="es" showClosing={false} business />
+      <BusinessFooter locale={locale} showClosing={false} business />
     </div>
   );
 }

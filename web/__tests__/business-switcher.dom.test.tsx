@@ -59,7 +59,7 @@ describe("the Business switcher at the top left", () => {
     assert.ok(button.getAttribute("aria-label")?.includes("Mi negocio"));
     assert.ok(button.getAttribute("title")?.includes("Mi negocio"));
     await page.act(async () => button.click());
-    assert.ok([...page.host.querySelectorAll('[role="option"]')][1].textContent?.includes("Mi negocio"));
+    assert.ok([...document.querySelectorAll('[role="option"]')][1].textContent?.includes("Mi negocio"));
     assert.ok(!page.host.textContent?.includes("My business"));
     assert.equal(unnamed.name, "My business");
     await page.act(async () => page.root.unmount());
@@ -84,10 +84,10 @@ describe("the Business switcher at the top left", () => {
     assert.ok(button.getAttribute("aria-label")?.includes("Cambiar de negocio"));
     await page.act(async () => { button.click(); });
     await page.settle();
-    const list = page.host.querySelector('[role="listbox"]') as HTMLElement;
+    const list = document.querySelector('[role="listbox"]') as HTMLElement;
     assert.ok(list, "the listbox opened");
     assert.equal(document.activeElement, list, "focus moves into the list");
-    const options = [...page.host.querySelectorAll('[role="option"]')];
+    const options = [...document.querySelectorAll('[role="option"]')];
     assert.deepEqual(options.map((o) => o.getAttribute("aria-selected")), ["false", "true", "false"]);
     assert.ok(options[0].textContent?.includes("Ferretería Luna") && options[0].textContent?.includes("Tu negocio"));
     assert.ok(options[2].textContent?.includes("Cliente · Ver y preparar"));
@@ -99,16 +99,16 @@ describe("the Business switcher at the top left", () => {
     await page.act(async () => { key(list, "Enter"); });
     await page.settle();
     assert.deepEqual(page.chosenIds, [null]);
-    assert.equal(page.host.querySelector('[role="listbox"]'), null, "closed after choosing");
+    assert.equal(document.querySelector('[role="listbox"]'), null, "closed after choosing");
     assert.equal(document.activeElement, button, "focus returns to the button");
     // Open again, type-ahead to Taller, Escape closes without choosing.
     await page.act(async () => { button.click(); });
     await page.settle();
-    const again = page.host.querySelector('[role="listbox"]') as HTMLElement;
+    const again = document.querySelector('[role="listbox"]') as HTMLElement;
     await page.act(async () => { key(again, "t"); });
-    assert.equal([...page.host.querySelectorAll('[role="option"]')][2].getAttribute("data-active"), "true");
+    assert.equal([...document.querySelectorAll('[role="option"]')][2].getAttribute("data-active"), "true");
     await page.act(async () => { key(again, "Escape"); });
-    assert.equal(page.host.querySelector('[role="listbox"]'), null);
+    assert.equal(document.querySelector('[role="listbox"]'), null);
     assert.deepEqual(page.chosenIds, [null]);
     await page.act(async () => page.root.unmount());
   });
@@ -119,7 +119,7 @@ describe("the Business switcher at the top left", () => {
     const button = page.host.querySelector("button[aria-haspopup=listbox]") as HTMLButtonElement;
     await page.act(async () => { button.click(); });
     await page.settle();
-    const client = [...page.host.querySelectorAll('[role="option"]')][1] as HTMLElement;
+    const client = [...document.querySelectorAll('[role="option"]')][1] as HTMLElement;
     await page.act(async () => { client.click(); });
     assert.deepEqual(page.chosenIds, ["g-client"]);
     await page.act(async () => page.root.unmount());
