@@ -51,6 +51,12 @@ Replace the quoted argument with the RNC you want to read. The swap replaces `pu
 
 The table plus its primary key is about 95 MB. A reload peaks around 213 MB on staging. The free database limit is 500 MB.
 
+Before the truncate or the copy, the load queries `pg_database_size(current_database())` and adds the ceiling. The load fails without loading when the peak exceeds the threshold. The default ceiling is 100 MB, which is 104857600 bytes. The default threshold is 450 MB, which is 471859200 bytes.
+
+Set the repository variables `DGII_RNC_LOAD_CEILING` and `DGII_RNC_SIZE_LIMIT` to change the ceiling and the threshold. An empty value keeps the default. The value is a number plus `B`, `KB`, `MB`, or `GB`.
+
+The dry run prints `parsed_bytes`. After the swap, the log prints `database_bytes_after` and `relation_bytes` for `public.dgii_rnc` and `public.dgii_rnc_load`.
+
 ## Set the swap timeout
 
 The load step runs `psql` against `SUPABASE_STAGING_DB_URL`. It does not call the swap through an HTTP API. The session starts with `SET statement_timeout = '5min'`.

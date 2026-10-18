@@ -13,6 +13,8 @@ from pathlib import Path
 
 _IDENT_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789_.")
 _TIMEOUT = re.compile(r"^[0-9]+(ms|s|min|h)$")
+_SIZE = re.compile(r"^[0-9]+(B|KB|MB|GB)$")
+_SIZE_UNIT = {"B": 1, "KB": 1024, "MB": 1024 * 1024, "GB": 1024**3}
 _KEPT_LENGTHS = frozenset({9, 11})
 
 
@@ -57,6 +59,8 @@ class LoadConfig:
     anomaly_limit: int = 25
     statement_timeout: str = "5min"
     drop_sample_limit: int = 5
+    load_ceiling_bytes: int = 100 * 1024 * 1024
+    size_limit_bytes: int = 450 * 1024 * 1024
 
 
 LOAD = LoadConfig()
@@ -115,6 +119,7 @@ def summary_lines(result: ParseResult) -> list[str]:
         f"anomalies={result.anomaly_count}",
         f"dropped={result.dropped_count}",
         f"duplicates={result.duplicate_count}",
+        f"parsed_bytes={parsed_byte_estimate(result.rows)}",
     ]
     for drop in result.dropped_sample:
         name = drop.name.replace("\r", " ").replace("\n", " ")
@@ -133,6 +138,10 @@ def summary_lines(result: ParseResult) -> list[str]:
     for length in sorted(length_counts):
         lines.append(f"rnc_length {length}={length_counts[length]}")
     return lines
+
+
+def parsed_byte_estimate(rows: tuple[RncRow, ...]) -> int:
+    return len(copy_text(rows).encode("utf-8"))
 
 
 def copy_text(rows: tuple[RncRow, ...]) -> str:
@@ -168,6 +177,26 @@ def load_script(result: ParseResult, config: LoadConfig) -> str:
     )
 
 
+def database_size_sql(config: LoadConfig) -> str:
+    timeout = _statement_timeout(config.statement_timeout)
+    return (
+        f"SET statement_timeout = '{timeout}';\n"
+        "SELECT pg_database_size(current_database());\n"
+    )
+
+
+def size_report_sql(config: LoadConfig) -> str:
+    timeout = _statement_timeout(config.statement_timeout)
+    live = _sql_ident(config.live_table)
+    load = _sql_ident(config.load_table)
+    return (
+        f"SET statement_timeout = '{timeout}';\n"
+        "SELECT pg_database_size(current_database());\n"
+        f"SELECT pg_total_relation_size('{live}'::regclass);\n"
+        f"SELECT pg_total_relation_size('{load}'::regclass);\n"
+    )
+
+
 def swap_row_count(stdout: str) -> int:
     lines = [line.strip() for line in stdout.splitlines() if line.strip()]
     if len(lines) != 1 or not lines[0].isdigit():
@@ -180,6 +209,20 @@ def require_swap_count(count: int, config: LoadConfig) -> None:
         raise RncImportError(
             f"swap returned {count}, below minimum {config.min_rows}"
         )
+
+
+def require_load_headroom(database_size: int, config: LoadConfig) -> int:
+    peak = database_size + config.load_ceiling_bytes
+    if (
+        database_size < 0
+        or config.load_ceiling_bytes < 0
+        or peak > config.size_limit_bytes
+    ):
+        raise RncImportError(
+            f"peak {peak} limit {config.size_limit_bytes} "
+            f"database_size {database_size} ceiling {config.load_ceiling_bytes}"
+        )
+    return peak
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -233,16 +276,33 @@ def _flag(value: str | None, env_name: str) -> str:
 
 
 def _config_from_env() -> LoadConfig:
-    raw = os.environ.get("DGII_RNC_STATEMENT_TIMEOUT", "").strip()
-    if raw == "":
+    updates: dict[str, str | int] = {}
+    timeout = os.environ.get("DGII_RNC_STATEMENT_TIMEOUT", "").strip()
+    if timeout != "":
+        updates["statement_timeout"] = _statement_timeout(timeout)
+    ceiling = os.environ.get("DGII_RNC_LOAD_CEILING", "").strip()
+    if ceiling != "":
+        updates["load_ceiling_bytes"] = _size_bytes(ceiling)
+    limit = os.environ.get("DGII_RNC_SIZE_LIMIT", "").strip()
+    if limit != "":
+        updates["size_limit_bytes"] = _size_bytes(limit)
+    if updates == {}:
         return LOAD
-    return replace(LOAD, statement_timeout=_statement_timeout(raw))
+    return replace(LOAD, **updates)
 
 
 def _statement_timeout(value: str) -> str:
     if _TIMEOUT.fullmatch(value) is None:
         raise RncImportError(f"refusing statement_timeout {value!r}")
     return value
+
+
+def _size_bytes(value: str) -> int:
+    match = _SIZE.fullmatch(value)
+    if match is None:
+        raise RncImportError(f"refusing size {value!r}")
+    unit = match.group(1)
+    return int(value[: -len(unit)]) * _SIZE_UNIT[unit]
 
 
 def _registry_entry(archive: zipfile.ZipFile) -> zipfile.ZipInfo:
@@ -360,7 +420,24 @@ def _sql_ident(value: str) -> str:
 
 
 def _apply_load(database_url: str, result: ParseResult, config: LoadConfig) -> None:
-    script = load_script(result, config)
+    (database_size,) = _psql_integers(database_url, database_size_sql(config), 1)
+    peak = require_load_headroom(database_size, config)
+    print(f"database_bytes={database_size}")
+    print(f"peak_bytes={peak}")
+    count = swap_row_count(_psql(database_url, load_script(result, config)))
+    print(f"swap_rows={count}")
+    require_swap_count(count, config)
+    database_after, live_bytes, load_bytes = _psql_integers(
+        database_url,
+        size_report_sql(config),
+        3,
+    )
+    print(f"database_bytes_after={database_after}")
+    print(f"relation_bytes {config.live_table}={live_bytes}")
+    print(f"relation_bytes {config.load_table}={load_bytes}")
+
+
+def _psql(database_url: str, script: str) -> str:
     try:
         completed = subprocess.run(
             [
@@ -383,9 +460,18 @@ def _apply_load(database_url: str, result: ParseResult, config: LoadConfig) -> N
     if completed.returncode != 0:
         detail = _redact(completed.stderr, database_url).strip()
         raise RncImportError(detail or "psql failed")
-    count = swap_row_count(_redact(completed.stdout, database_url))
-    print(f"swap_rows={count}")
-    require_swap_count(count, config)
+    return _redact(completed.stdout, database_url)
+
+
+def _psql_integers(database_url: str, script: str, expected: int) -> tuple[int, ...]:
+    lines = [
+        line.strip()
+        for line in _psql(database_url, script).splitlines()
+        if line.strip()
+    ]
+    if len(lines) != expected or any(not line.isdigit() for line in lines):
+        raise RncImportError(f"expected {expected} integers from psql")
+    return tuple(int(line) for line in lines)
 
 
 def _redact(text: str, secret: str) -> str:
