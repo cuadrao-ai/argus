@@ -3512,7 +3512,7 @@ unverified default DOP; an append preserves facts and open questions. Neither
 path writes money, manufactures a turn, grants consent or amends accepted records.
 Existing source lifecycle, receipt immutability and client privileges are unchanged.
 
-Migration `20261018060000_business_dgii_period_export.sql` adds only nullable
+Migration `20261018220000_business_dgii_period_export.sql` adds only nullable
 columns to the existing owners. `spaces.business_rnc` holds the owner's explicit
 nine-digit RNC or eleven-digit cédula. Existing server-only RLS and client revocations
 also protect this column. `business_draft_revisions.before_dgii` and `after_dgii`

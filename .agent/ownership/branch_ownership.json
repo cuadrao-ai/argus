@@ -3412,7 +3412,7 @@
         "src/argus/domain/business/export.py",
         "src/argus/domain/business/fiscal_identity.py",
         "src/argus/domain/business/fiscal_profile.py",
-        "supabase/migrations/20261018060000_business_dgii_period_export.sql",
+        "supabase/migrations/20261018220000_business_dgii_period_export.sql",
         "tests/business/test_business_export.py",
         "tests/dgii/fixtures/period-202609-606.txt",
         "tests/dgii/fixtures/period-202609-607.txt",
