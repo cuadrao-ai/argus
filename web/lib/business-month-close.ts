@@ -111,21 +111,23 @@ const MONTH = /^\d{4}-\d{2}$/;
 const PAPER_NCF = /^B\d{10}$/;
 const ELECTRONIC_NCF = /^E\d{12}$/;
 const AMOUNT = /^-?\d+(\.\d{1,2})?$/;
+const ZERO = BigInt(0);
+const HUNDRED = BigInt(100);
 
 export function parseDopCents(amount: string): bigint {
   const trimmed = amount.trim();
   if (!AMOUNT.test(trimmed)) throw new MonthCloseError("unavailable", "DOP amounts use at most two decimal places");
   const negative = trimmed.startsWith("-");
   const [whole, fraction = ""] = trimmed.slice(negative ? 1 : 0).split(".");
-  const cents = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"));
+  const cents = BigInt(whole) * HUNDRED + BigInt(fraction.padEnd(2, "0"));
   return negative ? -cents : cents;
 }
 
 export function formatDopCents(cents: bigint): string {
-  const negative = cents < 0n;
+  const negative = cents < ZERO;
   const absolute = negative ? -cents : cents;
-  const fraction = (absolute % 100n).toString().padStart(2, "0");
-  return `${negative ? "-" : ""}${absolute / 100n}.${fraction}`;
+  const fraction = (absolute % HUNDRED).toString().padStart(2, "0");
+  return `${negative ? "-" : ""}${absolute / HUNDRED}.${fraction}`;
 }
 
 function addCents(left: bigint, right: string | null): bigint {
@@ -155,10 +157,10 @@ export function documentBaseCents(document: Pick<MonthCloseDocument, "amount" | 
 }
 
 export function monthCloseSummary(documents: readonly MonthCloseDocument[]): MonthCloseSummary {
-  let invoiceBase = 0n;
-  let receiptBase = 0n;
-  let invoiceItbis = 0n;
-  let receiptItbis = 0n;
+  let invoiceBase = ZERO;
+  let receiptBase = ZERO;
+  let invoiceItbis = ZERO;
+  let receiptItbis = ZERO;
   for (const document of documents) {
     const base = documentBaseCents(document);
     const itbis = parseDopCents(document.itbis ?? "0");
@@ -178,7 +180,7 @@ export function monthCloseSummary(documents: readonly MonthCloseDocument[]): Mon
 }
 
 export function statusTotals(documents: readonly MonthCloseDocument[]): Record<MonthCloseStatus, { count: number; amount: string }> {
-  const totals: Record<MonthCloseStatus, bigint> = { pendiente: 0n, cobrado: 0n, pagado: 0n };
+  const totals: Record<MonthCloseStatus, bigint> = { pendiente: ZERO, cobrado: ZERO, pagado: ZERO };
   const counts: Record<MonthCloseStatus, number> = { pendiente: 0, cobrado: 0, pagado: 0 };
   for (const document of documents) {
     counts[document.status] += 1;
