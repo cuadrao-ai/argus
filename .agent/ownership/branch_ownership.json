@@ -8,6 +8,7 @@
         ".agent/ownership/branch_ownership.json",
         "supabase/migrations/20261018040000_harden_definer_search_paths.sql",
         "supabase/tests/m2-definer-search-paths.sql",
+        "tests/test_backtest_job_write_invariant.py",
         "scripts/qa/verify_m2_definer_search_paths.py",
         "docs/reports/evidence/cleanup-m2-definer-paths/**"
       ],

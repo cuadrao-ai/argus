@@ -89,3 +89,29 @@ migration using the preserved definitions, never an edit to applied history.
 The official [Supabase function guidance](https://supabase.com/docs/guides/database/functions)
 requires schema names for relations under an empty search path. Its changelog
 was checked for relevant database changes before implementation.
+
+## Migration-writer inventory correction
+
+Required CI run `39091406872` found the new migration missing from the exhaustive
+backtest-job writer inventory. On the exact integration base
+`651870a54be4e5506dbb38f3902fef1a97eef8df`, the original inventory assertion passed
+against the exact base migration files. On candidate
+`311cf4de12e48417c211e40b1ce85c6d665243a0`, the focused suite reproduced the CI
+failure with 1 failed and 2 passed. The failure named only
+`20261018040000_harden_definer_search_paths.sql` as unclassified.
+
+The correction classifies that migration without excluding it from the scan.
+It finds every recreated function that writes the job table and requires exactly
+the existing admission and direct-success functions. Each body then receives its
+existing containment assertion. Admission must retain the abandoned-execution
+marker and must not attach a result or write success. Direct completion must
+retain its row lock and running-state guard. No migration SQL changed.
+
+The focused suite passed all three tests after this correction. Separate mutation
+probes confirmed rejection of a missing running guard, an admission result write,
+and an unclassified third writer. Python 3.10.20 used a provider-empty synthetic
+environment. These static tests need neither application environment files nor a
+database. Ruff, formatting, whitespace and the branch ownership gate passed.
+The ownership entry adds only the exact invariant test path. Integration was
+fetched again and remained at the original base. Fresh exact-head CI and
+independent delta Eval remain pending. No CI failure was rerun unchanged.
