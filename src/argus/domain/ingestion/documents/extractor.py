@@ -191,9 +191,18 @@ _RECEIPT_AMOUNTS = _amount_fields(ReceiptDetails)
 _ITEM_AMOUNTS = _amount_fields(ReceiptItem)
 
 
+def _priced_currency(
+    currency: str | None, account_currency: str | None, agreed: str | None
+) -> str | None:
+    own = _currency(currency) if currency else None
+    if own is None and account_currency:
+        own = _currency(account_currency)
+    return own or agreed
+
+
 def _named_currencies(batch: ExtractionBatch) -> set[str]:
     named: set[str] = set()
-    for row in batch.observations:
+    for row in (*batch.observations, *batch.candidates):
         for raw in (row.currency, row.account.currency):
             code = _currency(raw) if raw else None
             if code:
@@ -240,31 +249,65 @@ def _consider(
     )
 
 
+def _projected_row(candidate: ImportCandidate) -> tuple[int, int] | None:
+    """The observation a projected candidate was copied from, when its id says."""
+
+    parts = candidate.source.external_id.rsplit(":", 2)
+    if len(parts) != 3:
+        return None
+    page_token, row_token = parts[1], parts[2]
+    if not page_token.startswith("p") or not row_token.startswith("r"):
+        return None
+    page, row = page_token[1:], row_token[1:]
+    if not page.isdigit() or not row.isdigit():
+        return None
+    return int(page), int(row)
+
+
 def priced_amounts(batch: ExtractionBatch) -> tuple[PricedAmount, ...]:
     """Every positive amount on a readable read whose currency is determinable.
 
-    The amount's own currency wins. An observation's account currency is its
-    own. When the amount names none, the one currency named anywhere else on
-    the same read is used, and only when every named currency agrees. No
-    currency, or currencies that disagree, leaves that amount unpriced.
+    Observations, the candidates projected from them, and receipt money all
+    count. A candidate is the same row as its observation, so it counts only
+    when that observation did not already price a positive amount. The
+    amount's own currency wins. An account currency on that row counts as
+    its own. When the amount names none, the one currency named anywhere
+    else on the same read is used, and only when every named currency
+    agrees. No currency, or currencies that disagree, leaves that amount
+    unpriced. Evidence labels are not a gate.
     """
 
     if batch.readable is not True:
         return ()
     agreed = _agreed_currency(batch)
     found: list[PricedAmount] = []
+    priced_rows: set[tuple[int, int]] = set()
     for row in batch.observations:
-        own = _currency(row.currency) if row.currency else None
-        if own is None and row.account.currency:
-            own = _currency(row.account.currency)
+        before = len(found)
+        currency = _priced_currency(row.currency, row.account.currency, agreed)
         for name in _OBSERVATION_AMOUNTS:
             _consider(
                 found,
                 getattr(row, name),
-                own or agreed,
+                currency,
                 row.merchant,
                 row.occurred_on,
             )
+        if len(found) > before:
+            priced_rows.add((row.page, row.row))
+    for candidate in batch.candidates:
+        identity = _projected_row(candidate)
+        if identity is not None and identity in priced_rows:
+            continue
+        _consider(
+            found,
+            candidate.amount,
+            _priced_currency(
+                candidate.currency, candidate.account.currency, agreed
+            ),
+            candidate.merchant,
+            candidate.occurred_on,
+        )
     receipt = batch.receipt
     if receipt is not None:
         currency = _currency(receipt.currency) if receipt.currency else None
