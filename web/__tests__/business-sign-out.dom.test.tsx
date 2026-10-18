@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
-import { leaveSession } from "@/lib/logout-flow";
+import { leaveSession, resetLeavingSession } from "@/lib/logout-flow";
 
 let listener: (event: string, session: { user: { id: string } } | null) => void = () => {};
 mock.module("@/lib/supabase-client", () => ({
@@ -26,12 +26,14 @@ mock.module("@/components/chat/ConversationShellGuard", () => ({ default: () => 
 mock.module("@/components/business-app/ConversationUnavailableNotice", () => ({ default: () => null }));
 
 beforeAll(() => {
+  resetLeavingSession();
   process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
   GlobalRegistrator.register({ url: "http://localhost/biz" });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
 afterAll(() => {
+  resetLeavingSession();
   GlobalRegistrator.unregister();
 });
 
