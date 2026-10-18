@@ -3252,6 +3252,62 @@
         "marketing/components/business-footer.tsx",
         "marketing/components/personal-early-access.tsx"
       ]
+    },
+    "codex/dgii-period-export": {
+      "description": "Human-only DGII 606/607 monthly export, Business RNC, typed fiscal review revisions, explicit income/refund approval, duplicate-safe effects and local verification. No model-facing schema/prompt or extraction/preparation changes. Root owns merge and hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/routers/business_drafts.py",
+        "src/argus/api/routers/business_fiscal.py",
+        "src/argus/api/routers/financial_accounts.py",
+        "src/argus/domain/business/actions/approval.py",
+        "src/argus/domain/business/actions/dossier.py",
+        "src/argus/domain/business/actions/fiscal.py",
+        "src/argus/domain/business/actions/mutations.py",
+        "src/argus/domain/business/actions/service.py",
+        "src/argus/domain/business/contracts/actions.py",
+        "src/argus/domain/business/contracts/dgii.py",
+        "src/argus/domain/business/contracts/dossier.py",
+        "src/argus/domain/business/contracts/facts.py",
+        "src/argus/domain/business/dgii_columns.py",
+        "src/argus/domain/business/dgii_export.py",
+        "src/argus/domain/business/dgii_form.py",
+        "src/argus/domain/business/dgii_snapshot.py",
+        "src/argus/domain/business/dgii_validation.py",
+        "src/argus/domain/business/export.py",
+        "src/argus/domain/business/fiscal_identity.py",
+        "src/argus/domain/business/fiscal_profile.py",
+        "supabase/migrations/20261018060000_business_dgii_period_export.sql",
+        "tests/business/test_business_export.py",
+        "tests/dgii/fixtures/practice-inputs.json",
+        "tests/dgii/fixtures/practice-oracle.json",
+        "tests/dgii/test_packet.py",
+        "tests/test_business_dgii_postgres.py",
+        "web/__tests__/business-dgii.dom.test.tsx",
+        "web/__tests__/business-export-download.dom.test.tsx",
+        "web/components/business-app/BusinessFiscalProfile.tsx",
+        "web/components/business-app/FiscalDeclarationEditor.tsx",
+        "web/components/business-app/FiscalRevision.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/ReceiptFactEditor.tsx",
+        "web/components/business-app/ReceiptHistory.tsx",
+        "web/lib/business-dgii.ts",
+        "web/lib/business-dossier.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json"
+      ],
+      "deny": [
+        ".env",
+        ".env.*",
+        "web/.env.local",
+        "web/.env.*",
+        "ios/**",
+        "marketing/**"
+      ]
     }
   }
 }
