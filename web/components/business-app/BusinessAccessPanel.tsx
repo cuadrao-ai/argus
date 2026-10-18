@@ -42,7 +42,7 @@ export function AccessList({
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-medium text-black dark:text-white">{grant.display_name}{grant.email ? ` · ${grant.email}` : ""}</span>
               <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
-                {grant.owner ? t("business_access.owner", "Owner") : t("business_access.member", "Reads and prepares")} · {t("business_access.since", "Since {{date}}", { date: formatDay(grant.created_at, locale) })}
+                {grant.owner ? t("business_access.owner", "Owner") : t("business_access.member", "Member")} · {t("business_access.since", "Since {{date}}", { date: formatDay(grant.created_at, locale) })}
               </span>
             </span>
             {grant.owner ? (
