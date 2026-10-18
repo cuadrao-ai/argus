@@ -181,7 +181,7 @@ describe("staging Auth email hook", () => {
       const invalid = request(value);
       invalid.headers.set("webhook-timestamp", "invalid");
       const unverified = request(value);
-      unverified.headers.set("webhook-timestamp", String(Math.floor(Date.now() / 1000) - 1));
+      unverified.headers.set("webhook-timestamp", String(Number(unverified.headers.get("webhook-timestamp")) - 1));
       for (const candidate of [
         invalid, unverified,
         request(value, "stale-security", new Date(Date.now() - 301_000)),
