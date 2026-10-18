@@ -3697,12 +3697,17 @@ values, with no check. Lookup derives `verification`: `verificado` when the
 trimmed upper-case status is `ACTIVO`, otherwise `no_activo`.
 
 `public.dgii_rnc_swap(min_rows int) returns int` copies `rnc`, `name`,
-`trade_name`, `status` and `file_date` from the load table into the registry
-after checking the minimum row count and rejecting duplicate `rnc` values. It
-truncates and inserts inside one transaction. A failure leaves the registry
-unchanged. `public.dgii_rnc_lookup(p_rnc text)` returns
+`trade_name`, `status` and `file_date` from the load table into the registry.
+A null or non-positive minimum raises before the swap takes a lock. The swap
+then locks the load table exclusively, checks the row count, and rejects
+duplicate `rnc` values. A delete on the load table waits for that lock, so the
+published rows are the rows that passed the checks. The swap locks the
+registry, truncates it, and inserts in the same transaction. A raised error
+rolls that transaction back and leaves the previous registry in place.
+`public.dgii_rnc_lookup(p_rnc text)` is volatile and returns
 `table(rnc text, name text, trade_name text, status text, file_date date, verification text)`.
-It strips non-digits from the input and returns no row when nothing matches.
+A lookup that waits on a swap reads the rows published by that swap. It strips
+non-digits from the input and returns no row when nothing matches.
 
 Row level security is enabled with no policies. `anon`, `authenticated` and
 `public` have no privileges. `service_role` may select the registry, load and

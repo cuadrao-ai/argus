@@ -38,9 +38,11 @@ declare
     duplicate_rncs bigint;
     stored_rows int;
 begin
-    if min_rows < 1 then
+    if min_rows is null or min_rows < 1 then
         raise exception 'min_rows must be at least 1';
     end if;
+
+    lock table public.dgii_rnc_load in exclusive mode;
 
     select count(*) into load_rows
     from public.dgii_rnc_load;
@@ -85,8 +87,7 @@ returns table (
     verification text
 )
 language sql
-stable
-security definer
+volatile
 set search_path = ''
 as $$
     select

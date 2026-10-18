@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import threading
+import time
 from datetime import date
 
 import pytest
@@ -304,3 +306,145 @@ def test_service_role_can_select_and_execute(connection):
             )
         finally:
             cursor.execute("reset role")
+
+
+def _await_lock(application_name: str) -> None:
+    deadline = time.monotonic() + 5
+    with psycopg.connect(DSN, autocommit=True) as watcher:
+        while time.monotonic() < deadline:
+            with watcher.cursor() as cursor:
+                cursor.execute(
+                    """
+                    select exists (
+                        select 1
+                        from pg_stat_activity
+                        where application_name = %s
+                          and wait_event_type = 'Lock'
+                    )
+                    """,
+                    (application_name,),
+                )
+                if cursor.fetchone()[0]:
+                    return
+            time.sleep(0.02)
+    raise AssertionError(f"{application_name} did not wait on a lock")
+
+
+def _run_query(
+    application_name: str, sql: str, args: tuple, outcome: dict, key: str
+) -> None:
+    try:
+        with psycopg.connect(
+            DSN, autocommit=True, application_name=application_name
+        ) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("set statement_timeout = '15s'")
+                cursor.execute(sql, args)
+                outcome[key] = cursor.fetchall()
+    except Exception as exc:  # noqa: BLE001 - the caller asserts the thread error
+        outcome["errors"].append(exc)
+
+
+def test_swap_blocks_a_concurrent_load_delete_and_publishes_the_loaded_rows(connection):
+    loaded = (
+        ("00123456789", _name(), _name(), "ACTIVO", FILE_DATE),
+        ("101234568", _name(), None, "SUSPENDIDO", FILE_DATE),
+    )
+    _insert(connection, REGISTRY, "101234567", _name(), None, "ANULADO", date(2026, 1, 1))
+    for row in loaded:
+        _insert(connection, LOAD, *row)
+    outcome = {"errors": []}
+    holder = psycopg.connect(DSN, autocommit=False)
+    worker = threading.Thread(
+        target=_run_query,
+        args=(
+            "dgii_swap",
+            "select public.dgii_rnc_swap(%s)",
+            (len(loaded),),
+            outcome,
+            "swap",
+        ),
+    )
+    try:
+        with holder.cursor() as cursor:
+            cursor.execute(f"lock table {REGISTRY} in access exclusive mode")
+        worker.start()
+        _await_lock("dgii_swap")
+        with psycopg.connect(DSN, autocommit=True) as deleter:
+            with deleter.cursor() as cursor:
+                cursor.execute("set lock_timeout = '750ms'")
+                with pytest.raises(psycopg.errors.LockNotAvailable):
+                    cursor.execute(f"delete from {LOAD}")
+        holder.commit()
+    finally:
+        holder.rollback()
+        holder.close()
+        worker.join(timeout=10)
+
+    assert not worker.is_alive()
+    assert outcome["errors"] == []
+    assert outcome["swap"] == [(len(loaded),)]
+    assert _contents(connection, REGISTRY) == list(loaded)
+    assert _contents(connection, LOAD) == []
+
+
+def test_swap_rejects_null_and_zero_minimum_and_leaves_the_registry_intact(connection):
+    _insert(connection, REGISTRY, "101234567", _name(), None, "ACTIVO", date(2026, 1, 1))
+    before_registry = _contents(connection, REGISTRY)
+    for minimum in (None, 0):
+        with connection.cursor() as cursor:
+            with pytest.raises(psycopg.errors.RaiseException) as caught:
+                cursor.execute("select public.dgii_rnc_swap(%s)", (minimum,))
+        assert caught.value.diag.message_primary == "min_rows must be at least 1"
+        assert _contents(connection, REGISTRY) == before_registry
+        assert _contents(connection, LOAD) == []
+
+
+def test_lookup_waiting_on_a_swap_returns_the_published_row(connection):
+    published = ("101234567", _name(), _name(), "ACTIVO", FILE_DATE)
+    _insert(connection, REGISTRY, *published)
+    _insert(connection, LOAD, *published)
+    outcome = {"errors": []}
+    holder = psycopg.connect(DSN, autocommit=False)
+    swap_thread = threading.Thread(
+        target=_run_query,
+        args=("dgii_swap", "select public.dgii_rnc_swap(%s)", (1,), outcome, "swap"),
+    )
+    lookup_thread = threading.Thread(
+        target=_run_query,
+        args=(
+            "dgii_lookup",
+            "select * from public.dgii_rnc_lookup(%s)",
+            ("1-01-23456-7",),
+            outcome,
+            "lookup",
+        ),
+    )
+    try:
+        with holder.cursor() as cursor:
+            cursor.execute(f"lock table {REGISTRY} in access exclusive mode")
+        swap_thread.start()
+        _await_lock("dgii_swap")
+        lookup_thread.start()
+        _await_lock("dgii_lookup")
+        holder.commit()
+    finally:
+        holder.rollback()
+        holder.close()
+        swap_thread.join(timeout=10)
+        lookup_thread.join(timeout=10)
+
+    assert not swap_thread.is_alive()
+    assert not lookup_thread.is_alive()
+    assert outcome["errors"] == []
+    assert outcome["swap"] == [(1,)]
+    assert outcome["lookup"] == [
+        (
+            published[0],
+            published[1],
+            published[2],
+            published[3],
+            published[4],
+            "verificado",
+        )
+    ]
