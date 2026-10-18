@@ -34,7 +34,7 @@ test("a valid token verifies and redirects only to the internal path", async () 
   );
   expect(response.status).toBe(303);
   expect(response.headers.get("cache-control")).toBe("no-store");
-  expect(response.headers.get("location")).toBe(`${origin}/auth/recovery`);
+  expect(response.headers.get("location")).toBe("/auth/recovery");
   expect(calls).toEqual([{ token_hash: hash, type: "recovery" }]);
 });
 
@@ -44,17 +44,17 @@ test("a same-origin absolute next is reduced to its path before redirect", async
     confirmRequest(`token_hash=${hash}&type=email&next=${encodeURIComponent(`${origin}/chat?idea=1`)}`),
     verify,
   );
-  expect(response.headers.get("location")).toBe(`${origin}/chat?idea=1`);
+  expect(response.headers.get("location")).toBe("/chat?idea=1");
   expect(calls).toEqual([{ token_hash: hash, type: "email" }]);
 });
 
 test("a missing next stays internal and a signup type is accepted", async () => {
   const recovery = verifier({ error: null });
   const recoveryResponse = await confirmAuthGet(confirmRequest(`token_hash=${hash}&type=recovery`), recovery.verify);
-  expect(recoveryResponse.headers.get("location")).toBe(`${origin}/auth/recovery`);
+  expect(recoveryResponse.headers.get("location")).toBe("/auth/recovery");
   const signup = verifier({ error: null });
   const signupResponse = await confirmAuthGet(confirmRequest(`token_hash=pkce_${"c".repeat(64)}&type=signup`), signup.verify);
-  expect(signupResponse.headers.get("location")).toBe(`${origin}/`);
+  expect(signupResponse.headers.get("location")).toBe("/");
   expect(signup.calls).toEqual([{ token_hash: `pkce_${"c".repeat(64)}`, type: "signup" }]);
 });
 
@@ -66,13 +66,13 @@ test("an invalid token shows the confirm error and does not echo the hash", asyn
       verify,
     );
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe(`${origin}/auth/confirm/error`);
+    expect(response.headers.get("location")).toBe("/auth/confirm/error");
     expect(response.headers.get("location")).not.toContain(hash);
     expect(calls).toHaveLength(1);
   }
   const malformed = verifier({ error: null });
   const response = await confirmAuthGet(confirmRequest("token_hash=short&type=email&next=/"), malformed.verify);
-  expect(response.headers.get("location")).toBe(`${origin}/auth/confirm/error`);
+  expect(response.headers.get("location")).toBe("/auth/confirm/error");
   expect(malformed.calls).toHaveLength(0);
 });
 
@@ -91,9 +91,32 @@ test("an external next is rejected before the token is verified", async () => {
       confirmRequest(`token_hash=${hash}&type=email&next=${encodeURIComponent(next)}`),
       verify,
     );
-    expect(response.headers.get("location")).toBe(`${origin}/auth/confirm/error`);
+    expect(response.headers.get("location")).toBe("/auth/confirm/error");
     expect(calls).toHaveLength(0);
   }
+});
+
+test("a localhost bind origin never appears in the redirect", async () => {
+  const success = verifier({ error: null });
+  const response = await confirmAuthGet(
+    new Request(`http://localhost:10000/auth/confirm?token_hash=${hash}&type=recovery&next=${encodeURIComponent("/auth/recovery?from=email#done")}`),
+    success.verify,
+  );
+  const location = response.headers.get("location");
+  expect(location).toBe("/auth/recovery?from=email#done");
+  expect(location).not.toContain("://");
+  expect(location).not.toContain("localhost");
+
+  const blocked = verifier({ error: null });
+  const errorResponse = await confirmAuthGet(
+    new Request(`http://localhost:10000/auth/confirm?token_hash=${hash}&type=recovery&next=${encodeURIComponent("https://evil.example/phish")}`),
+    blocked.verify,
+  );
+  const errorLocation = errorResponse.headers.get("location");
+  expect(errorLocation).toBe("/auth/confirm/error");
+  expect(errorLocation).not.toContain("://");
+  expect(errorLocation).not.toContain("localhost");
+  expect(blocked.calls).toHaveLength(0);
 });
 
 test("the confirm route wires verifyOtp through the server client", () => {
