@@ -20,10 +20,12 @@ from argus.api.business import (
     require_business,
     require_business_document_write,
 )
+from argus.api.client_ip import resolve_client_ip
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.email_intake import email_intake, webhook_enabled
 from argus.api.ingestion import ingestion_hub
+from argus.api.rate_limits import SlidingWindowLimiter
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.authority import TrustedActor
@@ -55,6 +57,9 @@ router = APIRouter(
     },
 )
 MAX_WEBHOOK_BYTES = 64 * 1024
+_ALIAS_LOOKUP_LIMIT = 30
+_ALIAS_LOOKUP_WINDOW_SECONDS = 60
+_alias_lookup_limiter = SlidingWindowLimiter()
 
 
 class EmailDeliveryWaiting(BaseModel):
@@ -325,6 +330,25 @@ def stop_receiving(
     return Response(status_code=204, headers=NO_STORE)
 
 
+def _limit_alias_lookup(request: Request, context: BusinessContext) -> None:
+    user_id = context.scope.actor_id or context.scope.person_id
+    retry = _alias_lookup_limiter.record_or_retry_after(
+        keys=(f"user:{user_id}", f"ip:{resolve_client_ip(request)}"),
+        limit=_ALIAS_LOOKUP_LIMIT,
+        window_seconds=_ALIAS_LOOKUP_WINDOW_SECONDS,
+    )
+    if retry is None:
+        return
+    raise problem(
+        request,
+        status_code=429,
+        code="email_alias_lookup_limited",
+        title="Too Many Requests",
+        detail="Wait before checking another receipt name.",
+        headers={"Retry-After": str(retry), "Cache-Control": "no-store"},
+    )
+
+
 def _public_alias(report: dict) -> dict[str, Any]:
     return {
         "available": report["available"],
@@ -338,9 +362,11 @@ def _public_alias(report: dict) -> dict[str, Any]:
 def alias_availability(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business)],
+    context: Annotated[BusinessContext, Depends(require_business_document_write)],
     alias: Annotated[str, Query(min_length=1, max_length=80)],
 ) -> dict[str, Any]:
+    owner_only(request, context)
+    _limit_alias_lookup(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     current = runtime.store.route_for_space(context.scope.owner.space_id)
@@ -355,9 +381,11 @@ def alias_availability(
 def alias_suggestion(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business)],
+    context: Annotated[BusinessContext, Depends(require_business_document_write)],
     name: Annotated[str | None, Query(max_length=80)] = None,
 ) -> dict[str, Any]:
+    owner_only(request, context)
+    _limit_alias_lookup(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     chosen = (name or runtime.store.space_name(context.scope.owner.space_id) or "").strip()

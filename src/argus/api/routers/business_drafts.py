@@ -11,6 +11,7 @@ from argus.api.business_drafts import (
     require_drafts,
     with_email_sources,
 )
+from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
@@ -42,9 +43,18 @@ def _key(request: Request, value: str | None) -> str:
     return _required_idempotency_key(request, value)
 
 
-def _email_sender_blocks_approval(context, draft_id) -> bool:  # noqa: ANN001
-    """A receipt that arrived from a sender who is not authorized cannot be approved."""
+def _email_store_unavailable(request: Request):
+    return problem(
+        request,
+        status_code=503,
+        code="email_store_unavailable",
+        title="Service Unavailable",
+        detail="Email receiving could not be checked. Retry.",
+        headers=NO_STORE,
+    )
 
+
+def _email_sender_blocks_approval(request, context, draft_id) -> bool:
     from argus.api.email_intake import email_intake
     from argus.domain.ingestion.email_intake.store import PostgresEmailStore
 
@@ -55,7 +65,10 @@ def _email_sender_blocks_approval(context, draft_id) -> bool:  # noqa: ANN001
         if pool is None:
             return False
         store = PostgresEmailStore(pool)
-    standing = store.email_document_standing(str(context.space_id), str(draft_id))
+    try:
+        standing = store.email_document_standing(str(context.space_id), str(draft_id))
+    except Exception:
+        raise _email_store_unavailable(request) from None
     return standing is not None and standing != "authorized"
 
 
@@ -63,7 +76,7 @@ def _run(request, response, context, draft_id, command=None, key=None):
     response.headers.update(NO_STORE)
     try:
         if isinstance(command, (ApproveExpense, ApproveIncome, ApproveRefund)):
-            if _email_sender_blocks_approval(context, draft_id):
+            if _email_sender_blocks_approval(request, context, draft_id):
                 raise ActionError("permission_denied", "email_sender_unauthorized")
         actor = context.for_draft(draft_id)
         if command is not None:

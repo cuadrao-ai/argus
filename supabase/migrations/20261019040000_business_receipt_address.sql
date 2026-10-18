@@ -23,7 +23,7 @@ create unique index business_email_routes_alias_normalized
 
 create table public.business_email_retired_aliases (
     id uuid primary key default gen_random_uuid(),
-    route_id uuid not null references public.business_email_routes (id) on delete cascade,
+    route_id uuid references public.business_email_routes (id) on delete set null,
     alias_normalized text,
     recipient text not null,
     retired_at timestamptz not null default now(),
@@ -123,6 +123,26 @@ create trigger business_email_routes_reject_retired
     for each row execute function argus_private.reject_retired_recipient();
 
 revoke all on function argus_private.reject_retired_recipient()
+    from public, anon, authenticated;
+
+create or replace function argus_private.reserve_deleted_route_alias()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    insert into public.business_email_retired_aliases (alias_normalized, recipient)
+    values (old.alias_normalized, old.recipient)
+    on conflict do nothing;
+    return old;
+end;
+$$;
+
+create trigger business_email_routes_reserve_alias
+    before delete on public.business_email_routes
+    for each row execute function argus_private.reserve_deleted_route_alias();
+
+revoke all on function argus_private.reserve_deleted_route_alias()
     from public, anon, authenticated;
 
 -- One row each time a receipt address stops or changes, or a sender is

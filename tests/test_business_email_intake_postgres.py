@@ -47,6 +47,10 @@ class Provider:
         return ReceivedEmail(self.raw, self.recipients)
 
 
+def fresh_alias() -> str:
+    return f"a{uuid4().hex[:8]}"
+
+
 def message() -> bytes:
     stream = io.BytesIO()
     Image.new("RGB", (32, 32), "white").save(stream, format="PNG")
@@ -273,13 +277,14 @@ def email_logs():
 
 @pytest.mark.owner_acts
 def test_new_receipt_address_uses_the_chosen_alias(address_client, rig):
-    response = address_client.post("/business/email", json={"alias": "ferreterianunez"})
+    alias = fresh_alias()
+    response = address_client.post("/business/email", json={"alias": alias})
     assert response.status_code == 201, response.text
     address = response.json()["receiving_address"]
     domain = address.split("@", 1)[1]
-    assert address == f"ferreterianunez@{domain}"
+    assert address == f"{alias}@{domain}"
     assert len(address) <= 254
-    replay = address_client.post("/business/email", json={"alias": "ferreterianunez"})
+    replay = address_client.post("/business/email", json={"alias": alias})
     assert replay.status_code == 200
     assert replay.json()["receiving_address"] == address
 
@@ -288,7 +293,7 @@ def test_new_receipt_address_uses_the_chosen_alias(address_client, rig):
 def test_a_taken_alias_is_refused_without_logging_the_address(
     address_client, rig, email_logs
 ):
-    alias = "colmadorodriguez"
+    alias = fresh_alias()
     created = address_client.post("/business/email", json={"alias": alias})
     assert created.status_code == 201, created.text
     rig["store"].deactivate_routes(rig["route"].space_id)
@@ -338,11 +343,10 @@ def test_inactive_short_address_is_rejected_and_logged(
     address_client, rig, email_logs, rotate
 ):
     old = rig["route"]
+    alias = fresh_alias()
     assert len(old.recipient.split("@", 1)[0]) < 40
     if rotate:
-        created = address_client.post(
-            "/business/email", json={"alias": "colmadorodriguez"}
-        )
+        created = address_client.post("/business/email", json={"alias": alias})
         assert created.status_code == 201, created.text
     rejected = rig["runtime"].enqueue_resend(str(uuid4()), (old.recipient,))
     assert (rejected.state, rejected.error_code, rejected.route_id) == (
@@ -366,7 +370,7 @@ def test_inactive_short_address_is_rejected_and_logged(
         assert db.execute(
             "select count(*) from public.business_email_routes "
             "where space_id=%s and active and split_part(recipient,'@',1)=%s",
-            (old.space_id, "colmadorodriguez"),
+            (old.space_id, alias),
         ).fetchone()[0] == int(rotate)
         assert (
             db.execute(
@@ -382,15 +386,14 @@ def test_inactive_short_address_is_rejected_and_logged(
 def test_alias_change_keeps_the_delivery_and_retires_the_old_recipient(
     address_client, rig
 ):
-    created = address_client.post("/business/email", json={"alias": "ferreterianunez"})
+    created = address_client.post("/business/email", json={"alias": fresh_alias()})
     assert created.status_code == 201, created.text
     old = created.json()["receiving_address"]
     delivery = rig["runtime"].enqueue_resend(str(uuid4()), (old,))
-    changed = address_client.post(
-        "/business/email/address", json={"alias": "colmadorodriguez"}
-    )
+    nxt = fresh_alias()
+    changed = address_client.post("/business/email/address", json={"alias": nxt})
     assert changed.status_code == 200, changed.text
-    assert changed.json()["alias"] == "colmadorodriguez"
+    assert changed.json()["alias"] == nxt
     saved = rig["store"].get(delivery.id, rig["route"].space_id)
     assert saved.route_id == delivery.route_id
     assert saved.recipients == (old,)
@@ -398,7 +401,7 @@ def test_alias_change_keeps_the_delivery_and_retires_the_old_recipient(
     assert bounced.state == "rejected"
     assert bounced.error_code == "email_alias_retired"
     assert bounced.bounce_text.startswith("Esta dirección ya no recibe recibos.")
-    assert "colmadorodriguez" not in bounced.bounce_text
+    assert nxt not in bounced.bounce_text
     route_id = saved.route_id
     with rig["pool"].connection() as db, pytest.raises(psycopg.errors.RaiseException):
         db.execute(
@@ -412,11 +415,13 @@ def test_address_and_sender_changes_leave_an_audit_row(rig):
     store, route, actor = rig["store"], rig["route"], rig["users"]["owner"]
     space_id = route.space_id
     previous = route.recipient
+    alias = fresh_alias()
+    recipient = f"{alias}@recibos.example.test"
     store.change_address(
         route.id,
-        alias="tallerpena",
-        alias_normalized="tallerpena",
-        recipient="tallerpena@recibos.example.test",
+        alias=alias,
+        alias_normalized=alias,
+        recipient=recipient,
         review_required=False,
         actor_id=actor,
     )
@@ -430,8 +435,8 @@ def test_address_and_sender_changes_leave_an_audit_row(rig):
     assert store.remove_sender(space_id, sender.id, actor_id=actor) is not None
     events = store.address_events(space_id)
     assert [(event.event_type, event.old_address, event.new_address) for event in events] == [
-        ("address_changed", previous, "tallerpena@recibos.example.test"),
-        ("address_stopped", "tallerpena@recibos.example.test", None),
+        ("address_changed", previous, recipient),
+        ("address_stopped", recipient, None),
         ("sender_authorized", None, "caja@tienda.test"),
         ("sender_blocked", "otro@tienda.test", "otro@tienda.test"),
         ("sender_removed", "caja@tienda.test", None),
@@ -441,7 +446,7 @@ def test_address_and_sender_changes_leave_an_audit_row(rig):
 
 
 def test_deleting_the_space_keeps_the_alias_taken(rig):
-    alias = "colmadodonaines"
+    alias = fresh_alias()
     store = rig["store"]
     store.change_address(
         rig["route"].id,

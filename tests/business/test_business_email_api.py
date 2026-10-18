@@ -787,8 +787,9 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
 
 
 def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
-    alice: Owner, runtime
-) -> None:  # noqa: F811
+    alice: Owner,  # noqa: F811
+    runtime,
+) -> None:
     from argus.api.business_drafts import DraftContext, require_drafts
     from argus.api.routers.business_drafts import router
     from argus.domain.business.contracts.actions import Refused
@@ -831,10 +832,10 @@ def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
         def __init__(self) -> None:
             self.calls: list = []
 
-        def context_for_draft(self, actor_id, draft_id, **_pin):  # noqa: ANN001
+        def context_for_draft(self, actor_id, draft_id, **_pin):
             return object()
 
-        def approve(self, context, draft_id, request, key):  # noqa: ANN001
+        def approve(self, context, draft_id, request, key):
             self.calls.append(draft_id)
             return Refused(outcome="invalid_input", code="expense_blocked")
 
@@ -842,7 +843,7 @@ def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
     app = FastAPI()
 
     @app.middleware("http")
-    async def request_id(request, call_next):  # noqa: ANN001
+    async def request_id(request, call_next):
         request.state.request_id = "approve-forged"
         return await call_next(request)
 
@@ -857,7 +858,11 @@ def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
         assert forged.status_code == 403, forged.text
         assert forged.json()["detail"]["code"] == "email_sender_unauthorized"
         assert service.calls == []
-        runtime.store = None
+
+        def unreachable(*_args, **_kwargs):
+            raise RuntimeError("email store unreachable")
+
+        store.email_document_standing = unreachable
         down = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
     assert down.status_code == 503, down.text
     assert down.json()["detail"]["code"] == "email_store_unavailable"

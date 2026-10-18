@@ -295,12 +295,12 @@ class PostgresAddressing:
             ).fetchone()
             return row[0] if row else None
 
-    def mark_cap_exempt(self, delivery) -> None:  # noqa: ANN001
+    def mark_cap_exempt(self, delivery, *, exempt: bool = True) -> None:
         with self.pool.connection() as connection:
             changed = connection.execute(
-                "update public.business_email_deliveries set cap_exempt=true "
+                "update public.business_email_deliveries set cap_exempt=%s "
                 "where id=%s and lease_token=%s and lease_until>now() and state='processing'",
-                (delivery.id, delivery.lease_token),
+                (exempt, delivery.id, delivery.lease_token),
             ).rowcount
             if changed != 1:
                 from argus.domain.ingestion.email_intake.store import LeaseLost
@@ -494,10 +494,10 @@ class MemoryAddressing:
     def space_name(self, space_id: str) -> str | None:
         return self._space_names.get(space_id)
 
-    def mark_cap_exempt(self, delivery) -> None:  # noqa: ANN001
+    def mark_cap_exempt(self, delivery, *, exempt: bool = True) -> None:
         with self._lock:
             current = self._held(delivery)
-            self._deliveries[delivery.id] = replace(current, cap_exempt=True)
+            self._deliveries[delivery.id] = replace(current, cap_exempt=exempt)
 
     def stamp_route(self, delivery, **values: object) -> None:  # noqa: ANN001
         allowed = {"inbox_group", "auth_result", "review_note", "first_scan"}

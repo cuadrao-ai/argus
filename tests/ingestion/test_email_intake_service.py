@@ -17,9 +17,9 @@ from argus.domain.ingestion.documents.service import (
     DocumentsService,
 )
 from argus.domain.ingestion.documents.store import InMemoryDocumentStore
+from argus.domain.ingestion.email_intake.budget import business_day
 from argus.domain.ingestion.email_intake.models import RecipientRoute
 from argus.domain.ingestion.email_intake.provider import EmailProviderError, ReceivedEmail
-from argus.domain.ingestion.email_intake.budget import business_day
 from argus.domain.ingestion.email_intake.service import EmailCapture, reader_bytes
 from argus.domain.ingestion.email_intake.store import (
     MAX_ATTEMPTS,

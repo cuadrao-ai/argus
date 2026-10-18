@@ -226,7 +226,7 @@ class PostgresEmailStore(PostgresAddressing):
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             rows = cursor.execute(
-                "select distinct d.sender from public.business_email_deliveries d "
+                "select d.sender, d.auth_result from public.business_email_deliveries d "
                 "left join public.business_email_parts p on p.delivery_id=d.id "
                 "where d.space_id=%s and ("
                 "d.original_document_id=%s or p.document_id=%s)",
@@ -235,6 +235,8 @@ class PostgresEmailStore(PostgresAddressing):
         if not rows:
             return None
         for row in rows:
+            if row["auth_result"] != "aligned":
+                return "new"
             standing = self.sender_standing(space_id, row["sender"])
             if standing != "authorized":
                 return standing
@@ -745,20 +747,22 @@ class InMemoryEmailStore(MemoryAddressing):
 
     @_synchronized
     def email_document_standing(self, space_id: str, document_id: str) -> str | None:
-        senders = []
+        linked = []
         for delivery in self._deliveries.values():
             if delivery.space_id != space_id:
                 continue
             parts = self._parts.get(delivery.id, {})
-            linked = delivery.original_document_id == document_id or any(
+            matched = delivery.original_document_id == document_id or any(
                 part.document_id == document_id for part in parts.values()
             )
-            if linked:
-                senders.append(delivery.sender)
-        if not senders:
+            if matched:
+                linked.append(delivery)
+        if not linked:
             return None
-        for sender in senders:
-            standing = self.sender_standing(space_id, sender)
+        for delivery in linked:
+            if delivery.auth_result != "aligned":
+                return "new"
+            standing = self.sender_standing(space_id, delivery.sender)
             if standing != "authorized":
                 return standing
         return "authorized"

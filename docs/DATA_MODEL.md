@@ -177,7 +177,8 @@ business_email_address_events
 
 A route may carry one current alias. Changing it appends the previous
 recipient to `business_email_retired_aliases` and leaves existing deliveries
-on the route id. `business_email_senders` is one rule per Business, kind, and
+on the route id. Deleting the route keeps the live alias reserved.
+`business_email_senders` is one rule per Business, kind, and
 value. `business_email_address_events` appends one row when that address stops
 or changes, and when a sender is authorized, removed, or blocked. The row
 stores the actor, the time, the old address, and the new address. The daily

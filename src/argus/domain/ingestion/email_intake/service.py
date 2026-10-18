@@ -230,8 +230,6 @@ class EmailCapture:
             return None
 
     async def _admit(self, delivery: EmailDelivery, route: RecipientRoute) -> bool:
-        """Hold or reject before the body fetch. Authorized mail is not counted."""
-
         standing = "new"
         if self.store.has_sender_rules(route.space_id):
             hint = await self._preview_sender(delivery)
@@ -249,6 +247,20 @@ class EmailCapture:
         gated = await asyncio.to_thread(self.store.gate_unauthorized, delivery)
         return gated.error_code not in BUDGET_CODES
 
+    async def _keep_after_alignment(
+        self, delivery: EmailDelivery, route: RecipientRoute, raw: bytes, auth: str
+    ) -> bool:
+        sender = from_address(raw)
+        standing = await asyncio.to_thread(
+            self.store.sender_standing, route.space_id, sender
+        )
+        if standing == "authorized" and auth == "aligned":
+            await asyncio.to_thread(self.store.mark_cap_exempt, delivery)
+            return True
+        await asyncio.to_thread(self.store.mark_cap_exempt, delivery, exempt=False)
+        gated = await asyncio.to_thread(self.store.gate_unauthorized, delivery)
+        return gated.error_code not in BUDGET_CODES
+
     def _apply_route(
         self, delivery: EmailDelivery, route: RecipientRoute, raw: bytes, auth: str
     ) -> bool:
@@ -257,8 +269,10 @@ class EmailCapture:
         if standing == "blocked":
             self.store.finish(delivery, "rejected", "email_sender_blocked")
             return False
-        first = standing == "authorized" and self.store.claim_first_scan(
-            route.space_id, sender
+        first = (
+            standing == "authorized"
+            and auth == "aligned"
+            and self.store.claim_first_scan(route.space_id, sender)
         )
         decision = decide(standing, auth, first_authorized=first)
         self.store.stamp_route(
@@ -295,6 +309,8 @@ class EmailCapture:
                     raise EmailProviderError("email_recipient_mismatch")
                 raw = received.raw
                 auth = provider_verdict(received.authentication)
+                if not await self._keep_after_alignment(delivery, route, raw, auth):
+                    return
             # The fetch took time; the grant is read once more before any write.
             await asyncio.to_thread(self.check_route, route)
             if not await asyncio.to_thread(self._apply_route, delivery, route, raw, auth):
