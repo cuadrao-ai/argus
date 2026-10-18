@@ -85,8 +85,8 @@ RouteAuthority = Callable[[RecipientRoute], None]
 
 
 def _provider_from_differs(provider_from: str | None, raw: bytes) -> bool:
-    if not provider_from:
-        return False
+    if not isinstance(provider_from, str) or not provider_from.strip():
+        return True
     return provider_from != from_address(raw)
 
 
@@ -251,9 +251,6 @@ class EmailCapture:
                 self.store.finish, delivery, "rejected", "email_sender_blocked"
             )
             return False
-        if standing == "authorized":
-            await asyncio.to_thread(self.store.mark_cap_exempt, delivery)
-            return True
         gated = await asyncio.to_thread(self.store.gate_unauthorized, delivery)
         return gated.error_code not in BUDGET_CODES
 
@@ -265,8 +262,12 @@ class EmailCapture:
             self.store.sender_standing, route.space_id, sender
         )
         if standing == "authorized" and auth == "aligned":
-            await asyncio.to_thread(self.store.mark_cap_exempt, delivery)
+            await asyncio.to_thread(self.store.refund_aligned_fetch, delivery, len(raw))
             return True
+        if standing == "authorized":
+            await asyncio.to_thread(
+                self.store.retain_unaligned_ceiling, delivery, len(raw)
+            )
         await asyncio.to_thread(self.store.mark_cap_exempt, delivery, exempt=False)
         gated = await asyncio.to_thread(self.store.gate_unauthorized, delivery)
         return gated.error_code not in BUDGET_CODES

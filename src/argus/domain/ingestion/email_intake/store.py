@@ -226,11 +226,20 @@ class PostgresEmailStore(PostgresAddressing):
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             rows = cursor.execute(
+                "with ids as ("
+                "select %s::uuid as id "
+                "union "
+                "select s.connection_id from public.business_draft_sources l "
+                "join public.business_sources s "
+                "on s.id=l.source_id and s.space_id=l.space_id "
+                "where l.draft_id=%s::uuid and l.space_id=%s::uuid "
+                "and s.connection_id is not null) "
                 "select d.sender, d.auth_result from public.business_email_deliveries d "
                 "left join public.business_email_parts p on p.delivery_id=d.id "
-                "where d.space_id=%s and ("
-                "d.original_document_id=%s or p.document_id=%s)",
-                (space_id, document_id, document_id),
+                "where d.space_id=%s::uuid and ("
+                "d.original_document_id in (select id from ids) "
+                "or p.document_id in (select id from ids))",
+                (document_id, document_id, space_id, space_id),
             ).fetchall()
         if not rows:
             return None
@@ -469,6 +478,48 @@ class PostgresEmailStore(PostgresAddressing):
                 (SOURCE_MAX_BYTES - actual_bytes, row[0], reservation.day),
             )
 
+    def refund_aligned_fetch(self, delivery: EmailDelivery, actual_bytes: int) -> None:
+        with self.pool.connection() as connection, connection.transaction():
+            row = connection.execute(
+                "update public.business_email_deliveries set cap_exempt=true "
+                "where id=%s and lease_token=%s and lease_until>now() and state='processing' "
+                "returning route_id, budget_message_day, budget_fetch_day",
+                (delivery.id, delivery.lease_token),
+            ).fetchone()
+            if row is None:
+                raise LeaseLost()
+            day = row[1] or row[2]
+            if day is None:
+                return
+            connection.execute(
+                "update public.business_email_daily_usage "
+                "set messages=greatest(messages-1,0), bytes_used=greatest(bytes_used-%s,0) "
+                "where route_id=%s and day=%s",
+                (actual_bytes, row[0], day),
+            )
+
+    def retain_unaligned_ceiling(self, delivery: EmailDelivery, actual_bytes: int) -> None:
+        gap = SOURCE_MAX_BYTES - actual_bytes
+        if gap <= 0:
+            return
+        with self.pool.connection() as connection, connection.transaction():
+            row = connection.execute(
+                "select route_id, budget_message_day, budget_fetch_day "
+                "from public.business_email_deliveries "
+                "where id=%s and lease_token=%s and lease_until>now() and state='processing'",
+                (delivery.id, delivery.lease_token),
+            ).fetchone()
+            if row is None:
+                raise LeaseLost()
+            day = row[1] or row[2]
+            if day is None:
+                return
+            connection.execute(
+                "update public.business_email_daily_usage set bytes_used=bytes_used+%s "
+                "where route_id=%s and day=%s",
+                (gap, row[0], day),
+            )
+
     def defer_budget(self, delivery: EmailDelivery, code: str) -> None:
         with self.pool.connection() as connection:
             changed = connection.execute(
@@ -690,6 +741,13 @@ class InMemoryEmailStore(MemoryAddressing):
         self._retired_aliases: set[str] = set()
         self._space_names: dict[str, str] = {}
         self._events: list = []
+        self._draft_links: dict[tuple[str, str], set[str]] = {}
+
+    @_synchronized
+    def link_draft_documents(self, space_id: str, draft_id, document_ids) -> None:
+        self._draft_links.setdefault((str(space_id), str(draft_id)), set()).update(
+            str(item) for item in document_ids
+        )
 
     @_synchronized
     def create_route(
@@ -747,13 +805,14 @@ class InMemoryEmailStore(MemoryAddressing):
 
     @_synchronized
     def email_document_standing(self, space_id: str, document_id: str) -> str | None:
+        ids = {str(document_id), *self._draft_links.get((str(space_id), str(document_id)), ())}
         linked = []
         for delivery in self._deliveries.values():
             if delivery.space_id != space_id:
                 continue
             parts = self._parts.get(delivery.id, {})
-            matched = delivery.original_document_id == document_id or any(
-                part.document_id == document_id for part in parts.values()
+            matched = delivery.original_document_id in ids or any(
+                part.document_id in ids for part in parts.values()
             )
             if matched:
                 linked.append(delivery)
@@ -913,6 +972,29 @@ class InMemoryEmailStore(MemoryAddressing):
         self._usage[(reservation.route_id, reservation.day)][1] -= (
             SOURCE_MAX_BYTES - actual_bytes
         )
+
+    @_synchronized
+    def refund_aligned_fetch(self, delivery: EmailDelivery, actual_bytes: int) -> None:
+        current = self._held(delivery)
+        day, _lease = self._message_budget.get(delivery.id, (None, None))
+        if day is None:
+            day = business_day(self.clock())
+        usage = self._usage.get((delivery.route_id, day))
+        if usage is not None:
+            usage[0] = max(0, usage[0] - 1)
+            usage[1] = max(0, usage[1] - actual_bytes)
+        self._deliveries[delivery.id] = replace(current, cap_exempt=True)
+
+    @_synchronized
+    def retain_unaligned_ceiling(self, delivery: EmailDelivery, actual_bytes: int) -> None:
+        self._held(delivery)
+        gap = SOURCE_MAX_BYTES - actual_bytes
+        if gap <= 0:
+            return
+        day, _lease = self._message_budget.get(delivery.id, (None, None))
+        if day is None:
+            day = business_day(self.clock())
+        self._usage.setdefault((delivery.route_id, day), [0, 0])[1] += gap
 
     @_synchronized
     def defer_budget(self, delivery: EmailDelivery, code: str) -> None:

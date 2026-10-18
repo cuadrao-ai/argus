@@ -334,14 +334,13 @@ def test_disconnected_source_refuses_completion(prepared):
 
 @pytest.mark.owner_acts
 def test_approve_refuses_a_forged_sender_on_the_real_draft(prepared):
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-    from psycopg.types.json import Jsonb
-
     from argus.api.business_drafts import DraftContext, require_drafts
     from argus.api.email_intake import configure_email_intake, email_intake
     from argus.api.routers.business_drafts import router
     from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from psycopg.types.json import Jsonb
 
     service, context, grant, cid, _, _ = prepared
     bind(prepared)

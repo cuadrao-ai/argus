@@ -177,5 +177,5 @@ create index business_email_address_events_space_idx
     on public.business_email_address_events (space_id, created_at);
 
 alter table public.business_email_address_events enable row level security;
-revoke all on public.business_email_address_events from public, anon, authenticated;
+revoke all on public.business_email_address_events from public, anon, authenticated, service_role;
 grant select, insert on public.business_email_address_events to service_role;

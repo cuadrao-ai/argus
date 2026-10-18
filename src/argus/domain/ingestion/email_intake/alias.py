@@ -136,8 +136,6 @@ def free_suggestions(
             found.append(candidate)
         if len(found) == count:
             return found
-    if found:
-        return found
     spare = code or (lambda: secrets.token_hex(3))
     for _ in range(12):
         if len(found) == count:

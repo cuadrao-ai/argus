@@ -406,8 +406,20 @@ async def test_authorized_mail_is_not_counted_or_held_when_the_cap_is_full():
     world.store.upsert_sender(
         world.route.space_id, "address", "proveedor@example.test", "authorized"
     )
+    world.provider.provider_from = "proveedor@example.test"
     world.provider.authentication = {"spf": "pass", "dkim": "pass", "dmarc": "pass"}
     incoming = world.runtime.enqueue_resend(str(uuid4()), (RECIPIENT,))
+    assert await world.runtime.next()
+    held = world.store.get(incoming.id, world.route.space_id)
+    assert (held.state, held.error_code, held.cap_exempt) == (
+        "received",
+        "email_daily_message_budget",
+        False,
+    )
+    assert world.provider.calls == 0
+    filled_day = business_day(world.clock())
+    assert world.store._usage[(world.route.id, filled_day)] == [1, 0]
+    world.clock.now = next_business_day(world.clock.now)
     assert await world.runtime.next()
     saved = world.store.get(incoming.id, world.route.space_id)
     assert saved.state == "captured"
@@ -418,12 +430,13 @@ async def test_authorized_mail_is_not_counted_or_held_when_the_cap_is_full():
     assert saved.first_scan is True
     assert saved.approved is False
     day = business_day(world.clock())
-    assert world.store._usage[(world.route.id, day)] == [1, 0]
+    assert world.store._usage[(world.route.id, day)] == [0, 0]
     again = world.runtime.enqueue_resend(str(uuid4()), (RECIPIENT,))
     assert await world.runtime.next()
     second = world.store.get(again.id, world.route.space_id)
     assert second.first_scan is False
-    assert world.store._usage[(world.route.id, day)][0] == 1
+    assert second.cap_exempt is True
+    assert world.store._usage[(world.route.id, day)] == [0, 0]
 
 
 def test_the_santo_domingo_boundary_opens_a_new_allowance():

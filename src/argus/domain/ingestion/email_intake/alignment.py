@@ -247,6 +247,7 @@ def _parse_headers(head: bytes) -> list[tuple[str, str]]:
             if name:
                 headers.append((name, "".join(value)))
             name, first = line.split(":", 1)
+            name = name.strip()
             value = [first]
     if name:
         headers.append((name, "".join(value)))

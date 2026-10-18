@@ -482,6 +482,7 @@ async def test_a_forged_from_with_a_failed_check_goes_to_new_senders_and_counts(
     world = rig(raw)
     _authorize(world)
     world.provider.authentication = {"spf": "pass", "dkim": "pass", "dmarc": "fail"}
+    world.provider.provider_from = "proveedor@example.test"
     delivery = world.runtime.enqueue_resend(str(uuid4()), (RECIPIENT,))
     assert await world.runtime.next()
     saved = world.store.get(delivery.id, world.route.space_id)
