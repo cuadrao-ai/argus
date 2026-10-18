@@ -33,3 +33,15 @@ test("all thirteen empty slots refuse delivery and share the preview layout", ()
     expect(preview.sendable).toBe(false);
   }
 });
+
+
+test("intro precedes the code and both formats share the approved footer", () => {
+  const email = renderAccountEmail({ title: "Título", intro: ["Intro & detalle"], code: "123456", paragraphs: ["Después"] });
+  expect(email.html.indexOf("Intro &amp; detalle")).toBeLessThan(email.html.indexOf('class="code"'));
+  expect(email.html.indexOf('class="code"')).toBeLessThan(email.html.indexOf("Después"));
+  expect(email.text.indexOf("Intro & detalle")).toBeLessThan(email.text.indexOf("123456"));
+  expect(email.html).toContain("Saludos,<br>Cuadrao");
+  expect(email.text).toContain("Saludos,\nCuadrao");
+  expect(email.html).toContain("Cuadrao LLC");
+  expect(email.text).toContain("Cuadrao LLC");
+});
