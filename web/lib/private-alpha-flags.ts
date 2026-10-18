@@ -67,3 +67,12 @@ export const businessSearchEnabled = businessSearchEnabledFromEnv();
 export function businessSearchEntryEnabled(workspaceId: string | undefined): boolean {
   return workspaceId !== "business" || businessSearchEnabledFromEnv();
 }
+
+// Statement match cards. Default off, and nested under the Business pilot.
+// CUADRAO wins when both names are set.
+export const businessBankMatchingEnabled = (() => {
+  const cuadrao = process.env.NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED;
+  const legacy = process.env.NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED;
+  const value = (cuadrao ?? legacy ?? "").trim().toLowerCase();
+  return businessPilotEnabled && ["1", "true", "yes", "on"].includes(value);
+})();

@@ -289,6 +289,16 @@
           "value": "false"
         },
         {
+          "name": "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
+          "name": "NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
           "name": "NEXT_PUBLIC_CUADRAO_API_URL",
           "kind": "plain",
           "copy_from": "NEXT_PUBLIC_ARGUS_API_URL"
