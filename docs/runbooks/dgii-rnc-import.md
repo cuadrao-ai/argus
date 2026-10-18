@@ -47,7 +47,7 @@ select count(*) from public.dgii_rnc;
 select * from public.dgii_rnc_lookup('123456789');
 ```
 
-Replace the quoted argument with the RNC you want to read. The swap replaces `public.dgii_rnc` in one transaction. A failed swap leaves the previous rows in place.
+Replace the quoted argument with the RNC you want to read. Run that lookup as the database owner or `service_role`. `authenticated` cannot execute it. The swap replaces `public.dgii_rnc` in one transaction. A failed swap leaves the previous rows in place.
 
 ## Watch the database size
 
@@ -63,10 +63,10 @@ Migration `20261018190000_dgii_rnc_registry.sql` sets no function timeout.
 
 ## Set the swap timeout
 
-The load step runs `psql` against `SUPABASE_STAGING_DB_URL`. It does not call the swap through an HTTP API. The copy session ends before the swap session starts. Each session starts with `SET statement_timeout = '5min'`.
+The load step runs `psql` against `SUPABASE_STAGING_DB_URL`, the database owner. It does not call the swap through an HTTP API, and it does not `SET ROLE authenticated`. The copy session ends before the swap session starts. Each session starts with `SET statement_timeout = '5min'`.
 
 Set the repository variable `DGII_RNC_STATEMENT_TIMEOUT` to another interval, such as `10min`, when the swap of about 800000 rows needs longer. An empty value keeps 5 minutes. The value must be a number followed by `ms`, `s`, `min`, or `h`.
 
 ## Wait for the migration
 
-Loading waits on migration `20261018190000_dgii_rnc_registry.sql` and a separate staging approval. `public.dgii_rnc_swap(min_rows integer)` and `public.dgii_rnc_lookup(p_rnc text)` are security definer functions with an empty search path. The lookup is volatile. This runbook does not record a completed load.
+Loading waits on migration `20261018190000_dgii_rnc_registry.sql` and a separate staging approval. `public.dgii_rnc_swap(min_rows integer)` is security definer with an empty search path. A null or non-positive `min_rows` raises before the swap locks `public.dgii_rnc_load`. `public.dgii_rnc_lookup(p_rnc text)` is volatile and is not security definer. `anon` and `authenticated` cannot execute it. The load job does not call lookup. This runbook does not record a completed load.

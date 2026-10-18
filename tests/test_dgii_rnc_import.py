@@ -460,6 +460,10 @@ def test_apply_load_prints_sizes_around_the_swap(monkeypatch, capsys) -> None:
         swap_script(LOAD),
         size_report_sql(LOAD),
     ]
+    sent = "\n".join(calls).lower()
+    assert "dgii_rnc_lookup" not in sent
+    assert "authenticated" not in sent
+    assert "set role" not in sent
     assert capsys.readouterr().out == (
         "database_bytes=1000\n"
         "live_relation_bytes=0\n"
