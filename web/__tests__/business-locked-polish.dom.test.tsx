@@ -53,6 +53,7 @@ async function mount(
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
@@ -70,9 +71,11 @@ async function mount(
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessWorkspaceProvider source={source as never}>
-          <Probe />
-        </BusinessWorkspaceProvider>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as never}>
+            <Probe />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
       </I18nextProvider>,
     );
   });
