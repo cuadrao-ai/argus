@@ -5,6 +5,11 @@ const frameworkText = /This page could not be found|Application error|supabase/i
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("i18nextLng", "es-419");
+    const hide = () => {
+      for (const node of document.querySelectorAll('[aria-label="Open Next.js Dev Tools"]')) node.remove();
+    };
+    hide();
+    new MutationObserver(hide).observe(document.documentElement, { childList: true, subtree: true });
   });
   await page.route("**/api/v1/me", (route) => route.fulfill({
     status: 401,
@@ -74,6 +79,34 @@ for (const width of [390, 1280]) {
     await shot(page, `offline-${width}`);
   });
 }
+
+test("a closed business reuses the existing notice", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await page.goto("/dev/error-screen?screen=closed");
+  await expect(page.getByTestId("business-home-closed")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cuadrao Business aún no está disponible para tu cuenta." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "admin@cuadrao.ai" })).toBeVisible();
+  await shot(page, "closed-1280");
+});
+
+test("a recovery email limit waits inline and keeps the address", async ({ page }) => {
+  await page.route("**/api/auth/recovery", (route) => route.fulfill({
+    status: 429,
+    headers: { "Retry-After": "60" },
+    body: "{}",
+  }));
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await page.goto("/auth/forgot-password?email=ada@example.test");
+  const email = page.getByLabel("Correo electrónico");
+  await expect(email).toHaveValue("ada@example.test");
+  await page.getByRole("button", { name: "Enviar instrucciones" }).click();
+  await expect(page.getByTestId("recovery-email-wait")).toContainText("Espera un minuto antes de pedir otro correo.");
+  await expect(page.getByTestId("recovery-email-countdown")).toHaveText(/^[1-9]\d*$/);
+  await expect(email).toHaveValue("ada@example.test");
+  await expect(page.getByRole("button", { name: "Enviar instrucciones" })).toBeDisabled();
+  await expect(page.locator("body")).not.toContainText(frameworkText);
+  await shot(page, "email-wait-1280");
+});
 
 test("an ended session on the login screen says so and keeps the return path", async ({ page }) => {
   await page.goto("/?auth=login&notice=session_ended&return_to=%2Fbiz%3Freceipt%3Dr1");
