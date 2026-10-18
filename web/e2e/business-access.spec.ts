@@ -28,8 +28,11 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await form.getByPlaceholder("Correo electrónico").fill("nuevo@example.test");
       await form.getByRole("button", { name: "Dar acceso" }).click();
       const invites = page.getByTestId("business-access-invites");
-      await expect(invites).toContainText("nuevo@example.test");
+      await expect(invites.getByText("nuevo@example.test", { exact: true })).toBeVisible();
       await capture(page, `access-invite-spanish-${viewport.width}`);
+      await invites.getByRole("button", { name: "Reenviar", exact: true }).click();
+      await expect(invites.getByText("nuevo@example.test", { exact: true })).toBeVisible();
+      await expect(invites.getByRole("button", { name: "Reenviar", exact: true })).toBeEnabled();
       await invites.getByRole("button", { name: "Cancelar invitación" }).click();
       await expect(page.getByRole("alertdialog")).toContainText("nuevo@example.test");
       await page.getByRole("button", { name: "Sí, quitar" }).click();

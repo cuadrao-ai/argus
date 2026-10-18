@@ -51,6 +51,11 @@
           "keep_current": true
         },
         {
+          "name": "CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
           "name": "CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED",
           "kind": "plain",
           "value": "true"
