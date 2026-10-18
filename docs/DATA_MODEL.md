@@ -3490,8 +3490,12 @@ establish delivery of all seven Business journeys.
 
 | Table | Durable owner and invariants |
 | --- | --- |
+| `business_bank_accounts` | One bank account per Business space. `space_id` is unique. `account_id` references `financial_accounts`. Keep 10 years. No delete API. |
+| `business_bank_imports` | One accepted statement upload. Unique `(space_id, imported_by, idempotency_key)`. `source_sha256` is the file bytes. Keep 10 years. No delete API. |
+| `business_bank_lines` | Immutable raw statement lines. Unique `(bank_account_id, occurred_on, amount, normalized_description, line_hash)`. `raw_line` is the source cells. Updates are refused. Re-import returns the existing row. Keep 10 years. No delete API. |
+| `business_bank_suggestions` | One suggestion per line and target. Status is `pending`, `confirmed`, or `declined`. A declined row is how that pair stays out of later offers. Score parts are the historical offer. Confidence is derived, not stored. At most one `confirmed` row per line. Keep 10 years. |
 | `business_client_grants` | Explicit direct grant to a named `grantee_id` for exactly one `space_id`, issuer, capabilities (`read`, `prepare`, `approve`), creation/expiry/revocation times. No role-derived capabilities. The owner's own grant (grantee = issuer = owner, all three capabilities) is created with the space, or once on the next open of an older space. Named accountants hold read and prepare only: migration `20261014110000_business_grant_approve_owner_only.sql` makes the database refuse `approve` on any grant whose grantee is not the space's `created_by`, on insert and on update, whoever writes the row. First-flow service resolves active grants on each operation. Firm identity, firm delegation and issuer onboarding remain unimplemented. |
-| `business_access_invites` | A pending invite for an email with no confirmed account yet: `space_id`, `issuer_id` (the owner), lowercased `email`, `expires_at` (14 days), `accepted_at` and `accepted_grant_id` once a confirmed sign-in with that email turned it into a read+prepare grant, `revoked_at` when the owner withdrew it. One live invite per space and email. Service role only. Access changes write `business_action_receipts` rows without a turn. |
+| `business_access_invites` | A pending invite for an email with no confirmed account yet: `space_id`, `issuer_id` (the owner), lowercased `email`, `expires_at` (7 days), `accepted_at` and `accepted_grant_id` once a confirmed sign-in with that email turned it into a read+prepare grant, `revoked_at` when the owner withdrew it. One live invite per space and email. Service role only. Access changes write `business_action_receipts` rows without a turn. |
 | `business_sources` | Stable source identity and idempotent `(space_id, source_key)` for one original message, attachment, agent proposal or human `web_action`. Web actions require channel `web` and retain immutable canonical submitted command text, with server-derived source key and actual `member_set` provenance. Direct source updates/deletes fail; owning connection/client deletion cascades through source links and answered questions under the existing deletion policy. Message/proposal/web-action text is immutable; attachment references the existing source connection rather than copying bytes or extraction. A composite FK prevents another space's connection. |
 | `business_draft_sources` | Many-to-many source relationships pinned by composite FKs to the same client as the canonical candidate. No facts. |
 | `business_draft_revisions` | Append-only `(draft_id, version)` before/after typed fact snapshots, actual actor and grant/issuer display provenance, source IDs, optional turn key and timestamp. Every source ID is checked and locked against the same client on insertion. They are readable history, never an alternative current draft. Updates and direct deletes fail; deletion of the owning candidate/space cascades. |
@@ -3682,3 +3686,49 @@ by `tests/test_ingestion_reconcile_postgres.py`. On disconnect, unreviewed
 observations (and events left empty) are deleted; observations of accepted
 events are reduced to provenance (source, connection, external id, dates,
 status) and kept with the record.
+
+## Public RNC registry
+
+`public.dgii_rnc` holds the latest published registry of RNC and cédula
+identifiers. `public.dgii_rnc_load` is the staging table a later loader fills.
+Neither table keeps history. Each daily file replaces the registry.
+
+| Column | `dgii_rnc` | `dgii_rnc_load` |
+| --- | --- | --- |
+| `rnc` | primary key, 9 or 11 digits | not null, same check, no primary key |
+| `name` | not null, trimmed length greater than 0 | same |
+| `trade_name` | nullable commercial name | same |
+| `status` | not null raw publisher text | same |
+| `file_date` | not null source-file date | same |
+
+`trade_name` is the publisher's nombre comercial. About 56 percent of rows have
+one. Null means the file had no commercial name. A blank or whitespace-only
+value fails `check (trade_name is null or length(btrim(trade_name)) > 0)`, so
+the loader stores null. `status` stays the raw estado value, including new
+values, with no check. Lookup derives `verification`: `verificado` when the
+trimmed upper-case status is `ACTIVO`, otherwise `no_activo`.
+
+`public.dgii_rnc_swap(min_rows int) returns int` copies `rnc`, `name`,
+`trade_name`, `status` and `file_date` from the load table into the registry.
+A null or non-positive minimum raises before the swap takes a lock. The swap
+then locks the load table exclusively, checks the row count, and rejects
+duplicate `rnc` values. A delete on the load table waits for that lock, so the
+published rows are the rows that passed the checks. The swap locks the
+registry, truncates it, and inserts in the same transaction. A raised error
+rolls that transaction back and leaves the previous registry in place.
+`public.dgii_rnc_lookup(p_rnc text)` is volatile and returns
+`table(rnc text, name text, trade_name text, status text, file_date date, verification text)`.
+A lookup that waits on a swap reads the rows published by that swap. It strips
+non-digits from the input and returns no row when nothing matches.
+
+Row level security is enabled with no policies. `anon`, `authenticated` and
+`public` have no privileges. `service_role` may select the registry, load and
+clear the staging table, and execute both functions. Cédula rows are personal
+identifiers published in the source file. Access stays service-role only.
+
+A full file is about 800,000 rows. `trade_name` adds about 10 to 15 MB at that
+scale. One local swap of 800,000 synthetic rows, with a commercial name on 56
+percent of them, added 14,778,368 bytes to the registry. Re-running the swap
+with the same load contents produces the same registry. Proven by
+`tests/test_dgii_rnc_postgres.py`. Migration
+`supabase/migrations/20261018190000_dgii_rnc_registry.sql`.

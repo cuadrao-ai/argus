@@ -38,8 +38,9 @@ for (const width of [1280, 390]) {
       if (baseline) continue;
       if (view === "overview") {
         const action = page.getByTestId("overview-inbox");
-        await expect(action).toContainText("8 por revisar");
-        await expect(action).toContainText("1 con problema");
+        await expect(action).toContainText("1 por revisar");
+        await expect(action).not.toContainText("con problema");
+        await expect(action).not.toContainText("necesita tu atención");
         expect((await action.boundingBox())!.y).toBeLessThan((await page.getByTestId("overview-real-expenses").boundingBox())!.y);
         await expect(page.getByTestId("overview-real-expenses")).not.toContainText("RD$ 0");
       } else {

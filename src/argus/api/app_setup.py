@@ -91,6 +91,9 @@ async def lifespan(app: FastAPI):
     from argus.api.ingestion import start_ingestion, stop_ingestion
 
     start_ingestion(app)
+    from argus.api.bank_matching import start_bank_matching, stop_bank_matching
+
+    start_bank_matching(app)
     from argus.api.email_intake import start_email_intake, stop_email_intake
 
     start_email_intake(app)
@@ -122,6 +125,7 @@ async def lifespan(app: FastAPI):
         await drain_whatsapp()
         await stop_worker(app)
         stop_ingestion(app)
+        stop_bank_matching(app)
         stop_financial_accounts(app)
         if checkpointer_cm is not None:
             await checkpointer_cm.__aexit__(None, None, None)
