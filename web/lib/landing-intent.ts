@@ -419,6 +419,17 @@ export function receiptFollowupTarget(businessBuild: boolean = businessPilotEnab
   return businessBuild ? { send: false, href: "/biz?view=inbox" } : { send: true, href: currentChatPath() };
 }
 
+export type SignedInHome = { readonly href: string } | { readonly closed: true };
+
+/** Where a signed-in person can go. The pilot opens /biz. Business-only with the pilot off has no home. Otherwise chat. */
+export function resolveSignedInHome(input: {
+  pilot: boolean;
+  businessOnly: boolean;
+  chatPath: string;
+}): SignedInHome {
+  return input.pilot ? { href: "/biz" } : { href: input.chatPath };
+}
+
 /** The signed-in home: the Business workspace on a Business build, else chat with the current query. */
 export function signedInHomePath(businessBuild: boolean = businessPilotEnabled): string {
   return businessBuild ? "/biz" : currentChatPath();
