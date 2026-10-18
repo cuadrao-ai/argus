@@ -890,3 +890,58 @@ def test_the_staging_security_waitlist_record_holds_inside_its_window() -> None:
             (),
             datetime.fromisoformat("2026-10-21T03:38:00-05:00"),
         )
+
+
+_STAGING_APPROVAL_B = (
+    "docs/release-manifests/2026-10-18-staging-invites-bank-matching-registry-apply.json"
+)
+_STAGING_SHA_B = "fb6d969505f364fa08e4eb89e7317619f7de4781"
+_STAGING_VERSIONS_B = [
+    "20261018040438",
+    "20261018180000",
+    "20261018190000",
+    "20261018210000",
+]
+
+
+def test_the_staging_invites_bank_matching_registry_record_holds_inside_its_window() -> (
+    None
+):
+    text = (Path(__file__).resolve().parents[1] / _STAGING_APPROVAL_B).read_text()
+    approval = applier.parse_hosted_approval(
+        text,
+        _STAGING_SHA_B,
+        _STAGING_VERSIONS_B,
+        (),
+        datetime.fromisoformat("2026-10-19T15:00:00-05:00"),
+    )
+    assert approval == applier.HostedApproval(
+        "staging-apply-2026-10-18-b",
+        "skedzwocnmrhfigiwyzi",
+        ("db.skedzwocnmrhfigiwyzi.supabase.co",),
+        "postgres",
+        _STAGING_SHA_B,
+        "6832fd3b890048119f8e881a108ca02c2b96445731180f208132bb5327b563fc",
+        datetime.fromisoformat("2026-10-21T10:56:00-05:00"),
+    )
+    for versions in (
+        [*_STAGING_VERSIONS_B, "20261018220000"],
+        [*_STAGING_VERSIONS_B, "20261018220000", "20261018230000"],
+        _STAGING_VERSIONS_B[:3],
+    ):
+        with pytest.raises(applier.ApplyError, match="different list of versions"):
+            applier.parse_hosted_approval(
+                text,
+                _STAGING_SHA_B,
+                versions,
+                (),
+                datetime.fromisoformat("2026-10-19T15:00:00-05:00"),
+            )
+    with pytest.raises(applier.ApplyError, match="not valid now"):
+        applier.parse_hosted_approval(
+            text,
+            _STAGING_SHA_B,
+            _STAGING_VERSIONS_B,
+            (),
+            datetime.fromisoformat("2026-10-21T10:56:00-05:00"),
+        )
