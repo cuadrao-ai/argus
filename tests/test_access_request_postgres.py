@@ -1027,7 +1027,7 @@ def test_protected_approval_replay_uses_real_gateway_and_sends_once(
             assert password
 
         def mail(self, sender: str) -> tuple[int, bytes]:
-            assert sender == "noreply@get-argus.com"
+            assert sender == "no-responder@mail.cuadrao.ai"
             return 250, b"sender accepted"
 
         def rcpt(self, recipient: str) -> tuple[int, bytes]:

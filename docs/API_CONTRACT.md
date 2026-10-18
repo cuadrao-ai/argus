@@ -9446,19 +9446,37 @@ person starts their space, every route below except POST `/space` answers 404
     export with its mark.
   - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
     capabilities, created_at, owner}], invites: [{id, email, created_at,
-    expires_at}]}`: live grants, the owner first, and pending invites.
+    expires_at, state}]}`: live grants, the owner first, and unaccepted, unrevoked
+    invites. `state` is `pending` or `expired`, computed by the server.
   - POST `/api/v1/business/access` takes `{email}`. A confirmed account with
     that email (case-insensitive) gets a read and prepare grant, never
-    approve; any other email gets a pending invite that lasts 14 days and
+    approve; any other email gets a pending invite that lasts 7 days and
     becomes the same grant the first time that confirmed email signs in (on
     GET `/me`, or on GET `/business/spaces`, whichever the client reads
     first). The reply is the access list in both cases, 201 when something
     new was created and 200 on a replay, so an unknown email reveals nothing.
     422 `invalid_email` without one address. An expired pending invite is
     re-issued in place by a new POST with the same email: the same invite id,
-    a fresh 14-day `expires_at` and its own ledger receipt (201); a live one is
+    a fresh 7-day `expires_at` and its own ledger receipt (201); a live one is
     left as it is (200), and a revoked or accepted one no longer holds the
     slot, so a new invite is born beside it.
+  - POST `/api/v1/business/access/invites/{id}/resend` is owner-only and
+    resets an unaccepted, unrevoked invite to seven days from this request.
+    Missing or foreign invites answer 404 `business_access_not_found`. No list,
+    sign-in or background process renews or sends an invite. Expired invites
+    grant no access. Accepted memberships are unchanged. Create and explicit
+    resend use the shared Cuadrao account email, never a Supabase invitation
+    token. Its button opens ordinary sign-in/sign-up. Email delivery is
+    `not_configured` until `CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED=true` and the
+    existing `CUADRAO_APP_ORIGIN` (legacy `ARGUS_APP_ORIGIN`) are configured.
+    The renderer also requires the existing `MARKETING_POSTAL_ADDRESS`; missing
+    or invalid address configuration fails delivery and preserves the invite for
+    explicit resend. Account mail has no unsubscribe link.
+    This build leaves activation off. The sender is
+    `Cuadrao <no-responder@mail.cuadrao.ai>` with Reply-To `hola@cuadrao.ai`.
+    A configured send reports `accepted` or `failed` in `invite_delivery`;
+    `accepted` means provider acceptance, not receipt. Failure leaves the invite
+    saved and the owner can explicitly resend. Ordinary replays never send.
   - DELETE `/api/v1/business/access/grants/{id}` revokes a grant at once; 409
     `owner_grant_required` for the owner's own grant; 404
     `business_access_not_found` otherwise. DELETE

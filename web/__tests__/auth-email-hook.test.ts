@@ -1,6 +1,9 @@
+import { installEmailFixture } from "./helpers/email-fixture";
+installEmailFixture();
 import assert from "node:assert/strict";
 import { describe, test } from "bun:test";
 import { Webhook } from "standardwebhooks";
+import { DISABLED_SECURITY_NOTICES } from "../server/emails/security-notices";
 import { handleAuthEmailHook, type AuthDelivery } from "../server/emails/auth-hook";
 
 const secret = Buffer.from("synthetic-hook-secret-not-a-live-key").toString("base64");
@@ -23,9 +26,8 @@ const payload = (action = "recovery") => ({
     token_hash: "a".repeat(64), token_hash_new: "b".repeat(64),
   },
 });
-function request(value: unknown, id = "test-webhook-id") {
+function request(value: unknown, id = "test-webhook-id", timestamp = new Date()) {
   const body = JSON.stringify(value);
-  const timestamp = new Date();
   return new Request("https://cuadrao-web-staging.onrender.com/api/auth/send-email", {
     method: "POST", headers: {
       "content-type": "application/json",
@@ -79,19 +81,18 @@ describe("staging Auth email hook", () => {
     assert.equal(response.status, 200);
     assert.equal((sent).length, 1);
     assert.equal(sent[0].recipient, "owner@example.test");
-    assert.equal(sent[0].from, "Cuadrao <hola@mail.cuadrao.ai>");
+    assert.equal(sent[0].from, "Cuadrao <no-responder@mail.cuadrao.ai>");
     assert.equal(sent[0].replyTo, "hola@cuadrao.ai");
-    assert.equal(sent[0].subject, "Cambia tu contraseña de Cuadrao");
+    assert.equal(sent[0].subject, "Cambio de contraseña en Cuadrao");
     assert.ok((sent[0].text).includes(`https://skedzwocnmrhfigiwyzi.supabase.co/auth/v1/verify?token=${"a".repeat(64)}&type=recovery&redirect_to=https%3A%2F%2Fcuadrao-web-staging.onrender.com%2Fauth%2Frecovery`));
     assert.ok((sent[0].text).includes("El enlace vence en 1 hora y solo se puede usar una vez."));
   });
 
   test("renders the approved Spanish copy and shared layout for each action", async () => {
     const cases = [
-      ["signup", "123456 es tu código de Cuadrao", "Úsalo para confirmar tu cuenta."],
-      ["invite", "Te invitaron a Cuadrao", "Te invitaron a usar Cuadrao."],
-      ["magiclink", "Tu enlace para entrar", "O entra aquí"],
-      ["reauthentication", "Tu código de verificación", "123456"],
+      ["signup", "123456 es tu código de Cuadrao", "Usa este código para confirmar tu cuenta de Cuadrao:"],
+      ["magiclink", "123456 es tu código para entrar a Cuadrao", "Entrar a Cuadrao"],
+      ["reauthentication", "123456 es tu código de verificación de Cuadrao", "123456"],
     ];
     for (const [action, subject, body] of cases) {
       const sent: AuthDelivery[] = [];
@@ -100,7 +101,7 @@ describe("staging Auth email hook", () => {
       assert.equal((sent).length, 1);
       assert.equal(sent[0].subject, subject);
       assert.ok((sent[0].text).includes(body));
-      assert.ok(sent[0].html.includes("Saludos, el equipo de Cuadrao"));
+      assert.ok(sent[0].html.includes("Saludos,<br>Cuadrao"));
       assert.ok(!sent[0].html.includes("Salir de la lista"));
     }
   });
@@ -122,10 +123,10 @@ describe("staging Auth email hook", () => {
     assert.ok((deliveries[0].text).includes(`token=${"b".repeat(64)}`));
     assert.equal(deliveries[1].recipient, "new@example.test");
     assert.ok((deliveries[1].text).includes(`token=${"a".repeat(64)}`));
-    for (const delivery of deliveries) {
-      assert.equal(delivery.subject, "Confirma tu nuevo correo");
-      assert.ok((delivery.text).includes("Confirma que quieres usar este correo en Cuadrao."));
-    }
+    assert.equal(deliveries[0].subject, "Cambio de correo en tu cuenta de Cuadrao");
+    assert.ok(deliveries[0].text.includes("no confirmes el cambio y escríbenos."));
+    assert.equal(deliveries[1].subject, "Confirma tu nuevo correo");
+    assert.ok(deliveries[1].text.includes("Confirmar mi correo"));
   });
 
   test("preserves PKCE token prefixes and Supabase empty-redirect defaults", async () => {
@@ -134,7 +135,7 @@ describe("staging Auth email hook", () => {
     const sent: AuthDelivery[] = [];
     assert.equal((await handleAuthEmailHook(request(pkce), config, async (email) => { sent.push(email); })).status, 200);
     assert.ok((sent[0].text).includes(`token=pkce_${"c".repeat(64)}`));
-    for (const action of ["signup", "invite", "magiclink", "recovery", "email_change", "reauthentication"]) {
+    for (const action of ["signup", "magiclink", "recovery", "email_change", "reauthentication"]) {
       const empty = payload(action);
       empty.email_data.redirect_to = "";
       const emails: AuthDelivery[] = [];
@@ -162,7 +163,7 @@ describe("staging Auth email hook", () => {
     for (const candidate of [
       badSignature, stale,
       new Request(mutated.url, { method: "POST", headers: mutated.headers, body: `${mutatedBody} ` }),
-      request(payload("password_changed_notification")),
+      request(payload("invite")),
       request(unsafeRecipient), request(unsafeRedirect), request(wrongSite), request(missingSecond),
       request({ private: "synthetic".repeat(10000) }),
     ]) {
@@ -173,4 +174,41 @@ describe("staging Auth email hook", () => {
       assert.ok(!(await response.text()).includes("synthetic"));
     }
   });
+
+  test("rejects invalid, unverified, stale and future delivery timestamps before sending security notices", async () => {
+    for (const action of ["password_changed_notification", "email_changed_notification"]) {
+      const value = { user: { email: "new@example.test" }, email_data: { email_action_type: action, old_email: "old@example.test", site_url: config.appOrigin, redirect_to: "" } };
+      const invalid = request(value);
+      invalid.headers.set("webhook-timestamp", "invalid");
+      const unverified = request(value);
+      unverified.headers.set("webhook-timestamp", String(Number(unverified.headers.get("webhook-timestamp")) - 1));
+      for (const candidate of [
+        invalid, unverified,
+        request(value, "stale-security", new Date(Date.now() - 301_000)),
+        request(value, "future-security", new Date(Date.now() + 301_000)),
+      ]) {
+        const sent: AuthDelivery[] = [];
+        assert.equal((await handleAuthEmailHook(candidate, config, async email => { sent.push(email); })).status, 401);
+        assert.equal(sent.length, 0);
+      }
+    }
+  });
+});
+
+
+test("signed security notices send only to their documented recipients and disabled five send nothing", async () => {
+  for (const action of ["password_changed_notification", "email_changed_notification", ...DISABLED_SECURITY_NOTICES]) {
+    const value = {user: {email: "new@example.test"}, email_data: {email_action_type: action, site_url: config.appOrigin, redirect_to: "", old_email: "old@example.test"}};
+    const sent: AuthDelivery[] = [];
+    const response = await handleAuthEmailHook(request(value), config, async mail => {sent.push(mail);});
+    assert.equal(response.status, 200);
+    if (DISABLED_SECURITY_NOTICES.some(disabled => disabled === action)) {
+      assert.equal(sent.length, 0);
+    } else {
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].recipient, action === "email_changed_notification" ? "old@example.test" : "new@example.test");
+      assert.ok(!sent[0].html.includes('class="button"'));
+      assert.ok(!sent[0].text.includes("/auth/"));
+    }
+  }
 });
