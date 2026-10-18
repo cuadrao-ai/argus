@@ -51,6 +51,7 @@ def record_issues(
     record: FiscalRecord,
     originals: dict[str, FiscalRecord],
     *,
+    filer_identity: str | None,
     period_end: date | None = None,
 ) -> list[dict]:
     issues = []
@@ -92,6 +93,11 @@ def record_issues(
     )
     if ncf is None or ncf[:3] not in supported:
         issue("fiscal_ncf_unsupported", "ncf")
+    modified_ncf = normalized_ncf(declaration.modified_ncf)
+    if declaration.modified_ncf is not None and (
+        modified_ncf is None or modified_ncf[:3] not in supported
+    ):
+        issue("fiscal_ncf_unsupported", "modified_ncf")
     if (
         not isinstance(record.facts.occurred_on, Known)
         or record.facts.occurred_on.value != record.occurred_on
@@ -173,6 +179,12 @@ def record_issues(
         if isinstance(value, str) and any(c in value for c in "|\r\n\x00"):
             issue("fiscal_unsafe_field", name)
     if isinstance(declaration, PurchaseDeclaration):
+        if (
+            ncf is not None
+            and ncf[:3] in {"B13", "B17", "E43", "E47"}
+            and identity != normalized_taxpayer_id(filer_identity)
+        ):
+            issue("fiscal_supplier_must_match_filer", "rnc")
         if declaration.id_type == "3":
             issue("fiscal_identity_type_unsupported", "id_type")
         if record.kind != ("refund" if is_credit(record) else "expense"):

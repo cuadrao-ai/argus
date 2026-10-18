@@ -63,9 +63,12 @@ def test_invalid_filer_shape_is_rejected(filer):
 def test_additional_purchase_document_types_are_exportable(code):
     number = ("E" + code + "0000000001") if int(code) > 30 else ("B" + code + "00000001")
     declaration = {"modified_ncf": "B0100000099"} if code in {"03", "33"} else {}
-    result = packet((changed(practice_records()[0], ncf=number, **declaration),))
+    filer = "199990021" if code in {"13", "17", "43", "47"} else "199990013"
+    result = packet(
+        (changed(practice_records()[0], ncf=number, **declaration),), rnc=filer
+    )
     assert result.manifest["issues"] == []
-    assert number in result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode()
+    assert number in result.files[f"dgii/DGII_F_606_{filer}_202609.TXT"].decode()
 
 
 @pytest.mark.parametrize("code", ["14", "15", "16"])
@@ -368,3 +371,69 @@ def test_flagged_b02_purchase_stays_excluded_without_erasing_book_gross():
     )
     assert result.manifest["totals_dop"]["purchase_invoice_gross"] == "236.00"
     assert result.manifest["totals_dop"]["itbis_por_adelantar"] == "0.00"
+
+
+@pytest.mark.parametrize(
+    "number", ["B1300000001", "B1700000001", "E430000000001", "E470000000001"]
+)
+@pytest.mark.parametrize("filer", ["199990013", "00100000001"])
+@pytest.mark.parametrize("matching", [True, False])
+def test_self_billed_purchase_identity_must_match_filer_without_rewriting_facts(
+    number, filer, matching
+):
+    record = changed(
+        practice_records()[0],
+        ncf=number,
+        id_type="2" if len(filer) == 11 and matching else "1",
+    )
+    supplier = filer if matching else "199990021"
+    fiscal = record.facts.fiscal.model_copy(
+        update={"rnc": record.facts.fiscal.rnc.model_copy(update={"value": supplier})}
+    )
+    record = replace(record, facts=record.facts.model_copy(update={"fiscal": fiscal}))
+    result = packet((record,), rnc=filer)
+    assert (result.manifest["forms"]["606"]["status"] == "prepared_candidate") is matching
+    assert record.facts.fiscal.rnc.value == supplier
+    assert (
+        any(
+            x["code"] == "fiscal_supplier_must_match_filer"
+            for x in result.manifest["issues"]
+        )
+        is not matching
+    )
+    if matching:
+        assert (
+            result.files[f"dgii/DGII_F_606_{filer}_202609.TXT"]
+            .decode()
+            .splitlines()[1]
+            .split("|")[0]
+            == filer
+        )
+    else:
+        assert not any(name.endswith(".TXT") for name in result.files)
+
+
+@pytest.mark.parametrize("note", ["B0300000001", "E330000000001"])
+@pytest.mark.parametrize(
+    "reference,valid",
+    [
+        ("E030000000001", False),
+        ("B3300000001", False),
+        ("B0100000099", True),
+        ("E310000000099", True),
+    ],
+)
+def test_debit_note_modified_ncf_uses_the_same_valid_series_type_pairs(
+    note, reference, valid
+):
+    record = changed(practice_records()[0], ncf=note, modified_ncf=reference)
+    result = packet((record,))
+    assert (result.manifest["forms"]["606"]["status"] == "prepared_candidate") is valid
+    assert (
+        any(
+            x["code"] == "fiscal_ncf_unsupported" and x["field"] == "modified_ncf"
+            for x in result.manifest["issues"]
+        )
+        is not valid
+    )
+    assert record.declaration.modified_ncf == reference

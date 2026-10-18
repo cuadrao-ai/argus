@@ -213,7 +213,9 @@ def build_fiscal_packet(
         bridge.append(item)
         if record.currency != "DOP":
             item["reason"] = "fiscal_conversion_required"
-            issues.extend(record_issues(record, originals, period_end=end))
+            issues.extend(
+                record_issues(record, originals, filer_identity=rnc, period_end=end)
+            )
             continue
         if record.kind == "expense":
             totals["purchase_invoice_gross"] += gross
@@ -247,7 +249,7 @@ def build_fiscal_packet(
                 disposition="excluded", reason="b02_purchase_not_reportable_in_606"
             )
             continue
-        errors = record_issues(record, originals, period_end=end)
+        errors = record_issues(record, originals, filer_identity=rnc, period_end=end)
         if occurrences[identity(record)] > 1:
             errors.append(
                 {
