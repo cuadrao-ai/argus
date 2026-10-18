@@ -366,9 +366,13 @@ def test_unchanged_account_deletion_caller_removes_every_owner_prefix():
     service = object.__new__(AccountDeletionService)
     service._sources = objects
     service._record_step = Mock()
-    run = {"steps": {}}
+    service._renew = Mock()
+    service._business = Mock()
+    run = {"id": "run", "claim": "claim", "steps": {}}
     assert service._erase_sources("owner", "subject", run) is None
     assert objects.objects == {theirs: ORIGINAL}
+    service._renew.assert_called_once_with(run["id"], run["claim"])
+    service._business.require_detached.assert_called_once_with("owner")
     service._record_step.assert_called_once_with("subject", "storage", "deleted", run=run)
 
 

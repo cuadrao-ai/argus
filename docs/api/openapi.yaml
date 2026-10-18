@@ -926,6 +926,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/closed-spaces:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClosedBusinesses'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/approve:
     post:
       tags:
@@ -1825,6 +1863,214 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/owned-spaces:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnedBusinesses'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/ownership-transfers:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/ownership-transfers/{transfer_id}/accept:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/ownership-transfers/{transfer_id}/decline:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/ownership-transfers/{transfer_id}/withdraw:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
         '422':
           description: Validation Error
           content:
@@ -2785,6 +3031,171 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/spaces/{space_id}/close:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: space_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseBusinessBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessLifecycleResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/spaces/{space_id}/ownership-transfers:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: space_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestTransferBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/spaces/{space_id}/reopen:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: space_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessLifecycleResponse'
         '422':
           description: Validation Error
           content:
@@ -13284,6 +13695,28 @@ components:
           - type: 'null'
       additionalProperties: false
       type: object
+    BusinessLifecycleResponse:
+      properties:
+        space_id:
+          type: string
+        name:
+          type: string
+        closed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        reopen_until:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      type: object
+      required:
+      - space_id
+      - name
+      - closed_at
+      - reopen_until
     BusinessOverview:
       properties:
         from:
@@ -13853,6 +14286,23 @@ components:
       - note
       - recorded_at
       - recorded_by
+    CloseBusinessBody:
+      properties:
+        confirmation:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - confirmation
+    ClosedBusinesses:
+      properties:
+        spaces:
+          items:
+            $ref: '#/components/schemas/BusinessLifecycleResponse'
+          type: array
+      type: object
+      required:
+      - spaces
     CommandResult:
       properties:
         household_id:
@@ -20490,6 +20940,33 @@ components:
       - reason
       - recorded_by
       - recorded_at
+    OwnedBusiness:
+      properties:
+        space_id:
+          type: string
+        name:
+          type: string
+        grant_id:
+          type: string
+        members:
+          items:
+            $ref: '#/components/schemas/TransferMember'
+          type: array
+      type: object
+      required:
+      - space_id
+      - name
+      - grant_id
+      - members
+    OwnedBusinesses:
+      properties:
+        spaces:
+          items:
+            $ref: '#/components/schemas/OwnedBusiness'
+          type: array
+      type: object
+      required:
+      - spaces
     OwnerDoesNotKnow:
       properties:
         state:
@@ -23372,6 +23849,18 @@ components:
       - time_zone
       - start_at
       - end_at_exclusive
+    RequestTransferBody:
+      properties:
+        target_grant_id:
+          type: string
+          format: uuid
+        confirmation:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - target_grant_id
+      - confirmation
     ResolveBody:
       properties:
         version:
@@ -24792,6 +25281,91 @@ components:
       required:
       - expected_version
       - user_id
+    TransferDetailsResponse:
+      properties:
+        id:
+          type: string
+        space_id:
+          type: string
+        status:
+          type: string
+          enum:
+          - pending
+          - accepted
+          - cancelled
+          - declined
+          - expired
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        business_name:
+          type: string
+        owner_name:
+          type: string
+        target_name:
+          type: string
+        role:
+          type: string
+          enum:
+          - owner
+          - target
+        grant_id:
+          type: string
+      type: object
+      required:
+      - id
+      - space_id
+      - status
+      - business_name
+      - owner_name
+      - target_name
+      - role
+      - grant_id
+    TransferListResponse:
+      properties:
+        transfers:
+          items:
+            $ref: '#/components/schemas/TransferDetailsResponse'
+          type: array
+      type: object
+      required:
+      - transfers
+    TransferMember:
+      properties:
+        grant_id:
+          type: string
+        name:
+          type: string
+      type: object
+      required:
+      - grant_id
+      - name
+    TransferResponse:
+      properties:
+        id:
+          type: string
+        space_id:
+          type: string
+        status:
+          type: string
+          enum:
+          - pending
+          - accepted
+          - cancelled
+          - declined
+          - expired
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      type: object
+      required:
+      - id
+      - space_id
+      - status
     UnboundedAllowance:
       properties:
         hour:
