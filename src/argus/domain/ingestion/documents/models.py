@@ -67,11 +67,33 @@ class ReceiptItem(_Frozen):
 class ReceiptDetails(_Frozen):
     suggested_category: str | None = Field(default=None, max_length=120)
     merchant: str | None = Field(default=None, max_length=300)
-    occurred_on: date | None = None
+    occurred_on: date | None = Field(
+        default=None,
+        description="Source-supported paid purchase date. Null when only an order, "
+        "invoice issue or expected payment date is printed.",
+    )
     currency: str | None = Field(default=None, max_length=20)
     items: tuple[ReceiptItem, ...] = Field(default=(), max_length=300)
     subtotal: str | None = Field(default=None, max_length=80)
-    tax: str | None = Field(default=None, max_length=80)
+    payment_status: Literal["paid", "pending", "unknown"] = Field(
+        default="unknown",
+        description="Payment evidence in this source. Paid requires a completed "
+        "payment or paid receipt, not an order confirmation, billing contact, "
+        "invoice total or payment instructions. Pending means explicitly not yet "
+        "paid; unknown means the source does not settle payment.",
+    )
+    tax: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Printed final tax amount. Null for estimated tax; retain a "
+        "printed estimate in estimated_tax instead. Never calculate tax.",
+    )
+    estimated_tax: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Tax amount explicitly marked estimated in the source. It is "
+        "not final tax or ITBIS. Null if absent, unreadable or conflicting.",
+    )
     service: str | None = Field(default=None, max_length=80)
     tip: str | None = Field(default=None, max_length=80)
     total: str | None = Field(default=None, max_length=80)
@@ -106,6 +128,7 @@ class ReceiptDetails(_Frozen):
 RECEIPT_PURCHASE_AMBIGUOUS: Final = "receipt_purchase_ambiguous"
 # The read's receipt currency differs from the one the source names for itself.
 RECEIPT_CURRENCY_CONFLICT: Final = "receipt_currency_conflict"
+RECEIPT_PAYMENT_UNPROVEN: Final = "receipt_payment_unproven"
 
 
 class ProjectionIssue(_Frozen):

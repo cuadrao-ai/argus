@@ -46,7 +46,7 @@ def _batch(draft: DocumentDraft, rows: list[dict], total: str) -> ExtractionBatc
             readable=True,
             pages_read=[1],
             observations=[{**row, "row": index} for index, row in enumerate(rows, 1)],
-            receipt=dict(total=total, currency="DOP"),
+            receipt=dict(payment_status="paid", total=total, currency="DOP"),
         )
     )
     return batch_from_result(

@@ -72,7 +72,9 @@ def test_paid_receipt_still_projects_one_purchase_and_final_tax():
 def test_saved_legacy_batch_keeps_its_existing_candidate():
     parsed = read_receipt()
     observed = project(parsed.model_copy(update={"receipt": None}))
-    legacy = observed.model_copy(update={"receipt": parsed.receipt}).model_dump(mode="json")
+    legacy = observed.model_copy(update={"receipt": parsed.receipt}).model_dump(
+        mode="json"
+    )
     legacy["receipt"].pop("payment_status", None)
     legacy["receipt"].pop("estimated_tax", None)
     saved = ExtractionBatch.model_validate(legacy)

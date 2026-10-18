@@ -43,7 +43,12 @@ def receipt_result(**fiscal: str | None) -> ExtractionResult:
                     "occurred_on": "2026-10-10",
                 }
             ],
-            "receipt": {"total": "118", "tax": "18.00", **fiscal},
+            "receipt": {
+                "payment_status": "paid",
+                "total": "118",
+                "tax": "18.00",
+                **fiscal,
+            },
         }
     )
 
