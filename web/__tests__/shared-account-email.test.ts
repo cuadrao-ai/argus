@@ -24,7 +24,7 @@ describe("shared account email layout", () => {
     expect(result.html).toContain("min-height:48px");
     expect(result.html).toContain("overflow-wrap:anywhere");
     expect(result.text).toContain(link);
-    expect(result.text).toContain("Saludos, el equipo de Cuadrao");
+    expect(result.text).toContain("Saludos,\nCuadrao");
     expect(result.text).toContain("¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai");
     expect(result.html).not.toMatch(/width="1"|tracking|unsubscribe/);
   });

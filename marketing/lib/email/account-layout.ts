@@ -8,6 +8,7 @@ export const emailPalette = {
 type EmailContent = {
   title: string;
   preheader?: string;
+  intro?: readonly string[];
   paragraphs: readonly string[];
   action?: { label: string; url: string };
   expiryNote?: string;
@@ -77,11 +78,11 @@ export function renderAccountEmail(content: AccountEmail, options: EmailLayoutOp
 <body class="page" style="margin:0;padding:32px 12px;background:${p.page};font-family:${font}">${content.preheader ? `<div class="preheader" style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:transparent">${escapeHtml(content.preheader)}</div>` : ""}<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:${p.card};border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:${p.text};border-radius:12px 12px 0 0">
 <img class="logo-light" src="${assets}/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="${assets}/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:${p.text};font-size:24px;line-height:32px;font-weight:700">${escapeHtml(content.title)}</h1>${code}${content.code && content.expiryNote ? muted(content.expiryNote) : ""}${content.paragraphs.map(paragraph).join("")}${action}${!content.code && content.expiryNote ? muted(content.expiryNote) : ""}${content.afterAction ? muted(content.afterAction) : ""}${content.beforeFooter ? paragraph(content.beforeFooter) : ""}</td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:${p.card}"><p class="copy" style="margin:0 0 12px;color:${p.text};font-size:16px;line-height:24px">Saludos, el equipo de Cuadrao</p><p class="muted" style="margin:0;color:${p.muted};font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p>${address}${leave}</td></tr></table></td></tr></table></body></html>`;
-  const text = [content.title, content.code, ...content.paragraphs,
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:${p.text};font-size:24px;line-height:32px;font-weight:700">${escapeHtml(content.title)}</h1>${(content.intro ?? []).map(paragraph).join("")}${code}${content.code && content.expiryNote ? muted(content.expiryNote) : ""}${content.paragraphs.map(paragraph).join("")}${action}${!content.code && content.expiryNote ? muted(content.expiryNote) : ""}${content.afterAction ? muted(content.afterAction) : ""}${content.beforeFooter ? paragraph(content.beforeFooter) : ""}</td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:${p.card}"><p class="copy" style="margin:0 0 12px;color:${p.text};font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:${p.muted};font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p>${muted("Cuadrao LLC")}${address}${leave}</td></tr></table></td></tr></table></body></html>`;
+  const text = [content.title, ...(content.intro ?? []), content.code, ...content.paragraphs,
     content.action && `${content.action.label}\n${content.action.url}`,
     content.expiryNote, content.afterAction, content.beforeFooter,
-    "Saludos, el equipo de Cuadrao", "¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai",
+    "Saludos,\nCuadrao", "¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai", "Cuadrao LLC",
     content.postalAddress,
     content.unsubscribeUrl && `Salir de la lista\n${content.unsubscribeUrl}`,
   ].filter(Boolean).join("\n\n");
