@@ -173,7 +173,7 @@ exports[`disabled slot phone_changed_notification HTML/plain snapshot and light/
 <body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "sendable": false,
   "subject": "",
@@ -183,7 +183,7 @@ Cuadrao
 
 ¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
 
-Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+Cuadrao LLC"
 ,
 }
 `;
@@ -203,7 +203,7 @@ exports[`disabled slot identity_linked_notification HTML/plain snapshot and ligh
 <body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "sendable": false,
   "subject": "",
@@ -213,7 +213,7 @@ Cuadrao
 
 ¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
 
-Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+Cuadrao LLC"
 ,
 }
 `;
@@ -233,7 +233,7 @@ exports[`disabled slot identity_unlinked_notification HTML/plain snapshot and li
 <body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "sendable": false,
   "subject": "",
@@ -243,7 +243,7 @@ Cuadrao
 
 ¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
 
-Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+Cuadrao LLC"
 ,
 }
 `;
@@ -263,7 +263,7 @@ exports[`disabled slot mfa_factor_enrolled_notification HTML/plain snapshot and 
 <body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "sendable": false,
   "subject": "",
@@ -273,7 +273,7 @@ Cuadrao
 
 ¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
 
-Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+Cuadrao LLC"
 ,
 }
 `;
@@ -293,7 +293,7 @@ exports[`disabled slot mfa_factor_unenrolled_notification HTML/plain snapshot an
 <body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "sendable": false,
   "subject": "",
@@ -303,7 +303,7 @@ Cuadrao
 
 ¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
 
-Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+Cuadrao LLC"
 ,
 }
 `;
@@ -323,7 +323,7 @@ exports[`disabled slot business_transfer_request_recipient HTML/plain snapshot a
 <body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "sendable": false,
   "subject": "",
@@ -333,7 +333,7 @@ Cuadrao
 
 ¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
 
-Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+Cuadrao LLC"
 ,
 }
 `;
@@ -353,7 +353,7 @@ exports[`disabled slot business_transfer_declined_owner HTML/plain snapshot and 
 <body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "sendable": false,
   "subject": "",
@@ -363,7 +363,7 @@ Cuadrao
 
 ¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
 
-Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+Cuadrao LLC"
 ,
 }
 `;
@@ -383,7 +383,7 @@ exports[`disabled slot business_transfer_accepted_both HTML/plain snapshot and l
 <body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "sendable": false,
   "subject": "",
@@ -393,7 +393,7 @@ Cuadrao
 
 ¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
 
-Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+Cuadrao LLC"
 ,
 }
 `;
@@ -413,7 +413,7 @@ exports[`disabled slot business_transfer_withdrawn_recipient HTML/plain snapshot
 <body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "sendable": false,
   "subject": "",
@@ -423,7 +423,7 @@ Cuadrao
 
 ¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
 
-Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+Cuadrao LLC"
 ,
 }
 `;
@@ -443,7 +443,7 @@ exports[`Business close HTML/plain snapshot and light/dark AA 1`] = `
 <body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">Tienda se cerró en Cuadrao</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola, Ana cerró Tienda en Cuadrao el 17/10/2026, y ya no tienes acceso. Si necesitas copias de los comprobantes, pídeselas a Ana. Si el negocio no se reabre antes del 16/11/2026, sus datos se borrarán. Saludos, Cuadrao</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">Tienda se cerró en Cuadrao</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola, Ana cerró Tienda en Cuadrao el 17/10/2026, y ya no tienes acceso. Si necesitas copias de los comprobantes, pídeselas a Ana. Si el negocio no se reabre antes del 16/11/2026, sus datos se borrarán. Saludos, Cuadrao</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "subject": "Tienda se cerró en Cuadrao",
   "text": 
@@ -456,7 +456,7 @@ Cuadrao
 
 ¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
 
-Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+Cuadrao LLC"
 ,
 }
 `;

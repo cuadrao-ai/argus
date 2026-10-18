@@ -51,6 +51,8 @@ import RecordExpenseDialog from "./RecordExpenseDialog";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
+import { canEnterBusiness } from "@/lib/business-privacy-notice";
+import { useBusinessConsent } from "./business-consent-context";
 
 export type BusinessPanelState =
   | { kind: "overview" }
@@ -242,7 +244,12 @@ function BusinessWorkspaceContent({
   // Switching Business closes whatever was open in the old one before the new
   // one loads: the open record and its address, the dialogs and their typed
   // text, the attached receipt, and every list. Nothing of A shows under B.
+  const consent = useBusinessConsent();
   const chooseBusiness = useCallback((grantId: string | null) => {
+    if (!canEnterBusiness(consent.accepted, grantId)) {
+      consent.reopen();
+      return;
+    }
     if (grantId === getChosenGrant()) return;
     clearTitleFocusUnless();
     setLostAccess(false);
@@ -256,7 +263,7 @@ function BusinessWorkspaceContent({
     setAttachedReceipt(null);
     setRecords(EMPTY_RECORDS);
     setRevision((value) => value + 1);
-  }, []);
+  }, [consent]);
   const drafts = useRef(new Map<string, string>());
   const [draftRevision, setDraftRevision] = useState(0);
 
@@ -393,7 +400,7 @@ function BusinessWorkspaceContent({
     [actions, attachedReceipt, bridge, chooseBusiness, chosen, lostAccess, markAccessSeen, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
   );
 
-  const chatAvailable = businessChatAvailable(records.workspace);
+  const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;
   const businessSearch = useBusinessSearch({
     source,
     chatAvailable,

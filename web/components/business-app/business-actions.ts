@@ -18,6 +18,7 @@ import {
   type ReceiptSummary,
 } from "@/lib/business-api";
 import type { BusinessPanelState } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import type { IntakeTarget } from "./ReceiptIntakeDialog";
 
 export type BusinessActionId =
@@ -72,7 +73,9 @@ export function useBusinessActions({
   openCapture,
 }: ActionInput): BusinessActions {
   const { t } = useTranslation();
+  const consent = useBusinessConsent();
   const canAsk =
+    consent.accepted &&
     businessChatAvailable(records.workspace) &&
     Boolean(records.workspace?.assistant_available) &&
     (records.overview?.totals ?? []).some((total) => total.count > 0);

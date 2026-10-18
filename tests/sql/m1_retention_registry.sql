@@ -9,10 +9,11 @@ declare
     actual bigint;
 begin
     select count(*) into actual from argus_private.retention_policies;
-    if actual <> 4 then raise exception 'Expected exactly four existing purge rules'; end if;
+    if actual <> 5 then raise exception 'Expected four existing purge rules and the sweep evidence policy'; end if;
     if exists (select 1 from argus_private.retention_policies where table_name not in (
         'public.guest_workspaces', 'public.visitor_usage_counters',
-        'public.guest_funnel_milestones', 'public.cuadrao_early_access_signups'
+        'public.guest_funnel_milestones', 'public.cuadrao_early_access_signups',
+        'argus_private.retention_sweeps'
     )) then raise exception 'An unapproved retention rule was seeded'; end if;
     select count(*) into actual from argus_private.retention_sweeps;
     if actual <> 0 then raise exception 'Migration must not claim sweeps ran'; end if;
