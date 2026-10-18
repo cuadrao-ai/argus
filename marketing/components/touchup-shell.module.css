@@ -78,3 +78,56 @@
     width: 124px;
   }
 }
+
+.footerBarWithCredits > a:last-of-type {
+  margin-left: 0;
+}
+.footerCredits {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  color: var(--fmute);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.footerCredits > p {
+  margin: 0;
+}
+.footerCreditReveal {
+  display: grid;
+  grid-template-columns: 0fr;
+  transition: grid-template-columns 700ms ease-out;
+}
+.footerCreditClip {
+  overflow: hidden;
+  min-width: 0;
+}
+.footerCreditText {
+  display: block;
+  width: max-content;
+  padding-left: 16px;
+  clip-path: inset(0 0 0 100%);
+  transition: clip-path 500ms ease-out;
+}
+.footerCredits:hover .footerCreditReveal {
+  grid-template-columns: 1fr;
+}
+.footerCredits:hover .footerCreditText {
+  clip-path: inset(0);
+  transition-delay: 100ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .footerCreditReveal {
+    grid-template-columns: 1fr;
+    transition: none;
+  }
+  .footerCreditText {
+    clip-path: none;
+    transition: none;
+  }
+}
+@media (max-width: 800px) {
+  .footerCreditReveal {
+    display: none;
+  }
+}

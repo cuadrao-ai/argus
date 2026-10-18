@@ -174,6 +174,7 @@
     "rating_positive_prompt": "What went well?",
     "rating_negative_prompt": "What went wrong?",
     "subheading": {
+      "business_general": "Tell us how Cuadrao is working for you. We read every comment.",
       "positive": "What worked well in this response?",
       "negative": "What should be improved in this response?",
       "bug": "File a bug report.",

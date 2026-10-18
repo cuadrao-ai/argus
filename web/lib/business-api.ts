@@ -1,8 +1,10 @@
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
+import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, ARGUS_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
 import type { BusinessDossier, BusinessFactPatch, BusinessRecordContext } from "./business-dossier";
+import { getChosenGrant } from "./business-grant";
 
 /**
  * The Business pilot's view of `/api/v1/business`. The backend owns every
@@ -151,10 +153,18 @@ export function businessExportPeriodValid(start: string, end: string): boolean {
   return days >= 0 && days <= 365;
 }
 
-export async function fetchBusinessExport(draftId: string, start: string, end: string, signal?: AbortSignal): Promise<Blob> {
+export async function fetchBusinessExport(draftId: string | undefined, start: string, end: string, signal?: AbortSignal, expectedGrant = getChosenGrant()): Promise<Blob> {
+  const generation = browserAuthGeneration();
+  const grant = expectedGrant;
+  const requireScope = () => {
+    signal?.throwIfAborted();
+    requireBrowserAuthGeneration(generation);
+    if (getChosenGrant() !== grant) throw new Error("Business selection changed");
+  };
   const authHeaders = await authenticatedRequestHeaders();
-  signal?.throwIfAborted();
-  const query = new URLSearchParams({ start, end, draft_id: draftId });
+  requireScope();
+  const query = new URLSearchParams({ start, end });
+  if (draftId) query.set("draft_id", draftId);
   const response = await fetch(`${ARGUS_API_BASE_URL}/business/exports?${query}`, {
     headers: argusApiRequestHeaders(undefined, authHeaders), credentials: "include", cache: "no-store", signal,
   });
@@ -166,7 +176,9 @@ export async function fetchBusinessExport(draftId: string, start: string, end: s
     throw error;
   }
   if (response.headers.get("Content-Type")?.split(";")[0].trim() !== "application/zip") throw new Error("Invalid Business export response");
-  return response.blob();
+  const blob = await response.blob();
+  requireScope();
+  return blob;
 }
 
 export async function getBusinessDossier(draftId: string): Promise<BusinessDossier> {
@@ -369,11 +381,18 @@ export type ExpenseInput = {
 export type BusinessSpace = { id: string; name: string };
 
 /**
- * Starts the owner's Business space, or returns the one they already have.
- * Every other Business route answers 404 until it exists. The server names a
- * new space in `language`.
+ * Reads the owner's Business space and creates it only when the server
+ * confirms it is missing. The server names a new space in `language`.
  */
 export async function startBusinessSpace(language: ArgusLanguage): Promise<BusinessSpace> {
+  const generation = browserAuthGeneration();
+  try {
+    return await apiFetch<BusinessSpace>("/business/space");
+  } catch (error) {
+    const problem = error as { status?: number; code?: string } | null;
+    if (problem?.status !== 404 || problem.code !== "business_space_missing") throw error;
+  }
+  requireBrowserAuthGeneration(generation);
   return apiFetch("/business/space", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

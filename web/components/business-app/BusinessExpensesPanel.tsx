@@ -10,12 +10,14 @@ import { expensePanel } from "./business-expense-target";
 import { cardClass, LoadingRows, PanelHeading, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
 import BusinessPeriodControl from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
+import { ReceiptPeriodExport } from "./ReceiptDossierReview";
 
 export default function BusinessExpensesPanel() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
-  const { source, revision, period, setPeriod, records, panel, openPanel, actions } = useBusiness();
+  const { source, revision, period, setPeriod, records, panel, openPanel, actions, chosen } = useBusiness();
+  const exportEnd = period.to ?? (records.overview?.from === period.from ? records.overview.to : undefined);
   const found = panel.kind === "expenses" ? panel.expenseId : undefined;
   const [items, setItems] = useState<BusinessExpense[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -73,6 +75,13 @@ export default function BusinessExpensesPanel() {
         <BusinessPeriodControl period={period} setPeriod={setPeriod} />
         {records.overview ? <OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /> : null}
       </div>
+      {chosen && exportEnd ? <div className="mb-4"><ReceiptPeriodExport
+        key={`${chosen.grant_id}:${period.from}:${exportEnd}`}
+        scope={{ name: chosen.name, capabilities: chosen.capabilities, grantId: chosen.role === "owner" ? null : chosen.grant_id }}
+        start={period.from}
+        end={exportEnd}
+        available={source.mode === "live"}
+      /></div> : null}
       {failed ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.expenses.error", "We couldn't load your expenses. Try again.")}

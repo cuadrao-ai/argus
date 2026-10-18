@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import ReceiptDossierReview from "./ReceiptDossierReview";
@@ -11,7 +12,7 @@ import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
-import { takeTitleFocus } from "./bandeja-order";
+import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
@@ -51,7 +52,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
   const attentionLabel = useAttentionLabel();
-  const { source, reload, openPanel, revision } = useBusiness();
+  const { source, reload, openPanel, revision, records } = useBusiness();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [failed, setFailed] = useState(false);
@@ -63,8 +64,6 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const [amountError, setAmountError] = useState<string | null>(null);
   const [unprepared, setUnprepared] = useState(false);
   const retainReceipt = useCallback(() => setUnprepared(true), []);
-  // Leaving a receipt before its frame renders cancels that receipt's handoff.
-  useEffect(() => () => { takeTitleFocus(receiptId); }, [receiptId]);
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -268,6 +267,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
 
   return (
     <>
+      <ReceiptShortcutRegistration actions={{
+        ...(!busy && uncertainVersion === null && !Object.keys(changedFields()).length ? receiptNavigationActions(receiptId, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {}),
+        ...(!locked && !busy ? { edit: () => document.querySelector<HTMLElement>('[data-testid="receipt-review-fields"] input:not(:disabled), [data-testid="receipt-review-fields"] select:not(:disabled)')?.focus() } : {}),
+      }} />
       {frame(
         <>
           {detail.email_original ? <div role="note" data-testid="receipt-email-original" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p>{t("business.review.email_original", "This is the email itself. Its attachment is the receipt to review.")}</p></div> : null}

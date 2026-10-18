@@ -224,3 +224,11 @@ def test_render_env_sync_audit_compares_the_transition_cors_allowlist(
     assert result.returncode == 1
     assert "drift argus-api:ARGUS_CORS_ALLOW_ORIGINS" in result.stdout
     assert "status=drift" in result.stdout
+
+
+def test_supabase_public_keys_are_supplied_by_the_service_environment() -> None:
+    config = yaml.safe_load(_source("render.yaml"))
+    keys = {"SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"}
+    entries = [entry for service in config["services"] for entry in service.get("envVars", []) if entry["key"] in keys]
+    assert entries
+    assert all(entry == {"key": entry["key"], "sync": False} for entry in entries)

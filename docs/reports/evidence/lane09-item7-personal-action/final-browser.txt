@@ -1,0 +1,23 @@
+(node:57120) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] $ next start --port "3197"
+[WebServer] (node:57135) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+(node:57136) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:57136) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:57136) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/business-personal-menu.spec.ts:45:7 › row action stays separate from status at 1280px (964ms)
+  ✓  2 [chromium] › e2e/business-personal-menu.spec.ts:45:7 › row action stays separate from status at 390px (869ms)
+  ✓  3 [chromium] › e2e/business-personal-menu.spec.ts:95:7 › owner marks, reads saved status, undoes, and unmarks (2.6s)
+  ✓  4 [chromium] › e2e/business-personal-menu.spec.ts:95:7 › preparer marks, reads saved status, undoes, and unmarks (2.6s)
+  ✓  5 [chromium] › e2e/business-personal-menu.spec.ts:121:5 › read-only actor sees the Personal status without the action (729ms)
+  ✓  6 [chromium] › e2e/business-personal-menu.spec.ts:130:5 › pending and failed saves do not claim a Personal change (907ms)
+  ✓  7 [chromium] › e2e/business-personal-menu.spec.ts:150:7 › failed receipt keeps its recovery actions at 1280px (889ms)
+  ✓  8 [chromium] › e2e/business-personal-menu.spec.ts:150:7 › failed receipt keeps its recovery actions at 390px (897ms)
+
+  8 passed (11.3s)

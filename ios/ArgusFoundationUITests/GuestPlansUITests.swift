@@ -63,6 +63,8 @@ extension FinancialLoopUITests {
         let field = app.textFields[identifier]
         XCTAssertTrue(field.waitForExistence(timeout: 10), identifier)
         field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        field.tap()
         field.typeText(text)
     }
 
@@ -221,6 +223,42 @@ extension FinancialLoopUITests {
         XCTAssertEqual(app.staticTexts["guest.plan.remaining"].label, "Falta USD 1,200.00")
         XCTAssertEqual(app.staticTexts["guest.plan.percent"].label, "20%")
         capture("guest-plan-detail-goal-es")
+        let environment = ProcessInfo.processInfo.environment
+        if let size = environment["ARGUS_TEST_CONTENT_SIZE"] {
+            app.terminate()
+            app.launchArguments = ["-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO", "--cuadrao-guest-book",
+                "-appearancePreference", environment["ARGUS_TEST_APPEARANCE"] ?? "light", "-UIPreferredContentSizeCategoryName", size]
+            app.launch()
+            XCTAssertTrue(app.buttons["tab.plan"].waitForExistence(timeout: 20))
+            app.buttons["tab.plan"].tap()
+            tapVisible(planRow("Viaje"))
+        }
+        let rows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'guest.contribution.row.'"))
+        let originalCount = rows.count
+        XCTAssertEqual(originalCount, 1)
+        for _ in 0..<5 {
+            if rows.firstMatch.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(rows.firstMatch.isHittable)
+        rows.firstMatch.swipeLeft()
+        let delete = app.buttons["guest.contribution.swipe.delete"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 5))
+        delete.tap()
+        let undo = app.buttons["guest.undo"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        capture("aporte-eliminado-deshacer-es-" + (environment["ARGUS_TEST_CONTENT_SIZE"] ?? "normal"))
+        XCTAssertEqual(undo.label, "Deshacer")
+        XCTAssertGreaterThanOrEqual(undo.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(undo.frame.height, 44)
+        XCTAssertEqual(app.buttons["toast.close"].label, "Cerrar")
+        XCTAssertFalse(app.alerts.firstMatch.exists, "delete offers Undo directly")
+        XCTAssertFalse(app.sheets.firstMatch.exists, "no confirmation dialog")
+        XCTAssertEqual(rows.count, originalCount - 1)
+        undo.tap()
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(rows.count, originalCount, "Undo restores the contribution")
+        XCTAssertEqual(app.staticTexts["guest.plan.remaining"].label, "Falta USD 1,200.00")
     }
 
     /// The plan screens stay usable at the largest accessibility text size: nothing needed is out of reach.

@@ -1,0 +1,24 @@
+{
+  "baseline": {
+    "failed_methods": [
+      "testEmptyPlanSelectionIsAnExplicitJournaledPut",
+      "testPlanConfirmationSurvivesRelaunchAndDifferentOwnerCannotReplay",
+      "testPostSaveHomeWinsOverEarlierRead",
+      "testSearchAccountNavigationAndAcceptedEditsPreserveAccountsSelection"
+    ],
+    "totals": [
+      "Executed 202 tests, with 6 failures (0 unexpected) in 0.877 (0.886) seconds"
+    ]
+  },
+  "current": {
+    "failed_methods": [
+      "testEmptyPlanSelectionIsAnExplicitJournaledPut",
+      "testPlanConfirmationSurvivesRelaunchAndDifferentOwnerCannotReplay",
+      "testPostSaveHomeWinsOverEarlierRead",
+      "testSearchAccountNavigationAndAcceptedEditsPreserveAccountsSelection"
+    ],
+    "totals": [
+      "Executed 202 tests, with 6 failures (0 unexpected) in 2.480 (2.500) seconds"
+    ]
+  }
+}
