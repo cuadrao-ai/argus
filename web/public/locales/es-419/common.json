@@ -1481,6 +1481,11 @@
       "existing_action": "Inicia sesión",
       "error": "No pudimos enviar tu solicitud. Inténtalo de nuevo."
     },
+    "business_unavailable": {
+      "body": "Si crees que es un error, escríbenos a admin@cuadrao.ai.",
+      "sign_out": "Cerrar sesión",
+      "title": "Cuadrao Business aún no está disponible para tu cuenta."
+    },
     "login": {
       "brand": "cuadrao",
       "subtitle": "Inicia sesión para continuar",
@@ -1541,6 +1546,14 @@
       "retrying_revocation": "Reintentando...",
       "revocation_retry_error": "Cuadrao aún no pudo confirmar que todas las sesiones se cerraron. Inténtalo de nuevo.",
       "cleanup_warning": "Las sesiones fueron revocadas, pero este navegador no pudo confirmar la limpieza de cookies. Aún necesitas iniciar sesión de nuevo."
+    },
+    "screen": {
+      "go_to_cuadrao": "Ir a Cuadrao",
+      "invite_line": "Pide a quien te invitó que te envíe otra invitación.",
+      "link_expired_title": "Este enlace ya venció o ya se usó.",
+      "not_found_detail": "Puede que el enlace esté viejo o mal copiado.",
+      "not_found_title": "No encontramos esta página.",
+      "request_new_link": "Pedir un enlace nuevo"
     },
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
