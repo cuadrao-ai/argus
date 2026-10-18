@@ -376,7 +376,7 @@ def test_flagged_b02_purchase_stays_excluded_without_erasing_book_gross():
 @pytest.mark.parametrize(
     "number", ["B1300000001", "B1700000001", "E430000000001", "E470000000001"]
 )
-@pytest.mark.parametrize("filer", ["199990013", "00100000001"])
+@pytest.mark.parametrize("filer", ["199990013", "00100000009"])
 @pytest.mark.parametrize("matching", [True, False])
 def test_self_billed_purchase_identity_must_match_filer_without_rewriting_facts(
     number, filer, matching

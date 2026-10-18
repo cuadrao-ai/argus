@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 from psycopg.types.json import Jsonb
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from argus.domain.business.actions import plans, sources
 from argus.domain.business.actions.facts import facts_of, patched_facts, validate_facts
@@ -22,11 +22,17 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.authority import ActorProvenance
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
-from argus.domain.business.contracts.dgii import DgiiDeclaration, FiscalReview
+from argus.domain.business.contracts.dgii import (
+    DgiiDeclaration,
+    FiscalReview,
+    PurchaseDeclaration,
+    SalesDeclaration,
+)
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
     BusinessResolution,
+    Known,
     ReadPurchase,
 )
 from argus.domain.business.transactions import ActionTransaction
@@ -186,6 +192,21 @@ def revise(
             value = getattr(patch, question["field"])
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
+    declared = fiscal_review.declaration if fiscal_review else None
+    if patch is not None and patch.purchase is not None:
+        current = declared
+        if current is None:
+            raw = (event.resolution.get("business") or {}).get("dgii")
+            current = TypeAdapter(DgiiDeclaration).validate_python(raw) if raw else None
+        if not isinstance(current, SalesDeclaration):
+            from argus.domain.business.purchase_review import apply_purchase
+
+            amount = after.amount.value if isinstance(after.amount, Known) else None
+            declared = apply_purchase(
+                current if isinstance(current, PurchaseDeclaration) else None,
+                patch.purchase,
+                amount,
+            )
     return save_revision(
         tx,
         event,
@@ -194,7 +215,7 @@ def revise(
         source_ids,
         actor,
         turn_key,
-        dgii=fiscal_review.declaration if fiscal_review else None,
+        dgii=declared,
     )
 
 

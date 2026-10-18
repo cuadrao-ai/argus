@@ -23128,6 +23128,9 @@ components:
             - '10'
             - '11'
           - type: 'null'
+        category_suggested:
+          type: boolean
+          default: false
         paid_on:
           anyOf:
           - type: string
