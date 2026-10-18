@@ -24,7 +24,11 @@ export function resetLeavingSession(): void {
 export type LeaveSessionDeps = {
   boundary: { beginConversion: () => void; finishConversion: (userId: string | null) => void };
   currentUserId: string | null;
-  /** Resolves null when the session already ended elsewhere and no sign-out is owed. */
+  /**
+   * Resolves null when the session already ended elsewhere and no sign-out is owed.
+   * Otherwise resolves only after this browser's provider session is gone, including
+   * when revocation failed.
+   */
   signOut: () => Promise<{ revocation: "complete" | "failed"; cookieSync?: "cleared" | "failed" } | null>;
   clearLocalState: () => void;
   navigate: (href: string) => void;

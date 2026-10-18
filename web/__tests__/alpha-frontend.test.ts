@@ -2910,6 +2910,10 @@ describe("Argus Alpha frontend contract", () => {
     const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
     const closedHome = page.slice(page.indexOf("const signOutClosedHome"), page.indexOf("const handleAuthSubmit"));
     expect(closedHome).toContain("setSignOutFailed(true)");
+    expect(closedHome.indexOf("setSignOutFailed(false)")).toBeGreaterThan(-1);
+    expect(closedHome.indexOf("setSignOutFailed(false)")).toBeLessThan(
+      closedHome.indexOf("leaveSession"),
+    );
     expect(closedHome).not.toContain("onFailed() {}");
     expect(page).toContain('t("settings.logout_error")');
     expect(page).toContain('!text-[var(--cuadrao-cream)]');

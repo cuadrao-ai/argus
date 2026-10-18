@@ -175,6 +175,7 @@ export default function LandingPage() {
   const showSignup = () => updateAuthMode("signup");
   const showLogin = () => updateAuthMode("login");
   const signOutClosedHome = () => {
+    setSignOutFailed(false);
     void leaveSession({
       boundary: { beginConversion() {}, finishConversion() {} },
       currentUserId: null,
