@@ -77,7 +77,7 @@ jobs:
         env:
           SUPABASE_STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
           DGII_RNC_STATEMENT_TIMEOUT: ${{ vars.DGII_RNC_STATEMENT_TIMEOUT }}
-          DGII_RNC_LOAD_CEILING: ${{ vars.DGII_RNC_LOAD_CEILING }}
+          DGII_RNC_LOAD_HEADROOM_FLOOR: ${{ vars.DGII_RNC_LOAD_HEADROOM_FLOOR }}
           DGII_RNC_SIZE_LIMIT: ${{ vars.DGII_RNC_SIZE_LIMIT }}
         run: |
           set -euo pipefail

@@ -60,7 +60,7 @@ class LoadConfig:
     anomaly_limit: int = 25
     statement_timeout: str = "5min"
     drop_sample_limit: int = 5
-    load_ceiling_bytes: int = 100 * 1024 * 1024
+    load_headroom_floor_bytes: int = 200 * 1024 * 1024
     size_limit_bytes: int = 450 * 1024 * 1024
 
 
@@ -181,11 +181,13 @@ def load_script(result: ParseResult, config: LoadConfig) -> str:
     )
 
 
-def database_size_sql(config: LoadConfig) -> str:
+def headroom_sql(config: LoadConfig) -> str:
     timeout = _statement_timeout(config.statement_timeout)
+    live = _sql_ident(config.live_table)
     return (
         f"SET statement_timeout = '{timeout}';\n"
         "SELECT pg_database_size(current_database());\n"
+        f"SELECT COALESCE(pg_total_relation_size(to_regclass('{live}')), 0);\n"
     )
 
 
@@ -210,21 +212,25 @@ def swap_row_count(stdout: str) -> int:
 
 def require_swap_count(count: int, config: LoadConfig) -> None:
     if count < config.min_rows:
+        raise RncImportError(f"swap returned {count}, below minimum {config.min_rows}")
+
+
+def require_load_headroom(
+    database_size: int, relation_bytes: int, config: LoadConfig
+) -> int:
+    floor = config.load_headroom_floor_bytes
+    if database_size < 0 or relation_bytes < 0 or floor < 0:
         raise RncImportError(
-            f"swap returned {count}, below minimum {config.min_rows}"
+            f"refusing size database_size {database_size} "
+            f"relation_bytes {relation_bytes} floor {floor}"
         )
-
-
-def require_load_headroom(database_size: int, config: LoadConfig) -> int:
-    peak = database_size + config.load_ceiling_bytes
-    if (
-        database_size < 0
-        or config.load_ceiling_bytes < 0
-        or peak > config.size_limit_bytes
-    ):
+    headroom = max(floor, relation_bytes)
+    peak = database_size + headroom
+    if peak > config.size_limit_bytes:
         raise RncImportError(
             f"peak {peak} limit {config.size_limit_bytes} "
-            f"database_size {database_size} ceiling {config.load_ceiling_bytes}"
+            f"database_size {database_size} headroom {headroom} "
+            f"relation_bytes {relation_bytes}"
         )
     return peak
 
@@ -284,9 +290,9 @@ def _config_from_env() -> LoadConfig:
     timeout = os.environ.get("DGII_RNC_STATEMENT_TIMEOUT", "").strip()
     if timeout != "":
         updates["statement_timeout"] = _statement_timeout(timeout)
-    ceiling = os.environ.get("DGII_RNC_LOAD_CEILING", "").strip()
-    if ceiling != "":
-        updates["load_ceiling_bytes"] = _size_bytes(ceiling)
+    floor = os.environ.get("DGII_RNC_LOAD_HEADROOM_FLOOR", "").strip()
+    if floor != "":
+        updates["load_headroom_floor_bytes"] = _size_bytes(floor)
     limit = os.environ.get("DGII_RNC_SIZE_LIMIT", "").strip()
     if limit != "":
         updates["size_limit_bytes"] = _size_bytes(limit)
@@ -426,9 +432,11 @@ def _sql_ident(value: str) -> str:
 
 
 def _apply_load(database_url: str, result: ParseResult, config: LoadConfig) -> None:
-    (database_size,) = _psql_integers(database_url, database_size_sql(config), 1)
-    peak = require_load_headroom(database_size, config)
+    database_size, relation_bytes = _psql_integers(database_url, headroom_sql(config), 2)
+    peak = require_load_headroom(database_size, relation_bytes, config)
     print(f"database_bytes={database_size}")
+    print(f"live_relation_bytes={relation_bytes}")
+    print(f"headroom_bytes={peak - database_size}")
     print(f"peak_bytes={peak}")
     count = swap_row_count(_psql(database_url, load_script(result, config)))
     print(f"swap_rows={count}")
@@ -471,9 +479,7 @@ def _psql(database_url: str, script: str) -> str:
 
 def _psql_integers(database_url: str, script: str, expected: int) -> tuple[int, ...]:
     lines = [
-        line.strip()
-        for line in _psql(database_url, script).splitlines()
-        if line.strip()
+        line.strip() for line in _psql(database_url, script).splitlines() if line.strip()
     ]
     if len(lines) != expected or any(not line.isdigit() for line in lines):
         raise RncImportError(f"expected {expected} integers from psql")

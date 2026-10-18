@@ -16,7 +16,7 @@ from scripts.ops.dgii_rnc_import import (
     _apply_load,
     _config_from_env,
     copy_text,
-    database_size_sql,
+    headroom_sql,
     load_action,
     load_script,
     main,
@@ -31,12 +31,8 @@ from scripts.ops.dgii_rnc_import import (
 )
 
 
-def record(
-    rnc: str, name: str, status: str = "ACTIVO", trade_name: str = ""
-) -> str:
-    return "|".join(
-        [rnc, name, trade_name, "4", "5", "6", "7", "8", "9", status, "11"]
-    )
+def record(rnc: str, name: str, status: str = "ACTIVO", trade_name: str = "") -> str:
+    return "|".join([rnc, name, trade_name, "4", "5", "6", "7", "8", "9", status, "11"])
 
 
 def zip_bytes(
@@ -296,36 +292,56 @@ def test_parsed_byte_estimate_counts_one_escaped_row() -> None:
     assert parsed_byte_estimate(()) == 0
 
 
-def test_require_load_headroom_allows_the_limit_and_rejects_the_next_byte() -> None:
-    assert require_load_headroom(350 * 1024 * 1024, LOAD) == 450 * 1024 * 1024
-    with pytest.raises(RncImportError) as over_default:
-        require_load_headroom(400 * 1024 * 1024, LOAD)
-    assert str(over_default.value) == (
-        "peak 524288000 limit 471859200 "
-        "database_size 419430400 ceiling 104857600"
-    )
-    exact = LoadConfig(load_ceiling_bytes=10, size_limit_bytes=110)
-    assert require_load_headroom(100, exact) == 110
+def test_empty_load_uses_the_floor_and_a_large_table_uses_its_own_size() -> None:
+    floor = 200 * 1024 * 1024
+    assert require_load_headroom(0, 0, LOAD) == floor
+    assert require_load_headroom(0, floor - 1, LOAD) == floor
+    large = 250 * 1024 * 1024
+    assert require_load_headroom(0, large, LOAD) == large
+    assert require_load_headroom(250 * 1024 * 1024, 0, LOAD) == 450 * 1024 * 1024
     with pytest.raises(RncImportError) as one_over:
-        require_load_headroom(101, exact)
-    assert str(one_over.value) == "peak 111 limit 110 database_size 101 ceiling 10"
-    with pytest.raises(RncImportError) as negative_size:
-        require_load_headroom(-1, LOAD)
-    assert str(negative_size.value) == (
-        "peak 104857599 limit 471859200 database_size -1 ceiling 104857600"
+        require_load_headroom(250 * 1024 * 1024 + 1, 0, LOAD)
+    assert str(one_over.value) == (
+        "peak 471859201 limit 471859200 "
+        "database_size 262144001 headroom 209715200 relation_bytes 0"
     )
-    with pytest.raises(RncImportError) as negative_ceiling:
-        require_load_headroom(5, LoadConfig(load_ceiling_bytes=-2, size_limit_bytes=100))
-    assert str(negative_ceiling.value) == (
-        "peak 3 limit 100 database_size 5 ceiling -2"
+
+
+def test_a_350_mib_database_fails_the_450_mib_gate() -> None:
+    with pytest.raises(RncImportError) as caught:
+        require_load_headroom(350 * 1024 * 1024, 0, LOAD)
+    assert str(caught.value) == (
+        "peak 576716800 limit 471859200 "
+        "database_size 367001600 headroom 209715200 relation_bytes 0"
+    )
+    with pytest.raises(RncImportError) as negative_size:
+        require_load_headroom(-1, 0, LOAD)
+    assert str(negative_size.value) == (
+        "refusing size database_size -1 relation_bytes 0 floor 209715200"
+    )
+    with pytest.raises(RncImportError) as negative_relation:
+        require_load_headroom(5, -2, LoadConfig(size_limit_bytes=100))
+    assert str(negative_relation.value) == (
+        "refusing size database_size 5 relation_bytes -2 floor 209715200"
+    )
+    with pytest.raises(RncImportError) as negative_floor:
+        require_load_headroom(
+            5, 0, LoadConfig(load_headroom_floor_bytes=-2, size_limit_bytes=100)
+        )
+    assert str(negative_floor.value) == (
+        "refusing size database_size 5 relation_bytes 0 floor -2"
     )
 
 
 def test_size_sql_reads_sizes_and_does_not_truncate_or_copy() -> None:
-    database_sql = database_size_sql(LOAD)
-    assert "SELECT pg_database_size(current_database())" in database_sql
-    assert "TRUNCATE" not in database_sql
-    assert "COPY" not in database_sql
+    gate_sql = headroom_sql(LOAD)
+    assert gate_sql == (
+        "SET statement_timeout = '5min';\n"
+        "SELECT pg_database_size(current_database());\n"
+        "SELECT COALESCE(pg_total_relation_size(to_regclass('public.dgii_rnc')), 0);\n"
+    )
+    assert "TRUNCATE" not in gate_sql
+    assert "COPY" not in gate_sql
     report_sql = size_report_sql(LOAD)
     assert "pg_total_relation_size('public.dgii_rnc'::regclass)" in report_sql
     assert "pg_total_relation_size('public.dgii_rnc_load'::regclass)" in report_sql
@@ -335,34 +351,37 @@ def test_size_sql_reads_sizes_and_does_not_truncate_or_copy() -> None:
 
 def test_size_env_changes_headroom_and_rejects_injected_sql(monkeypatch) -> None:
     monkeypatch.setenv("DGII_RNC_STATEMENT_TIMEOUT", "10min")
-    monkeypatch.setenv("DGII_RNC_LOAD_CEILING", "80MB")
+    monkeypatch.setenv("DGII_RNC_LOAD_HEADROOM_FLOOR", "80MB")
     monkeypatch.setenv("DGII_RNC_SIZE_LIMIT", "200MB")
     config = _config_from_env()
-    assert database_size_sql(config).startswith("SET statement_timeout = '10min';\n")
-    assert require_load_headroom(120 * 1024 * 1024, config) == 200 * 1024 * 1024
+    assert headroom_sql(config).startswith("SET statement_timeout = '10min';\n")
+    assert require_load_headroom(120 * 1024 * 1024, 0, config) == 200 * 1024 * 1024
     with pytest.raises(RncImportError):
-        require_load_headroom(150 * 1024 * 1024, config)
-    monkeypatch.setenv("DGII_RNC_LOAD_CEILING", "80MB; drop table t")
+        require_load_headroom(150 * 1024 * 1024, 0, config)
+    assert (
+        require_load_headroom(50 * 1024 * 1024, 100 * 1024 * 1024, config)
+        == 150 * 1024 * 1024
+    )
+    monkeypatch.setenv("DGII_RNC_LOAD_HEADROOM_FLOOR", "80MB; drop table t")
     with pytest.raises(RncImportError):
         _config_from_env()
     monkeypatch.setenv("DGII_RNC_STATEMENT_TIMEOUT", "")
-    monkeypatch.setenv("DGII_RNC_LOAD_CEILING", "")
+    monkeypatch.setenv("DGII_RNC_LOAD_HEADROOM_FLOOR", "")
     monkeypatch.setenv("DGII_RNC_SIZE_LIMIT", "")
-    assert require_load_headroom(350 * 1024 * 1024, _config_from_env()) == (
-        450 * 1024 * 1024
-    )
+    with pytest.raises(RncImportError, match="peak 576716800"):
+        require_load_headroom(350 * 1024 * 1024, 0, _config_from_env())
 
 
 def test_size_units_scale_by_1024(monkeypatch) -> None:
-    monkeypatch.setenv("DGII_RNC_LOAD_CEILING", "1B")
+    monkeypatch.setenv("DGII_RNC_LOAD_HEADROOM_FLOOR", "1B")
     monkeypatch.setenv("DGII_RNC_SIZE_LIMIT", "1KB")
-    assert require_load_headroom(1023, _config_from_env()) == 1024
-    monkeypatch.setenv("DGII_RNC_LOAD_CEILING", "1KB")
+    assert require_load_headroom(1023, 0, _config_from_env()) == 1024
+    monkeypatch.setenv("DGII_RNC_LOAD_HEADROOM_FLOOR", "1KB")
     monkeypatch.setenv("DGII_RNC_SIZE_LIMIT", "1MB")
-    assert require_load_headroom(1024 * 1024 - 1024, _config_from_env()) == 1024 * 1024
-    monkeypatch.setenv("DGII_RNC_LOAD_CEILING", "1MB")
+    assert require_load_headroom(1024 * 1024 - 1024, 0, _config_from_env()) == 1024 * 1024
+    monkeypatch.setenv("DGII_RNC_LOAD_HEADROOM_FLOOR", "1MB")
     monkeypatch.setenv("DGII_RNC_SIZE_LIMIT", "1GB")
-    assert require_load_headroom(1024**3 - 1024 * 1024, _config_from_env()) == 1024**3
+    assert require_load_headroom(1024**3 - 1024 * 1024, 0, _config_from_env()) == 1024**3
 
 
 def test_apply_load_stops_before_truncate_when_the_peak_is_over(
@@ -382,15 +401,16 @@ def test_apply_load_stops_before_truncate_when_the_peak_is_over(
             "-A",
             "postgres://user:secret@db/postgres",
         ]
-        if "pg_database_size" in input and "TRUNCATE" not in input:
-            return _Completed(stdout="500000000\n")
+        if input == headroom_sql(LOAD):
+            return _Completed(stdout="500000000\n0\n")
         raise AssertionError("load ran after the size check failed")
 
     monkeypatch.setattr("scripts.ops.dgii_rnc_import.subprocess.run", fake_run)
     with pytest.raises(RncImportError) as caught:
         _apply_load("postgres://user:secret@db/postgres", _one_row(), LOAD)
     assert len(calls) == 1
-    assert calls[0] == database_size_sql(LOAD)
+    assert calls[0] == headroom_sql(LOAD)
+    assert "peak 709715200" in str(caught.value)
     assert "secret" not in str(caught.value)
     assert capsys.readouterr().out == ""
 
@@ -402,20 +422,24 @@ def test_apply_load_prints_sizes_around_the_swap(monkeypatch, capsys) -> None:
     def fake_run(args, *, input, text, capture_output, check):
         calls.append(input)
         assert args[-1] == url
+        if input == headroom_sql(LOAD):
+            return _Completed(stdout="1000\n0\n")
+        if input == size_report_sql(LOAD):
+            return _Completed(stdout="100\n200\n300\n")
         if "TRUNCATE" in input:
             return _Completed(stdout="700000\n")
-        if "pg_total_relation_size" in input:
-            return _Completed(stdout="100\n200\n300\n")
-        return _Completed(stdout="1000\n")
+        raise AssertionError(input)
 
     monkeypatch.setattr("scripts.ops.dgii_rnc_import.subprocess.run", fake_run)
     _apply_load(url, _one_row(), LOAD)
-    assert calls[0] == database_size_sql(LOAD)
+    assert calls[0] == headroom_sql(LOAD)
     assert "TRUNCATE" in calls[1]
     assert calls[2] == size_report_sql(LOAD)
     assert capsys.readouterr().out == (
         "database_bytes=1000\n"
-        "peak_bytes=104858600\n"
+        "live_relation_bytes=0\n"
+        "headroom_bytes=209715200\n"
+        "peak_bytes=209716200\n"
         "swap_rows=700000\n"
         "database_bytes_after=100\n"
         "relation_bytes public.dgii_rnc=200\n"

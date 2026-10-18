@@ -53,9 +53,9 @@ Replace the quoted argument with the RNC you want to read. The swap replaces `pu
 
 The commercial names add 10825191 bytes to the COPY payload, about 10.3 MB. The 2026-10-18 file kept 795000 rows, with `trade_name_filled=446798` and `parsed_bytes=57805193`. The table plus its primary key is about 105 MB. A reload peaks around 223 MB on staging. The free database limit is 500 MB.
 
-Before the truncate or the copy, the load queries `pg_database_size(current_database())` and adds the ceiling. The load fails without loading when the peak exceeds the threshold. The default ceiling is 100 MB, which is 104857600 bytes. The default threshold is 450 MB, which is 471859200 bytes.
+Before the truncate or the copy, the load reads `pg_database_size(current_database())` and `pg_total_relation_size` of `public.dgii_rnc`. The required headroom is the larger of that live size and a floor of 200 MB, which is 209715200 bytes. A missing table counts as zero, so the floor applies. The load fails without loading when the current database size plus that headroom exceeds the threshold. The default threshold is 450 MB, which is 471859200 bytes. A database near 350 MB fails that default, because 350 MB plus the 200 MB floor is 550 MB.
 
-Set the repository variables `DGII_RNC_LOAD_CEILING` and `DGII_RNC_SIZE_LIMIT` to change the ceiling and the threshold. An empty value keeps the default. The value is a number plus `B`, `KB`, `MB`, or `GB`.
+Set the repository variables `DGII_RNC_LOAD_HEADROOM_FLOOR` and `DGII_RNC_SIZE_LIMIT` to change the floor and the threshold. An empty value keeps the default. The value is a number plus `B`, `KB`, `MB`, or `GB`.
 
 The dry run prints `parsed_bytes`. After the swap, the log prints `database_bytes_after` and `relation_bytes` for `public.dgii_rnc` and `public.dgii_rnc_load`.
 
@@ -67,4 +67,4 @@ Set the repository variable `DGII_RNC_STATEMENT_TIMEOUT` to another interval, su
 
 ## Wait for the migration
 
-Loading waits on migration `20261018130000_dgii_rnc_registry.sql` and a separate staging approval. This runbook does not record a completed load.
+Loading waits on migration `20261018190000_dgii_rnc_registry.sql` and a separate staging approval. This runbook does not record a completed load.
