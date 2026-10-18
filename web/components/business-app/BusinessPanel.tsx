@@ -10,6 +10,7 @@ import BusinessExpensesPanel from "./BusinessExpensesPanel";
 import ExpenseDetailPanel from "./ExpenseDetailPanel";
 import BusinessAccessPanel from "./BusinessAccessPanel";
 import BusinessUpdatesPanel from "./BusinessUpdatesPanel";
+import BusinessMonthClosePanel from "./BusinessMonthClosePanel";
 import ReceiptReviewPanel from "./ReceiptReviewPanel";
 import PanelErrorBoundary from "./PanelErrorBoundary";
 import { SampleDataNotice } from "./business-ui";
@@ -64,6 +65,7 @@ export default function BusinessPanel() {
         {panel.kind === "expense" ? <ExpenseDetailPanel key={panel.expenseId} expenseId={panel.expenseId} /> : null}
         {panel.kind === "updates" ? <BusinessUpdatesPanel /> : null}
         {panel.kind === "access" ? <BusinessAccessPanel /> : null}
+        {panel.kind === "month_close" ? <BusinessMonthClosePanel /> : null}
         {panel.kind === "receipt" ? <ReceiptReviewPanel key={panel.receiptId} target={{ kind: "receipt", id: panel.receiptId }} /> : null}
         {panel.kind === "draft" ? <ReceiptReviewPanel key={panel.draftId} target={{ kind: "draft", id: panel.draftId }} /> : null}
       </PanelErrorBoundary>

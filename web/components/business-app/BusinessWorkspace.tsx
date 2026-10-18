@@ -59,6 +59,7 @@ export type BusinessPanelState =
   | { kind: "expense"; expenseId: string }
   | { kind: "updates" }
   | { kind: "access" }
+  | { kind: "month_close" }
   | { kind: "receipt"; receiptId: string }
   | { kind: "draft"; draftId: string };
 
@@ -111,7 +112,7 @@ export function useBusiness(): BusinessContextValue {
 const NO_ACCOUNTS: never[] = [];
 // The captures endpoint's largest page; it has no cursor.
 const NOTES_PAGE = 50;
-const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "updates", "access"]);
+const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "updates", "access", "month_close"]);
 
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
@@ -124,7 +125,7 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
   if (view && PANEL_KINDS.has(view)) {
-    return { kind: view as "overview" | "inbox" | "expenses" | "updates" | "access" };
+    return { kind: view as "overview" | "inbox" | "expenses" | "updates" | "access" | "month_close" };
   }
   return { kind: "overview" };
 }

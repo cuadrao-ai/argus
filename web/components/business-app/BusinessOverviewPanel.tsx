@@ -30,6 +30,9 @@ export default function BusinessOverviewPanel() {
           {formatBusinessName(chosen?.name, t("business.overview.title", "My business"))}
         </h2>
         <div className="flex flex-wrap items-center justify-end gap-3">
+          <button type="button" data-testid="open-month-close" className={`${pillButtonClass} border border-black/10 bg-white px-4 text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={() => openPanel({ kind: "month_close" })}>
+            {t("business.nav.month_close", "Month close")}
+          </button>
           <BusinessPeriodControl period={period} setPeriod={setPeriod} />
           {upload ? (
             <button type="button" data-testid="business-primary-upload" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>

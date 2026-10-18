@@ -228,7 +228,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         accessible.querySelectorAll('[aria-hidden="true"]').forEach((element) => element.remove());
         return accessible.getAttribute("aria-label") ?? accessible.textContent?.replace(/\d+$/, "").trim();
       });
-      assert.deepEqual(names, ["Resumen", "Bandeja", "Gastos", "Novedades"]);
+      assert.deepEqual(names, ["Resumen", "Bandeja", "Gastos", "Novedades", "Cuadrar el mes"]);
       assert.ok(items.every((button) => button.querySelector("svg")), "each name sits with its icon");
       await page.close();
     }
