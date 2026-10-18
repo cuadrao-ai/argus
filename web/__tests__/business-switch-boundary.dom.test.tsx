@@ -49,6 +49,7 @@ async function mount() {
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { useChatAccountBoundary } = await import("@/components/chat/useChatAccountBoundary");
   const { getChosenGrant, setChosenGrant } = await import("@/lib/business-grant");
@@ -91,9 +92,11 @@ async function mount() {
     return (
       <I18nextProvider i18n={i18n}>
         {boundary.expired ? <p role="alert" data-testid="account-changed">Tu cuenta cambió</p> : null}
-        <BusinessWorkspaceProvider source={source as never}>
-          <Probe />
-        </BusinessWorkspaceProvider>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as never}>
+            <Probe />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
       </I18nextProvider>
     );
   }

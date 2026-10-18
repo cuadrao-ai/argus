@@ -137,8 +137,20 @@ def test_committed_allowlist_matches_tracked_brand_files() -> None:
         for pattern in globs
         if not any(module.matches_glob(path, pattern) for path in tracked if path)
     ]
+    icons = sorted(
+        path
+        for path in tracked
+        if path.startswith("marketing/app/")
+        and path.count("/") == 2
+        and path.rsplit(".", 1)[-1].lower() in {"png", "ico", "svg"}
+    )
+    app_globs = sorted(
+        pattern for pattern in globs if pattern.startswith("marketing/app/")
+    )
     assert globs
     assert missed == []
+    assert icons
+    assert app_globs == icons
 
 
 def test_allowlisted_brand_asset_passes(tmp_path: Path) -> None:
@@ -147,17 +159,80 @@ def test_allowlisted_brand_asset_passes(tmp_path: Path) -> None:
     assert run_check(repo, base).returncode == 0
 
 
-def test_allowlist_entry_exempts_a_matching_evidence_file(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("path", "pattern"),
+    [
+        ("marketing/app/evidence/x.png", "marketing/app/**"),
+        ("docs/reports/evidence/logo.png", "docs/reports/evidence/**"),
+    ],
+)
+def test_allowlist_does_not_exempt_an_evidence_path(
+    tmp_path: Path, path: str, pattern: str
+) -> None:
     repo, base = init_repo(tmp_path)
-    path = "docs/reports/evidence/logo.png"
     commit_bytes(repo, path, b"brand")
     allowlist = tmp_path / "allow.txt"
-    allowlist.write_text("docs/reports/evidence/**\n")
-    assert run_check(repo, base, allowlist).returncode == 0
-    allowlist.write_text("marketing/brand/**\n")
+    allowlist.write_text(pattern + "\n")
     result = run_check(repo, base, allowlist)
     assert result.returncode == 1
     assert result.stderr.splitlines() == [f"{path}: {REJECTION}"]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "Docs/Reports/x.png",
+        "docs/REPORTS/x.png",
+        "docs/EVIDENCE/x.png",
+    ],
+)
+def test_evidence_path_match_ignores_case(tmp_path: Path, path: str) -> None:
+    repo, base = init_repo(tmp_path)
+    commit_bytes(repo, path, b"new-evidence")
+    result = run_check(repo, base)
+    assert result.returncode == 1
+    assert result.stderr.splitlines() == [f"{path}: {REJECTION}"]
+
+
+def commit_raw_path(repo: Path, name: bytes, payload: bytes) -> None:
+    hashed = subprocess.run(
+        ["git", "hash-object", "-w", "--stdin"],
+        cwd=repo,
+        input=payload,
+        check=True,
+        capture_output=True,
+    )
+    line = b"100644 " + hashed.stdout.strip() + b"\t" + name + b"\n"
+    subprocess.run(
+        ["git", "update-index", "--add", "--index-info"],
+        cwd=repo,
+        input=line,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "raw-name"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_non_utf8_evidence_media_fails(tmp_path: Path) -> None:
+    repo, base = init_repo(tmp_path)
+    commit_raw_path(repo, b"docs/reports/\xff.png", b"new-evidence")
+    result = run_check(repo, base)
+    assert result.returncode == 1
+    assert "Traceback" not in result.stderr
+    assert result.stderr.splitlines() == [f"docs/reports/\\xff.png: {REJECTION}"]
+
+
+def test_non_utf8_non_media_passes(tmp_path: Path) -> None:
+    repo, base = init_repo(tmp_path)
+    commit_raw_path(repo, b"notes\xff.txt", b"notes")
+    result = run_check(repo, base)
+    assert result.returncode == 0
+    assert result.stderr == ""
 
 
 @pytest.mark.parametrize(

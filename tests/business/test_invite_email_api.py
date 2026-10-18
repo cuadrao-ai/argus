@@ -1,14 +1,7 @@
 # ruff: noqa: F811
 from datetime import datetime, timedelta
 
-import pytest
-
 from tests.business.test_business_api import Owner, alice, bob  # noqa: F401
-
-
-@pytest.fixture(autouse=True)
-def postal_config(monkeypatch):
-    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "123 Test Street, Example City")
 
 
 def test_configured_create_and_resend_call_actual_adapter_with_canonical_labels(
@@ -75,9 +68,7 @@ def test_foreign_and_revoked_invite_cannot_resend(alice: Owner, bob: Owner):
     assert alice.post(f"/access/invites/{invite['id']}/resend").status_code == 404
 
 
-def test_enabled_delivery_requires_postal_config_and_explicit_resend_recovers(
-    alice: Owner, monkeypatch
-):
+def test_enabled_delivery_sends_without_a_postal_address(alice: Owner, monkeypatch):
     sent = []
     monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
     monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
@@ -88,12 +79,9 @@ def test_enabled_delivery_requires_postal_config_and_explicit_resend_recovers(
     )
     first = alice.post("/access", {"email": "contadora@example.test"})
     assert first.status_code == 201
-    assert first.json()["invite_delivery"] == "failed"
-    assert sent == []
-    invite = first.json()["invites"][0]
-    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "123 Test Street, Example City")
-    again = alice.post(f"/access/invites/{invite['id']}/resend")
-    assert again.json()["invite_delivery"] == "accepted"
+    assert first.json()["invite_delivery"] == "accepted"
     assert len(sent) == 1
-    assert "Cuadrao LLC, 123 Test Street, Example City" in sent[0]["html"]
+    assert ">Cuadrao LLC</p>" in sent[0]["html"]
+    assert sent[0]["plain_text"].rstrip().endswith("Cuadrao LLC")
+    assert "Cuadrao LLC," not in sent[0]["html"] + sent[0]["plain_text"]
     assert "Salir de la lista" not in sent[0]["html"] + sent[0]["plain_text"]

@@ -132,7 +132,7 @@
             },
             "preferences": {
               "label": "Preferencias que tú eliges",
-              "body": "El almacenamiento local de tu navegador guarda tu idioma, que empieza con el de tu propio navegador hasta que lo cambies, junto con tus preferencias de apariencia y diseño, los avisos que descartaste, las conversaciones que marcaste como temporales y el anuncio o enlace que te trajo aquí. El idioma, la apariencia, el diseño, los avisos y las marcas temporales quedan en tu dispositivo. La campaña también se guarda ahí, y Argus puede recibirla cuando empiezas como invitado o creas una cuenta. Esta pestaña guarda temporalmente el identificador de tu cuenta, la hora de reinicio del límite diario y si cerraste el aviso. Ese estado se borra cuando se reinicia el límite, una pregunta se completa, cierras sesión o cambias de cuenta, o cierras la pestaña. Argus nunca envía nada de esto a anunciantes."
+              "body": "El almacenamiento local de tu navegador guarda tu idioma, que empieza con el de tu propio navegador hasta que lo cambies, junto con tus preferencias de apariencia y diseño, los avisos que descartaste, las conversaciones que marcaste como temporales y el anuncio o enlace que te trajo aquí. El idioma, la apariencia, el diseño, los avisos y las marcas temporales quedan en tu dispositivo. La campaña también se guarda ahí, y Argus puede recibirla cuando empiezas como invitado o creas una cuenta. Esta pestaña guarda temporalmente el identificador de tu cuenta, la hora de reinicio del límite diario y si cerraste el aviso. Ese estado se borra cuando se reinicia el límite, una pregunta se completa, cierras sesión o cambias de cuenta, o cierras la pestaña. Esta pestaña también guarda si aceptaste el aviso de privacidad vigente de Cuadrao Business, hasta que esa aceptación pueda guardarse en el servidor. Cerrar la pestaña borra esa copia. Argus nunca envía nada de esto a anunciantes."
             }
           },
           "body_after": "Argus no usa cookies publicitarias, píxeles de anuncios, rastreadores de marketing ni rastreo entre sitios, y no comparte datos de tu navegador con socios publicitarios. La analítica de producto, cuando está activa, corre en los servidores de Argus y no guarda nada en tu navegador. Puedes borrar o bloquear este almacenamiento desde la configuración de tu navegador, aunque el inicio de sesión dejará de funcionar si bloqueas las cookies de sesión."
@@ -1458,6 +1458,11 @@
       "existing_action": "Inicia sesión",
       "error": "No pudimos enviar tu solicitud. Inténtalo de nuevo."
     },
+    "business_unavailable": {
+      "body": "Si crees que es un error, escríbenos a admin@cuadrao.ai.",
+      "sign_out": "Cerrar sesión",
+      "title": "Cuadrao Business aún no está disponible para tu cuenta."
+    },
     "login": {
       "brand": "cuadrao",
       "subtitle": "Inicia sesión para continuar",
@@ -1518,6 +1523,14 @@
       "retrying_revocation": "Reintentando...",
       "revocation_retry_error": "Cuadrao aún no pudo confirmar que todas las sesiones se cerraron. Inténtalo de nuevo.",
       "cleanup_warning": "Las sesiones fueron revocadas, pero este navegador no pudo confirmar la limpieza de cookies. Aún necesitas iniciar sesión de nuevo."
+    },
+    "screen": {
+      "go_to_cuadrao": "Ir a Cuadrao",
+      "invite_line": "Pide a quien te invitó que te envíe otra invitación.",
+      "link_expired_title": "Este enlace ya venció o ya se usó.",
+      "not_found_detail": "Puede que el enlace esté viejo o mal copiado.",
+      "not_found_title": "No encontramos esta página.",
+      "request_new_link": "Pedir un enlace nuevo"
     },
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
@@ -2179,6 +2192,28 @@
         "title": "[placeholder] business.bank.unmatched.title"
       }
     },
+    "consent": {
+      "title": "[BORRADOR] Antes de usar IA en tu negocio",
+      "intro": "[BORRADOR] La lectura de recibos con IA y el asistente envían datos de tu negocio a un proveedor de modelos. Revisa el aviso y confirma que lo aceptas. El texto definitivo lo reemplaza el abogado; esto es un marcador.",
+      "privacy_link": "[BORRADOR] Leer el aviso de privacidad",
+      "opt_in": "[BORRADOR] Acepto el aviso de privacidad de Cuadrao Business que acabo de ver, en esta versión.",
+      "accept": "[BORRADOR] Aceptar y continuar",
+      "decline": "[BORRADOR] No aceptar",
+      "saving": "[BORRADOR] Guardando tu aceptación…",
+      "save_error": "[BORRADOR] No se pudo guardar tu aceptación. Inténtalo otra vez.",
+      "decline_title": "[BORRADOR] Sin este permiso, la IA queda apagada",
+      "decline_body": "[BORRADOR] Si no aceptas, la lectura de recibos con IA y el asistente no están disponibles. Puedes seguir subiendo recibos, escribiendo gastos y revisando lo que ya guardaste.",
+      "continue_without": "[BORRADOR] Continuar sin IA",
+      "holding": "[BORRADOR] Apagando la lectura de recibos…",
+      "hold_error": "[BORRADOR] No pudimos apagar la lectura de recibos. La IA seguiría disponible, así que seguimos aquí.",
+      "back": "[BORRADOR] Volver al aviso",
+      "accepted_title": "[BORRADOR] Aceptación registrada en este navegador",
+      "accepted_body": "[BORRADOR] Guardamos quién aceptó, cuándo, la versión del aviso, el idioma y una huella del texto mostrado. Esta copia vive solo en esta pestaña hasta que el servidor pueda guardarla.",
+      "continue": "[BORRADOR] Continuar",
+      "held": "[BORRADOR] La lectura de recibos con IA y el asistente siguen apagados hasta que aceptes el aviso vigente.",
+      "review": "[BORRADOR] Revisar el aviso",
+      "version_label": "[BORRADOR] Versión {{version}}"
+    },
     "export": {
       "title": "Exportar registros del negocio",
       "scope": "{{name}} · CSV, Excel y originales conservados en un ZIP.",
@@ -2617,6 +2652,18 @@
       "last_30_days": "Últimos 30 días",
       "last_month": "Mes pasado",
       "this_month": "Este mes"
+    },
+    "privacy_notice": {
+      "title": "[BORRADOR] Aviso de privacidad de Cuadrao Business",
+      "close": "[BORRADOR] Cerrar aviso",
+      "paragraphs": [
+        "[BORRADOR] Este aviso es un marcador. No está publicado ni revisado por un abogado. El texto definitivo reemplaza estas frases.",
+        "[BORRADOR] Cubre Cuadrao Business, la app web del negocio. El dueño del negocio es responsable de sus registros. Cuadrao los trata por encargo suyo. El responsable legal, el domicilio y el contacto de privacidad siguen como {{OPERADOR_LEGAL}}, {{DIRECCION_LEGAL}} y {{CONTACTO_PRIVACIDAD}}.",
+        "[BORRADOR] Recopilamos la cuenta de quien entra, los registros del negocio, los recibos originales, lo que la lectura propone y los datos fiscales que aparecen en un recibo, como RNC, NCF o e-CF e ITBIS. Esos datos fiscales quedan sin verificar hasta que una persona autorizada los revise.",
+        "[BORRADOR] Leer un recibo con IA envía la foto, el PDF o el documento a un modelo, solo para proponer comercio, monto, fecha y datos fiscales. El asistente envía el texto del mensaje y el contexto que necesita. Ninguno registra un gasto por sí solo.",
+        "[BORRADOR] Sin tu aceptación de este aviso, esas funciones no se activan. Subir un recibo, escribir un gasto o revisar lo guardado no es un permiso para enviar datos a un modelo.",
+        "[BORRADOR] Puedes pedir acceso, corrección, eliminación, oposición y portabilidad. Los plazos y la ley aplicable, incluida la Ley 172-13, los confirma el abogado. [A CONFIRMAR]"
+      ]
     },
     "receipt": {
       "untitled": "Recibo"
