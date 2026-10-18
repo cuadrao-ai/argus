@@ -143,6 +143,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   if (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading") return frame(<><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
   const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
+  const canEnter = detail.enterable && canPrepare && !locked;
 
   const changedFields = (): Partial<ReceiptReviewFields> =>
     Object.fromEntries(
@@ -296,7 +297,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                         {terminal.uploadLabel}
                       </button>
                     ) : null}
-                    {detail.enterable ? (
+                    {canEnter ? (
                       <button
                         type="button"
                         className={secondaryButtonClass}
@@ -339,7 +340,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               ) : null}
             </div>
           ) : null}
-          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={detail.enterable && canPrepare && !locked} preparable={detail.preparable && canPrepare} />
+          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={canEnter} preparable={detail.preparable && canPrepare} />
           {waitingForAi && readStalled ? (
             <div role="status" data-testid="receipt-read-stalled" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>
               <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>

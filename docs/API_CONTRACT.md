@@ -9576,7 +9576,9 @@ accept path recorded.
   `preparable: false`. A readable fiscal bill (an NCF and a plain total on
   `batch.receipt`) that was refused stays `interrupted` and `preparable: true`.
   "Try again with AI" replays the saved read without a new provider call and
-  runs the hand-off again. On that replay a fiscal bill becomes one expense
+  runs the hand-off again, except for an incomplete receipt that is not a
+  fiscal bill. Replaying that batch refuses the same way, so the retry asks
+  the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
   statement period. Other interrupted hand-offs retry the same way. A terminal
   refusal is never reported as `no_purchase_found`, which stays for a receipt

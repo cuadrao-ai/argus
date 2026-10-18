@@ -614,6 +614,12 @@ class DocumentsService:
                 repo.release(connection_id=connection_id, holder=holder)
                 raise DocumentServiceError("document_attempt_superseded")
         replayed = batch is not None
+        from argus.domain.business.actions.mutations import _read_refusal
+
+        if batch is not None and _read_refusal(batch) == "receipt_requires_review":
+            # The same saved batch refuses again. Only a new read can finish it.
+            batch = None
+            replayed = False
         try:
             business = self._canonical_business(connection_id, scope)
             if business:

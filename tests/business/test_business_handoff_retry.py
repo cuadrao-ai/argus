@@ -182,11 +182,17 @@ def test_an_error_the_read_itself_produced_keeps_its_own_blocker():
 def _saved_read(kind: str) -> ExtractionBatch:
     """One saved read of each refusal shape the hand-off can meet again."""
 
-    receipt = ReceiptDetails(total="250.50", currency="DOP", merchant="Colmado La Esquina")
+    receipt = ReceiptDetails(
+        total="250.50", currency="DOP", merchant="Colmado La Esquina"
+    )
     if kind == "incomplete":
-        return ExtractionBatch(complete=False, readable=True, candidates=(), receipt=receipt)
+        return ExtractionBatch(
+            complete=False, readable=True, candidates=(), receipt=receipt
+        )
     if kind == "unreadable":
-        return ExtractionBatch(complete=True, readable=False, candidates=(), receipt=receipt)
+        return ExtractionBatch(
+            complete=True, readable=False, candidates=(), receipt=receipt
+        )
     if kind == "no_receipt":
         return ExtractionBatch(complete=True, readable=True, candidates=())
     if kind == "ncf_bill":
