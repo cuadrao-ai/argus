@@ -54,10 +54,25 @@ Integration base is `02502122aae107bc71ff123c7fb8060dc88f93ab`.
   screenshots are retained beside the baseline image.
 - Actual built app Info.plist readback confirms the legal gate is `false` and
   the two public default URLs match the table above.
-- Integration refresh still reads `02502122aae107bc71ff123c7fb8060dc88f93ab`.
-  No reconciliation merge is needed. Modularity budget and diff checks pass.
+- Integration refresh reads `5110e436e2248225ba3c68c63aa3b0280514af3b`.
+  One-way merge `b5ff065a6df170eabdd0d9bd0180db6eee99bb2f` reconciles it.
+  The intervening change affects Business web export and ownership evidence only.
+  It has no overlap with native legal state, configuration, or tests. Prior
+  screenshots remain valid. Modularity budget and diff checks pass.
 - This is native local Xcode evidence. It is not hosted or physical-phone proof.
   Independent final-head review remains the coordinator's gate.
 
 Simulator results establish native rendering only. No hosted signup, physical
 phone, TestFlight, production or paid-provider action was performed.
+
+## Review correction
+
+The partial-document signup test now checks `app.links["Términos"]` and
+`app.links["Política de privacidad"]`. The previous button queries could miss
+visible inline links. This changes test coverage only. The legal flag remains
+false. Larger inline link targets remain deferred until legal links are enabled.
+
+After the correction and integration merge, the same six focused simulator tests
+passed again, with 0 failures and 0 skipped. The updated result summary records
+this run. The private result bundle remains in
+`temp/legal-assertion-results.xcresult`.

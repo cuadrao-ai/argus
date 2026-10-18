@@ -108,8 +108,8 @@ extension FinancialLoopUITests {
                     openSignUp()
                 }
                 XCTAssertFalse(app.staticTexts["cuadrao.signup.acceptance"].exists)
-                XCTAssertFalse(app.buttons["Términos"].exists)
-                XCTAssertFalse(app.buttons["Privacidad"].exists)
+                XCTAssertFalse(app.links["Términos"].exists)
+                XCTAssertFalse(app.links["Política de privacidad"].exists)
             }
         }
     }
