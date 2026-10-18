@@ -60,7 +60,7 @@ for (const language of ["es-419", "en"] as const) {
       await expect(screen.getByText(BUSINESS_PRIVACY_NOTICE_VERSION)).toBeVisible();
       const accept = screen.getByTestId("business-consent-accept");
       await expect(accept).toBeDisabled();
-      await expect(page.getByTestId("overview-real-expenses")).toHaveCount(0);
+      await expect(page.getByTestId("inicio-por-revisar")).toHaveCount(0);
 
       await screen.getByRole("heading", { name: copy.title }).focus();
       await page.keyboard.press("Tab");
@@ -80,7 +80,7 @@ for (const language of ["es-419", "en"] as const) {
       await shot("decline");
       await declined.getByTestId("business-consent-continue-without").click();
       await expect(page.getByTestId("business-consent-held")).toContainText(copy.held);
-      await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+      await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
       await expect(page.getByTestId("receipt-reading-control")).toHaveCount(0);
 
       await page.getByTestId("business-consent-held").getByRole("button").click();
@@ -95,11 +95,11 @@ for (const language of ["es-419", "en"] as const) {
       await saved.getByTestId("business-consent-continue").click();
       await expect(page.getByTestId("business-consent-screen")).toHaveCount(0);
       await expect(page.getByTestId("business-consent-held")).toHaveCount(0);
-      await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+      await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
 
       await page.reload();
       await expect(page.getByTestId("business-consent-screen")).toHaveCount(0);
-      await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+      await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
     });
   }
 }
