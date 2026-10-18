@@ -328,6 +328,8 @@ def build_fiscal_packet(
             if rnc is None
             else "needs_review"
             if relevant
+            else "summary_only"
+            if form == "607" and consumption_count and not rows[form]
             else "no_operations"
             if not rows[form]
             else "prepared_candidate"

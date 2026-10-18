@@ -262,6 +262,15 @@ def test_partial_month_keeps_review_evidence_but_never_emits_monthly_txt():
     assert result.manifest["reconciliation"]
 
 
+def test_small_consumption_sale_is_summary_only_instead_of_no_operations():
+    result = packet((practice_records()[-1],))
+    assert result.manifest["forms"]["607"]["status"] == "summary_only"
+    assert result.manifest["consumption_summary"]["count"] == 1
+    assert "dgii/607-202609.txt" not in result.files
+    empty = packet(())
+    assert empty.manifest["forms"]["607"]["status"] == "no_operations"
+
+
 def test_formatted_legacy_ids_share_identity_without_changing_source_facts():
     records = practice_records()
     first = records[0]
