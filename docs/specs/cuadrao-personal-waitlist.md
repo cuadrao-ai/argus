@@ -46,8 +46,9 @@ The opaque verification ID is 256 random bits. Email links expose only its first
 128 bits and a purpose-bound HMAC. The remaining bits never enter a URL. Each
 confirmation link expires after 48 hours, even if a later confirmation is sent.
 Leave links do not expire while a row exists, remain valid beyond 30 days, and
-repeat successfully after deletion. The leave endpoint accepts one-click POST
-and a direct browser GET without login or extra data.
+repeat successfully after deletion. Confirmation and leave GETs display an
+approved action button without changing data. Only POST confirms or removes a
+signup, including one-click unsubscribe POST without login or extra data.
 
 The form checks CAPTCHA hostname and action and includes a honeypot. The service
 keeps at most five attempts per IP per hour in the existing process-local limiter;
