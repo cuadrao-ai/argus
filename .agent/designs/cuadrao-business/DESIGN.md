@@ -35,7 +35,7 @@ planned experiences. They do not establish shipped capabilities or integrations.
 - Remove the extra footer line "Pensado para los negocios de aquí" and its English equivalent.
 - Keep "Las cuentas claras. El negocio, adelante." as the Business footer message.
 
-The founder supplied Midday examples for clear hierarchy, readable records,
+The founder supplied reference examples for clear hierarchy, readable records,
 restrained page structure and broad product coverage. The founder supplied a
 LogSnag letter as a reference for a direct personal note. These references do not
 authorize copying another product's claims, integrations or customer proof.
