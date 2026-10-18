@@ -12,7 +12,9 @@ The job checks out this repository and downloads `DGII_RNC.zip`. It parses the `
 python3 scripts/ops/dgii_rnc_import.py parse rnc.zip
 ```
 
-The gate then decides whether to load. A load copies the kept rows into `public.dgii_rnc_load` and calls `public.dgii_rnc_swap(min_rows int)`, which returns the row count now in `public.dgii_rnc`. The job prints that integer as `swap_rows` and fails if it is below 700000.
+The gate then decides whether to load. A load copies `rnc`, `name`, `trade_name`, `status`, and `file_date` into `public.dgii_rnc_load`. It then calls `public.dgii_rnc_swap(min_rows int)`, which returns the row count now in `public.dgii_rnc`. The job prints that integer as `swap_rows` and fails if it is below 700000.
+
+`trade_name` is column 3. A blank commercial name is NULL. Status is copied as written.
 
 The loader keeps a row only when the RNC normalizes to 9 or 11 digits and the trimmed name is not blank. An eight-digit RNC is dropped and is not padded. Repeated RNCs keep the last row. The summary prints `dropped`, `duplicates`, and a `dropped_sample` line for each of the first few drops.
 
@@ -49,7 +51,7 @@ Replace the quoted argument with the RNC you want to read. The swap replaces `pu
 
 ## Watch the database size
 
-The table plus its primary key is about 95 MB. A reload peaks around 213 MB on staging. The free database limit is 500 MB.
+The COPY payload was 46980002 bytes before `trade_name`. The command `python3 scripts/ops/dgii_rnc_import.py parse /tmp/DGII_RNC.zip` reports `trade_name_filled=446798` and `parsed_bytes=57805193`. The commercial names add 10825191 bytes, about 10.3 MB. The table plus its primary key is about 105.3 MB. A reload peaks around 223.3 MB on staging. The free database limit is 500 MB.
 
 Before the truncate or the copy, the load queries `pg_database_size(current_database())` and adds the ceiling. The load fails without loading when the peak exceeds the threshold. The default ceiling is 100 MB, which is 104857600 bytes. The default threshold is 450 MB, which is 471859200 bytes.
 

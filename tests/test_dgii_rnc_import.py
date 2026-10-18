@@ -31,8 +31,12 @@ from scripts.ops.dgii_rnc_import import (
 )
 
 
-def record(rnc: str, name: str, status: str = "ACTIVO") -> str:
-    return "|".join([rnc, name, "3", "4", "5", "6", "7", "8", "9", status, "11"])
+def record(
+    rnc: str, name: str, status: str = "ACTIVO", trade_name: str = ""
+) -> str:
+    return "|".join(
+        [rnc, name, trade_name, "4", "5", "6", "7", "8", "9", status, "11"]
+    )
 
 
 def zip_bytes(
@@ -119,6 +123,27 @@ def test_trims_surrounding_spaces_on_rnc_and_name() -> None:
     assert result.rows[0].name == "Nombre Comercial"
 
 
+def test_column_3_parses_as_the_commercial_name() -> None:
+    result = parsed(record("123456789", "LEGAL", trade_name="COMERCIAL"))
+    assert result.rows[0].trade_name == "COMERCIAL"
+
+
+def test_blank_commercial_name_copies_as_null() -> None:
+    spaces = parsed(record("123456789", "LEGAL", trade_name="   "))
+    empty = parsed(record("40212345678", "LEGAL", trade_name=""))
+    assert spaces.rows[0].trade_name is None
+    assert empty.rows[0].trade_name is None
+    assert copy_text(spaces.rows) == "123456789\tLEGAL\t\\N\tACTIVO\t2026-10-18\n"
+    assert copy_text(empty.rows) == "40212345678\tLEGAL\t\\N\tACTIVO\t2026-10-18\n"
+
+
+def test_status_is_stored_as_written() -> None:
+    baja = parsed(record("123456789", "ONE", "DADO DE BAJA"))
+    cese = parsed(record("40212345678", "TWO", "CESE TEMPORAL"))
+    assert baja.rows[0].status == "DADO DE BAJA"
+    assert cese.rows[0].status == "CESE TEMPORAL"
+
+
 def test_zip_date_time_stays_on_the_santo_domingo_calendar_date() -> None:
     payload = (record("123456789", "ACME") + "\r\n").encode("latin-1")
     result = parse_zip(zip_bytes(payload, date_time=(2026, 10, 18, 0, 30, 0)))
@@ -181,7 +206,8 @@ def test_summary_lines_list_each_fact() -> None:
         "anomalies=0",
         "dropped=2",
         "duplicates=0",
-        "parsed_bytes=66",
+        "parsed_bytes=72",
+        "trade_name_filled=0",
         "dropped_sample raw=12345678 rnc=12345678 reason=rnc_length name=A",
         "dropped_sample raw=NOPE rnc= reason=rnc_length name=D",
         "status ACTIVO=1",
@@ -195,14 +221,23 @@ def test_copy_text_escapes_backslash_tab_cr_and_lf() -> None:
     row = RncRow(
         rnc="123456789",
         name="A\\B\tC\rD\nE",
+        trade_name=None,
         status="ACTIVO",
         file_date=date(2026, 10, 18),
     )
-    assert copy_text((row,)) == "123456789\tA\\\\B\\tC\\rD\\nE\tACTIVO\t2026-10-18\n"
+    assert copy_text((row,)) == (
+        "123456789\tA\\\\B\\tC\\rD\\nE\t\\N\tACTIVO\t2026-10-18\n"
+    )
 
 
 def test_load_script_sets_the_session_timeout_and_calls_swap() -> None:
-    row = RncRow("123456789", "ACME", "ACTIVO", date(2026, 10, 18))
+    row = RncRow(
+        "123456789",
+        "ACME",
+        trade_name=None,
+        status="ACTIVO",
+        file_date=date(2026, 10, 18),
+    )
     result = ParseResult(
         rows=(row,),
         file_date=date(2026, 10, 18),
@@ -213,17 +248,23 @@ def test_load_script_sets_the_session_timeout_and_calls_swap() -> None:
     assert sql.startswith("SET statement_timeout = '5min';\n")
     assert "TRUNCATE public.dgii_rnc_load;\n" in sql
     assert (
-        "COPY public.dgii_rnc_load (rnc, name, status, file_date) "
+        "COPY public.dgii_rnc_load (rnc, name, trade_name, status, file_date) "
         "FROM STDIN WITH (FORMAT text);\n"
     ) in sql
-    assert "123456789\tACME\tACTIVO\t2026-10-18\n" in sql
+    assert "123456789\tACME\t\\N\tACTIVO\t2026-10-18\n" in sql
     assert sql.endswith("SELECT public.dgii_rnc_swap(700000);\n")
     with pytest.raises(RncImportError):
         load_script(result, LoadConfig(statement_timeout="5min; drop table t"))
 
 
 def test_timeout_env_changes_the_session_setting(monkeypatch) -> None:
-    row = RncRow("123456789", "ACME", "ACTIVO", date(2026, 10, 18))
+    row = RncRow(
+        "123456789",
+        "ACME",
+        trade_name=None,
+        status="ACTIVO",
+        file_date=date(2026, 10, 18),
+    )
     result = ParseResult(
         rows=(row,),
         file_date=date(2026, 10, 18),
@@ -247,6 +288,7 @@ def test_parsed_byte_estimate_counts_one_escaped_row() -> None:
     row = RncRow(
         rnc="123456789",
         name="A\\B\tC\rD\nE",
+        trade_name=None,
         status="ACTIVO",
         file_date=date(2026, 10, 18),
     )
@@ -403,7 +445,15 @@ class _Completed:
 
 def _one_row() -> ParseResult:
     return ParseResult(
-        rows=(RncRow("123456789", "ACME", "ACTIVO", date(2026, 10, 18)),),
+        rows=(
+            RncRow(
+                "123456789",
+                "ACME",
+                trade_name=None,
+                status="ACTIVO",
+                file_date=date(2026, 10, 18),
+            ),
+        ),
         file_date=date(2026, 10, 18),
         entry_name="DGII_RNC.TXT",
         anomaly_count=0,
@@ -438,7 +488,15 @@ def test_load_action_literals() -> None:
 
 def test_validate_rejects_a_kept_short_rnc() -> None:
     result = ParseResult(
-        rows=(RncRow("12345678", "X", "ACTIVO", date(2026, 10, 18)),),
+        rows=(
+            RncRow(
+                "12345678",
+                "X",
+                trade_name=None,
+                status="ACTIVO",
+                file_date=date(2026, 10, 18),
+            ),
+        ),
         file_date=date(2026, 10, 18),
         entry_name="DGII_RNC.TXT",
         anomaly_count=0,

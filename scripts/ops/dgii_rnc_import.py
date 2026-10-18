@@ -26,6 +26,7 @@ class RncImportError(Exception):
 class RncRow:
     rnc: str
     name: str
+    trade_name: str | None
     status: str
     file_date: date
 
@@ -120,6 +121,7 @@ def summary_lines(result: ParseResult) -> list[str]:
         f"dropped={result.dropped_count}",
         f"duplicates={result.duplicate_count}",
         f"parsed_bytes={parsed_byte_estimate(result.rows)}",
+        f"trade_name_filled={sum(row.trade_name is not None for row in result.rows)}",
     ]
     for drop in result.dropped_sample:
         name = drop.name.replace("\r", " ").replace("\n", " ")
@@ -152,6 +154,7 @@ def copy_text(rows: tuple[RncRow, ...]) -> str:
             (
                 _escape_copy(row.rnc),
                 _escape_copy(row.name),
+                "\\N" if row.trade_name is None else _escape_copy(row.trade_name),
                 _escape_copy(row.status),
                 row.file_date.isoformat(),
             )
@@ -170,7 +173,8 @@ def load_script(result: ParseResult, config: LoadConfig) -> str:
     return (
         f"SET statement_timeout = '{timeout}';\n"
         f"TRUNCATE {table};\n"
-        f"COPY {table} (rnc, name, status, file_date) FROM STDIN WITH (FORMAT text);\n"
+        f"COPY {table} (rnc, name, trade_name, status, file_date) "
+        "FROM STDIN WITH (FORMAT text);\n"
         f"{copy_text(result.rows)}"
         "\\.\n"
         f"SELECT {function}({config.min_rows});\n"
@@ -376,6 +380,7 @@ def _row_from_record(record: str, file_date: date) -> RncRow | DroppedRecord:
     fields = [field.strip() for field in record.split("|")]
     raw = fields[0]
     name = fields[1]
+    trade_name = fields[2] if fields[2] != "" else None
     digits = "".join(char for char in raw if char.isdigit())
     if len(digits) not in _KEPT_LENGTHS:
         return DroppedRecord(raw=raw, rnc=digits, reason="rnc_length", name=name)
@@ -384,6 +389,7 @@ def _row_from_record(record: str, file_date: date) -> RncRow | DroppedRecord:
     return RncRow(
         rnc=digits,
         name=name,
+        trade_name=trade_name,
         status=fields[9],
         file_date=file_date,
     )
