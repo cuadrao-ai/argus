@@ -15,6 +15,30 @@ recovery = (app / "Auth/NativeAuthConfiguration.swift").read_text()
 assert 'webURL.appendingPathComponent("auth/forgot-password")' in recovery, "password recovery keeps the web origin"
 
 checks = r'''
+let configuredValues: [String: Any] = [
+    "ARGUS_CUADRAO_TERMS_URL": "https://cuadrao.ai/terminos",
+    "ARGUS_CUADRAO_PRIVACY_URL": "https://cuadrao.ai/privacidad"]
+precondition(!CuadraoLegalURLs.configured(info: configuredValues).hasPages, "URLs alone do not enable links")
+var enabledValues = configuredValues
+for enabled in ["false", "", "$(ARGUS_CUADRAO_LEGAL_LINKS_ENABLED)"] {
+    enabledValues["ARGUS_CUADRAO_LEGAL_LINKS_ENABLED"] = enabled
+    precondition(!CuadraoLegalURLs.configured(info: enabledValues).hasPages)
+}
+enabledValues["ARGUS_CUADRAO_LEGAL_LINKS_ENABLED"] = "true"
+let enabled = CuadraoLegalURLs.configured(info: enabledValues)
+precondition(enabled.hasTermsAndPrivacy)
+precondition(enabled.terms?.absoluteString == "https://cuadrao.ai/terminos")
+precondition(enabled.privacy?.absoluteString == "https://cuadrao.ai/privacidad")
+for key in ["ARGUS_CUADRAO_TERMS_URL", "ARGUS_CUADRAO_PRIVACY_URL"] {
+    for value in ["", "$(UNSET)", "http://cuadrao.ai/terms", "https://user:password@cuadrao.ai/terms"] {
+        var partial = enabledValues
+        partial[key] = value
+        precondition(!CuadraoLegalURLs.configured(info: partial).hasTermsAndPrivacy)
+    }
+    var missing = enabledValues
+    missing.removeValue(forKey: key)
+    precondition(!CuadraoLegalURLs.configured(info: missing).hasTermsAndPrivacy)
+}
 let test = "--cuadrao-legal-test-urls"
 let empty = CuadraoLegalURLs.current(arguments: [])
 precondition(empty == CuadraoLegalURLs.published, "no argument, no URLs")
@@ -26,21 +50,15 @@ let overridden = CuadraoLegalURLs.current(arguments: ["app", test])
 precondition(overridden.privacy?.absoluteString == "https://legal.example.test/privacidad")
 precondition(overridden.terms?.absoluteString == "https://legal.example.test/terminos")
 precondition(overridden.dataDeletion?.absoluteString == "https://legal.example.test/eliminar-datos")
+precondition(CuadraoLegalURLs.current(arguments: ["--cuadrao-legal-test-terms-only"]).terms != nil)
+precondition(!CuadraoLegalURLs.current(arguments: ["--cuadrao-legal-test-terms-only"]).hasTermsAndPrivacy)
+precondition(CuadraoLegalURLs.current(arguments: ["--cuadrao-legal-test-privacy-only"]).privacy != nil)
+precondition(!CuadraoLegalURLs.current(arguments: ["--cuadrao-legal-test-privacy-only"]).hasTermsAndPrivacy)
 precondition(overridden.hasPages)
 precondition(overridden.hasTermsAndPrivacy, "both documents set supports the acceptance sentence")
 #else
 precondition(overridden == empty, "a Release build ignores the test argument")
 #endif
-for (argument, termsExpected) in [("--cuadrao-legal-test-terms-only", true), ("--cuadrao-legal-test-privacy-only", false)] {
-    let single = CuadraoLegalURLs.current(arguments: [argument])
-    #if DEBUG
-    precondition(single.hasPages && !single.hasTermsAndPrivacy)
-    precondition((single.terms != nil) == termsExpected)
-    precondition((single.privacy != nil) != termsExpected)
-    #else
-    precondition(single == empty, "Release ignores single-page fixtures")
-    #endif
-}
 let termsOnly = CuadraoLegalURLs(terms: URL(string: "https://legal.example.test/t"))
 let privacyOnly = CuadraoLegalURLs(privacy: URL(string: "https://legal.example.test/p"))
 precondition(termsOnly.hasPages && privacyOnly.hasPages, "one page is enough for a link group")

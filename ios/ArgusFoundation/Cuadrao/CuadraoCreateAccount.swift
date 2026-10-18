@@ -51,20 +51,8 @@ struct CuadraoCreateAccount: View {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier(signingIn ? "cuadrao.signin.emailChoice" : "cuadrao.signup.email")
                     }
-                    if !signingIn && CuadraoLegalURLs.current.hasTermsAndPrivacy {
-                        VStack(spacing: 0) {
-                            Text(spanish ? "Al crear tu cuenta, aceptas los términos."
-                                 : "By creating an account, you accept the terms.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                            HStack(spacing: 20) {
-                                legalButton(spanish ? "Términos" : "Terms")
-                                legalButton(spanish ? "Privacidad" : "Privacy")
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 24)
+                    if !signingIn {
+                        CuadraoSignupAcceptance(spanish: spanish)
                     }
                     Button {
                         signingIn.toggle()
@@ -103,13 +91,7 @@ struct CuadraoCreateAccount: View {
         }
     }
 
-    private func legalButton(_ title: String) -> some View {
-        Button { previewAction = title } label: {
-            Text(title).underline().font(.footnote)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-        }.buttonStyle(.plain)
-    }
+
 }
 
 /// Uses Apple's standard control; deliberately makes no authorization request.
