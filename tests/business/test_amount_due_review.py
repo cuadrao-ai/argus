@@ -78,7 +78,7 @@ def _refused(draft: DocumentDraft) -> DocumentDraft:
     )
 
 
-def _prepare(checked, monkeypatch, batch, draft):  # noqa: ANN001
+def _prepare(checked, monkeypatch, batch, draft):  # noqa: ANN001, F811
     _, tx, binding, _ = checked
     event = mutations.new_candidate(str(binding.owner_id), draft.created_at)
     monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
@@ -94,14 +94,14 @@ def _prepare(checked, monkeypatch, batch, draft):  # noqa: ANN001
     return result, resolution, saved
 
 
-def _assert_refused(checked, monkeypatch, draft, batch) -> None:  # noqa: ANN001
+def _assert_refused(checked, monkeypatch, draft, batch) -> None:  # noqa: ANN001, F811
     with pytest.raises(ActionError, match="not_a_receipt"):
         _prepare(checked, monkeypatch, batch, draft)
     shown = compose(_refused(draft), batch, [], "web")
     assert (shown.attention, shown.preparable) == ("not_a_receipt", False)
 
 
-def _assert_unverified_draft(checked, monkeypatch, draft, batch, amount: str) -> None:  # noqa: ANN001
+def _assert_unverified_draft(checked, monkeypatch, draft, batch, amount: str) -> None:  # noqa: ANN001, F811
     shown = compose(_refused(draft), batch, [], "web")
     assert shown.attention != "not_a_receipt"
     assert shown.preparable is True
@@ -226,10 +226,15 @@ async def test_reprepare_of_a_stored_refusal_builds_the_draft_without_a_new_read
         )
         produced["resolution"] = resolution
 
-    bridge.prepare_attachment.side_effect = [
-        ActionError("invalid_input", "not_a_receipt"),
-        replay,
-    ]
+    seen = {"count": 0}
+
+    def on_prepare(**kwargs):  # noqa: ANN003
+        seen["count"] += 1
+        if seen["count"] == 1:
+            raise ActionError("invalid_input", "not_a_receipt")
+        replay(**kwargs)
+
+    bridge.prepare_attachment.side_effect = on_prepare
     uploaded = await service.upload(
         user_id=owner,
         content=b"%PDF-fixture",
