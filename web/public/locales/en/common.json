@@ -1542,6 +1542,14 @@
       "revocation_retry_error": "Cuadrao still couldn’t confirm that every session was signed out. Try again.",
       "cleanup_warning": "Sessions were revoked, but this browser could not confirm local cookie cleanup. A fresh sign-in is still required."
     },
+    "screen": {
+      "go_to_cuadrao": "Go to Cuadrao",
+      "invite_line": "Ask the person who invited you to send another invitation.",
+      "link_expired_title": "This link expired or was already used.",
+      "not_found_detail": "The link may be old or copied wrong.",
+      "not_found_title": "We could not find this page.",
+      "request_new_link": "Request a new link"
+    },
     "errors": {
       "generic": "Something went wrong. Please try again.",
       "captcha_unavailable": "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
