@@ -1,7 +1,10 @@
 {
   "id": "staging-apply-2026-10-18-b",
   "project_ref": "skedzwocnmrhfigiwyzi",
-  "hosts": ["db.skedzwocnmrhfigiwyzi.supabase.co"],
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
   "database": "postgres",
   "candidate_sha": "fb6d969505f364fa08e4eb89e7317619f7de4781",
   "versions_sha256": "6832fd3b890048119f8e881a108ca02c2b96445731180f208132bb5327b563fc",
