@@ -33,7 +33,7 @@ import esCatalog from "@/public/locales/es-419/common.json";
  */
 
 /** Bump when the notice text the person sees changes. */
-export const BUSINESS_PRIVACY_NOTICE_VERSION = "2026-10-18-draft-1";
+export const BUSINESS_PRIVACY_NOTICE_VERSION = "2026-10-18-draft-2";
 
 /** Signed-in identity while mock auth has no Supabase user. */
 export const MOCK_AUTH_CONSENT_USER_ID = "mock-auth-user";
