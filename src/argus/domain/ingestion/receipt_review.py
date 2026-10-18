@@ -232,11 +232,16 @@ def _terminal_refusal(
     """How a stored refusal should read, from the saved batch.
 
     The draft keeps the code it stored. An NCF bill stays unset so another
-    preparation can finish it. An incomplete receipt that already has a plain
-    total stays unset for the same reason.
+    preparation can finish it. One reviewable amount-due row stays unset for
+    the same reason. An incomplete receipt that already has a plain total
+    stays unset too.
     """
 
-    from argus.domain.ingestion.documents.extractor import ncf_bill, plain_amount
+    from argus.domain.ingestion.documents.extractor import (
+        amount_due_row,
+        ncf_bill,
+        plain_amount,
+    )
 
     code = draft.error_code
     if batch is None or code not in {
@@ -249,7 +254,7 @@ def _terminal_refusal(
         issue.code == "unreadable_document" for issue in batch.issues
     ):
         return "unreadable"
-    if ncf_bill(batch):
+    if ncf_bill(batch) or amount_due_row(batch) is not None:
         return None
     receipt = batch.receipt
     if (

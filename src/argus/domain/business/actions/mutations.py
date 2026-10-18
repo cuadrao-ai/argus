@@ -39,6 +39,7 @@ from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
+    ExtractedObservation,
     ExtractionBatch,
     ReceiptDetails,
 )
@@ -346,6 +347,7 @@ def prepare_attachment(
 ) -> Applied:
     from argus.domain.business.contracts.dossier import AttachmentSource
     from argus.domain.ingestion.documents.extractor import (
+        amount_due_row,
         fiscal_facts_from_receipt,
         ncf_bill,
     )
@@ -363,6 +365,9 @@ def prepare_attachment(
     purchases = candidates or _observed_purchases(batch)
     if not purchases and ncf_bill(batch) and batch.receipt is not None:
         purchases = [_bill_purchase(batch.receipt)]
+    due = amount_due_row(batch) if not purchases else None
+    if due is not None:
+        purchases = [_amount_due_purchase(due)]
     if not purchases and _notice_only(batch):
         raise ActionError("invalid_input", "not_a_receipt")
     # One clean purchase becomes the draft's facts. Several purchases, or an
@@ -430,6 +435,8 @@ def prepare_attachment(
             "verified": False,
             "source_ids": [str(source_id)],
         }
+    if due is not None:
+        facts = _mark_unverified_review(facts, purchases[0])
     facts["fiscal"] = fiscal_facts_from_receipt(
         batch.receipt, source_id=source_id
     ).model_dump(mode="json")
@@ -472,16 +479,17 @@ def _read_refusal(batch: ExtractionBatch) -> str | None:
     """Why this read cannot become a draft, before its purchases are considered.
 
     An unreadable file is terminal. A readable fiscal bill is not, even when
-    the read is incomplete or the rows are notices. No receipt object is not
-    a receipt. An incomplete receipt that is not a fiscal bill stays on the
-    retryable review.
+    the read is incomplete or the rows are notices. One positive amount-due
+    row with a currency, on a readable complete read and beside no purchase,
+    is a review draft. No receipt object otherwise is not a receipt. An
+    incomplete receipt that is not a fiscal bill stays on the retryable review.
     """
 
-    from argus.domain.ingestion.documents.extractor import ncf_bill
+    from argus.domain.ingestion.documents.extractor import amount_due_row, ncf_bill
 
     if batch.readable is not True:
         return "unreadable_document"
-    if ncf_bill(batch):
+    if ncf_bill(batch) or amount_due_row(batch) is not None:
         return None
     if batch.receipt is None:
         return "not_a_receipt"
@@ -496,6 +504,37 @@ def _notice_only(batch: ExtractionBatch) -> bool:
     if not batch.observations:
         return False
     return not any(row.evidence == "transaction" for row in batch.observations)
+
+
+def _amount_due_purchase(row: ExtractedObservation) -> SimpleNamespace:
+    """One expense from the amount-due row. The amount stays off the draft
+    until the review mark places it unverified."""
+
+    from argus.domain.ingestion.documents.extractor import _currency
+
+    purchase = _bill_purchase(
+        ReceiptDetails(
+            merchant=row.merchant,
+            occurred_on=row.occurred_on,
+            currency=_currency(row.currency),
+            total=row.amount,
+        )
+    )
+    purchase.uncertain = frozenset(set(purchase.uncertain) | {"amount"})
+    return purchase
+
+
+def _mark_unverified_review(facts: dict, purchase: SimpleNamespace) -> dict:
+    """Publish the amount-due total as a known value a person still has to review."""
+
+    amount = facts["amount"]
+    facts["amount"] = {
+        **amount,
+        "state": "known",
+        "value": purchase.amount,
+        "verified": False,
+    }
+    return facts
 
 
 def _bill_purchase(receipt: ReceiptDetails) -> SimpleNamespace:

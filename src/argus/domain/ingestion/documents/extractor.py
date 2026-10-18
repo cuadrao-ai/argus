@@ -32,6 +32,7 @@ from argus.domain.ingestion.documents.models import (
     RECEIPT_CURRENCY_CONFLICT,
     RECEIPT_PURCHASE_AMBIGUOUS,
     DocumentExtractionError,
+    ExtractedObservation,
     ExtractionBatch,
     ExtractionResult,
     ProjectionIssue,
@@ -138,6 +139,29 @@ def ncf_bill(batch: ExtractionBatch) -> bool:
     if batch.readable is not True or receipt is None or not receipt.ncf:
         return False
     return bool(receipt.ncf.strip()) and plain_amount(receipt.total)
+
+
+def amount_due_row(batch: ExtractionBatch) -> ExtractedObservation | None:
+    """One amount-due row a readable, complete read can review.
+
+    A positive amount and a currency are required. Zero, missing, or
+    non-positive amounts, no currency, or any other number of amount-due
+    rows are not a receipt. A row beside a purchase is not this rescue.
+    """
+
+    if batch.readable is not True or batch.complete is not True:
+        return None
+    if any(row.evidence == "transaction" for row in batch.observations):
+        return None
+    rows = [row for row in batch.observations if row.evidence == "due_notice"]
+    if len(rows) != 1:
+        return None
+    row = rows[0]
+    if _currency(row.currency) is None:
+        return None
+    if not plain_amount(row.amount) or Decimal(row.amount) <= 0:
+        return None
+    return row
 
 
 def batch_from_result(

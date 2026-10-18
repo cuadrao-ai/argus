@@ -258,6 +258,7 @@ async def test_reprepare_of_a_stored_refusal_builds_the_draft_without_a_new_read
     )
     assert calls == [uploaded.connection_id]
     assert outcome.replayed is True
+    assert outcome.status == "review_ready"
     assert produced["resolution"].facts.amount.verified is False
     assert Decimal(produced["resolution"].facts.amount.value) == Decimal("32.03")
     assert produced["resolution"].facts.amount.state == "known"
