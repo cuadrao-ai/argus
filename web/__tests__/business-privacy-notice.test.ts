@@ -115,6 +115,22 @@ describe("business consent gating", () => {
     assert.deepEqual(calls, [false]);
   });
 
+  test("a grantee can decline when the selected switch is already off", async () => {
+    let wrote = false;
+    await revokeEnabledReceiptReading({
+      receiptReading: async () => ({ enabled: false, can_change: false }),
+      setReceiptReading: async () => { wrote = true; return { enabled: false }; },
+    }, "es-419");
+    assert.equal(wrote, false);
+  });
+
+  test("a grantee cannot claim AI is off while the owner's switch stays on", async () => {
+    await assert.rejects(() => revokeEnabledReceiptReading({
+      receiptReading: async () => ({ enabled: true, can_change: false }),
+      setReceiptReading: async () => ({ enabled: false }),
+    }, "es-419"));
+  });
+
   test("a missing Business has no receipt-reading switch to turn off", async () => {
     const missing = Object.assign(new Error("missing"), { status: 404, code: "business_space_missing" });
     let wrote = false;

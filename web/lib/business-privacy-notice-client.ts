@@ -5,7 +5,7 @@ import {
   isPrivacyNoticeLocale,
 } from "./business-privacy-notice";
 
-type ReadingSwitch<Reading extends { enabled: boolean }> = {
+type ReadingSwitch<Reading extends { enabled: boolean; can_change?: boolean }> = {
   receiptReading?: (language: PrivacyNoticeLocale, signal?: AbortSignal) => Promise<Reading>;
   setReceiptReading?: (
     reading: Reading,
@@ -116,10 +116,12 @@ function isMissingBusiness(error: unknown): boolean {
  * leave the next receipt free to reach a model.
  *
  * A person with no Business yet has nothing to turn off. A read that says the
- * switch is already off is not the last word: another tab can enable it before
- * we return, so the disable is always submitted and its result is checked.
+ * switch is already off is not the last word when this person can change it:
+ * another tab can enable it before we return, so the disable is submitted and
+ * its result is checked. A grantee cannot change the owner's switch. When it
+ * is already off, decline continues. When it is on, decline stays here.
  */
-export async function revokeEnabledReceiptReading<Reading extends { enabled: boolean }>(
+export async function revokeEnabledReceiptReading<Reading extends { enabled: boolean; can_change?: boolean }>(
   source: ReadingSwitch<Reading>,
   language: PrivacyNoticeLocale,
 ): Promise<void> {
@@ -130,6 +132,10 @@ export async function revokeEnabledReceiptReading<Reading extends { enabled: boo
   } catch (error) {
     if (isMissingBusiness(error)) return;
     throw error;
+  }
+  if (reading.can_change === false) {
+    if (reading.enabled) throw new Error("receipt_reading_still_enabled");
+    return;
   }
   let next: Reading;
   try {
