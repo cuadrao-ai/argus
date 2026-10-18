@@ -3,14 +3,13 @@ from unittest.mock import MagicMock
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
-
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
 from argus.domain.supabase_gateway import (
     CaptchaVerificationError,
     SupabaseGateway,
 )
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 

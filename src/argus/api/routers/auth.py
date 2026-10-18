@@ -44,8 +44,8 @@ from argus.api.schemas import (
     User,
     guest_safe_user,
 )
-from argus.domain.supabase_guest_accounts import EmailAlreadyRegisteredError
 from argus.domain.supabase_gateway import CaptchaVerificationError
+from argus.domain.supabase_guest_accounts import EmailAlreadyRegisteredError
 from argus.domain.username_signup import (
     serialized_guest_signup,
     serialized_username_signup,
