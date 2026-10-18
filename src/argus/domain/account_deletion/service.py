@@ -556,6 +556,12 @@ class AccountDeletionService:
         )
         with self._households.connection() as connection, connection.transaction():
             user, apple_state = lock_apple_state(connection, user_id)
+            if connection.execute(
+                "select id from public.spaces where current_owner_id=%s"
+                " and kind='business' and closed_at is null order by id for update",
+                (user_id,),
+            ).fetchone():
+                raise AccountDeletionRejected("business_owner_must_exit")
             row = connection.execute(select, (subject,)).fetchone()
             if row is None:
                 if existing_only:

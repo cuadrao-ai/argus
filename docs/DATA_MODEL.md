@@ -3723,3 +3723,41 @@ transfer. Historical consent stays attributed to its original person and is
 revoked. The current owner must consent separately. Private/client behavior,
 retention and account-deletion custody movement remain WIP, with global account
 deletion and lifecycle readiness still closed.
+
+### Business custody copy reservations, draft October 18, 2026
+
+The forward migration `20261018080002_business_custody_object_manifest.sql` adds
+`argus_private.business_custody_reservations` and `business_custody_objects`.
+The first owns one dedicated placeholder ID and anonymous historical actor ID
+per Business, with creation and Auth-ready times. It stores no departed-person
+ID. The second owns source and destination object paths, hash, size, media type,
+creation and verification times. Its in-flight source path contains the outgoing
+identity until the future completion writer clears it.
+
+The model checklist covers both tables and all columns. Both have RLS and no
+public or client grants. service_role can SELECT, INSERT and UPDATE, and cannot
+DELETE or TRUNCATE. Business and reservation FKs use RESTRICT so deletion cannot
+silently lose a reserved/orphan-object purge plan. The source path key deduplicates
+work. A destination index supports purge discovery. No original path or canonical
+record is moved by this helper. Byte hashes and sizes are verified after readback.
+Media type is passed to Storage creation; the existing Storage protocol exposes
+no destination metadata reader, so destination media metadata is not independently
+verified. Full custody and privacy completion remain pending.
+
+### Transfer decline and automatic consent invalidation
+
+The forward migration `20261018080003_business_transfer_decline.sql` adds the
+terminal `declined` transfer state. It preserves immutable command history.
+The owner withdraws through cancellation. Recipient decline and withdrawal both
+end pending state and leave ownership unchanged.
+
+`20261018080004_business_consent_transfer_invalidation.sql` adds the indexed
+nullable `business_ai_consents.invalidated_by_transfer_id` FK. It identifies an
+automatic invalidation by an accepted ownership transfer. The original owner and
+consenting actor stay unchanged. `revoked_by` stays NULL because nobody issued a
+manual revocation command. A deferred trigger requires the linked transfer to
+be accepted for the same Business and original owner. Existing manual revocation
+keeps its original owner attribution. Existing table RLS and grants are preserved.
+This column is server-only, adds no client authority, and follows Business
+lifetime deletion. Its original owner identity still needs the pending deletion
+anonymization writer.

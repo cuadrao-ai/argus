@@ -9882,3 +9882,27 @@ Receipt reading requires the current owner's own consent generation after
 transfer. Historical consent never becomes the recipient's consent.
 Full account-deletion custody retention, purge, mounted routes and UI remain
 unavailable until their separate acceptance evidence is complete.
+
+#### Business custody copy preparation, draft October 18, 2026
+
+The private custody copy preparer reserves a dedicated banned placeholder and
+records all destination paths before copying receipt originals and rebuilt
+objects. It verifies the source and destination content hash and size. A retry
+checks existing bytes and never overwrites them. An unavailable or mismatched
+source blocks preparation and leaves original paths and records unchanged.
+This helper alone grants no authority to rekey records, erase old prefixes,
+delete accounts or purge a Business. Those steps require the still-pending
+whole-graph retention writer and its acceptance evidence.
+
+Recipient decline is now a terminal `declined` command. It requires the exact
+recipient's live member authority and ends pending state without transferring
+ownership. Owner withdrawal is terminal `cancelled`. Acceptance, decline and
+withdrawal serialize and cannot undo another terminal result. UI Cancelar closes
+the screen only. Retirar solicitud performs withdrawal.
+
+Automatic AI-consent invalidation stores the accepted transfer ID as its cause.
+It preserves the original consenting person and leaves `revoked_by` NULL. This
+transition is distinct from a person pressing a consent-revocation control.
+An open current Business owner is refused by account-deletion admission before
+any deletion run or external lock is created. The working exit UI and full closed
+Business retention remain unmounted and incomplete.

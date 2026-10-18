@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
@@ -20,7 +21,7 @@ class TransferResult:
     space_id: str
     owner_id: str
     target_id: str
-    status: str
+    status: Literal["pending", "accepted", "cancelled", "declined"]
 
 
 _COLUMNS = "id::text,space_id::text,owner_id::text,target_id::text,status"
@@ -84,20 +85,29 @@ class PostgresBusinessTransfer:
             return TransferResult(*row)
 
     def accept(self, *, actor_id: str, transfer_id: str) -> TransferResult:
-        return self._resolve(actor_id, transfer_id, accept=True)
+        return self._resolve(actor_id, transfer_id, resolution="accepted")
 
     def cancel(self, *, owner_id: str, transfer_id: str) -> TransferResult:
-        return self._resolve(owner_id, transfer_id, accept=False)
+        return self._resolve(owner_id, transfer_id, resolution="cancelled")
+
+    def decline(self, *, actor_id: str, transfer_id: str) -> TransferResult:
+        return self._resolve(actor_id, transfer_id, resolution="declined")
 
     def _resolve(
-        self, actor_id: str, transfer_id: str, *, accept: bool
+        self,
+        actor_id: str,
+        transfer_id: str,
+        *,
+        resolution: Literal["accepted", "cancelled", "declined"],
     ) -> TransferResult:
+        accept = resolution == "accepted"
+        recipient = resolution != "cancelled"
         with self.pool.connection() as db, db.transaction():
             command = db.execute(
                 f"select {_COLUMNS},target_grant_id::text from public.business_ownership_transfers where id=%s",
                 (transfer_id,),
             ).fetchone()
-            if not command or actor_id != command[3 if accept else 2]:
+            if not command or actor_id != command[3 if recipient else 2]:
                 raise BusinessLifecycleError("business_record_not_found")
             self._lock_people(db, command[2], command[3])
             live = db.execute(
@@ -119,15 +129,34 @@ class PostgresBusinessTransfer:
                 f"select {_COLUMNS},target_grant_id::text from public.business_ownership_transfers where id=%s for update",
                 (transfer_id,),
             ).fetchone()
-            expected = "accepted" if accept else "cancelled"
+            expected = resolution
             if command[4] == expected:
                 return TransferResult(*command[:5])
             if command[4] != "pending":
                 raise BusinessLifecycleError("business_transfer_not_pending")
             if not space or space != (command[2], None):
                 raise BusinessLifecycleError("business_record_not_found")
-            if not accept:
-                PostgresBusinessLifecycle._owned_space(db, command[2], command[1])
+            PostgresBusinessLifecycle._owned_space(db, command[2], command[1])
+            if recipient:
+                from uuid import UUID
+
+                from argus.domain.business.authority import ActionError, authorize
+                from argus.domain.business.contracts.authority import TrustedActor
+
+                try:
+                    authorize(
+                        db,
+                        TrustedActor(
+                            actor_id=UUID(actor_id),
+                            actor_kind="member",
+                            space_id=UUID(command[1]),
+                        ),
+                        UUID(command[5]),
+                    ).require("prepare")
+                except ActionError:
+                    raise BusinessLifecycleError(
+                        "business_transfer_target_invalid"
+                    ) from None
             if accept:
                 self._target(db, command[1], command[5], command[2])
                 db.execute(
@@ -139,8 +168,8 @@ class PostgresBusinessTransfer:
                     (command[1],),
                 )
                 db.execute(
-                    "update public.business_ai_consents set revoked_at=clock_timestamp(),revoked_by=owner_id where space_id=%s and revoked_at is null",
-                    (command[1],),
+                    "update public.business_ai_consents set revoked_at=clock_timestamp(),revoked_by=null,invalidated_by_transfer_id=%s where space_id=%s and revoked_at is null",
+                    (transfer_id, command[1]),
                 )
                 db.execute(
                     "update public.spaces set current_owner_id=%s where id=%s",

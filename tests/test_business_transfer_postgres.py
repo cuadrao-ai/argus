@@ -373,3 +373,150 @@ def test_transferred_receipt_reads_reviews_history_and_original_are_scoped(
         service.context_for_receipt(
             UUID(users["guest"]), UUID(cid), space_id=old.actor.space_id
         )
+
+
+def test_decline_ends_pending_without_changing_ownership_and_retries(world):
+    pool, space, people, _, _ = world
+    pending = _request(world)
+    service = PostgresBusinessTransfer(pool)
+    refused = service.decline(actor_id=people["other"], transfer_id=pending.id)
+    assert refused.status == "declined"
+    assert service.decline(actor_id=people["other"], transfer_id=pending.id) == refused
+    assert PostgresSpaceStore(pool).open_space(people["owner"]).id == space.id
+    with pytest.raises(BusinessLifecycleError, match="business_transfer_not_pending"):
+        service.accept(actor_id=people["other"], transfer_id=pending.id)
+    assert _request(world, key="after-decline").status == "pending"
+
+
+def test_decline_wrong_actor_is_missing(world):
+    pool, _, people, _, _ = world
+    pending = _request(world)
+    for person in (people["owner"], people["guest"]):
+        with pytest.raises(BusinessLifecycleError, match="business_record_not_found"):
+            PostgresBusinessTransfer(pool).decline(
+                actor_id=person, transfer_id=pending.id
+            )
+
+
+@pytest.mark.parametrize("other_action", ["decline", "cancel"])
+def test_accept_against_decline_or_withdraw_has_one_terminal_result(world, other_action):
+    pool, space, people, _, _ = world
+    pending = _request(world)
+    service = PostgresBusinessTransfer(pool)
+
+    def resolve(action):
+        try:
+            if action == "accept":
+                return service.accept(
+                    actor_id=people["other"], transfer_id=pending.id
+                ).status
+            if action == "decline":
+                return service.decline(
+                    actor_id=people["other"], transfer_id=pending.id
+                ).status
+            return service.cancel(owner_id=people["owner"], transfer_id=pending.id).status
+        except BusinessLifecycleError as error:
+            return error.code
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        results = tuple(workers.map(resolve, ("accept", other_action)))
+    assert results.count("business_transfer_not_pending") == 1
+    final = (
+        "accepted"
+        if "accepted" in results
+        else ("declined" if other_action == "decline" else "cancelled")
+    )
+    with pool.connection() as db:
+        assert (
+            db.execute(
+                "select status from public.business_ownership_transfers where id=%s",
+                (pending.id,),
+            ).fetchone()[0]
+            == final
+        )
+        assert (
+            db.execute(
+                "select current_owner_id::text from public.spaces where id=%s",
+                (space.id,),
+            ).fetchone()[0]
+            == people["other" if final == "accepted" else "owner"]
+        )
+
+
+def test_account_deletion_refuses_open_current_owner_before_run_or_external_calls(world):
+    from types import SimpleNamespace
+
+    from argus.domain.account_deletion.service import (
+        AccountDeletionRejected,
+        AccountDeletionService,
+        subject_hash,
+    )
+    from argus.observability.analytics_deletion import RecordingAnalyticsDeletion
+
+    pool, _, people, _, _ = world
+    service = AccountDeletionService(
+        households=pool,
+        auth_admin=SimpleNamespace(),
+        revoker=None,
+        analytics=RecordingAnalyticsDeletion(),
+        allow_fake_analytics=True,
+    )
+    try:
+        with pytest.raises(AccountDeletionRejected, match="business_owner_must_exit"):
+            service._claim(people["owner"], subject_hash(people["owner"]))
+        with pool.connection() as db:
+            assert not db.execute(
+                "select 1 from argus_private.account_deletion_runs where user_id=%s",
+                (people["owner"],),
+            ).fetchone()
+            assert (
+                db.execute(
+                    "select banned_until from auth.users where id=%s", (people["owner"],)
+                ).fetchone()[0]
+                is None
+            )
+    finally:
+        with pool.connection() as db:
+            db.execute(
+                "delete from argus_private.account_deletion_runs where user_id=%s",
+                (people["owner"],),
+            )
+
+
+def test_transfer_invalidates_ai_consent_without_fabricating_a_human_revocation(world):
+    from psycopg.types.json import Jsonb
+
+    pool, space, people, access, _ = world
+    own = access.spaces_for(people["owner"])[0]
+    with pool.connection() as db:
+        consent = db.execute(
+            "insert into public.business_ai_consents(space_id,owner_id,consenting_actor_id,grant_id,issuer_id,scope_version,purpose,disclosure,route,route_hash,idempotency_key,input_hash) values(%s,%s,%s,%s,%s,1,'business_ai_receipt_reading','Synthetic disclosure',%s,%s,'transfer-consent',%s) returning id",
+            (
+                space.id,
+                people["owner"],
+                people["owner"],
+                own.grant_id,
+                people["owner"],
+                Jsonb({"provider": "fake"}),
+                "1" * 64,
+                "2" * 64,
+            ),
+        ).fetchone()[0]
+    pending = _request(world)
+    PostgresBusinessTransfer(pool).accept(
+        actor_id=people["other"], transfer_id=pending.id
+    )
+    with pool.connection() as db:
+        saved = db.execute(
+            "select owner_id::text,consenting_actor_id::text,revoked_by,revoked_at from public.business_ai_consents where id=%s",
+            (consent,),
+        ).fetchone()
+        assert saved[:2] == (people["owner"], people["owner"])
+        assert saved[2] is None and saved[3] is not None
+        assert (
+            db.execute(
+                "select invalidated_by_transfer_id::text from public.business_ai_consents where id=%s",
+                (consent,),
+            ).fetchone()[0]
+            == pending.id
+        )

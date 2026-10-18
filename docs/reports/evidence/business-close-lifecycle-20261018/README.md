@@ -270,3 +270,95 @@ pass locally. The 144-case run includes fourteen new transfer cases and the
 existing lifecycle, access, receipt preparation/activity, export, WhatsApp,
 reading-setting and route regressions. It does not test full account deletion,
 object copies, hosted behavior or the absent mounted transfer UI.
+
+## Custody copy, recipient decline and deletion admission checkpoint
+
+The copy preparer reserves one banned-placeholder identity and separate actor
+alias per Business. It records each destination before external copy and checks
+original and rebuilt content against their independent hashes and sizes after
+readback. A failed or interrupted copy keeps its manifest and leaves every old
+path and canonical row unchanged. Retry checks the same reserved destination.
+Fake Storage and Auth tests cover readback failure, missing source, interruption
+after copy, cross-Business bytes, closed-owner preparation and an active
+transferred Business. These tests do not move the financial graph or delete Auth.
+
+New forward migrations add private copy plans, terminal recipient decline and
+explicit transfer-linked AI-consent invalidation. Decline and owner withdrawal
+leave ownership unchanged. Tests race each against acceptance and assert one
+terminal command and one resulting owner. Account-deletion admission now refuses
+an open current owner before opening a run or calling an external adapter.
+The shared synthetic test cleanup explicitly deletes each fixture's Business
+lifetime before its Auth users because SET NULL on current owner correctly
+rejects an ownerless open Business. It changes fixture cleanup only.
+
+The review observation about AI `revoked_by` was reproduced on actual Postgres.
+The fix leaves `revoked_by` NULL for automatic transfer invalidation and records
+`invalidated_by_transfer_id`. The original owner and consenting actor are kept.
+A deferred guard requires a completed accepted transfer for the same Business
+and owner. This records a transfer consequence without claiming either person
+pressed a consent-revocation control. Ordinary manual revocation keeps the
+existing owner attribution.
+
+The root approved a separate graph writer on its own branch. Its only files
+are a new custody_graph module, a focused Postgres test and new migration
+`20261018080005_business_custody_graph.sql`. That migration number is reserved.
+The lifecycle writer owns orchestration, copies, chat access, UI, email and purge.
+No graph movement SQL is included in this checkpoint. The root ledger contains
+`business-custody-graph-writer-contract.md` with the exact proposed API and gates.
+All further object-prefix deletion and Auth deletion remain blocked on that
+whole-graph writer, its tests and the existing disabled readiness gate.
+
+## Exact approved transfer copy, Lucas and Iris
+
+Title.
+
+> Transferir este negocio
+
+Member field.
+
+> Nuevo dueño
+
+Help.
+
+> Elige un miembro del negocio. Será dueño cuando acepte.
+
+Confirmation field.
+
+> Escribe el nombre del negocio para confirmar.
+
+Owner buttons.
+
+> Solicitar transferencia
+>
+> Cancelar
+
+Cancelar closes the screen only. It never withdraws a pending request.
+
+Pending text and withdrawal button.
+
+> Esperando que {Nombre} acepte.
+>
+> Retirar solicitud
+
+Recipient text and buttons.
+
+> {Dueño} quiere transferirte {Negocio}. Si aceptas, serás su dueño y {Dueño} podrá seguir editando.
+>
+> Aceptar transferencia
+>
+> Rechazar
+
+Owner decline feedback.
+
+> {Nombre} rechazó la transferencia. {Negocio} sigue siendo tuyo.
+
+The help text does not expand target eligibility beyond an existing Editar
+member. These strings are retained here and are not yet mounted in the app.
+
+The final second-checkpoint run passed 268 Python tests with zero skips in 6.66
+seconds on Python 3.10.20. This includes 20 transfer cases, 11 copy cases and the
+focused Business runtime semantic tests. Twenty-one Bun cases pass, including
+14 existing export download regressions and the light/dark contrast check.
+Ruff, whitespace and modularity checks pass. These are provider-free local,
+synthetic Postgres/transport results. Hosted behavior, full retention, purge,
+mounted application flow and independent final-head acceptance remain pending.
