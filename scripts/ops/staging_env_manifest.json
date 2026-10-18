@@ -274,6 +274,11 @@
           "value": "true"
         },
         {
+          "name": "NEXT_PUBLIC_BUSINESS_ONLY_WEB",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
           "name": "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED",
           "kind": "plain",
           "value": "false"
