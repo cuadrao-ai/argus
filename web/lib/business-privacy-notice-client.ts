@@ -1,4 +1,5 @@
 import { BUSINESS_PRIVACY_NOTICE_STORAGE_KEY, readSessionStored, writeSessionStored } from "./browser-storage";
+import { setChosenGrant } from "./business-grant";
 import {
   type PrivacyNoticeAcceptance,
   type PrivacyNoticeLocale,
@@ -115,16 +116,19 @@ function isMissingBusiness(error: unknown): boolean {
  * and WhatsApp intake all read that one setting, so a web-only flag would
  * leave the next receipt free to reach a model.
  *
- * A person with no Business yet has nothing to turn off. A read that says the
- * switch is already off is not the last word when this person can change it:
- * another tab can enable it before we return, so the disable is submitted and
- * its result is checked. A grantee cannot change the owner's switch. When it
- * is already off, decline continues. When it is on, decline stays here.
+ * A person with no Business yet has nothing to turn off. Decline leaves any
+ * selected client first, so the read and the disable are this person's own
+ * Business. A client's snapshot is not something a grantee can revoke, and a
+ * later upload must not stay inside that client. On the person's own switch,
+ * a read that says it is off is not the last word: the disable is submitted
+ * and its result is checked. A response that still says this person cannot
+ * change the switch is not revoked here.
  */
 export async function revokeEnabledReceiptReading<Reading extends { enabled: boolean; can_change?: boolean }>(
   source: ReadingSwitch<Reading>,
   language: PrivacyNoticeLocale,
 ): Promise<void> {
+  setChosenGrant(null);
   if (!source.receiptReading || !source.setReceiptReading) return;
   let reading: Reading;
   try {

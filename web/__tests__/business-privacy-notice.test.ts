@@ -16,6 +16,7 @@ import {
   type PrivacyNoticeAcceptance,
   type PrivacyNoticeLocale,
 } from "../lib/business-privacy-notice";
+import { getChosenGrant, setChosenGrant } from "../lib/business-grant";
 import { rememberPrivacyNoticeAcceptance, revokeEnabledReceiptReading } from "../lib/business-privacy-notice-client";
 
 const USER = "owner-jose";
@@ -115,12 +116,14 @@ describe("business consent gating", () => {
     assert.deepEqual(calls, [false]);
   });
 
-  test("a grantee can decline when the selected switch is already off", async () => {
+  test("decline leaves a selected client before it reads the reading switch", async () => {
+    setChosenGrant("44444444-4444-4444-8444-444444444444");
     let wrote = false;
     await revokeEnabledReceiptReading({
       receiptReading: async () => ({ enabled: false, can_change: false }),
       setReceiptReading: async () => { wrote = true; return { enabled: false }; },
     }, "es-419");
+    assert.equal(getChosenGrant(), null);
     assert.equal(wrote, false);
   });
 
