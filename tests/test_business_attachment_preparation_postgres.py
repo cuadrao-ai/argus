@@ -372,7 +372,8 @@ def test_approve_refuses_a_forged_sender_on_the_real_draft(prepared):
                 cid,
             ),
         )
-    assert store.email_document_standing(space, str(cid)) == "new"
+    assert store.email_document_standing(space, str(draft_id)) == "new"
+    foreign = uuid4()
     app = FastAPI()
 
     @app.middleware("http")
@@ -388,6 +389,18 @@ def test_approve_refuses_a_forged_sender_on_the_real_draft(prepared):
     configure_email_intake(None)
     try:
         with TestClient(app) as drafts:
+            foreign_body = {
+                "version": 1,
+                "action": "record_expense",
+                "document_id": str(foreign),
+                "source_id": str(foreign),
+                "connection_id": str(foreign),
+            }
+            refused = drafts.post(
+                f"/business/drafts/{draft_id}/approve",
+                json=foreign_body,
+                headers={"Idempotency-Key": str(uuid4())},
+            )
             blocked = drafts.post(
                 f"/business/drafts/{draft_id}/approve",
                 json={"version": 1, "action": "record_expense"},
@@ -395,6 +408,7 @@ def test_approve_refuses_a_forged_sender_on_the_real_draft(prepared):
             )
     finally:
         configure_email_intake(previous)
+    assert refused.status_code == 422, refused.text
     assert blocked.status_code == 403, blocked.text
     assert blocked.json()["detail"]["code"] == "email_sender_unauthorized"
 

@@ -35,6 +35,7 @@ from argus.domain.ingestion.email_intake.budget import (
     FetchBudget,
     FetchReservation,
 )
+from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
 from argus.domain.ingestion.email_intake.envelope import parse_envelope
 from argus.domain.ingestion.email_intake.models import (
     EmailDelivery,
@@ -82,6 +83,13 @@ class DeliveryFetchBudget:
 
 
 RouteAuthority = Callable[[RecipientRoute], None]
+
+
+def _from_receipt_domain(sender: str | None) -> bool:
+    domain = EmailIntakeSettings().receiving_domain.strip().lower()
+    if not domain or not isinstance(sender, str) or "@" not in sender:
+        return False
+    return sender.strip().lower().rsplit("@", 1)[1] == domain
 
 
 def _provider_from_differs(provider_from: str | None, raw: bytes) -> bool:
@@ -239,6 +247,16 @@ class EmailCapture:
             )
             return None
 
+    async def _drop_receipt_domain(self, delivery: EmailDelivery) -> bool:
+        if not EmailIntakeSettings().receiving_domain.strip():
+            return False
+        if not _from_receipt_domain(await self._preview_sender(delivery)):
+            return False
+        await asyncio.to_thread(
+            self.store.finish, delivery, "rejected", "email_sender_domain_refused"
+        )
+        return True
+
     async def _admit(self, delivery: EmailDelivery, route: RecipientRoute) -> bool:
         standing = "new"
         if self.store.has_sender_rules(route.space_id):
@@ -309,6 +327,8 @@ class EmailCapture:
             else:
                 if self.provider is None:
                     raise EmailProviderError("email_provider_unavailable", retryable=True)
+                if await self._drop_receipt_domain(delivery):
+                    return
                 if not await self._admit(delivery, route):
                     return
                 received = await self.provider.raw_message(

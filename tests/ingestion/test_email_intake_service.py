@@ -690,6 +690,29 @@ async def test_a_from_header_with_space_before_the_colon_is_ambiguous(spoofed: b
 
 
 @pytest.mark.asyncio
+async def test_mail_from_the_receipt_domain_is_dropped_before_fetch(monkeypatch):
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
+    world = rig()
+    world.provider.sender = "loop@recibos.example.test"
+    delivery = world.runtime.enqueue_resend(str(uuid4()), (RECIPIENT,))
+    assert await world.runtime.next()
+    saved = world.store.get(delivery.id, world.route.space_id)
+    day = business_day(world.clock())
+    assert (saved.state, saved.error_code, world.provider.calls) == (
+        "rejected",
+        "email_sender_domain_refused",
+        0,
+    )
+    assert world.store._usage.get((world.route.id, day), [0, 0]) == [0, 0]
+    world.provider.sender = "proveedor@example.test"
+    other = world.runtime.enqueue_resend(str(uuid4()), (RECIPIENT,))
+    assert await world.runtime.next()
+    kept = world.store.get(other.id, world.route.space_id)
+    assert kept.state == "captured"
+    assert world.provider.calls == 1
+
+
+@pytest.mark.asyncio
 async def test_a_blocked_from_in_the_message_is_rejected_after_an_open_preview():
     world = rig(_png_message("blocked@tienda.test"))
     world.provider.sender = "proveedor@example.test"

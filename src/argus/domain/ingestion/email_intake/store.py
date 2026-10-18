@@ -226,20 +226,21 @@ class PostgresEmailStore(PostgresAddressing):
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             rows = cursor.execute(
-                "with ids as ("
-                "select %s::uuid as id "
-                "union "
-                "select s.connection_id from public.business_draft_sources l "
+                "with linked as ("
+                "select s.id, s.connection_id from public.business_draft_sources l "
                 "join public.business_sources s "
                 "on s.id=l.source_id and s.space_id=l.space_id "
-                "where l.draft_id=%s::uuid and l.space_id=%s::uuid "
-                "and s.connection_id is not null) "
+                "where l.draft_id=%s::uuid and l.space_id=%s::uuid), "
+                "ids as ("
+                "select id from linked "
+                "union "
+                "select connection_id from linked where connection_id is not null) "
                 "select d.sender, d.auth_result from public.business_email_deliveries d "
                 "left join public.business_email_parts p on p.delivery_id=d.id "
                 "where d.space_id=%s::uuid and ("
                 "d.original_document_id in (select id from ids) "
                 "or p.document_id in (select id from ids))",
-                (document_id, document_id, space_id, space_id),
+                (document_id, space_id, space_id),
             ).fetchall()
         if not rows:
             return None
@@ -805,7 +806,7 @@ class InMemoryEmailStore(MemoryAddressing):
 
     @_synchronized
     def email_document_standing(self, space_id: str, document_id: str) -> str | None:
-        ids = {str(document_id), *self._draft_links.get((str(space_id), str(document_id)), ())}
+        ids = set(self._draft_links.get((str(space_id), str(document_id)), ()))
         linked = []
         for delivery in self._deliveries.values():
             if delivery.space_id != space_id:
