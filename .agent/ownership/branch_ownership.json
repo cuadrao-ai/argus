@@ -3276,7 +3276,7 @@
     },
     "codex/retention-sweeps-24-month-window": {
       "description": "Iris-approved follow-up to #1218. Seed only the 24-calendar-month sweep-evidence policy and its writer contract. No executor, schedule, column or permission changes. Root alone owns parent landing and retargeting.",
-      "base_ref": "origin/codex/cleanup-m1-retention-registry",
+      "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
         "supabase/migrations/20261018034523_retention_sweeps_24_month_window.sql",
