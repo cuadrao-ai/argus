@@ -244,6 +244,10 @@ services:
         value: "true"
       - key: NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED
         value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
+        value: "false"
 
   # Existing staging service: srv-db5ihr7lot8c73f3b3h0.
   - type: web
@@ -280,6 +284,10 @@ services:
         value: "false"
       - key: NEXT_PUBLIC_BUSINESS_PILOT_ENABLED
         value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
+        value: "false"
       - key: NEXT_PUBLIC_CUADRAO_API_URL
         value: https://cuadrao-api-staging.onrender.com/api/v1
       - key: NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY

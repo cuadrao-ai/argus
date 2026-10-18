@@ -13,14 +13,20 @@ struct CuadraoLegalURLs: Equatable {
         guard (enabled as? Bool == true) || (enabled as? String)?.lowercased() == "true" else {
             return CuadraoLegalURLs()
         }
-        func page(_ key: String) -> URL? {
-            guard let value = info[key] as? String, let url = URL(string: value),
-                  url.scheme == "https", let host = url.host, !host.isEmpty,
-                  url.user == nil, url.password == nil, url.fragment == nil else { return nil }
-            return url
-        }
-        return CuadraoLegalURLs(privacy: page("ARGUS_CUADRAO_PRIVACY_URL"),
-                               terms: page("ARGUS_CUADRAO_TERMS_URL"))
+        return CuadraoLegalURLs(privacy: page("ARGUS_CUADRAO_PRIVACY_URL", info: info),
+                               terms: page("ARGUS_CUADRAO_TERMS_URL", info: info))
+    }
+
+    /// The founder-approved under-18 refusal may link to configured terms while other legal surfaces stay gated.
+    static func ageGateTerms(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) -> URL? {
+        page("ARGUS_CUADRAO_TERMS_URL", info: info)
+    }
+
+    private static func page(_ key: String, info: [String: Any]) -> URL? {
+        guard let value = info[key] as? String, let url = URL(string: value),
+              url.scheme == "https", let host = url.host, !host.isEmpty,
+              url.user == nil, url.password == nil, url.fragment == nil else { return nil }
+        return url
     }
 
     /// Debug builds only: fills the owner with test pages so a UI test can see the links appear.
