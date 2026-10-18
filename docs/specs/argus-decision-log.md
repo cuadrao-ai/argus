@@ -38,6 +38,7 @@ supersession rules. These decisions do not assert implementation completion.
 | 2026-10-10 | Approve the Business agent direction. One agent in the existing runtime talks only to the owner in WhatsApp and completes each record through Business tools. The accountant works in the web view. Reuse the runtime and services; no second loop, extractor, ledger or vendor. Contract first, then parallel streams; the "Pagué 850" journey is the first proof; evals gate merges. Cuadrao branches from `codex/private-alpha-next`. Detailed record: [Business agent direction](#october-10-2026-business-agent-direction). | Lucas |
 | 2026-10-10 | Clarify the first Business outcome as a working hosted internet system and an invite-only web beta. Authorize the bounded build, clean integration merges and staging only. Preserve varied natural-language flows and the existing runtime. Detailed record: [Hosted Business beta and build grant](#october-10-2026-hosted-business-beta-and-build-grant). | Lucas, relayed by the root coordinator |
 | 2026-10-12 | The Business live acceptance gate is the invariant measurement: the varied owner-wording corpus judged by saved state, and the frozen seven cases judged by invariants (no money recorded before human approval, no model approval, one money record per human approval, honest reply, foreign scope untouched, replays change nothing, at most one open owner question). The frozen exact-step runs stay as recorded history and are not required to pass. Reason: the frozen cases pinned exact steps from a scripted flow and do not match how real owners write. Detailed record: [October 12 Business invariant gate](#october-12-2026-business-invariant-gate). | Lucas |
+| 2026-10-18 | Lock Business income intake: a Venta arrives on the same channels as a Gasto and is classified by issuer RNC for the 607 or the 606; each item gets a WhatsApp reply with the month so far; José's first session is judged on two moments; and the build order follows Iris's briefs. A sale with no NCF stays open pending DR counsel. Detailed record: [October 18 Business income](#october-18-2026-business-income-on-every-channel). | Lucas |
 
 
 ## October 12, 2026 Business invariant gate
@@ -949,3 +950,28 @@ that send no PostHog events. On October 15, 2026, a read-only check found no
 staging web service, and no client PostHog setup in the web or iOS code. The
 [API contract](../API_CONTRACT.md#post-accountdelete) owns the step's behavior.
 This decision does not turn on account deletion or schedule the resume sweep.
+
+## October 18, 2026: Business income on every channel
+
+Lucas locked these points on October 18, 2026. Iris owns the product content.
+
+1. Income arrives on every channel. A Venta arrives the same ways a Gasto
+   does: WhatsApp, email and upload. Cuadrao classifies each item
+   automatically. If the issuer RNC is the business's own RNC, the item is a
+   sale for the 607. Otherwise it is an expense for the 606. In review,
+   **Es una venta** or a WhatsApp reply of *gasto* or *venta* flips the type.
+2. Each item sent in gets a WhatsApp reply. The reply confirms the type and
+   shows the month so far, with sales and expenses. The reply shows no ITBIS
+   until the month close computes it.
+3. José's first session is judged on two moments: the first receipt comes back
+   DGII-verified with only **Aprobar** left, and the WhatsApp reply above.
+4. The build order follows Iris's briefs, in this order:
+   - (a) Income.
+   - (b) Tags and business categories.
+   - (d) The supplier fast path, and no review step for DGII-confirmed
+     suppliers. The RNC lookup runs alongside (a).
+   - (c) The business profile, with RNC autofill and moderated pictures.
+
+Open item: a sale with no NCF counts in income totals, stays off the 607 and
+is flagged **Venta sin comprobante**. This rule is pending confirmation from
+DR counsel.
