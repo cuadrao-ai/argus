@@ -1976,7 +1976,6 @@
         ".env.example",
         "docs/API_CONTRACT.md",
         "docs/DATA_MODEL.md",
-        "docs/agents/operating-reference.md",
         "render.yaml",
         "src/argus/api/financial_accounts.py",
         "src/argus/api/ingestion.py",
