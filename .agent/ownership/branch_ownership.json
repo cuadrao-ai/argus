@@ -3361,7 +3361,6 @@
         "scripts/emails/sync-business-closed.ts",
         "scripts/ops/staging_env_manifest.json",
         "src/argus/domain/business/business_closed_email.generated.json",
-        "tests/test_account_email_env_contract.py",
         "supabase/config.toml",
         "web/.env.local.example",
         "web/__tests__/__snapshots__/auth-email-approved-copy.test.ts.snap",
