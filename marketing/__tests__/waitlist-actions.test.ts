@@ -12,7 +12,7 @@ test("email scanner GETs show POST buttons without reading, confirming, removing
   Object.assign(process.env, settings);
   globalThis.fetch = (async (input) => { calls.push(String(input)); return Response.json([]); }) as typeof fetch;
   try {
-    for (const [route, action, label] of [[confirm, "confirm", "Confirmar mi correo"], [leave, "leave", "Salir de la lista"]] as const) {
+    for (const [route, action, label] of [[confirm, "confirm", "Confirmar"], [leave, "leave", "Salir de la lista"]] as const) {
       const token = makeWaitlistToken("ab".repeat(32), action, new Date());
       const response = await route.GET(new Request(`https://cuadrao.example.test/api/waitlist/${action}?token=${token}`));
       expect(response.status).toBe(200);
@@ -20,6 +20,11 @@ test("email scanner GETs show POST buttons without reading, confirming, removing
       expect(html).toContain('method="post"');
       expect(html).toContain(`<button type="submit">${label}</button>`);
       expect(html).toContain(`action="/api/waitlist/${action}?token=${token}"`);
+      if (action === "confirm") {
+        expect(html).toContain('<p>Confirma que quieres recibir noticias de Cuadrao en este correo.</p><form');
+        expect(html).not.toContain("Recibimos tu solicitud");
+        expect(html).not.toContain("Confirmar mi correo");
+      }
       expect(response.headers.get("Cache-Control")).toBe("no-store");
       expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
       expect(response.headers.get("Content-Security-Policy")).toContain("form-action 'self'");

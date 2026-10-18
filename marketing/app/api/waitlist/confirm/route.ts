@@ -7,7 +7,7 @@ import { WAITLIST_EMAILS } from "@/lib/waitlist/email-content";
 export function GET(request: Request) {
   const url = new URL(request.url);
   const action = `/api/waitlist/confirm?${new URLSearchParams({ token: url.searchParams.get("token") ?? "" })}`;
-  return waitlistResult(WAITLIST_EMAILS.confirmation.subject, WAITLIST_EMAILS.confirmation.paragraphs[0], 200, { url: action, label: WAITLIST_EMAILS.confirmation.button });
+  return waitlistResult(WAITLIST_EMAILS.confirmation.subject, "Confirma que quieres recibir noticias de Cuadrao en este correo.", 200, { url: action, label: "Confirmar" });
 }
 
 export async function POST(request: Request) {

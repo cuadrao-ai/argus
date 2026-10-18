@@ -43,8 +43,11 @@ digests with `timingSafeEqual`. It refuses Authorization bearer credentials and
 refuses a scheduler secret equal to the database credential. The database
 service-role credential is used only for database requests.
 
-Confirmation and leave GETs display buttons using existing approved Spanish
-copy. GET does not read or change signup state or send mail. Explicit POST
+Confirmation GET displays the approved sentence "Confirma que quieres recibir
+noticias de Cuadrao en este correo." above "Confirmar". Its existing heading
+is retained. The reused email paragraph is replaced on this page only, so no
+second consent sentence appears. Leave GET retains "Salir de la lista".
+Email and legal copy are unchanged. GET does not read or change signup state or send mail. Explicit POST
 performs the action. RFC 8058 one-click POST and existing unsubscribe headers
 remain supported. Browser leave POST renders the existing removal result.
 
@@ -88,3 +91,27 @@ The coordinator must obtain Lucas's concrete authorization before these actions:
 No secret was generated, printed, committed, rotated, or set by this lane.
 Independent exact-head Eval and user-relayed Rafael retest remain required.
 The receipt gates and platform blocker keep the full lane on hold.
+
+## Approved page-copy follow-up
+
+The focused route test failed on the old confirmation label before the page
+change, then passed with the exact approved sentence and button. The route
+checks still prove zero fetch calls from GET and confirmation, removal, and
+RFC 8058 behavior through POST.
+
+The full local marketing unit suite passed with 214 tests and four existing
+separately configured database tests skipped. Typecheck, lint, ownership,
+modularity, and whitespace checks passed. The default Turbopack build stayed
+in compile without progress and was stopped. `bunx next build --webpack` passed.
+The existing production-server browser flow passed on desktop and mobile,
+with only local Supabase and Resend fixtures. It checks the exact sentence and
+button labels, GET state preservation, explicit POST actions, and repeated
+one-click removal. Screenshots are outside git at
+`/private/tmp/security-waitlist-copy-browser-evidence`.
+
+Fresh integration is still `651870a54be4e5506dbb38f3902fef1a97eef8df` and is
+already an ancestor. Prior exact-head Eval at
+`e2a24438bfece756924a7bc81c7e0e2d35201c8e` is historical evidence only after
+this copy delta. Fresh independent exact-head Eval and CI remain pending.
+Item 1, operator secret setup and service-role rotation, hosted verification,
+and receipt 3 keep the PR held. No merge or hosted action was performed.
