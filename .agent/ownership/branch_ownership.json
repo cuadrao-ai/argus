@@ -3252,6 +3252,27 @@
         "marketing/components/business-footer.tsx",
         "marketing/components/personal-early-access.tsx"
       ]
+    },
+    "codex/business-close-lifecycle-20261018": {
+      "description": "WIP Business close/reopen domain core only. Preserves existing grants and closed_at authority. Transfer, launch UI/email and owner-deletion preservation remain pending the current-owner/data-custodian design.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "src/argus/domain/business/lifecycle.py",
+        "supabase/migrations/20261018080000_business_close_lifecycle.sql",
+        "tests/test_business_lifecycle_postgres.py",
+        "docs/reports/evidence/business-close-lifecycle-20261018/**"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "ios/**",
+        "marketing/**",
+        "src/argus/domain/business/export/**",
+        "src/argus/domain/ingestion/**"
+      ]
     }
   }
 }

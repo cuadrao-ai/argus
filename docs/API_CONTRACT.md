@@ -9809,3 +9809,30 @@ RPC and shared email renderer. It returns counts; failures return HTTP 503.
 It never purges records. A separate SQL cron job calls the existing retention
 RPC. Both schedules run every five minutes, with retention offset by two minutes.
 Signup still sends confirmation immediately; welcome follows confirmation.
+
+### Business closure lifecycle domain contract, draft October 18, 2026
+
+The scoped closure work adds a domain service only. No HTTP route, launch UI,
+email send, account-deletion enablement or scheduled purge is added by this slice.
+The full lane now has founder-approved copy, transfer and retention rules.
+Its remaining implementation is recorded in the lifecycle checkpoint handoff.
+
+The registered owner may close an owned Business by submitting its exact current
+name and a scoped idempotency key. A transaction locks the owner and Business,
+then sets the existing `spaces.closed_at` once. Live Business authorization and
+listings already exclude closed spaces, so members immediately lose access.
+The service keeps existing grants and invitations unchanged.
+
+The owner may list their closed Businesses within 30 days, then reopen one
+strictly before `closed_at + 30 days`. Reopening clears `closed_at`; only grants
+that are still live regain access. Revoked and expired grants stay unavailable.
+No new invitation is required or generated. Another open Business prevents
+reopening under the existing one-open-Business-per-owner constraint.
+
+Close and reopen commands retain their original result per Business/key. An
+identical delayed replay returns that result without reversing a later command.
+Reusing the key for another action or confirmation conflicts. Unknown and foreign
+Businesses return the same missing-record outcome. The deadline uses the database
+clock after locks are acquired. This contract does not promise receipt retention
+after the owner deletes their account; the existing cascade remains unchanged
+pending the required current-owner and data-custodian implementation.

@@ -3674,3 +3674,24 @@ by `tests/test_ingestion_reconcile_postgres.py`. On disconnect, unreviewed
 observations (and events left empty) are deleted; observations of accepted
 events are reduced to provenance (source, connection, external id, dates,
 status) and kept with the record.
+
+### Business closure lifecycle command history, draft October 18, 2026
+
+`20261018080000_business_close_lifecycle.sql` adds
+`business_lifecycle_commands`. One row stores the original result of one owner's
+close or reopen command, uniquely keyed by `(space_id, idempotency_key)`.
+The composite `(space_id, owner_id)` foreign key references the canonical
+`spaces(id, created_by)` and cascades with the space. Checks bind each action to
+its required exact-name confirmation and original closed/open result. Keys have
+1 to 200 characters and may not be whitespace-only. The table contains no email,
+receipt content, copied permission state or current financial facts.
+
+`spaces.closed_at` remains the only current closure state. Reopening clears it
+only before the single domain 30-day deadline; the command history is an
+idempotency record, never a second current-state owner. The server serializes
+commands under the existing owner and space rows. Original command results
+prevent delayed retries from changing later state. Existing grant rows remain
+unchanged. RLS has no client policies or grants, and `service_role` has only
+SELECT and INSERT on the command table. A space deletion removes its history.
+No new retention exception, purge execution or owner-deletion behavior ships in
+this bounded domain slice.
