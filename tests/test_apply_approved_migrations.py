@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import textwrap
 from datetime import datetime, timezone
 from pathlib import Path
@@ -581,7 +582,9 @@ def test_a_hosted_target_without_a_record_is_still_refused() -> None:
 def test_the_hosted_connection_must_reach_a_named_host_and_database() -> None:
     hosted = _approval()
     ok = SimpleNamespace(
-        info=SimpleNamespace(host=POOLER, hostaddr="3.4.5.6", port=5432),
+        info=SimpleNamespace(
+            host=POOLER, hostaddr="3.4.5.6", port=5432, user=f"postgres.{REF}"
+        ),
         execute=lambda _sql: _Row("postgres"),
     )
     applier.verify_connection(ok, [DIRECT, POOLER], ["postgres"], hosted)
@@ -594,7 +597,9 @@ def test_the_hosted_connection_must_reach_a_named_host_and_database() -> None:
     with pytest.raises(applier.ApplyError):
         applier.verify_connection(elsewhere, [DIRECT, POOLER], ["postgres"], hosted)
     wrong_db = SimpleNamespace(
-        info=SimpleNamespace(host=POOLER, hostaddr="3.4.5.6", port=5432),
+        info=SimpleNamespace(
+            host=POOLER, hostaddr="3.4.5.6", port=5432, user=f"postgres.{REF}"
+        ),
         execute=lambda _sql: _Row("other"),
     )
     with pytest.raises(applier.ApplyError):
@@ -926,6 +931,27 @@ def test_a_non_utf8_password_exits_with_the_fixed_refusal(
     assert str(refused) == "the database connection was refused"
     assert refused.__cause__ is None and refused.__context__ is None
     assert password not in _refusal_chain(refused)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "apply_approved_migrations.py",
+            "--candidate-sha",
+            sha,
+            "--approved-file",
+            str(tmp_path / "approved.json"),
+            "--allow-host",
+            _STAGING_DIRECT,
+            "--allow-host",
+            _STAGING_POOLER,
+            "--allow-database",
+            "postgres",
+            "--hosted-approval",
+            path,
+            "--ssl-root-cert",
+            str(tmp_path / "ca.pem"),
+        ],
+    )
     exit_error = _operator_exit()
     captured = capsys.readouterr()
     visible = captured.out + captured.err + _refusal_chain(exit_error)
@@ -933,7 +959,10 @@ def test_a_non_utf8_password_exits_with_the_fixed_refusal(
     assert captured.err == "refused: the database connection was refused\n"
     assert "Traceback" not in visible
     assert password not in visible
-    assert exit_error.__cause__ is None and exit_error.__context__ is None
+    assert exit_error.__cause__ is None
+    chained = exit_error.__context__
+    assert chained is not None and type(chained).__name__ == "ApplyError"
+    assert chained.__cause__ is None and chained.__context__ is None
 
 
 _STAGING_APPROVAL = (
@@ -1404,7 +1433,12 @@ def _quoted_main(
 class _PlanServer:
     def __init__(self, ledger: list[str], host: str) -> None:
         self.ledger = ledger
-        self.info = SimpleNamespace(host=host, hostaddr="203.0.113.10", port=5432)
+        self.info = SimpleNamespace(
+            host=host,
+            hostaddr="203.0.113.10",
+            port=5432,
+            user=f"postgres.{_STAGING_REF}",
+        )
 
     def __enter__(self) -> _PlanServer:
         return self
