@@ -319,7 +319,9 @@ def stop_receiving(
     context: Annotated[BusinessContext, Depends(require_business_document_write)],
 ) -> Response:
     owner_only(request, context)
-    _runtime(request).store.deactivate_routes(context.scope.owner.space_id)
+    _runtime(request).store.deactivate_routes(
+        context.scope.owner.space_id, actor_id=context.scope.person_id
+    )
     return Response(status_code=204, headers=NO_STORE)
 
 
@@ -396,6 +398,7 @@ def change_receiving_address(
             alias_normalized=report["alias"],
             recipient=f"{report['alias']}@{domain}",
             review_required=report["review_required"],
+            actor_id=context.scope.person_id,
         )
     except AliasTaken:
         logger.bind(route_id=current.id).warning("email_alias_unavailable")
@@ -464,10 +467,31 @@ def authorize_sender(
         item.kind == body.kind and item.value == value
         for item in runtime.store.list_senders(space_id)
     )
-    rule = runtime.store.upsert_sender(space_id, body.kind, value, body.status)
+    rule = runtime.store.upsert_sender(
+        space_id, body.kind, value, body.status, actor_id=context.scope.person_id
+    )
     if existed:
         response.status_code = 200
     return {"id": rule.id, "kind": rule.kind, "value": rule.value, "status": rule.status}
+
+
+@router.delete("/senders/{sender_id}", status_code=204)
+def remove_sender(
+    sender_id: UUID,
+    request: Request,
+    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+) -> Response:
+    owner_only(request, context)
+    removed = _runtime(request).store.remove_sender(
+        context.scope.owner.space_id,
+        str(sender_id),
+        actor_id=context.scope.person_id,
+    )
+    if removed is None:
+        raise _problem(
+            request, 404, "email_sender_not_found", "That sender is not on this list."
+        )
+    return Response(status_code=204, headers=NO_STORE)
 
 
 @router.get("/inbox")

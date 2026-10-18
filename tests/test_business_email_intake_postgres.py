@@ -406,3 +406,35 @@ def test_alias_change_keeps_the_delivery_and_retires_the_old_recipient(
             "(select id from public.spaces where id<>%s limit 1) where id=%s",
             (rig["route"].space_id, route_id),
         )
+
+
+def test_address_and_sender_changes_leave_an_audit_row(rig):
+    store, route, actor = rig["store"], rig["route"], rig["users"]["owner"]
+    space_id = route.space_id
+    previous = route.recipient
+    store.change_address(
+        route.id,
+        alias="tallerpena",
+        alias_normalized="tallerpena",
+        recipient="tallerpena@recibos.example.test",
+        review_required=False,
+        actor_id=actor,
+    )
+    store.deactivate_routes(space_id, actor_id=actor)
+    sender = store.upsert_sender(
+        space_id, "address", "caja@tienda.test", "authorized", actor_id=actor
+    )
+    store.upsert_sender(
+        space_id, "address", "otro@tienda.test", "blocked", actor_id=actor
+    )
+    assert store.remove_sender(space_id, sender.id, actor_id=actor) is not None
+    events = store.address_events(space_id)
+    assert [(event.event_type, event.old_address, event.new_address) for event in events] == [
+        ("address_changed", previous, "tallerpena@recibos.example.test"),
+        ("address_stopped", "tallerpena@recibos.example.test", None),
+        ("sender_authorized", None, "caja@tienda.test"),
+        ("sender_blocked", "otro@tienda.test", "otro@tienda.test"),
+        ("sender_removed", "caja@tienda.test", None),
+    ]
+    assert {event.actor_id for event in events} == {actor}
+    assert all(event.created_at is not None for event in events)

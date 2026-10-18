@@ -475,6 +475,8 @@ The October 12 email receiving migration adds ten foreign keys, all nondeferrabl
 | `business_email_routes` | `space_id, principal_id` | `spaces` | CASCADE | NO ACTION | no | Composite owner key, ON UPDATE NO ACTION, not deferrable: the route can never name an owner other than the space's creator. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
 | `business_email_retired_aliases` | `route_id` | `business_email_routes` | CASCADE | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here. | A retired address goes with its route at step 7 and is not reused. |
 | `business_email_senders` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Sender rules go with the Business space at step 7. |
+| `business_email_address_events` | `actor_id` | `auth.users` | SET NULL | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is nullable, so it can be set to null instead. | Catalog only. The probes had no rows here. | None. The event stays with the Business. The actor id clears when that person is deleted. |
+| `business_email_address_events` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
 
 ### Month close
 

@@ -37,6 +37,30 @@ def from_domain(raw: bytes) -> str | None:
     return address.rsplit("@", 1)[1]
 
 
+def provider_verdict(authentication: dict | None) -> str:
+    """Map the receiving server's authentication object to one verdict.
+
+    The object is the server's own SPF, DKIM, and DMARC result. A header inside
+    the message is not this object. ``dmarc`` pass is aligned and ``dmarc`` fail
+    is failed. When ``dmarc`` is absent or neither of those, ``dkim`` pass means
+    the signing domain matched From, and ``dkim`` fail does not.
+    """
+
+    if not isinstance(authentication, dict):
+        return "unknown"
+    dmarc = authentication.get("dmarc")
+    dkim = authentication.get("dkim")
+    if dmarc == "pass":
+        return "aligned"
+    if dmarc == "fail":
+        return "failed"
+    if dkim == "pass":
+        return "aligned"
+    if dkim == "fail":
+        return "failed"
+    return "unknown"
+
+
 def assess(raw: bytes, keys: KeyLookup) -> str:
     domain = from_domain(raw)
     signatures = [header for header in _parse_headers(_split(raw)[0]) if header[0].lower() == "dkim-signature"]

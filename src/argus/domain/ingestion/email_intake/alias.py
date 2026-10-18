@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 import unicodedata
 from collections.abc import Callable
 
@@ -96,22 +97,57 @@ def judge_normalized(alias: str, *, taken: bool) -> str:
     return "available"
 
 
-def free_suggestions(base: str, taken: Callable[[str], bool], *, count: int = 3) -> list[str]:
+def _with_tail(base: str, tail: str) -> str | None:
+    if not tail or len(tail) >= 30:
+        return None
+    candidate = base[: 32 - len(tail)] + tail
+    if storage_form(candidate) != candidate:
+        return None
+    return candidate
+
+
+def name_candidates(base: str) -> list[str]:
+    """Name-based chips: the name, a number, a city, then the older suffixes."""
+
+    tails = ("2", "3", "-santiago", "-santodomingo", "-lavega", *_SUFFIXES)
     found: list[str] = []
     seen: set[str] = set()
-    candidates = [base]
-    for suffix in _SUFFIXES:
-        room = 32 - len(suffix)
-        if room >= 3:
-            candidates.append(base[:room] + suffix)
-    for candidate in candidates:
-        if candidate in seen or len(candidate) < 3:
+    for candidate in (base, *(_with_tail(base, tail) for tail in tails)):
+        if candidate and candidate not in seen:
+            seen.add(candidate)
+            found.append(candidate)
+    return found
+
+
+def free_suggestions(
+    base: str,
+    taken: Callable[[str], bool],
+    *,
+    count: int = 3,
+    code: Callable[[], str] | None = None,
+) -> list[str]:
+    found: list[str] = []
+    seen: set[str] = set()
+    for candidate in name_candidates(base):
+        if candidate in seen:
             continue
         seen.add(candidate)
         if judge_normalized(candidate, taken=taken(candidate)) == "available":
             found.append(candidate)
         if len(found) == count:
+            return found
+    if found:
+        return found
+    spare = code or (lambda: secrets.token_hex(3))
+    for _ in range(12):
+        if len(found) == count:
             break
+        candidate = _with_tail(base, spare())
+        if candidate is None or candidate in seen:
+            continue
+        seen.add(candidate)
+        if judge_normalized(candidate, taken=taken(candidate)) == "available":
+            found.append(candidate)
     return found
 
 

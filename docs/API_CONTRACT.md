@@ -9197,7 +9197,10 @@ and `Idempotency-Key`. The same existing
 `{version, action: "record_income"}`, with the existing required
 `Idempotency-Key`. The route resolves the actual actor and live named grant from
 the canonical draft, then dispatches to the matching human command; the caller
-supplies no actor, space or grant. Both approval variants and unchanged human
+supplies no actor, space or grant. A document that arrived by email from a
+sender who is not yet authorized is refused with 403 `email_sender_unauthorized`
+until that sender is authorized. Nothing in the message is approved by receiving
+it. Both approval variants and unchanged human
 review return the authoritative `BusinessDossier` with `Cache-Control: no-store`.
 The same no-store problem responses and refusal mapping apply to both variants.
 Human review and approval remain separate from model actions. This contract
@@ -9625,7 +9628,12 @@ accept path recorded.
   - GET `/api/v1/business/email/senders` lists sender rules for any member.
     POST (owner) authorizes or blocks one address or one domain. A public
     mail domain cannot be authorized as a whole. A repeated rule returns 200
-    with the same id.
+    with the same id. DELETE `/api/v1/business/email/senders/{sender_id}`
+    (owner) removes that sender. A grantee is refused with 403
+    `business_permission_denied`. An id that is not on this Business's list
+    is 404 `email_sender_not_found`. Stopping or changing the receipt address,
+    and authorizing, removing, or blocking a sender, each append one audit row
+    with the actor, the time, the old address, and the new address.
   - GET `/api/v1/business/email/inbox` groups deliveries as
     `remitentes_nuevos`, then `bandeja`. A first scan from an authorized
     sender sets `notice` to "Prueba recibida".

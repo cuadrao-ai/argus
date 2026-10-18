@@ -16,6 +16,26 @@ from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
 from argus.domain.ingestion.email_intake.budget import FetchBudget
 
 RECEIVING_DEADLINE_SECONDS = 60
+_AUTH_KEYS = ("spf", "dkim", "dmarc")
+
+
+def _authentication(metadata: dict) -> dict | None:
+    """The server's authentication object, or none when the message predates it."""
+
+    raw = metadata.get("authentication", None)
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError
+    found = {}
+    for key in _AUTH_KEYS:
+        value = raw.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value or len(value) > 32:
+            raise ValueError
+        found[key] = value
+    return found
 
 
 class EmailProviderError(Exception):
@@ -29,6 +49,7 @@ class EmailProviderError(Exception):
 class ReceivedEmail:
     raw: bytes
     recipients: tuple[str, ...]
+    authentication: dict | None = None
 
 
 class ResendReceivingClient:
@@ -96,13 +117,16 @@ class ResendReceivingClient:
             url = metadata["raw"]["download_url"]
             if not isinstance(url, str):
                 raise ValueError
+            authentication = _authentication(metadata)
         except (ValueError, KeyError, TypeError):
             raise EmailProviderError("invalid_provider_metadata") from None
         self._validate_download(url)
         raw = await self._get(url, authenticated=False, budget=budget)
         if not raw:
             raise EmailProviderError("empty_email")
-        return ReceivedEmail(raw=raw, recipients=tuple(recipients))
+        return ReceivedEmail(
+            raw=raw, recipients=tuple(recipients), authentication=authentication
+        )
 
     def _metadata_url(self, email_id: str) -> str:
         return f"https://api.resend.com/emails/receiving/{email_id}?html_format=cid"

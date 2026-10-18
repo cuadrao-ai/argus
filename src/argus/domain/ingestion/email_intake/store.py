@@ -198,12 +198,47 @@ class PostgresEmailStore(PostgresAddressing):
             raise LookupError("email_route_unavailable")
         return existing
 
-    def deactivate_routes(self, space_id: str) -> int:
-        with self.pool.connection() as connection:
-            return connection.execute(
-                "update public.business_email_routes set active=false where space_id=%s and active",
+    def deactivate_routes(self, space_id: str, *, actor_id: str | None = None) -> int:
+        with (
+            self.pool.connection() as connection,
+            connection.transaction(),
+            connection.cursor(row_factory=dict_row) as cursor,
+        ):
+            rows = cursor.execute(
+                "update public.business_email_routes set active=false "
+                "where space_id=%s and active returning recipient",
                 (space_id,),
-            ).rowcount
+            ).fetchall()
+            for row in rows:
+                self._write_event(
+                    cursor,
+                    space_id,
+                    actor_id,
+                    "address_stopped",
+                    row["recipient"],
+                    None,
+                )
+            return len(rows)
+
+    def email_document_standing(self, space_id: str, document_id: str) -> str | None:
+        with (
+            self.pool.connection() as connection,
+            connection.cursor(row_factory=dict_row) as cursor,
+        ):
+            rows = cursor.execute(
+                "select distinct d.sender from public.business_email_deliveries d "
+                "left join public.business_email_parts p on p.delivery_id=d.id "
+                "where d.space_id=%s and ("
+                "d.original_document_id=%s or p.document_id=%s)",
+                (space_id, document_id, document_id),
+            ).fetchall()
+        if not rows:
+            return None
+        for row in rows:
+            standing = self.sender_standing(space_id, row["sender"])
+            if standing != "authorized":
+                return standing
+        return "authorized"
 
     def routes(self, recipients: tuple[str, ...]) -> list[RecipientRoute]:
         with (
@@ -652,6 +687,7 @@ class InMemoryEmailStore(MemoryAddressing):
         self._retired: dict[str, object] = {}
         self._retired_aliases: set[str] = set()
         self._space_names: dict[str, str] = {}
+        self._events: list = []
 
     @_synchronized
     def create_route(
@@ -696,13 +732,36 @@ class InMemoryEmailStore(MemoryAddressing):
         return route
 
     @_synchronized
-    def deactivate_routes(self, space_id: str) -> int:
+    def deactivate_routes(self, space_id: str, *, actor_id: str | None = None) -> int:
         changed = 0
         for key, route in self._routes.items():
             if route.space_id == space_id and route.active:
                 self._routes[key] = replace(route, active=False)
+                self._remember(
+                    space_id, actor_id, "address_stopped", route.recipient, None
+                )
                 changed += 1
         return changed
+
+    @_synchronized
+    def email_document_standing(self, space_id: str, document_id: str) -> str | None:
+        senders = []
+        for delivery in self._deliveries.values():
+            if delivery.space_id != space_id:
+                continue
+            parts = self._parts.get(delivery.id, {})
+            linked = delivery.original_document_id == document_id or any(
+                part.document_id == document_id for part in parts.values()
+            )
+            if linked:
+                senders.append(delivery.sender)
+        if not senders:
+            return None
+        for sender in senders:
+            standing = self.sender_standing(space_id, sender)
+            if standing != "authorized":
+                return standing
+        return "authorized"
 
     @_synchronized
     def routes(self, recipients):

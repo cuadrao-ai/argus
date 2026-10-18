@@ -301,6 +301,14 @@ def test_the_own_business_routes_and_the_owner_channels_refuse_a_chosen_grant(
         403,
         "business_permission_denied",
     )
+    removed = bob.client.delete(
+        BASE + f"/email/senders/{uuid4()}",
+        headers={**bob.auth, **headers},
+    )
+    assert (removed.status_code, removed.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
 
 
 def test_whatsapp_stays_the_owners_channel_under_a_chosen_grant(

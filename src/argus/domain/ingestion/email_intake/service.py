@@ -25,7 +25,7 @@ from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
-from argus.domain.ingestion.email_intake.alignment import assess, from_address
+from argus.domain.ingestion.email_intake.alignment import from_address, provider_verdict
 from argus.domain.ingestion.email_intake.budget import (
     EmailBudgetWait,
     FetchBudget,
@@ -43,6 +43,19 @@ from argus.domain.ingestion.email_intake.store import BUDGET_CODES, EmailStore, 
 from argus.domain.owner_scope import BusinessSpace
 
 ORIGINAL_FILENAME = "forwarded.eml"
+RECEIPT_MEDIA = frozenset({"image/png", "image/jpeg", "application/pdf"})
+
+
+def reader_bytes(content: bytes, media_type: str, body: str) -> bytes | None:
+    """Bytes the receipt reader may see. Message text is not among them.
+
+    ``body`` is the message text. It is never copied into the result. An image
+    or PDF attachment is the only reader input.
+    """
+
+    if media_type not in RECEIPT_MEDIA or not isinstance(body, str):
+        return None
+    return content
 
 
 class ReceivingProvider(Protocol):
@@ -92,7 +105,6 @@ class EmailCapture:
         enabled: Callable[[], bool],
         receiving_enabled: Callable[[], bool] | None = None,
         read_receipt=None,
-        dkim_keys=None,
     ) -> None:
         self.store, self.documents, self.provider, self.enabled = (
             store,
@@ -103,7 +115,6 @@ class EmailCapture:
         self.route_authority = route_authority
         self.read_receipt = read_receipt
         self.receiving_enabled = receiving_enabled or (lambda: self.provider is not None)
-        self.dkim_keys = dkim_keys or (lambda domain, selector: None)
 
     def check_route(self, route: RecipientRoute) -> None:
         """Raise unless the route is live and its grant still allows prepare.
@@ -239,14 +250,13 @@ class EmailCapture:
         return gated.error_code not in BUDGET_CODES
 
     def _apply_route(
-        self, delivery: EmailDelivery, route: RecipientRoute, raw: bytes
+        self, delivery: EmailDelivery, route: RecipientRoute, raw: bytes, auth: str
     ) -> bool:
         sender = from_address(raw)
         standing = self.store.sender_standing(route.space_id, sender)
         if standing == "blocked":
             self.store.finish(delivery, "rejected", "email_sender_blocked")
             return False
-        auth = assess(raw, self.dkim_keys)
         first = standing == "authorized" and self.store.claim_first_scan(
             route.space_id, sender
         )
@@ -270,6 +280,7 @@ class EmailCapture:
                     connection_id=delivery.original_document_id,
                     scope=BusinessSpace(delivery.space_id),
                 )
+                auth = delivery.auth_result or "unknown"
             else:
                 if self.provider is None:
                     raise EmailProviderError("email_provider_unavailable", retryable=True)
@@ -283,9 +294,10 @@ class EmailCapture:
                 if actual != expected:
                     raise EmailProviderError("email_recipient_mismatch")
                 raw = received.raw
+                auth = provider_verdict(received.authentication)
             # The fetch took time; the grant is read once more before any write.
             await asyncio.to_thread(self.check_route, route)
-            if not await asyncio.to_thread(self._apply_route, delivery, route, raw):
+            if not await asyncio.to_thread(self._apply_route, delivery, route, raw, auth):
                 return
             await self._capture(delivery, raw, route)
         except EmailBudgetWait as error:
@@ -343,7 +355,7 @@ class EmailCapture:
                     filename=ORIGINAL_FILENAME,
                     media_type="message/rfc822",
                     consent=False,
-                    context_only=bool(envelope.parts),
+                    context_only=True,
                 )
                 await run(
                     self.store.update,
@@ -368,11 +380,12 @@ class EmailCapture:
                     self.store.put_part, delivery, replace(result, state="rejected")
                 )
                 continue
+            readable = reader_bytes(part.content, part.media_type, envelope.text_body)
             try:
                 outcome = await self.documents.upload(
                     user_id=delivery.principal_id,
                     scope=scope,
-                    content=part.content,
+                    content=readable if readable is not None else part.content,
                     filename=part.filename,
                     media_type=part.media_type,
                     consent=False,
@@ -407,10 +420,10 @@ class EmailCapture:
             connection_ids = {
                 part.document_id
                 for part in captured
-                if part.state == "captured" and part.document_id
+                if part.state == "captured"
+                and part.document_id
+                and reader_bytes(b"", part.media_type, "") is not None
             }
-            if not envelope.parts and delivery.original_document_id:
-                connection_ids.add(delivery.original_document_id)
             for connection_id in connection_ids:
                 try:
                     await run(self.check_route, route)

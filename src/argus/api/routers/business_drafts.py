@@ -42,9 +42,29 @@ def _key(request: Request, value: str | None) -> str:
     return _required_idempotency_key(request, value)
 
 
+def _email_sender_blocks_approval(context, draft_id) -> bool:  # noqa: ANN001
+    """A receipt that arrived from a sender who is not authorized cannot be approved."""
+
+    from argus.api.email_intake import email_intake
+    from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+
+    runtime = email_intake()
+    store = getattr(runtime, "store", None) if runtime is not None else None
+    if store is None:
+        pool = getattr(getattr(context.service, "authority", None), "pool", None)
+        if pool is None:
+            return False
+        store = PostgresEmailStore(pool)
+    standing = store.email_document_standing(str(context.space_id), str(draft_id))
+    return standing is not None and standing != "authorized"
+
+
 def _run(request, response, context, draft_id, command=None, key=None):
     response.headers.update(NO_STORE)
     try:
+        if isinstance(command, (ApproveExpense, ApproveIncome, ApproveRefund)):
+            if _email_sender_blocks_approval(context, draft_id):
+                raise ActionError("permission_denied", "email_sender_unauthorized")
         actor = context.for_draft(draft_id)
         if command is not None:
             if isinstance(command, ReviewDraft):

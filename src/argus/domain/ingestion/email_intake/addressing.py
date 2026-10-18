@@ -28,12 +28,32 @@ class SenderRule:
 
 
 @dataclass(frozen=True)
+class AddressEvent:
+    id: str
+    space_id: str
+    actor_id: str | None
+    event_type: str
+    old_address: str | None
+    new_address: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
 class RetiredAlias:
     route_id: str
     space_id: str
     principal_id: str
     recipient: str
     alias_normalized: str | None
+
+
+def _event_address(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip().lower()
+    if not cleaned or len(cleaned) > 254:
+        raise ValueError("email_address_event_invalid")
+    return cleaned
 
 
 def _address_value(address: str | None) -> tuple[str, str] | None:
@@ -90,6 +110,7 @@ class PostgresAddressing:
         alias_normalized: str,
         recipient: str,
         review_required: bool,
+        actor_id: str | None = None,
     ) -> RecipientRoute:
         with (
             self.pool.connection() as connection,
@@ -121,7 +142,43 @@ class PostgresAddressing:
                 ).fetchone()
             except UniqueViolation:
                 raise AliasTaken() from None
+            self._write_event(
+                cursor,
+                current["space_id"],
+                actor_id,
+                "address_changed",
+                current["recipient"],
+                recipient,
+            )
             return route_from_row(row)
+
+    def _write_event(self, cursor, space_id, actor_id, event_type, old, new) -> None:  # noqa: ANN001
+        cursor.execute(
+            "insert into public.business_email_address_events"
+            "(space_id, actor_id, event_type, old_address, new_address) "
+            "values (%s,%s,%s,%s,%s)",
+            (
+                space_id,
+                actor_id,
+                event_type,
+                _event_address(old),
+                _event_address(new),
+            ),
+        )
+
+    def address_events(self, space_id: str) -> list[AddressEvent]:
+        with (
+            self.pool.connection() as connection,
+            connection.cursor(row_factory=dict_row) as cursor,
+        ):
+            rows = cursor.execute(
+                "select id::text, space_id::text, actor_id::text, event_type, "
+                "old_address, new_address, created_at "
+                "from public.business_email_address_events where space_id=%s "
+                "order by created_at, id",
+                (space_id,),
+            ).fetchall()
+        return [AddressEvent(**row) for row in rows]
 
     def list_senders(self, space_id: str) -> list[SenderRule]:
         with (
@@ -135,9 +192,18 @@ class PostgresAddressing:
             ).fetchall()
         return [SenderRule(**row) for row in rows]
 
-    def upsert_sender(self, space_id: str, kind: str, value: str, status: str) -> SenderRule:
+    def upsert_sender(
+        self,
+        space_id: str,
+        kind: str,
+        value: str,
+        status: str,
+        actor_id: str | None = None,
+    ) -> SenderRule:
+        event = "sender_authorized" if status == "authorized" else "sender_blocked"
         with (
             self.pool.connection() as connection,
+            connection.transaction(),
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             row = cursor.execute(
@@ -147,6 +213,34 @@ class PostgresAddressing:
                 "status, first_scan_at",
                 (space_id, kind, value, status),
             ).fetchone()
+            self._write_event(
+                cursor,
+                space_id,
+                actor_id,
+                event,
+                value if status == "blocked" else None,
+                value,
+            )
+            return SenderRule(**row)
+
+    def remove_sender(
+        self, space_id: str, sender_id: str, actor_id: str | None = None
+    ) -> SenderRule | None:
+        with (
+            self.pool.connection() as connection,
+            connection.transaction(),
+            connection.cursor(row_factory=dict_row) as cursor,
+        ):
+            row = cursor.execute(
+                "delete from public.business_email_senders where id=%s and space_id=%s "
+                "returning id::text, space_id::text, kind, value, status, first_scan_at",
+                (sender_id, space_id),
+            ).fetchone()
+            if row is None:
+                return None
+            self._write_event(
+                cursor, space_id, actor_id, "sender_removed", row["value"], None
+            )
             return SenderRule(**row)
 
     def has_sender_rules(self, space_id: str) -> bool:
@@ -253,6 +347,7 @@ class MemoryAddressing:
         alias_normalized: str,
         recipient: str,
         review_required: bool,
+        actor_id: str | None = None,
     ) -> RecipientRoute:
         with self._lock:
             current = self._routes.get(route_id)
@@ -286,13 +381,45 @@ class MemoryAddressing:
                 review_required=review_required,
             )
             self._routes[route_id] = updated
+            self._remember(
+                current.space_id,
+                actor_id,
+                "address_changed",
+                current.recipient,
+                recipient,
+            )
             return updated
+
+    def _remember(self, space_id, actor_id, event_type, old, new) -> None:  # noqa: ANN001
+        self._events.append(
+            AddressEvent(
+                str(uuid4()),
+                str(space_id),
+                None if actor_id is None else str(actor_id),
+                event_type,
+                _event_address(old),
+                _event_address(new),
+                self.clock(),
+            )
+        )
+
+    def address_events(self, space_id: str) -> list[AddressEvent]:
+        with self._lock:
+            return [event for event in self._events if event.space_id == space_id]
 
     def list_senders(self, space_id: str) -> list[SenderRule]:
         with self._lock:
             return [rule for rule in self._senders.values() if rule.space_id == space_id]
 
-    def upsert_sender(self, space_id: str, kind: str, value: str, status: str) -> SenderRule:
+    def upsert_sender(
+        self,
+        space_id: str,
+        kind: str,
+        value: str,
+        status: str,
+        actor_id: str | None = None,
+    ) -> SenderRule:
+        event = "sender_authorized" if status == "authorized" else "sender_blocked"
         with self._lock:
             key = (space_id, kind, value)
             current = self._senders.get(key)
@@ -305,6 +432,31 @@ class MemoryAddressing:
                 current.first_scan_at if current else None,
             )
             self._senders[key] = rule
+            self._remember(
+                space_id,
+                actor_id,
+                event,
+                value if status == "blocked" else None,
+                value,
+            )
+            return rule
+
+    def remove_sender(
+        self, space_id: str, sender_id: str, actor_id: str | None = None
+    ) -> SenderRule | None:
+        with self._lock:
+            found = next(
+                (
+                    key
+                    for key, rule in self._senders.items()
+                    if rule.id == sender_id and rule.space_id == space_id
+                ),
+                None,
+            )
+            if found is None:
+                return None
+            rule = self._senders.pop(found)
+            self._remember(space_id, actor_id, "sender_removed", rule.value, None)
             return rule
 
     def has_sender_rules(self, space_id: str) -> bool:

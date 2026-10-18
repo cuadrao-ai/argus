@@ -124,3 +124,38 @@ create trigger business_email_routes_reject_retired
 
 revoke all on function argus_private.reject_retired_recipient()
     from public, anon, authenticated;
+
+-- One row each time a receipt address stops or changes, or a sender is
+-- authorized, removed, or blocked. The actor clears when that person is deleted.
+create table public.business_email_address_events (
+    id uuid primary key default gen_random_uuid(),
+    space_id uuid not null references public.spaces (id) on delete cascade,
+    actor_id uuid references auth.users (id) on delete set null,
+    event_type text not null check (
+        event_type in (
+            'address_stopped',
+            'address_changed',
+            'sender_authorized',
+            'sender_removed',
+            'sender_blocked'
+        )
+    ),
+    old_address text,
+    new_address text,
+    created_at timestamptz not null default now(),
+    check (
+        old_address is null
+        or (old_address = lower(old_address) and length(old_address) <= 254)
+    ),
+    check (
+        new_address is null
+        or (new_address = lower(new_address) and length(new_address) <= 254)
+    )
+);
+
+create index business_email_address_events_space_idx
+    on public.business_email_address_events (space_id, created_at);
+
+alter table public.business_email_address_events enable row level security;
+revoke all on public.business_email_address_events from public, anon, authenticated;
+grant select, insert on public.business_email_address_events to service_role;

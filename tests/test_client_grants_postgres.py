@@ -161,6 +161,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_document_settlements",
         "public.business_draft_revisions",
         "public.business_draft_sources",
+        "public.business_email_address_events",
         "public.business_email_daily_usage",
         "public.business_email_deliveries",
         "public.business_email_parts",

@@ -14,11 +14,17 @@ from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
 from argus.domain.ingestion.email_intake.alias import (
     ALIAS_UNAVAILABLE,
     fold_variants,
+    free_suggestions,
     inspect_alias,
     judge_normalized,
+    name_candidates,
     suggest_alias,
 )
-from argus.domain.ingestion.email_intake.alignment import assess, sign_relaxed
+from argus.domain.ingestion.email_intake.alignment import (
+    assess,
+    provider_verdict,
+    sign_relaxed,
+)
 from argus.domain.ingestion.email_intake.budget import (
     DailyEmailBudget,
     business_day,
@@ -184,6 +190,82 @@ def test_one_address_filling_its_cap_leaves_the_next_address_open():
     )
     assert admitted.route_id == second.id
     assert admitted.error_code is None
+
+
+@pytest.mark.parametrize(
+    "alias",
+    [
+        "suporte",
+        "ajuda",
+        "contato",
+        "pagamento",
+        "seguranca",
+        "aide",
+        "facture",
+        "securite",
+        "paiement",
+    ],
+)
+def test_portuguese_and_french_role_names_are_refused_as_a_whole_alias(alias: str):
+    assert judge_normalized(alias, taken=False) == "refused"
+    assert judge_normalized(alias + "norte", taken=False) == "available"
+
+
+def test_an_accented_role_name_is_the_same_refusal():
+    assert inspect_alias("segurança", lambda _alias: False)["status"] == "refused"
+
+
+@pytest.mark.parametrize("alias", ["kuadrao", "cuadrau", "cuadra-o", "mi-cuadra-o", "xkuadraoy"])
+def test_listed_product_lookalikes_are_refused_anywhere(alias: str):
+    report = _open(alias)
+    assert report["status"] == "refused"
+    assert report["message"] == ALIAS_UNAVAILABLE
+
+
+def test_suggestions_add_a_number_and_a_city():
+    report = inspect_alias("ferreteriagomez", lambda alias: alias == "ferreteriagomez")
+    assert report["suggestions"] == [
+        "ferreteriagomez2",
+        "ferreteriagomez3",
+        "ferreteriagomez-santiago",
+    ]
+
+
+def test_a_random_code_is_used_only_when_every_name_is_taken():
+    base = "ferreteriagomez"
+    names = set(name_candidates(base))
+    codes = iter(("q7kmn1", "q7kmn2", "q7kmn3"))
+    found = free_suggestions(base, lambda alias: alias in names, code=lambda: next(codes))
+    assert found == ["ferreteriagomezq7kmn1", "ferreteriagomezq7kmn2", "ferreteriagomezq7kmn3"]
+    assert set(found).isdisjoint(names)
+
+
+def test_provider_verdict_uses_the_server_result_not_a_forged_header():
+    assert provider_verdict({"dmarc": "pass", "dkim": "fail"}) == "aligned"
+    assert provider_verdict({"dmarc": "gray", "dkim": "pass"}) == "aligned"
+    assert provider_verdict({"dmarc": "fail", "dkim": "pass", "spf": "pass"}) == "failed"
+    assert provider_verdict({"dmarc": "gray", "dkim": "gray", "spf": "pass"}) == "unknown"
+    assert provider_verdict(None) == "unknown"
+
+
+def test_a_token_address_without_an_alias_still_routes():
+    local = "recibos-" + ("a1b2c3d4" * 4)
+    assert len(local) == len("recibos-") + 32
+    recipient = f"{local}@recibos.example.test"
+    world = rig()
+    route = world.store.create_route(
+        recipient=recipient,
+        space_id=str(uuid4()),
+        principal_id=str(uuid4()),
+        granted_by=str(uuid4()),
+        grant_id=str(uuid4()),
+        alias=None,
+        alias_normalized=None,
+    )
+    delivery = world.runtime.enqueue_resend(str(uuid4()), (recipient,))
+    assert delivery.route_id == route.id
+    assert delivery.error_code is None
+    assert route.alias is None
 
 
 def test_routing_never_approves_and_keeps_unverified_mail_in_the_tray():
