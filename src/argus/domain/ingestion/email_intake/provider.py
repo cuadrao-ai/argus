@@ -6,13 +6,13 @@ import asyncio
 import ipaddress
 import json
 from dataclasses import dataclass
-from email.utils import parseaddr
 from urllib.parse import urlsplit
 from uuid import UUID
 
 import httpx
 
 from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+from argus.domain.ingestion.email_intake.alignment import bare_address
 from argus.domain.ingestion.email_intake.budget import FetchBudget
 
 RECEIVING_DEADLINE_SECONDS = 60
@@ -79,8 +79,7 @@ class ResendReceivingClient:
             return None
         if not isinstance(sender, str):
             return None
-        address = parseaddr(sender)[1].strip().lower()
-        return address or None
+        return bare_address(sender)
 
     async def raw_message(
         self, email_id: str, *, budget: FetchBudget | None = None
@@ -119,6 +118,8 @@ class ResendReceivingClient:
             if not isinstance(url, str):
                 raise ValueError
             authentication = _authentication(metadata)
+            reported = metadata.get("from")
+            provider_from = bare_address(reported) if isinstance(reported, str) else None
         except (ValueError, KeyError, TypeError):
             raise EmailProviderError("invalid_provider_metadata") from None
         self._validate_download(url)
@@ -126,7 +127,10 @@ class ResendReceivingClient:
         if not raw:
             raise EmailProviderError("empty_email")
         return ReceivedEmail(
-            raw=raw, recipients=tuple(recipients), authentication=authentication
+            raw=raw,
+            recipients=tuple(recipients),
+            authentication=authentication,
+            provider_from=provider_from,
         )
 
     def _metadata_url(self, email_id: str) -> str:

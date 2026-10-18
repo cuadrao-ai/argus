@@ -11,7 +11,7 @@ from __future__ import annotations
 import base64
 import hashlib
 from collections.abc import Callable
-from email.utils import parseaddr
+from email.utils import getaddresses, parseaddr
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -20,14 +20,38 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 KeyLookup = Callable[[str, str], bytes | None]
 
 
+def bare_address(value: str | None) -> str | None:
+    if not value:
+        return None
+    address = parseaddr(value)[1].strip().lower()
+    if "@" in address and " " not in address:
+        return address
+    return None
+
+
 def from_address(raw: bytes) -> str | None:
     _headers, _body = _split(raw)
     for name, value in _parse_headers(_headers):
         if name.lower() == "from":
-            address = parseaddr(value)[1].strip().lower()
-            if "@" in address and " " not in address:
+            address = bare_address(value)
+            if address is not None:
                 return address
     return None
+
+
+def ambiguous_from(raw: bytes) -> bool:
+    headers, _body = _split(raw)
+    header_count = 0
+    addresses: list[str] = []
+    for name, value in _parse_headers(headers):
+        if name.lower() != "from":
+            continue
+        header_count += 1
+        for _display, address in getaddresses([value]):
+            cleaned = address.strip().lower()
+            if cleaned:
+                addresses.append(cleaned)
+    return header_count > 1 or len(addresses) > 1
 
 
 def from_domain(raw: bytes) -> str | None:
