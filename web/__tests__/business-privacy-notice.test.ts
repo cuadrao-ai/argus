@@ -103,16 +103,26 @@ describe("business consent gating", () => {
     );
   });
 
-  test("declining turns off receipt reading when the server still has it on", async () => {
+  test("declining turns off receipt reading even when the read says it is already off", async () => {
     const calls: boolean[] = [];
     await revokeEnabledReceiptReading({
-      receiptReading: async () => ({ enabled: true }),
+      receiptReading: async () => ({ enabled: false }),
       setReceiptReading: async (_reading, enabled) => {
         calls.push(enabled);
         return { enabled };
       },
     }, "es-419");
     assert.deepEqual(calls, [false]);
+  });
+
+  test("a missing Business has no receipt-reading switch to turn off", async () => {
+    const missing = Object.assign(new Error("missing"), { status: 404, code: "business_space_missing" });
+    let wrote = false;
+    await revokeEnabledReceiptReading({
+      receiptReading: async () => { throw missing; },
+      setReceiptReading: async () => { wrote = true; return { enabled: false }; },
+    }, "es-419");
+    assert.equal(wrote, false);
   });
 
   test("declining stays put when receipt reading cannot be turned off", async () => {
@@ -124,6 +134,13 @@ describe("business consent gating", () => {
 
   test("declining does nothing when this source has no receipt-reading switch", async () => {
     await revokeEnabledReceiptReading({}, "es-419");
+  });
+
+  test("another failure while turning receipt reading off stays on the decline screen", async () => {
+    await assert.rejects(() => revokeEnabledReceiptReading({
+      receiptReading: async () => { throw new Error("offline"); },
+      setReceiptReading: async () => ({ enabled: false }),
+    }, "es-419"));
   });
 });
 

@@ -105,19 +105,39 @@ export function rememberPrivacyNoticeAcceptance(
   return record;
 }
 
+function isMissingBusiness(error: unknown): boolean {
+  const problem = error as { status?: number; code?: string } | null;
+  return problem?.status === 404 && problem.code === "business_space_missing";
+}
+
 /**
  * Decline turns off the owner's stored receipt-reading switch. Upload, email,
  * and WhatsApp intake all read that one setting, so a web-only flag would
  * leave the next receipt free to reach a model.
+ *
+ * A person with no Business yet has nothing to turn off. A read that says the
+ * switch is already off is not the last word: another tab can enable it before
+ * we return, so the disable is always submitted and its result is checked.
  */
 export async function revokeEnabledReceiptReading<Reading extends { enabled: boolean }>(
   source: ReadingSwitch<Reading>,
   language: PrivacyNoticeLocale,
 ): Promise<void> {
   if (!source.receiptReading || !source.setReceiptReading) return;
-  const reading = await source.receiptReading(language);
-  if (!reading.enabled) return;
-  const next = await source.setReceiptReading(reading, false, language);
+  let reading: Reading;
+  try {
+    reading = await source.receiptReading(language);
+  } catch (error) {
+    if (isMissingBusiness(error)) return;
+    throw error;
+  }
+  let next: Reading;
+  try {
+    next = await source.setReceiptReading(reading, false, language);
+  } catch (error) {
+    if (isMissingBusiness(error)) return;
+    throw error;
+  }
   if (next.enabled) throw new Error("receipt_reading_still_enabled");
 }
 
