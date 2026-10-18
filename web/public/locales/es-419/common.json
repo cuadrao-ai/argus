@@ -2610,7 +2610,7 @@
       "keep_open": "Puedes cerrar este panel y volver a tus subidas. Mantén la página abierta hasta que se guarde cada archivo.",
       "open_queue": "Subidas ({{count}})",
       "queue_status": {
-        "queued": "Listo para subir",
+        "queued": "En cola",
         "uploading": "Guardando…",
         "saved": "Guardado en la Bandeja",
         "failed": "No se guardó. Reintenta.",
