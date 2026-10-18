@@ -2504,6 +2504,8 @@
       "title": "¿Qué hacemos hoy por tu negocio?"
     },
     "inbox": {
+      "aside_reading_placeholder": "{{count}} todavía leyéndose",
+      "aside_unreadable_placeholder": "{{count}} no se pudo leer",
       "empty_body": "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.",
       "error": "No pudimos cargar tu bandeja. Reintenta.",
       "notes_title": "Notas en revisión",
@@ -2512,6 +2514,8 @@
       "notes_latest": "Se muestran las últimas 50 notas guardadas. Las notas abiertas más antiguas se encuentran con la búsqueda.",
       "note_more_one": "{{count}} nota anterior",
       "note_more_other": "{{count}} notas anteriores",
+      "por_revisar": "{{count}} por revisar",
+      "review_receipts": "Revisar recibos",
       "subtitle": "Recibos que esperan tu revisión. Nada aquí es un gasto hasta que lo confirmes.",
       "title": "Bandeja",
       "all_reviewed": "Todo revisado"
