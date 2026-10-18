@@ -1,6 +1,26 @@
 {
   "default_base_ref": "codex/alpha-functional",
   "branches": {
+    "codex/cleanup-m2-definer-paths": {
+      "description": "M2 only. Preserve 21 definer bodies, signatures and grants while setting empty search paths. Root granted this unique ownership entry. No staging apply.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "supabase/migrations/20261018040000_harden_definer_search_paths.sql",
+        "supabase/tests/m2-definer-search-paths.sql",
+        "tests/test_backtest_job_write_invariant.py",
+        "scripts/qa/verify_m2_definer_search_paths.py",
+        "docs/reports/evidence/cleanup-m2-definer-paths/**"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "src/**",
+        "web/**",
+        "ios/**",
+        "marketing/**"
+      ]
+    },
     "claude/business-approved-version": {
       "description": "Lane a: a recorded Business approval names the facts revision that was approved (approved_revision) and when (approved_at), not the latest revision a later mark added; the receipt review renders both. Aprobar y siguiente stops at the last row and returns to the Bandeja (no wrap-around), the empty Bandeja reads Todo revisado, and focus moves to the next receipt's heading (#1154). No migration, model-facing text or Field descriptions.",
       "base_ref": "origin/codex/private-alpha-next",
