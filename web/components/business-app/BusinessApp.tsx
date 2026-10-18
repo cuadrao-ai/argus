@@ -8,6 +8,7 @@ import ChatInterface from "@/components/chat/ChatInterface";
 import ConversationShellGuard from "@/components/chat/ConversationShellGuard";
 import ConversationUnavailableNotice from "./ConversationUnavailableNotice";
 import BusinessConsentGate from "./BusinessConsentGate";
+import { BusinessConsentTestProvider } from "./business-consent-context";
 import { MOCK_AUTH_CONSENT_USER_ID } from "@/lib/business-privacy-notice";
 import { BusinessWorkspaceProvider } from "./BusinessWorkspace";
 import { liveBusinessDataSource, type BusinessDataSource } from "./business-data";
@@ -49,7 +50,8 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
       <ChatInterface />
     </BusinessWorkspaceProvider>
   );
-  if (sample || !consentUserId) return workspace;
+  if (sample) return <BusinessConsentTestProvider accepted>{workspace}</BusinessConsentTestProvider>;
+  if (!consentUserId) return workspace;
   return (
     <BusinessConsentGate key={consentUserId} userId={consentUserId} source={source}>
       {workspace}
