@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { createMockMonthCloseClient, MonthCloseError, statementMissingBlocker, unmatchedCharges, type MonthCloseClient, type MonthCloseSnapshot } from "../lib/business-month-close";
+import type { BusinessContextValue } from "../components/business-app/BusinessWorkspace";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -322,5 +323,160 @@ describe("month close layouts", () => {
     assert.equal(host.querySelectorAll('[data-primary="true"]').length, 0);
     await act(async () => root.unmount());
     host.remove();
+  });
+
+  test("switching months keeps the previous numbers and shows the loading line", async () => {
+    const inner = createMockMonthCloseClient({ now });
+    let calls = 0;
+    let release: (value: MonthCloseSnapshot) => void = () => {};
+    const client: MonthCloseClient = {
+      mode: "mock",
+      load(month, scope) {
+        calls += 1;
+        if (calls === 1) return inner.load(month, scope);
+        return new Promise((resolve) => { release = resolve; });
+      },
+      markCobrado: (id, scope, day) => inner.markCobrado(id, scope, day),
+      markPagado: (id, scope, day) => inner.markPagado(id, scope, day),
+      closeMonth: (month, scope) => inner.closeMonth(month, scope),
+    };
+    const { act, host, root } = await renderView(client);
+    const income = host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "";
+    assert.match(income, /RD\$/);
+    assert.match(host.textContent ?? "", /Farmacia Central/);
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="month-close-month-prev"]')?.click();
+    });
+    assert.equal(host.querySelector('[data-testid="month-close-income"]')?.textContent, income);
+    assert.match(host.textContent ?? "", /Farmacia Central/);
+    assert.equal(host.textContent?.includes("Clínica Aurora"), false);
+    assert.equal(host.querySelector('[data-testid="month-close-cards"]')?.getAttribute("data-loading"), "true");
+    assert.equal(host.querySelector('[data-testid="month-close-loading"]'), null);
+    assert.match(host.querySelector('[data-testid="month-close-refreshing"]')?.textContent ?? "", /Cargando el mes/);
+    await act(async () => {
+      release(await inner.load("2026-09"));
+      await Promise.resolve();
+    });
+    assert.match(host.textContent ?? "", /Clínica Aurora/);
+    assert.equal(host.textContent?.includes("Farmacia Central"), false);
+    assert.equal(host.querySelector('[data-testid="month-close-cards"]')?.getAttribute("data-loading"), null);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+});
+
+describe("Inicio month close source", () => {
+  const liveWire = (month: string) => ({
+    month,
+    from: `${month}-01`,
+    to: `${month}-28`,
+    closed: false,
+    reasons: [],
+    currencies: [],
+    missing_rnc: [],
+    missing_ncf: [],
+    cuentas_por_cobrar: [],
+    cuentas_por_pagar: [],
+  });
+
+  async function renderPanel(mode: "live" | "fixture") {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("../public/locales/es-419/common.json")).default;
+    const { BusinessContext } = await import("../components/business-app/BusinessWorkspace");
+    const Panel = (await import("../components/business-app/BusinessMonthClosePanel")).default;
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const value = {
+      source: { mode },
+      chosen: { grant_id: "own-grant", capabilities: ["approve"], role: "owner", name: "Taller" },
+    } as unknown as BusinessContextValue;
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <BusinessContext.Provider value={value}>
+            <Panel />
+          </BusinessContext.Provider>
+        </I18nextProvider>,
+      );
+    });
+    for (let i = 0; i < 20; i += 1) {
+      await act(async () => { await Promise.resolve(); });
+    }
+    return { act, host, root };
+  }
+
+  test("the live client is what /biz loads, and a failure never shows sample numbers", async () => {
+    const calls: { url: string; method: string }[] = [];
+    const original = globalThis.fetch;
+    const originalWindow = window.fetch;
+    const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
+    process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+    const spy = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      calls.push({ url, method: init?.method ?? "GET" });
+      const month = new URL(url, "http://localhost").searchParams.get("month") ?? "";
+      if (url.includes("/business/month-close?") && calls.length === 1) {
+        return Response.json(liveWire(month));
+      }
+      return new Response(JSON.stringify({ code: "business_month_close_unavailable" }), { status: 503, headers: { "content-type": "application/json" } });
+    };
+    globalThis.fetch = spy;
+    window.fetch = spy;
+    try {
+      const first = await renderPanel("live");
+      const load = calls.find((call) => call.url.includes("/business/month-close?"));
+      assert.equal(load?.method, "GET");
+      assert.match(load?.url ?? "", /\/business\/month-close\?month=\d{4}-\d{2}$/);
+      assert.equal(first.host.querySelector('[data-testid="month-close-sample"]'), null);
+      assert.equal(first.host.textContent?.includes("Farmacia Central"), false);
+      assert.match(first.host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /Pendiente/);
+      await first.act(async () => first.root.unmount());
+      first.host.remove();
+
+      calls.length = 0;
+      const fail = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        calls.push({ url, method: init?.method ?? "GET" });
+        return new Response(JSON.stringify({ code: "business_month_close_unavailable" }), { status: 503, headers: { "content-type": "application/json" } });
+      };
+      globalThis.fetch = fail;
+      window.fetch = fail;
+      const failed = await renderPanel("live");
+      assert.match(failed.host.querySelector('[data-testid="month-close-error"]')?.textContent ?? "", /No pudimos cargar el mes/);
+      assert.equal(failed.host.textContent?.includes("Farmacia Central"), false);
+      assert.equal(failed.host.querySelector('[data-testid="month-close-sample"]'), null);
+      assert.equal(failed.host.querySelector('[data-testid="month-close-income"]'), null);
+      await failed.act(async () => failed.root.unmount());
+      failed.host.remove();
+    } finally {
+      globalThis.fetch = original;
+      window.fetch = originalWindow;
+      process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock;
+    }
+  });
+
+  test("sample figures appear only for the preview source", async () => {
+    const calls: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = async (input) => {
+      calls.push(String(input));
+      return new Response("{}", { status: 500 });
+    };
+    try {
+      const page = await renderPanel("fixture");
+      assert.match(page.host.querySelector('[data-testid="month-close-sample"]')?.textContent ?? "", /Datos de muestra/);
+      assert.match(page.host.textContent ?? "", /Farmacia Central/);
+      assert.equal(calls.some((url) => url.includes("/business/month-close")), false);
+      await page.act(async () => page.root.unmount());
+      page.host.remove();
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 });

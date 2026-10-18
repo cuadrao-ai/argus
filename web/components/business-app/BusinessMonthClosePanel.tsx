@@ -10,6 +10,7 @@ import {
   calendarDay,
   canCloseMonth,
   canStepMonth,
+  createMockMonthCloseClient,
   currentMonthKey,
   documentOverdue,
   documentsTotal,
@@ -332,10 +333,13 @@ export function BusinessMonthCloseView({
 
   useEffect(() => {
     const request = ++generation.current;
+    const held = preview === "loading" || preview === "error";
     setPhase(preview === "error" ? "error" : "loading");
-    setSnapshot(null);
     setConfirming(false);
-    if (preview === "loading" || preview === "error") return;
+    if (held) {
+      setSnapshot(null);
+      return;
+    }
     client.load(month, scopeKey).then(
       (next) => {
         if (generation.current !== request) return;
@@ -587,7 +591,7 @@ export function BusinessMonthCloseView({
   const loadingBar = "rounded-md bg-black/[0.06] dark:bg-white/[0.08]";
 
   return (
-    <section aria-labelledby="month-close-title" data-testid="month-close" data-closed={closed ? "true" : "false"} className="mb-8">
+    <section aria-labelledby="month-close-title" aria-busy={phase === "loading" ? true : undefined} data-testid="month-close" data-closed={closed ? "true" : "false"} className="mb-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <MonthSwitcher
@@ -643,7 +647,7 @@ export function BusinessMonthCloseView({
             {t("business.month_close.retry", "Try again")}
           </button>
         </div>
-      ) : phase === "loading" || !snapshot || !summary || !net ? (
+      ) : !snapshot || !summary || !net ? (
         <div role="status" data-testid="month-close-loading" data-layout="loading" aria-busy="true">
           <span className="sr-only">{t("business.month_close.loading", "Loading the month")}</span>
           <div aria-hidden="true" className="animate-pulse motion-reduce:animate-none">
@@ -669,7 +673,8 @@ export function BusinessMonthCloseView({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-4" data-testid="month-close-cards">
+          {phase === "loading" ? <p role="status" data-testid="month-close-refreshing" className="sr-only">{t("business.month_close.loading", "Loading the month")}</p> : null}
+          <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-4" data-testid="month-close-cards" data-loading={phase === "loading" ? "true" : undefined}>
             <SummaryCard testId="month-close-income" label={t("business.month_close.income_label", "Income")} {...figureCard(summary.income_before_itbis, snapshot.figures?.income_before_itbis, Boolean(snapshot.figures), t("business.month_close.pending_label", "Pending"))} hint={t("business.month_close.income_hint", "Invoice totals before ITBIS.")} locale={locale} />
             <SummaryCard testId="month-close-expenses" label={t("business.month_close.expense_label", "Expenses")} {...figureCard(summary.expense_before_itbis, snapshot.figures?.expense_before_itbis, Boolean(snapshot.figures), t("business.month_close.pending_label", "Pending"))} hint={t("business.month_close.expense_hint", "Expense totals before ITBIS.")} locale={locale} />
             <SummaryCard
@@ -781,10 +786,12 @@ export function BusinessMonthCloseView({
 }
 
 export default function BusinessMonthClosePanel() {
-  const { chosen } = useBusiness();
+  const { chosen, source } = useBusiness();
+  const [sampleClient] = useState(() => createMockMonthCloseClient());
+  const client = source.mode === "fixture" ? sampleClient : monthCloseClient;
   return (
     <BusinessMonthCloseView
-      client={monthCloseClient}
+      client={client}
       scopeKey={chosen?.grant_id ?? "own"}
       canMutate={Boolean(chosen?.capabilities.includes("approve"))}
     />

@@ -1,9 +1,8 @@
 import { apiFetch } from "./argus-api-transport";
 
 /**
- * Cuadrar el mes. The web owns this view until the Business API ships the
- * same contract. `monthCloseClient` is the only binding the view imports;
- * point it at `createHttpMonthCloseClient()` when the backend is ready.
+ * Cuadrar el mes. `monthCloseClient` is the live client `/biz` uses.
+ * The preview keeps `createMockMonthCloseClient()`.
  *
  * Assumed HTTP contract, under `/api/v1`:
  *
@@ -817,8 +816,5 @@ export function createHttpMonthCloseClient(transport: MonthCloseTransport = (pat
   };
 }
 
-/**
- * Swap `createMockMonthCloseClient()` for `createHttpMonthCloseClient()`
- * when the Business API serves the contract above. The view imports only this.
- */
-export const monthCloseClient: MonthCloseClient = createMockMonthCloseClient();
+/** Live month close for `/biz`. The preview does not use this. */
+export const monthCloseClient: MonthCloseClient = createHttpMonthCloseClient();
