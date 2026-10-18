@@ -470,3 +470,116 @@ def test_cedula_filer_persists_and_exports_both_formats(actions):
                 archive.read(f"dgii/DGII_F_{form}_{filer}_202609.TXT").split(b"\r\n")[0]
                 == f"{form}|{filer}|202609|1".encode()
             )
+
+
+def test_typed_profile_feeds_the_export_header_and_a_non_owner_cannot_edit(
+    actions, users
+):
+    service, context, _ = actions
+    saved = set_profile(
+        service.authority,
+        context,
+        FiscalProfileChange(
+            name="Taller Norte",
+            previous_name="PRÁCTICA José",
+            tax_id={"type": "rnc", "value": "199-99001-3"},
+            previous_tax_id=None,
+        ),
+        "profile-rnc",
+    )
+    assert saved == {
+        "name": "Taller Norte",
+        "tax_id": {"type": "rnc", "value": "199990013"},
+        "can_edit": True,
+    }
+    cedula = set_profile(
+        service.authority,
+        context,
+        FiscalProfileChange(
+            name="Taller Norte",
+            previous_name="Taller Norte",
+            tax_id={"type": "cedula", "value": "001 0000000 1"},
+            previous_tax_id={"type": "rnc", "value": "199990013"},
+        ),
+        "profile-cedula",
+    )
+    assert cedula["tax_id"] == {"type": "cedula", "value": "00100000001"}
+    with service.authority.pool.connection() as db:
+        row = db.execute(
+            "select actor_id::text as actor_id, created_at, command"
+            " from public.business_action_receipts"
+            " where space_id=%s and idempotency_key=%s",
+            (context.actor.space_id, "profile-cedula"),
+        ).fetchone()
+        assert row["actor_id"] == str(context.actor.actor_id)
+        assert row["created_at"] is not None
+        assert row["command"]["tax_id"]["type"] == "cedula"
+        assert row["command"]["tax_id"]["value"] == "00100000001"
+        assert row["command"]["name"] == "Taller Norte"
+        from psycopg.errors import CheckViolation
+
+        with pytest.raises(CheckViolation):
+            with db.transaction():
+                db.execute(
+                    "update public.spaces set business_tax_id_type=%s, business_rnc=%s where id=%s",
+                    ("rnc", "00100000001", context.actor.space_id),
+                )
+        with pytest.raises(CheckViolation):
+            with db.transaction():
+                db.execute(
+                    "update public.spaces set business_tax_id_type=%s, business_rnc=%s where id=%s",
+                    ("cedula", "199990013", context.actor.space_id),
+                )
+    with service.authority.pool.connection() as db:
+        grant = db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
+            " values(%s,%s,%s,array['read','prepare']) returning id",
+            (context.actor.space_id, users["other"], users["owner"]),
+        ).fetchone()[0]
+    accountant = service.resolve_actor(
+        TrustedActor(
+            actor_id=users["other"],
+            actor_kind="member",
+            space_id=context.actor.space_id,
+        ),
+        grant_id=grant,
+    )
+    assert read_profile(service.authority, accountant)["can_edit"] is False
+    with pytest.raises(ActionError, match="business_permission_denied"):
+        set_profile(
+            service.authority,
+            accountant,
+            FiscalProfileChange(
+                name="Otro nombre",
+                previous_name="Taller Norte",
+                tax_id={"type": "rnc", "value": "199990048"},
+                previous_tax_id={"type": "cedula", "value": "00100000001"},
+            ),
+            "accountant-edit",
+        )
+    account = cash_account(service, context)
+    for index in (0, 4):
+        assert (
+            approve(service, context, reviewed(service, context, account, index)).outcome
+            == "applied"
+        )
+    with ZipFile(
+        io.BytesIO(
+            export_package(
+                service.authority,
+                context,
+                ExportPeriod(date(2026, 9, 1), date(2026, 9, 30)),
+                InMemorySourceObjects(),
+            )
+        )
+    ) as archive:
+        manifest = json.loads(archive.read("manifest.json"))["dgii"]
+        assert manifest["business_name"] == "Taller Norte"
+        assert manifest["reporter_rnc"] == "00100000001"
+        for form in ("606", "607"):
+            assert (
+                archive.read(f"dgii/DGII_F_{form}_00100000001_202609.TXT").split(b"\r\n")[
+                    0
+                ]
+                == f"{form}|00100000001|202609|1".encode()
+            )
