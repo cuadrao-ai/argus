@@ -3383,6 +3383,26 @@
         "web/.env.local"
       ]
     },
+    "codex/retention-sweeps-24-month-window": {
+      "description": "Iris-approved follow-up to #1218. Seed only the 24-calendar-month sweep-evidence policy and its writer contract. No executor, schedule, column or permission changes. Root alone owns parent landing and retargeting.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "supabase/migrations/20261018210000_retention_sweeps_24_month_window.sql",
+        "tests/sql/m1_retention_registry.sql",
+        "tests/test_m1_retention_registry_postgres.py",
+        "docs/reports/evidence/retention-sweeps-window/implementation.md"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "src/**",
+        "web/**",
+        "ios/**",
+        "marketing/**",
+        "supabase/migrations/20261018030000_retention_registry.sql"
+      ]
+    },
     "codex/email-layout-templates": {
       "description": "Shared email layout, approved sign-in and two security notices, generated Business close footer. No hosted activation.",
       "base_ref": "origin/codex/private-alpha-next",
