@@ -76,6 +76,11 @@
           "value": "true"
         },
         {
+          "name": "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
           "name": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED",
           "kind": "plain",
           "value": "true"

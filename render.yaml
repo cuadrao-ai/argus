@@ -73,6 +73,8 @@ services:
         value: "false"
       - key: ARGUS_INGESTION_ENABLED
         value: "false"
+      - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
       - key: ARGUS_INGESTION_SECRET_KEY
         sync: false
       - key: ARGUS_INVITE_CODE_SECRET

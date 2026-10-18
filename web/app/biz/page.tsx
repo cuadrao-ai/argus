@@ -2,8 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import BusinessApp from "@/components/business-app/BusinessApp";
 import { DevModeBadge } from "@/components/ui/DevModeBadge";
-import { businessPilotEnabled } from "@/lib/private-alpha-flags";
-import { authLoginPathFromSearch } from "@/lib/landing-intent";
+import { businessOnlyWebEnabled, businessPilotEnabled } from "@/lib/private-alpha-flags";
+import { authLoginPathFromSearch, businessShellEntry, signedInHomePath } from "@/lib/landing-intent";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -13,7 +13,12 @@ export default async function BusinessPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if (!businessPilotEnabled) notFound();
+  const shell = businessShellEntry({
+    pilot: businessPilotEnabled,
+    businessOnly: businessOnlyWebEnabled,
+  });
+  if ("closed" in shell) redirect(signedInHomePath());
+  if ("missing" in shell) notFound();
   if (process.env.NEXT_PUBLIC_MOCK_AUTH !== "true") {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.getUser();
