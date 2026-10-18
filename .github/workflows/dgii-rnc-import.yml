@@ -76,6 +76,7 @@ jobs:
         if: steps.gate.outputs.do_load == 'true'
         env:
           SUPABASE_STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+          DGII_RNC_STATEMENT_TIMEOUT: ${{ vars.DGII_RNC_STATEMENT_TIMEOUT }}
         run: |
           set -euo pipefail
           sudo apt-get update

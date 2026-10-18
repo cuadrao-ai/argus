@@ -12,7 +12,9 @@ The job checks out this repository and downloads `DGII_RNC.zip`. It parses the `
 python3 scripts/ops/dgii_rnc_import.py parse rnc.zip
 ```
 
-The gate then decides whether to load. A load copies the parsed rows and swaps them into `public.dgii_rnc`.
+The gate then decides whether to load. A load copies the kept rows into `public.dgii_rnc_load` and calls `public.dgii_rnc_swap(min_rows int)`, which returns the row count now in `public.dgii_rnc`. The job prints that integer as `swap_rows` and fails if it is below 700000.
+
+The loader keeps a row only when the RNC normalizes to 9 or 11 digits and the trimmed name is not blank. An eight-digit RNC is dropped and is not padded. Repeated RNCs keep the last row. The summary prints `dropped`, `duplicates`, and a `dropped_sample` line for each of the first few drops.
 
 ## Turn loading on
 
@@ -36,19 +38,25 @@ The schedule sets dry run to false. It still does not load until `DGII_RNC_LOAD_
 
 ## Verify a load
 
-After a load, run these queries on staging.
+After a load, compare `swap_rows` in the job log with the staging count, then look up one RNC.
 
 ```sql
 select count(*) from public.dgii_rnc;
-select rnc, name, status, file_date from public.dgii_rnc where rnc = '...';
+select * from public.dgii_rnc_lookup('123456789');
 ```
 
-Replace the quoted placeholder with the RNC you want to read.
+Replace the quoted argument with the RNC you want to read. The swap replaces `public.dgii_rnc` in one transaction. A failed swap leaves the previous rows in place.
 
 ## Watch the database size
 
 The table plus its primary key is about 95 MB. A reload peaks around 213 MB on staging. The free database limit is 500 MB.
 
+## Set the swap timeout
+
+The load step runs `psql` against `SUPABASE_STAGING_DB_URL`. It does not call the swap through an HTTP API. The session starts with `SET statement_timeout = '5min'`.
+
+Set the repository variable `DGII_RNC_STATEMENT_TIMEOUT` to another interval, such as `10min`, when the swap of about 800000 rows needs longer. An empty value keeps 5 minutes. The value must be a number followed by `ms`, `s`, `min`, or `h`.
+
 ## Wait for the migration
 
-Loading waits on the backend migration and a separate staging approval. This runbook does not record a completed load.
+Loading waits on migration `20261018130000_dgii_rnc_registry.sql` and a separate staging approval. This runbook does not record a completed load.

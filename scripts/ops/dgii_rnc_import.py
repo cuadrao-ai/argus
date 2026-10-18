@@ -3,14 +3,17 @@ from __future__ import annotations
 import argparse
 import io
 import os
+import re
 import subprocess
 import sys
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 
 _IDENT_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789_.")
+_TIMEOUT = re.compile(r"^[0-9]+(ms|s|min|h)$")
+_KEPT_LENGTHS = frozenset({9, 11})
 
 
 class RncImportError(Exception):
@@ -26,20 +29,34 @@ class RncRow:
 
 
 @dataclass(frozen=True)
+class DroppedRecord:
+    raw: str
+    rnc: str
+    reason: str
+    name: str
+
+
+@dataclass(frozen=True)
 class ParseResult:
     rows: tuple[RncRow, ...]
     file_date: date
     entry_name: str
     anomaly_count: int
-    dropped_nondigit: int
+    dropped_count: int = 0
+    dropped_sample: tuple[DroppedRecord, ...] = ()
+    duplicate_count: int = 0
 
 
 @dataclass(frozen=True)
 class LoadConfig:
+    live_table: str = "public.dgii_rnc"
     load_table: str = "public.dgii_rnc_load"
     swap_function: str = "public.dgii_rnc_swap"
+    lookup_function: str = "public.dgii_rnc_lookup"
     min_rows: int = 700_000
     anomaly_limit: int = 25
+    statement_timeout: str = "5min"
+    drop_sample_limit: int = 5
 
 
 LOAD = LoadConfig()
@@ -55,7 +72,7 @@ def load_action(*, enabled: str, dry_run: str, secret_present: str) -> str:
     return "load"
 
 
-def parse_zip(source: bytes | str | Path) -> ParseResult:
+def parse_zip(source: bytes | str | Path, config: LoadConfig = LOAD) -> ParseResult:
     handle: io.BytesIO | str | Path
     if isinstance(source, bytes):
         handle = io.BytesIO(source)
@@ -64,7 +81,12 @@ def parse_zip(source: bytes | str | Path) -> ParseResult:
     with zipfile.ZipFile(handle) as archive:
         info = _registry_entry(archive)
         text = archive.read(info).decode("iso-8859-1")
-    return _parse_registry(text, file_date=_file_date(info), entry_name=info.filename)
+    return _parse_registry(
+        text,
+        file_date=_file_date(info),
+        entry_name=info.filename,
+        sample_limit=config.drop_sample_limit,
+    )
 
 
 def validate(result: ParseResult, config: LoadConfig) -> None:
@@ -74,8 +96,10 @@ def validate(result: ParseResult, config: LoadConfig) -> None:
         )
     seen: set[str] = set()
     for row in result.rows:
-        if not row.rnc.isdigit():
-            raise RncImportError(f"rnc is not all digits: {row.rnc}")
+        if len(row.rnc) not in _KEPT_LENGTHS or not row.rnc.isdigit():
+            raise RncImportError(f"rnc is not 9 or 11 digits: {row.rnc}")
+        if row.name.strip() == "":
+            raise RncImportError(f"blank name for rnc {row.rnc}")
         if row.rnc in seen:
             raise RncImportError(f"duplicate rnc {row.rnc}")
         seen.add(row.rnc)
@@ -89,8 +113,15 @@ def summary_lines(result: ParseResult) -> list[str]:
         f"file_date={result.file_date.isoformat()}",
         f"entry={result.entry_name}",
         f"anomalies={result.anomaly_count}",
-        f"dropped_nondigit={result.dropped_nondigit}",
+        f"dropped={result.dropped_count}",
+        f"duplicates={result.duplicate_count}",
     ]
+    for drop in result.dropped_sample:
+        name = drop.name.replace("\r", " ").replace("\n", " ")
+        lines.append(
+            f"dropped_sample raw={drop.raw} rnc={drop.rnc} "
+            f"reason={drop.reason} name={name}"
+        )
     status_counts: dict[str, int] = {}
     length_counts: dict[int, int] = {}
     for row in result.rows:
@@ -121,6 +152,36 @@ def copy_text(rows: tuple[RncRow, ...]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def load_script(result: ParseResult, config: LoadConfig) -> str:
+    table = _sql_ident(config.load_table)
+    function = _sql_ident(config.swap_function)
+    timeout = _statement_timeout(config.statement_timeout)
+    if isinstance(config.min_rows, bool) or not isinstance(config.min_rows, int):
+        raise RncImportError("min_rows must be an integer")
+    return (
+        f"SET statement_timeout = '{timeout}';\n"
+        f"TRUNCATE {table};\n"
+        f"COPY {table} (rnc, name, status, file_date) FROM STDIN WITH (FORMAT text);\n"
+        f"{copy_text(result.rows)}"
+        "\\.\n"
+        f"SELECT {function}({config.min_rows});\n"
+    )
+
+
+def swap_row_count(stdout: str) -> int:
+    lines = [line.strip() for line in stdout.splitlines() if line.strip()]
+    if len(lines) != 1 or not lines[0].isdigit():
+        raise RncImportError("swap did not return one row count")
+    return int(lines[0])
+
+
+def require_swap_count(count: int, config: LoadConfig) -> None:
+    if count < config.min_rows:
+        raise RncImportError(
+            f"swap returned {count}, below minimum {config.min_rows}"
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="dgii_rnc_import")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -147,8 +208,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             return 0
-        result = parse_zip(args.zip_path)
-        validate(result, LOAD)
+        config = _config_from_env()
+        result = parse_zip(args.zip_path, config)
+        validate(result, config)
         if args.command == "parse":
             for line in summary_lines(result):
                 print(line)
@@ -157,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
         if database_url == "":
             print("load skipped: SUPABASE_STAGING_DB_URL is absent")
             return 0
-        _apply_load(database_url, result, LOAD)
+        _apply_load(database_url, result, config)
         return 0
     except RncImportError as exc:
         print(exc, file=sys.stderr)
@@ -167,6 +229,19 @@ def main(argv: list[str] | None = None) -> int:
 def _flag(value: str | None, env_name: str) -> str:
     if value is None:
         return os.environ.get(env_name, "")
+    return value
+
+
+def _config_from_env() -> LoadConfig:
+    raw = os.environ.get("DGII_RNC_STATEMENT_TIMEOUT", "").strip()
+    if raw == "":
+        return LOAD
+    return replace(LOAD, statement_timeout=_statement_timeout(raw))
+
+
+def _statement_timeout(value: str) -> str:
+    if _TIMEOUT.fullmatch(value) is None:
+        raise RncImportError(f"refusing statement_timeout {value!r}")
     return value
 
 
@@ -184,10 +259,17 @@ def _file_date(info: zipfile.ZipInfo) -> date:
     return date(year, month, day)
 
 
-def _parse_registry(text: str, *, file_date: date, entry_name: str) -> ParseResult:
-    rows: list[RncRow] = []
+def _parse_registry(
+    text: str,
+    *,
+    file_date: date,
+    entry_name: str,
+    sample_limit: int,
+) -> ParseResult:
+    accepted: list[RncRow] = []
     anomalies = 0
-    dropped = 0
+    dropped_count = 0
+    sample: list[DroppedRecord] = []
     buffer: str | None = None
     for line in _physical_lines(text):
         if buffer is None:
@@ -198,23 +280,28 @@ def _parse_registry(text: str, *, file_date: date, entry_name: str) -> ParseResu
             buffer = f"{buffer} {line}"
         pipes = buffer.count("|")
         if pipes == 10:
-            row = _row_from_record(buffer, file_date)
-            if row is None:
-                dropped += 1
+            outcome = _row_from_record(buffer, file_date)
+            if isinstance(outcome, DroppedRecord):
+                dropped_count += 1
+                if len(sample) < sample_limit:
+                    sample.append(outcome)
             else:
-                rows.append(row)
+                accepted.append(outcome)
             buffer = None
         elif pipes > 10:
             anomalies += 1
             buffer = None
     if buffer is not None:
         anomalies += 1
+    rows, duplicate_count = _dedupe_last(accepted)
     return ParseResult(
-        rows=tuple(rows),
+        rows=rows,
         file_date=file_date,
         entry_name=entry_name,
         anomaly_count=anomalies,
-        dropped_nondigit=dropped,
+        dropped_count=dropped_count,
+        dropped_sample=tuple(sample),
+        duplicate_count=duplicate_count,
     )
 
 
@@ -225,17 +312,36 @@ def _physical_lines(text: str) -> list[str]:
     return text.split("\r\n")
 
 
-def _row_from_record(record: str, file_date: date) -> RncRow | None:
+def _row_from_record(record: str, file_date: date) -> RncRow | DroppedRecord:
     fields = [field.strip() for field in record.split("|")]
-    rnc = fields[0]
-    if not rnc.isdigit():
-        return None
+    raw = fields[0]
+    name = fields[1]
+    digits = "".join(char for char in raw if char.isdigit())
+    if len(digits) not in _KEPT_LENGTHS:
+        return DroppedRecord(raw=raw, rnc=digits, reason="rnc_length", name=name)
+    if name == "":
+        return DroppedRecord(raw=raw, rnc=digits, reason="blank_name", name=name)
     return RncRow(
-        rnc=rnc,
-        name=fields[1],
+        rnc=digits,
+        name=name,
         status=fields[9],
         file_date=file_date,
     )
+
+
+def _dedupe_last(rows: list[RncRow]) -> tuple[tuple[RncRow, ...], int]:
+    index: dict[str, int] = {}
+    kept: list[RncRow] = []
+    duplicates = 0
+    for row in rows:
+        slot = index.get(row.rnc)
+        if slot is None:
+            index[row.rnc] = len(kept)
+            kept.append(row)
+            continue
+        duplicates += 1
+        kept[slot] = row
+    return tuple(kept), duplicates
 
 
 def _escape_copy(value: str) -> str:
@@ -253,25 +359,20 @@ def _sql_ident(value: str) -> str:
     return value
 
 
-def _load_script(result: ParseResult, config: LoadConfig) -> str:
-    table = _sql_ident(config.load_table)
-    function = _sql_ident(config.swap_function)
-    if isinstance(config.min_rows, bool) or not isinstance(config.min_rows, int):
-        raise RncImportError("min_rows must be an integer")
-    return (
-        f"TRUNCATE {table};\n"
-        f"COPY {table} (rnc, name, status, file_date) FROM STDIN WITH (FORMAT text);\n"
-        f"{copy_text(result.rows)}"
-        "\\.\n"
-        f"SELECT {function}({config.min_rows});\n"
-    )
-
-
 def _apply_load(database_url: str, result: ParseResult, config: LoadConfig) -> None:
-    script = _load_script(result, config)
+    script = load_script(result, config)
     try:
         completed = subprocess.run(
-            ["psql", "-v", "ON_ERROR_STOP=1", "-X", database_url],
+            [
+                "psql",
+                "-v",
+                "ON_ERROR_STOP=1",
+                "-X",
+                "-q",
+                "-t",
+                "-A",
+                database_url,
+            ],
             input=script,
             text=True,
             capture_output=True,
@@ -279,11 +380,12 @@ def _apply_load(database_url: str, result: ParseResult, config: LoadConfig) -> N
         )
     except FileNotFoundError:
         raise RncImportError("psql is not installed") from None
-    if completed.stdout:
-        sys.stdout.write(_redact(completed.stdout, database_url))
     if completed.returncode != 0:
         detail = _redact(completed.stderr, database_url).strip()
         raise RncImportError(detail or "psql failed")
+    count = swap_row_count(_redact(completed.stdout, database_url))
+    print(f"swap_rows={count}")
+    require_swap_count(count, config)
 
 
 def _redact(text: str, secret: str) -> str:
