@@ -1481,6 +1481,11 @@
       "existing_action": "Inicia sesión",
       "error": "No pudimos enviar tu solicitud. Inténtalo de nuevo."
     },
+    "business_unavailable": {
+      "body": "Si crees que es un error, escríbenos a admin@cuadrao.ai.",
+      "sign_out": "Cerrar sesión",
+      "title": "Cuadrao Business aún no está disponible para tu cuenta."
+    },
     "login": {
       "brand": "cuadrao",
       "subtitle": "Inicia sesión para continuar",

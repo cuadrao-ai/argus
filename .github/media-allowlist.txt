@@ -1,6 +1,7 @@
-# Brand canon folders. A line ending in /** matches that directory and everything under it.
 marketing/brand/**
-marketing/app/**
+marketing/app/apple-icon.png
+marketing/app/favicon.ico
+marketing/app/icon.svg
 marketing/public/cuadrao-site/**
 marketing/public/email/**
 web/public/brand/**
