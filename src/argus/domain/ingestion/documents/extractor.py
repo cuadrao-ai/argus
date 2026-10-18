@@ -314,6 +314,29 @@ def candidates_from_result(
     return batch_from_result(result, digest, connection_id, observed_at, pages).candidates
 
 
+class _DetachedHttpResponse:
+    def __init__(self, status_code: int, payload: object) -> None:
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self) -> object:
+        if isinstance(self._payload, BaseException):
+            raise self._payload
+        return self._payload
+
+
+def _detach_http_response(exc: BaseException) -> _DetachedHttpResponse | None:
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    if not isinstance(status, int):
+        return None
+    try:
+        payload = response.json()
+    except Exception as parse_error:
+        payload = parse_error
+    return _DetachedHttpResponse(status, payload)
+
+
 class DocumentExtractor:
     def __init__(self, settings: DocumentExtractionSettings | None = None) -> None:
         self.settings = (
@@ -387,8 +410,11 @@ class DocumentExtractor:
                     schema_model=ExtractionResult,
                     schema_name="document_observations",
                 )
-        except Exception:
+        except Exception as exc:
             failure = DocumentExtractionError("extraction_provider_failed", True)
+            detached = _detach_http_response(exc)
+            if detached is not None:
+                failure.response = detached
         finally:
             receipts = end_openrouter_route_receipt_capture(token)
         metadata: dict[str, object] = {

@@ -491,8 +491,14 @@ def _regression(baseline: dict, cases: list[dict], baseline_path: str) -> dict:
     }
 
 
-def _case(fixture: Fixture, status: str, checks: dict, cost: Decimal | None) -> dict:
-    return {
+def _case(
+    fixture: Fixture,
+    status: str,
+    checks: dict,
+    cost: Decimal | None,
+    provider_error: dict | None = None,
+) -> dict:
+    case = {
         "fixture": fixture.id,
         "fixture_sha256": fixture.sha256,
         "status": status,
@@ -500,6 +506,78 @@ def _case(fixture: Fixture, status: str, checks: dict, cost: Decimal | None) -> 
         "usage": None if cost is None else {"cost": _text(cost)},
         "actual_cost_usd": None if cost is None else _text(cost),
     }
+    if provider_error is not None:
+        case["provider_error"] = provider_error
+    return case
+
+
+def _provider_error(exc: BaseException) -> dict | None:
+    response = _http_response(exc)
+    if response is None:
+        return None
+    status = getattr(response, "status_code", None)
+    message, code = _provider_error_fields(response)
+    return {
+        "http_status": status if isinstance(status, int) else None,
+        "message": message,
+        "code": code,
+    }
+
+
+def _http_response(exc: BaseException):
+    pending = [exc]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if (
+            current is None
+            or id(current) in seen
+            or not isinstance(current, BaseException)
+        ):
+            continue
+        seen.add(id(current))
+        response = getattr(current, "response", None)
+        if isinstance(getattr(response, "status_code", None), int) and callable(
+            getattr(response, "json", None)
+        ):
+            return response
+        pending.append(current.__cause__)
+        pending.append(current.__context__)
+    return None
+
+
+def _provider_error_fields(response) -> tuple[str | None, str | int | None]:
+    try:
+        payload = response.json()
+    except Exception:
+        return None, None
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if not isinstance(error, dict):
+        return None, None
+    return _provider_message(error.get("message")), _provider_code(error.get("code"))
+
+
+def _provider_message(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    return _redact_api_key(value)
+
+
+def _provider_code(value: object) -> str | int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        return _redact_api_key(value)
+    return None
+
+
+def _redact_api_key(value: str) -> str:
+    secret = os.environ.get("OPENROUTER_API_KEY")
+    if secret:
+        return value.replace(secret, "")
+    return value
 
 
 def _scorecard(
@@ -644,8 +722,8 @@ async def run_measurement(
             cases.append(_case(fixture, "unavailable", {}, None))
             stop = error.code
             break
-        except Exception:
-            cases.append(_case(fixture, "unavailable", {}, None))
+        except Exception as exc:
+            cases.append(_case(fixture, "unavailable", {}, None, _provider_error(exc)))
             stop = "provider_failed"
             break
         ledger.record(cost)
