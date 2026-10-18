@@ -18,6 +18,7 @@ import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import { formatBusinessName, formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
 import {
   cardClass,
@@ -55,6 +56,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const attentionLabel = useAttentionLabel();
   const terminalRead = useTerminalRead();
   const { source, reload, openPanel, revision, records, actions, chosen } = useBusiness();
+  const consent = useBusinessConsent();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [failed, setFailed] = useState(false);
@@ -174,6 +176,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   };
 
   const prepare = async () => {
+    if (!consent.accepted) {
+      consent.reopen();
+      return;
+    }
     setBusy("prepare");
     setProblem(null);
     try {
@@ -193,6 +199,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   };
 
   const rebind = async () => {
+    if (!consent.accepted) {
+      consent.reopen();
+      return;
+    }
     setBusy("rebind");
     setProblem(null);
     try {

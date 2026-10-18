@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const webRoot = join(import.meta.dir, "..");
@@ -20,42 +20,27 @@ test("a signup confirmation link installs the session and other email hashes do 
   spawn("signup-link.ts");
 });
 
-test("signup, guest conversion, and expired guest all finish from the same code step", () => {
+test("signup finishes from the code step, and the guest chat surfaces are gone", () => {
   const page = readFileSync(join(webRoot, "app/page.tsx"), "utf-8");
-  const expired = readFileSync(
-    join(webRoot, "components/guest/ExpiredGuestSession.tsx"),
-    "utf-8",
-  );
-  const surfaces = readFileSync(
-    join(webRoot, "components/guest/GuestExperienceSurfaces.tsx"),
-    "utf-8",
-  );
-  const modal = readFileSync(
-    join(webRoot, "components/guest/GuestConversionModal.tsx"),
-    "utf-8",
-  );
-  const hook = readFileSync(
-    join(webRoot, "components/guest/useGuestConversion.ts"),
-    "utf-8",
-  );
   const form = readFileSync(join(webRoot, "components/auth/AuthForm.tsx"), "utf-8");
 
   expect(page).toContain("onEmailConfirmed={finishConfirmedSignup}");
   expect(page).toContain("saveProfileLanguage");
-  expect(expired).toContain("onEmailConfirmed=");
-  expect(expired).toContain("postAuthPath(businessBuild)");
-  expect(surfaces).toContain("onEmailConfirmed={conversion.finishConfirmedSignup}");
-  expect(modal).toContain("onEmailConfirmed={onEmailConfirmed}");
   expect(form).toContain('data-testid="auth-confirmation-code"');
   expect(form).toContain('type: "signup"');
 
-  const finishStart = hook.indexOf("const finishConfirmedSignup");
-  const finish = hook.slice(finishStart, hook.indexOf("\n  return {", finishStart));
-  expect(finish).toContain("await getMe(");
-  expect(finish).toContain("refreshAccount(");
-  expect(finish).toContain("setIsOpen(false)");
+  const finishStart = page.indexOf("const finishConfirmedSignup");
+  const finish = page.slice(finishStart, page.indexOf("const isSignup", finishStart));
+  expect(finish).toContain("continueWithChosenLanguage");
   expect(finish).not.toContain("guest_claim");
   expect(finish).not.toContain("registerGuestAccount");
-  expect(finish).not.toContain("await refreshHistory()");
-  expect(hook).toContain("finishConfirmedSignup,");
+
+  for (const relativePath of [
+    "components/guest/ExpiredGuestSession.tsx",
+    "components/guest/GuestExperienceSurfaces.tsx",
+    "components/guest/GuestConversionModal.tsx",
+    "components/guest/useGuestConversion.ts",
+  ]) {
+    expect(existsSync(join(webRoot, relativePath))).toBe(false);
+  }
 });
