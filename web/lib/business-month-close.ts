@@ -23,8 +23,17 @@ import { apiFetch } from "./argus-api-transport";
  * An RNC counts only when it has a nonzero digit, the same rule as
  * `tests/business/test_rnc_contract.py`. A paper NCF is `B` plus 10 digits.
  * An e-CF is `E` plus 12 digits and satisfies the comprobante requirement on
- * its own. Closing a month requires one calendar month, no pending document,
- * and every document to have an RNC and either an NCF or an e-CF.
+ * its own.
+ *
+ * `canCloseMonth` and `monthCloseBlockers` are the pure fiscal gate. A month
+ * closes when the window is one calendar month, it is not already closed, and
+ * every document has an RNC and either an NCF or an e-CF. A pending document
+ * does not block the close. The Exportar "Listo para 606/607" checklist
+ * imports this same pair; do not fork a second check.
+ *
+ * While any document in the window is still pending, `monthCloseNetDisplay`
+ * returns `pending` and no money string. The net result is a number only
+ * once nothing is pending. Income, expenses, and ITBIS stay numeric.
  */
 
 export type MonthCloseKind = "invoice" | "receipt";
@@ -68,13 +77,18 @@ export type MonthCloseSnapshot = {
 
 export type MonthCloseSummary = {
   currency: MonthCloseCurrency;
+  /** Invoice bases. ITBIS is not part of this figure. */
+  income_before_itbis: string;
+  /** Receipt bases. ITBIS is not part of this figure. */
+  expense_before_itbis: string;
   /** Invoice bases minus receipt bases. ITBIS is not part of this figure. */
   net_before_itbis: string;
   /** Invoice ITBIS minus receipt ITBIS. */
   itbis_owed: string;
 };
 
-export type MonthCloseBlockerKind = "pending" | "missing_rnc" | "missing_ncf";
+/** Pending collection or payment is not a close blocker. Only a missing RNC or comprobante is. */
+export type MonthCloseBlockerKind = "missing_rnc" | "missing_ncf";
 
 export type MonthCloseBlocker = {
   id: string;
@@ -85,6 +99,11 @@ export type MonthCloseBlocker = {
 export type MonthCloseGate =
   | { ok: true; month: string }
   | { ok: false; reason: "not_calendar_month" | "closed" | "blockers" };
+
+/** A pending month has no money string. A final month has the net and nothing else that could be read as a second total. */
+export type MonthCloseNetDisplay =
+  | { state: "pending"; pending_count: number }
+  | { state: "final"; net_before_itbis: string };
 
 export type MonthCloseErrorCode = "not_found" | "closed" | "invalid_status" | "blockers" | "unavailable";
 
@@ -174,9 +193,18 @@ export function monthCloseSummary(documents: readonly MonthCloseDocument[]): Mon
   }
   return {
     currency: "DOP",
+    income_before_itbis: formatDopCents(invoiceBase),
+    expense_before_itbis: formatDopCents(receiptBase),
     net_before_itbis: formatDopCents(invoiceBase - receiptBase),
     itbis_owed: formatDopCents(invoiceItbis - receiptItbis),
   };
+}
+
+/** Net result for the card. Pending wins over the computed number, which is withheld entirely. */
+export function monthCloseNetDisplay(documents: readonly MonthCloseDocument[]): MonthCloseNetDisplay {
+  const pendingCount = documents.reduce((count, document) => count + (document.status === "pendiente" ? 1 : 0), 0);
+  if (pendingCount > 0) return { state: "pending", pending_count: pendingCount };
+  return { state: "final", net_before_itbis: monthCloseSummary(documents).net_before_itbis };
 }
 
 export function statusTotals(documents: readonly MonthCloseDocument[]): Record<MonthCloseStatus, { count: number; amount: string }> {
@@ -193,10 +221,10 @@ export function statusTotals(documents: readonly MonthCloseDocument[]): Record<M
   };
 }
 
+/** Documents that cannot go into 606/607 yet: missing RNC, or missing both NCF and e-CF. */
 export function monthCloseBlockers(documents: readonly MonthCloseDocument[]): MonthCloseBlocker[] {
   const blockers: MonthCloseBlocker[] = [];
   for (const document of sortDocuments(documents, "oldest")) {
-    if (document.status === "pendiente") blockers.push({ id: `${document.id}:pending`, documentId: document.id, kind: "pending" });
     if (!rncPresent(document.rnc)) blockers.push({ id: `${document.id}:missing_rnc`, documentId: document.id, kind: "missing_rnc" });
     if (!fiscalNumberPresent(document)) blockers.push({ id: `${document.id}:missing_ncf`, documentId: document.id, kind: "missing_ncf" });
   }
@@ -220,12 +248,19 @@ export function calendarMonthOf(from: string, to: string | null, today: string):
   return DAY.test(to) && to === end ? key : null;
 }
 
-export function closeGate(snapshot: Pick<MonthCloseSnapshot, "month" | "closed_at" | "documents">): MonthCloseGate {
+/**
+ * Pure close gate. The month-close button and the Exportar 606/607 checklist
+ * both call this. Pending collection or payment is not an input.
+ */
+export function canCloseMonth(snapshot: Pick<MonthCloseSnapshot, "month" | "closed_at" | "documents">): MonthCloseGate {
   if (!snapshot.month) return { ok: false, reason: "not_calendar_month" };
   if (snapshot.closed_at) return { ok: false, reason: "closed" };
   if (monthCloseBlockers(snapshot.documents).length > 0) return { ok: false, reason: "blockers" };
   return { ok: true, month: snapshot.month };
 }
+
+/** Same function as `canCloseMonth`. */
+export const closeGate = canCloseMonth;
 
 export function sortDocuments(documents: readonly MonthCloseDocument[], order: "newest" | "oldest"): MonthCloseDocument[] {
   return [...documents].sort((left, right) => {
@@ -408,7 +443,8 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
       const from = `${month}-01`;
       const to = lastDayOfMonth(year, monthNumber);
       const included = documentsInWindow(documents, from, to);
-      if (monthCloseBlockers(included).length > 0) throw new MonthCloseError("blockers", "month still has blockers");
+      const gate = canCloseMonth({ month, closed_at: closedAt.get(month) ?? null, documents: included });
+      if (!gate.ok && gate.reason === "blockers") throw new MonthCloseError("blockers", "month still has blockers");
       if (!closedAt.has(month)) closedAt.set(month, new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0).toISOString());
       return snapshotFor(documents, { from, to }, today, closedAt);
     },

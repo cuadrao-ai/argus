@@ -8,7 +8,8 @@ import { useBusiness } from "./BusinessWorkspace";
 import { inboxCount } from "./inbox-count";
 import { formatBusinessName, formatDay, formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows, pillButtonClass } from "./business-ui";
-import BusinessPeriodControl, { usePeriodLabel } from "./BusinessPeriodControl";
+import { usePeriodLabel } from "./BusinessPeriodControl";
+import BusinessMonthClosePanel from "./BusinessMonthClosePanel";
 import OutsidePeriodNote from "./OutsidePeriodNote";
 
 export default function BusinessOverviewPanel() {
@@ -30,10 +31,6 @@ export default function BusinessOverviewPanel() {
           {formatBusinessName(chosen?.name, t("business.overview.title", "My business"))}
         </h2>
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <button type="button" data-testid="open-month-close" className={`${pillButtonClass} border border-black/10 bg-white px-4 text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={() => openPanel({ kind: "month_close" })}>
-            {t("business.nav.month_close", "Month close")}
-          </button>
-          <BusinessPeriodControl period={period} setPeriod={setPeriod} />
           {upload ? (
             <button type="button" data-testid="business-primary-upload" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>
               {upload.label}
@@ -41,6 +38,8 @@ export default function BusinessOverviewPanel() {
           ) : null}
         </div>
       </div>
+
+      <BusinessMonthClosePanel />
 
       {records.error ? (
         <div role="alert" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>

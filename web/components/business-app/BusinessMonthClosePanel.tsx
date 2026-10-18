@@ -1,21 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { BadgeCheck, CircleCheck, Clock, AlertCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertCircle, BadgeCheck, CircleCheck, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import {
-  closeGate,
-  filterDocuments,
+  canCloseMonth,
   electronicNcf,
   fiscalNumberPresent,
   monthCloseBlockers,
   monthCloseClient,
+  monthCloseNetDisplay,
   monthCloseSummary,
   paperNcf,
   rncPresent,
   sortDocuments,
-  statusTotals,
   type MonthCloseBlocker,
   type MonthCloseClient,
   type MonthCloseDocument,
@@ -26,11 +25,6 @@ import { formatDay, formatMoney, type Period, type PeriodKey } from "./business-
 import BusinessPeriodControl from "./BusinessPeriodControl";
 import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
-
-const FILTERS = ["all", "pendiente", "cobrado", "pagado"] as const;
-type Filter = (typeof FILTERS)[number];
-const SORTS = ["newest", "oldest"] as const;
-type Sort = (typeof SORTS)[number];
 
 const CHIP_TONE: Record<MonthCloseStatus, string> = {
   pendiente: "bg-[#f4ead2] text-[#3f3414] dark:bg-[#4a3d1c] dark:text-[#f6e7c1]",
@@ -48,17 +42,6 @@ function StatusChip({ status, label }: { status: MonthCloseStatus; label: string
   );
 }
 
-function moveRadio(event: KeyboardEvent<HTMLDivElement>, values: readonly string[], current: string, choose: (next: string) => void) {
-  const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
-  const backward = event.key === "ArrowLeft" || event.key === "ArrowUp";
-  if (!forward && !backward) return;
-  event.preventDefault();
-  const index = values.indexOf(current);
-  const next = values[(index + (forward ? 1 : values.length - 1)) % values.length];
-  choose(next);
-  event.currentTarget.querySelector<HTMLButtonElement>(`[data-value="${next}"]`)?.focus();
-}
-
 function fiscalLine(document: MonthCloseDocument, text: (key: string, fallback: string, options?: Record<string, unknown>) => string): string {
   const parts: string[] = [];
   const rnc = rncPresent(document.rnc) ? document.rnc : null;
@@ -73,14 +56,38 @@ function fiscalLine(document: MonthCloseDocument, text: (key: string, fallback: 
 }
 
 function blockerLabel(blocker: MonthCloseBlocker, document: MonthCloseDocument, text: (key: string, fallback: string, options?: Record<string, unknown>) => string): string {
-  const name = document.counterparty;
-  if (blocker.kind === "pending") {
-    return document.kind === "invoice"
-      ? text("business.month_close.blocker_pending_invoice", "{{name}} is still uncollected", { name })
-      : text("business.month_close.blocker_pending_receipt", "{{name}} is still unpaid", { name });
-  }
-  if (blocker.kind === "missing_rnc") return text("business.month_close.blocker_rnc", "{{name}} has no RNC", { name });
-  return text("business.month_close.blocker_ncf", "{{name}} has no NCF or e-CF", { name });
+  if (blocker.kind === "missing_rnc") return text("business.month_close.blocker_rnc", "{{name}} has no RNC", { name: document.counterparty });
+  return text("business.month_close.blocker_ncf", "{{name}} has no NCF or e-CF", { name: document.counterparty });
+}
+
+function SummaryCard({
+  testId,
+  label,
+  value,
+  hint,
+  locale,
+  state,
+  amount,
+}: {
+  testId: string;
+  label: string;
+  /** Money string, or the pending word. Never both. */
+  value: string;
+  hint: string;
+  locale: string;
+  state?: "pending" | "final";
+  amount?: string;
+}) {
+  const money = state !== "pending";
+  return (
+    <article className={cardClass} data-testid={testId} data-state={state} data-amount={money ? amount ?? value : undefined}>
+      <h4 className="text-[13px] font-medium text-black/55 dark:text-white/55">{label}</h4>
+      <p className={`mt-2 font-display text-[24px] font-medium leading-tight tracking-tight text-black dark:text-white ${money ? "tabular-nums" : ""}`}>
+        {money ? formatMoney(value, "DOP", locale) : value}
+      </p>
+      <p className="mt-2 text-[12px] text-black/55 dark:text-white/55">{hint}</p>
+    </article>
+  );
 }
 
 export function BusinessMonthCloseView({
@@ -97,8 +104,6 @@ export function BusinessMonthCloseView({
   const [snapshot, setSnapshot] = useState<MonthCloseSnapshot | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [sort, setSort] = useState<Sort>("newest");
   const [confirming, setConfirming] = useState(false);
   const [busyClose, setBusyClose] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -131,11 +136,10 @@ export function BusinessMonthCloseView({
   }, [toast]);
 
   const summary = snapshot ? monthCloseSummary(snapshot.documents) : null;
-  const totals = snapshot ? statusTotals(snapshot.documents) : null;
+  const net = snapshot ? monthCloseNetDisplay(snapshot.documents) : null;
   const blockers = snapshot ? monthCloseBlockers(snapshot.documents) : [];
-  const gate = snapshot ? closeGate(snapshot) : { ok: false as const, reason: "not_calendar_month" as const };
+  const gate = snapshot ? canCloseMonth(snapshot) : { ok: false as const, reason: "not_calendar_month" as const };
   const closed = Boolean(snapshot?.closed_at);
-  const visible = snapshot ? sortDocuments(filterDocuments(snapshot.documents, filter), sort) : [];
   const statusLabel = (status: MonthCloseStatus) =>
     ({
       pendiente: t("business.month_close.status_pendiente", "Pending"),
@@ -207,16 +211,92 @@ export function BusinessMonthCloseView({
     ? ""
     : gate.reason === "not_calendar_month"
       ? t("business.month_close.reason_not_month", "Choose a calendar month to close it.")
-      : t("business.month_close.reason_blockers", "Pending items or documents without an RNC, NCF, or e-CF are still open.");
+      : gate.reason === "closed"
+        ? ""
+        : t("business.month_close.reason_blockers", "A document is missing its RNC or NCF.");
+
+  const documents = snapshot?.documents ?? [];
+  const stillHere = (document: MonthCloseDocument) => document.status === "pendiente" || pendingIds.has(document.id);
+  const receivable = sortDocuments(documents.filter((document) => document.kind === "invoice" && stillHere(document)), "newest");
+  const payable = sortDocuments(documents.filter((document) => document.kind === "receipt" && stillHere(document)), "newest");
+  const fiscalGaps = sortDocuments(
+    documents.filter((document) => document.status !== "pendiente" && !pendingIds.has(document.id) && (!rncPresent(document.rnc) || !fiscalNumberPresent(document))),
+    "newest",
+  );
+  const lockedRows = closed ? sortDocuments(documents, "newest") : [];
+
+  function renderRow(document: MonthCloseDocument) {
+    const pending = document.status === "pendiente" && !closed;
+    return (
+      <li
+        key={document.id}
+        id={`month-close-row-${document.id}`}
+        tabIndex={-1}
+        data-testid="month-close-row"
+        data-document-id={document.id}
+        data-kind={document.kind}
+        data-status={document.status}
+        data-locked={closed ? "true" : "false"}
+        className="flex flex-col gap-3 px-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 tablet:grid tablet:grid-cols-[minmax(0,1.4fr)_6.5rem_7rem_auto] tablet:items-center tablet:gap-3"
+      >
+        <div className="min-w-0">
+          <span className="block text-[12px] text-black/45 dark:text-white/45">
+            {document.kind === "invoice" ? t("business.month_close.kind_invoice", "Invoice") : t("business.month_close.kind_receipt", "Expense")}
+          </span>
+          <span className="block truncate text-[15px] font-medium text-black dark:text-white">{document.counterparty}</span>
+          <span className="mt-1 block text-[13px] text-black/60 dark:text-white/60">{fiscalLine(document, t)}</span>
+        </div>
+        <time dateTime={document.occurred_on} className="text-[14px] text-black/70 dark:text-white/70">
+          {formatDay(document.occurred_on, locale)}
+        </time>
+        <div>
+          <span className="text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, "DOP", locale)}</span>
+          {document.itbis ? <span className="mt-1 block text-[12px] tabular-nums text-black/50 dark:text-white/50">{t("business.month_close.itbis_line", "ITBIS {{amount}}", { amount: formatMoney(document.itbis, "DOP", locale) })}</span> : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusChip status={document.status} label={statusLabel(document.status)} />
+          {pending ? (
+            <button
+              type="button"
+              data-testid={document.kind === "invoice" ? "month-close-mark-cobrado" : "month-close-mark-pagado"}
+              className={`${secondaryButtonClass} px-3.5`}
+              disabled={pendingIds.has(document.id)}
+              aria-label={document.kind === "invoice"
+                ? t("business.month_close.mark_cobrado_named", "Mark {{name}} collected", { name: document.counterparty })
+                : t("business.month_close.mark_pagado_named", "Mark {{name}} paid", { name: document.counterparty })}
+              onClick={() => void mark(document)}
+            >
+              {document.kind === "invoice" ? t("business.month_close.mark_cobrado", "Mark collected") : t("business.month_close.mark_pagado", "Mark paid")}
+            </button>
+          ) : null}
+        </div>
+      </li>
+    );
+  }
+
+  function renderList(testId: string, title: string, rows: MonthCloseDocument[], empty: string) {
+    return (
+      <section aria-labelledby={`${testId}-title`} data-testid={testId} className="mt-6">
+        <h4 id={`${testId}-title`} className="text-[15px] font-medium text-black dark:text-white">{title}</h4>
+        {rows.length === 0 ? (
+          <p className="mt-2 text-[14px] text-black/60 dark:text-white/60" data-testid={`${testId}-empty`}>{empty}</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-black/[0.06] rounded-[20px] border border-black/[0.06] bg-white dark:divide-white/[0.06] dark:border-white/[0.06] dark:bg-[#1f2225]">
+            {rows.map(renderRow)}
+          </ul>
+        )}
+      </section>
+    );
+  }
 
   return (
-    <section aria-labelledby="month-close-title" data-testid="month-close" data-closed={closed ? "true" : "false"}>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <section aria-labelledby="month-close-title" data-testid="month-close" data-closed={closed ? "true" : "false"} className="mb-8">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h2 id="month-close-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
+          <h3 id="month-close-title" className="text-[15px] font-medium text-black dark:text-white">
             {t("business.month_close.title", "Close the month")}
-          </h2>
-          <p className="mt-1 text-[14px] text-black/55 dark:text-white/55">{t("business.month_close.subtitle", "Income, expenses, and ITBIS for the month.")}</p>
+          </h3>
+          <p className="mt-1 text-[13px] text-black/55 dark:text-white/55">{t("business.month_close.subtitle", "Income, expenses, and ITBIS for the month.")}</p>
         </div>
         <div className="flex flex-col items-stretch gap-2 tablet:items-end">
           {closed && snapshot?.closed_at ? (
@@ -265,18 +345,34 @@ export function BusinessMonthCloseView({
             {t("business.month_close.retry", "Try again")}
           </button>
         </div>
-      ) : phase === "loading" || !snapshot || !summary || !totals ? (
+      ) : phase === "loading" || !snapshot || !summary || !net ? (
         <p role="status" data-testid="month-close-loading" className="text-[14px] text-black/60 dark:text-white/60">
           {t("business.month_close.loading", "Loading the month")}
         </p>
       ) : (
         <>
+          <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-4" data-testid="month-close-cards">
+            <SummaryCard testId="month-close-income" label={t("business.month_close.income_label", "Income")} value={summary.income_before_itbis} hint={t("business.month_close.income_hint", "Invoice totals before ITBIS.")} locale={locale} />
+            <SummaryCard testId="month-close-expenses" label={t("business.month_close.expense_label", "Expenses")} value={summary.expense_before_itbis} hint={t("business.month_close.expense_hint", "Expense totals before ITBIS.")} locale={locale} />
+            <SummaryCard
+              testId="month-close-net"
+              label={t("business.month_close.net_label", "Net result")}
+              state={net.state}
+              value={net.state === "final" ? net.net_before_itbis : t("business.month_close.pending_label", "Pending")}
+              hint={net.state === "pending"
+                ? t("business.month_close.pending_reason", "{{count}} documents still pending", { count: net.pending_count })
+                : t("business.month_close.net_hint", "Income minus expenses, before ITBIS.")}
+              locale={locale}
+            />
+            <SummaryCard testId="month-close-itbis" label={t("business.month_close.itbis_label", "ITBIS to pay")} value={summary.itbis_owed} hint={t("business.month_close.itbis_hint", "ITBIS on invoices minus ITBIS on expenses.")} locale={locale} />
+          </div>
+
           {blockers.length > 0 ? (
-            <section aria-labelledby="month-close-blockers-title" data-testid="month-close-blockers" className="mb-5 rounded-[20px] border border-[#c2a44d]/50 bg-[#f4ead2]/40 p-4 dark:border-[#c2a44d]/40 dark:bg-[#4a3d1c]/40">
-              <h3 id="month-close-blockers-title" className="flex items-center gap-2 text-[14px] font-medium text-[#3f3414] dark:text-[#f6e7c1]">
+            <section aria-labelledby="month-close-blockers-title" data-testid="month-close-blockers" className="mt-5 rounded-[20px] border border-[#c2a44d]/50 bg-[#f4ead2]/40 p-4 dark:border-[#c2a44d]/40 dark:bg-[#4a3d1c]/40">
+              <h4 id="month-close-blockers-title" className="flex items-center gap-2 text-[14px] font-medium text-[#3f3414] dark:text-[#f6e7c1]">
                 <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {t("business.month_close.blockers_title", "Before you close")}
-              </h3>
+              </h4>
               <ul className="mt-2 space-y-1">
                 {blockers.map((blocker) => {
                   const document = snapshot.documents.find((item) => item.id === blocker.documentId);
@@ -302,135 +398,19 @@ export function BusinessMonthCloseView({
             </section>
           ) : null}
 
-          <div className="grid gap-3 tablet:grid-cols-2">
-            <article className={cardClass} data-testid="month-close-net" data-amount={summary.net_before_itbis}>
-              <h3 className="text-[13px] font-medium text-black/55 dark:text-white/55">{t("business.month_close.net_label", "Net result")}</h3>
-              <p className="mt-2 font-display text-[28px] font-medium tabular-nums tracking-tight text-black dark:text-white">{formatMoney(summary.net_before_itbis, "DOP", locale)}</p>
-              <p className="mt-2 text-[12px] text-black/55 dark:text-white/55">{t("business.month_close.net_hint", "Income minus expenses, before ITBIS.")}</p>
-            </article>
-            <article className={cardClass} data-testid="month-close-itbis" data-amount={summary.itbis_owed}>
-              <h3 className="text-[13px] font-medium text-black/55 dark:text-white/55">{t("business.month_close.itbis_label", "ITBIS owed")}</h3>
-              <p className="mt-2 font-display text-[28px] font-medium tabular-nums tracking-tight text-black dark:text-white">{formatMoney(summary.itbis_owed, "DOP", locale)}</p>
-              <p className="mt-2 text-[12px] text-black/55 dark:text-white/55">{t("business.month_close.itbis_hint", "ITBIS on invoices minus ITBIS on expenses.")}</p>
-            </article>
-          </div>
-
-          <div role="radiogroup" aria-label={t("business.month_close.filter_label", "Status")} data-testid="month-close-filters" className="mt-3 grid gap-3 tablet:grid-cols-4" onKeyDown={(event) => moveRadio(event, FILTERS, filter, (next) => setFilter(next as Filter))}>
-            {FILTERS.map((value) => {
-              const selected = filter === value;
-              const total = value === "all" ? null : totals[value];
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  tabIndex={selected ? 0 : -1}
-                  data-value={value}
-                  data-testid={`month-close-filter-${value}`}
-                  onClick={() => setFilter(value)}
-                  className={`${cardClass} text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 ${selected ? "ring-2 ring-[var(--cuadrao-green)]" : ""}`}
-                >
-                  <span className="block text-[13px] font-medium text-black/55 dark:text-white/55">
-                    {value === "all" ? t("business.month_close.filter_all", "All") : statusLabel(value)}
-                  </span>
-                  {total ? (
-                    <>
-                      <span className="mt-2 block font-display text-[22px] font-medium tabular-nums tracking-tight text-black dark:text-white">{formatMoney(total.amount, "DOP", locale)}</span>
-                      <span className="mt-1 block text-[12px] text-black/55 dark:text-white/55">{t("business.month_close.documents", "{{count}} documents", { count: total.count })}</span>
-                    </>
-                  ) : (
-                    <span className="mt-2 block text-[14px] text-black/70 dark:text-white/70">{t("business.month_close.filter_all_hint", "Every invoice and expense")}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <div role="radiogroup" aria-label={t("business.month_close.sort_label", "Order")} className="mt-4 flex flex-wrap gap-2" onKeyDown={(event) => moveRadio(event, SORTS, sort, (next) => setSort(next as Sort))}>
-            {SORTS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={sort === value}
-                tabIndex={sort === value ? 0 : -1}
-                data-value={value}
-                onClick={() => setSort(value)}
-                className={`min-h-11 rounded-full px-3.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 ${sort === value ? "bg-black text-white dark:bg-white dark:text-black" : "text-black/60 dark:text-white/60"}`}
-              >
-                {value === "newest" ? t("business.month_close.sort_newest", "Newest") : t("business.month_close.sort_oldest", "Oldest")}
-              </button>
-            ))}
-          </div>
-
-          {visible.length === 0 ? (
-            <p className="mt-6 text-[14px] text-black/60 dark:text-white/60" data-testid="month-close-empty">
-              {snapshot.documents.length === 0
-                ? t("business.month_close.empty", "No invoices or expenses in this month.")
-                : t("business.month_close.filtered_empty", "Nothing with this status.")}
-            </p>
-          ) : (
-            <div className="mt-4">
-              <div className="hidden px-4 pb-2 text-[12px] font-medium text-black/45 tablet:grid tablet:grid-cols-[minmax(0,1.5fr)_7rem_8rem_auto] tablet:gap-3 dark:text-white/45" aria-hidden="true">
-                <span>{t("business.month_close.column_counterparty", "Counterparty")}</span>
-                <span>{t("business.month_close.column_date", "Date")}</span>
-                <span>{t("business.month_close.column_amount", "Amount")}</span>
-                <span>{t("business.month_close.column_status", "Status")}</span>
-              </div>
-              <ul aria-label={t("business.month_close.list_label", "Invoices and expenses")} data-testid="month-close-rows" className="divide-y divide-black/[0.06] rounded-[20px] border border-black/[0.06] bg-white dark:divide-white/[0.06] dark:border-white/[0.06] dark:bg-[#1f2225]">
-                {visible.map((document) => {
-                  const pending = document.status === "pendiente" && !closed;
-                  return (
-                    <li
-                      key={document.id}
-                      id={`month-close-row-${document.id}`}
-                      tabIndex={-1}
-                      data-testid="month-close-row"
-                      data-document-id={document.id}
-                      data-kind={document.kind}
-                      data-status={document.status}
-                      data-locked={closed ? "true" : "false"}
-                      className="flex flex-col gap-3 px-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 tablet:grid tablet:grid-cols-[minmax(0,1.5fr)_7rem_8rem_auto] tablet:items-center tablet:gap-3"
-                    >
-                      <div className="min-w-0">
-                        <span className="block text-[12px] text-black/45 dark:text-white/45">
-                          {document.kind === "invoice" ? t("business.month_close.kind_invoice", "Invoice") : t("business.month_close.kind_receipt", "Expense")}
-                        </span>
-                        <span className="block truncate text-[15px] font-medium text-black dark:text-white">{document.counterparty}</span>
-                        <span className="mt-1 block text-[13px] text-black/60 dark:text-white/60">{fiscalLine(document, t)}</span>
-                      </div>
-                      <time dateTime={document.occurred_on} className="text-[14px] text-black/70 dark:text-white/70">
-                        <span className="mr-2 text-[12px] text-black/45 tablet:hidden dark:text-white/45">{t("business.month_close.column_date", "Date")}</span>
-                        {formatDay(document.occurred_on, locale)}
-                      </time>
-                      <div>
-                        <span className="mr-2 text-[12px] text-black/45 tablet:hidden dark:text-white/45">{t("business.month_close.column_amount", "Amount")}</span>
-                        <span className="text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, "DOP", locale)}</span>
-                        {document.itbis ? <span className="mt-1 block text-[12px] tabular-nums text-black/50 dark:text-white/50">{t("business.month_close.itbis_line", "ITBIS {{amount}}", { amount: formatMoney(document.itbis, "DOP", locale) })}</span> : null}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <StatusChip status={document.status} label={statusLabel(document.status)} />
-                        {pending ? (
-                          <button
-                            type="button"
-                            data-testid={document.kind === "invoice" ? "month-close-mark-cobrado" : "month-close-mark-pagado"}
-                            className={`${secondaryButtonClass} px-3.5`}
-                            disabled={pendingIds.has(document.id)}
-                            aria-label={document.kind === "invoice"
-                              ? t("business.month_close.mark_cobrado_named", "Mark {{name}} collected", { name: document.counterparty })
-                              : t("business.month_close.mark_pagado_named", "Mark {{name}} paid", { name: document.counterparty })}
-                            onClick={() => void mark(document)}
-                          >
-                            {document.kind === "invoice" ? t("business.month_close.mark_cobrado", "Mark collected") : t("business.month_close.mark_pagado", "Mark paid")}
-                          </button>
-                        ) : null}
-                      </div>
-                    </li>
-                  );
-                })}
+          {closed ? (
+            <section aria-labelledby="month-close-locked-title" data-testid="month-close-rows" className="mt-6">
+              <h4 id="month-close-locked-title" className="text-[15px] font-medium text-black dark:text-white">{t("business.month_close.locked_title", "Documents in this month")}</h4>
+              <ul className="mt-2 divide-y divide-black/[0.06] rounded-[20px] border border-black/[0.06] bg-white dark:divide-white/[0.06] dark:border-white/[0.06] dark:bg-[#1f2225]">
+                {lockedRows.map(renderRow)}
               </ul>
-            </div>
+            </section>
+          ) : (
+            <>
+              {renderList("month-close-receivable", t("business.month_close.receivable_title", "To collect"), receivable, t("business.month_close.receivable_empty", "Nothing to collect."))}
+              {renderList("month-close-payable", t("business.month_close.payable_title", "To pay"), payable, t("business.month_close.payable_empty", "Nothing to pay."))}
+              {fiscalGaps.length > 0 ? renderList("month-close-fiscal-gaps", t("business.month_close.fiscal_gaps_title", "Missing RNC or NCF"), fiscalGaps, "") : null}
+            </>
           )}
         </>
       )}

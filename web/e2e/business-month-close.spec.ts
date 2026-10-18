@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { monthCloseSampleDocuments, monthCloseSummary } from "../lib/business-month-close";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
@@ -13,9 +13,12 @@ function summaryFor(offset: number) {
   return monthCloseSummary(monthCloseSampleDocuments(now).filter((item) => item.occurred_on.startsWith(key)));
 }
 
-async function shot(page: Page, name: string) {
+async function shot(page: Page, name: string, target?: Locator) {
   const directory = process.env.CUADRAO_MONTH_CLOSE_EVIDENCE_DIR;
-  if (directory) await page.screenshot({ path: `${directory}/${name}.png`, fullPage: true });
+  if (!directory) return;
+  const path = `${directory}/${name}.png`;
+  if (target) await target.screenshot({ path });
+  else await page.screenshot({ path });
 }
 
 async function setup(page: Page, width: number) {
@@ -32,63 +35,83 @@ async function setup(page: Page, width: number) {
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
 }
 
-async function openMonth(page: Page) {
-  await page.goto("/dev/business-preview?chat=off&view=month_close");
-  await expect(page.getByTestId("month-close-net")).toBeVisible();
+async function openHome(page: Page) {
+  await page.goto("/dev/business-preview?chat=off");
+  await expect(page.getByTestId("month-close-cards")).toBeVisible();
 }
 
-test.describe("cuadrar el mes", () => {
+test.describe("inicio is the month close", () => {
   for (const [width, prefix] of [
     [1280, "desktop"],
     [390, "mobile"],
   ] as const) {
-    test(`summary, marks, blockers, and close in es-419 at ${width}px`, async ({ page }) => {
+    test(`four cards, pending net, fiscal lock, and close in es-419 at ${width}px`, async ({ page }) => {
       await setup(page, width);
-      await openMonth(page);
+      await openHome(page);
       const current = summaryFor(0);
       const previous = summaryFor(-1);
-      await expect(page.getByRole("heading", { name: "Cuadrar el mes" })).toBeVisible();
-      await expect(page.getByTestId("month-close-net")).toContainText("Resultado neto");
-      await expect(page.getByTestId("month-close-net")).toContainText("RD$");
-      await expect(page.getByTestId("month-close-net")).toHaveAttribute("data-amount", current.net_before_itbis);
-      await expect(page.getByTestId("month-close-itbis")).toContainText("ITBIS por pagar");
+      const nav = width >= 720 ? page.getByTestId("business-sidebar-nav") : page.getByTestId("business-bottom-tabs");
+      await expect(nav.getByRole("button", { name: "Inicio", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Facturas", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Transacciones", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Exportar", exact: true })).toHaveCount(0);
+
+      await expect(page.getByTestId("month-close-income")).toContainText("Ingresos");
+      await expect(page.getByTestId("month-close-income")).toContainText("RD$");
+      await expect(page.getByTestId("month-close-income")).toHaveAttribute("data-amount", current.income_before_itbis);
+      await expect(page.getByTestId("month-close-expenses")).toContainText("Gastos");
+      await expect(page.getByTestId("month-close-expenses")).toHaveAttribute("data-amount", current.expense_before_itbis);
+      await expect(page.getByTestId("month-close-itbis")).toContainText("ITBIS a pagar");
+      await expect(page.getByTestId("month-close-itbis")).toContainText("RD$");
       await expect(page.getByTestId("month-close-itbis")).toHaveAttribute("data-amount", current.itbis_owed);
+
+      const net = page.getByTestId("month-close-net");
+      await expect(net).toContainText("Resultado neto");
+      await expect(net).toHaveAttribute("data-state", "pending");
+      await expect(net).not.toHaveAttribute("data-amount");
+      await expect(net).toContainText("Pendiente");
+      await expect(net).toContainText("documentos pendientes");
+      await expect(net).not.toContainText("RD$");
+
+      await expect(page.getByTestId("month-close-receivable")).toBeVisible();
+      await expect(page.getByTestId("month-close-payable")).toBeVisible();
       await expect(page.getByTestId("month-close-blockers")).toContainText("Farmacia Central no tiene RNC");
       await expect(page.getByTestId("month-close-blockers")).toContainText("Suplidores del Caribe no tiene NCF ni e-CF");
       await expect(page.getByTestId("month-close-close")).toBeDisabled();
-      await expect(page.getByTestId("month-close-reason")).toBeVisible();
-      await page.getByTestId("month-close-filter-pendiente").click();
-      await expect(page.locator('[data-document-id="inv-colmado"]')).toHaveCount(0);
-      await expect(page.locator('[data-document-id="inv-taller"]')).toBeVisible();
-      await page.getByTestId("month-close-filter-all").click();
-      await page.getByRole("radio", { name: "Más antigua" }).click();
-      const dates = await page.getByTestId("month-close-row").evaluateAll((rows) => rows.map((row) => row.querySelector("time")?.getAttribute("dateTime") ?? ""));
-      expect(dates).toEqual([...dates].sort());
-      await page.getByRole("radio", { name: "Más reciente" }).click();
+      await expect(page.getByTestId("month-close-reason")).toContainText("Falta el RNC o el NCF");
+      await page.getByTestId("month-close-cards").scrollIntoViewIfNeeded();
+      await shot(page, `${prefix}-inicio`);
+
       const blocker = page.getByRole("link", { name: "Farmacia Central no tiene RNC" });
+      await shot(page, `${prefix}-locked-close`, page.getByTestId("month-close-blockers"));
       await blocker.focus();
       await page.keyboard.press("Enter");
       await expect(page.locator('[data-document-id="inv-farmacia"]')).toBeFocused();
-      await shot(page, `${prefix}-open-blockers`);
 
       await page.getByRole("button", { name: "Marcar cobrado, Taller Hermanos Peña" }).click();
-      await expect(page.locator('[data-document-id="inv-taller"]')).toHaveAttribute("data-status", "cobrado");
+      await expect(page.getByRole("button", { name: "Marcar cobrado, Taller Hermanos Peña" })).toHaveCount(0);
       await page.getByRole("button", { name: "Marcar pagado, Edenorte" }).click();
-      await expect(page.locator('[data-document-id="rcpt-edenorte"]')).toHaveAttribute("data-status", "pagado");
-      await expect(page.getByTestId("month-close-net")).toHaveAttribute("data-amount", current.net_before_itbis);
+      await expect(page.getByRole("button", { name: "Marcar pagado, Edenorte" })).toHaveCount(0);
+      await expect(net).toHaveAttribute("data-state", "pending");
+      await expect(net).not.toContainText("RD$");
       await expect(page.getByTestId("month-close-close")).toBeDisabled();
       await expect(page.getByTestId("month-close-blockers")).toContainText("Transporte Díaz");
-      await shot(page, `${prefix}-after-marking`);
 
       await page.getByRole("radio", { name: "Mes pasado" }).click();
-      await expect(page.getByTestId("month-close-net")).toHaveAttribute("data-amount", previous.net_before_itbis);
+      await expect(net).toHaveAttribute("data-state", "pending");
+      await expect(net).toContainText("documentos pendientes");
+      await expect(net).not.toContainText("RD$");
       await expect(page.getByTestId("month-close-itbis")).toHaveAttribute("data-amount", previous.itbis_owed);
-      await expect(page.getByTestId("month-close-close")).toBeDisabled();
+      await expect(page.getByTestId("month-close-close")).toBeEnabled();
+      await expect(page.getByTestId("month-close-blockers")).toHaveCount(0);
+      await shot(page, `${prefix}-pendiente`);
+
       await page.getByRole("button", { name: "Marcar cobrado, Panadería Luna" }).click();
       await page.getByRole("button", { name: "Marcar pagado, Limpieza Rosa" }).click();
-      await expect(page.getByTestId("month-close-blockers")).toHaveCount(0);
+      await expect(net).toHaveAttribute("data-state", "final");
+      await expect(net).toHaveAttribute("data-amount", previous.net_before_itbis);
+      await expect(net).toContainText("RD$");
       await expect(page.getByTestId("month-close-close")).toBeEnabled();
-      await shot(page, `${prefix}-ready-to-close`);
 
       await page.getByTestId("month-close-close").click();
       const dialog = page.getByRole("dialog", { name: "¿Cerrar este mes?" });
@@ -100,6 +123,7 @@ test.describe("cuadrar el mes", () => {
       await expect(page.locator('[data-document-id="inv-luna"]')).toHaveAttribute("data-status", "cobrado");
       await expect(page.locator('[data-document-id="inv-luna"]')).toHaveAttribute("data-locked", "true");
       await expect(page.locator('[data-document-id="rcpt-rosa"]')).toHaveAttribute("data-status", "pagado");
+      await expect(net).toHaveAttribute("data-amount", previous.net_before_itbis);
       await shot(page, `${prefix}-closed`);
     });
   }
