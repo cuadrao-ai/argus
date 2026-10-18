@@ -1,5 +1,7 @@
 # Lane 04 iOS follow-ups
 
+The [October 17 reconciliation receipt](final-reconciliation/README.md) owns the current candidate. The original matrix below is retained history. PR #1208 now owns legal configuration and shared signup acceptance; its current behavior supersedes the older signup screenshots and wording below.
+
 Owner: Lane 04 sole iOS writer. Base and refreshed integration: `6bfa52658c86175e2382e60c9fe9bc9459dbf189`.
 This is signup polish; it unblocks no direct step of the three-receipt goal and lands after that goal. No merge or release is included.
 
@@ -12,9 +14,9 @@ This is signup polish; it unblocks no direct step of the three-receipt goal and 
 
 Tradeoff: all toast callers share one close identifier and accessible layout. Existing callers were updated together. Detection signal: the UI tests check the target bounds, dismissal label, contribution count, acceptance visibility, and second-launch state. The owning Cuadrao DESIGN.md, HIG and WWDC26 guide informed the shared toast reuse, direct Undo and scalable controls; no new visual system was introduced.
 
-## Local verification
+## Historical local verification
 
-All screenshots use es-419. The current source passed **24 UI test executions, zero failures** on iOS 27:
+All screenshots use es-419. The earlier lane source passed **24 UI test executions, zero failures** on iOS 27:
 
 | Run | Tests | Evidence |
 | --- | ---: | --- |
