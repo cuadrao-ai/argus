@@ -3254,7 +3254,7 @@
       ]
     },
     "codex/email-layout-templates": {
-      "description": "Shared email layout, environment image origin, disabled template slots and generated Business close template only. No send activation.",
+      "description": "Shared email layout, approved sign-in and two security notices, generated Business close footer. No hosted activation.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
@@ -3267,13 +3267,26 @@
         "scripts/emails/sync-business-closed.ts",
         "scripts/ops/staging_env_manifest.json",
         "src/argus/domain/business/business_closed_email.generated.json",
-        "docs/reports/evidence/email-layout-templates/README.md"
+        "docs/reports/evidence/email-layout-templates/README.md",
+        "web/server/emails/auth-actions.tsx",
+        "web/server/emails/auth-hook.ts",
+        "web/server/emails/reset-password.tsx",
+        "web/server/emails/security-notices.ts",
+        "web/server/emails/expiry.ts",
+        "web/__tests__/shared-account-email.test.ts",
+        "web/__tests__/auth-email-hook.test.ts",
+        "web/__tests__/auth-email-transport.test.ts",
+        "web/__tests__/reset-password-email.test.tsx",
+        "web/__tests__/auth-email-approved-copy.test.ts",
+        "supabase/config.toml",
+        "web/__tests__/__snapshots__/auth-email-approved-copy.test.ts.snap",
+        "marketing/__tests__/waitlist-email.test.ts"
       ],
       "deny": [
         ".env",
         "web/.env.local",
         "src/argus/domain/resend_email.py",
-        "supabase/**"
+        "supabase/migrations/**"
       ]
     }
   }

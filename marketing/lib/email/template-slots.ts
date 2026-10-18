@@ -3,8 +3,6 @@ import { renderAccountEmail, type EmailLayoutOptions } from "./account-layout";
 const empty = { status: "awaiting_copy", subject: "", title: "", paragraphs: [] } as const;
 
 export const EMAIL_TEMPLATE_SLOTS = {
-  password_changed_notification: empty,
-  email_changed_notification: empty,
   phone_changed_notification: empty,
   identity_linked_notification: empty,
   identity_unlinked_notification: empty,
@@ -14,8 +12,6 @@ export const EMAIL_TEMPLATE_SLOTS = {
   business_transfer_declined_owner: empty,
   business_transfer_accepted_both: empty,
   business_transfer_withdrawn_recipient: empty,
-  email_change_old_address_alert: empty,
-  email_change_new_address_confirmation: empty,
 } as const;
 
 export type EmailTemplateSlot = keyof typeof EMAIL_TEMPLATE_SLOTS;
