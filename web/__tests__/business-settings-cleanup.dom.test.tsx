@@ -131,6 +131,50 @@ test("the preferences sheet is titled Preferencias", async () => {
   }
 });
 
+test("Business Preferencias hides WhatsApp unless its flag is on, and Personal ignores that flag", async () => {
+  const { businessWhatsappPreferencesEnabledFromEnv } = await import("@/lib/private-alpha-flags");
+  assert.equal(businessWhatsappPreferencesEnabledFromEnv(undefined), false);
+  assert.equal(businessWhatsappPreferencesEnabledFromEnv("true"), true);
+  const pilot = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED;
+  const whatsapp = process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
+  process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED = "true";
+  delete process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
+  const openPreferences = async (business: boolean) => {
+    for (const cleanup of cleanups.splice(0)) await cleanup();
+    document.body.innerHTML = "";
+    const { default: ProfileMenu } = await import("@/components/sidebar/ProfileMenu");
+    const anchor = document.createElement("button");
+    document.body.appendChild(anchor);
+    const { act } = await mount(
+      <ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: anchor }} />,
+      business,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => button("Preferencias")!.click());
+  };
+  try {
+    await openPreferences(true);
+    assert.equal(button("WhatsApp"), undefined);
+    assert.equal(document.body.textContent?.includes("No hay ningún número vinculado"), false);
+    process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED = "true";
+    await openPreferences(true);
+    assert.ok(button("WhatsApp"));
+    delete process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
+    await openPreferences(false);
+    assert.ok(button("WhatsApp"));
+    process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED = "true";
+    await openPreferences(false);
+    assert.ok(button("WhatsApp"));
+  } finally {
+    if (pilot === undefined) delete process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED;
+    else process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED = pilot;
+    if (whatsapp === undefined) delete process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
+    else process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED = whatsapp;
+  }
+});
+
 test("Business feedback uses the requested copy without an inactive learn-more action", async () => {
   const { default: FeedbackDialog } = await import("@/components/feedback/FeedbackDialog");
   await mount(<FeedbackDialog isOpen onClose={() => {}} type="general" />);

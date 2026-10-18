@@ -82,7 +82,7 @@ import {
 } from "@/lib/language-features";
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
 import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
-import { businessPilotEnabled, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
+import { businessPilotEnabledFromEnv, businessWhatsappPreferencesEnabledFromEnv, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import { supportEmail } from "@/lib/support-email";
 import { navigateFromOverlay } from "@/lib/overlay-history";
 import { QuickJumpBadge } from "@/components/keyboard/QuickJumpBadge";
@@ -196,7 +196,11 @@ export default function ProfileMenu({
     evidenceReceiptSharingEnabled && accountKind === "registered";
   // A country is a registered-account setting; a guest has nowhere to keep one.
   const homeCountryAvailable = !isBusiness && accountKind === "registered";
-  const whatsappLinkAvailable = businessPilotEnabled && accountKind === "registered";
+  const whatsappLinkAvailable =
+    accountKind === "registered" &&
+    (isBusiness
+      ? businessWhatsappPreferencesEnabledFromEnv()
+      : businessPilotEnabledFromEnv());
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
