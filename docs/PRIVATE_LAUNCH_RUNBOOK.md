@@ -355,7 +355,8 @@ Must-fix before `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` is turned on in any environmen
 1. Leave the flag off. The Send Email hook schema in `web/server/emails/auth-actions.tsx` does not accept `invite` on `email_action_type`. With the hook enabled, Supabase hands every auth email to the hook, so an invite fails and nobody gets one.
 2. Before enabling, add `invite` to the hook schema and renderer. Use `/auth/confirm?token_hash=...&type=invite`. Add a test.
 3. Confirm that PR #1267 has landed, so the hook's signup and magic-link mails are code only.
-4. Read back that Supabase Authentication, Hooks, Send Email stays disabled until steps 2 and 3 are done.
+4. After PR #1267 has landed, paste the recovery, email-change, and invite dashboard templates. Recovery uses `type=recovery` and `next=/auth/recovery`. Email change uses `type=email_change` and `next=/`. Invite uses `type=invite` and `next=/`. Leave confirmation and magic link unpasted. Do not apply a template from this commit.
+5. Read back that Supabase Authentication, Hooks, Send Email stays disabled until steps 2, 3, and 4 are done.
 
 Preconditions, all required before anyone enables the hook:
 

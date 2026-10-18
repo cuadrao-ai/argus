@@ -20,8 +20,13 @@ section
      `/auth/confirm?token_hash=...&type=invite`. Add a test.
   3. Confirm that PR #1267 has landed, so the hook's signup and magic-link
      mails are code only.
-  4. Read back that Supabase Authentication, Hooks, Send Email stays disabled
-     until steps 2 and 3 are done.
+  4. After PR #1267 has landed, paste the recovery, email-change, and invite
+     dashboard templates. Recovery uses `type=recovery` and
+     `next=/auth/recovery`. Email change uses `type=email_change` and
+     `next=/`. Invite uses `type=invite` and `next=/`. Leave confirmation
+     and magic link unpasted. Do not apply a template from this commit.
+  5. Read back that Supabase Authentication, Hooks, Send Email stays disabled
+     until steps 2, 3, and 4 are done.
 
 This file remains the historical preparation checklist for eval identity,
 local rehearsal, and spending records.
