@@ -1,3 +1,5 @@
+import { installEmailFixture } from "./helpers/email-fixture";
+installEmailFixture();
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { emailPalette as p, renderAccountEmail } from "../server/emails/account-layout.generated";
@@ -24,7 +26,7 @@ describe("shared account email layout", () => {
     expect(result.html).toContain("min-height:48px");
     expect(result.html).toContain("overflow-wrap:anywhere");
     expect(result.text).toContain(link);
-    expect(result.text).toContain("Saludos, el equipo de Cuadrao");
+    expect(result.text).toContain("Saludos,\nCuadrao");
     expect(result.text).toContain("¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai");
     expect(result.html).not.toMatch(/width="1"|tracking|unsubscribe/);
   });
@@ -42,15 +44,20 @@ describe("shared account email layout", () => {
     expect(rendered.html).not.toContain('<p class="code"');
     expect(rendered.text).toContain("Este enlace vence en 48 horas.");
   });
-  test("only waitlist mail accepts the configured postal address", () => {
+  test("waitlist mail uses the configured legal address and account mail stays Cuadrao LLC", () => {
     const address = "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.";
     const rendered = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: link, postalAddress: address});
     expect(rendered.text).toContain(address);
     expect(rendered.html).toContain(address);
     expect(rendered.html.indexOf(address)).toBeGreaterThan(rendered.html.indexOf("hola@cuadrao.ai"));
-    // @ts-expect-error Account mail cannot contain a postal address.
-    expect(() => renderAccountEmail({title: "Cuenta", paragraphs: [], postalAddress: address})).toThrow();
-    expect(renderAccountEmail({title: "Cuenta", paragraphs: []}).text).not.toContain(address);
+    for (const postalAddress of [address, address.replace("Cuadrao LLC, ", "")]) {
+      const account = renderAccountEmail({title: "Cuenta", paragraphs: []}, {postalAddress});
+      expect(account.text).toContain("Cuadrao LLC");
+      expect(account.text).not.toContain("1209 Mountain");
+      expect(account.html).not.toContain("1209 Mountain");
+      expect(account.text.match(/Cuadrao LLC/g)).toHaveLength(1);
+      expect(account.html).not.toContain("Salir de la lista");
+    }
   });
   test("rejects script, credential and header-injection URLs", () => {
     for (const url of ["javascript:alert(1)", "https://user:pass@example.test", "https://example.test/\r\nx"]) {
@@ -69,4 +76,36 @@ describe("shared account email layout", () => {
     const deployed = readFileSync(new URL("../server/emails/account-layout.generated.ts", import.meta.url),"utf8");
     expect(deployed.slice(deployed.indexOf("\n")+1)).toBe(canonical);
   });
+});
+
+
+test("account mail renders Cuadrao LLC and ignores a supplied postal address", () => {
+  delete process.env.MARKETING_POSTAL_ADDRESS;
+  const street = "1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.";
+  for (const postalAddress of [undefined, street, `Cuadrao LLC, ${street}`]) {
+    const rendered = renderAccountEmail({title: "Cuenta", paragraphs: []}, postalAddress ? {postalAddress} : {});
+    expect(rendered.html).toContain(">Cuadrao LLC</p>");
+    expect(rendered.text).toContain("\n\nCuadrao LLC");
+    expect(rendered.html).not.toContain("Cuadrao LLC,");
+    expect(rendered.text).not.toContain(street);
+    expect(rendered.html).not.toContain("Salir de la lista");
+  }
+});
+
+test("unsubscribe footer fails closed without a postal address and includes it when set", () => {
+  delete process.env.MARKETING_POSTAL_ADDRESS;
+  const leave = "https://example.test/leave";
+  const street = "1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.";
+  const address = `Cuadrao LLC, ${street}`;
+  expect(() => renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave})).toThrow("postal address");
+  for (const postalAddress of ["bad\naddress", "Cuadrao LLC"]) {
+    expect(() => renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave}, {postalAddress})).toThrow("postal address");
+  }
+  const explicit = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave, postalAddress: address});
+  expect(explicit.html).toContain(address);
+  expect(explicit.text).toContain(address);
+  process.env.MARKETING_POSTAL_ADDRESS = street;
+  const fromEnv = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave});
+  expect(fromEnv.html).toContain(address);
+  expect(fromEnv.text).toContain(address);
 });

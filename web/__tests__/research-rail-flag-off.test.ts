@@ -23,26 +23,21 @@ describe("research rail flag-off equivalence", () => {
     expect(es.chat.input_placeholder_prerail).toBe(
       "Describe una idea de inversión...",
     );
-    expect(en.guest.shell.input_placeholder_prerail).toBe(
-      "What do you want to test?",
-    );
-    expect(es.guest.shell.input_placeholder_prerail).toBe("¿Qué quieres probar?");
-    // The follow-up placeholder is deliberately untouched by the rail.
+    expect(en.guest?.shell?.input_placeholder_prerail).toBeUndefined();
+    expect(es.guest?.shell?.input_placeholder_prerail).toBeUndefined();
     expect(en.chat.followup_placeholder).toBe("Add a follow-up");
 
     const chat = source("components/chat/ChatInterface.tsx");
     expect(chat).toContain('"chat.input_placeholder_prerail"');
-    expect(chat).toContain('"guest.shell.input_placeholder_prerail"');
+    expect(chat).not.toContain('"guest.shell.input_placeholder_prerail"');
   });
 
-  test("flag-off empty chat keeps the legacy pills and no greeting", () => {
+  test("flag-off empty chat has no investing pills", () => {
     const emptyChat = source("components/chat/EmptyChatSurface.tsx");
     expect(emptyChat).toContain("const showGreeting = researchRailEnabled;");
     const starterActions = source("components/chat/StarterActions.tsx");
-    expect(starterActions).toContain(
-      "const entries: StarterEntry[] = researchRailEnabled",
-    );
-    expect(starterActions).toContain("chat.starter_actions.tsla.label");
+    expect(starterActions).toContain("if (!workspaceEntries?.length) return null;");
+    expect(starterActions).not.toContain("chat.starter_actions.tsla.label");
   });
 
   test("flag-off cards and jobs are untouched surfaces", () => {

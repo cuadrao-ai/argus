@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import * as guestCaptcha from "../lib/guest-captcha";
@@ -494,14 +494,9 @@ describe("shared CAPTCHA acquisition UX", () => {
     );
     expect(genericRetry.current).toEqual({ text: "keep me" });
   });
-
-  test("empty-chat guest entry localizes captcha_unavailable and omits a same-path retry", () => {
+  test("captcha copy stays on the signed-in page after the guest chat surfaces are gone", () => {
     const emptyChat = readFileSync(
       join(root, "components/chat/EmptyChatSurface.tsx"),
-      "utf-8",
-    );
-    const experience = readFileSync(
-      join(root, "components/guest/useGuestExperience.ts"),
       "utf-8",
     );
     const chat = readFileSync(
@@ -515,47 +510,12 @@ describe("shared CAPTCHA acquisition UX", () => {
       readFileSync(join(root, "public/locales/es-419/common.json"), "utf-8"),
     );
 
-    expect(emptyChat).toMatch(
-      /const disabled =\s*isStreamingResponse \|\|\s*isHydratingConversation \|\|\s*guestSubmissionPending \|\|\s*guestSubmissionError === CAPTCHA_UNAVAILABLE_CODE/,
-    );
-    expect(emptyChat).toContain("<ChatInput");
-    expect(emptyChat).toContain("<StarterActions");
-    expect(emptyChat.match(/disabled=\{disabled\}/g)?.length).toBe(2);
-    expect(emptyChat).toContain("auth.errors.captcha_unavailable");
-    expect(emptyChat).toContain("guest.entry.reload");
-    expect(emptyChat).toContain("window.location.reload()");
-    expect(emptyChat).not.toContain("guest.shell.sign_in");
-    expect(emptyChat).not.toContain("onSignIn");
-    expect(emptyChat).not.toContain("t(guestSubmissionError");
-    expect(emptyChat).not.toContain("{guestSubmissionError}");
-
-    const captchaRender = emptyChat.slice(
-      emptyChat.indexOf("guestSubmissionError === CAPTCHA_UNAVAILABLE_CODE ? ("),
-    );
-    const genericBranch = captchaRender.slice(captchaRender.indexOf(") : ("));
-    const captchaActions = captchaRender.slice(
-      0,
-      captchaRender.indexOf(") : ("),
-    );
-    expect(captchaActions).toContain("guest.entry.reload");
-    expect(captchaActions).not.toContain("disabled={disabled}");
-    expect(captchaActions).not.toContain("guest.shell.sign_in");
-    expect(captchaActions).not.toContain("common.try_again");
-    expect(captchaActions).not.toContain("onRetryGuestSubmission");
-    expect(genericBranch).toContain("common.try_again");
-    expect(genericBranch).toContain("onRetryGuestSubmission");
-
-    expect(experience).toContain("onGuestBootstrapError(error)");
-    expect(chat).toContain("useGuestEntryError(guestSubmissionRetryRef)");
-    expect(chat).toContain("onGuestBootstrapError: guestEntry.onGuestBootstrapError");
-    expect(chat).toContain("onSignIn={requestGuestSignIn}");
-    const emptyStart = chat.indexOf("<EmptyChatSurface");
-    const emptyUsage = chat.slice(
-      emptyStart,
-      chat.indexOf("/>", emptyStart),
-    );
-    expect(emptyUsage).not.toContain("onSignIn");
-    expect(chat).not.toContain("guestEntryErrorKind(");
+    expect(existsSync(join(root, "components/guest/useGuestExperience.ts"))).toBe(false);
+    expect(existsSync(join(root, "components/guest/ExpiredGuestSession.tsx"))).toBe(false);
+    expect(emptyChat).not.toContain("guestSubmissionError");
+    expect(emptyChat).not.toContain("guest.entry.reload");
+    expect(chat).not.toContain("useGuestEntryError");
+    expect(chat).not.toContain("onSignIn={requestGuestSignIn}");
 
     expect(en.auth.errors.captcha_unavailable).toBe(
       "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
@@ -563,8 +523,6 @@ describe("shared CAPTCHA acquisition UX", () => {
     expect(es.auth.errors.captcha_unavailable).toBe(
       "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
     );
-    expect(en.guest.entry.reload).toBe("Reload");
-    expect(es.guest.entry.reload).toBe("Actualizar");
     expect(en.auth.errors.captcha_unavailable).not.toBe("captcha_unavailable");
     expect(es.auth.errors.captcha_unavailable).not.toBe("captcha_unavailable");
     expect(en.auth.errors.captcha_unavailable.toLowerCase()).not.toContain(
@@ -575,42 +533,10 @@ describe("shared CAPTCHA acquisition UX", () => {
       join(root, "e2e/guest-auth-captcha-ux.spec.ts"),
       "utf-8",
     );
-    expect(captchaE2e).toContain("en.auth.errors.captcha_unavailable");
+    expect(captchaE2e).toContain("en.auth.errors.browser_check_failed");
+    expect(captchaE2e).toContain("en.auth.errors.browser_check_retry");
     expect(captchaE2e).not.toContain(
       "We couldn’t complete the security check. Please try again.",
     );
-  });
-
-  test("expired guest restart localizes captcha_unavailable as Reload-only", () => {
-    const expired = readFileSync(
-      join(root, "components/guest/ExpiredGuestSession.tsx"),
-      "utf-8",
-    );
-
-    expect(expired).toContain("useState<GuestEntryErrorKind | null>");
-    expect(expired).toContain("guestEntryErrorKind(error)");
-    expect(expired).toContain("restartErrorKind === CAPTCHA_UNAVAILABLE_CODE");
-    expect(expired).toContain("auth.errors.captcha_unavailable");
-    expect(expired).toContain("guest.entry.reload");
-    expect(expired).toContain("window.location.reload()");
-    expect(expired).not.toContain("setRestartError(");
-    expect(expired).not.toContain("isCaptchaUnavailableError");
-
-    const captchaBranch = expired.slice(
-      expired.indexOf("captchaBlocked ? ("),
-      expired.indexOf(") : authMode ? ("),
-    );
-    expect(captchaBranch).toContain("guest.entry.reload");
-    expect(captchaBranch).not.toContain("guest.expired.start_new");
-    expect(captchaBranch).not.toContain("guest.expired.sign_in");
-    expect(captchaBranch).not.toContain("guest.expired.create_account");
-    expect(captchaBranch).not.toContain("<AuthForm");
-    expect(captchaBranch).not.toContain("retryGuestSession");
-
-    const genericBranch = expired.slice(expired.indexOf(") : authMode ? ("));
-    expect(expired).toContain("retryGuestSession");
-    expect(genericBranch).toContain("guest.expired.start_new");
-    expect(genericBranch).toContain("guest.expired.restart_error");
-    expect(genericBranch).toContain('restartErrorKind === "generic"');
   });
 });

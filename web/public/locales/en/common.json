@@ -57,15 +57,15 @@
     "back_to_argus": "Back to Cuadrao",
     "terms": {
       "title": "Terms of Use",
-      "intro": "Argus is an early access product for educational investing research. These terms describe how Argus works today. Argus is still being built, so these terms will change as the product does.",
+      "intro": "Cuadrao is an early access product for educational investing research. These terms describe how Cuadrao works today. Cuadrao is still being built, so these terms will change as the product does.",
       "sections": {
         "no_investment_advice": {
           "title": "No investment advice",
-          "body": "Argus provides educational tools that help you structure and review investing ideas. Argus does not provide investment, legal, tax, accounting, or financial advice. You are responsible for your own decisions."
+          "body": "Cuadrao provides educational tools that help you structure and review investing ideas. Cuadrao does not provide investment, legal, tax, accounting, or financial advice. You are responsible for your own decisions."
         },
         "no_brokerage": {
           "title": "No brokerage or trading relationship",
-          "body": "Argus is not a broker, dealer, investment adviser, fiduciary, exchange, custodian, or trading venue. Argus does not hold funds, place orders, execute trades, or connect to brokerage accounts."
+          "body": "Cuadrao is not a broker, dealer, investment adviser, fiduciary, exchange, custodian, or trading venue. Cuadrao does not hold funds, place orders, execute trades, or connect to brokerage accounts."
         },
         "historical_simulations": {
           "title": "Historical simulations are hypothetical",
@@ -73,23 +73,23 @@
         },
         "early_access_changes": {
           "title": "Early access availability and changes",
-          "body": "Argus is in early access and is provided as is, without warranties. Features may change, break, reset, or be removed without notice, and some may never reach a full release. We may limit access, suspend accounts, or remove content that creates security, abuse, compliance, or operational risk."
+          "body": "Cuadrao is in early access and is provided as is, without warranties. Features may change, break, reset, or be removed without notice, and some may never reach a full release. We may limit access, suspend accounts, or remove content that creates security, abuse, compliance, or operational risk."
         },
         "eligibility": {
           "title": "Eligibility",
-          "body": "You must be old enough to form a binding agreement in your jurisdiction and allowed to use Argus under applicable law. Do not use Argus on behalf of another person or organization unless you are authorized to do so."
+          "body": "You must be old enough to form a binding agreement in your jurisdiction and allowed to use Cuadrao under applicable law. Do not use Cuadrao on behalf of another person or organization unless you are authorized to do so."
         },
         "acceptable_use": {
           "title": "Acceptable use",
-          "body": "Do not use Argus to break the law, abuse the service, reverse engineer private systems, overload providers, submit sensitive third-party data, or present generated output as professional advice."
+          "body": "Do not use Cuadrao to break the law, abuse the service, reverse engineer private systems, overload providers, submit sensitive third-party data, or present generated output as professional advice."
         },
         "third_party_services": {
           "title": "Third-party services",
-          "body": "Argus relies on third-party services for hosting, authentication, market data, model access, bot protection, and chart rendering. TradingView Lightweight Charts is used for chart rendering and attribution, not as an Argus market data source."
+          "body": "Cuadrao relies on third-party services for hosting, authentication, market data, model access, bot protection, and chart rendering. TradingView Lightweight Charts is used for chart rendering and attribution, not as a Cuadrao market data source."
         },
         "account_support": {
           "title": "Account support",
-          "body_before_email": "While Argus is in early access, account deletion and support requests are handled by a person. Contact",
+          "body_before_email": "While Cuadrao is in early access, account deletion and support requests are handled by a person. Contact",
           "body_after_email": " or use the in-app account deletion request."
         }
       }
@@ -132,7 +132,7 @@
             },
             "preferences": {
               "label": "Preferences you set",
-              "body": "Your browser’s local storage holds your language, which starts from your browser’s own setting until you change it, along with your appearance and layout choices, tips you dismissed, the conversations you marked temporary, and the ad or link that brought you here. Language, appearance, layout, tips, and temporary-chat marks stay on your device. The campaign is stored there too, and Argus may receive it when you start as a guest or create an account. This tab temporarily keeps your account identifier, the daily-limit reset time, and whether you closed the notice. That notice state clears when the limit resets, a question succeeds, you sign out or switch accounts, or you close the tab. Argus never sends any of this to advertisers."
+              "body": "Your browser’s local storage holds your language, which starts from your browser’s own setting until you change it, along with your appearance and layout choices, tips you dismissed, the conversations you marked temporary, and the ad or link that brought you here. Language, appearance, layout, tips, and temporary-chat marks stay on your device. The campaign is stored there too, and Argus may receive it when you start as a guest or create an account. This tab temporarily keeps your account identifier, the daily-limit reset time, and whether you closed the notice. That notice state clears when the limit resets, a question succeeds, you sign out or switch accounts, or you close the tab. This tab also keeps whether you accepted the current Cuadrao Business privacy notice, until that acceptance can be stored on the server. Closing the tab clears that copy. Argus never sends any of this to advertisers."
             }
           },
           "body_after": "Argus does not use advertising cookies, ad pixels, marketing trackers, or cross-site tracking, and it does not share browser data with advertising partners. Product analytics, when enabled, run on Argus servers and store nothing in your browser. You can clear or block this storage in your browser settings, though signing in will stop working if you block the sign-in cookies."
@@ -307,29 +307,6 @@
       "announce_needs_attention": "{{title}} needs attention.",
       "announce_needs_input": "{{title}} needs your input.",
       "announce_new_activity": "{{title}} is ready."
-    },
-    "starter_actions": {
-      "tsla": {
-        "label": "Test Apple vs SPY",
-        "value": "Compare Apple with SPY over the last 12 months."
-      },
-      "btc": {
-        "label": "Test Bitcoin (BTC) hold",
-        "value": "What if I bought Bitcoin this year so far?"
-      },
-      "dca": {
-        "label": "Test weekly Nvidia buys",
-        "value": "What if I bought $250 of Nvidia every week over the last 12 months?"
-      }
-    },
-    "landing_starters": {
-      "backtest": "What if I had bought an S&P 500 fund over the last 12 months?",
-      "savings": "If I set aside $200 every month, what would that add up to in a year?"
-    },
-    "example_queries": {
-      "q1": "How does Netflix make money?",
-      "q2": "Compare Costco against Walmart and Target",
-      "q3": "What if I had bought Coca-Cola every month for five years?"
     },
     "research_job": {
       "queued": {
@@ -1101,7 +1078,7 @@
       "upgrade_pro": "Try upgrading to Pro for Free"
     },
     "app": {
-      "title": "App",
+      "title": "Preferences",
       "language": "App language",
       "close_language_modal": "Close language modal",
       "sidebar": "Sidebar",
@@ -1189,16 +1166,6 @@
       "deleted_item_note": "Currently restorable.",
       "no_deleted_items": "No recently deleted items",
       "chat_item": "Chat",
-      "delete_all_conversations": "Delete all conversations",
-      "delete_all_confirm": {
-        "title": "Delete all conversations?",
-        "description": "This moves all active and archived conversations to Recently Deleted. You can restore them before permanent removal.",
-        "confirm": "Delete all conversations"
-      },
-      "delete_all_success_one": "Moved {{count}} conversation to Recently Deleted.",
-      "delete_all_success_other": "Moved {{count}} conversations to Recently Deleted.",
-      "delete_all_empty": "No conversations to delete.",
-      "delete_all_error": "Couldn’t delete conversations. Try again.",
       "security": "Security",
       "usage": "Usage",
       "usage_panel": {
@@ -1233,8 +1200,8 @@
     },
     "help": {
       "title": "Help & Legal",
-      "terms": "Terms of Use",
-      "privacy": "Privacy Policy"
+      "terms": "Terms",
+      "privacy": "Privacy"
     },
     "about": {
       "title": "About",
@@ -1491,6 +1458,11 @@
       "existing_action": "Sign in",
       "error": "We couldn’t send your request. Please try again."
     },
+    "business_unavailable": {
+      "body": "If you think this is a mistake, email us at admin@cuadrao.ai.",
+      "sign_out": "Sign out",
+      "title": "Cuadrao Business isn't available for your account yet."
+    },
     "login": {
       "brand": "cuadrao",
       "subtitle": "Sign in to continue",
@@ -1511,7 +1483,15 @@
       "new_account": "New to Cuadrao?",
       "password_requirement": "At least 8 characters.",
       "confirmation_title": "Check your email",
-      "confirmation_description": "Use the confirmation link we sent to finish creating your account. Then return here to sign in."
+      "confirmation_description": "Enter the code we sent to {{correo}}.",
+      "confirmation_code_label": "Confirmation code",
+      "confirmation_submit": "Confirm",
+      "confirmation_loading": "Confirming..."
+    },
+    "confirm": {
+      "error_title": "This link didn’t work",
+      "error_body": "It is missing, expired, or already used. Ask for a new one and try again.",
+      "back_to_sign_in": "Back to sign in"
     },
     "legal": {
       "continuing_prefix": "By continuing, you agree to our"
@@ -1549,9 +1529,19 @@
       "revocation_retry_error": "Cuadrao still couldn’t confirm that every session was signed out. Try again.",
       "cleanup_warning": "Sessions were revoked, but this browser could not confirm local cookie cleanup. A fresh sign-in is still required."
     },
+    "screen": {
+      "go_to_cuadrao": "Go to Cuadrao",
+      "invite_line": "Ask the person who invited you to send another invitation.",
+      "link_expired_title": "This link expired or was already used.",
+      "not_found_detail": "The link may be old or copied wrong.",
+      "not_found_title": "We could not find this page.",
+      "request_new_link": "Request a new link"
+    },
     "errors": {
       "generic": "Something went wrong. Please try again.",
       "captcha_unavailable": "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
+      "browser_check_failed": "We couldn’t verify your browser. Try again.",
+      "browser_check_retry": "Try again",
       "unauthorized": "We couldn’t verify those account details. Check them and try again.",
       "auth_signup_failed": "We couldn’t create the account. Please try again.",
       "too_many_requests": "Too many attempts. Wait a moment and try again.",
@@ -1573,7 +1563,8 @@
       "guest_handoff_source_not_anonymous": "This conversation no longer belongs to a temporary account.",
       "guest_handoff_unsafe_product_graph": "We couldn’t transfer this conversation safely. Your original conversation is unchanged.",
       "guest_handoff_workspace_unavailable": "This temporary conversation is no longer available.",
-      "guest_handoff_claim_unavailable": "We couldn’t claim the temporary conversation right now. Please try again."
+      "guest_handoff_claim_unavailable": "We couldn’t claim the temporary conversation right now. Please try again.",
+      "otp_rejected": "That code was not accepted. Check the email and try again."
     }
   },
   "account_security": {
@@ -1621,78 +1612,15 @@
     "privacy": "Privacy Policy"
   },
   "guest": {
-    "entry": {
-      "loading": "Opening Cuadrao",
-      "sending": "Sending...",
-      "error": "Cuadrao couldn't open a temporary chat. Try again.",
-      "reload": "Reload"
-    },
-    "expired": {
-      "title": "This temporary chat has expired",
-      "detail": "Its messages and results can’t be recovered.",
-      "start_new": "Start a new temporary chat",
-      "sign_in": "Sign in",
-      "create_account": "Create account",
-      "restart_error": "Cuadrao could not start a new temporary chat. Try again."
-    },
-    "conversion": {
-      "eyebrow": "Keep going with Cuadrao",
-      "sign_in_title": "Sign in",
-      "create_title": "Create your account",
-      "simulation_limit": "Sign in to run another simulation.",
-      "simulation_limit_reset": "This temporary chat has reached today’s simulation limit. It resets on {{date}}. Create an account to continue now.",
-      "simulation_limit_request_access": "This temporary chat has reached today’s simulation limit. It resets on {{date}}. Request access or sign in to continue.",
-      "simulation_workspace_limit_reset": "This temporary chat has reached its simulation limit. It expires on {{date}}. Create an account to continue now.",
-      "simulation_workspace_limit_request_access": "This temporary chat has reached its simulation limit. It expires on {{date}}. Request access or sign in to continue.",
-      "save_decision": "Sign in to save this decision.",
-      "new_conversation": "Sign in to keep this conversation and start another.",
-      "new_conversation_create": "Create an account to keep this conversation and start another.",
-      "keep_history": "Sign in to keep this conversation and start another.",
-      "discovery_searches": "Sign in for more grounded searches with sources.",
-      "share_result": "Create an account or sign in to share this answer and keep control of its link."
-    },
-    "new_conversation": {
-      "title": "Start a new conversation?",
-      "description": "Start over replaces this temporary conversation. Sign in to keep it and start another.",
-      "public_description": "Start over replaces this temporary conversation. Create an account to keep it and start another.",
-      "start_over": "Start over",
-      "sign_in": "Sign in to keep it",
-      "create_account": "Create account",
-      "error": "The temporary chat was left unchanged."
-    },
-    "history": {
-      "expires_at": "Available until {{date}}",
-      "keep_history": "Sign in to keep your history"
-    },
     "shell": {
-      "value_title": "Test an investing idea against history.",
-      "input_placeholder": "Ask about any company or idea",
-      "input_placeholder_prerail": "What do you want to test?",
       "sign_in": "Sign in",
       "settings": "Guest settings",
       "language": "Language",
       "feedback": "Feedback",
-      "temporary_until": "Temporary chat · available until {{date}}",
-      "before_message": {
-        "prefix": "By messaging Argus, you agree to ",
-        "terms": "Terms",
-        "middle": " and acknowledge ",
-        "privacy": "Privacy"
-      },
-      "after_message": {
-        "safety": "Argus can make mistakes. For education only. Not financial advice.",
-        "terms": "Terms",
-        "privacy": "Privacy"
-      },
       "new_chat_unavailable": "Sign in to keep this conversation and start another.",
       "search_unavailable": "Search isn't available for temporary chats yet.",
       "decision_unavailable": "Sign in to save this decision.",
       "sign_in_unavailable": "Sign in is not available in this preview. Your temporary chat stays here."
-    },
-    "hints": {
-      "confirmation": "Review the assumptions, then run the test.",
-      "result": "Change the chart range or ask a follow-up.",
-      "dismiss": "Dismiss hint"
     }
   },
   "receipt": {
@@ -2246,6 +2174,78 @@
       "turn_off": "Turn reading off",
       "turn_on": "Turn receipt reading on"
     },
+    "bank": {
+      "empty": {
+        "no_account": "Add the business bank account before importing a statement.",
+        "no_lines": "This statement has no lines."
+      },
+      "error": {
+        "layout_not_ready": "This bank's statement layout is not ready yet.",
+        "line_already_confirmed": "This line already has a confirmed match.",
+        "one_account": "This business already has a bank account.",
+        "pair_declined": "This match was declined.",
+        "unsupported_layout": "This file does not match a supported statement."
+      },
+      "import": {
+        "account": "Bank account",
+        "choose_file": "Choose a statement file",
+        "column_amount": "Amount column",
+        "column_credit": "Credit column",
+        "column_date": "Date column",
+        "column_debit": "Debit column",
+        "column_description": "Description column",
+        "column_sign": "Sign column",
+        "converged": "Already imported",
+        "inserted": "New lines",
+        "mapped_csv": "Mapped CSV",
+        "reader": "Statement layout",
+        "submit": "Import statement",
+        "title": "Import a statement"
+      },
+      "line": {
+        "charge": "Charge",
+        "deposit": "Deposit",
+        "zero": "Zero"
+      },
+      "nav": "Bank matching",
+      "suggestion": {
+        "confidence": "Match strength",
+        "confirm": "Confirm",
+        "confirmed": "Confirmed",
+        "decline": "Not this one",
+        "declined": "Declined",
+        "pending": "Suggested",
+        "receipt": "Expense",
+        "venta": "Sale"
+      },
+      "unmatched": {
+        "count": "Charges without a receipt",
+        "empty": "Every charge in this period has a receipt.",
+        "title": "Charges without a receipt"
+      }
+    },
+    "consent": {
+      "title": "[DRAFT] Before AI is used for your business",
+      "intro": "[DRAFT] Receipt reading with AI and the assistant send business data to a model provider. Review the notice and confirm that you accept it. Counsel replaces this marker with the final text.",
+      "privacy_link": "[DRAFT] Read the privacy notice",
+      "opt_in": "[DRAFT] I accept the Cuadrao Business privacy notice I just saw, for this version.",
+      "accept": "[DRAFT] Accept and continue",
+      "decline": "[DRAFT] Do not accept",
+      "saving": "[DRAFT] Saving your acceptance…",
+      "save_error": "[DRAFT] Your acceptance could not be saved. Try again.",
+      "decline_title": "[DRAFT] Without this permission, AI stays off",
+      "decline_body": "[DRAFT] If you do not accept, receipt reading with AI and the assistant stay unavailable. You can still upload receipts, record expenses, and review what is already saved.",
+      "continue_without": "[DRAFT] Continue without AI",
+      "holding": "[DRAFT] Turning receipt reading off…",
+      "hold_error": "[DRAFT] Receipt reading could not be turned off. AI would stay available, so we stayed here.",
+      "back": "[DRAFT] Back to the notice",
+      "accepted_title": "[DRAFT] Acceptance kept in this browser",
+      "accepted_body": "[DRAFT] We kept who accepted, when, the notice version, the language, and a fingerprint of the text shown. This copy lives only in this tab until the server can store it.",
+      "continue": "[DRAFT] Continue",
+      "held": "[DRAFT] Receipt reading with AI and the assistant stay off until you accept the current notice.",
+      "review": "[DRAFT] Review the notice",
+      "version_label": "[DRAFT] Version {{version}}"
+    },
     "export": {
       "title": "Export Business records",
       "scope": "{{name}} · CSV, Excel and retained originals in one ZIP.",
@@ -2487,6 +2487,18 @@
       "retry": "Try again",
       "account_unknown": "Unknown"
     },
+    "privacy_notice": {
+      "title": "[DRAFT] Cuadrao Business privacy notice",
+      "close": "[DRAFT] Close notice",
+      "paragraphs": [
+        "[DRAFT] This notice is a placeholder. It is not published and a lawyer has not reviewed it. The final text replaces these sentences.",
+        "[DRAFT] It covers Cuadrao Business, the business web app. The business owner is responsible for the business records. Cuadrao processes them on the owner's behalf. The legal operator, address, and privacy contact remain {{OPERADOR_LEGAL}}, {{DIRECCION_LEGAL}}, and {{CONTACTO_PRIVACIDAD}}.",
+        "[DRAFT] We collect the account of the person who signs in, business records, original receipts, what reading proposes, and tax data that appears on a receipt, such as RNC, NCF or e-CF, and ITBIS. That tax data stays unverified until an authorized person reviews it.",
+        "[DRAFT] Reading a receipt with AI sends the photo, PDF, or document to a model, only to propose the merchant, amount, date, and tax data. The assistant sends the message text and the context it needs. Neither records an expense on its own.",
+        "[DRAFT] Without your acceptance of this notice, those features stay off. Uploading a receipt, recording an expense, or reviewing what is saved is not permission to send data to a model.",
+        "[DRAFT] You can ask for access, correction, deletion, objection, and portability. Response times and the applicable law, including Law 172-13, are for counsel to confirm. [A CONFIRMAR]"
+      ]
+    },
     "sample": {
       "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."
     },
@@ -2516,11 +2528,20 @@
       "interrupted": "Preparation stopped before it finished. Your receipt is saved. Try again or enter the details yourself.",
       "outcome_unknown": "We couldn't recover the AI reading result. Your receipt is still saved. Try again or enter the details yourself.",
       "no_purchase_found": "Cuadrao read this receipt but didn't find a purchase to save. Enter the details yourself.",
+      "not_a_receipt": "This doesn't look like a receipt",
       "several_purchases": "Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.",
       "source_unavailable": "The original file is no longer available. Enter the details yourself.",
       "check_details": "Cuadrao couldn't read every part of this receipt. Check the details against the original before you confirm.",
       "duplicate": "This looks like a receipt you already saved: same merchant, date and total. It won't be saved as a second expense.",
       "other": "Something went wrong with this receipt. It is still saved. Enter the details yourself."
+    },
+    "file_read": {
+      "unreadable_title": "We couldn't read this file",
+      "unreadable_body": "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light, or enter the details yourself.",
+      "not_a_receipt_title": "This doesn't look like a receipt",
+      "not_a_receipt_body": "We read the file, but we didn't find a purchase with its total. Statements and payment notices don't belong here. If this is an invoice you issued, mark it as a sale.",
+      "upload_another": "Upload another file",
+      "enter_details": "Enter details"
     },
     "actions": {
       "upload_receipt": "Upload receipt",
@@ -2550,6 +2571,8 @@
     },
     "inbox": {
       "title": "Inbox",
+      "por_revisar": "{{count}} por revisar",
+      "review_receipts": "Revisar recibos",
       "subtitle": "Receipts waiting for you to review. Nothing here is an expense until you confirm it.",
       "error": "We couldn't load your inbox. Try again.",
       "notes_title": "Notes awaiting review",
@@ -2558,6 +2581,8 @@
       "notes_latest": "Showing the latest 50 saved notes. Older open notes are reachable through search.",
       "note_more_one": "{{count}} earlier note",
       "note_more_other": "{{count}} earlier notes",
+      "aside_reading_placeholder": "{{count}} todavía leyéndose",
+      "aside_unreadable_placeholder": "{{count}} no se pudo leer",
       "empty_body": "Upload a receipt or send one by WhatsApp. It will wait here for your review.",
       "all_reviewed": "All reviewed"
     },
@@ -2855,7 +2880,7 @@
     "title": "Access",
     "subtitle": "Who can see and prepare your business records. Only you approve.",
     "owner": "Owner",
-    "member": "Reads and prepares",
+    "member": "Member",
     "since": "Since {{date}}",
     "pending_title": "Pending invites",
     "pending_until": "Expires {{date}}",

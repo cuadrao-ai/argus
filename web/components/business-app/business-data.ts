@@ -77,6 +77,7 @@ export type BusinessDataSource = Readonly<{
   retryEmailDelivery: (id: string) => Promise<{ id: string }>;
   access: () => Promise<BusinessAccess>;
   giveAccess: (email: string) => Promise<BusinessAccess>;
+  resendAccessInvite: (id: string) => Promise<BusinessAccess>;
   revokeAccessGrant: (id: string) => Promise<void>;
   revokeAccessInvite: (id: string) => Promise<void>;
 }>;
@@ -120,6 +121,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   retryEmailDelivery: api.retryBusinessEmailDelivery,
   access: api.getBusinessAccess,
   giveAccess: api.giveBusinessAccess,
+  resendAccessInvite: api.resendBusinessAccessInvite,
   revokeAccessGrant: api.revokeBusinessAccessGrant,
   revokeAccessInvite: api.revokeBusinessAccessInvite,
   spaces: api.getBusinessSpaces,
@@ -201,6 +203,7 @@ export function withBusinessSpace(
     retryEmailDelivery: source.retryEmailDelivery,
     access: after(source.access),
     giveAccess: after(source.giveAccess),
+    resendAccessInvite: after(source.resendAccessInvite),
     revokeAccessGrant: source.revokeAccessGrant,
     revokeAccessInvite: source.revokeAccessInvite,
     spaces: after(source.spaces),

@@ -4,8 +4,8 @@ CODE_SIGN_STYLE = Automatic
 CODE_SIGNING_ALLOWED = YES
 CODE_SIGNING_REQUIRED = YES
 CODE_SIGN_IDENTITY = Apple Development
-// Xcode derives device entitlements from the approved provisioning profile.
-CODE_SIGN_ENTITLEMENTS =
+// The app always requests Declared Age Range. Provisioning must include this capability.
+CODE_SIGN_ENTITLEMENTS = Config/DeclaredAgeRange.entitlements
 // Sign in with Apple: only after the capability is enabled on this App ID in the Apple
 // Developer portal (AUTH_SETUP.md), replace the line above with:
 // CODE_SIGN_ENTITLEMENTS = Config/SignInWithApple.entitlements

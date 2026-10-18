@@ -7,11 +7,15 @@ import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
 import ActionMenu from "./ActionMenu";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
+import InboxForwardingCard from "./InboxForwardingCard";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import { bandejaReceipts } from "./bandeja-order";
+import { countPorRevisar, countStillReading, countUnreadable, porRevisar } from "@/lib/business-review-count";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, LoadingRows, PanelHeading, pillButtonClass, secondaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel } from "./business-ui";
+import { cardClass, PanelHeading, pillButtonClass, secondaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel, useTerminalRead } from "./business-ui";
+import { Settle } from "./business-skeletons";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
@@ -77,10 +81,11 @@ export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }:
   );
 }
 
-export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: ReceiptSummary; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void; onRetry?: () => Promise<void> }) {
+export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { receipt: ReceiptSummary; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void; onRetry?: () => Promise<void>; onUpload?: () => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const attentionLabel = useAttentionLabel();
+  const terminal = useTerminalRead()(receipt.attention, receipt.error_code);
   const Icon = receipt.media_type === "application/pdf" ? FileText : ImageIcon;
   const needsAttention = receipt.status === "needs_attention";
   const [retry, setRetry] = useState<"idle" | "retrying" | "failed">("idle");
@@ -119,7 +124,12 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: Rece
             ) : receipt.channel === "email" ? (
               <Mail className="h-3.5 w-3.5 shrink-0" data-testid="inbox-channel-email" aria-label={t("business.dossier.email", "Email")} />
             ) : null}
-            {receipt.attention
+            {terminal ? (
+              <span className="block">
+                <span className="block font-medium">{terminal.title}</span>
+                <span className="mt-0.5 block">{terminal.body}</span>
+              </span>
+            ) : receipt.attention
               ? attentionLabel(receipt.attention)
               : savedUnread(receipt)
                 ? receipt.activity?.state === "saved_unread"
@@ -158,12 +168,13 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: Rece
           )}
         />
       ) : null}
-      {needsAttention && (receipt.enterable || (receipt.preparable && onRetry)) ? (
+      {needsAttention && (receipt.enterable || (receipt.preparable && onRetry && !terminal) || (terminal?.upload && onUpload)) ? (
         <div className="w-full min-w-0 px-3 pb-3">
-          {receipt.preparable && onRetry ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}</p> : null}
+          {receipt.preparable && onRetry && !terminal ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}</p> : null}
           <div className="flex flex-wrap gap-2">
-            {receipt.preparable && onRetry ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={() => void tryAgain()}>{t("common.retry", "Retry")}</button> : null}
-            {receipt.enterable ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={onOpen}>{locale === "es-419" ? "Escribir datos" : t("business.actions.record_expense", "Record expense")}</button> : null}
+            {receipt.preparable && onRetry && !terminal ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={() => void tryAgain()}>{t("common.retry", "Retry")}</button> : null}
+            {terminal?.upload && onUpload ? <button type="button" className={secondaryButtonClass} onClick={onUpload}>{terminal.uploadLabel}</button> : null}
+            {receipt.enterable ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={onOpen}>{terminal ? terminal.enterLabel : locale === "es-419" ? "Escribir datos" : t("business.actions.record_expense", "Record expense")}</button> : null}
           </div>
           {retry === "failed" ? <p role="alert" className="mt-2 break-words text-[13px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again.")}</p> : null}
         </div>
@@ -229,12 +240,24 @@ function EmptyInbox() {
 
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
+  const consent = useBusinessConsent();
   const { records, openPanel, actions, panel, chosen, source, reload, revision } = useBusiness();
   const personal = usePersonalMark();
   const items = records.inbox ? bandejaReceipts(records.inbox) : null;
   const notes = records.notes === null ? null : openNotesByDraft(records.notes);
 
   const upload = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
+  const reviewCount = items ? countPorRevisar(items) : null;
+  const readingCount = items ? countStillReading(items) : 0;
+  const unreadableCount = items ? countUnreadable(items) : 0;
+  const aside = [
+    readingCount ? t("business.inbox.aside_reading_placeholder", "{{count}} todavía leyéndose", { count: readingCount }) : null,
+    unreadableCount ? t("business.inbox.aside_unreadable_placeholder", "{{count}} no se pudo leer", { count: unreadableCount }) : null,
+  ].filter((part): part is string => Boolean(part));
+  const openReview = () => {
+    const next = porRevisar(items ?? [])[0];
+    if (next) openPanel({ kind: "receipt", receiptId: next.id });
+  };
 
   return (
     <section>
@@ -244,41 +267,59 @@ export default function BusinessInboxPanel() {
         subtitle={t("business.inbox.subtitle", "Receipts waiting for you to review. Nothing here is an expense until you confirm it.")}
         action={
           upload ? (
-            <button type="button" data-testid="business-primary-upload" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>
+            <button type="button" data-testid="business-primary-upload" className={`${pillButtonClass} self-start bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>
               {upload.label}
+            </button>
+          ) : chosen?.role === "accountant" ? (
+            <button type="button" data-testid="business-primary-review" className={`${pillButtonClass} self-start bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={openReview}>
+              {t("business.inbox.review_receipts", "Revisar recibos")}
             </button>
           ) : null
         }
       />
-      <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />
+      {reviewCount !== null && (items?.length || notes?.length) ? (
+        <div className="mb-4">
+          <p data-testid="bandeja-por-revisar" className="text-[15px] font-medium tabular-nums text-black dark:text-white">{t("business.inbox.por_revisar", "{{count}} por revisar", { count: reviewCount })}</p>
+          {aside.length ? <p data-testid="bandeja-aside" className="mt-1 text-[13px] text-black/60 dark:text-white/65">{`${aside.join(". ")}.`}</p> : null}
+        </div>
+      ) : null}
       {records.error ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.inbox.error", "We couldn't load your inbox. Try again.")}
         </p>
-      ) : items === null || notes === null ? (
-        <LoadingRows />
-      ) : items.length === 0 && notes.length === 0 && !records.notesError ? (
-        <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} />
       ) : (
-        <>
-          <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
-          {items.length ? (
-            <ul data-testid="business-inbox-receipts" className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
-              {items.map((receipt) => (
-                <ReceiptRow
-                  key={receipt.id}
-                  receipt={receipt}
-                  onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
-                  onMark={personal.mark}
-                  onRetry={async () => {
-                    try { await source.prepareReceipt(receipt.id); } finally { reload(); }
-                  }}
-                />
-              ))}
-            </ul>
-          ) : null}
-        </>
+        <Settle pending={items === null || notes === null} layout="inbox">
+          {items === null || notes === null ? null : items.length === 0 && notes.length === 0 && !records.notesError ? (
+            <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} />
+          ) : (
+            <>
+              <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
+              {items.length ? (
+                <ul data-testid="business-inbox-receipts" className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
+                  {items.map((receipt) => (
+                    <ReceiptRow
+                      key={receipt.id}
+                      receipt={receipt}
+                      onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
+                      onMark={personal.mark}
+                      onRetry={async () => {
+                        if (!consent.accepted) {
+                          consent.reopen();
+                          return;
+                        }
+                        try { await source.prepareReceipt(receipt.id); } finally { reload(); }
+                      }}
+                      onUpload={upload ? () => upload.run() : undefined}
+                    />
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          )}
+        </Settle>
       )}
+      <InboxForwardingCard />
+      <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />
       {personal.toast}
     </section>
   );

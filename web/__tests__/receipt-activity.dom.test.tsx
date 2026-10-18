@@ -11,6 +11,7 @@ import { BusinessContext, type BusinessContextValue } from "@/components/busines
 import { periodRange } from "@/components/business-app/business-format";
 import { ReceiptRow, inboxCount } from "@/components/business-app/BusinessInboxPanel";
 import ReceiptReadingControl from "@/components/business-app/ReceiptReadingControl";
+import { BusinessConsentTestProvider } from "@/components/business-app/business-consent-context";
 import ReceiptDossierReview from "@/components/business-app/ReceiptDossierReview";
 import { dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import ReceiptSeenBoundary from "@/components/business-app/ReceiptSeenBoundary";
@@ -116,7 +117,8 @@ test("a receipt row has exactly one marker and the badge uses server count", asy
   const ready = render(detail);
   assert.ok(ready.includes("receipt-unread-dot"));
   assert.ok(!ready.includes("receipt-reading-ring"));
-  assert.equal(inboxCount({ receiptActivity: { ...counts, unread_count: 7, pending_review_count: 9 } }), 9);
+  assert.equal(inboxCount({ inbox: null }), null);
+  assert.equal(inboxCount({ inbox: [{ status: "review_ready" }, { status: "needs_attention", attention: "unreadable" }, { status: "queued", read_pending: true }] }), 1);
 });
 
 test("opening or old hydration does not mark seen; focused visible hydrated content does", async () => {
@@ -181,7 +183,7 @@ test("a late reading-toggle response cannot replace another Business disclosure"
   const sourceA: BusinessDataSource = { ...createFixtureBusinessDataSource(), receiptReading: async () => reading, setReceiptReading: async (_reading, _enabled, _language, requestSignal) => { signal = requestSignal; return new Promise((done) => { resolve = done; }); } };
   const sourceB: BusinessDataSource = { ...createFixtureBusinessDataSource(), receiptReading: async () => ({ ...reading, disclosure: "Business B disclosure" }) };
   const page = await host();
-  const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => { reloads++; })}><ReceiptReadingControl /></BusinessContext.Provider></I18nextProvider>;
+  const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={context(source, () => { reloads++; })}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
   await act(async () => page.root.render(render(sourceA)));
   await act(async () => page.element.querySelector("button")?.click());
   await act(async () => page.root.render(render(sourceB)));

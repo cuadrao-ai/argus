@@ -73,6 +73,8 @@ services:
         value: "false"
       - key: ARGUS_INGESTION_ENABLED
         value: "false"
+      - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
       - key: ARGUS_INGESTION_SECRET_KEY
         sync: false
       - key: ARGUS_INVITE_CODE_SECRET
@@ -244,6 +246,16 @@ services:
         value: "true"
       - key: NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED
         value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
+        value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
 
   # Existing staging service: srv-db5ihr7lot8c73f3b3h0.
   - type: web
@@ -268,6 +280,8 @@ services:
         sync: false
       - key: CUADRAO_AUTH_EMAIL_RESEND_API_KEY
         sync: false
+      - key: CUADRAO_EMAIL_ASSET_ORIGIN
+        sync: false
       - key: NEXT_PUBLIC_APP_ENV
         value: staging
       - key: NEXT_PUBLIC_SUPABASE_URL
@@ -278,6 +292,16 @@ services:
         value: "false"
       - key: NEXT_PUBLIC_BUSINESS_PILOT_ENABLED
         value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
+        value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
       - key: NEXT_PUBLIC_CUADRAO_API_URL
         value: https://cuadrao-api-staging.onrender.com/api/v1
       - key: NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY
