@@ -12,7 +12,7 @@ Based on `.github/workflows/ci.yml`:
 - Pull Requests targeting `codex/private-alpha-next-jules-intake` trigger CI.
 
 ## 3. Jules PR Targeting Rules
-- As strictly noted in `.agent/.jules/README.md` and `.agent/.jules/realignment.md`, Jules PRs must **only** target `codex/private-alpha-next-jules-intake`.
+- The retired intake instructions (since removed) required these PRs to target **only** `codex/private-alpha-next-jules-intake`.
 - Targeting `main` or `codex/private-alpha-next` is prohibited. Rebase and pushes against `main` are entirely restricted.
 
 ## 4. Ownership Enforcement Policy

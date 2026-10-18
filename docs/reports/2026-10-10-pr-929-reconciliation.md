@@ -4,7 +4,7 @@ The coordinator assigned the first reconciliation slot to PR929. The founder's c
 
 ## Decision continuity
 
-The [Marketing handoff](../handoffs/cuadrao-marketing-launch-lane.md) identifies PR929 as the correction for stale privacy/contact evidence and the two rollback notes. Those exact changes remain the approved patch. Later founder instructions accepted and locked PR939, requested refreshing PR927, and then explicitly kept PR927 on hold: "Keep #939 design; don't ship pages until both are settled." The coordinator subsequently relayed the narrower landing decision: "land via #939 (+ #929 evidence). Keep #927's main-promotion hold. Don't retarget #927. nothing lands in main." This reconciliation follows that sequence and does not reinterpret older handoff text as a release grant.
+The [Marketing handoff](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/handoffs/cuadrao-marketing-launch-lane.md) identifies PR929 as the correction for stale privacy/contact evidence and the two rollback notes. Those exact changes remain the approved patch. Later founder instructions accepted and locked PR939, requested refreshing PR927, and then explicitly kept PR927 on hold: "Keep #939 design; don't ship pages until both are settled." The coordinator subsequently relayed the narrower landing decision: "land via #939 (+ #929 evidence). Keep #927's main-promotion hold. Don't retarget #927. nothing lands in main." This reconciliation follows that sequence and does not reinterpret older handoff text as a release grant.
 
 ## Branch and evidence
 

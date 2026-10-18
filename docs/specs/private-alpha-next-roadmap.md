@@ -366,7 +366,7 @@ end-to-end including the guest resume target), "public alpha" copy replaced
 with "early access" (en/es-419), existing-email re-signup now points to sign
 in on the conversion modal (409 `account_exists_use_login`; the public signup
 page stays deliberately opaque for anti-enumeration), and an em dash purge
-from all user-facing copy (rule locked in `.agent/rules/coding-standards.md`).
+from all user-facing copy (rule locked in `AGENTS.md`).
 Eyes-open guest metering postures are recorded in
 `GUEST_PUBLIC_LAUNCH_SAFETY.md`. Findings filed instead of fixed: pending-card
 NL edits ignored in any language (evidence on #335), reply language follows

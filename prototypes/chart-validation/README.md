@@ -3,7 +3,7 @@
 Standalone, synthetic rendering and interaction experiment. It does not connect
 to Argus, calculate forecasts or balances, or add charts to product screens.
 
-- [Spec](../../docs/superpowers/specs/2026-09-28-chart-validation-prototype.md)
+- [Spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-chart-validation-prototype.md)
 - [Proposed fixture contract](CONTRACT.md)
 - [Single fixture source](fixtures/series.json)
 - [iPhone](ios/README.md), [Android](android/README.md), [web](web/README.md)
