@@ -78,6 +78,37 @@ describe("shared account email layout", () => {
 });
 
 
+test("account mail renders Cuadrao LLC and ignores a supplied postal address", () => {
+  delete process.env.MARKETING_POSTAL_ADDRESS;
+  const street = "1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.";
+  for (const postalAddress of [undefined, street, `Cuadrao LLC, ${street}`]) {
+    const rendered = renderAccountEmail({title: "Cuenta", paragraphs: []}, postalAddress ? {postalAddress} : {});
+    expect(rendered.html).toContain(">Cuadrao LLC</p>");
+    expect(rendered.text).toContain("\n\nCuadrao LLC");
+    expect(rendered.html).not.toContain("Cuadrao LLC,");
+    expect(rendered.text).not.toContain(street);
+    expect(rendered.html).not.toContain("Salir de la lista");
+  }
+});
+
+test("unsubscribe footer fails closed without a postal address and includes it when set", () => {
+  delete process.env.MARKETING_POSTAL_ADDRESS;
+  const leave = "https://example.test/leave";
+  const street = "1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.";
+  const address = `Cuadrao LLC, ${street}`;
+  expect(() => renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave})).toThrow("postal address");
+  for (const postalAddress of ["bad\naddress", "Cuadrao LLC"]) {
+    expect(() => renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave}, {postalAddress})).toThrow("postal address");
+  }
+  const explicit = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave, postalAddress: address});
+  expect(explicit.html).toContain(address);
+  expect(explicit.text).toContain(address);
+  process.env.MARKETING_POSTAL_ADDRESS = street;
+  const fromEnv = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave});
+  expect(fromEnv.html).toContain(address);
+  expect(fromEnv.text).toContain(address);
+});
+
 test("missing or multiline legal address refuses rendering", () => {
   delete process.env.MARKETING_POSTAL_ADDRESS;
   expect(() => renderAccountEmail({title: "Cuenta", paragraphs: []})).toThrow("postal address");
