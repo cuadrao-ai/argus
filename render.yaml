@@ -554,10 +554,11 @@ services:
         sync: false
       - key: RESEND_BUSINESS_API_KEY
         sync: false
+      # Live staging turns these on. The manifest records that. The blueprint stays false.
       - key: ARGUS_HOUSEHOLDS_ENABLED
-        value: "true"
+        value: "false"
       - key: ARGUS_BETA_INVITES_ENABLED
-        value: "true"
+        value: "false"
       - key: ARGUS_IN_PLACE_CARD_EDITS_ENABLED
         value: "true"
       - key: ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED

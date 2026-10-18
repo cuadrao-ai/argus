@@ -14,12 +14,25 @@ from tests.test_environment_scripts import (
     _run_render_release_audit,
     _workflow_env_payload,
 )
+from tests.test_staging_default_off_flags import APPROVED_STAGING_OVERRIDES
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _source(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
+
+
+def _blueprint_env_item(entry: dict) -> dict:
+    item = {"key": entry["name"]}
+    if "value" not in entry:
+        item["sync"] = False
+        return item
+    value = entry["value"]
+    if entry["name"] in APPROVED_STAGING_OVERRIDES:
+        value = "false"
+    item["value"] = value
+    return item
 
 
 def test_render_config_audit_uses_the_checked_in_release_profile() -> None:
@@ -120,11 +133,7 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
     declared = {item["key"]: item for item in stage_api["envVars"]}
     assert declared == {
-        entry["name"]: {
-            "key": entry["name"],
-            **({"value": entry["value"]} if "value" in entry else {"sync": False}),
-        }
-        for entry in manifest["services"]["api"]["entries"]
+        entry["name"]: _blueprint_env_item(entry) for entry in manifest["services"]["api"]["entries"]
     }
     assert services["cuadrao-marketing-staging"]["branch"] == "main"
     assert "NEXT_PUBLIC_ARGUS_API_URL" in _contract_array("ARGUS_RENDER_WEB_ENV")
