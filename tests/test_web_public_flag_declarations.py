@@ -18,9 +18,9 @@ UNSET_WEB_FLAG_SURFACES = {
         "private-alpha-release-profile.json",
         "staging_env_manifest.json",
     },
-    "NEXT_PUBLIC_OMNISEARCH_ENABLED": {"staging_env_manifest.json"},
-    "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED": {"staging_env_manifest.json"},
-    "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED": {"staging_env_manifest.json"},
+    "NEXT_PUBLIC_OMNISEARCH_ENABLED": {"render.yaml", "staging_env_manifest.json"},
+    "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED": {"render.yaml", "staging_env_manifest.json"},
+    "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED": {"render.yaml", "staging_env_manifest.json"},
     "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED": {
         ".env.example",
         "private-alpha-release-profile.json",
