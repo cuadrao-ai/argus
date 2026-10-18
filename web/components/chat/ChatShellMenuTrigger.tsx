@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { MenuGlyphIcon } from "@/components/chat/MenuGlyphIcon";
 import { ConversationActivityIndicator } from "@/components/chat/ConversationActivityIndicator";
@@ -17,12 +18,15 @@ import type { ConversationActivityPresentation } from "@/lib/conversation-activi
 export default function ChatShellMenuTrigger({
   onOpen,
   activityPresentation,
+  leading = null,
 }: {
   onOpen: () => void;
   activityPresentation?: ConversationActivityPresentation | null;
+  leading?: ReactNode;
 }) {
   const { t } = useTranslation();
   const chatAvailable = useChatAvailable();
+  if (leading) return leading;
 
   return (
     <button

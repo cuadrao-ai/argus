@@ -216,7 +216,7 @@ import SidebarShell from "@/components/sidebar/SidebarShell";
 import ChatShellMenuTrigger from "@/components/chat/ChatShellMenuTrigger";
 import BusinessPhoneAccount from "@/components/business-app/foundation/BusinessPhoneAccount";
 import GuestSettingsMenu from "@/components/guest/GuestSettingsMenu";
-import { useMobileShell } from "@/components/chat/useMobileShell";
+import { businessShellLayout, useMobileShell } from "@/components/chat/useMobileShell";
 import { memoryRecallsFromFinalPayload, useMemoryChrome } from "./memory-chrome";
 import {
   isStarterSelectionMetadata,
@@ -602,15 +602,10 @@ export default function ChatInterface() {
       }),
     );
   }, [closeDrawer, sidebarMode]);
-  const businessShell = workspace?.id === "business";
-  const businessPhone = Boolean(businessShell && mobileShell.isBelowTablet);
-  const businessTabletStrip = Boolean(businessShell && !mobileShell.isBelowTablet && mobileShell.isBelowDesktop);
-  const sidebarCollapsed = businessTabletStrip ? true : !(mobileShell.isBelowTablet ? true : isSidebarOpen);
+  const layout = businessShellLayout(workspace?.id, mobileShell.isBelowTablet, mobileShell.isBelowDesktop, isSidebarOpen);
   const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
-  const openSearch = useCallback(() => {
-    if (searchEntryEnabled) setSearchOverlayOpen(true);
-  }, [searchEntryEnabled]);
-  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed, openSearch: searchEntryEnabled ? openSearch : undefined, resetToEmptyChatSurface, closeTransientSidebar });
+  const openSearch = useCallback(() => { if (searchEntryEnabled) setSearchOverlayOpen(true); }, [searchEntryEnabled]);
+  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, openSearch: searchEntryEnabled ? openSearch : undefined, resetToEmptyChatSurface, closeTransientSidebar });
 
   function rememberCurrentConversationScroll(): void {
     const currentConversationId = readyTranscriptConversationIdRef.current;
@@ -2198,7 +2193,7 @@ export default function ChatInterface() {
       selectPresentation={conversationActivity.selectPresentation}
       selectAggregatePresentation={conversationActivity.selectAggregatePresentation} selectOperationLabel={conversationActivity.selectOperationLabel}
     >
-      <div data-business-nav={businessShell ? (businessPhone ? "phone" : businessTabletStrip ? "tablet" : "desktop") : undefined} className={`relative flex h-[100dvh] w-full overflow-hidden text-black dark:bg-[#141517] dark:text-white tablet:flex-row ${businessShell ? "business-foundation bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
+      <div data-business-nav={layout.nav} className={`relative flex h-[100dvh] w-full overflow-hidden text-black dark:bg-[#141517] dark:text-white tablet:flex-row ${layout.businessShell ? "business-foundation bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
       {/* ── Sidebar: rail on desktop, off-canvas drawer below the mobile threshold ── */}
       <SidebarShell
         isBelowTablet={mobileShell.isBelowTablet}
@@ -2218,8 +2213,7 @@ export default function ChatInterface() {
             />
           ) : null
         }
-        isOpen={businessTabletStrip ? false : mobileShell.isBelowTablet ? true : isSidebarOpen}
-        railLocked={businessTabletStrip}
+        isOpen={layout.sidebarIsOpen} railLocked={layout.railLocked}
         onToggle={toggleSidebar}
         currentView={currentView}
         conversationId={conversationId}
@@ -2328,14 +2322,14 @@ export default function ChatInterface() {
         onConfirm={() => void handleConfirmHeaderDelete()}
       />
 
-      <section className={`relative z-10 flex h-full flex-1 flex-col overflow-hidden dark:bg-[#141517] ${businessShell ? "bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
+      <section className={`relative z-10 flex h-full flex-1 flex-col overflow-hidden dark:bg-[#141517] ${layout.businessShell ? "bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
         {/* ── Unified View Header (SOTA: Absolute to content panel for perfect centering) ── */}
         {currentView !== "settings" && (
           <header className="absolute inset-x-0 top-0 z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 tablet:px-8">
             {mobileShell.isBelowTablet && (
               <div className="pointer-events-auto shrink-0">
-                {businessPhone && workspace?.headerLeading ? workspace.headerLeading(shellBridge) : (
                 <ChatShellMenuTrigger
+                  leading={layout.businessPhone ? workspace?.headerLeading?.(shellBridge) : null}
                   onOpen={mobileShell.openDrawer}
                   activityPresentation={
                     mobileShell.isDrawerOpen
@@ -2345,7 +2339,6 @@ export default function ChatInterface() {
                         )
                   }
                 />
-                )}
               </div>
             )}
             {/* Title (left-aligned; truncates before the action cluster) */}
@@ -2399,23 +2392,7 @@ export default function ChatInterface() {
                   memoryChrome={memoryChrome}
                 />
               ) : null}
-              {businessPhone && !isGuest ? (
-                <BusinessPhoneAccount
-                  onLogout={(options) => { void handleLogout(options); }}
-                  onFeedback={(type) => {
-                    setFeedbackState({
-                      isOpen: true,
-                      type,
-                      context: { surface: "sidebar", conversation_id: conversationId },
-                    });
-                  }}
-                  onHistoryMutated={refreshHistory}
-                  onProfileUpdated={onProfileUpdated}
-                  onOpenSidebarPreference={() => setIsSidebarPreferenceModalOpen(true)}
-                  onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)}
-                  settingsOpenRequest={keyboardShortcuts.settingsOpenRequest}
-                />
-              ) : null}
+              {layout.businessPhone && !isGuest ? <BusinessPhoneAccount onLogout={(options) => { void handleLogout(options); }} onFeedback={(type) => setFeedbackState({ isOpen: true, type, context: { surface: "sidebar", conversation_id: conversationId } })} onHistoryMutated={refreshHistory} onProfileUpdated={onProfileUpdated} onOpenSidebarPreference={() => setIsSidebarPreferenceModalOpen(true)} onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)} settingsOpenRequest={keyboardShortcuts.settingsOpenRequest} /> : null}
               {workspace?.profileInHeader && !mobileShell.isBelowTablet ? <div ref={setProfileSlot} className="relative" /> : null}
             </div>
           </header>
