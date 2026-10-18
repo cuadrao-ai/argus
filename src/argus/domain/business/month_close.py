@@ -24,6 +24,7 @@ from argus.domain.business.contracts.facts import (
     is_personal,
 )
 from argus.domain.business.dgii_validation import credit_note, reportable_607
+from argus.domain.business.fiscal_identity import normalized_ncf
 from argus.domain.business.ledger import occurred_on
 from argus.domain.recording.currency import (
     currency_exponent,
@@ -275,7 +276,10 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
                 }
             )
             missing_rnc.append(_line(document))
-        if not _fiscal(document):
+        if (
+            not _fiscal(document)
+            or normalized_ncf(document.ecf or document.ncf) is None
+        ):
             reasons.append(
                 {
                     "code": "missing_ncf",
@@ -314,8 +318,10 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
             group = "invoices" if document.role == "invoice" else "receipts"
             cell = status[group][document.status]
             cell["count"] += 1
-            cell["before_itbis_minor"] += before_itbis(
-                document.total_minor, document.itbis_minor
+            cell["before_itbis_minor"] += (
+                sales_base(document)
+                if document.role == "invoice"
+                else before_itbis(document.total_minor, document.itbis_minor)
             )
         income = part.income_before_itbis
         expense = part.expense_before_itbis

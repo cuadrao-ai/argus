@@ -81,6 +81,25 @@ def test_additional_sales_document_types_are_exportable(code):
     )
 
 
+def test_an_e34_purchase_credit_subtracts_on_the_606():
+    records = practice_records()
+    note = next(
+        record
+        for record in records
+        if getattr(record.facts.fiscal.ncf, "value", None) == "B0400000001"
+    )
+    electronic = changed(note, ncf="E340000000001")
+    result = packet(
+        tuple(electronic if record is note else record for record in records)
+    )
+    assert result.manifest["issues"] == []
+    assert result.manifest["totals_dop"]["606_net_base"] == "1400.00"
+    assert (
+        "E340000000001"
+        in result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode()
+    )
+
+
 def test_sales_credit_note_has_modified_reference_and_signed_tax_bridge():
     original = practice_records()[4]
     note = changed(

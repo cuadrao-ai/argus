@@ -184,6 +184,94 @@ def test_summary_matches_formato_totals_for_the_fixture_month():
     MonthClose.model_validate({"month": "2026-10", **summary})
 
 
+def test_a_sale_with_an_unusable_fiscal_number_keeps_the_month_open():
+    start, end = month_period("2026-10")
+    good = document(
+        activity_id="sale-good",
+        total_minor=11800,
+        itbis_minor=1800,
+        status="cobrado",
+    )
+    bad = document(
+        activity_id="sale-mistyped",
+        ncf="B01-0001",
+        total_minor=5900,
+        itbis_minor=900,
+        status="cobrado",
+    )
+    summary = summarize([good, bad], start, end)
+    dop = next(block for block in summary["currencies"] if block["currency"] == "DOP")
+
+    assert summary["closed"] is False
+    assert summary["reasons"] == [
+        {
+            "code": "missing_ncf",
+            "activity_id": "sale-mistyped",
+            "document_kind": "invoice",
+        }
+    ]
+    assert [item["activity_id"] for item in summary["missing_ncf"]] == ["sale-mistyped"]
+    assert dop["income_before_itbis_minor"] == 10000
+
+
+def test_credit_notes_subtract_the_declared_amount_and_the_itbis():
+    start, end = month_period("2026-10")
+    sale = document(
+        activity_id="sale",
+        total_minor=256000,
+        itbis_minor=18000,
+        declared_base_minor=200000,
+        ncf="B0100000001",
+        status="cobrado",
+    )
+    credit = document(
+        activity_id="credit",
+        total_minor=11800,
+        itbis_minor=1800,
+        declared_base_minor=10000,
+        ncf="B0400000001",
+        status="cobrado",
+    )
+    totals = formato_totals([sale, credit], start, end)
+    summary = summarize([sale, credit], start, end)
+    dop = next(block for block in summary["currencies"] if block["currency"] == "DOP")
+
+    assert totals["DOP"].income_before_itbis == 190000
+    assert totals["DOP"].itbis_charged == 16200
+    assert dop["by_status"]["invoices"]["cobrado"] == {
+        "count": 2,
+        "before_itbis_minor": 190000,
+    }
+    assert dop["income_before_itbis_minor"] == 190000
+    assert dop["itbis_charged_minor"] == 16200
+
+
+def test_a_personal_sale_is_not_607_income():
+    start, end = month_period("2026-10")
+    business = document(
+        activity_id="business-sale",
+        total_minor=11800,
+        itbis_minor=1800,
+        status="cobrado",
+    )
+    personal = document(
+        activity_id="personal-sale",
+        personal=True,
+        total_minor=59000,
+        itbis_minor=9000,
+        status="cobrado",
+    )
+    totals = formato_totals([business, personal], start, end)
+    summary = summarize([business, personal], start, end)
+
+    assert totals["DOP"].income_before_itbis == 10000
+    assert totals["DOP"].itbis_charged == 1800
+    assert summary["closed"] is True
+    assert "personal-sale" not in {
+        item["activity_id"] for item in summary["missing_ncf"] + summary["reasons"]
+    }
+
+
 def test_pending_rolls_into_open_balances_and_missing_fiscal_data_keeps_the_month_open():
     start, end = month_period("2026-10")
     open_month = summarize(october(), start, end)

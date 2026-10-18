@@ -33,6 +33,46 @@ def _refused(connection, statement: str, params: tuple) -> None:
     assert refused.value.diag.message_primary == "business_evidence_immutable"
 
 
+def test_a_draft_from_another_space_is_not_read(db):
+    from argus.domain.business.month_close_store import _DRAFTS
+
+    owner = uuid4()
+    here = uuid4()
+    there = uuid4()
+    activity = uuid4()
+    db.execute(
+        "insert into auth.users (id, email, is_anonymous) values (%s, %s, false)",
+        (owner, f"{owner}@month-close.test"),
+    )
+    db.execute(
+        """insert into public.spaces (id, kind, name, created_by, closed_at)
+           values (%s, 'business', 'Here', %s, null),
+                  (%s, 'business', 'There', %s, now())""",
+        (here, owner, there, owner),
+    )
+    db.execute(
+        """insert into public.financial_import_events (
+               id, user_id, owner_space_id, state, evidence, resolution,
+               activity_id, created_at, updated_at, version
+           ) values (
+               %s, %s, %s, 'accepted', 'transaction', %s::jsonb,
+               %s, now(), now(), 1
+           )""",
+        (
+            uuid4(),
+            owner,
+            there,
+            '{"business": {"schema_version": "1", "facts": {}}}',
+            activity,
+        ),
+    )
+
+    ours = db.execute(_DRAFTS, (owner, here)).fetchall()
+    theirs = db.execute(_DRAFTS, (owner, there)).fetchall()
+    assert ours == []
+    assert [row[0] for row in theirs] == [str(activity)]
+
+
 def test_owner_and_member_delete_their_accounts_and_history_stays_sealed(db):
     owner = uuid4()
     member = uuid4()
