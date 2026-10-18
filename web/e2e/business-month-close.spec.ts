@@ -129,5 +129,35 @@ test.describe("inicio is the month close", () => {
       await expect(net).toHaveAttribute("data-amount", previous.net_before_itbis);
       await shot(page, `${prefix}-closed`);
     });
+
+    test(`empty, loading, and overdue layouts in es-419 at ${width}px`, async ({ page }) => {
+      await setup(page, width);
+      await page.goto("/dev/business-preview?chat=off&monthClose=loading");
+      const loading = page.getByTestId("month-close-loading");
+      await expect(loading).toHaveAttribute("data-layout", "loading");
+      await expect(page.getByTestId("month-close-loading-card")).toHaveCount(4);
+      await expect(page.getByTestId("month-close-loading-row")).toHaveCount(6);
+      await loading.scrollIntoViewIfNeeded();
+      await shot(page, `${prefix}-loading`);
+
+      await page.goto("/dev/business-preview?chat=off&monthClose=empty");
+      const empty = page.getByTestId("month-close-empty");
+      await expect(empty).toHaveAttribute("data-layout", "empty");
+      await expect(empty).toContainText("Este mes no tiene documentos");
+      await expect(page.getByTestId("month-close-empty-action")).toHaveText("Elegir mes");
+      await empty.scrollIntoViewIfNeeded();
+      await shot(page, `${prefix}-empty`);
+
+      await page.goto("/dev/business-preview?chat=off");
+      await expect(page.getByTestId("month-close-cards")).toBeVisible();
+      await page.getByTestId("month-close-state-overdue").click();
+      const overdue = page.getByTestId("month-close-overdue");
+      await expect(overdue).toHaveAttribute("data-layout", "overdue");
+      await expect(overdue).toContainText("Farmacia Central");
+      await expect(overdue).toContainText("Vencida");
+      await expect(overdue).not.toContainText("Taller Hermanos Peña");
+      await overdue.scrollIntoViewIfNeeded();
+      await shot(page, `${prefix}-overdue`);
+    });
   }
 });

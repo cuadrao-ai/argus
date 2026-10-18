@@ -189,3 +189,103 @@ describe("month close optimistic marks", () => {
     host.remove();
   });
 });
+
+describe("month close layouts", () => {
+  async function renderView(client: MonthCloseClient) {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("../public/locales/es-419/common.json")).default;
+    const { BusinessMonthCloseView } = await import("../components/business-app/BusinessMonthClosePanel");
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <BusinessMonthCloseView client={client} now={now} />
+        </I18nextProvider>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    return { act, host, root };
+  }
+
+  test("loading keeps the summary cards and the row skeleton", async () => {
+    const client: MonthCloseClient = {
+      mode: "mock",
+      load: () => new Promise(() => undefined),
+      markCobrado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
+      markPagado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
+      closeMonth: () => Promise.reject(new MonthCloseError("unavailable", "close failed")),
+    };
+    const { act, host, root } = await renderView(client);
+    const loading = host.querySelector('[data-testid="month-close-loading"]');
+    assert.equal(loading?.getAttribute("data-layout"), "loading");
+    assert.equal(host.querySelectorAll('[data-testid="month-close-loading-card"]').length, 4);
+    assert.equal(host.querySelectorAll('[data-testid="month-close-loading-row"]').length, 6);
+    assert.match(host.querySelector('[data-testid="month-close-loading-row"]')?.className ?? "", /min-h-11/);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  test("an empty month is a centered title, a line, and a month button", async () => {
+    const client: MonthCloseClient = {
+      mode: "mock",
+      async load(month) {
+        return { month, from: `${month}-01`, to: `${month}-31`, currency: "DOP", closed_at: null, earliest_month: null, documents: [] };
+      },
+      markCobrado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
+      markPagado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
+      closeMonth: () => Promise.reject(new MonthCloseError("unavailable", "close failed")),
+    };
+    const { act, host, root } = await renderView(client);
+    const empty = host.querySelector('[data-testid="month-close-empty"]');
+    assert.equal(empty?.getAttribute("data-layout"), "empty");
+    assert.match(empty?.textContent ?? "", /Este mes no tiene documentos/);
+    assert.match(empty?.textContent ?? "", /No hay facturas ni gastos en este mes/);
+    const action = host.querySelector('[data-testid="month-close-empty-action"]');
+    assert.ok(action instanceof HTMLButtonElement);
+    assert.match(action.className, /min-h-11/);
+    assert.equal(action.textContent, "Elegir mes");
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  test("Vencidas filters to overdue rows, and settled rows use the matched bar", async () => {
+    const { act, host, root } = await renderView(createMockMonthCloseClient({ now }));
+    const overdueCard = host.querySelector('[data-testid="month-close-state-overdue"]');
+    const matchedCard = host.querySelector('[data-testid="month-close-state-matched"]');
+    const mark = host.querySelector('[data-testid="month-close-mark-cobrado"]');
+    const close = host.querySelector('[data-testid="month-close-close"]');
+    assert.ok(overdueCard instanceof HTMLButtonElement);
+    assert.match(overdueCard.className, /min-h-11/);
+    assert.match(mark?.className ?? "", /min-h-11/);
+    assert.match(close?.className ?? "", /min-h-11/);
+    assert.equal(host.querySelector('[data-document-id="inv-colmado"]')?.getAttribute("data-layout"), "matched");
+    assert.equal(host.querySelector('[data-document-id="inv-farmacia"]')?.getAttribute("data-overdue"), "true");
+    assert.equal(host.querySelector('[data-document-id="inv-taller"]')?.getAttribute("data-overdue"), "false");
+
+    await act(async () => {
+      overdueCard.click();
+    });
+    assert.equal(host.querySelector('[data-testid="month-close-overdue"]')?.getAttribute("data-layout"), "overdue");
+    assert.ok(host.querySelector('[data-document-id="inv-farmacia"]'));
+    assert.equal(host.querySelector('[data-document-id="inv-taller"]'), null);
+    assert.equal(host.querySelector('[data-document-id="inv-farmacia"] [data-testid="month-close-status"]')?.textContent, "Vencida");
+
+    await act(async () => {
+      (matchedCard as HTMLButtonElement).click();
+    });
+    assert.equal(host.querySelector('[data-testid="month-close-matched"]')?.getAttribute("data-layout"), "matched");
+    assert.equal(host.querySelector('[data-document-id="inv-colmado"]')?.getAttribute("data-layout"), "matched");
+    assert.equal(host.querySelector('[data-document-id="inv-farmacia"]'), null);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+});

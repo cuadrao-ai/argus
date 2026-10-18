@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, BadgeCheck, Check, ChevronLeft, ChevronRight, CircleCheck, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import {
+  calendarDay,
   canCloseMonth,
   canStepMonth,
   currentMonthKey,
+  documentOverdue,
+  documentsTotal,
+  dueDistance,
   electronicNcf,
   fiscalNumberPresent,
   formatMonthLabel,
@@ -35,22 +39,35 @@ import { useBusiness } from "./BusinessWorkspace";
 const monthArrowClass =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-white/70 dark:hover:bg-white/5";
 
+type ListFilter = "all" | "receivable" | "payable" | "overdue" | "matched";
+type PreviewHold = "loading" | "empty" | "error";
+
+function previewHold(): PreviewHold | null {
+  if (typeof window === "undefined") return null;
+  const value = new URLSearchParams(window.location.search).get("monthClose");
+  if (value === "loading" || value === "empty" || value === "error") return value;
+  return null;
+}
+
 function MonthSwitcher({
   month,
   current,
   earliest,
   onMonth,
   headingId,
+  openRequest = 0,
 }: {
   month: string;
   current: string;
   earliest: string | null;
   onMonth: (month: string) => void;
   headingId: string;
+  openRequest?: number;
 }) {
   const { t } = useTranslation();
-  const options = monthPickerMonths(current, earliest);
+  const options = useMemo(() => monthPickerMonths(current, earliest), [current, earliest]);
   const [open, setOpen] = useState(false);
+  const [seenRequest, setSeenRequest] = useState(0);
   const [active, setActive] = useState(0);
   const [position, setPosition] = useState({ left: 8, top: 48 });
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -103,6 +120,14 @@ function MonthSwitcher({
       setOpen(false);
     },
   });
+
+  useEffect(() => {
+    if (openRequest === seenRequest) return;
+    setSeenRequest(openRequest);
+    if (openRequest < 1) return;
+    setActive(Math.max(0, options.findIndex((option) => option.month === month)));
+    setOpen(true);
+  }, [month, openRequest, options, seenRequest]);
 
   useEffect(() => {
     if (!open) return;
@@ -206,10 +231,11 @@ const CHIP_TONE: Record<MonthCloseStatus, string> = {
   pagado: "bg-black/[0.06] text-black/80 dark:bg-white/10 dark:text-white/85",
 };
 
-function StatusChip({ status, label }: { status: MonthCloseStatus; label: string }) {
-  const Icon = status === "pendiente" ? Clock : status === "cobrado" ? BadgeCheck : CircleCheck;
+function StatusChip({ status, label, overdue = false }: { status: MonthCloseStatus; label: string; overdue?: boolean }) {
+  const Icon = overdue ? AlertCircle : status === "pendiente" ? Clock : status === "cobrado" ? BadgeCheck : CircleCheck;
+  const tone = overdue ? "bg-[#d66d75]/15 text-[#a8434c] dark:text-[#ec9aa0]" : CHIP_TONE[status];
   return (
-    <span data-testid="month-close-status" data-status={status} className={`inline-flex min-h-6 items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium ${CHIP_TONE[status]}`}>
+    <span data-testid="month-close-status" data-status={overdue ? "vencida" : status} className={`inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-[12px] font-medium ${tone}`}>
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       {label}
     </span>
@@ -254,12 +280,12 @@ function SummaryCard({
 }) {
   const money = state !== "pending";
   return (
-    <article className={cardClass} data-testid={testId} data-state={state} data-amount={money ? amount ?? value : undefined}>
-      <h4 className="text-[13px] font-medium text-black/55 dark:text-white/55">{label}</h4>
-      <p className={`mt-2 font-display text-[24px] font-medium leading-tight tracking-tight text-black dark:text-white ${money ? "tabular-nums" : ""}`}>
+    <article className={cardClass} data-testid={testId} data-layout="summary" data-state={state} data-amount={money ? amount ?? value : undefined}>
+      <p className={`font-display text-[24px] font-medium leading-tight tracking-tight text-black dark:text-white ${money ? "tabular-nums" : ""}`}>
         {money ? formatMoney(value, "DOP", locale) : value}
       </p>
-      <p className="mt-2 text-[12px] text-black/55 dark:text-white/55">{hint}</p>
+      <h4 className="mt-2 text-[15px] font-medium text-black dark:text-white">{label}</h4>
+      <p className="mt-1 text-[13px] text-black/55 dark:text-white/55">{hint}</p>
     </article>
   );
 }
@@ -282,10 +308,14 @@ export function BusinessMonthCloseView({
   const locale = i18n.resolvedLanguage ?? "en";
   const [clock] = useState(() => now ?? new Date());
   const currentMonth = currentMonthKey(clock);
+  const today = calendarDay(clock);
+  const preview = previewHold();
   const [month, setMonth] = useState(currentMonth);
   const [snapshot, setSnapshot] = useState<MonthCloseSnapshot | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
+  const [filter, setFilter] = useState<ListFilter>("all");
+  const [pickerRequest, setPickerRequest] = useState(0);
   const [confirming, setConfirming] = useState(false);
   const [busyClose, setBusyClose] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -295,13 +325,14 @@ export function BusinessMonthCloseView({
 
   useEffect(() => {
     const request = ++generation.current;
-    setPhase("loading");
+    setPhase(preview === "error" ? "error" : "loading");
     setSnapshot(null);
     setConfirming(false);
+    if (preview === "loading" || preview === "error") return;
     client.load(month, scopeKey).then(
       (next) => {
         if (generation.current !== request) return;
-        setSnapshot(next);
+        setSnapshot(preview === "empty" ? { ...next, documents: [] } : next);
         setPhase("ready");
       },
       () => {
@@ -309,7 +340,7 @@ export function BusinessMonthCloseView({
         setPhase("error");
       },
     );
-  }, [attempt, client, month, scopeKey]);
+  }, [attempt, client, month, preview, scopeKey]);
 
   useEffect(() => {
     if (!toast) return;
@@ -328,6 +359,15 @@ export function BusinessMonthCloseView({
       cobrado: t("business.month_close.status_cobrado", "Collected"),
       pagado: t("business.month_close.status_pagado", "Paid"),
     })[status];
+  const countLabel = (count: number) => t("business.month_close.documents", { count });
+  function dueLabel(document: MonthCloseDocument): string | null {
+    if (!document.due_on) return null;
+    const distance = dueDistance(document.due_on, today);
+    if (!distance) return null;
+    if (distance.direction === "today") return t("business.month_close.due_today", "Today");
+    if (distance.direction === "past") return t("business.month_close.due_past", { count: distance.days });
+    return t("business.month_close.due_future", { count: distance.days });
+  }
 
   async function mark(document: MonthCloseDocument) {
     if (!canMutate || !snapshot || snapshot.closed_at || document.status !== "pendiente" || inFlight.current.has(document.id)) return;
@@ -400,17 +440,25 @@ export function BusinessMonthCloseView({
         : t("business.month_close.reason_blockers", "A document is missing its RNC or NCF.");
 
   const documents = snapshot?.documents ?? [];
-  const stillHere = (document: MonthCloseDocument) => document.status === "pendiente" || pendingIds.has(document.id);
-  const receivable = sortDocuments(documents.filter((document) => document.kind === "invoice" && stillHere(document)), "newest");
-  const payable = sortDocuments(documents.filter((document) => document.kind === "receipt" && stillHere(document)), "newest");
+  const overdueNow = (document: MonthCloseDocument) => documentOverdue(document, today);
+  const receivable = sortDocuments(documents.filter((document) => document.kind === "invoice" && document.status === "pendiente" && !overdueNow(document)), "newest");
+  const payable = sortDocuments(documents.filter((document) => document.kind === "receipt" && document.status === "pendiente" && !overdueNow(document)), "newest");
+  const overdueRows = sortDocuments(documents.filter(overdueNow), "newest");
+  const matchedRows = sortDocuments(
+    documents.filter((document) => document.status !== "pendiente" && rncPresent(document.rnc) && fiscalNumberPresent(document)),
+    "newest",
+  );
   const fiscalGaps = sortDocuments(
     documents.filter((document) => document.status !== "pendiente" && !pendingIds.has(document.id) && (!rncPresent(document.rnc) || !fiscalNumberPresent(document))),
     "newest",
   );
   const lockedRows = closed ? sortDocuments(documents, "newest") : [];
+  const rowGrid = "tablet:grid tablet:grid-cols-[7.5rem_minmax(0,1.4fr)_6.5rem_7rem_auto] tablet:items-center tablet:gap-3";
 
-  function renderRow(document: MonthCloseDocument) {
+  function renderRow(document: MonthCloseDocument, layout: "pending" | "overdue" | "closed" = "pending") {
+    const overdue = overdueNow(document);
     const pending = canMutate && document.status === "pendiente" && !closed;
+    const relative = dueLabel(document);
     return (
       <li
         key={document.id}
@@ -420,9 +468,12 @@ export function BusinessMonthCloseView({
         data-document-id={document.id}
         data-kind={document.kind}
         data-status={document.status}
+        data-overdue={overdue ? "true" : "false"}
+        data-layout={overdue ? "overdue" : layout}
         data-locked={closed ? "true" : "false"}
-        className="flex flex-col gap-3 px-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 tablet:grid tablet:grid-cols-[minmax(0,1.4fr)_6.5rem_7rem_auto] tablet:items-center tablet:gap-3"
+        className={`flex flex-col gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 ${rowGrid}`}
       >
+        <StatusChip status={document.status} overdue={overdue} label={overdue ? t("business.month_close.status_vencida", "Overdue") : statusLabel(document.status)} />
         <div className="min-w-0">
           <span className="block text-[12px] text-black/45 dark:text-white/45">
             {document.kind === "invoice" ? t("business.month_close.kind_invoice", "Invoice") : t("business.month_close.kind_receipt", "Expense")}
@@ -430,20 +481,22 @@ export function BusinessMonthCloseView({
           <span className="block truncate text-[15px] font-medium text-black dark:text-white">{document.counterparty}</span>
           <span className="mt-1 block text-[13px] text-black/60 dark:text-white/60">{fiscalLine(document, t)}</span>
         </div>
-        <time dateTime={document.occurred_on} className="text-[14px] text-black/70 dark:text-white/70">
-          {formatDay(document.occurred_on, locale)}
-        </time>
+        <div>
+          <time dateTime={document.due_on ?? document.occurred_on} className="block text-[14px] text-black/70 dark:text-white/70">
+            {formatDay(document.due_on ?? document.occurred_on, locale)}
+          </time>
+          {relative ? <span className="mt-1 block text-[12px] text-black/50 dark:text-white/50">{relative}</span> : null}
+        </div>
         <div>
           <span className="text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, "DOP", locale)}</span>
           {document.itbis ? <span className="mt-1 block text-[12px] tabular-nums text-black/50 dark:text-white/50">{t("business.month_close.itbis_line", "ITBIS {{amount}}", { amount: formatMoney(document.itbis, "DOP", locale) })}</span> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <StatusChip status={document.status} label={statusLabel(document.status)} />
           {pending ? (
             <button
               type="button"
               data-testid={document.kind === "invoice" ? "month-close-mark-cobrado" : "month-close-mark-pagado"}
-              className={`${secondaryButtonClass} px-3.5`}
+              className={`${secondaryButtonClass} min-w-11 px-3.5`}
               disabled={pendingIds.has(document.id)}
               aria-label={document.kind === "invoice"
                 ? t("business.month_close.mark_cobrado_named", "Mark {{name}} collected", { name: document.counterparty })
@@ -458,20 +511,72 @@ export function BusinessMonthCloseView({
     );
   }
 
-  function renderList(testId: string, title: string, rows: MonthCloseDocument[], empty: string) {
+  function renderMatched(document: MonthCloseDocument) {
     return (
-      <section aria-labelledby={`${testId}-title`} data-testid={testId} className="mt-6">
+      <li
+        key={document.id}
+        id={`month-close-row-${document.id}`}
+        tabIndex={-1}
+        data-testid="month-close-row"
+        data-document-id={document.id}
+        data-kind={document.kind}
+        data-status={document.status}
+        data-layout="matched"
+        data-locked={closed ? "true" : "false"}
+        className="flex min-h-12 items-center gap-3 px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50"
+      >
+        <Check className="h-4 w-4 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-black dark:text-white">{document.counterparty}</span>
+        <time dateTime={document.occurred_on} className="shrink-0 text-[13px] text-black/55 dark:text-white/55">{formatDay(document.occurred_on, locale)}</time>
+        <span className="shrink-0 text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, "DOP", locale)}</span>
+        <StatusChip status={document.status} label={statusLabel(document.status)} />
+      </li>
+    );
+  }
+
+  function renderList(testId: string, title: string, rows: MonthCloseDocument[], empty: string, layout: "pending" | "overdue" | "matched" | "closed" = "pending") {
+    const listClass = "mt-2 divide-y divide-black/[0.06] overflow-hidden rounded-[20px] border border-black/[0.06] bg-white dark:divide-white/[0.06] dark:border-white/[0.06] dark:bg-[#1f2225]";
+    return (
+      <section aria-labelledby={`${testId}-title`} data-testid={testId} data-layout={layout} className="mt-6">
         <h4 id={`${testId}-title`} className="text-[15px] font-medium text-black dark:text-white">{title}</h4>
         {rows.length === 0 ? (
           <p className="mt-2 text-[14px] text-black/60 dark:text-white/60" data-testid={`${testId}-empty`}>{empty}</p>
+        ) : layout === "matched" ? (
+          <ul className={listClass}>{rows.map(renderMatched)}</ul>
         ) : (
-          <ul className="mt-2 divide-y divide-black/[0.06] rounded-[20px] border border-black/[0.06] bg-white dark:divide-white/[0.06] dark:border-white/[0.06] dark:bg-[#1f2225]">
-            {rows.map(renderRow)}
-          </ul>
+          <div className={listClass}>
+            <div className={`hidden min-h-11 border-b border-black/[0.06] px-4 text-[12px] text-black/45 dark:border-white/[0.06] dark:text-white/45 tablet:grid ${rowGrid}`} aria-hidden="true">
+              <span>{t("business.month_close.column_status", "Status")}</span>
+              <span>{t("business.month_close.column_counterparty", "Counterparty")}</span>
+              <span>{t("business.month_close.column_due", "Due")}</span>
+              <span>{t("business.month_close.column_amount", "Amount")}</span>
+              <span />
+            </div>
+            <ul className="divide-y divide-black/[0.06] dark:divide-white/[0.06]">{rows.map((document) => renderRow(document, layout === "overdue" ? "overdue" : layout === "closed" ? "closed" : "pending"))}</ul>
+          </div>
         )}
       </section>
     );
   }
+
+  function stateCard(testId: string, next: ListFilter, label: string, rows: MonthCloseDocument[]) {
+    const pressed = filter === next;
+    return (
+      <button
+        type="button"
+        data-testid={testId}
+        aria-pressed={pressed}
+        onClick={() => setFilter((current) => (current === next ? "all" : next))}
+        className={`${cardClass} min-h-11 w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 ${pressed ? "ring-2 ring-[var(--cuadrao-green)]" : ""}`}
+      >
+        <p className="font-display text-[24px] font-medium leading-tight tracking-tight tabular-nums text-black dark:text-white">{formatMoney(documentsTotal(rows), "DOP", locale)}</p>
+        <span className="mt-2 block text-[15px] font-medium text-black dark:text-white">{label}</span>
+        <span className="mt-1 block text-[13px] text-black/55 dark:text-white/55">{countLabel(rows.length)}</span>
+      </button>
+    );
+  }
+
+  const loadingBar = "rounded-md bg-black/[0.06] dark:bg-white/[0.08]";
 
   return (
     <section aria-labelledby="month-close-title" data-testid="month-close" data-closed={closed ? "true" : "false"} className="mb-8">
@@ -483,6 +588,7 @@ export function BusinessMonthCloseView({
             earliest={snapshot?.earliest_month ?? null}
             onMonth={setMonth}
             headingId="month-close-title"
+            openRequest={pickerRequest}
           />
           <p className="mt-1 px-2 text-[13px] text-black/55 dark:text-white/55">{t("business.month_close.subtitle", "Income, expenses, and ITBIS for the month.")}</p>
         </div>
@@ -499,7 +605,7 @@ export function BusinessMonthCloseView({
               <button
                 type="button"
                 data-testid="month-close-close"
-                className={`${pillButtonClass} ${gate.ok ? "bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : ""}`}
+                className={`${pillButtonClass} min-w-11 ${gate.ok ? "bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : ""}`}
                 disabled={!canMutate || !gate.ok}
                 aria-describedby={reason ? "month-close-reason" : undefined}
                 onClick={() => setConfirming(true)}
@@ -523,16 +629,36 @@ export function BusinessMonthCloseView({
       ) : null}
 
       {phase === "error" ? (
-        <div role="alert" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>
-          <p>{t("business.month_close.error", "We couldn't load the month. Try again.")}</p>
-          <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => setAttempt((value) => value + 1)}>
+        <div role="alert" data-testid="month-close-error" data-layout="error" className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+          <h4 className="font-display text-[18px] font-medium text-black dark:text-white">{t("business.month_close.error_title", "We couldn't load the month")}</h4>
+          <button type="button" className={`${secondaryButtonClass} min-w-11`} onClick={() => setAttempt((value) => value + 1)}>
             {t("business.month_close.retry", "Try again")}
           </button>
         </div>
       ) : phase === "loading" || !snapshot || !summary || !net ? (
-        <p role="status" data-testid="month-close-loading" className="text-[14px] text-black/60 dark:text-white/60">
-          {t("business.month_close.loading", "Loading the month")}
-        </p>
+        <div role="status" data-testid="month-close-loading" data-layout="loading" aria-busy="true">
+          <span className="sr-only">{t("business.month_close.loading", "Loading the month")}</span>
+          <div aria-hidden="true" className="animate-pulse motion-reduce:animate-none">
+            <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-4">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className={cardClass} data-testid="month-close-loading-card">
+                  <div className={`${loadingBar} h-8 w-32`} />
+                  <div className={`${loadingBar} mt-3 h-4 w-24`} />
+                  <div className={`${loadingBar} mt-2 h-3 w-28`} />
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 overflow-hidden rounded-[20px] border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-[#1f2225]">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} data-testid="month-close-loading-row" className="flex min-h-11 items-center gap-3 border-b border-black/[0.06] px-4 last:border-b-0 dark:border-white/[0.06]">
+                  <div className={`${loadingBar} h-4 w-16`} />
+                  <div className={`${loadingBar} h-4 min-w-0 flex-1`} />
+                  <div className={`${loadingBar} h-4 w-16 shrink-0`} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-4" data-testid="month-close-cards">
@@ -582,18 +708,39 @@ export function BusinessMonthCloseView({
             </section>
           ) : null}
 
-          {closed ? (
-            <section aria-labelledby="month-close-locked-title" data-testid="month-close-rows" className="mt-6">
-              <h4 id="month-close-locked-title" className="text-[15px] font-medium text-black dark:text-white">{t("business.month_close.locked_title", "Documents in this month")}</h4>
-              <ul className="mt-2 divide-y divide-black/[0.06] rounded-[20px] border border-black/[0.06] bg-white dark:divide-white/[0.06] dark:border-white/[0.06] dark:bg-[#1f2225]">
-                {lockedRows.map(renderRow)}
-              </ul>
-            </section>
+          {documents.length === 0 ? (
+            <div data-testid="month-close-empty" data-layout="empty" className="flex items-center justify-center">
+              <div className="flex flex-col items-center py-16 text-center">
+                <h4 className="font-display text-[18px] font-medium text-black dark:text-white">{t("business.month_close.empty_title", "This month has no documents")}</h4>
+                <p className="mt-2 max-w-sm text-[14px] text-black/60 dark:text-white/60">{t("business.month_close.empty", "No invoices or expenses in this month.")}</p>
+                <button type="button" data-testid="month-close-empty-action" className={`${secondaryButtonClass} mt-6 min-w-11`} onClick={() => setPickerRequest((value) => value + 1)}>
+                  {t("business.month_close.choose_month", "Choose month")}
+                </button>
+              </div>
+            </div>
+          ) : closed ? (
+            renderList("month-close-rows", t("business.month_close.locked_title", "Documents in this month"), lockedRows, "", "closed")
           ) : (
             <>
-              {renderList("month-close-receivable", t("business.month_close.receivable_title", "To collect"), receivable, t("business.month_close.receivable_empty", "Nothing to collect."))}
-              {renderList("month-close-payable", t("business.month_close.payable_title", "To pay"), payable, t("business.month_close.payable_empty", "Nothing to pay."))}
-              {fiscalGaps.length > 0 ? renderList("month-close-fiscal-gaps", t("business.month_close.fiscal_gaps_title", "Missing RNC or NCF"), fiscalGaps, "") : null}
+              <div className="mt-4 grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-4" data-testid="month-close-states">
+                {stateCard("month-close-state-receivable", "receivable", t("business.month_close.receivable_title", "To collect"), receivable)}
+                {stateCard("month-close-state-overdue", "overdue", t("business.month_close.filter_overdue", "Overdue"), overdueRows)}
+                {stateCard("month-close-state-matched", "matched", t("business.month_close.filter_matched", "Collected and paid"), matchedRows)}
+                {stateCard("month-close-state-payable", "payable", t("business.month_close.payable_title", "To pay"), payable)}
+              </div>
+              {filter === "overdue" ? renderList("month-close-overdue", t("business.month_close.filter_overdue", "Overdue"), overdueRows, t("business.month_close.overdue_empty", "Nothing overdue."), "overdue") : null}
+              {filter === "matched" ? renderList("month-close-matched", t("business.month_close.matched_title", "Collected and paid"), [...matchedRows, ...fiscalGaps], t("business.month_close.matched_empty", "Nothing collected or paid."), "matched") : null}
+              {filter === "receivable" ? renderList("month-close-receivable", t("business.month_close.receivable_title", "To collect"), receivable, t("business.month_close.receivable_empty", "Nothing to collect.")) : null}
+              {filter === "payable" ? renderList("month-close-payable", t("business.month_close.payable_title", "To pay"), payable, t("business.month_close.payable_empty", "Nothing to pay.")) : null}
+              {filter === "all" ? (
+                <>
+                  {renderList("month-close-receivable", t("business.month_close.receivable_title", "To collect"), receivable, t("business.month_close.receivable_empty", "Nothing to collect."))}
+                  {renderList("month-close-payable", t("business.month_close.payable_title", "To pay"), payable, t("business.month_close.payable_empty", "Nothing to pay."))}
+                  {overdueRows.length > 0 ? renderList("month-close-overdue", t("business.month_close.filter_overdue", "Overdue"), overdueRows, "", "overdue") : null}
+                  {matchedRows.length > 0 ? renderList("month-close-matched", t("business.month_close.matched_title", "Collected and paid"), matchedRows, "", "matched") : null}
+                  {fiscalGaps.length > 0 ? renderList("month-close-fiscal-gaps", t("business.month_close.fiscal_gaps_title", "Missing RNC or NCF"), fiscalGaps, "") : null}
+                </>
+              ) : null}
             </>
           )}
         </>

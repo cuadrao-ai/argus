@@ -35,6 +35,10 @@ import { apiFetch } from "./argus-api-transport";
  * While any document in the window is still pending, `monthCloseNetDisplay`
  * returns `pending` and no money string. The net result is a number only
  * once nothing is pending. Income, expenses, and ITBIS stay numeric.
+ *
+ * `due_on` is optional. A pending document whose due day is before today is
+ * overdue for display. Overdue does not change the stored status and does
+ * not block the close.
  */
 
 export type MonthCloseKind = "invoice" | "receipt";
@@ -47,6 +51,8 @@ export type MonthCloseDocument = {
   counterparty: string;
   /** Calendar day, `YYYY-MM-DD`. */
   occurred_on: string;
+  /** Day the document is due, `YYYY-MM-DD`. Null when the document has none. */
+  due_on: string | null;
   /** Document total, DOP decimal text. */
   amount: string;
   /** Stated ITBIS. Null when the document does not print one. */
@@ -211,6 +217,33 @@ export function monthCloseNetDisplay(documents: readonly MonthCloseDocument[]): 
   return { state: "final", net_before_itbis: monthCloseSummary(documents).net_before_itbis };
 }
 
+export function documentsTotal(documents: readonly Pick<MonthCloseDocument, "amount">[]): string {
+  return formatDopCents(documents.reduce((total, document) => addCents(total, document.amount), ZERO));
+}
+
+function utcDayNumber(day: string): number {
+  const [year, month, date] = day.split("-").map(Number);
+  return Math.floor(Date.UTC(year, month - 1, date) / 86400000);
+}
+
+/** Whole days from `today` to `dueOn`. Both are `YYYY-MM-DD`. */
+export function dueDistance(dueOn: string, today: string): { direction: "past" | "today" | "future"; days: number } | null {
+  if (!DAY.test(dueOn) || !DAY.test(today)) return null;
+  const delta = utcDayNumber(dueOn) - utcDayNumber(today);
+  if (delta === 0) return { direction: "today", days: 0 };
+  if (delta < 0) return { direction: "past", days: -delta };
+  return { direction: "future", days: delta };
+}
+
+/** Pending, and the due day is already behind `today`. A settled document is never overdue. */
+export function documentOverdue(document: Pick<MonthCloseDocument, "status" | "due_on">, today: string): boolean {
+  return document.status === "pendiente" && typeof document.due_on === "string" && dueDistance(document.due_on, today)?.direction === "past";
+}
+
+export function calendarDay(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export function statusTotals(documents: readonly MonthCloseDocument[]): Record<MonthCloseStatus, { count: number; amount: string }> {
   const totals: Record<MonthCloseStatus, bigint> = { pendiente: ZERO, cobrado: ZERO, pagado: ZERO };
   const counts: Record<MonthCloseStatus, number> = { pendiente: 0, cobrado: 0, pagado: 0 };
@@ -372,7 +405,14 @@ export function readMonthCloseDocument(value: unknown): MonthCloseDocument {
     ncf: readNullableText(value.ncf),
     ecf: readNullableText(value.ecf),
     status: value.status,
+    due_on: readDueOn(value.due_on),
   };
+}
+
+function readDueOn(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string" || !DAY.test(value)) throw new MonthCloseError("unavailable", "month close due day is unknown");
+  return value;
 }
 
 export function readMonthCloseSnapshot(value: unknown): MonthCloseSnapshot {
@@ -398,10 +438,6 @@ export function readMonthCloseSnapshot(value: unknown): MonthCloseSnapshot {
   };
 }
 
-function localDay(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
 function shiftMonth(date: Date, offset: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + offset, 1);
 }
@@ -410,14 +446,18 @@ function dayInMonth(monthStart: Date, day: number): string {
   return `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-type SampleInput = Omit<MonthCloseDocument, "occurred_on"> & { day: number };
+type SampleInput = Omit<MonthCloseDocument, "occurred_on" | "due_on"> & { day: number; dueDay: number | null };
 
 function sample(monthStart: Date, input: SampleInput, now: Date): MonthCloseDocument {
-  const { day, ...document } = input;
+  const { day, dueDay, ...document } = input;
   const currentMonth = monthStart.getFullYear() === now.getFullYear() && monthStart.getMonth() === now.getMonth();
   // The open month runs through today, so a fixture day after today moves onto today.
   const used = currentMonth ? Math.min(day, now.getDate()) : day;
-  return { ...document, occurred_on: dayInMonth(monthStart, used) };
+  return {
+    ...document,
+    occurred_on: dayInMonth(monthStart, used),
+    due_on: dueDay === null ? null : dayInMonth(monthStart, dueDay),
+  };
 }
 
 /** Realistic Dominican fixtures for the open month and the month before it. */
@@ -426,18 +466,18 @@ export function monthCloseSampleDocuments(now = new Date()): MonthCloseDocument[
   const previous = shiftMonth(now, -1);
   const row = (monthStart: Date, input: SampleInput) => sample(monthStart, input, now);
   return [
-    row(current, { id: "inv-colmado", kind: "invoice", day: 3, counterparty: "Colmado Don Luis", amount: "29500.00", itbis: "4500.00", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "cobrado" }),
-    row(current, { id: "inv-taller", kind: "invoice", day: 8, counterparty: "Taller Hermanos Peña", amount: "21240.00", itbis: "3240.00", rnc: "131-55544-3", ncf: null, ecf: "E310000000012", status: "pendiente" }),
-    row(current, { id: "inv-farmacia", kind: "invoice", day: 12, counterparty: "Farmacia Central", amount: "6400.00", itbis: "0.00", rnc: null, ncf: "B0200000108", ecf: null, status: "pendiente" }),
-    row(current, { id: "inv-caribe", kind: "invoice", day: 15, counterparty: "Suplidores del Caribe", amount: "10620.00", itbis: "1620.00", rnc: "101-00011-2", ncf: null, ecf: null, status: "cobrado" }),
-    row(current, { id: "rcpt-ferreteria", kind: "receipt", day: 4, counterparty: "Ferretería La Esquina", amount: "4956.00", itbis: "756.00", rnc: "131-99988-8", ncf: "B0100000099", ecf: null, status: "pagado" }),
-    row(current, { id: "rcpt-edenorte", kind: "receipt", day: 10, counterparty: "Edenorte", amount: "3658.00", itbis: "558.00", rnc: "101-01010-1", ncf: null, ecf: "E430000000077", status: "pendiente" }),
-    row(current, { id: "rcpt-transporte", kind: "receipt", day: 14, counterparty: "Transporte Díaz", amount: "1500.00", itbis: null, rnc: null, ncf: null, ecf: null, status: "pendiente" }),
-    row(current, { id: "rcpt-papeleria", kind: "receipt", day: 6, counterparty: "Papelería El Sol", amount: "944.00", itbis: "144.00", rnc: "131-24680-5", ncf: "B1400000033", ecf: null, status: "pagado" }),
-    row(previous, { id: "inv-aurora", kind: "invoice", day: 5, counterparty: "Clínica Aurora", amount: "14160.00", itbis: "2160.00", rnc: "101-88877-6", ncf: "B0100000201", ecf: null, status: "cobrado" }),
-    row(previous, { id: "inv-luna", kind: "invoice", day: 11, counterparty: "Panadería Luna", amount: "5900.00", itbis: "900.00", rnc: "131-22233-4", ncf: "B0100000202", ecf: null, status: "pendiente" }),
-    row(previous, { id: "rcpt-isla", kind: "receipt", day: 7, counterparty: "Combustible Isla", amount: "2360.00", itbis: "360.00", rnc: "101-33322-1", ncf: "B1500000044", ecf: null, status: "pagado" }),
-    row(previous, { id: "rcpt-rosa", kind: "receipt", day: 13, counterparty: "Limpieza Rosa", amount: "944.00", itbis: "144.00", rnc: "131-44455-6", ncf: "B0100000203", ecf: null, status: "pendiente" }),
+    row(current, { id: "inv-colmado", kind: "invoice", day: 3, dueDay: 10, counterparty: "Colmado Don Luis", amount: "29500.00", itbis: "4500.00", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "cobrado" }),
+    row(current, { id: "inv-taller", kind: "invoice", day: 8, dueDay: 28, counterparty: "Taller Hermanos Peña", amount: "21240.00", itbis: "3240.00", rnc: "131-55544-3", ncf: null, ecf: "E310000000012", status: "pendiente" }),
+    row(current, { id: "inv-farmacia", kind: "invoice", day: 1, dueDay: 2, counterparty: "Farmacia Central", amount: "6400.00", itbis: "0.00", rnc: null, ncf: "B0200000108", ecf: null, status: "pendiente" }),
+    row(current, { id: "inv-caribe", kind: "invoice", day: 15, dueDay: 20, counterparty: "Suplidores del Caribe", amount: "10620.00", itbis: "1620.00", rnc: "101-00011-2", ncf: null, ecf: null, status: "cobrado" }),
+    row(current, { id: "rcpt-ferreteria", kind: "receipt", day: 4, dueDay: 4, counterparty: "Ferretería La Esquina", amount: "4956.00", itbis: "756.00", rnc: "131-99988-8", ncf: "B0100000099", ecf: null, status: "pagado" }),
+    row(current, { id: "rcpt-edenorte", kind: "receipt", day: 10, dueDay: 25, counterparty: "Edenorte", amount: "3658.00", itbis: "558.00", rnc: "101-01010-1", ncf: null, ecf: "E430000000077", status: "pendiente" }),
+    row(current, { id: "rcpt-transporte", kind: "receipt", day: 14, dueDay: 5, counterparty: "Transporte Díaz", amount: "1500.00", itbis: null, rnc: null, ncf: null, ecf: null, status: "pendiente" }),
+    row(current, { id: "rcpt-papeleria", kind: "receipt", day: 6, dueDay: 6, counterparty: "Papelería El Sol", amount: "944.00", itbis: "144.00", rnc: "131-24680-5", ncf: "B1400000033", ecf: null, status: "pagado" }),
+    row(previous, { id: "inv-aurora", kind: "invoice", day: 5, dueDay: 12, counterparty: "Clínica Aurora", amount: "14160.00", itbis: "2160.00", rnc: "101-88877-6", ncf: "B0100000201", ecf: null, status: "cobrado" }),
+    row(previous, { id: "inv-luna", kind: "invoice", day: 11, dueDay: 20, counterparty: "Panadería Luna", amount: "5900.00", itbis: "900.00", rnc: "131-22233-4", ncf: "B0100000202", ecf: null, status: "pendiente" }),
+    row(previous, { id: "rcpt-isla", kind: "receipt", day: 7, dueDay: 7, counterparty: "Combustible Isla", amount: "2360.00", itbis: "360.00", rnc: "101-33322-1", ncf: "B1500000044", ecf: null, status: "pagado" }),
+    row(previous, { id: "rcpt-rosa", kind: "receipt", day: 13, dueDay: 25, counterparty: "Limpieza Rosa", amount: "944.00", itbis: "144.00", rnc: "131-44455-6", ncf: "B0100000203", ecf: null, status: "pendiente" }),
   ];
 }
 
@@ -483,7 +523,7 @@ export type MockMonthCloseOptions = {
 
 export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}): MonthCloseClient {
   const now = options.now ?? new Date();
-  const today = localDay(now);
+  const today = calendarDay(now);
   const failIds = new Set(options.failIds ?? []);
   const books = new Map<string, { documents: MonthCloseDocument[]; closedAt: Map<string, string> }>();
 

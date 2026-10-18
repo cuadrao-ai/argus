@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   MonthCloseError,
+  calendarDay,
   calendarMonthOf,
   canCloseMonth,
+  documentOverdue,
+  documentsTotal,
+  dueDistance,
   canStepMonth,
   closeGate,
   createMockMonthCloseClient,
@@ -27,6 +31,7 @@ function document(partial: Pick<MonthCloseDocument, "id" | "kind" | "amount" | "
   return {
     counterparty: partial.id,
     occurred_on: "2026-10-01",
+    due_on: null,
     rnc: "131-99988-8",
     ncf: "B0100000001",
     ecf: null,
@@ -242,5 +247,48 @@ describe("month switcher", () => {
     expect(future.length).toBeGreaterThan(0);
     expect(future.every((option) => !option.selectable)).toBe(true);
     expect(monthPickerMonths("2026-10", "2026-09").some((option) => option.month === "2026-09" && option.selectable)).toBe(true);
+  });
+
+  test("a pending document due before today is overdue, and a settled one is not", () => {
+    const today = calendarDay(now);
+    expect(today).toBe("2026-10-18");
+    expect(dueDistance("2026-10-02", today)).toEqual({ direction: "past", days: 16 });
+    expect(dueDistance("2026-10-18", today)).toEqual({ direction: "today", days: 0 });
+    expect(dueDistance("2026-10-28", today)).toEqual({ direction: "future", days: 10 });
+    const farmacia = monthCloseSampleDocuments(now).find((item) => item.id === "inv-farmacia");
+    const taller = monthCloseSampleDocuments(now).find((item) => item.id === "inv-taller");
+    const colmado = monthCloseSampleDocuments(now).find((item) => item.id === "inv-colmado");
+    expect(farmacia?.due_on).toBe("2026-10-02");
+    expect(documentOverdue(farmacia!, today)).toBe(true);
+    expect(documentOverdue(taller!, today)).toBe(false);
+    expect(documentOverdue(colmado!, today)).toBe(false);
+    expect(documentOverdue({ status: "pendiente", due_on: null }, today)).toBe(false);
+    expect(documentsTotal([farmacia!, taller!])).toBe("27640.00");
+    expect(readMonthCloseDocument({
+      id: "inv-1",
+      kind: "invoice",
+      counterparty: "Farmacia Central",
+      occurred_on: "2026-10-01",
+      due_on: "2026-10-02",
+      amount: "10.00",
+      itbis: null,
+      rnc: null,
+      ncf: "B0200000108",
+      ecf: null,
+      status: "pendiente",
+    }).due_on).toBe("2026-10-02");
+    expect(() => readMonthCloseDocument({
+      id: "inv-1",
+      kind: "invoice",
+      counterparty: "Farmacia Central",
+      occurred_on: "2026-10-01",
+      due_on: "October",
+      amount: "10.00",
+      itbis: null,
+      rnc: null,
+      ncf: null,
+      ecf: null,
+      status: "pendiente",
+    })).toThrow(MonthCloseError);
   });
 });
