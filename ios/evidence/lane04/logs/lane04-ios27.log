@@ -1,0 +1,19 @@
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' started.
+/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundationUITests/GuestPlansUITests.swift:240: error: -[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish] : XCTAssertGreaterThanOrEqual failed: ("18.0") is less than ("44.0")
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' failed (59.361 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' passed (29.190 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesTheLegalLinksUntilThePagesArePublished]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesTheLegalLinksUntilThePagesArePublished]' passed (14.169 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpRemainsReachableAtLargeTextSizes]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpRemainsReachableAtLargeTextSizes]' passed (32.905 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpShowsTheLegalLinksFromTheOwner]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpShowsTheLegalLinksFromTheOwner]' passed (8.376 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishGuestToastWrapsAtLargeTextSizes]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishGuestToastWrapsAtLargeTextSizes]' passed (31.204 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishModeLineDoesNotReturnOnSecondLaunch]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishModeLineDoesNotReturnOnSecondLaunch]' passed (20.361 seconds).
+	 Executed 7 tests, with 1 failure (0 unexpected) in 195.567 (195.578) seconds
+	 Executed 7 tests, with 1 failure (0 unexpected) in 195.567 (195.582) seconds
+	 Executed 7 tests, with 1 failure (0 unexpected) in 195.567 (195.585) seconds
+** TEST FAILED **

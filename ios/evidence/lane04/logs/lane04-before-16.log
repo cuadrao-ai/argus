@@ -1,0 +1,10 @@
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' started.
+/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundationUITests/GuestPlansUITests.swift:241: error: -[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish] : XCTAssertGreaterThanOrEqual failed: ("18.0") is less than ("44.0")
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' failed (56.115 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' started.
+/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundationUITests/CuadraoLegalLinksUITests.swift:93: error: -[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists] : XCTAssertFalse failed
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' failed (22.394 seconds).
+	 Executed 2 tests, with 2 failures (0 unexpected) in 78.508 (78.526) seconds
+	 Executed 2 tests, with 2 failures (0 unexpected) in 78.508 (78.526) seconds
+	 Executed 2 tests, with 2 failures (0 unexpected) in 78.508 (78.527) seconds
+** TEST FAILED **

@@ -11,14 +11,14 @@ struct CuadraoToastMessage: Identifiable, Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
 }
 
-/// One line, an optional action, five seconds. VoiceOver hears the line when it appears and gets more time.
+/// A message, an optional action, five seconds. VoiceOver hears the line when it appears and gets more time.
 struct CuadraoToast: View {
     let text: String
     var actionTitle: String?
     var actionIdentifier = "toast.action"
     var action: (() -> Void)?
     let spanish: Bool
-    var closeIdentifier = "toast.close"
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     /// A new token restarts the timer for a new message with the same words.
     var token: AnyHashable?
     let close: () -> Void
@@ -26,15 +26,19 @@ struct CuadraoToast: View {
     static func autoDismissSeconds(voiceOver: Bool) -> Double { voiceOver ? 10 : 5 }
 
     var body: some View {
-        HStack {
-            Text(text)
-            Spacer()
-            if let actionTitle, let action {
-                Button(actionTitle, action: action).frame(minHeight: 44).accessibilityIdentifier(actionIdentifier)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    message
+                    HStack { Spacer(); controls }
+                }.padding(.vertical, 8)
+            } else {
+                HStack {
+                    message
+                    Spacer()
+                    controls
+                }
             }
-            Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                .accessibilityLabel(spanish ? "Cerrar" : "Close")
-                .accessibilityIdentifier(closeIdentifier)
         }.font(.subheadline).padding(.leading, 20).padding(.trailing, 6)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
             .padding(.horizontal, 20).padding(.bottom, 90)
@@ -45,6 +49,21 @@ struct CuadraoToast: View {
                 try? await Task.sleep(for: .seconds(seconds))
                 if !Task.isCancelled { close() }
             }
+    }
+
+    private var message: some View {
+        Text(text).fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private var controls: some View {
+        if let actionTitle, let action {
+            Button(action: action) {
+                Text(actionTitle).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+            }.accessibilityIdentifier(actionIdentifier)
+        }
+        Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
+            .accessibilityLabel(spanish ? "Cerrar" : "Close")
+            .accessibilityIdentifier("toast.close")
     }
 }
 

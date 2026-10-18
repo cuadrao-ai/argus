@@ -1,0 +1,25 @@
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project /private/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundation.xcodeproj -scheme ArgusFoundation -configuration Debug -destination "platform=iOS Simulator,id=8B47527F-3A6F-47FC-AFFF-89FAA92C628D" -derivedDataPath /private/tmp/cuadrao-lane4-ios-followups/ios/.build/DerivedData -resultBundlePath /private/tmp/cuadrao-lane4-ios-followups/ios/.build/lane04-final-16/test-20261016T055350Z.xcresult -parallel-testing-enabled NO CODE_SIGNING_REQUIRED=NO -collect-test-diagnostics never "-only-testing:ArgusFoundationUITests/FinancialLoopUITests/testGuestPlansInSpanish" "-only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists" "-only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpHidesTheLegalLinksUntilThePagesArePublished" "-only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpShowsTheLegalLinksFromTheOwner" "-only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpRemainsReachableAtLargeTextSizes" "-only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSpanishGuestToastWrapsAtLargeTextSizes" "-only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSpanishModeLineDoesNotReturnOnSecondLaunch"
+Test Suite 'Selected tests' started at 2026-10-16 00:54:00.405.
+Test Suite 'ArgusFoundationUITests.xctest' started at 2026-10-16 00:54:00.406.
+Test Suite 'FinancialLoopUITests' started at 2026-10-16 00:54:00.406.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' passed (82.184 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' passed (34.049 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesTheLegalLinksUntilThePagesArePublished]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesTheLegalLinksUntilThePagesArePublished]' passed (15.380 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpRemainsReachableAtLargeTextSizes]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpRemainsReachableAtLargeTextSizes]' passed (31.939 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpShowsTheLegalLinksFromTheOwner]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpShowsTheLegalLinksFromTheOwner]' passed (8.415 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishGuestToastWrapsAtLargeTextSizes]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishGuestToastWrapsAtLargeTextSizes]' passed (30.867 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishModeLineDoesNotReturnOnSecondLaunch]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishModeLineDoesNotReturnOnSecondLaunch]' passed (21.386 seconds).
+Test Suite 'FinancialLoopUITests' passed at 2026-10-16 00:57:44.632.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 224.221 (224.226) seconds
+Test Suite 'ArgusFoundationUITests.xctest' passed at 2026-10-16 00:57:44.632.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 224.221 (224.227) seconds
+Test Suite 'Selected tests' passed at 2026-10-16 00:57:44.633.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 224.221 (224.228) seconds
+** TEST SUCCEEDED **

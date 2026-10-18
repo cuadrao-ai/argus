@@ -107,7 +107,7 @@ struct CuadraoIdentityEditor: View {
                         }
                     }
                     if loading { ProgressView(spanish ? "Preparando foto" : "Preparing photo") }
-                    if failed { Text(spanish ? "No pudimos abrir esa foto. Prueba otra." : "We couldn’t open that photo. Try another.").foregroundStyle(.secondary) }
+                    if failed { Text(spanish ? "No pudimos abrir esa foto. Prueba otra." : "We couldn't open that photo. Try another.").foregroundStyle(.secondary) }
                 }
                 Section(spanish ? "Tu avatar" : "Your avatar") {
                     choice(.none, title: spanish ? "Icono de perfil" : "Profile icon", id: "none")

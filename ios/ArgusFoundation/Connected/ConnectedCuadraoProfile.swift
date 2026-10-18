@@ -53,7 +53,7 @@ struct ConnectedCuadraoProfile: View {
                 Button(spanish ? "Cerrar sesión" : "Sign out", role: .destructive) { Task { await auth.signOut() } }
                     .accessibilityIdentifier("auth.signOut.confirm")
             } message: {
-                Text(spanish ? "Volverás a la pantalla de inicio de sesión." : "You’ll return to the sign-in screen.")
+                Text(spanish ? "Volverás a la pantalla de inicio de sesión." : "You'll return to the sign-in screen.")
             }
         }
         .toolbar(.hidden, for: .tabBar)
@@ -121,7 +121,7 @@ struct CuadraoLegalLinks: View {
                     }.accessibilityIdentifier("release.legal.terms")
                 }
             } else {
-                Text(spanish ? "Los enlaces no están disponibles en este momento." : "These links aren’t available right now.")
+                Text(spanish ? "Los enlaces no están disponibles en este momento." : "These links aren't available right now.")
             }
         }.navigationTitle(spanish ? "Privacidad y términos" : "Privacy and terms")
             .navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
