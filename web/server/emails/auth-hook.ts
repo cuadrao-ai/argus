@@ -82,9 +82,9 @@ export async function handleAuthEmailHook(request: Request, config: AuthEmailHoo
     const mails = parseAuthMail(payload, config.appOrigin);
     deliveries = await Promise.all(mails.map(async (mail) => ({
       recipient: mail.recipient,
-      from: "Cuadrao <hola@mail.cuadrao.ai>",
+      from: "Cuadrao <no-responder@mail.cuadrao.ai>",
       replyTo: "hola@cuadrao.ai",
-      ...await renderAuthMail(mail, config.supabaseUrl),
+      ...await renderAuthMail(mail, config.supabaseUrl, config.expirySeconds),
       idempotencyKey: `auth-${createHash("sha256").update(`${headers["webhook-id"]}\0${mail.action}\0${mail.recipient}`).digest("hex")}`,
     })));
   } catch { return error(400); }

@@ -6,21 +6,20 @@ import { renderAuthMail, type AuthMail } from "../server/emails/auth-actions";
 const delivery = { recipient: "owner@example.test", from: "Cuadrao <hola@mail.cuadrao.ai>", replyTo: "hola@cuadrao.ai", subject: "subject", html: "<p>synthetic</p>", text: "synthetic", idempotencyKey: "auth-synthetic-key" };
 
 describe("Auth email compatibility and delivery", () => {
-  test("every account action uses the shared layout and only signup puts the code in its subject", async () => {
+  test("every account action uses the shared layout and all code emails put the code first in the subject", async () => {
     const linked = { recipient: "owner@example.test", tokenHash: "a".repeat(64), redirectTo: "https://cuadrao-web-staging.onrender.com/" };
     const cases: AuthMail[] = [
       { ...linked, action: "signup", token: "55070219" },
-      { ...linked, action: "invite" },
       { ...linked, action: "magiclink", token: "55070219" },
-      { ...linked, action: "email_change", newEmail: "new@example.test" },
+      { ...linked, action: "email_change", audience: "old_address", newEmail: "new@example.test" },
       { action: "reauthentication", recipient: linked.recipient, token: "55070219" },
     ];
     for (const mail of cases) {
-      const rendered = await renderAuthMail(mail, "https://skedzwocnmrhfigiwyzi.supabase.co");
-      assert.equal(rendered.subject.includes("55070219"), mail.action === "signup");
+      const rendered = await renderAuthMail(mail, "https://skedzwocnmrhfigiwyzi.supabase.co", 3600);
+      assert.equal(rendered.subject.includes("55070219"), ["signup", "magiclink", "reauthentication"].includes(mail.action));
       assert.equal(rendered.text.includes("55070219"), ["signup", "magiclink", "reauthentication"].includes(mail.action));
       assert.ok(rendered.html.includes('alt="Cuadrao"'));
-      assert.ok(rendered.html.includes("Saludos, el equipo de Cuadrao"));
+      assert.ok(rendered.html.includes("Saludos,<br>Cuadrao"));
       assert.ok(!rendered.html.includes("Salir de la lista"));
       if (mail.action !== "reauthentication") {
         assert.ok(rendered.text.includes(`type=${mail.action}&redirect_to=`));

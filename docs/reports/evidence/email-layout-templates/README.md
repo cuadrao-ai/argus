@@ -37,3 +37,124 @@ Original integration base is `651870a54be4e5506dbb38f3902fef1a97eef8df`. Indepen
 Final local checks passed with 23 renderer/Auth tests, 8 marketing waitlist tests and 34 staging-manifest tests. Frozen Bun installs passed in web and marketing without lock changes. Generated layout and Business artifacts passed freshness checks. Modularity budgets and whitespace checks passed. Refreshed integration remains the original base, so no reconciliation merge or semantic overlap exists.
 
 Chromium rendered the actual synthetic Business-close template at widths 390 and 800 in light and dark modes. All four had no horizontal overflow. The renderer intercepted only image requests and served the existing local PNGs; no external site or provider was contacted. Actual screenshots are in the coordinator ledger `email-layout-browser/{light,dark}-{390,800}.png`. This is browser layout evidence, not inbox-client evidence. Mobile dark screenshot was inspected for wordmark, wrapping, copy, help footer and readability.
+
+## Approved sign-in and security rollout, October 17, 2026
+
+This section supersedes the disabled-slot and footer statements above for the
+six sign-in recipient renders and two approved security notices. It also
+supersedes the Auth-copy and activation recipe in the October 14 staging reset
+email report. Source copy is the supplied `signin-set-v1.1.md` and
+`security-notices-v1.2.md`. Their private source files are not committed.
+
+The six sign-in renders are signup, magiclink, recovery, email-change old
+address, email-change new address, and reauthentication. Supabase invite is
+removed from this hook. Business invitations have their own assigned owner.
+Signup, magiclink and reauthentication put the code first in their subject.
+Each has the approved hidden preheader and HTML title. Introduction paragraphs
+precede the code in HTML and plain text. Expiry derives from the passed
+`expirySeconds`, including 60 seconds rendered as `1 minuto`. The staging hook
+still requires the asserted 3600-second setting to match its pinned deployment.
+
+Secure email change remains a two-confirmation operation. The old-address alert
+includes the approved `Confirmar el cambio` action. `token_hash_new` goes to the
+old address and `token_hash` goes to the new address. Both links use
+`type=email_change`. Distinct recipient keys retain safe partial retries. No
+required old-address confirmation is discarded.
+
+The completed email-change security notice is separate. Its recipient is the
+signed `email_data.old_email`; the new email is `user.email`. It has no action
+or password-reset link. The new address shows only its first local-part
+character, three asterisks, and its domain. Password-changed notices go to
+`user.email`. Both notices use the send time formatted in
+`America/Santo_Domingo`, without claiming an event timestamp, device or IP.
+The password notice's `¿Olvidaste tu contraseña?` text matches the unchanged
+web es-419 catalog and `ConnectedCuadraoAuth.swift` text.
+
+Repository configuration enables only `password_changed` and `email_changed`.
+The remaining five notification flags are explicitly false. Signed hook
+requests for those five return success with zero deliveries. There are nine
+remaining blocked preview slots, five security notices and four transfers.
+Normal rendering of those slots still throws. No transfer delivery is enabled.
+
+All shared HTML footers use `Saludos,<br>Cuadrao`; plain text uses
+`Saludos,\nCuadrao`. The legal line uses the existing configured postal string
+for waitlist mail, otherwise `Cuadrao LLC`. No postal address is invented.
+The Business-close JSON was regenerated from its canonical template. Its
+approved body and variables were left intact. The Auth sender is now
+`Cuadrao <no-responder@mail.cuadrao.ai>`, with Reply-To `hola@cuadrao.ai`.
+
+### Operator steps, not applied
+
+Do not run these steps until the three receipt-gate passes, fresh exact-head
+Eval, CI and explicit staging activation authority are recorded.
+
+1. Capture current staging Auth settings and verify the project is
+   `skedzwocnmrhfigiwyzi`. Read back `mailer_otp_exp=3600` and
+   `mailer_secure_email_change_enabled=true`. Preserve email confirmation and
+   admission settings. Local `otp_expiry=60` remains unchanged.
+2. Verify the existing `mail.cuadrao.ai` sender and that link/open tracking are
+   off in Resend. Do not treat repository MIME tests as provider-setting proof.
+3. Set the dedicated server-only hook secret and Resend key through the approved
+   secret workflow. Do not reuse Business or marketing keys.
+4. On the reviewed staging web service `srv-db5ihr7lot8c73f3b3h0`, configure
+   `CUADRAO_AUTH_EMAIL_PROJECT_REF=skedzwocnmrhfigiwyzi`,
+   `NEXT_PUBLIC_SUPABASE_URL=https://skedzwocnmrhfigiwyzi.supabase.co`,
+   `ARGUS_APP_ORIGIN=https://cuadrao-web-staging.onrender.com`,
+   `CUADRAO_AUTH_EMAIL_OTP_EXP_SECONDS=3600` and the two dedicated secret names
+   `CUADRAO_AUTH_EMAIL_HOOK_SECRET` and `CUADRAO_AUTH_EMAIL_RESEND_API_KEY`.
+   `RENDER_SERVICE_ID` must be Render's own value. Use
+   `CUADRAO_AUTH_EMAIL_HOOK_ENABLED=true` only during the authorized activation.
+5. In staging Supabase Authentication, Hooks, Send Email, configure the HTTP
+   endpoint `https://cuadrao-web-staging.onrender.com/api/auth/send-email` and
+   the matching signed webhook secret. Require Email Provider enabled and
+   Send Email Hook enabled. Never put the secret in evidence or client config.
+6. In staging Supabase Authentication, Email Templates, enable only password
+   changed and email changed notifications. Management API fields are
+   `mailer_notifications_password_changed_enabled=true` and
+   `mailer_notifications_email_changed_enabled=true`. Keep
+   `mailer_notifications_phone_changed_enabled`,
+   `mailer_notifications_identity_linked_enabled`,
+   `mailer_notifications_identity_unlinked_enabled`,
+   `mailer_notifications_mfa_factor_enrolled_enabled` and
+   `mailer_notifications_mfa_factor_unenrolled_enabled` false. Read them back.
+   The hook owns custom MIME content. Local config flags alone do not route
+   local Supabase SMTP through this staging-only hook.
+7. With separately authorized staging inbox sends, prove all six sign-in
+   recipient renders and both security notices in Gmail, iOS Mail and Outlook,
+   light and dark. Verify both secure-change confirmations, one-use expiry and
+   old-address completed-change delivery. Retain redacted actual screenshots.
+
+Production changes remain operator steps for a later, separately approved
+release. A production hook must first have a reviewed production deployment
+binding because this handler rejects every non-staging service/project/origin.
+Then capture and read back production OTP expiry, secure email change, the two
+notification flags and five disabled flags, verified sender/tracking settings,
+dedicated secrets and production hook URL. Never copy staging identifiers or
+turn off deployment binding to make production work. No production value was
+read or changed in this work.
+
+Rollback disables the staging Send Email Hook first, then the web flag, and
+restores the captured notification settings. Supabase then resumes its prior
+SMTP templates, so capture and review those before activation. Supabase invite
+requests intentionally fail through this hook; use the assigned Business
+invitation service rather than admin Auth invitations.
+
+### Local evidence and remaining gates
+
+Root explicitly authorized hermetic tests with synthetic process configuration
+despite missing local environment links. No links or environment files were
+created. Provider fetch is injected and mocked. The focused suite passes 74 web
+checks, eight paired HTML/plain snapshots and six waitlist checks. Module-only
+TypeScript checks, generated freshness, modularity and whitespace checks pass.
+The full web TypeScript command fails across existing Bun test declarations and
+other test/e2e files. It is not a clean repository-wide type-check claim.
+
+No approved copy remains blocked. Independent exact-head review/Eval, terminal
+CI, updated browser render evidence, all three receipt passes, hosted settings
+readback, real inbox clients and one-use hosted proof remain separate pending
+gates. No email, deploy, merge or provider setting change occurred.
+
+Official contracts checked for this change are the
+[Supabase Send Email Hook](https://supabase.com/docs/guides/auth/auth-hooks/send-email-hook),
+[Supabase Email Templates](https://supabase.com/docs/guides/auth/auth-email-templates)
+and the [Auth notification payload source](https://github.com/supabase/auth/blob/master/internal/api/mail.go).
