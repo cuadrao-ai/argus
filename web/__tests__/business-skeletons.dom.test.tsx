@@ -53,12 +53,16 @@ describe("business skeletons", () => {
     expect(skeleton).not.toBeNull();
     expect(visibleText(skeleton as Element)).toBe("");
     expect(skeleton?.querySelector("[aria-hidden=true]")?.textContent).toBe("");
-    expect(skeleton?.querySelector(".sr-only")?.textContent).toBe("Cargando Cuadrao");
+    expect(skeleton?.querySelector(".sr-only")?.textContent).toBe("Cargando");
+    expect(skeleton?.textContent).not.toContain("Cargando...");
+    expect(skeleton?.textContent).not.toContain("Cargando Cuadrao");
+    expect(skeleton?.textContent).not.toContain("Cuadrando");
     await view.close();
 
     const english = await mount(<Settle pending layout="inbox" />, "en");
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 320)); });
-    expect(english.host.querySelector(".sr-only")?.textContent).toBe(en.common.loading);
+    expect(english.host.querySelector(".sr-only")?.textContent).toBe("Cargando");
+    expect(english.host.textContent).not.toContain(en.common.loading);
     await english.close();
   });
 

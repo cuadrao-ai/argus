@@ -39,7 +39,9 @@ for (const width of [1280, 390]) {
     await expect(skeleton).toBeVisible();
     if (!baseline) {
       await expect(skeleton).toHaveAttribute("data-layout", "overview");
+      await expect(skeleton.locator(".sr-only")).toHaveText("Cargando");
       expect(await skeleton.locator('[aria-hidden="true"]').evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+      expect(await skeleton.getByTestId("business-skeleton-shimmer").first().evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
       const geometry = await skeleton.locator('[aria-hidden="true"] > div').evaluate((grid) => ({
         cards: grid.children.length,
         columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
@@ -56,21 +58,19 @@ for (const width of [1280, 390]) {
     }
     await page.goto("/dev/business-preview?receipt=rcpt-ferreteria");
     await expect(skeleton).toBeVisible();
-    let skeletonPreview = 0;
+    let skeletonPreview = "";
     if (!baseline) {
       await expect(skeleton).toHaveAttribute("data-layout", "detail");
-      const geometry = await skeleton.locator('[aria-hidden="true"] > .grid').evaluate((grid) => ({
-        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
-        previewHeight: (grid.querySelector('[class*="min-h-[200px]"]') as HTMLElement).getBoundingClientRect().height,
-      }));
-      expect(geometry.columns).toBe(width === 390 ? 1 : 2);
-      skeletonPreview = geometry.previewHeight;
+      const columns = await skeleton.locator('[aria-hidden="true"] > .grid').evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length);
+      expect(columns).toBe(width === 390 ? 1 : 2);
+      skeletonPreview = await skeleton.getByTestId("business-skeleton-preview").evaluate((element) => getComputedStyle(element).minHeight);
     }
     await capture("receipt");
     await expect(page.getByTestId("business-record-review")).toBeVisible();
     if (!baseline) {
-      const loadedPreview = await page.getByTestId("receipt-original-source").locator('[class*="min-h-[200px]"]').evaluate((element) => element.getBoundingClientRect().height);
-      expect(Math.abs(loadedPreview - skeletonPreview)).toBeLessThanOrEqual(8);
+      const loadedPreview = await page.getByTestId("receipt-original-source").locator('[class*="min-h-[200px]"]').evaluate((element) => getComputedStyle(element).minHeight);
+      expect(loadedPreview).toBe(skeletonPreview);
+      expect(skeletonPreview).toBe(width === 390 ? "200px" : "280px");
     }
   });
 }

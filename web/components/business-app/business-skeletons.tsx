@@ -1,23 +1,18 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 import { cardClass } from "./business-ui";
 import styles from "./business-skeletons.module.css";
 
 export const SKELETON_DELAY_MS = 300;
 export const CONTENT_FADE_MS = 150;
+/** The screen-reader label is this word, and it is never visible. */
+export const SCREEN_READER_LOADING_LABEL = "Cargando";
 
 export type SkeletonLayout = "overview" | "inbox" | "updates" | "detail" | "rows";
 
 export function placeholderPhase(elapsedMs: number, delayMs = SKELETON_DELAY_MS): "blank" | "skeleton" {
   return elapsedMs < delayMs ? "blank" : "skeleton";
-}
-
-function useSkeletonLabel(): string {
-  const { t, i18n } = useTranslation();
-  const language = i18n.resolvedLanguage || i18n.language || "";
-  return language.startsWith("es") ? "Cargando Cuadrao" : t("common.loading", "Loading...");
 }
 
 export function useDelayedPending(pending: boolean): boolean {
@@ -108,7 +103,7 @@ function DetailSkeleton() {
       </div>
       <div className="grid items-start gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className={`${cardClass} p-3`}>
-          <div data-testid="business-skeleton-shimmer" className={`${styles.shimmer} hidden min-h-[200px] overflow-hidden rounded-[14px] bg-black/[0.03] dark:bg-white/[0.04] desktop:flex desktop:min-h-[280px]`} />
+          <div data-testid="business-skeleton-preview" className={`${styles.shimmer} ${styles.block} hidden min-h-[200px] overflow-hidden rounded-[14px] desktop:flex desktop:min-h-[280px]`} />
         </div>
         <div className={`${cardClass} space-y-4`}>
           {Array.from({ length: 4 }, (_, index) => <Bar key={index} className="h-4 w-full" />)}
@@ -128,11 +123,10 @@ function Rows({ count, layout }: { count: number; layout: SkeletonLayout }) {
 }
 
 export function BusinessSkeleton({ layout, rows = 3 }: { layout: SkeletonLayout; rows?: number }) {
-  const label = useSkeletonLabel();
   const count = layout === "rows" ? rows : 3;
   return (
     <div role="status" aria-live="polite" data-testid="business-loading" data-layout={layout}>
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{SCREEN_READER_LOADING_LABEL}</span>
       <div aria-hidden="true">
         {layout === "overview" ? <OverviewSkeleton /> : layout === "detail" ? <DetailSkeleton /> : <Rows count={count} layout={layout} />}
       </div>
@@ -154,11 +148,10 @@ export function Settle({ pending, layout, rows = 3, children = null }: { pending
 
 export function DelayedSourceWell() {
   const ready = useDelayedPending(true);
-  const label = useSkeletonLabel();
   if (!ready) return null;
   return (
     <span role="status" aria-live="polite" className="block h-full w-full">
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{SCREEN_READER_LOADING_LABEL}</span>
       <span aria-hidden="true" data-testid="business-skeleton-shimmer" className={`${styles.shimmer} ${styles.block} block h-full w-full rounded-[14px]`} />
     </span>
   );
