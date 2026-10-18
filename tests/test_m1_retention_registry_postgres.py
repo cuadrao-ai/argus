@@ -23,7 +23,7 @@ def test_sweep_window_seed_replay_preserves_evidence_and_other_policies():
         .resolve()
         .parents[1]
         .joinpath(
-            "supabase/migrations/20261018034523_retention_sweeps_24_month_window.sql"
+            "supabase/migrations/20261018045500_retention_sweeps_24_month_window.sql"
         )
     )
     with psycopg.connect(DSN) as connection:
