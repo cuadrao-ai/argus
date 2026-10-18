@@ -67,7 +67,7 @@ async function renderSpanishSignup(props: {
 }
 
 describe("signup confirmation code", () => {
-  test("Spanish signup accepts the email code and still mentions the link", async () => {
+  test("Spanish signup accepts the email code and names the address", async () => {
     const confirmed: Array<{ email: string; code: string }> = [];
     let finished = 0;
     const page = await renderSpanishSignup({
@@ -90,7 +90,7 @@ describe("signup confirmation code", () => {
     expect(document.activeElement).not.toBe(code);
     expect(code?.getAttribute("autocomplete")).toBe("one-time-code");
     expect(code?.getAttribute("inputmode")).toBe("numeric");
-    expect(state?.textContent).toContain("enlace");
+    expect(state?.textContent).toContain("Escribe el código que te enviamos a ada@example.com.");
     expect(page.host.textContent).toContain("Código de confirmación");
 
     await setNativeValue(code as HTMLInputElement, "123 456");

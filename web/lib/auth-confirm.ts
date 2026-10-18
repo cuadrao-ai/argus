@@ -4,10 +4,12 @@ export type AuthConfirmType = (typeof CONFIRM_TYPES)[number];
 
 const TOKEN_HASH = /^(?:pkce_)?[a-f0-9]{32,128}$/;
 
-export type LinkedAuthAction = "recovery" | "email_change";
+export type LinkedAuthAction = "recovery" | "email_change" | "invite";
 
 export const AUTH_TEMPLATE_ORIGIN = "{{ .SiteURL }}";
 export const AUTH_TEMPLATE_HASH = "{{ .TokenHash }}";
+export const AUTH_TEMPLATE_OTP = "{{ .Token }}";
+export const AUTH_TEMPLATE_EMAIL = "{{ .Email }}";
 
 export function authConfirmHref(appOrigin: string, tokenHash: string, type: string, nextPath: string): string {
   if (appOrigin === AUTH_TEMPLATE_ORIGIN) {

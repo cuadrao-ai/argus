@@ -1511,7 +1511,7 @@
       "new_account": "New to Cuadrao?",
       "password_requirement": "At least 8 characters.",
       "confirmation_title": "Check your email",
-      "confirmation_description": "Enter the code from the email, or open the confirmation link. Either one finishes creating your account.",
+      "confirmation_description": "Enter the code we sent to {{correo}}.",
       "confirmation_code_label": "Confirmation code",
       "confirmation_submit": "Confirm",
       "confirmation_loading": "Confirming..."

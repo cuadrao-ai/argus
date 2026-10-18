@@ -49,7 +49,7 @@ function safeUrl(value: string): string {
 
 export function renderAccountEmail(content: AccountEmail, options: EmailLayoutOptions = {}): { html: string; text: string } {
   const assets = emailAssets(options);
-  if (content.code !== undefined && (!/^\d{6,10}$/.test(content.code) || content.unsubscribeUrl)) {
+  if (content.code !== undefined && (!/^(?:\d{6,10}|\{\{ \.Token \}\})$/.test(content.code) || content.unsubscribeUrl)) {
     throw new Error("Invalid account email code");
   }
   let legalLine = "Cuadrao LLC";

@@ -12,6 +12,7 @@ const signin: AuthMail[] = [
   { ...base, action: "signup", token: "123456" },
   { ...base, action: "magiclink", token: "123456" },
   { ...base, action: "recovery" },
+  { ...base, action: "invite" },
   { ...base, action: "email_change", audience: "old_address", newEmail: "new@example.test" },
   { ...base, action: "email_change", audience: "new_address", recipient: "new@example.test", newEmail: "new@example.test" },
   { action: "reauthentication", recipient: base.recipient, token: "123456" },

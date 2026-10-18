@@ -85,12 +85,7 @@ export async function handleAuthEmailHook(request: Request, config: AuthEmailHoo
       recipient: mail.recipient,
       from: "Cuadrao <no-responder@mail.cuadrao.ai>",
       replyTo: "hola@cuadrao.ai",
-      ...await renderAuthMail(
-        mail,
-        mail.action === "signup" || mail.action === "magiclink" ? config.supabaseUrl : config.appOrigin,
-        config.expirySeconds,
-        sendAttemptAt,
-      ),
+      ...await renderAuthMail(mail, config.appOrigin, config.expirySeconds, sendAttemptAt),
       idempotencyKey: `auth-${createHash("sha256").update(`${headers["webhook-id"]}\0${mail.action}\0${mail.recipient}`).digest("hex")}`,
     })));
   } catch { return error(400); }

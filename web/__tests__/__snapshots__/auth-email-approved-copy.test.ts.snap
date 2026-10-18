@@ -12,13 +12,10 @@ exports[`approved HTML and plain text signup 0 1`] = `
     .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
   }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
   </style></head>
-<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><div class="preheader" style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:transparent">Úsalo para confirmar tu cuenta. Vence en 1 hora.</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><div class="preheader" style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:transparent">Escríbelo en Cuadrao para confirmar tu cuenta. Vence en 1 hora.</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">Tu código de Cuadrao</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola,</p><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Usa este código para confirmar tu cuenta de Cuadrao:</p><p class="code" style="margin:0 0 20px;padding:20px 12px;border-radius:8px;background:#e7f2df;color:#172b26;font-size:32px;line-height:40px;font-weight:700;letter-spacing:4px;text-align:center;white-space:nowrap">123456</p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">El código y el enlace vencen en 1 hora y solo se pueden usar una vez.</p><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">También puedes confirmarla desde este enlace:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 20px">
-<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://app.example.test/auth/v1/verify?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=signup&amp;redirect_to=https%3A%2F%2Fapp.example.test%2F" style="height:48px;v-text-anchor:middle;width:496px" arcsize="16%" stroke="f" fillcolor="#172b26"><w:anchorlock/><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:bold">Confirmar mi cuenta</center></v:roundrect><![endif]-->
-<!--[if !mso]><!--><a class="button" href="https://app.example.test/auth/v1/verify?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=signup&amp;redirect_to=https%3A%2F%2Fapp.example.test%2F" style="display:block;box-sizing:border-box;width:100%;min-height:48px;padding:12px 16px;border-radius:8px;background:#172b26;color:#ffffff;font-size:16px;line-height:24px;font-weight:700;text-decoration:none;text-align:center">Confirmar mi cuenta</a><!--<![endif]-->
-</td></tr></table><p class="fallback" style="margin:0 0 20px;padding:16px;background:#eef0ed;color:#172b26;border-radius:8px;font-size:14px;line-height:21px;overflow-wrap:anywhere;word-break:break-all"><a class="fallback" href="https://app.example.test/auth/v1/verify?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=signup&amp;redirect_to=https%3A%2F%2Fapp.example.test%2F" style="color:#172b26;text-decoration:underline;overflow-wrap:anywhere;word-break:break-all">https://app.example.test/auth/v1/verify?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=signup&amp;redirect_to=https%3A%2F%2Fapp.example.test%2F</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Si no fuiste tú, ignora este correo.</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">Tu código de Cuadrao</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola,</p><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Escribe este código en Cuadrao para confirmar tu cuenta:</p><p class="code" style="margin:0 0 20px;padding:20px 12px;border-radius:8px;background:#e7f2df;color:#172b26;font-size:32px;line-height:40px;font-weight:700;letter-spacing:4px;text-align:center;white-space:nowrap">123456</p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">El código vence en 1 hora y solo se puede usar una vez.</p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Lo pediste para old@example.test. Si no fuiste tú, ignora este correo.</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "subject": "123456 es tu código de Cuadrao",
   "text": 
@@ -26,18 +23,13 @@ exports[`approved HTML and plain text signup 0 1`] = `
 
 Hola,
 
-Usa este código para confirmar tu cuenta de Cuadrao:
+Escribe este código en Cuadrao para confirmar tu cuenta:
 
 123456
 
-El código y el enlace vencen en 1 hora y solo se pueden usar una vez.
+El código vence en 1 hora y solo se puede usar una vez.
 
-También puedes confirmarla desde este enlace:
-
-Confirmar mi cuenta
-https://app.example.test/auth/v1/verify?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&type=signup&redirect_to=https%3A%2F%2Fapp.example.test%2F
-
-Si no fuiste tú, ignora este correo.
+Lo pediste para old@example.test. Si no fuiste tú, ignora este correo.
 
 Saludos,
 Cuadrao
@@ -61,13 +53,10 @@ exports[`approved HTML and plain text magiclink 1 1`] = `
     .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
   }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
   </style></head>
-<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><div class="preheader" style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:transparent">Úsalo para entrar a tu cuenta. Vence en 1 hora.</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><div class="preheader" style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:transparent">Escríbelo en Cuadrao para entrar. Vence en 1 hora.</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
 <img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
-</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">Tu código para entrar</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola,</p><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Usa este código para entrar a Cuadrao:</p><p class="code" style="margin:0 0 20px;padding:20px 12px;border-radius:8px;background:#e7f2df;color:#172b26;font-size:32px;line-height:40px;font-weight:700;letter-spacing:4px;text-align:center;white-space:nowrap">123456</p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">El código y el enlace vencen en 1 hora y solo se pueden usar una vez.</p><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">También puedes entrar desde este enlace:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 20px">
-<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://app.example.test/auth/v1/verify?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=magiclink&amp;redirect_to=https%3A%2F%2Fapp.example.test%2F" style="height:48px;v-text-anchor:middle;width:496px" arcsize="16%" stroke="f" fillcolor="#172b26"><w:anchorlock/><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:bold">Entrar a Cuadrao</center></v:roundrect><![endif]-->
-<!--[if !mso]><!--><a class="button" href="https://app.example.test/auth/v1/verify?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=magiclink&amp;redirect_to=https%3A%2F%2Fapp.example.test%2F" style="display:block;box-sizing:border-box;width:100%;min-height:48px;padding:12px 16px;border-radius:8px;background:#172b26;color:#ffffff;font-size:16px;line-height:24px;font-weight:700;text-decoration:none;text-align:center">Entrar a Cuadrao</a><!--<![endif]-->
-</td></tr></table><p class="fallback" style="margin:0 0 20px;padding:16px;background:#eef0ed;color:#172b26;border-radius:8px;font-size:14px;line-height:21px;overflow-wrap:anywhere;word-break:break-all"><a class="fallback" href="https://app.example.test/auth/v1/verify?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=magiclink&amp;redirect_to=https%3A%2F%2Fapp.example.test%2F" style="color:#172b26;text-decoration:underline;overflow-wrap:anywhere;word-break:break-all">https://app.example.test/auth/v1/verify?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=magiclink&amp;redirect_to=https%3A%2F%2Fapp.example.test%2F</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Si no fuiste tú, ignora este correo.</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">Tu código para entrar</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola,</p><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Escribe este código en Cuadrao para entrar:</p><p class="code" style="margin:0 0 20px;padding:20px 12px;border-radius:8px;background:#e7f2df;color:#172b26;font-size:32px;line-height:40px;font-weight:700;letter-spacing:4px;text-align:center;white-space:nowrap">123456</p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">El código vence en 1 hora y solo se puede usar una vez.</p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Lo pediste para old@example.test. Si no fuiste tú, ignora este correo. Nadie puede entrar sin este código.</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
 ,
   "subject": "123456 es tu código para entrar a Cuadrao",
   "text": 
@@ -75,18 +64,13 @@ exports[`approved HTML and plain text magiclink 1 1`] = `
 
 Hola,
 
-Usa este código para entrar a Cuadrao:
+Escribe este código en Cuadrao para entrar:
 
 123456
 
-El código y el enlace vencen en 1 hora y solo se pueden usar una vez.
+El código vence en 1 hora y solo se puede usar una vez.
 
-También puedes entrar desde este enlace:
-
-Entrar a Cuadrao
-https://app.example.test/auth/v1/verify?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&type=magiclink&redirect_to=https%3A%2F%2Fapp.example.test%2F
-
-Si no fuiste tú, ignora este correo.
+Lo pediste para old@example.test. Si no fuiste tú, ignora este correo. Nadie puede entrar sin este código.
 
 Saludos,
 Cuadrao
@@ -143,7 +127,52 @@ Cuadrao LLC"
 }
 `;
 
-exports[`approved HTML and plain text email_change 3 1`] = `
+exports[`approved HTML and plain text invite 3 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Te invitaron a Cuadrao</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><div class="preheader" style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:transparent">Te invitaron a usar Cuadrao. El enlace vence en 1 hora.</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">Te invitaron a Cuadrao</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola,</p><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Te invitaron a usar Cuadrao.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 20px">
+<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://app.example.test/auth/confirm?token_hash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=invite&amp;next=%2F" style="height:48px;v-text-anchor:middle;width:496px" arcsize="16%" stroke="f" fillcolor="#172b26"><w:anchorlock/><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:bold">Acepta aquí</center></v:roundrect><![endif]-->
+<!--[if !mso]><!--><a class="button" href="https://app.example.test/auth/confirm?token_hash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=invite&amp;next=%2F" style="display:block;box-sizing:border-box;width:100%;min-height:48px;padding:12px 16px;border-radius:8px;background:#172b26;color:#ffffff;font-size:16px;line-height:24px;font-weight:700;text-decoration:none;text-align:center">Acepta aquí</a><!--<![endif]-->
+</td></tr></table><p class="fallback" style="margin:0 0 20px;padding:16px;background:#eef0ed;color:#172b26;border-radius:8px;font-size:14px;line-height:21px;overflow-wrap:anywhere;word-break:break-all"><a class="fallback" href="https://app.example.test/auth/confirm?token_hash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=invite&amp;next=%2F" style="color:#172b26;text-decoration:underline;overflow-wrap:anywhere;word-break:break-all">https://app.example.test/auth/confirm?token_hash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&amp;type=invite&amp;next=%2F</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">El enlace vence en 1 hora y solo se puede usar una vez.</p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Si no fuiste tú, ignora este correo.</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "subject": "Te invitaron a Cuadrao",
+  "text": 
+"Te invitaron a Cuadrao
+
+Hola,
+
+Te invitaron a usar Cuadrao.
+
+Acepta aquí
+https://app.example.test/auth/confirm?token_hash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&type=invite&next=%2F
+
+El enlace vence en 1 hora y solo se puede usar una vez.
+
+Si no fuiste tú, ignora este correo.
+
+Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;
+
+exports[`approved HTML and plain text email_change 4 1`] = `
 {
   "html": 
 "<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cambio de correo en tu cuenta</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
@@ -190,7 +219,7 @@ Cuadrao LLC"
 }
 `;
 
-exports[`approved HTML and plain text email_change 4 1`] = `
+exports[`approved HTML and plain text email_change 5 1`] = `
 {
   "html": 
 "<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Confirma tu nuevo correo</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
@@ -235,7 +264,7 @@ Cuadrao LLC"
 }
 `;
 
-exports[`approved HTML and plain text reauthentication 5 1`] = `
+exports[`approved HTML and plain text reauthentication 6 1`] = `
 {
   "html": 
 "<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Tu código de verificación</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
@@ -276,7 +305,7 @@ Cuadrao LLC"
 }
 `;
 
-exports[`approved HTML and plain text password_changed_notification 6 1`] = `
+exports[`approved HTML and plain text password_changed_notification 7 1`] = `
 {
   "html": 
 "<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Tu contraseña cambió</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
@@ -317,7 +346,7 @@ Cuadrao LLC"
 }
 `;
 
-exports[`approved HTML and plain text email_changed_notification 7 1`] = `
+exports[`approved HTML and plain text email_changed_notification 8 1`] = `
 {
   "html": 
 "<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Tu correo cambió</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
