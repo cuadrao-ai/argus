@@ -75,24 +75,22 @@ export type AuthConfirmVerifier = (
 ) => Promise<{ error: unknown }>;
 
 export async function confirmAuthGet(request: Request, verify: AuthConfirmVerifier): Promise<Response> {
-  const requestUrl = new URL(request.url);
-  const decision = resolveAuthConfirm(requestUrl);
-  const failure = new URL("/auth/confirm/error", requestUrl.origin);
-  if (!decision.ok) return redirect(failure);
+  const decision = resolveAuthConfirm(new URL(request.url));
+  if (!decision.ok) return redirect("/auth/confirm/error");
   try {
     const result = await verify({ token_hash: decision.tokenHash, type: decision.type });
-    if (result.error) return redirect(failure);
+    if (result.error) return redirect("/auth/confirm/error");
   } catch {
-    return redirect(failure);
+    return redirect("/auth/confirm/error");
   }
-  return redirect(new URL(decision.next, requestUrl.origin));
+  return redirect(decision.next);
 }
 
-function redirect(location: URL): Response {
+function redirect(path: string): Response {
   return new Response(null, {
     status: 303,
     headers: {
-      Location: location.toString(),
+      Location: path,
       "Cache-Control": "no-store",
     },
   });
