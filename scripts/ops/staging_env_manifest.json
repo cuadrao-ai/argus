@@ -313,10 +313,6 @@
         {
           "name": "CUADRAO_EMAIL_ASSET_ORIGIN",
           "reason": "Optional HTTPS origin for shared email images. Preserve current value; do not inject during this build."
-        },
-        {
-          "name": "MARKETING_POSTAL_ADDRESS",
-          "reason": "Postal line in account email footers. Set in the dashboard. Do not inject an address."
         }
       ],
       "distinct": []

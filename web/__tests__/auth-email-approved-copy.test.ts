@@ -39,6 +39,18 @@ for (const [index, mail] of [...signin, ...security].entries()) {
   });
 }
 
+test("account templates render Cuadrao LLC and no postal address when the env is unset", async () => {
+  delete process.env.MARKETING_POSTAL_ADDRESS;
+  for (const mail of [...signin, ...security]) {
+    const rendered = await renderAuthMail(mail, "https://auth.example.test", 3600, sentAt);
+    expect(rendered.html).toContain(">Cuadrao LLC</p>");
+    expect(rendered.text).toContain("\n\nCuadrao LLC");
+    expect(rendered.html).not.toContain("Cuadrao LLC,");
+    expect(rendered.text).not.toContain("Cuadrao LLC,");
+    expect(rendered.html).not.toContain("Salir de la lista");
+  }
+});
+
 test("local 60-second configuration produces truthful expiry in all sign-in mail", async () => {
   for (const mail of signin) {
     const rendered = await renderAuthMail(mail, "https://app.example.test", 60, sentAt);
