@@ -63,6 +63,16 @@ section
   from this promotion. The job writes staging, not production. See
   [DGII RNC schedule](../PRIVATE_LAUNCH_RUNBOOK.md#dgii-rnc-schedule).
 
+  1. Confirm `.github/workflows/dgii-rnc-import.yml` is on `main` after
+     promotion. The daily schedule does not run until that file is on `main`.
+  2. The first production load needs Lucas's explicit yes at promotion time,
+     and the size-gate check. The size gate reads `pg_database_size` before
+     truncate. It refuses the load when that size plus the required headroom
+     exceeds the limit. Headroom is the larger of the live `public.dgii_rnc`
+     size and a 200 MB floor. The default limit is 450 MB.
+  3. Confirm the first scheduled run of `.github/workflows/dgii-rnc-import.yml`
+     on `main` succeeds.
+
 This file remains the historical preparation checklist for eval identity,
 local rehearsal, and spending records.
 

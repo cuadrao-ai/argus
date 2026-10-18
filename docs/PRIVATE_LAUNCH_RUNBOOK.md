@@ -389,6 +389,12 @@ Staging currently sends interim templates that use `{{ .ConfirmationURL }}`. Aft
 
 The daily RNC load is `.github/workflows/dgii-rnc-import.yml` in PR #1257. GitHub runs that schedule only from the default branch, `main`. Merging the file onto `codex/private-alpha-next` does not start it. Once the file is on `main`, the schedule runs at 07:00 UTC. The load stays off until the repository variable `DGII_RNC_LOAD_ENABLED` is the string `true` and the repository secret `SUPABASE_STAGING_DB_URL` is set. This promotion sets neither. The job writes the staging registry. Do not point it at the production database.
 
+After promotion, confirm these steps.
+
+1. Confirm `.github/workflows/dgii-rnc-import.yml` is on `main`. The daily schedule does not run until that file is on `main`.
+2. The first production load needs Lucas's explicit yes at promotion time, and the size-gate check. The size gate reads `pg_database_size` before truncate. It refuses the load when that size plus the required headroom exceeds the limit. Headroom is the larger of the live `public.dgii_rnc` size and a 200 MB floor. The default limit is 450 MB.
+3. Confirm the first scheduled run of `.github/workflows/dgii-rnc-import.yml` on `main` succeeds.
+
 ### 5. Deploy order
 
 After the landed gate reports `status=pass` and the env readbacks above match the founder choices:
