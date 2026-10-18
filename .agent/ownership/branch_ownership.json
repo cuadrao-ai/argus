@@ -2453,6 +2453,27 @@
         "render.yaml"
       ]
     },
+    "codex/receipt-export-download-20261017": {
+      "description": "Restore the approved Business period ZIP download on Gastos with current Business access and cancellation. No backend, model, environment, marketing or sidebar changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/components/business-app/BusinessExpensesPanel.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/lib/business-api.ts",
+        "web/__tests__/business-export-download.dom.test.tsx",
+        "web/__tests__/business-dossier.test.ts",
+        "docs/reports/evidence/business-export-download-20261017/**"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "src/**",
+        "supabase/**",
+        "marketing/**",
+        "ios/**"
+      ]
+    },
     "codex/receipts-upload-fix": {
       "description": "Receipt upload HTTP boundary regression, safe inline retry and file rejection, server-derived format labels and consent spacing. No provider, hosted, migration or iOS changes.",
       "base_ref": "origin/codex/private-alpha-next",
