@@ -7,7 +7,8 @@ import type { BusinessExpenseDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { expensePanel } from "./business-expense-target";
 import { formatDay, formatMoney, formatTimestamp } from "./business-format";
-import { cardClass, LoadingRows, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
+import { cardClass, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
+import { Settle } from "./business-skeletons";
 
 /**
  * One saved expense opened by its id (a direct ?expense= link). It resolves
@@ -61,7 +62,7 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
         {t("business.nav.expenses", "Expenses")}
       </button>
       {state.status !== "ready" ? <h2 id="expense-detail-title" className="sr-only">{title}</h2> : null}
-      {state.status === "loading" ? <LoadingRows /> : null}
+      {state.status === "loading" ? <Settle pending layout="rows" /> : null}
       {state.status === "failed" ? (
         <div role="alert" className="space-y-3">
           <p className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.expenses.detail_error", "We couldn't open this expense. Try again.")}</p>
