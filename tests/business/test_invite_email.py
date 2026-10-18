@@ -11,6 +11,16 @@ from argus.domain.business.invite_email import (
     spanish_expiry_date,
 )
 
+POSTAL_ADDRESS = (
+    "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU."
+)
+
+
+@pytest.fixture(autouse=True)
+def postal_config(monkeypatch):
+    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", POSTAL_ADDRESS)
+
+
 EXPIRY = datetime(2026, 10, 25, 3, tzinfo=timezone.utc)
 
 
@@ -145,3 +155,26 @@ def test_missing_transport_configuration_is_an_error(monkeypatch):
             business_name="Colmado",
             sign_in_origin="https://app.example.test",
         )
+
+
+@pytest.mark.parametrize(
+    "address",
+    ["", "  ", "Cuadrao LLC", "Cuadrao LLC, ", "Street\nBcc: person@example.test"],
+)
+def test_postal_address_is_required_without_a_company_only_fallback(address, monkeypatch):
+    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", address)
+    with pytest.raises(ValueError, match="postal address configuration"):
+        render()
+
+
+@pytest.mark.parametrize("prefix", ["", "Cuadrao LLC, "])
+def test_postal_address_escapes_once_and_keeps_token_looking_values_literal(prefix):
+    address = 'Street <Suite> & "Unit" __CUADRAO_OWNER_NAME__'
+    mail = render(postal_address=prefix + address)
+    assert (
+        "Cuadrao LLC, Street &lt;Suite&gt; &amp; &quot;Unit&quot; __CUADRAO_OWNER_NAME__"
+        in mail.html
+    )
+    assert "Cuadrao LLC, " + address in mail.text
+    assert "Cuadrao LLC, Cuadrao LLC" not in mail.text
+    assert "Salir de la lista" not in mail.html + mail.text

@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import { test } from "bun:test";
 import { renderBusinessInviteEmail } from "../../marketing/lib/email/business-invite";
 
+import { installEmailFixture } from "./helpers/email-fixture";
+
+installEmailFixture();
+
 const data = { ownerName: "Lucía", businessName: "Colmado", expiresDate: "24 de octubre de 2026", signInUrl: "https://app.example.test/" };
 test("invite HTML and plain text match the canonical Python artifact snapshots", () => {
   const result = renderBusinessInviteEmail(data);

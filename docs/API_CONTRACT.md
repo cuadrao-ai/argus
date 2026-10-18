@@ -9453,6 +9453,9 @@ person starts their space, every route below except POST `/space` answers 404
     token. Its button opens ordinary sign-in/sign-up. Email delivery is
     `not_configured` until `CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED=true` and the
     existing `CUADRAO_APP_ORIGIN` (legacy `ARGUS_APP_ORIGIN`) are configured.
+    The renderer also requires the existing `MARKETING_POSTAL_ADDRESS`; missing
+    or invalid address configuration fails delivery and preserves the invite for
+    explicit resend. Account mail has no unsubscribe link.
     This build leaves activation off. The sender is
     `Cuadrao <no-responder@mail.cuadrao.ai>` with Reply-To `hola@cuadrao.ai`.
     A configured send reports `accepted` or `failed` in `invite_delivery`;
