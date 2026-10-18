@@ -59,6 +59,7 @@ test("auth and security mail render with the postal address unset and unsubscrib
     "signup",
     "magiclink",
     "recovery",
+    "invite",
     "email_change",
     "reauthentication",
     "password_changed_notification",
