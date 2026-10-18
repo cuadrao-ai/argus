@@ -130,22 +130,30 @@ test("an XML e-invoice is offered by the picker and typed from its extension whe
   expect(receiptFileWithType(file("factura.xml", ""), withoutXml).type).toBe("");
 });
 
-test("a file picked twice is listed once, and adding during a save is refused and reported", async () => {
-  let finish!: (receipt: ReceiptSummary) => void;
-  const queue = new ReceiptUploadQueue(() => new Promise((resolve) => { finish = resolve; }), () => undefined);
+test("a file picked twice is listed once, and a file added during a save joins the tail", async () => {
+  const pending: Array<(receipt: ReceiptSummary) => void> = [];
+  const queue = new ReceiptUploadQueue(() => new Promise((resolve) => { pending.push(resolve); }), () => undefined);
   const twice = file("recibo.txt");
   expect(queue.add([twice, twice, file("otro.txt")], limits, "inbox")).toBe(true);
   expect(queue.add([new File(["receipt"], "recibo.txt", { type: "text/plain", lastModified: twice.lastModified })], limits, "inbox")).toBe(true);
   expect(queue.snapshot().map((item) => item.file.name)).toEqual(["recibo.txt", "otro.txt"]);
   const running = queue.save("inbox", false);
-  expect(queue.add([file("tarde.txt")], limits, "inbox")).toBe(false);
-  expect(queue.snapshot()).toHaveLength(2);
-  finish(savedReceipt("one"));
-  await Promise.resolve();
-  finish(savedReceipt("two"));
-  await running;
   expect(queue.add([file("tarde.txt")], limits, "inbox")).toBe(true);
-  expect(queue.snapshot()).toHaveLength(3);
+  expect(queue.snapshot().map((item) => [item.file.name, item.status])).toEqual([
+    ["recibo.txt", "uploading"],
+    ["otro.txt", "queued"],
+    ["tarde.txt", "queued"],
+  ]);
+  const release = async (index: number, id: string) => {
+    for (let turn = 0; pending.length <= index && turn < 20; turn += 1) await Promise.resolve();
+    pending[index](savedReceipt(id));
+    await Promise.resolve();
+  };
+  await release(0, "one");
+  await release(1, "two");
+  await release(2, "three");
+  await running;
+  expect(queue.snapshot().map((item) => item.status)).toEqual(["saved", "saved", "saved"]);
 });
 
 test("closing forgets saved and rejected rows and keeps unfinished ones", async () => {
