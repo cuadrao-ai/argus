@@ -60,8 +60,8 @@ class PostgresBusinessLifecycle:
         with self._pool.connection() as connection:
             rows = connection.execute(
                 "select s.id::text,s.name,s.closed_at from public.spaces s"
-                " join auth.users u on u.id=s.created_by"
-                " where s.created_by=%s and s.kind='business'"
+                " join auth.users u on u.id=s.current_owner_id"
+                " where s.current_owner_id=%s and s.kind='business'"
                 " and s.closed_at>clock_timestamp()-%s"
                 " and coalesce(u.is_anonymous,false)=false"
                 " order by s.closed_at desc,s.id",
@@ -83,13 +83,13 @@ class PostgresBusinessLifecycle:
         with self._pool.connection() as connection, connection.transaction():
             name, closed_at = self._owned_space(connection, owner_id, space_id)
             previous = connection.execute(
-                "select action,confirmation,result_closed_at,result_name"
+                "select action,confirmation,result_closed_at,result_name,owner_id::text"
                 " from public.business_lifecycle_commands"
                 " where space_id=%s and idempotency_key=%s",
                 (space_id, idempotency_key),
             ).fetchone()
             if previous is not None:
-                if previous[:2] != (action, confirmation):
+                if previous[:2] != (action, confirmation) or previous[4] != owner_id:
                     raise BusinessLifecycleError("idempotency_conflict")
                 return LifecycleResult(space_id, previous[3], previous[2])
             now = connection.execute("select clock_timestamp()").fetchone()[0]
@@ -101,12 +101,18 @@ class PostgresBusinessLifecycle:
                 if closed_at is not None and now >= closed_at + REOPEN_WINDOW:
                     raise BusinessLifecycleError("business_reopen_expired")
                 if connection.execute(
-                    "select 1 from public.spaces where created_by=%s and id<>%s"
+                    "select 1 from public.spaces where current_owner_id=%s and id<>%s"
                     " and kind='business' and closed_at is null",
                     (owner_id, space_id),
                 ).fetchone():
                     raise BusinessLifecycleError("business_already_open")
                 closed_at = None
+            if action == "close":
+                connection.execute(
+                    "update public.business_ownership_transfers set status='cancelled',resolved_at=clock_timestamp()"
+                    " where space_id=%s and status='pending'",
+                    (space_id,),
+                )
             connection.execute(
                 "update public.spaces set closed_at=%s where id=%s",
                 (closed_at, space_id),
@@ -137,7 +143,7 @@ class PostgresBusinessLifecycle:
             raise BusinessLifecycleError("business_record_not_found")
         row = connection.execute(
             "select name,closed_at from public.spaces"
-            " where id=%s and created_by=%s and kind='business' for update",
+            " where id=%s and current_owner_id=%s and kind='business' for update",
             (space_id, owner_id),
         ).fetchone()
         if (

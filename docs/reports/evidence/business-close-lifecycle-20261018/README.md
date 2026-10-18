@@ -218,3 +218,55 @@ instead of independent loading/error flags. The Type System Discipline principle
 led to parsing server responses through Zod before the caller receives them.
 The requested no-subagents scope keeps independent review with root. This writer
 does not claim its own diff review as independent acceptance.
+
+## Current owner and transfer domain checkpoint
+
+This WIP separates the current owner from record custody. The current owner is
+`spaces.current_owner_id`. `created_by` and existing financial `user_id` remain
+custody. The new transfer service is not mounted. The lifecycle router readiness
+denial and global account-deletion flag remain unchanged.
+
+A request names an existing live Editar grant and the exact current name.
+Acceptance checks its actual recipient, live registered account, ban/deletion
+state, current grant and one-open-Business limit under locks. It promotes the
+recipient, leaves the former owner Editar and reassigns operational grant and
+invite issuer authority. It retains historical action receipts. Cancellation,
+duplicate acceptance, close cancellation and terminal replay are explicit states.
+No transfer email is sent. Existing receipt consent is revoked and the recipient
+must supply a new generation as their actual actor. The only receipt edits are
+the five methods in the coordinator's narrow exception and their new SQL guards.
+Extraction, review implementation and export implementation are unchanged.
+
+The data model uses Model the Domain to separate owner, custodian and actor.
+Make Operations Idempotent led to stored pending and terminal transfer commands.
+Test Behavior, Not Implementation led to checks of saved grants, receipt source
+hashes and actual review calls. The real local Postgres proof includes new owner
+read/review, former owner Editar review, former owner approval refusal and
+nonmember receipt refusal. These are synthetic local tests, not hosted proof.
+
+The Supabase CLI generated a migration timestamp earlier than the already
+committed close migration's future timestamp. The new generated file was moved
+to `20261018080001` so fresh application follows its lifecycle dependency.
+Only the lane-owned disposable database at port 59432 was changed. Its
+schema-only baseline omitted the receipt activity singleton. Restoring that
+migration-owned synthetic row let the existing receipt regressions run.
+Fetched integration remains `651870a54be4e5506dbb38f3902fef1a97eef8df`.
+
+The close button now reuses `dangerConfirmButtonClass`. The focused DOM test
+calculates contrast from the rendered light/dark class colors and requires at
+least 4.5:1 in both modes. The approved Spanish text is unchanged. Existing
+screenshots predate this style fix and are not claimed as evidence for it.
+
+Full graph custody movement, actor anonymization on deletion, verified object
+copies, closed-owner detachment, day-30 purge, chat custody access, member email,
+mounted UI/routes and the coordinator's independent final-head reviews remain
+pending. This checkpoint does not make transfer usable end to end or make
+account deletion safe for retained Business graphs.
+
+The final focused run for this checkpoint passed 144 Python cases with zero
+skips in 5.09 seconds on Python 3.10.20. Seven Bun transport/dialog cases pass,
+including the contrast test. Ruff, diff whitespace and the modularity budget
+pass locally. The 144-case run includes fourteen new transfer cases and the
+existing lifecycle, access, receipt preparation/activity, export, WhatsApp,
+reading-setting and route regressions. It does not test full account deletion,
+object copies, hosted behavior or the absent mounted transfer UI.

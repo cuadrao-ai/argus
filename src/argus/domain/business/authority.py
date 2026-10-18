@@ -29,6 +29,11 @@ class ActionContext:
     grant_id: UUID
     owner_id: str
     space_name: str
+    current_owner_id: str
+
+    @property
+    def is_current_owner(self) -> bool:
+        return str(self.actor.actor_id) == self.current_owner_id
 
     @property
     def scope(self) -> BusinessSpace:
@@ -58,7 +63,7 @@ def authorize(
     with connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute(
             """select g.id, g.issuer_id, g.capabilities,
-                s.created_by::text as owner_id, s.name,
+                s.created_by::text as owner_id, s.current_owner_id::text, s.name,
                 p.display_name as actor_name, p.username as actor_username,
                 i.display_name as issuer_name, i.username as issuer_username
             from public.business_client_grants g
@@ -92,11 +97,13 @@ def authorize(
     capabilities = frozenset(row["capabilities"])
     if actor.actor_kind != "member":
         capabilities &= {"read", "prepare"}
-    if str(actor.actor_id) != row["owner_id"]:
+    if str(actor.actor_id) != row["current_owner_id"]:
         # Approval is the owner's alone, whatever a grant row says.
         capabilities -= {"approve"}
     return Authorization(
-        context=ActionContext(actor, row["id"], row["owner_id"], row["name"]),
+        context=ActionContext(
+            actor, row["id"], row["owner_id"], row["name"], row["current_owner_id"]
+        ),
         provenance=ActorProvenance(
             actor_id=actor.actor_id,
             actor_kind=actor.actor_kind,

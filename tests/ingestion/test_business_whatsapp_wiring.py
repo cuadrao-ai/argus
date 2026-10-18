@@ -79,7 +79,7 @@ async def test_adapter_runs_real_graph_with_capture_guard_at_each_http_attempt(
     now = datetime.now(timezone.utc)
     actor = TrustedActor(actor_id=uuid4(), actor_kind="owner_via_agent", space_id=uuid4())
     authorization = ActionContext(
-        actor, uuid4(), str(actor.actor_id), "Synthetic Business"
+        actor, uuid4(), str(actor.actor_id), "Synthetic Business", str(actor.actor_id)
     )
     keys = WhatsAppKeys("synthetic-key")
     message = TextMessage("wamid.synthetic-assembled", ALICE_PHONE, now, "Original  text")

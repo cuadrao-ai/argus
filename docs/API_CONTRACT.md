@@ -9868,3 +9868,17 @@ its caller. Its bundled Spanish copy is the exact approved checkpoint copy.
 Mounting, English approval, the command journal, export-control binding, member
 notification and a reopen UI remain unfinished. No receipt or export behavior
 is changed by this checkpoint.
+
+#### Business current ownership and transfer, draft October 18, 2026
+
+This unmounted domain slice separates current owner authority from record custody.
+`spaces.current_owner_id` owns the former. Existing financial `user_id` and
+`spaces.created_by` keep custody. A transfer requests an existing live Editar
+member and exact current name. It changes no authority until that same member
+accepts. Acceptance serializes with close, checks the current owner and live
+member again, promotes the recipient and leaves the former owner with read and
+prepare. The owner may cancel a pending request. No transfer email is sent.
+Receipt reading requires the current owner's own consent generation after
+transfer. Historical consent never becomes the recipient's consent.
+Full account-deletion custody retention, purge, mounted routes and UI remain
+unavailable until their separate acceptance evidence is complete.

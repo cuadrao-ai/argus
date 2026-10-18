@@ -631,9 +631,11 @@ class BusinessActions:
 
         if context.actor.actor_kind != "member":
             raise ActionError("permission_denied", "business_human_command_required")
-        if str(context.actor.actor_id) != context.owner_id:
+        if not context.is_current_owner:
             raise ActionError("permission_denied", "business_owner_required")
         with transaction(self.authority, context, "prepare") as tx:
+            if not tx.context.is_current_owner:
+                raise ActionError("permission_denied", "business_owner_required")
             row = self._attachment_row(tx, connection_id)
             if row["preparation_binding"] is None:
                 raise ActionError("invalid_input", "business_preparation_binding_missing")
@@ -736,7 +738,7 @@ class BusinessActions:
                 (
                     draft.business_reading_consent_id,
                     tx.context.actor.space_id,
-                    tx.context.owner_id,
+                    tx.context.current_owner_id,
                 ),
             )
             from argus.domain.ingestion.whatsapp.receipt_consent import (

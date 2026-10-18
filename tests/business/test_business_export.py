@@ -313,7 +313,7 @@ def export_client(monkeypatch):
             return resolved
 
     class Spaces:
-        value = Space(str(space_id), "Synthetic Business")
+        value = Space(str(space_id), "Synthetic Business", str(actor_id))
 
         def open_space(self, person):
             calls.append(("space", person))

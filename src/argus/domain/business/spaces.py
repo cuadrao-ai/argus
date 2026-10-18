@@ -26,6 +26,7 @@ MAX_NAME_LENGTH = 80
 class Space:
     id: str
     name: str
+    custodian_id: str
 
 
 def default_space_name(language: str | None) -> str:
@@ -58,7 +59,7 @@ class PostgresSpaceStore:
     def open_space(self, person_id: str) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                "select id::text, name from public.spaces"
+                "select id::text, name, created_by::text from public.spaces"
                 " where id = public.business_space_of(%s)",
                 (person_id,),
             ).fetchone()
@@ -67,7 +68,7 @@ class PostgresSpaceStore:
     def get(self, space_id: str) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                "select id::text, name from public.spaces"
+                "select id::text, name, created_by::text from public.spaces"
                 " where id = %s and kind = 'business' and closed_at is null",
                 (space_id,),
             ).fetchone()
@@ -76,11 +77,11 @@ class PostgresSpaceStore:
     def create(self, person_id: str, name: str) -> tuple[Space, bool]:
         with self._pool.connection() as connection, connection.transaction():
             created = connection.execute(
-                "insert into public.spaces (kind, name, created_by)"
-                " values ('business', %s, %s)"
-                " on conflict (created_by) where kind = 'business' and closed_at is null"
-                " do nothing returning id::text, name",
-                (name, person_id),
+                "insert into public.spaces (kind, name, created_by, current_owner_id)"
+                " values ('business', %s, %s, %s)"
+                " on conflict (current_owner_id) where kind = 'business' and closed_at is null"
+                " do nothing returning id::text, name, created_by::text",
+                (name, person_id, person_id),
             ).fetchone()
             if created is not None:
                 # The owner's grant is born with the space, in the same transaction.
@@ -96,7 +97,7 @@ class PostgresSpaceStore:
         with self._pool.connection() as connection:
             row = connection.execute(
                 "update public.spaces set name = %s"
-                " where id = public.business_space_of(%s) returning id::text, name",
+                " where id = public.business_space_of(%s) returning id::text, name, created_by::text",
                 (name, person_id),
             ).fetchone()
         return Space(*row) if row else None
@@ -120,7 +121,7 @@ class InMemorySpaceStore:
             existing = self._spaces.get(person_id)
             if existing is not None:
                 return existing, False
-            space = Space(str(uuid.uuid4()), name)
+            space = Space(str(uuid.uuid4()), name, person_id)
             self._spaces[person_id] = space
             return space, True
 
@@ -128,6 +129,6 @@ class InMemorySpaceStore:
         with self._lock:
             if person_id not in self._spaces:
                 return None
-            space = Space(self._spaces[person_id].id, name)
+            space = Space(self._spaces[person_id].id, name, person_id)
             self._spaces[person_id] = space
             return space

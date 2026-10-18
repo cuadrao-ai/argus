@@ -30,6 +30,10 @@ class BusinessScope:
     role: Role = "owner"
 
     @property
+    def acting_person_id(self) -> str:
+        return self.person_id if self.actor_id is None else self.actor_id
+
+    @property
     def acting_as_owner(self) -> bool:
         return self.role == "owner"
 
@@ -44,4 +48,6 @@ def resolve_business_scope(spaces: SpaceStore, person_id: str) -> BusinessScope 
     space = spaces.open_space(person_id)
     if space is None:
         return None
-    return BusinessScope(person_id=person_id, owner=BusinessSpace(space.id))
+    return BusinessScope(
+        person_id=space.custodian_id, owner=BusinessSpace(space.id), actor_id=person_id
+    )

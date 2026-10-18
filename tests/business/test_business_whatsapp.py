@@ -78,7 +78,7 @@ def test_scope_is_the_persons_own_space_once_started() -> None:
     assert resolve_business_scope(spaces, "person-1") is None
     space, _ = spaces.create("person-1", "Mi negocio")
     assert resolve_business_scope(spaces, "person-1") == BusinessScope(
-        "person-1", BusinessSpace(space.id)
+        "person-1", BusinessSpace(space.id), actor_id="person-1"
     )
     assert resolve_business_scope(spaces, "person-2") is None
 

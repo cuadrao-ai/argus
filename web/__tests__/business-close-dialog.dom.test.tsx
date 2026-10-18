@@ -68,3 +68,22 @@ test("submitting blocks repeated close and cancellation while errors preserve th
     assert.equal(view.button(businessCloseCopyEs.close).disabled, false);
   } finally { await view.close(); }
 });
+
+
+test("close uses readable destructive colors in light and dark modes", async () => {
+  const view = await mount();
+  const luminance = (hex: string) => {
+    const rgb = hex.match(/../g)!.map((part) => parseInt(part, 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+  };
+  try {
+    await view.enter("Taller Luna");
+    const classes = view.button(businessCloseCopyEs.close).className;
+    const light = classes.match(/(?:^| )bg-\[#([0-9a-f]{6})\]/);
+    const dark = classes.match(/dark:bg-\[#([0-9a-f]{6})\]/);
+    assert.ok(light && dark);
+    assert.ok(classes.includes("text-white") && classes.includes("dark:text-black"));
+    assert.ok((1.05 / (luminance(light[1]) + 0.05)) >= 4.5);
+    assert.ok(((luminance(dark[1]) + 0.05) / 0.05) >= 4.5);
+  } finally { await view.close(); }
+});

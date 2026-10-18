@@ -67,16 +67,19 @@ class GrantedSpace:
 
     @property
     def role(self) -> str:
-        return "owner" if self.owner_id == self.grantee_id else "accountant"
+        return "owner" if self.current_owner_id == self.grantee_id else "accountant"
 
     grantee_id: str = ""
+    current_owner_id: str = ""
 
     def __post_init__(self) -> None:
         # What the grant lets this person do: approve is the owner's alone,
         # whatever a row says, so the listing never reports it for anyone else.
         if self.role != "owner" and "approve" in self.capabilities:
             object.__setattr__(
-                self, "capabilities", tuple(c for c in self.capabilities if c != "approve")
+                self,
+                "capabilities",
+                tuple(c for c in self.capabilities if c != "approve"),
             )
 
 
@@ -257,10 +260,10 @@ def ensure_owner_grant(
     _lock(connection, space_id)
     row = connection.execute(
         "insert into public.business_client_grants (space_id, grantee_id, issuer_id, capabilities)"
-        " select s.id, s.created_by, s.created_by, %s::text[] from public.spaces s"
-        " where s.id=%s and s.created_by=%s and s.kind='business' and s.closed_at is null"
+        " select s.id, s.current_owner_id, s.current_owner_id, %s::text[] from public.spaces s"
+        " where s.id=%s and s.current_owner_id=%s and s.kind='business' and s.closed_at is null"
         " and not exists (select 1 from public.business_client_grants g"
-        "   where g.space_id=s.id and g.grantee_id=s.created_by and g.revoked_at is null"
+        "   where g.space_id=s.id and g.grantee_id=s.current_owner_id and g.revoked_at is null"
         "   and (g.expires_at is null or g.expires_at > now()))"
         " returning id::text",
         (list(OWNER_CAPABILITIES), space_id, owner_id),
@@ -289,8 +292,8 @@ class PostgresAccessStore:
     def _owned(self, connection: Connection, space_id: str, owner_id: str) -> bool:
         return (
             connection.execute(
-                "select 1 from public.spaces where id=%s and created_by=%s"
-                " and kind='business' and closed_at is null",
+                "select 1 from public.spaces where id=%s and current_owner_id=%s"
+                " and kind='business' and closed_at is null for share",
                 (space_id, owner_id),
             ).fetchone()
             is not None
@@ -345,7 +348,7 @@ class PostgresAccessStore:
     # anonymous, and the issuer still holding owner access: an issuer whose own
     # owner grant was revoked, with no live one since, ends every grant they gave.
     _GRANTED = (
-        "select g.id::text, g.space_id::text, s.name, s.created_by::text, g.capabilities"
+        "select g.id::text, g.space_id::text, s.name, s.created_by::text, g.capabilities, s.current_owner_id::text"
         " from public.business_client_grants g join public.spaces s on s.id=g.space_id"
         " join auth.users u on u.id=g.grantee_id"
         " where g.grantee_id=%s and g.revoked_at is null"
@@ -367,12 +370,12 @@ class PostgresAccessStore:
         with self.pool.connection() as connection:
             rows = connection.execute(
                 self._GRANTED
-                + " order by (s.created_by=%s::uuid) desc, s.name, g.created_at",
+                + " order by (s.current_owner_id=%s::uuid) desc, s.name, g.created_at",
                 (person_id, person_id),
             ).fetchall()
         return tuple(
-            GrantedSpace(space, name, grant, owner, tuple(caps), person_id)
-            for grant, space, name, owner, caps in rows
+            GrantedSpace(space, name, grant, owner, tuple(caps), person_id, current_owner)
+            for grant, space, name, owner, caps, current_owner in rows
         )
 
     def granted(self, person_id: str, grant_id: str) -> GrantedSpace | None:
@@ -382,8 +385,10 @@ class PostgresAccessStore:
             ).fetchone()
         if row is None:
             return None
-        grant, space, name, owner, caps = row
-        return GrantedSpace(space, name, grant, owner, tuple(caps), person_id)
+        grant, space, name, owner, caps, current_owner = row
+        return GrantedSpace(
+            space, name, grant, owner, tuple(caps), person_id, current_owner
+        )
 
     def seen_grants(self, person_id: str) -> frozenset[str]:
         with self.pool.connection() as connection:
@@ -567,7 +572,7 @@ class PostgresAccessStore:
                     "select i.id::text, i.space_id::text, i.issuer_id::text, i.email"
                     " from public.business_access_invites i join public.spaces s on s.id=i.space_id"
                     " where i.email=%s and i.revoked_at is null and i.accepted_at is null and i.expires_at > now()"
-                    " and s.created_by=i.issuer_id and s.kind='business' and s.closed_at is null"
+                    " and s.current_owner_id=i.issuer_id and s.kind='business' and s.closed_at is null"
                     " order by i.created_at for update of i",
                     (person[0],),
                 ).fetchall()
@@ -684,6 +689,7 @@ class InMemoryAccessStore:
             grant["issuer_id"],
             tuple(grant["capabilities"]),
             grant["grantee_id"],
+            grant["issuer_id"],
         )
 
     def _issuer_live(self, grant: dict) -> bool:

@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, type ReactNode } from "react";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
-import { secondaryButtonClass } from "./business-ui";
+import { dangerConfirmButtonClass, secondaryButtonClass } from "./business-ui";
 
 export const businessCloseCopyEs = {
   title: "Cerrar este negocio",
@@ -51,7 +51,7 @@ export default function BusinessCloseDialog({ businessName, copy, state, exportC
       {state.kind === "error" ? <p role="alert" className="text-[14px] leading-relaxed text-black/75 dark:text-white/75">{state.message}</p> : null}
       <div className="flex flex-wrap justify-end gap-2">
         <button type="button" onClick={cancel} disabled={submitting} className={secondaryButtonClass}>{copy.cancel}</button>
-        <button type="submit" disabled={!matches || submitting} className="min-h-11 rounded-full bg-[#d66d75] px-5 py-2 text-[14px] font-medium text-white outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 disabled:opacity-40 dark:focus-visible:ring-white/30">{copy.close}</button>
+        <button type="submit" disabled={!matches || submitting} className={dangerConfirmButtonClass}>{copy.close}</button>
       </div>
     </form>
   </AdaptivePanel>;

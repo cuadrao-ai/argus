@@ -3695,3 +3695,31 @@ unchanged. RLS has no client policies or grants, and `service_role` has only
 SELECT and INSERT on the command table. A space deletion removes its history.
 No new retention exception, purge execution or owner-deletion behavior ships in
 this bounded domain slice.
+
+### Business current owner and transfer commands, draft October 18, 2026
+
+The forward migration `20261018080001_business_current_owner_transfer.sql`
+separates `spaces.current_owner_id`, the current person's authority, from
+`spaces.created_by`, the unchanged record custodian. The new owner column is
+backfilled, indexed, nullable only for a closed Business and references Auth
+with SET NULL. The one-open-Business unique index uses current ownership.
+The legacy financial composite custody keys are unchanged.
+
+`business_ownership_transfers` stores the Business lifetime key, original owner,
+target person and existing grant, exact-name confirmation, request key, pending
+or terminal state and timestamps. One Business has at most one pending transfer.
+The table has RLS, no client grants and only SELECT, INSERT and UPDATE for
+service_role. A trigger prevents command/history rewrites and terminal changes.
+Transfer actors deliberately have no Auth cascade. Their explicit anonymization
+is a remaining account-deletion requirement before this lane can be enabled.
+The lifecycle command owner is now historical actor provenance. Its FK names
+only the Business lifetime, so a new owner can close without rekeying old history.
+
+The model checklist covers both new persistence owners. Ownership and transfer
+commands are server-only. Current owner lookup and pending recipient queries
+have indexes. Replay and target acceptance are tested on actual Postgres.
+Financial values, record IDs, revisions, sources and object paths do not move on
+transfer. Historical consent stays attributed to its original person and is
+revoked. The current owner must consent separately. Private/client behavior,
+retention and account-deletion custody movement remain WIP, with global account
+deletion and lifecycle readiness still closed.

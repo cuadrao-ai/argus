@@ -353,8 +353,10 @@ def list_access(
 
     response.headers.update(NO_STORE)
     store = _access_store(request)
-    store.ensure_owner_grant(context.scope.owner.space_id, context.scope.person_id)
-    return _access(store.list(context.scope.owner.space_id, context.scope.person_id))
+    store.ensure_owner_grant(context.scope.owner.space_id, context.scope.acting_person_id)
+    return _access(
+        store.list(context.scope.owner.space_id, context.scope.acting_person_id)
+    )
 
 
 @router.post("/access", response_model=BusinessAccess, status_code=201)
@@ -372,7 +374,7 @@ def give_access(
 
     response.headers.update(NO_STORE)
     store = _access_store(request)
-    space_id, owner_id = context.scope.owner.space_id, context.scope.person_id
+    space_id, owner_id = context.scope.owner.space_id, context.scope.acting_person_id
     store.ensure_owner_grant(space_id, owner_id)
     try:
         created, found = store.give(space_id, owner_id, body.email)
@@ -398,7 +400,7 @@ def revoke_access_grant(
     owner_only(request, context)
     store = _access_store(request)
     result = store.revoke_grant(
-        context.scope.owner.space_id, context.scope.person_id, str(grant_id)
+        context.scope.owner.space_id, context.scope.acting_person_id, str(grant_id)
     )
     if result == "own_grant":
         raise problem(
@@ -430,7 +432,7 @@ def revoke_access_invite(
     owner_only(request, context)
     store = _access_store(request)
     if not store.revoke_invite(
-        context.scope.owner.space_id, context.scope.person_id, str(invite_id)
+        context.scope.owner.space_id, context.scope.acting_person_id, str(invite_id)
     ):
         raise problem(
             request,
@@ -464,7 +466,9 @@ def get_workspace(
     # ledger row; a client's Business is read as it is.
     store = business_access()
     if store is not None and context.scope.acting_as_owner:
-        store.ensure_owner_grant(context.scope.owner.space_id, context.scope.person_id)
+        store.ensure_owner_grant(
+            context.scope.owner.space_id, context.scope.acting_person_id
+        )
     workspace = context.service.workspace(context.scope)
     if not context.scope.acting_as_owner:
         # Business chat is the owner's: the client's shell shows no composer.
@@ -597,6 +601,7 @@ async def set_receipt_reading(
             permission.set,
             context.scope.owner.space_id,
             context.scope.person_id,
+            actor_id=context.scope.acting_person_id,
             enabled=body.enabled,
             version=body.scope_version,
             disclosure_token=body.disclosure_token,

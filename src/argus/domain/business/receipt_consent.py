@@ -83,8 +83,14 @@ class BusinessReceiptConsentStore:
                 row = self._rows.get((str(space_id), str(owner_id)))
                 return _view(row, space_id, owner_id, route, language)
         with self.pool.connection() as db:
+            owner = db.execute(
+                "select current_owner_id::text from public.spaces where id=%s and created_by=%s and kind='business' and closed_at is null",
+                (space_id, owner_id),
+            ).fetchone()
+            if owner is None:
+                return _view(None, space_id, owner_id, route, language)
             return _view(
-                _row(db, space_id, owner_id), space_id, owner_id, route, language
+                _row(db, space_id, owner[0]), space_id, owner[0], route, language
             )
 
     def enabled(
@@ -100,6 +106,7 @@ class BusinessReceiptConsentStore:
         space_id: str,
         owner_id: str,
         *,
+        actor_id: str | None = None,
         enabled: bool,
         version: int,
         disclosure_token: str | None = None,
@@ -117,6 +124,8 @@ class BusinessReceiptConsentStore:
         route = self._route()
         shown = _view(None, space_id, owner_id, route, language)
         if self.pool is None:
+            if actor_id is not None and str(actor_id) != str(owner_id):
+                raise ActionError("permission_denied", "business_permission_denied")
             with self._lock:
                 identity = (str(space_id), str(owner_id), key)
                 replay = self._commands.get(identity)
@@ -145,11 +154,14 @@ class BusinessReceiptConsentStore:
                 return self.status(space_id, owner_id, language)
         with self.pool.connection() as db, db.transaction():
             owner = db.execute(
-                "select created_by from public.spaces where id=%s and kind='business' and closed_at is null for update",
-                (space_id,),
+                "select current_owner_id::text from public.spaces where id=%s and created_by=%s and kind='business' and closed_at is null for update",
+                (space_id, owner_id),
             ).fetchone()
-            if not owner or str(owner[0]) != str(owner_id):
+            acting_person = owner_id if actor_id is None else actor_id
+            if not owner or owner[0] != str(acting_person):
                 raise ActionError("permission_denied", "business_permission_denied")
+            owner_id = owner[0]
+            shown = _view(None, space_id, owner_id, route, language)
             replay = db.execute(
                 "select request_hash from public.business_receipt_consent_commands where space_id=%s and owner_id=%s and idempotency_key=%s",
                 (space_id, owner_id, key),
