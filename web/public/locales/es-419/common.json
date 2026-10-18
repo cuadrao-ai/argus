@@ -2219,6 +2219,7 @@
       "actual_refund": "Se recibió un reembolso de dinero por esta nota de crédito",
       "original_purchase": "Compra original",
       "purchases_failed": "No se pudieron cargar las compras originales.",
+      "suggested": "Sugerido",
       "save": "Guardar revisión fiscal",
       "revision": "Datos fiscales de esta revisión",
       "period_hint": "El 606 y el 607 requieren un mes completo y cerrado. El Excel muestra los datos fiscales pendientes y el resumen de consumo por separado.",

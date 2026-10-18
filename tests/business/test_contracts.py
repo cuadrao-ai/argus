@@ -171,7 +171,9 @@ def test_patch_schema_requires_a_fact_without_requiring_every_field() -> None:
     assert patch.model_dump(mode="json") == payload
 
 
-@pytest.mark.parametrize("field", tuple(BusinessFactPatch.model_fields))
+@pytest.mark.parametrize(
+    "field", tuple(BusinessFactPatch.model_json_schema()["properties"])
+)
 def test_patch_schema_matches_explicit_uncertainty_and_rejects_outer_null(
     field: str,
 ) -> None:

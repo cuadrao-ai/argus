@@ -13387,6 +13387,8 @@ components:
           $ref: '#/components/schemas/FactInput_Literal__fiscal_receipt____informal_receipt____no_receipt___'
         category_id:
           $ref: '#/components/schemas/FactInput_str_'
+        purchase:
+          $ref: '#/components/schemas/PurchaseReview'
       additionalProperties: false
       type: object
       minProperties: 1
@@ -22280,6 +22282,49 @@ components:
       required:
       - time
       - value
+    PurchaseReview:
+      properties:
+        category:
+          anyOf:
+          - type: string
+            enum: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11']
+          - type: 'null'
+        category_suggested:
+          type: boolean
+          default: false
+        payment_method:
+          anyOf:
+          - type: string
+            enum: ['01', '02', '03', '04', '05', '06', '07']
+          - type: 'null'
+        paid_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        services_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        goods_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        itbis_withheld:
+          anyOf:
+          - type: string
+          - type: 'null'
+        income_withholding_type:
+          anyOf:
+          - type: string
+            enum: ['01', '02', '03', '04', '05', '06', '07', '08', '09']
+          - type: 'null'
+        income_withheld:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
     PurchaseDeclaration:
       properties:
         id_type:
@@ -22328,6 +22373,9 @@ components:
             - '10'
             - '11'
           - type: 'null'
+        category_suggested:
+          type: boolean
+          default: false
         paid_on:
           anyOf:
           - type: string

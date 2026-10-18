@@ -60,7 +60,9 @@ def record_issues(
     def issue(code: str, field: str) -> None:
         issues.append({"code": code, "activity_id": record.activity_id, "field": field})
 
-    declaration = record.declaration
+    from argus.domain.business.dgii_line import confirmed_declaration
+
+    declaration = confirmed_declaration(record)
     if declaration is None:
         issue("fiscal_declaration_missing", "declaration")
         return issues
