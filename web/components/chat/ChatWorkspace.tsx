@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
+import type { WorkspaceKeyboardShortcut } from "@/lib/keyboard-shortcuts";
 import type { LucideIcon } from "lucide-react";
 import type { ConversationSurface } from "@/lib/conversation-surface-api";
 import type { WorkspaceStarterEntry } from "./StarterActions";
@@ -46,6 +47,8 @@ export type WorkspaceSearchHit = Readonly<{
   detail: string;
   amount: string | null;
   open: () => void;
+  /** The record behind the hit, shown beside the results before it opens. */
+  preview?: ReactNode;
 }>;
 
 export type WorkspaceSearchGroup = Readonly<{
@@ -60,6 +63,8 @@ export type WorkspaceSearchGroup = Readonly<{
  * Each group is already authorized and matched by the workspace's backend.
  */
 export type WorkspaceSearch = Readonly<{
+  /** Hits carry previews, so the palette keeps its dossier pane and sheet. */
+  previewAvailable?: boolean;
   find: (query: string) => Promise<readonly WorkspaceSearchGroup[]>;
   copy: Readonly<{
     placeholder: string;
@@ -83,9 +88,13 @@ export type ChatWorkspace = Readonly<{
   chatAvailable: boolean;
   initialView: ChatShellView;
   profileInHeader: boolean;
+  keyboardShortcuts?: readonly WorkspaceKeyboardShortcut[];
+  bottomNavigation?: (bridge: ChatShellBridge) => ReactNode;
   /** Whether the current panel keeps the composer at its bottom edge. */
   panelHasComposer: boolean;
   sidebarNav: (bridge: ChatShellBridge) => ReactNode;
+  /** What sits directly under the lockup, above every nav entry: a workspace's own identity control, if any. */
+  sidebarHeader?: (bridge: ChatShellBridge) => ReactNode;
   sidebarFooter: (bridge: ChatShellBridge) => ReactNode;
   headerActions: (bridge: ChatShellBridge) => ReactNode;
   panel: (bridge: ChatShellBridge) => ReactNode;

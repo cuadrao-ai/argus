@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
 import { useProfileUpdates } from "@/components/chat/useProfileUpdates";
 import { useTranslation } from "react-i18next";
 import { readStored, writeStored } from "@/lib/browser-storage";
-import { currentAuthLoginPath } from "@/lib/landing-intent";
+import { currentAuthLoginPath, signedInHomePath } from "@/lib/landing-intent";
 import ChatCommandPalette from "@/components/sidebar/ChatCommandPalette";
 import { KeyboardShortcutSurfaces } from "@/components/keyboard/KeyboardShortcutSurfaces";
 import { useChatKeyboardShortcuts } from "@/components/keyboard/useChatKeyboardShortcuts";
@@ -61,7 +61,8 @@ import {
 } from "@/lib/argus-api";
 import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-deletion-api";
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
-import { omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
+import { businessPilotEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
+import { leaveSession } from "@/lib/logout-flow";
 import {
   useTranscriptTurnAnchor,
   type PendingMessageAnchor,
@@ -180,6 +181,7 @@ import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
 import ConversationRetrievalState, {
   ConversationRetrievalAnnouncement,
+  InitialConversationRetrievalState,
 } from "./ConversationRetrievalState";
 import FeedbackDialog from "../feedback/FeedbackDialog";
 import { feedbackContextForSubmission } from "@/lib/feedback-context";
@@ -245,6 +247,14 @@ import { useChatShellBridge, WorkspaceMain, workspaceComposerProps } from "./Wor
 type View = ChatShellView;
 
 const JUMP_TO_LATEST_THRESHOLD_PX = 240;
+export function ChatHeaderHeading({ children }: { children: ReactNode }) {
+  if (!children) return null;
+  return (
+    <h1 className="font-display pointer-events-auto min-w-0 flex-1 truncate text-left text-[17px] font-semibold tracking-tight text-black/80 dark:text-white/80 tablet:text-[18px]">
+      {children}
+    </h1>
+  );
+}
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ChatInterface() {
   const { t, i18n } = useTranslation();
@@ -281,7 +291,7 @@ export default function ChatInterface() {
   const workspace = useChatWorkspace();
   const [shellView, setCurrentView] = useState<View>(() => workspace?.initialView ?? "chat");
   const currentView = visibleShellView(workspace, shellView);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(workspace?.id === "business");
   const mobileShell = useMobileShell();
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
   const [showChatOptions, setShowChatOptions] = useState(false);
@@ -308,6 +318,7 @@ export default function ChatInterface() {
     refreshHistory,
     refreshHistoryForActivity,
   } = useRecentConversations({
+    enabled: workspace?.chatAvailable !== false,
     guestExpiresAt: account?.guest?.expires_at,
     activityCausalClock,
   });
@@ -319,7 +330,7 @@ export default function ChatInterface() {
   const { toast, showToast, hideToast } = useChatToast();
   const [isRecentsExpanded, setIsRecentsExpanded] = useState(true);
   const [feedbackState, setFeedbackState] = useState<ChatFeedbackDialogState>({ isOpen: false, type: "general" });
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>("collapsed");
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(workspace?.id === "business" ? "expanded" : "collapsed");
   const [isSidebarPreferenceModalOpen, setIsSidebarPreferenceModalOpen] =
     useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -960,7 +971,7 @@ export default function ChatInterface() {
     // time: naming only the drawer left the same bug behind every other modal.
     // Withheld below the mobile threshold on the same rule as the rest of the
     // layer, so there is one answer to whether this width has shortcuts.
-    omnisearchShortcutEnabled: omnisearchEnabled && !mobileShell.isBelowTablet,
+    omnisearchShortcutEnabled: omnisearchEnabled && !mobileShell.isBelowTablet && !workspace?.keyboardShortcuts,
   });
   const {
     isGuest,
@@ -1792,34 +1803,23 @@ export default function ChatInterface() {
 
   const handleLogout = async (options: LogoutOptions = {}) => {
     if (options.afterAccountDeletion) return endSessionKeepingSurface(accountBoundary);
-    try {
-      const result = options.sessionEnded ? null : await logoutFromApi();
-      if (result?.revocation === "failed") {
-        showToast(
-          t(
-            "settings.logout_error",
-            "We couldn’t sign out this browser. Try again.",
-          ),
-          "error",
-        );
-        return;
-      }
-      requestSessions.synchronizeAccountScope(null);
-      dailyCap.clear();
-      setAccount(null);
-      transcriptSessionCache.clearAuthenticatedState();
-      resetToEmptyChatSurface();
-      clearHistory();
-      window.location.href = "/";
-    } catch {
-      showToast(
-        t(
-          "settings.logout_error",
-          "We couldn’t sign out this browser. Try again.",
-        ),
-        "error",
-      );
-    }
+    await leaveSession({
+      boundary: accountBoundary,
+      currentUserId: account?.user.id ?? null,
+      signOut: () => (options.sessionEnded ? Promise.resolve(null) : logoutFromApi()),
+      clearLocalState: () => {
+        requestSessions.synchronizeAccountScope(null);
+        dailyCap.clear();
+        setAccount(null);
+        transcriptSessionCache.clearAuthenticatedState();
+        resetToEmptyChatSurface();
+        clearHistory();
+      },
+      navigate: (href) => { window.location.href = href; },
+      onFailed: () => showToast(t("settings.logout_error", "We couldn’t sign out this browser. Try again."), "error"),
+      businessBuild: businessPilotEnabled,
+      accountDeleted: Boolean(options.sessionEnded),
+    });
   };
 
   const handleCancelConfirmationAction = async (action: ChatActionOption) => {
@@ -2137,6 +2137,7 @@ export default function ChatInterface() {
 
   const keyboardShortcuts = useChatKeyboardShortcuts({
     enabled: !mobileShell.isBelowTablet,
+    requestSearch: omnisearchEnabled ? () => setSearchOverlayOpen(true) : undefined,
     isChatView: currentView === "chat",
     canManageConversation,
     conversationId,
@@ -2169,17 +2170,13 @@ export default function ChatInterface() {
   if (accountBoundary.expired) {
     return <main className="flex h-[100dvh] flex-col items-center justify-center gap-4 bg-[#f9f9f9] p-6 text-center text-black dark:bg-[#141517] dark:text-white">
       <p role="alert" className="max-w-lg">{t("chat.account_changed")}</p>
-      <button className="min-h-11 rounded-full bg-black px-6 py-3 text-base font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25 dark:bg-white dark:text-black dark:focus-visible:ring-white/30" onClick={() => window.location.assign("/chat")}>{t("chat.account_changed_reload")}</button>
+      <button className="min-h-11 rounded-full bg-black px-6 py-3 text-base font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25 dark:bg-white dark:text-black dark:focus-visible:ring-white/30" onClick={() => window.location.assign(signedInHomePath())}>{t("chat.account_changed_reload")}</button>
     </main>;
   }
   if (profileState === "probing" || profileState === "unavailable") {
     return (
       <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
-        <div
-          aria-label={t("guest.entry.loading", "Opening Argus")}
-          className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
-          role="status"
-        />
+        <InitialConversationRetrievalState business={workspace?.id === "business"} />
       </div>
     );
   }
@@ -2277,7 +2274,7 @@ export default function ChatInterface() {
         shortcutHintsSuppressed={searchOverlayOpen}
         canManageConversation={canManageConversation}
         showProfileMenu={!isGuest}
-        primaryNav={workspace?.sidebarNav(shellBridge)} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
+        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
         isGuest={guestExperience.isEstablishedGuest}
         guestExpiresAt={account?.guest?.expires_at}
       />
@@ -2348,7 +2345,7 @@ export default function ChatInterface() {
               </div>
             )}
             {/* Title (left-aligned; truncates before the action cluster) */}
-            <h1 className="font-display pointer-events-auto min-w-0 flex-1 truncate text-left text-[17px] font-semibold tracking-tight text-black/80 dark:text-white/80 tablet:text-[18px]">
+            <ChatHeaderHeading>
               {currentView === "chat" &&
                 (conversationId !== null || messages.length > 0) &&
                 !showEmptyChatSurface && (
@@ -2358,10 +2355,10 @@ export default function ChatInterface() {
                     titleSource={headerConversationTitleSource}
                   />
                 )}
-            </h1>
+            </ChatHeaderHeading>
 
             {/* Action cluster (guest settings or durable owner menu) */}
-            <div className={`flex shrink-0 justify-end pointer-events-auto${workspace ? " items-center gap-2" : ""}`}>
+            <div className={`ml-auto flex shrink-0 justify-end pointer-events-auto${workspace ? " items-center gap-2" : ""}`}>
               {workspace?.headerActions(shellBridge)}
               {currentView === "chat" && isGuest ? (
                 <GuestHeader
@@ -2430,7 +2427,7 @@ export default function ChatInterface() {
                 <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-32 bg-[#f9f9f9]/80 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] dark:bg-[#141517]/80" />
 
                 {showConversationRetrievalState && isHydratingConversation && (
-                  <ConversationRetrievalAnnouncement />
+                  <ConversationRetrievalAnnouncement business={workspace?.id === "business"} />
                 )}
 
                 {/* Messages */}
@@ -2448,7 +2445,7 @@ export default function ChatInterface() {
                   <div className="space-y-8">
                     {showConversationRetrievalState &&
                       isHydratingConversation && (
-                        <ConversationRetrievalState state="loading" />
+                        <ConversationRetrievalState state="loading" business={workspace?.id === "business"} />
                       )}
                     {hasConversationLoadFailure && (
                       <ConversationRetrievalState
@@ -2582,6 +2579,7 @@ export default function ChatInterface() {
         rating={feedbackState.rating}
         context={feedbackState.context}
       />
+      {workspace?.bottomNavigation?.(shellBridge)}
       {receiptFollowup}<GuestExperienceSurfaces experience={guestExperience} />
       {evidenceReceiptSharingEnabled && guestExperience.receiptSharing.target && <ShareReceiptPanel key={guestExperience.receiptSharing.target.conversationId} {...guestExperience.receiptSharing.target} onClose={guestExperience.receiptSharing.close} />}
       {isSidebarPreferenceModalOpen && (

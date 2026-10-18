@@ -28,6 +28,9 @@ public actor SessionController {
     }
     public func snapshot() -> SessionSnapshot { state }
 
+    /// Whether the keychain still holds a session, read without the network.
+    public func hasStoredSession() -> Bool { (try? vault.session()) != nil }
+
     public func requestCredentialRevalidation() throws -> SessionSnapshot {
         credentialValidationGeneration &+= 1
         do {
@@ -618,6 +621,19 @@ public actor SessionController {
               let journal = try vault.deletionJournal(userID: receipt.userID), journal.phase == .completed,
               journal.id == receipt.commandID, journal.userID == receipt.userID,
               journal.initiatingRevision == receipt.initiatingRevision else { throw SessionFailure.staleOperation }
+        try retire(journal, cleanup: cleanup)
+    }
+
+    /// An accepted (202) deletion already retired its session, so its local data goes the same way, keyed by its journal.
+    public func acknowledgeAcceptedAccountDeletion(userID: UUID, cleanup: @Sendable (UUID) throws -> Void) throws {
+        try beginMutation(); defer { mutating = false }
+        guard try vault.session() == nil, try vault.pending() == nil,
+              let journal = try vault.deletionJournal(userID: userID), journal.phase == .pending else { throw SessionFailure.staleOperation }
+        try retire(journal, cleanup: cleanup)
+    }
+
+    /// The journal is the cleanup obligation, so it goes only after the cleanup succeeds.
+    private func retire(_ journal: AccountDeletionJournal, cleanup: @Sendable (UUID) throws -> Void) throws {
         let epoch = vault.epoch()
         try cleanup(journal.userID)
         try vault.removeDeletionJournal(epoch: epoch, userID: journal.userID)
@@ -637,7 +653,7 @@ public actor SessionController {
         }
         if let session = try vault.session(), session.user.id != journal.userID { return false }
         // An interrupted token removal must finish before ordinary SDK adoption.
-        endAccountEpoch(as: journal.phase == .pending ? .accountDeletionPending : .signedOut)
+        endAccountEpoch(as: .signedOut)
         try vault.removeSession()
         try vault.removePending()
         return true

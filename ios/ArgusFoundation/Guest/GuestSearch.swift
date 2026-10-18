@@ -1,5 +1,4 @@
 import SwiftUI
-import ArgusSession
 import CuadraoBook
 
 /// Where a search result leads. The shell turns it into the right tab and screen.
@@ -225,10 +224,7 @@ struct GuestReceiptSearchRows: View {
         if let id = receipt.movementID, let movement = model.book.movement(id), !movement.deleted {
             open(.movement(id))
         } else if let data = store.data(receipt) {
-            let stamp = ISO8601DateFormatter().string(from: receipt.createdAt)
-            viewing = ViewedReceipt(document: SavedDocument(connectionID: receipt.id.uuidString, filename: receipt.name,
-                mediaType: receipt.mediaType, sizeBytes: data.count, sourceAvailable: true, status: "saved",
-                createdAt: stamp, updatedAt: stamp), data: data)
+            viewing = ViewedReceipt(id: receipt.id.uuidString, filename: receipt.name, mediaType: receipt.mediaType, data: data)
         }
     }
 }

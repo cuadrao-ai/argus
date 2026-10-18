@@ -36,6 +36,10 @@ struct ArgusFoundationApp: App {
             AppleSessionHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--cuadrao-release-ui") {
             ReleaseUIReview()
+        } else if ProcessInfo.processInfo.arguments.contains("--saved-receipts-harness") {
+            SavedReceiptsHarness()
+        } else if ProcessInfo.processInfo.arguments.contains("--guest-claim-harness") {
+            GuestClaimHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--invitations-harness") {
             InvitationsHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--captcha-harness") {
@@ -57,10 +61,13 @@ struct ArgusFoundationApp: App {
                 CuadraoCanvas()
                     .preferredColorScheme(previewAppearance.colorScheme)
             } else {
-                GuestModeRouter(appearance: $appearance) { ConnectedCuadraoRoot(appearance: $appearance) }
-                    .environmentObject(auth)
-                    .modifier(SessionLifecycle(model: auth))
-                    .preferredColorScheme(appearance.colorScheme)
+                // The launch screen follows the system appearance like the static one; the saved preference applies with the app.
+                LaunchGateHost {
+                    GuestModeRouter(appearance: $appearance) { ConnectedCuadraoRoot(appearance: $appearance) }
+                        .preferredColorScheme(appearance.colorScheme)
+                }
+                .environmentObject(auth)
+                .modifier(SessionLifecycle(model: auth))
             }
         }.background(KeyboardTapAway())
     }

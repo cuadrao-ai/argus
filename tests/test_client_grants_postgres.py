@@ -139,15 +139,26 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.beta_admissions",
         "public.beta_invitations",
         "public.beta_invite_quota_grants",
+        "public.business_access_invites",
         "public.business_action_receipts",
+        "public.business_ai_consents",
         "public.business_client_grants",
         "public.business_draft_revisions",
         "public.business_draft_sources",
+        "public.business_email_daily_usage",
+        "public.business_email_deliveries",
+        "public.business_email_parts",
+        "public.business_email_routes",
         "public.business_questions",
+        "public.business_receipt_activity_baseline",
+        "public.business_receipt_consent_commands",
+        "public.business_receipt_read_states",
+        "public.business_receipt_reading_consents",
         "public.business_sender_leases",
         "public.business_sources",
         "public.business_turns",
         "public.business_turns_arrival_sequence_seq",
+        "public.business_whatsapp_ai_consents",
         "public.checkpoint_blobs",
         "public.checkpoint_migrations",
         "public.checkpoint_writes",
@@ -214,7 +225,12 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.usage_counters",
         "public.visitor_usage_counters",
         "public.whatsapp_inbound_messages",
+        "public.whatsapp_inbound_messages_arrival_sequence_seq",
         "public.whatsapp_link_codes",
+        "public.whatsapp_outbox",
+        "public.whatsapp_reply_attempts",
+        "public.whatsapp_reply_days",
+        "public.whatsapp_reply_groups",
         "public.whatsapp_sender_links",
     }
 )
@@ -224,6 +240,9 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
 CLIENT_EXECUTABLE_FUNCTIONS: dict[str, frozenset[str]] = {
     "public.argus_search_symbol_casefold(text)": frozenset({"anon", "authenticated"}),
     "public.is_active_household_member(uuid, uuid)": frozenset({"authenticated"}),
+    # Migration 20261016154607 adopts these existing staging grants unchanged.
+    # The separate M0 hardening migration owns their revocation.
+    "public.rls_auto_enable()": frozenset({"anon", "authenticated"}),
     "public.set_updated_at()": frozenset({"anon", "authenticated"}),
 }
 

@@ -593,6 +593,7 @@ def _drive_guest_cleanup() -> None:
 
 
 def _drive_http_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.setattr(api_state, "supabase_gateway", None)
     monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
     with TestClient(app) as client:

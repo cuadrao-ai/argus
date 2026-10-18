@@ -7,7 +7,8 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from .authority import ActorProvenance, Capability
-from .facts import BusinessFacts, Contract, FactField
+from .checks import DgiiQr, EcfVerification
+from .facts import BusinessFacts, Contract, FactField, ReadPurchase
 
 
 class MessageSource(Contract):
@@ -29,11 +30,14 @@ class WebActionSource(Contract):
 class AttachmentSource(Contract):
     id: UUID
     kind: Literal["attachment"] = "attachment"
-    channel: Literal["web", "whatsapp"]
+    #: ``email`` and the deliveries are set at the API boundary from the email
+    #: queue; the stored row knows only web or whatsapp.
+    channel: Literal["web", "whatsapp", "email"]
     received_at: datetime
     connection_id: UUID
     filename: str | None
     media_type: str
+    email_delivery_ids: tuple[str, ...] = ()
 
 
 SourceEvidence = Annotated[
@@ -90,6 +94,10 @@ class RecordedApproval(Contract):
     status: Literal["recorded"] = "recorded"
     activity_id: UUID
     reviewed_version: int = Field(ge=1)
+    #: The facts revision the person approved: the latest history version at or
+    #: below reviewed_version, which also counts approvals and settlements.
+    approved_revision: int = Field(ge=1)
+    approved_at: datetime
     actor: ActorProvenance
 
 
@@ -129,3 +137,23 @@ class BusinessDossier(RecordContext):
     blockers: tuple[Blocker, ...]
     approval_available: bool
     approval_result: ApprovalResult | None = None
+    #: The purchases a document read showed when it could not settle on one,
+    #: the receipt total it showed, and how many of them this draft leaves
+    #: unrecorded (0 once a person settled the rest).
+    read_purchases: tuple[ReadPurchase, ...] = ()
+    read_total: str | None = None
+    unrecorded_purchases: int = Field(default=0, ge=0)
+    #: The local checks on the e-CF the draft came from; None for any other source.
+    ecf_checks: EcfVerification | None = None
+    #: The DGII QR the receipt carried: the link a person opens on DGII's page.
+    dgii_qr: DgiiQr | None = None
+    #: The record's marks, read by the same function every list uses: Personal,
+    #: who last changed that mark when it was not the owner, whether the fiscal
+    #: reading is settled, the fiscal number the draft carries (ncf, ecf), and
+    #: the accountant's 606 answer with who gave it.
+    personal: bool = False
+    personal_marked_by: str | None = None
+    fiscal_known: bool = False
+    fiscal_value: Literal["ncf", "ecf"] | None = None
+    include_606: bool | None = None
+    include_606_by: str | None = None

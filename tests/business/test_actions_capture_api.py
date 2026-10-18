@@ -36,11 +36,11 @@ class CaptureService:
         )
         self.outcome = Applied(outcome="applied", draft_id=self.view.draft_id, version=1)
 
-    def resolve_actor(self, actor):
+    def resolve_actor(self, actor, **_pin):
         self.calls.append(("owner", actor))
         return actor
 
-    def context_for_draft(self, actor, draft):
+    def context_for_draft(self, actor, draft, **_pin):
         self.calls.append(("draft", actor, draft))
         return self.actor
 
@@ -52,12 +52,13 @@ class CaptureService:
         self.calls.append(("dossier", draft))
         return self.view
 
-    def captures(self, actor, *, query, limit):
-        self.calls.append(("list", query, limit))
+    def captures(self, actor, *, query, limit, view):
+        self.calls.append(("list", query, limit, view))
         return [
             {
                 "draft_id": self.view.draft_id,
                 "version": self.view.version,
+                "revision": 1,
                 "source_id": uuid4(),
                 "text": "  Original note\n",
                 "received_at": datetime.now(timezone.utc),
@@ -194,7 +195,13 @@ def test_search_preserves_source_identity_and_bounds(capture_api):
     assert item["draft_id"] == str(api.service.view.draft_id)
     assert item["text"] == "  Original note\n"
     assert item["source_id"]
-    assert api.service.calls[-1] == ("list", "100%_", 5)
+    assert (item["version"], item["revision"]) == (api.service.view.version, 1)
+    assert api.service.calls[-1] == ("list", "100%_", 5, "all")
+    # The Bandeja asks for the notes awaiting review that no receipt carries.
+    inbox = api.client.get("/business/captures", params={"view": "inbox", "limit": 50})
+    assert inbox.status_code == 200
+    assert api.service.calls[-1] == ("list", "", 50, "inbox")
+    assert api.client.get("/business/captures?view=open").status_code == 422
     assert api.client.get("/business/captures?limit=51").status_code == 422
     assert (
         api.client.get("/business/captures", params={"q": "x" * 201}).status_code == 422
@@ -203,7 +210,7 @@ def test_search_preserves_source_identity_and_bounds(capture_api):
 
 
 def test_revoked_capture_context_keeps_not_found_envelope(capture_api, monkeypatch):
-    def denied(actor):
+    def denied(actor, **_pin):
         raise ActionError("not_found", "business_record_not_found")
 
     monkeypatch.setattr(capture_api.service, "resolve_actor", denied)

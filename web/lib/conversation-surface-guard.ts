@@ -1,4 +1,5 @@
 import type { ConversationSurface } from "./conversation-surface-api";
+import { businessPilotEnabled } from "./private-alpha-flags";
 
 /**
  * A conversation opens only in the shell of its own surface. The backend says
@@ -33,6 +34,27 @@ export function registerConversationShell(next: Shell): () => void {
 
 export function surfacePath(surface: ConversationSurface): string {
   return surface === "business" ? "/biz" : "/chat";
+}
+
+export const CONVERSATION_UNAVAILABLE = "conversation_unavailable";
+
+/**
+ * Where a shell sends a conversation that is not its own. On a Business build
+ * a Personal conversation has no shell at all: the address keeps the page,
+ * drops the conversation and names the notice, so nothing asks for that
+ * conversation again and no reload loop is possible.
+ */
+export function conversationExitHref(
+  currentHref: string,
+  conversationId: string,
+  surface: ConversationSurface,
+  businessBuild: boolean = businessPilotEnabled,
+): string {
+  if (businessBuild && surface === "personal") {
+    const current = new URL(currentHref);
+    return `${current.pathname}?notice=${CONVERSATION_UNAVAILABLE}`;
+  }
+  return conversationShellHref(currentHref, conversationId, surface);
 }
 
 /** Throws, after sending the conversation to its own shell, when it belongs elsewhere. */

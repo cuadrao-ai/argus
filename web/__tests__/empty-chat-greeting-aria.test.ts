@@ -72,7 +72,7 @@ describe("what Argus calls the user", () => {
     );
     // Blank clears it, which is how a user opts out after opting in.
     expect(en.settings.profile.preferred_name).toBe(
-      "What should Argus call you?",
+      "What should we call you?",
     );
     for (const catalog of [en, es]) {
       for (const key of [

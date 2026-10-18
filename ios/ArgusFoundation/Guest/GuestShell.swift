@@ -5,7 +5,6 @@ import CuadraoBook
 struct GuestRoot: View {
     @ObservedObject var model: GuestBookModel
     @Binding var appearance: AppearancePreference
-    let webURL: URL?
     let leave: () -> Void
     let deleteData: () async -> Bool
     @Environment(\.locale) private var locale
@@ -19,7 +18,7 @@ struct GuestRoot: View {
         case .loading:
             WelcomePalette.brandPaper.ignoresSafeArea()
         case .ready:
-            GuestShell(model: model, appearance: $appearance, webURL: webURL, leave: leave, deleteData: deleteData)
+            GuestShell(model: model, appearance: $appearance, leave: leave, deleteData: deleteData)
                 .preferredColorScheme(appearance.colorScheme)
         case .newerVersion:
             notice(title: spanish ? "Actualiza Cuadrao para abrir este libro." : "Update Cuadrao to open this book.",
@@ -81,7 +80,6 @@ enum GuestDeleteCopy {
 struct GuestShell: View {
     @ObservedObject var model: GuestBookModel
     @Binding var appearance: AppearancePreference
-    let webURL: URL?
     let leave: () -> Void
     let deleteData: () async -> Bool
     @Environment(\.locale) private var locale
@@ -93,10 +91,15 @@ struct GuestShell: View {
     @State private var profilePath: [GuestProfileRoute] = []
     @State private var homePath: [GuestRoute] = []
     @State private var planPath: [UUID] = []
+    /// The tab holding a result opened from Search. Closing that result returns to Search; changing tab by hand drops it.
+    @State private var searchResultTab: CuadraoTab?
     @State private var sheet: GuestSheet?
     @State private var capturing: ReceiptSourceChoice?
     @State private var captured: [(data: Data, name: String, pdf: Bool)]?
     @State private var receiptFailed = false
+    @State private var toast: CuadraoToastMessage?
+    @State private var firstSavePending = false
+    @State private var showFirstSave = false
     @Environment(\.guestReceipts) private var receipts
     @State private var chat = CuadraoChatPreview(spanish: Locale.current.language.languageCode?.identifier == "es", includeExamples: false)
 
@@ -113,7 +116,29 @@ struct GuestShell: View {
             }
         }
         .environment(\.cuadraoCurrencyRules, GuestCurrencyRules.rules)
+        .environment(\.guestAddReceipt) { capture($0) }
+        .cuadraoToast($toast, spanish: spanish)
+        .onAppear { announceFirstOpen() }
+        .onChange(of: tab) { _, new in
+            if new != searchResultTab { searchResultTab = nil }
+        }
+        .onChange(of: searchResultIsOpen) { was, isOpen in
+            guard was, !isOpen, searchResultTab != nil else { return }
+            searchResultTab = nil
+            tab = .search
+        }
+        .onChange(of: expenseCount) { old, new in
+            guard old == 0, new >= 1, !GuestNotice.firstSave.seen else { return }
+            GuestNotice.firstSave.markSeen()
+            firstSavePending = true
+            presentFirstSaveWhenFree()
+        }
+        .onChange(of: sheet?.id) { _, id in if id == nil { presentFirstSaveWhenFree() } }
         .sheet(item: $sheet) { sheetContent($0) }
+        .sheet(isPresented: $showFirstSave) {
+            GuestFirstSaveSheet(spanish: spanish, createAccount: { showFirstSave = false; leave() }, dismiss: { showFirstSave = false })
+                .preferredColorScheme(appearance.colorScheme)
+        }
         .fullScreenCover(item: $capturing, onDismiss: {
             if let files = captured { captured = nil; keep(files) }
         }) { source in
@@ -128,6 +153,32 @@ struct GuestShell: View {
         .tint(WelcomePalette.pine)
         .foregroundStyle(WelcomePalette.ink)
         .background(WelcomePalette.background.ignoresSafeArea())
+    }
+
+    private var expenseCount: Int { model.book.liveMovements().filter { $0.kind == .expense }.count }
+
+    /// On the first open of the book only, one line at the bottom for five seconds.
+    private func announceFirstOpen() {
+        guard !GuestNotice.firstOpen.seen else { return }
+        GuestNotice.firstOpen.markSeen()
+        toast = CuadraoToastMessage(text: GuestNoticeCopy(spanish: spanish).firstOpenNote)
+    }
+
+    /// The one Undo notice for a delete or archive, on the tab the person is on. A result opened from Search returns to Search first.
+    private func offerUndo(_ offer: GuestUndoOffer) {
+        toast = CuadraoToastMessage(text: offer.text, actionTitle: spanish ? "Deshacer" : "Undo", actionIdentifier: offer.identifier,
+                                    action: { offer.restore(); toast = nil })
+    }
+
+    /// After the save's own sheet has closed, so the save is never covered or delayed.
+    private func presentFirstSaveWhenFree() {
+        guard firstSavePending, sheet == nil, capturing == nil else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard firstSavePending, sheet == nil, capturing == nil else { return }
+            firstSavePending = false
+            showFirstSave = true
+        }
     }
 
     private var showsNavigation: Bool {
@@ -198,12 +249,20 @@ struct GuestShell: View {
         }
     }
 
-    /// A search result opens in the tab that owns it.
+    private var searchResultIsOpen: Bool {
+        switch searchResultTab {
+        case .home: !homePath.isEmpty
+        case .plan: !planPath.isEmpty
+        default: false
+        }
+    }
+
+    /// A search result opens in the tab that owns it, and closing it returns to Search.
     private func open(_ target: GuestSearchTarget) {
         switch target {
-        case .account(let id): tab = .home; homePath = [.account(id)]
-        case .movement(let id): tab = .home; homePath = [.movement(id)]
-        case .plan(let id): tab = .plan; planPath = [id]
+        case .account(let id): searchResultTab = .home; tab = .home; homePath = [.account(id)]
+        case .movement(let id): searchResultTab = .home; tab = .home; homePath = [.movement(id)]
+        case .plan(let id): searchResultTab = .plan; tab = .plan; planPath = [id]
         }
     }
 
@@ -220,13 +279,13 @@ struct GuestShell: View {
     @ViewBuilder private func content(_ item: CuadraoTab) -> some View {
         switch item {
         case .home:
-            GuestHome(model: model, scroll: navigationScroll, active: tab == .home, path: $homePath, sheet: $sheet)
+            GuestHome(model: model, scroll: navigationScroll, active: tab == .home, path: $homePath, sheet: $sheet, offerUndo: offerUndo)
         case .plan:
-            GuestPlanTab(model: model, scroll: planScroll, active: tab == .plan, path: $planPath, sheet: $sheet)
+            GuestPlanTab(model: model, scroll: planScroll, active: tab == .plan, path: $planPath, sheet: $sheet, offerUndo: offerUndo)
         case .search:
             GuestSearchTab(model: model, scroll: searchScroll, active: tab == .search, open: open)
         case .profile:
-            GuestProfile(model: model, appearance: $appearance, path: $profilePath, webURL: webURL, leave: leave, deleteData: deleteData)
+            GuestProfile(model: model, appearance: $appearance, path: $profilePath, leave: leave, deleteData: deleteData)
                 .modifier(CuadraoNavigationScrollObserver(scroll: profileScroll, enabled: tab == .profile && profilePath.isEmpty))
         case .assistant:
             EmptyView()

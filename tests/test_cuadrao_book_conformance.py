@@ -13,7 +13,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from argus.domain.home_country import currency_codes
 from argus.domain.recording.currency import (
     currency_exponent,

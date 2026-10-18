@@ -362,6 +362,7 @@ export async function installBreakpointFixture(
 
   await page.addInitScript(
     ([lang, storedTheme]) => {
+      if (window.top !== window.self) return;
       window.localStorage.setItem("i18nextLng", lang);
       window.localStorage.setItem("argus:sidebar_mode", "expanded");
       window.localStorage.setItem("argus-theme", storedTheme);

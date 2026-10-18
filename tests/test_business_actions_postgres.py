@@ -28,13 +28,22 @@ pytestmark = pytest.mark.skipif(not shared.DSN, reason="Disposable database requ
 
 
 @pytest.fixture
-def actions(users):
+def actions(users, request):
+    """An accountant (``other``) acting in the owner's Business through the
+    grant the owner issued, as before. Approval is the owner's alone, so a test
+    marked ``owner_acts`` runs the same flow as the owner through the owner's
+    own grant."""
+
+    owner_acts = request.node.get_closest_marker("owner_acts") is not None
+    acting = users["owner"] if owner_acts else users["other"]
+    # The database refuses approve on anyone's grant but the owner's.
+    capabilities = ["read", "prepare", "approve"] if owner_acts else ["read", "prepare"]
     with Connection.connect(shared.DSN) as db:
         space_id = space(db, users["owner"])
         grant = db.execute(
             "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
-            " values (%s,%s,%s,ARRAY['read','prepare','approve']) returning id",
-            (space_id, users["other"], users["owner"]),
+            " values (%s,%s,%s,%s) returning id",
+            (space_id, acting, users["owner"], capabilities),
         ).fetchone()[0]
     with ConnectionPool(shared.DSN, min_size=0, max_size=4) as pool:
         money = MoneyService(
@@ -45,7 +54,7 @@ def actions(users):
         )
         service = BusinessActions(pool, imports)
         context = service.resolve_actor(
-            TrustedActor(actor_id=users["other"], actor_kind="member", space_id=space_id)
+            TrustedActor(actor_id=acting, actor_kind="member", space_id=space_id)
         )
         yield service, context, grant
 
@@ -277,6 +286,7 @@ def ready(service, context, *, owner_funds=False):
     return result.draft_id
 
 
+@pytest.mark.owner_acts
 def test_human_approval_recovers_committed_money_once(actions, monkeypatch):
     from argus.domain.business.contracts.actions import ApproveExpense
 
@@ -368,6 +378,7 @@ def test_owner_uncertainty_escalates_question_without_inventing_answer(actions):
     assert view.questions[0].state == "owner_does_not_know"
 
 
+@pytest.mark.owner_acts
 def test_approval_rechecks_grant_after_preview_before_claim(actions, monkeypatch):
     from argus.domain.business.contracts.actions import ApproveExpense
 
@@ -404,6 +415,7 @@ def test_approval_rechecks_grant_after_preview_before_claim(actions, monkeypatch
         )
 
 
+@pytest.mark.owner_acts
 def test_concurrent_approval_and_recorded_correction(actions):
     from argus.domain.business.contracts.actions import ApproveExpense
 
@@ -796,6 +808,7 @@ def test_legacy_hand_entry_cannot_create_another_candidate_for_typed_receipt(act
         require_legacy_receipt_write(business, receipt)
 
 
+@pytest.mark.owner_acts
 def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatch):
     from argus.domain.business.contracts.actions import ApproveExpense
     from argus.domain.recording.money_reads import current_activities

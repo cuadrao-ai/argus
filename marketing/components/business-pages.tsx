@@ -5,7 +5,6 @@ import { businessContactEmail, siteCopy } from "./site-copy";
 import { BusinessHeader } from "./business-header";
 import { ContactForm } from "./contact-form";
 import { PersonalEarlyAccess } from "./personal-early-access";
-export { PrivacyPage } from "./privacy-page";
 import { BusinessFooter } from "./business-footer";
 import styles from "./business.module.css";
 import touchup from "./touchup.module.css";
@@ -46,6 +45,7 @@ export function BusinessLanding({ locale }: { locale: BusinessLocale }) {
       className={`${styles.site} ${touchup.site}`}
       lang={locale === "es" ? "es-DO" : "en"}
       id="top"
+      data-page-background="business"
     >
       <BusinessHeader locale={locale} />
       <main id="business-main" tabIndex={-1}>
@@ -57,9 +57,6 @@ export function BusinessLanding({ locale }: { locale: BusinessLocale }) {
         >
           <div className={styles.approachHeading}>
             <div>
-              <p className={styles.sectionIndex}>
-                {locale === "es" ? "EL PRIMER PILOTO" : "THE FIRST PILOT"}
-              </p>
               <h2 id="approach-title">{c.approachTitle}</h2>
             </div>
             <p>{c.approachBody}</p>
@@ -80,7 +77,6 @@ export function BusinessLanding({ locale }: { locale: BusinessLocale }) {
           aria-labelledby="founder-title"
         >
           <div>
-            <p className={styles.sectionIndex}>{c.founderLabel}</p>
             <h2 id="founder-title">{c.founderTitle}</h2>
           </div>
           <div className={styles.founderStory}>
@@ -141,6 +137,7 @@ export function ContactPage({ locale }: { locale: BusinessLocale }) {
       className={`${styles.site} ${touchup.site}`}
       lang={locale === "es" ? "es-DO" : "en"}
       id="top"
+      data-page-background="business"
     >
       <BusinessHeader locale={locale} page="contact" />
       <main id="business-main" tabIndex={-1} className={styles.demoLayout}>
@@ -179,6 +176,7 @@ export function PersonalPage({ locale }: { locale: BusinessLocale }) {
       className={`${styles.site} ${styles.personalSite} ${touchup.site}`}
       lang={locale === "es" ? "es-DO" : "en"}
       id="top"
+      data-page-background="personal"
     >
       <BusinessHeader locale={locale} page="personal" />
       <main id="business-main" tabIndex={-1}>

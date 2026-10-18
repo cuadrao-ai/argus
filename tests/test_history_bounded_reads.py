@@ -510,6 +510,7 @@ def test_supabase_persistence_requires_and_injects_history_database_reader(
 
     monkeypatch.setenv("SUPABASE_URL", "https://argus.local")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key")
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "test-anon-key")
     monkeypatch.delenv("DATABASE_URL", raising=False)
     with pytest.raises(RuntimeError, match="DATABASE_URL"):
         supabase_gateway.SupabaseGateway.from_env()

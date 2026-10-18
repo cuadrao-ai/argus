@@ -1,0 +1,313 @@
+{
+  "version": 1,
+  "kinds": {
+    "plain": "value in this file, or keep_current (live value kept), or copy_from (live value of a twin name, used only while the name is absent)",
+    "secret": "value from the local secrets file; keep_current keeps the live value and never reads the file",
+    "generated": "random value created once in the local secrets file and never overwritten"
+  },
+  "services": {
+    "api": {
+      "service_id": "srv-db4mrrvlk1mc73d733j0",
+      "service_name": "cuadrao-api-staging",
+      "entries": [
+        {
+          "name": "APP_ENV",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "ARGUS_CHECKPOINTER_MODE",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "ARGUS_DEV_MEMORY_FALLBACK",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "ARGUS_MOCK_AUTH",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "ARGUS_PERSISTENCE_MODE",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "ARGUS_PROD_OPENROUTER_API_KEY",
+          "kind": "secret",
+          "keep_current": true
+        },
+        {
+          "name": "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY",
+          "kind": "secret",
+          "keep_current": true
+        },
+        {
+          "name": "CUADRAO_APP_ORIGIN",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "CUADRAO_BUSINESS_EMAIL_DOMAIN",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "CUADRAO_BUSINESS_PILOT_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "CUADRAO_FINANCIAL_ACCOUNTS_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "CUADRAO_INGESTION_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "CUADRAO_VISION_MODEL",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_NUMBER_ID",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "DATABASE_URL",
+          "kind": "secret",
+          "keep_current": true
+        },
+        {
+          "name": "SUPABASE_ANON_KEY",
+          "kind": "secret",
+          "keep_current": true
+        },
+        {
+          "name": "SUPABASE_SERVICE_ROLE_KEY",
+          "kind": "secret",
+          "keep_current": true
+        },
+        {
+          "name": "SUPABASE_URL",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_VERIFY_TOKEN",
+          "kind": "generated"
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_SENDER_KEY",
+          "kind": "generated"
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_APP_SECRET",
+          "kind": "secret"
+        },
+        {
+          "name": "CUADRAO_WHATSAPP_ACCESS_TOKEN",
+          "kind": "secret"
+        },
+        {
+          "name": "CUADRAO_RESEND_WEBHOOK_SECRET",
+          "kind": "secret"
+        },
+        {
+          "name": "RESEND_BUSINESS_API_KEY",
+          "kind": "secret"
+        },
+        {
+          "name": "ARGUS_HOUSEHOLDS_ENABLED",
+          "kind": "plain",
+          "value": "true",
+          "requires": [
+            "ARGUS_INVITE_CODE_SECRET"
+          ]
+        },
+        {
+          "name": "ARGUS_BETA_INVITES_ENABLED",
+          "kind": "plain",
+          "value": "true",
+          "requires": [
+            "ARGUS_INVITE_CODE_SECRET"
+          ]
+        },
+        {
+          "name": "ARGUS_IN_PLACE_CARD_EDITS_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "ARGUS_INVITE_CODE_SECRET",
+          "kind": "generated"
+        },
+        {
+          "name": "ARGUS_VISITOR_KEY_SECRET",
+          "kind": "generated"
+        },
+        {
+          "name": "CUADRAO_INGESTION_SECRET_KEY",
+          "kind": "generated",
+          "b64_bytes": 32
+        },
+        {
+          "name": "ARGUS_INVITE_FOUNDER_USER_ID",
+          "kind": "secret",
+          "optional": true
+        },
+        {
+          "name": "ARGUS_CORS_ALLOW_ORIGINS",
+          "kind": "plain",
+          "value": "https://cuadrao-web-staging.onrender.com"
+        }
+      ],
+      "remove": [
+        {
+          "name": "ARGUS_BUSINESS_PILOT_ENABLED",
+          "requires": "CUADRAO_BUSINESS_PILOT_ENABLED"
+        },
+        {
+          "name": "ARGUS_DOCUMENT_EXTRACTION_ENABLED",
+          "requires": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED"
+        },
+        {
+          "name": "ARGUS_INGESTION_ENABLED",
+          "requires": "CUADRAO_INGESTION_ENABLED"
+        },
+        {
+          "name": "ARGUS_VISION_MODEL",
+          "requires": "CUADRAO_VISION_MODEL"
+        },
+        {
+          "name": "ARGUS_FINANCIAL_ACCOUNTS_ENABLED",
+          "requires": "CUADRAO_FINANCIAL_ACCOUNTS_ENABLED"
+        }
+      ],
+      "hold": [
+        {
+          "name": "CUADRAO-DEV-KEY-PILOT",
+          "note": "deletion waits for the coordinator"
+        }
+      ],
+      "distinct": [
+        [
+          "ARGUS_PROD_OPENROUTER_API_KEY",
+          "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY"
+        ]
+      ]
+    },
+    "web": {
+      "service_id": "srv-db5ihr7lot8c73f3b3h0",
+      "service_name": "cuadrao-web-staging",
+      "redeploy_note": "NEXT_PUBLIC_* values are baked at build time: trigger a web redeploy (clear build cache) for these changes to reach the browser.",
+      "entries": [
+        {
+          "name": "ARGUS_APP_ORIGIN",
+          "kind": "plain",
+          "value": "https://cuadrao-web-staging.onrender.com"
+        },
+        {
+          "name": "CUADRAO_AUTH_EMAIL_HOOK_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
+          "name": "CUADRAO_AUTH_EMAIL_OTP_EXP_SECONDS",
+          "kind": "plain",
+          "value": "3600"
+        },
+        {
+          "name": "CUADRAO_AUTH_EMAIL_PROJECT_REF",
+          "kind": "plain",
+          "value": "skedzwocnmrhfigiwyzi"
+        },
+        {
+          "name": "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "NEXT_PUBLIC_CUADRAO_API_URL",
+          "kind": "plain",
+          "copy_from": "NEXT_PUBLIC_ARGUS_API_URL"
+        },
+        {
+          "name": "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "NEXT_PUBLIC_ENABLE_SPANISH",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "NEXT_PUBLIC_SUPABASE_URL",
+          "kind": "plain",
+          "keep_current": true
+        }
+      ],
+      "remove": [
+        {
+          "name": "CUADRAO_RESEND_WEBHOOK_SECRET"
+        },
+        {
+          "name": "NEXT_PUBLIC_ARGUS_API_URL",
+          "requires": "NEXT_PUBLIC_CUADRAO_API_URL"
+        },
+        {
+          "name": "NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY",
+          "requires": "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY"
+        }
+      ],
+      "hold": [
+        { "name": "CUADRAO_AUTH_EMAIL_HOOK_SECRET", "reason": "Inject only for reviewed staging hook activation." },
+        { "name": "CUADRAO_AUTH_EMAIL_RESEND_API_KEY", "reason": "Dedicated Auth sending credential; activation only after review." }
+      ],
+      "distinct": []
+    }
+  }
+}

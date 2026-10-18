@@ -1,22 +1,37 @@
 """Whose Business records a request reads and writes.
 
 Every Business route and the WhatsApp intake destination get their scope from
-``resolve_business_scope`` and nowhere else. No route accepts a scope, a space
-or an owner from the client.
+``resolve_business_scope`` and nowhere else. A client never names a space or
+an owner: it may name one of its own grants (``X-Business-Grant``), and the
+server takes the Business from that grant row after proving, on every
+request, that the grant is the caller's and live.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.owner_scope import BusinessSpace
 
+Role = Literal["owner", "accountant"]
+
 
 @dataclass(frozen=True)
 class BusinessScope:
+    #: Whose records: the Business owner (the storage key), as today.
     person_id: str
     owner: BusinessSpace
+    #: Who is acting, when it is not the owner themselves; None for the person's own space.
+    actor_id: str | None = None
+    #: The grant the request runs under; None for the person's own space before binding.
+    grant_id: str | None = None
+    role: Role = "owner"
+
+    @property
+    def acting_as_owner(self) -> bool:
+        return self.role == "owner"
 
 
 def resolve_business_scope(spaces: SpaceStore, person_id: str) -> BusinessScope | None:

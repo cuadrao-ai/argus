@@ -1,0 +1,13 @@
+Candidate
+-[FinancialModelTests.FinancialModelTests testEmptyPlanSelectionIsAnExplicitJournaledPut]
+-[FinancialModelTests.FinancialModelTests testPlanConfirmationSurvivesRelaunchAndDifferentOwnerCannotReplay]
+-[FinancialModelTests.FinancialModelTests testPostSaveHomeWinsOverEarlierRead]
+-[FinancialModelTests.FinancialModelTests testSearchAccountNavigationAndAcceptedEditsPreserveAccountsSelection]
+Executed 202 tests, with 6 failures (0 unexpected) in 1.816 (1.840) seconds
+
+Integration baseline
+-[FinancialModelTests.FinancialModelTests testEmptyPlanSelectionIsAnExplicitJournaledPut]
+-[FinancialModelTests.FinancialModelTests testPlanConfirmationSurvivesRelaunchAndDifferentOwnerCannotReplay]
+-[FinancialModelTests.FinancialModelTests testPostSaveHomeWinsOverEarlierRead]
+-[FinancialModelTests.FinancialModelTests testSearchAccountNavigationAndAcceptedEditsPreserveAccountsSelection]
+Executed 202 tests, with 6 failures (0 unexpected) in 0.967 (0.978) seconds

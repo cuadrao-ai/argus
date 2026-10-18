@@ -1,8 +1,14 @@
+import { resolve } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 import { MOCK_PORT, SITE_PORT, PUBLIC_PORT } from "./e2e/ports";
 
 const providerEnv = {
+  NODE_OPTIONS: `--require=${resolve("e2e/waitlist-fetch-preload.cjs")}`,
+  MARKETING_WAITLIST_FROM: "Cuadrao <lista@cuadrao.ai>",
+  MARKETING_POSTAL_ADDRESS: "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+  CUADRAO_WAITLIST_ORIGIN: "https://cuadrao.example.test",
+  CUADRAO_WAITLIST_TURNSTILE_SECRET: "fixture-secret",
   RESEND_API_KEY: "test-resend-key",
   RESEND_API_URL: `http://127.0.0.1:${MOCK_PORT}`,
   CUADRAO_INQUIRY_FROM: "Cuadrao <website@notify.example.test>",

@@ -11,6 +11,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
+from loguru import logger
 from supabase_auth import SyncGoTrueClient
 
 from argus.api.schemas import (
@@ -204,8 +205,12 @@ class SupabaseGateway(
                 "and DATABASE_URL."
             )
         auth_key = (
-            os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON_PUBLIC_KEY") or key
+            os.getenv("SUPABASE_ANON_KEY", "").strip()
+            or os.getenv("SUPABASE_ANON_PUBLIC_KEY", "").strip()
         )
+        if not auth_key:
+            logger.error("startup_config_refused{reason=missing_SUPABASE_ANON_KEY}")
+            raise RuntimeError("Set SUPABASE_ANON_KEY or SUPABASE_ANON_PUBLIC_KEY.")
         history_reader = history_reader_for_database_url(database_url)
         return cls(
             client=create_client(url, key, options=_supabase_client_options()),

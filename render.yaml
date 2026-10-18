@@ -164,7 +164,7 @@ services:
       - key: SUPABASE_URL
         value: https://lgdhvepyrzbnscqssgqq.supabase.co
       - key: SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnZGh2ZXB5cnpibnNjcXNzZ3FxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NzkwOTksImV4cCI6MjA4ODI1NTA5OX0.mc7KjmJYuAp01Mj96gceGsAW2UPI2_HQsv0_kyWaQmo
+        sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_JWT_SECRET
@@ -225,7 +225,7 @@ services:
       - key: NEXT_PUBLIC_SUPABASE_URL
         value: https://lgdhvepyrzbnscqssgqq.supabase.co
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnZGh2ZXB5cnpibnNjcXNzZ3FxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NzkwOTksImV4cCI6MjA4ODI1NTA5OX0.mc7KjmJYuAp01Mj96gceGsAW2UPI2_HQsv0_kyWaQmo
+        sync: false
       - key: NEXT_PUBLIC_POSTHOG_KEY
         sync: false
       - key: NEXT_PUBLIC_MOCK_AUTH
@@ -244,3 +244,57 @@ services:
         value: "true"
       - key: NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED
         value: "false"
+
+  # Existing staging service: srv-db5ihr7lot8c73f3b3h0.
+  - type: web
+    name: cuadrao-web-staging
+    runtime: node
+    repo: https://github.com/lagarcess/argus
+    branch: codex/private-alpha-next
+    rootDir: web
+    autoDeployTrigger: "off"
+    buildCommand: bun install --frozen-lockfile && bun run build
+    startCommand: bun run start -- -p $PORT
+    envVars:
+      - key: ARGUS_APP_ORIGIN
+        value: https://cuadrao-web-staging.onrender.com
+      - key: CUADRAO_AUTH_EMAIL_HOOK_ENABLED
+        value: "false"
+      - key: CUADRAO_AUTH_EMAIL_PROJECT_REF
+        value: skedzwocnmrhfigiwyzi
+      - key: CUADRAO_AUTH_EMAIL_OTP_EXP_SECONDS
+        value: "3600"
+      - key: CUADRAO_AUTH_EMAIL_HOOK_SECRET
+        sync: false
+      - key: CUADRAO_AUTH_EMAIL_RESEND_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_APP_ENV
+        value: staging
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: https://skedzwocnmrhfigiwyzi.supabase.co
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: NEXT_PUBLIC_MOCK_AUTH
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_PILOT_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_CUADRAO_API_URL
+        value: https://cuadrao-api-staging.onrender.com/api/v1
+      - key: NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY
+        sync: false
+      - key: NEXT_PUBLIC_ENABLE_SPANISH
+        value: "true"
+
+  - type: web
+    name: cuadrao-marketing-staging
+    runtime: node
+    plan: free
+    repo: https://github.com/lagarcess/argus
+    branch: codex/private-alpha-next
+    rootDir: marketing
+    autoDeployTrigger: "off"
+    buildCommand: bun install --frozen-lockfile && bun run build --webpack
+    startCommand: bun run start -- -p $PORT
+    envVars:
+      - key: CUADRAO_SITE_INDEXING
+        value: private

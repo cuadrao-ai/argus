@@ -8,7 +8,7 @@ struct GuestPlanTab: View {
     let active: Bool
     @Binding var path: [UUID]
     @Binding var sheet: GuestSheet?
-    @State private var archivedID: UUID?
+    let offerUndo: (GuestUndoOffer) -> Void
     @Environment(\.locale) private var locale
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
@@ -30,13 +30,6 @@ struct GuestPlanTab: View {
             .navigationDestination(for: UUID.self) { id in
                 GuestPlanDetail(model: model, id: id, spanish: spanish, edit: { sheet = .plan(.edit(id)) },
                                 contribute: { sheet = .contribution(id) }, archive: { archive(id) })
-            }
-        }
-        .overlay(alignment: .bottom) {
-            if let archivedID, path.isEmpty, model.book.plan(archivedID)?.archived == true {
-                CuadraoToast(text: spanish ? "Plan archivado" : "Plan archived", actionTitle: spanish ? "Deshacer" : "Undo",
-                             actionIdentifier: "guest.undo", action: { restore(archivedID) }, spanish: spanish,
-                             token: archivedID, close: { self.archivedID = nil })
             }
         }
     }
@@ -64,12 +57,8 @@ struct GuestPlanTab: View {
     private func archive(_ id: UUID) {
         guard (try? model.apply { try $0.settingPlanArchived(id, true) }) != nil else { return }
         path = []
-        archivedID = id
-    }
-
-    private func restore(_ id: UUID) {
-        _ = try? model.apply { try $0.settingPlanArchived(id, false) }
-        archivedID = nil
+        offerUndo(GuestUndoOffer(text: spanish ? "Plan archivado" : "Plan archived", identifier: "guest.undo",
+                                 restore: { _ = try? model.apply { try $0.settingPlanArchived(id, false) } }))
     }
 }
 

@@ -43,6 +43,8 @@ export const STORAGE_REGISTRY = {
   "argus:daily-cap-notice:v1": "temporary",
   "argus:landing-intent:v1": "campaign",
   "argus:landing-starter:v1": "temporary",
+  // The Business the person was working in, as the grant that admits them.
+  "argus:business-grant:v1": "layout",
 } as const satisfies Record<string, StorageConcept>;
 
 export type StorageKey = keyof typeof STORAGE_REGISTRY;

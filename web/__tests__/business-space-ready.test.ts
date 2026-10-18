@@ -66,3 +66,20 @@ describe("Business calls wait for the space", () => {
     expect(log).toEqual(["start:es-419", "start:es-419", "started", "updates"]);
   });
 });
+
+
+test("an old bootstrap cannot dispatch after logout and the new session starts again", async () => {
+  const { invalidateBrowserAuth } = await import("@/lib/browser-auth-generation");
+  const { source, release } = recording(0);
+  let reads = 0;
+  const spaced = withBusinessSpace({ ...source, updates: async () => { reads++; return []; } }, () => "en");
+  const pending = spaced.updates();
+  await Promise.resolve();
+  expect(reads).toBe(0);
+  invalidateBrowserAuth();
+  release();
+  await expect(pending).rejects.toThrow("Browser session changed");
+  expect(reads).toBe(0);
+  await spaced.updates();
+  expect(reads).toBe(1);
+});

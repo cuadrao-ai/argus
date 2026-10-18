@@ -77,7 +77,7 @@ export default function RecoveryPage() {
       setError(
         t(
           "auth.recovery.revocation_retry_error",
-          "Argus still couldn’t confirm that every session was signed out. Try again.",
+          "Cuadrao still couldn’t confirm that every session was signed out. Try again.",
         ),
       );
     } finally {
@@ -172,7 +172,7 @@ export default function RecoveryPage() {
               <p role="alert" className="text-sm leading-relaxed text-amber-700 dark:text-amber-200">
                 {t(
                   "auth.recovery.revocation_warning",
-                  "Argus could not confirm that every session was signed out. Retry before signing in again.",
+                  "Cuadrao could not confirm that every session was signed out. Retry before signing in again.",
                 )}
               </p>
             )}

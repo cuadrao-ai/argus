@@ -77,8 +77,7 @@ struct ReceiptNativePicker: UIViewControllerRepresentable {
             finishScan((0..<scan.pageCount).map { scan.imageOfPage(at: $0) })
         }
 
-        /// Encoding full-resolution pages takes seconds on a phone; it runs off the main thread so the
-        /// confirm tap never freezes the app, and the result comes back on the main thread.
+        /// Encoding full-resolution pages can delay UI updates. Return only the result to the main thread.
         func finishScan(_ images: [UIImage]) {
             ScanTrace.mark("encoding pages=\(images.count)")
             let spanish = spanish

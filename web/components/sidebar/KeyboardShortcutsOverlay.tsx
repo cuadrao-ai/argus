@@ -6,7 +6,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Keyboard, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useModalSurface } from "@/components/layout/useModalSurface";
-import { useChatAvailable } from "@/components/chat/ChatWorkspace";
+import { workspaceShortcutKeys, workspaceShortcutMatchesQuery } from "@/lib/keyboard-shortcuts";
+import { useChatWorkspace, useChatAvailable } from "@/components/chat/ChatWorkspace";
 import {
   KEYBOARD_SHORTCUTS,
   keyboardShortcutDisplay,
@@ -61,6 +62,8 @@ export function KeyboardShortcutsOverlaySurface({
   useModalSurface({ isOpen: true, overlayId, containerRef: modalRef, onDismiss: onClose });
   const { t } = useTranslation();
   const chatAvailable = useChatAvailable();
+  const workspaceShortcuts = useChatWorkspace()?.keyboardShortcuts;
+  const [query, setQuery] = useState("");
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [showCommandKey, setShowCommandKey] = useState(false);
 
@@ -107,12 +110,12 @@ export function KeyboardShortcutsOverlaySurface({
               >
                 {t("keyboard_shortcuts.title", "Keyboard shortcuts")}
               </h2>
-              <p className="mt-0.5 text-[13px] leading-relaxed text-black/55 dark:text-white/55">
+              {!workspaceShortcuts ? <p className="mt-0.5 text-[13px] leading-relaxed text-black/55 dark:text-white/55">
                 {t(
                   "keyboard_shortcuts.description",
                   "Quick ways to move through Argus.",
                 )}
-              </p>
+              </p> : null}
             </div>
           </div>
           <button
@@ -126,7 +129,12 @@ export function KeyboardShortcutsOverlaySurface({
           </button>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+        {workspaceShortcuts ? <div className="mt-5">
+          <input type="search" aria-label={t("common.search", "Search")} placeholder={t("common.search", "Search")} value={query} onChange={(event) => setQuery(event.target.value)} className="mb-4 min-h-11 w-full rounded-xl border border-black/15 bg-transparent px-3 text-[16px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)] dark:border-white/20" />
+          <div className="divide-y divide-black/10 dark:divide-white/10">
+            {workspaceShortcuts.filter((shortcut) => workspaceShortcutMatchesQuery(shortcut, showCommandKey, query)).map((shortcut) => <div key={shortcut.id} data-workspace-shortcut={shortcut.id} className="flex min-h-11 items-center justify-between gap-4 py-2 text-[14px]"><span>{shortcut.label}</span><span className="flex shrink-0 gap-1">{workspaceShortcutKeys(shortcut, showCommandKey).map((key) => <kbd key={key} className="rounded-md border border-black/10 bg-black/[0.035] px-2 py-1 text-[12px] dark:border-white/15 dark:bg-white/[0.08]">{key}</kbd>)}</span></div>)}
+          </div>
+        </div> : <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
           {HELP_GROUPS.map((group) => {
             const shortcuts = shortcutsForHelpGroup(group.id, chatAvailable);
             if (shortcuts.length === 0) return null;
@@ -189,7 +197,7 @@ export function KeyboardShortcutsOverlaySurface({
               </div>
             );
           })}
-        </div>
+        </div>}
       </section>
     </div>
   );

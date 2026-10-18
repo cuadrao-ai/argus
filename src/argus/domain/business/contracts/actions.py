@@ -5,8 +5,16 @@ import json
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import (
+    AwareDatetime,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
+from .authority import ActorProvenance
 from .facts import (
     BusinessFactPatch,
     BusinessShare,
@@ -137,6 +145,52 @@ class ApproveExpense(Contract):
     action: Literal["record_expense"]
 
 
+class ApproveIncome(Contract):
+    version: int = Field(ge=1, strict=True)
+    action: Literal["record_income"]
+
+
+class SettleRemainder(Contract):
+    """A person settles the read purchases a recorded draft does not cover."""
+
+    version: int = Field(ge=1)
+
+
+class SettleRemainderCommand(Contract):
+    action: Literal["settle_remainder"] = "settle_remainder"
+    draft_id: UUID
+    request: SettleRemainder
+
+
+class MarkPersonal(Contract):
+    """The owner or a prepare-holder marks a receipt as personal (no part of
+    it is the Business's) or takes the mark back. Reversible, a new revision
+    each way."""
+
+    version: int = Field(ge=1)
+    personal: bool
+
+
+class MarkPersonalCommand(Contract):
+    action: Literal["mark_personal"] = "mark_personal"
+    draft_id: UUID
+    request: MarkPersonal
+
+
+class DecideFiscalInclusion(Contract):
+    """A prepare-holder other than the owner answers whether a personal receipt
+    that carries a fiscal number goes into the 606."""
+
+    version: int = Field(ge=1)
+    include: bool
+
+
+class DecideFiscalInclusionCommand(Contract):
+    action: Literal["decide_606"] = "decide_606"
+    draft_id: UUID
+    request: DecideFiscalInclusion
+
+
 class ReviewCommand(Contract):
     action: Literal["review_draft"] = "review_draft"
     draft_id: UUID
@@ -176,7 +230,84 @@ class CaptureCommand(Contract):
     request: CaptureNote
 
 
-Command = BusinessAction | ReviewCommand | ApprovalCommand | CaptureCommand
+class IncomeApprovalCommand(Contract):
+    action: Literal["approve_income"] = "approve_income"
+    draft_id: UUID
+    request: ApproveIncome
+
+
+class AttachmentPreparationBinding(Contract):
+    schema_version: Literal[1] = 1
+    binding_id: UUID
+    space_id: UUID
+    owner_id: UUID
+    connection_id: UUID
+    source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    actor: ActorProvenance
+    target: ExistingDraft | None
+    consent: Literal[True]
+    captured_at: AwareDatetime
+
+    @model_serializer(mode="wrap")
+    def explicit_target(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        payload = handler(self)
+        if self.target is None:
+            payload["target"] = None
+        return payload
+
+    @field_validator("target", mode="before")
+    @classmethod
+    def exact_target_version(cls, value: object) -> object:
+        if isinstance(value, dict):
+            version = value.get("version")
+            if not isinstance(version, int) or isinstance(version, bool):
+                raise ValueError("attachment target version must be an integer")
+        return value
+
+    @field_validator("consent", mode="before")
+    @classmethod
+    def affirmative_consent(cls, value: object) -> object:
+        if value is not True:
+            raise ValueError("attachment preparation requires explicit consent")
+        return value
+
+    @model_validator(mode="after")
+    def original_preparer(self) -> AttachmentPreparationBinding:
+        if self.actor.actor_kind != "extractor":
+            raise ValueError("attachment preparation requires extractor provenance")
+        return self
+
+
+class PrepareAttachmentCommand(Contract):
+    action: Literal["prepare_attachment"] = "prepare_attachment"
+    binding: AttachmentPreparationBinding
+    batch_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class RebindAttachmentCommand(Contract):
+    """The owner moved a receipt's preparation binding from a grant that is
+    no longer live to their current one. The ledger row of that move."""
+
+    action: Literal["rebind_attachment"] = "rebind_attachment"
+    previous_binding_id: UUID
+    previous_grant_id: UUID
+    binding: AttachmentPreparationBinding
+
+
+Command = (
+    BusinessAction
+    | ReviewCommand
+    | ApprovalCommand
+    | CaptureCommand
+    | IncomeApprovalCommand
+    | PrepareAttachmentCommand
+    | SettleRemainderCommand
+    | RebindAttachmentCommand
+    | MarkPersonalCommand
+    | DecideFiscalInclusionCommand
+)
 
 
 class Applied(Contract):

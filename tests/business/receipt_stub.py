@@ -17,6 +17,7 @@ from argus.domain.ingestion.documents.models import (
     ExtractionBatch,
     ExtractionResult,
 )
+from argus.domain.ingestion.documents.preparation import PreparedDocument
 
 PURCHASE: dict[str, Any] = {
     "page": 1,
@@ -67,6 +68,7 @@ class ReceiptStub:
         media_type: str,
         connection_id: str,
         observed_at: datetime,
+        prepared: PreparedDocument | None = None,
     ) -> ExtractionBatch:
         self.calls.append(connection_id)
         if self.failure is not None:
@@ -82,7 +84,22 @@ class ReceiptStub:
                 "receipt": self.details,
             }
         )
-        batch = batch_from_result(result, digest, connection_id, observed_at, 1)
+        # The real extractor hands the projection the currency the source
+        # names for itself; the stub does the same so the guard is exercised.
+        from argus.domain.ingestion.documents.preparation import prepare_document
+
+        if prepared is None:
+            prepared = prepare_document(content, media_type)
+        batch = batch_from_result(
+            result,
+            digest,
+            connection_id,
+            observed_at,
+            1,
+            document_currency=prepared.document_currency,
+            ecf=prepared.ecf,
+            dgii_qr=prepared.dgii_qr,
+        )
         attachment = Attachment(
             external_id=digest,
             sha256=digest,
@@ -96,6 +113,11 @@ class ReceiptStub:
                     c.model_copy(update={"attachments": (attachment,)})
                     for c in batch.candidates
                 ),
-                "metadata": {"pages": 1, "media_type": media_type, "sha256": digest},
+                "metadata": {
+                    "pages": 1,
+                    "media_type": media_type,
+                    "sha256": digest,
+                    "document_currency": prepared.document_currency,
+                },
             }
         )

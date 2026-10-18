@@ -51,7 +51,7 @@ struct ReleaseUIReview: View {
                 case .identity: ReleaseIdentityGallery()
                 case .invites: ReleaseInvitationsGallery()
                 case .updates: ReleaseUpdatesGallery(spanish: spanish)
-                case .legal: CuadraoLegalLinks(webURL: nil)
+                case .legal: CuadraoLegalLinks()
                 }
             }
             .sheet(isPresented: $editing) { CuadraoIdentityEditor(name: "Alex", selection: $avatar) }

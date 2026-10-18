@@ -41,8 +41,7 @@ struct GuestHome: View {
     let active: Bool
     @Binding var path: [GuestRoute]
     @Binding var sheet: GuestSheet?
-    @State private var archivedID: UUID?
-    @State private var deletedID: UUID?
+    let offerUndo: (GuestUndoOffer) -> Void
     @Environment(\.locale) private var locale
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
@@ -98,38 +97,23 @@ struct GuestHome: View {
                 }
             }
         }
-        .overlay(alignment: .bottom) {
-            if let archivedID, path.isEmpty, model.book.account(archivedID)?.archived == true {
-                CuadraoToast(text: spanish ? "Cuenta archivada" : "Account archived", actionTitle: spanish ? "Deshacer" : "Undo",
-                    actionIdentifier: "accounts.archived.undo", action: { restore(archivedID) }, spanish: spanish,
-                    closeIdentifier: "accounts.archived.close", token: archivedID, close: { self.archivedID = nil })
-            } else if let deletedID, model.book.movement(deletedID)?.deleted == true {
-                CuadraoToast(text: spanish ? "Movimiento eliminado" : "Transaction deleted", actionTitle: spanish ? "Deshacer" : "Undo",
-                             actionIdentifier: "guest.undo", action: { undelete(deletedID) }, spanish: spanish,
-                             token: deletedID, close: { self.deletedID = nil })
-            }
-        }
         .onChange(of: sheet) { previous, current in
             // A confirmed archive arrives as the sheet closing after the book changed.
             if case .archive(let id)? = previous, current == nil, model.book.account(id)?.archived == true {
                 path = []
-                archivedID = id
+                offerUndo(GuestUndoOffer(text: spanish ? "Cuenta archivada" : "Account archived", identifier: "accounts.archived.undo",
+                                         restore: { restore(id) }))
             }
         }
     }
 
     private func restore(_ id: UUID) {
         _ = try? model.apply { try $0.settingArchived(id, false) }
-        if archivedID == id { archivedID = nil }
     }
 
     private func delete(_ id: UUID) {
         guard (try? model.apply { try $0.settingMovementDeleted(id, true) }) != nil else { return }
-        deletedID = id
-    }
-
-    private func undelete(_ id: UUID) {
-        _ = try? model.apply { try $0.settingMovementDeleted(id, false) }
-        deletedID = nil
+        offerUndo(GuestUndoOffer(text: spanish ? "Movimiento eliminado" : "Transaction deleted", identifier: "guest.undo",
+                                 restore: { _ = try? model.apply { try $0.settingMovementDeleted(id, false) } }))
     }
 }

@@ -1,8 +1,12 @@
-"""WhatsApp settings, read from ``ARGUS_WHATSAPP_*``.
+"""WhatsApp settings, read from ``CUADRAO_WHATSAPP_*``.
 
-Intake is off unless ``ARGUS_WHATSAPP_INTAKE_ENABLED`` is a true value and every
-credential it needs is present. Outbound replies are a second switch,
-``ARGUS_WHATSAPP_OUTBOUND_ENABLED``, so intake can be proven without sending.
+Each setting also reads its older ``ARGUS_WHATSAPP_*`` name, and the Cuadrao
+name wins when both are set. The app origin reads ``CUADRAO_APP_ORIGIN`` then
+``ARGUS_APP_ORIGIN``.
+
+Intake is off unless ``CUADRAO_WHATSAPP_INTAKE_ENABLED`` is a true value and
+every credential it needs is present. Outbound replies are a second switch,
+``CUADRAO_WHATSAPP_OUTBOUND_ENABLED``, so intake can be proven without sending.
 """
 
 from __future__ import annotations
@@ -10,7 +14,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from loguru import logger
-from pydantic import BeforeValidator, SecretStr, ValidationError
+from pydantic import AliasChoices, BeforeValidator, Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from argus.api.financial_accounts import TRUE_VALUES
@@ -33,18 +37,48 @@ Optional = Annotated[str | None, BeforeValidator(_blank_to_none)]
 Secret = Annotated[SecretStr | None, BeforeValidator(_blank_to_none)]
 
 
-class WhatsAppSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="ARGUS_WHATSAPP_", extra="ignore")
+def _names(name: str) -> AliasChoices:
+    return AliasChoices(f"CUADRAO_WHATSAPP_{name}", f"ARGUS_WHATSAPP_{name}")
 
-    intake_enabled: Flag = False
-    outbound_enabled: Flag = False
-    verify_token: Secret = None
-    app_secret: Secret = None
-    access_token: Secret = None
-    sender_key: Secret = None
-    phone_number_id: Optional = None
-    display_phone_number: Optional = None
-    graph_api_version: str = "v23.0"
+
+class WhatsAppSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+
+    intake_enabled: Flag = Field(default=False, validation_alias=_names("INTAKE_ENABLED"))
+    # The Business agent over WhatsApp. Off by default: WhatsApp is receipt
+    # intake only until this is turned on.
+    agent_enabled: Flag = Field(default=False, validation_alias=_names("AGENT_ENABLED"))
+    outbound_enabled: Flag = Field(
+        default=False, validation_alias=_names("OUTBOUND_ENABLED")
+    )
+    verify_token: Secret = Field(default=None, validation_alias=_names("VERIFY_TOKEN"))
+    app_secret: Secret = Field(default=None, validation_alias=_names("APP_SECRET"))
+    access_token: Secret = Field(default=None, validation_alias=_names("ACCESS_TOKEN"))
+    sender_key: Secret = Field(default=None, validation_alias=_names("SENDER_KEY"))
+    phone_number_id: Optional = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "CUADRAO_WHATSAPP_NUMBER_ID",
+            "CUADRAO_WHATSAPP_PHONE_NUMBER_ID",
+            "ARGUS_WHATSAPP_PHONE_NUMBER_ID",
+        ),
+    )
+    display_phone_number: Optional = Field(
+        default=None, validation_alias=_names("DISPLAY_PHONE_NUMBER")
+    )
+    graph_api_version: str = Field(
+        default="v23.0", validation_alias=_names("GRAPH_API_VERSION")
+    )
+    app_origin: Optional = Field(
+        default=None,
+        validation_alias=AliasChoices("CUADRAO_APP_ORIGIN", "ARGUS_APP_ORIGIN"),
+    )
+    reply_group_wait_seconds: int = Field(
+        default=120, ge=1, le=3600, validation_alias=_names("REPLY_GROUP_WAIT_SECONDS")
+    )
+    reply_daily_limit: int = Field(
+        default=10, ge=1, le=100, validation_alias=_names("REPLY_DAILY_LIMIT")
+    )
 
     @property
     def intake_ready(self) -> bool:

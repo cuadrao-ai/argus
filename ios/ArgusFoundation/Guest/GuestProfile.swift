@@ -27,7 +27,6 @@ struct GuestProfile: View {
     @ObservedObject var model: GuestBookModel
     @Binding var appearance: AppearancePreference
     @Binding var path: [GuestProfileRoute]
-    let webURL: URL?
     let leave: () -> Void
     let deleteData: () async -> Bool
     @Environment(\.locale) private var locale
@@ -39,11 +38,9 @@ struct GuestProfile: View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    modeNotice
                     header
                     group(spanish ? "Cuenta" : "Account") {
-                        action(symbol: "person.badge.plus", title: spanish ? "Crear cuenta" : "Create account",
-                               identifier: "guest.profile.signup", perform: leave)
-                        separator
                         action(symbol: "arrow.right.circle", title: spanish ? "Iniciar sesión" : "Sign in",
                                identifier: "guest.profile.signin", perform: leave)
                     }
@@ -75,6 +72,16 @@ struct GuestProfile: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
+    }
+
+    /// The line the book says once on first open, kept here for good, with the way to a real account.
+    private var modeNotice: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(GuestNoticeCopy(spanish: spanish).modeLine).font(.subheadline.weight(.medium))
+                .accessibilityIdentifier("guest.profile.mode")
+            RegistrationButton(title: GuestNoticeCopy(spanish: spanish).createAccount, action: leave)
+                .accessibilityIdentifier("guest.profile.signup")
+        }
     }
 
     private var header: some View {
@@ -123,15 +130,20 @@ struct GuestProfile: View {
     }
 
     @ViewBuilder private var legal: some View {
-        if let webURL {
+        let legal = CuadraoLegalURLs.current
+        if legal.hasPages {
             group(spanish ? "Acerca de Cuadrao" : "About Cuadrao") {
-                Link(destination: webURL.appendingPathComponent("terms")) {
-                    rowLabel(symbol: "doc.text", title: spanish ? "Términos de uso" : "Terms of use", chevron: false)
-                }.buttonStyle(.plain).accessibilityIdentifier("guest.profile.terms")
-                separator
-                Link(destination: webURL.appendingPathComponent("privacy")) {
-                    rowLabel(symbol: "hand.raised", title: spanish ? "Política de privacidad" : "Privacy policy", chevron: false)
-                }.buttonStyle(.plain).accessibilityIdentifier("guest.profile.legal")
+                if let terms = legal.terms {
+                    Link(destination: terms) {
+                        rowLabel(symbol: "doc.text", title: spanish ? "Términos de uso" : "Terms of use", chevron: false)
+                    }.buttonStyle(.plain).accessibilityIdentifier("guest.profile.terms")
+                }
+                if legal.terms != nil, legal.privacy != nil { separator }
+                if let privacy = legal.privacy {
+                    Link(destination: privacy) {
+                        rowLabel(symbol: "hand.raised", title: spanish ? "Política de privacidad" : "Privacy policy", chevron: false)
+                    }.buttonStyle(.plain).accessibilityIdentifier("guest.profile.legal")
+                }
             }
         }
     }
@@ -159,6 +171,11 @@ private struct GuestPreferences: View {
             } header: { Text(spanish ? "Apariencia" : "Appearance") }
               footer: { Text(spanish ? "Sistema sigue la apariencia de tu iPhone." : "System follows your iPhone’s appearance.") }
                 .listRowBackground(CanvasSettingsStyle.surface)
+            Section {
+                LabeledContent(spanish ? "Idioma" : "Language") { Text(spanish ? "Español" : "English").foregroundStyle(.secondary) }
+                    .accessibilityIdentifier("guest.profile.language")
+            }
+            .listRowBackground(CanvasSettingsStyle.surface)
             Section {
                 Button { choosingCurrency = true } label: {
                     HStack {
@@ -201,7 +218,7 @@ private struct GuestPrivacy: View {
             }.listRowBackground(Color.clear)
             Section {
                 Button(spanish ? "Eliminar los datos de este iPhone" : "Delete this iPhone's data", role: .destructive) { confirmingDelete = true }
-                    .frame(minHeight: 44).accessibilityIdentifier("guest.profile.delete")
+                    .foregroundStyle(.red).frame(minHeight: 44).accessibilityIdentifier("guest.profile.delete")
             } footer: {
                 Text(spanish ? "Quita tu libro de este iPhone. Si luego creas una cuenta, esto no la toca."
                      : "Removes your book from this iPhone. If you create an account later, this doesn't touch it.")

@@ -242,6 +242,8 @@ extension FinancialLoopUITests {
         XCTAssertEqual(app.buttons["guest.movement.save"].label, "Guardar")
         app.textFields["guest.movement.amount"].tap()
         app.textFields["guest.movement.amount"].typeText("75.50")
+        // With the amount keyboard up the description sits behind the pinned Guardar, so the person closes it first.
+        closeKeyboard()
         app.textFields["guest.movement.note"].tap()
         app.textFields["guest.movement.note"].typeText("Mercado")
         closeKeyboard()

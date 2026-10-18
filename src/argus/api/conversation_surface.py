@@ -16,12 +16,27 @@ existing ones still works.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import datetime
+from typing import TYPE_CHECKING, Literal
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from argus.agent_runtime.business.context import (
+        AuthorizedBusinessContext,
+        BusinessActionService,
+    )
+    from argus.domain.business.contracts.recovery import DurableTurn, SenderLease
 
 from fastapi import Depends, HTTPException, Request
 
 from argus.api import state as api_state
-from argus.api.business import unavailable_problem
+from argus.api.business import (
+    chosen_scope,
+    own_business_only,
+    owner_required_problem,
+    unavailable_problem,
+)
 from argus.api.business_spaces import business_spaces, space_missing_problem
 from argus.api.dependencies import current_user, problem
 from argus.api.schemas import ConversationSurface, User
@@ -50,6 +65,12 @@ def surface_scope(
     spaces = business_spaces()
     if not business_pilot_enabled() or spaces is None:
         raise unavailable_problem(request)
+    # A stored conversation belongs to its space's creator
+    # (conversations_owner_space_fkey pins owner_space_id to spaces.created_by),
+    # so Business chat is the owner's: a chosen client grant is refused rather
+    # than silently run in the caller's own Business. A grantee's chat in a
+    # client's Business needs that constraint changed first.
+    own_business_only(request, user_id)
     resolved = resolve_business_scope(spaces, user_id)
     if resolved is None:
         raise space_missing_problem(request)
@@ -88,6 +109,19 @@ def is_business_conversation(*, user_id: str, conversation_id: str | None) -> bo
         return False
     scope = conversation_scope(user_id=user_id, conversation_id=conversation_id)
     return scope is not None and scope != PERSONAL
+
+
+def refuse_business_under_grant(
+    request: Request, *, user_id: str, conversation_id: str | None
+) -> None:
+    """A chosen client grant refuses a Business conversation (chat is the
+    owner's); the person's own Personal chat is theirs whatever is chosen."""
+
+    scope = chosen_scope(request, user_id)
+    if scope is None or scope.acting_as_owner:
+        return
+    if is_business_conversation(user_id=user_id, conversation_id=conversation_id):
+        raise owner_required_problem(request)
 
 
 def conversation_not_found(request: Request) -> HTTPException:
@@ -169,3 +203,36 @@ def message_conversation_id(*, user_id: str, message_id: str) -> str | None:
     if canonical is None:
         return None
     return gateway.message_conversation_id(user_id=user_id, message_id=canonical)
+
+
+def authorized_business_turn_context(
+    *,
+    actions: BusinessActionService,
+    user_id: str,
+    space_id: str,
+    turn: DurableTurn,
+    lease: SenderLease,
+    message_id: str,
+    received_at: datetime,
+    channel: Literal["web", "whatsapp"],
+    begin_reply: Callable[[], str | None],
+    language: str = "es-419",
+) -> AuthorizedBusinessContext:
+    from argus.agent_runtime.business.context import AuthorizedBusinessContext
+    from argus.domain.business.contracts.authority import TrustedActor
+
+    actor = TrustedActor(
+        actor_id=UUID(user_id), actor_kind="owner_via_agent", space_id=UUID(space_id)
+    )
+    authorization = actions.resolve_actor(actor)
+    return AuthorizedBusinessContext(
+        actions=actions,
+        authorization=authorization,
+        turn_key=turn.turn_key,
+        lease=lease,
+        message_id=UUID(message_id),
+        received_at=received_at,
+        channel=channel,
+        begin_reply=begin_reply,
+        language=language,
+    )

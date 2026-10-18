@@ -22,7 +22,7 @@ def test_image_preparation_strips_metadata():
     [
         (b"", "image/png", "empty_document"),
         (b"not an image", "image/png", "invalid_document"),
-        (b"hello", "text/plain", "unsupported_media_type"),
+        (b"hello", "application/zip", "unsupported_media_type"),
     ],
 )
 def test_invalid_inputs_fail_safely(content, media_type, code):

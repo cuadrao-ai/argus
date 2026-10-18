@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 from psycopg.types.json import Jsonb
@@ -20,12 +21,16 @@ from argus.domain.business.contracts.actions import (
     ProposeAllocation,
 )
 from argus.domain.business.contracts.authority import ActorProvenance
+from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
     BusinessResolution,
+    ReadPurchase,
 )
 from argus.domain.business.transactions import ActionTransaction
+from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
+from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
 
@@ -70,10 +75,37 @@ def save_revision(
     source_ids: tuple[UUID, ...],
     actor: ActorProvenance,
     turn_key: str | None,
+    read_purchases: tuple[ReadPurchase, ...] | None = None,
+    read_total: str | None = None,
+    ecf_checks: EcfVerification | None = None,
+    dgii_qr: DgiiQr | None = None,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
-    resolution["business"] = BusinessResolution(facts=after).model_dump(mode="json")
+    previous = resolution.get("business") or {}
+    if read_purchases is None:
+        # A later revision keeps the evidence the read left on the draft.
+        read_purchases = tuple(
+            ReadPurchase.model_validate(item)
+            for item in previous.get("read_purchases") or ()
+        )
+        read_total = previous.get("read_total")
+    if ecf_checks is None:
+        # A later document (a photo beside the e-CF) or a person's revision
+        # brings no verification; the one the e-CF gave stays on the draft.
+        kept = previous.get("ecf_checks")
+        ecf_checks = EcfVerification.model_validate(kept) if kept else None
+    if dgii_qr is None:
+        kept_qr = previous.get("dgii_qr")
+        dgii_qr = DgiiQr.model_validate(kept_qr) if kept_qr else None
+    resolution["business"] = BusinessResolution(
+        facts=after,
+        read_purchases=read_purchases,
+        read_total=read_total,
+        ecf_checks=ecf_checks,
+        dgii_qr=dgii_qr,
+        remainder_settled=bool(previous.get("remainder_settled", False)),
+    ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
     sources.attach(tx, event.id, source_ids)
@@ -253,3 +285,209 @@ def apply(
     except EventNotFound:
         raise ActionError("not_found", "business_record_not_found") from None
     return Applied(outcome="applied", draft_id=event.id, version=event.version)
+
+
+def prepare_attachment(
+    tx: ActionTransaction,
+    target: ExistingDraft | None,
+    batch: ExtractionBatch,
+    draft: DocumentDraft,
+    actor: ActorProvenance,
+) -> Applied:
+    from argus.domain.business.contracts.dossier import AttachmentSource
+    from argus.domain.ingestion.documents.extractor import fiscal_facts_from_receipt
+
+    candidates = [
+        candidate for candidate in batch.candidates if candidate.evidence == "transaction"
+    ]
+    if batch.complete is not True or batch.readable is not True or batch.receipt is None:
+        raise ActionError("invalid_input", "receipt_requires_review")
+    if any(
+        candidate.source.connection_id != draft.connection_id for candidate in candidates
+    ):
+        raise ActionError("invalid_input", "business_preparation_source_changed")
+    purchases = candidates or _observed_purchases(batch)
+    # One clean purchase becomes the draft's facts. Several purchases, or an
+    # ambiguous read, still become one draft: it keeps only what every read
+    # purchase shares, leaves the amount for a person, and carries each read
+    # purchase as evidence, so there is always something to review.
+    ambiguous = len(purchases) != 1 or any(
+        issue.code == "receipt_purchase_ambiguous" for issue in batch.issues
+    )
+    read_purchases = (
+        tuple(
+            ReadPurchase(
+                index=index,
+                amount=candidate.amount,
+                currency=candidate.currency,
+                occurred_on=candidate.occurred_on,
+                merchant=candidate.merchant,
+                kind_hint=_kind(candidate.kind_hint),
+            )
+            for index, candidate in enumerate(purchases, 1)
+        )
+        if ambiguous
+        else ()
+    )
+    read_total = batch.receipt.total if ambiguous else None
+    candidate = _consensus(purchases) if ambiguous else purchases[0]
+    source_id = sources.record_source(
+        tx,
+        f"attachment:{draft.connection_id}",
+        AttachmentSource(
+            id=uuid4(),
+            channel="web",
+            received_at=draft.created_at,
+            connection_id=draft.connection_id,
+            filename=draft.filename,
+            media_type=draft.media_type,
+        ),
+    )
+    now = datetime.now(timezone.utc)
+    if target is None:
+        event, before = new_candidate(tx.context.owner_id, now), None
+    else:
+        event = event_at(tx, target)
+        before = facts_of(event)
+        event = replace(event, version=event.version + 1, updated_at=now)
+    values = {
+        "amount": candidate.amount,
+        "currency": candidate.currency,
+        "occurred_on": candidate.occurred_on,
+        "counterparty": candidate.merchant,
+        "kind": _kind(candidate.kind_hint),
+    }
+    uncertain = set(candidate.uncertain)
+    if "merchant" in uncertain:
+        uncertain.add("counterparty")
+    if "direction" in uncertain:
+        uncertain.add("kind")
+    facts = BusinessFacts().model_dump(mode="json")
+    for name, value in values.items():
+        known = value is not None and name not in uncertain
+        facts[name] = {
+            "state": "known" if known else "unknown",
+            "value": value if known else None,
+            "origin": "extracted",
+            "verified": False,
+            "source_ids": [str(source_id)],
+        }
+    facts["fiscal"] = fiscal_facts_from_receipt(
+        batch.receipt, source_id=source_id
+    ).model_dump(mode="json")
+    # The typed merge after decode and read: the QR fills only what the read
+    # left unknown, each filled fact naming its origin; a mismatch fills nothing.
+    facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
+    facts = BusinessFacts.model_validate(facts).model_dump(mode="json")
+    if before is not None:
+        merged = before.model_dump(mode="json")
+        for name in values:
+            merged[name] = _retain_or_fill(
+                merged[name], facts[name], currency=name == "currency"
+            )
+        if merged["fiscal"] is None:
+            merged["fiscal"] = facts["fiscal"]
+        else:
+            for name, incoming in facts["fiscal"].items():
+                merged["fiscal"][name] = _retain_or_fill(merged["fiscal"][name], incoming)
+        facts = merged
+    after = BusinessFacts.model_validate(facts)
+    return save_revision(
+        tx,
+        event,
+        before,
+        after,
+        (source_id,),
+        actor,
+        None,
+        read_purchases,
+        read_total,
+        batch.ecf_checks,
+        batch.dgii_qr,
+    )
+
+
+KINDS = frozenset({"expense", "income", "transfer", "refund"})
+
+
+def _observed_purchases(batch: ExtractionBatch) -> list[SimpleNamespace]:
+    """The transaction rows a read showed. The projection delivers no
+    candidate for a receipt it could not settle on one purchase, so the rows
+    themselves are the evidence, read the way the projection reads a row."""
+
+    from argus.domain.ingestion.documents.extractor import plain_amount
+
+    rows = []
+    seen: set[tuple[int, int]] = set()
+    for row in batch.observations:
+        identity = (row.page, row.row)
+        # The projection's own skips: a repeated identity or an amount that is
+        # not plain decimal text is never a purchase.
+        if row.evidence != "transaction" or identity in seen:
+            continue
+        seen.add(identity)
+        if row.amount is not None and not plain_amount(row.amount):
+            continue
+        uncertain = set(row.uncertain)
+        for name in ("amount", "currency", "occurred_on"):
+            if getattr(row, name) is None:
+                uncertain.add(name)
+        if row.direction == "unknown":
+            uncertain.add("direction")
+        rows.append(
+            SimpleNamespace(
+                amount=row.amount,
+                currency=row.currency,
+                occurred_on=row.occurred_on,
+                merchant=row.merchant,
+                kind_hint=row.kind_hint,
+                uncertain=frozenset(uncertain),
+            )
+        )
+    return rows
+
+
+def _kind(hint: str | None) -> str | None:
+    """A read kind the facts accept; anything else is left unknown."""
+
+    return hint if hint in KINDS else None
+
+
+def _consensus(purchases: list) -> SimpleNamespace:  # noqa: ANN001
+    """What every read purchase agrees on; the amount is never shared."""
+
+    def shared(values: set) -> object | None:
+        return values.pop() if len(values) == 1 and None not in values else None
+
+    uncertain: set[str] = set()
+    for candidate in purchases:
+        uncertain |= set(candidate.uncertain)
+    return SimpleNamespace(
+        amount=None,
+        currency=shared({c.currency for c in purchases}),
+        occurred_on=shared({c.occurred_on for c in purchases}),
+        merchant=shared({c.merchant for c in purchases}),
+        kind_hint=shared({_kind(c.kind_hint) for c in purchases}),
+        uncertain=frozenset(uncertain),
+    )
+
+
+def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> dict:
+    if incoming["state"] != "known":
+        return prior
+    if prior["state"] == "unknown":
+        return (
+            prior
+            if prior.get("origin") in {"owner_stated", "member_set", "matched"}
+            else incoming
+        )
+    if (
+        currency
+        and prior.get("origin") == "default"
+        and prior["value"] == "DOP"
+        and not prior["source_ids"]
+    ):
+        return incoming
+    if prior["state"] == "known" and prior["value"] == incoming["value"]:
+        return prior
+    raise ActionError("invalid_input", "receipt_requires_review")

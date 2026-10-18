@@ -36,13 +36,15 @@ async function renderAuthForm(mode: AuthFormMode, language: "en" | "es-419", bra
 }
 
 describe("auth form copy", () => {
-  test("Business uses Cuadrao while the shared default remains Argus", async () => {
+  test("Cuadrao is the brand on every entry, Business or not", async () => {
     for (const language of ["en", "es-419"] as const) {
       const business = await renderAuthForm("login", language, "cuadrao");
-      const personal = await renderAuthForm("login", language);
+      const shared = await renderAuthForm("login", language);
       assert.equal(business.includes("Cuadrao?"), true);
-      assert.equal(business.includes("Argus?"), false);
-      assert.equal(personal.includes("Argus?"), true);
+      assert.equal(business.includes("Argus"), false);
+      assert.equal(shared.includes("Cuadrao?"), true);
+      assert.equal(shared.includes("Argus"), false);
+      assert.equal(shared.includes('data-auth-brand="cuadrao"'), true);
     }
   });
   test("signup associates the password requirement with the password input", async () => {
@@ -65,7 +67,7 @@ describe("auth form copy", () => {
     expect(signup).toContain("At least 8 characters.");
     expect(signup).toContain("Already have an account?");
     expect(signup).toContain(">Sign in</button>");
-    expect(login).toContain("New to Argus?");
+    expect(login).toContain("New to Cuadrao?");
     expect(login).toContain(">Sign in</button>");
     expect(login).not.toContain("At least 8 characters.");
   });
@@ -77,7 +79,7 @@ describe("auth form copy", () => {
     expect(signup).toContain("Mínimo 8 caracteres.");
     expect(signup).toContain("¿Ya tienes una cuenta?");
     expect(signup).toContain(">Iniciar sesión</button>");
-    expect(login).toContain("¿Nuevo en Argus?");
+    expect(login).toContain("¿Nuevo en Cuadrao?");
     expect(login).toContain(">Iniciar sesión</button>");
     expect(login).not.toContain("Mínimo 8 caracteres.");
   });

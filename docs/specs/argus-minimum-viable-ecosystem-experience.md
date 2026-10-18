@@ -114,6 +114,9 @@ behavior; do not maintain another competing feature definition or use this table
 as a claim of implementation. A package must identify what it completes and what
 remains outstanding. Explicit later/experimental items stay distinguished below.
 
+The status and the flow list live in [Core flows](../CORE_FLOWS.md). This table is the
+scope index only and carries no status.
+
 | Area | Required coverage | Detailed owner |
 | --- | --- | --- |
 | Access | Existing identity; sign-in, registration, confirmation/resend, recovery/reset, secure session refresh and relaunch, logout/account switching, browser-to-app transitions, guest chat and registration with return to action | [Guest boundary](#guest-access-and-registration); existing API/auth contracts |

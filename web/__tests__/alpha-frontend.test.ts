@@ -201,10 +201,10 @@ describe("Argus Alpha frontend contract", () => {
     expect(sidebar).toContain(
       '<PanelLeft className="h-5 w-5 text-black/60 dark:text-white/60" />',
     );
-    assert.ok(sidebar.includes('useConversationSurface() === "business"'));
-    assert.ok(sidebar.includes('src="/brand/cuadrao-mark-light.svg"'));
-    assert.ok(sidebar.includes("<ArgusLogo"));
-    assert.ok(sidebar.includes('className="h-8 w-8 shrink-0 text-black dark:text-white"'));
+    // One brand on every surface: the approved Cuadrao mark in both themes, never the Argus mark.
+    assert.ok(sidebar.includes("<CuadraoMark size={32}") && !sidebar.includes("ArgusLogo") && !sidebar.includes("useConversationSurface"));
+    const mark = readFileSync(join(root, "components/CuadraoMark.tsx"), "utf-8");
+    assert.ok(mark.includes('src="/brand/cuadrao-mark-light.svg"') && mark.includes('src="/brand/cuadrao-mark-dark.svg"'));
     expect(existsSync(legacyPath)).toBe(true);
     expect(existsSync(faviconPath)).toBe(true);
 
@@ -2574,7 +2574,7 @@ describe("Argus Alpha frontend contract", () => {
     );
     expect(en).toContain('"title": "Delete your account?"');
     expect(en).toContain(
-      "Permanently delete your Argus account and your data.",
+      "Permanently delete your Cuadrao account and your data.",
     );
     expect(en).toContain("Your account and your data will be deleted, and this");
     expect(en).toContain("Your account is deleted. You're signed out.");
@@ -2583,7 +2583,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(en).not.toContain("Support will follow up by email.");
     expect(es).toContain('"title": "¿Eliminar tu cuenta?"');
     expect(es).toContain(
-      "Elimina para siempre tu cuenta de Argus y tus datos.",
+      "Elimina para siempre tu cuenta de Cuadrao y tus datos.",
     );
     expect(es).toContain("Tu cuenta y tus datos se eliminarán, y no");
     expect(es).toContain("Tu cuenta está eliminada. Ya cerraste sesión.");
@@ -2862,7 +2862,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(page).toContain("await getMe()");
     expect(page).toContain("router.replace(postAuthPath())");
     expect(page).toContain("skipAuthenticatedRedirect");
-    expect(page).toContain("font-display text-6xl");
+    expect(page).toContain("<CuadraoLockup width={268} />");
     expect(page).toContain("font-display flex w-full max-w-sm");
   });
 
@@ -2888,8 +2888,9 @@ describe("Argus Alpha frontend contract", () => {
     expect(page).toContain('updateAuthMode("request")');
     expect(page).toContain('updateAuthMode("signup")');
     expect(page).toContain('const showLogin = () => updateAuthMode("login")');
-    expect(page).toContain('href="/terms"');
-    expect(page).toContain('href="/privacy"');
+    expect(page).toContain("acceptanceLinks()");
+    expect(page).not.toContain('href="/terms"');
+    expect(page).not.toContain('href="/privacy"');
     expect(page).not.toContain('const authHref = "/chat"');
     expect(page).not.toContain("href={authHref}");
     expect(page).not.toContain('href="/login"');
@@ -2905,27 +2906,25 @@ describe("Argus Alpha frontend contract", () => {
 
     expect(chatPage).toContain("authLoginPathFromSearch");
     expect(chatPage).not.toContain('redirect("/login")');
-    expect(chat).toContain('window.location.href = "/"');
+    expect(chat).toContain("leaveSession(");
     expect(chat).not.toContain('window.location.href = "/?auth=login"');
     expect(chat).not.toContain('window.location.href = "/login"');
   });
 
   test("ordinary logout leaves only after provider revocation and clears private state", () => {
-    const chat = readFileSync(
-      join(root, "components/chat/ChatInterface.tsx"),
-      "utf-8",
-    );
+    const chat = readFileSync(join(root, "components/chat/ChatInterface.tsx"), "utf-8");
+    const flow = readFileSync(join(root, "lib/logout-flow.ts"), "utf-8");
     const logoutHandler = chat.slice(
       chat.indexOf("const handleLogout = async ("),
       chat.indexOf("const handleCancelConfirmationAction"),
     );
 
     expect(logoutHandler).toContain("settings.logout_error");
-    expect(logoutHandler).toContain('result?.revocation === "failed"');
     expect(logoutHandler).toContain("resetToEmptyChatSurface()");
     expect(logoutHandler).toContain("clearHistory()");
-    expect(logoutHandler.indexOf("resetToEmptyChatSurface()")).toBeLessThan(
-      logoutHandler.indexOf('window.location.href = "/"'),
+    expect(flow).toContain('result?.revocation === "failed"');
+    expect(flow.indexOf("deps.clearLocalState()")).toBeLessThan(
+      flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted))"),
     );
   });
 

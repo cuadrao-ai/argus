@@ -77,3 +77,32 @@ enum ConnectedPlanMapping {
         cadence == .monthly ? nil : NSLocalizedString("plan.repeat." + cadence.rawValue, comment: "")
     }
 }
+
+/// The first field a new or edited plan still needs; the kind drafts own the rules, the editor names the result.
+enum ConnectedPlanMissing: String, Equatable {
+    case name, nameTooLong, amount, monthly, debtAccount, accounts, categories, destination, source, sameAccount, rate, fees, loading, planUnavailable
+
+    static func name(_ text: String) -> ConnectedPlanMissing? {
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .name }
+        return text.count > 100 ? .nameTooLong : nil
+    }
+
+    func hint(spanish: Bool) -> String {
+        switch self {
+        case .name: spanish ? "Falta el nombre del plan." : "Add a name for the plan."
+        case .nameTooLong: spanish ? "Usa un nombre de hasta 100 caracteres." : "Use a name of up to 100 characters."
+        case .amount: spanish ? "Falta el monto." : "Add the amount."
+        case .monthly: spanish ? "Falta el pago de cada mes." : "Add the monthly payment."
+        case .debtAccount: spanish ? "Elige la tarjeta o préstamo." : "Choose the card or loan."
+        case .accounts: spanish ? "Elige al menos una cuenta incluida." : "Choose at least one included account."
+        case .categories: spanish ? "Elige al menos una categoría." : "Choose at least one category."
+        case .destination: spanish ? "Con un aporte mensual, elige el destino de los ahorros." : "With a monthly amount, choose the savings destination."
+        case .source: spanish ? "Elige la cuenta de donde sale el dinero." : "Choose the account the money comes from."
+        case .sameAccount: spanish ? "El origen y el destino deben ser cuentas distintas." : "The source and destination must be different accounts."
+        case .rate: spanish ? "Falta el interés anual." : "Add the annual interest."
+        case .fees: spanish ? "Faltan las comisiones de cada mes." : "Add the monthly fees."
+        case .loading: spanish ? "Cargando tus cuentas…" : "Loading your accounts…"
+        case .planUnavailable: spanish ? "No pudimos cargar tu plan. Reintenta para crear uno." : "We couldn't load your plan. Retry to create one."
+        }
+    }
+}

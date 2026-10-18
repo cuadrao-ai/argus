@@ -13,6 +13,10 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
     @FocusState private var nameFocused: Bool
     @FocusState private var rateFocused: Bool
     @State private var rateText = ""
+    /// Only a visible rate field can hold the save back; switching away from Deuda clears it.
+    private var rateProblem: PercentInput.Problem? {
+        PlanRateCheck.blocking(kind: draft.kind.rawValue, showsRate: host.showsRate, text: rateText)
+    }
     @Environment(\.dismiss) private var dismiss
     private var editing: Bool { host.editing }
     private var ids: CuadraoPlanEditorIdentifiers { host.identifiers }
@@ -24,7 +28,7 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
         && (!host.showsTarget || (draft.target.isFinite && (0.01...CanvasMoney.maximumValue).contains(draft.target)))
         && draft.recorded.isFinite && (0...CanvasMoney.maximumValue).contains(draft.recorded)
         && (draft.kind == .budget || (draft.monthly.isFinite && ((host.monthlyRequired ? 0.01 : 0)...CanvasMoney.maximumValue).contains(draft.monthly)))
-        && draft.annualRate.isFinite && (0...100).contains(draft.annualRate)
+        && draft.annualRate.isFinite && (0...100).contains(draft.annualRate) && rateProblem == nil
         && (draft.kind != .debt || !host.showsTarget || draft.recorded <= draft.target)
         && host.spaces.contains { $0.id == draft.spaceID }
         && host.canSave(draft)
@@ -86,12 +90,14 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                                     amountRow(draft.kind.recordedTitle(spanish), value: $draft.recorded, id: "plan-recorded")
                                 }
                                 if draft.kind == .debt && host.showsRate {
-                                    HStack {
-                                        Text(spanish ? "Interés anual (%)" : "Annual interest (%)")
-                                        TextField("0", text: $rateText).keyboardType(.decimalPad).focused($rateFocused).multilineTextAlignment(.trailing)
-                                            .accessibilityIdentifier(ids.rate)
-                                            .onChange(of: rateText) { _, text in draft.annualRate = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0 }
-                                    }.padding(18)
+                                    PercentField(title: spanish ? "Interés anual" : "Annual interest", text: $rateText, bounds: .interest,
+                                                 spanish: spanish, identifier: ids.rate)
+                                        .focused($rateFocused).padding(18)
+                                        .onChange(of: rateText) { _, text in
+                                            if case .success(let value) = PercentInput.parse(text, .interest) {
+                                                draft.annualRate = NSDecimalNumber(decimal: value ?? 0).doubleValue
+                                            }
+                                        }
                                     .onAppear { if draft.annualRate != 0 && rateText.isEmpty { rateText = draft.annualRate.formatted(.number.grouping(.never)) } }
                                     Text(spanish ? "La estimación supone una tasa fija, pagos mensuales, sin compras nuevas ni comisiones." : "The estimate assumes a fixed rate, monthly payments, no new purchases or fees.")
                                         .font(.caption).foregroundStyle(.secondary)
@@ -114,8 +120,9 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                         }
                     }
                     if !valid {
-                        Text(spanish ? "Añade un nombre y revisa los montos." : "Add a name and check the amounts.")
-                            .font(.caption).foregroundStyle(.secondary)
+                        Text(PlanRateCheck.hint(rateProblem, spanish: spanish)
+                             ?? host.missing(draft) ?? (spanish ? "Añade un nombre y revisa los montos." : "Add a name and check the amounts."))
+                            .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("plan.missing")
                     }
                     footer()
                 }.padding(24)

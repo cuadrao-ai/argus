@@ -6,7 +6,7 @@ import { I18nextProvider } from "react-i18next";
 import { Banknote, FileText, ImageIcon } from "lucide-react";
 
 import type { WorkspaceSearch, WorkspaceSearchGroup } from "../components/chat/ChatWorkspace";
-import { WorkspaceSearchResults } from "../components/sidebar/command-palette/WorkspaceSearchResults";
+import { HOVER_PREVIEW_MS, WorkspaceSearchResults } from "../components/sidebar/command-palette/WorkspaceSearchResults";
 import type { BusinessDataSource } from "../components/business-app/business-data";
 import { periodContaining } from "../components/business-app/business-format";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
@@ -110,7 +110,7 @@ async function businessSearch(found: BusinessSearchResult, notes: BusinessCaptur
     </I18nextProvider>,
   );
   const groups = await (built as unknown as WorkspaceSearch).find("ferreteria");
-  return { groups, opened, periods };
+  return { groups, opened, periods, search: built as unknown as WorkspaceSearch };
 }
 
 const expense = {
@@ -139,14 +139,14 @@ describe("Business hits open the panel that holds them", () => {
     expect(opened).toEqual([{ kind: "receipt", receiptId: "rcpt-1" }]);
   });
 
-  test("an expense without a receipt opens its row in the Expenses list", async () => {
-    const today = new Date();
-    const day = new Date(today.getTime() - today.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-    const manual = { ...expense, id: "exp-2", receipt_id: null, occurred_on: day };
-    const { groups, opened, periods } = await businessSearch({ expenses: [manual], receipts: [], accounts: [] });
+  test("an expense without a receipt opens the draft that recorded it, or its own detail", async () => {
+    const recorded = { ...expense, id: "exp-2", receipt_id: null, draft_id: "draft-2" };
+    const byHand = { ...expense, id: "exp-3", receipt_id: null };
+    const { groups, opened, periods } = await businessSearch({ expenses: [recorded, byHand], receipts: [], accounts: [] });
     groups[0].hits[0].open();
-    expect(periods).toEqual(["this_month"]);
-    expect(opened).toEqual([{ kind: "expenses", expenseId: "exp-2" }]);
+    groups[0].hits[1].open();
+    expect(periods).toEqual([]);
+    expect(opened).toEqual([{ kind: "draft", draftId: "draft-2" }, { kind: "expense", expenseId: "exp-3" }]);
   });
 
   test("a receipt opens its review and shows the file type it is", async () => {
@@ -183,7 +183,7 @@ describe("Business hits open the panel that holds them", () => {
 
 describe("original note search", () => {
   test("distinct sources sharing a draft open only the canonical draft", async () => {
-    const note: BusinessCapture = { draft_id: "draft-1", version: 3, source_id: "source-1", text: "  pintura sin recibo  ", received_at: "2026-10-10T14:00:00Z", review_state: "open" };
+    const note: BusinessCapture = { draft_id: "draft-1", version: 3, revision: 3, source_id: "source-1", text: "  pintura sin recibo  ", received_at: "2026-10-10T14:00:00Z", review_state: "open" };
     const { groups, opened } = await businessSearch({ expenses: [], receipts: [], accounts: [] }, [note, { ...note, source_id: "source-2", text: "Agrego el pago" }]);
     const captures = groups.find((group) => group.id === "captures")!;
     assert.deepEqual(captures.hits.map((hit) => [hit.id, hit.title, hit.amount]), [["source-1", note.text, null], ["source-2", "Agrego el pago", null]]);
@@ -199,5 +199,82 @@ describe("original note search", () => {
     assert.ok(html.includes("Notes are unavailable"));
     assert.ok(html.includes(expense.merchant));
     assert.ok(!html.includes("private server details"));
+  });
+});
+
+type Element = { type: unknown; props: { children?: unknown; onMouseEnter?: () => void; onMouseLeave?: () => void; onFocus?: () => void; onClick?: (event: { detail: number }) => void; "aria-pressed"?: boolean } };
+function buttonsOf(node: unknown, found: Element[] = []): Element[] {
+  if (Array.isArray(node)) { node.forEach((child) => buttonsOf(child, found)); return found; }
+  if (!node || typeof node !== "object") return found;
+  const element = node as Element;
+  if (element.type === "button") found.push(element);
+  buttonsOf(element.props?.children, found);
+  return found;
+}
+
+describe("record preview in the results", () => {
+  const hit = { id: "exp-1", icon: Banknote, title: "Ferretería", detail: "", amount: null, open: () => undefined };
+  const groups: WorkspaceSearchGroup[] = [{ id: "expenses", label: "Expenses", hits: [{ ...hit, preview: <p>record</p> }, { ...hit, id: "exp-2" }] }];
+
+  function rowsWith(handlers: { onPreview?: (group: string, item: { id: string }) => void; onSelect?: (group: string, item: { id: string }) => void; onOpened?: () => void }) {
+    let tree: unknown = null;
+    function Probe() {
+      tree = WorkspaceSearchResults({ search, state: { status: "ready", groups }, retry: noop, onOpened: handlers.onOpened ?? noop, onPreview: handlers.onPreview, onSelect: handlers.onSelect, selectedKey: "expenses:exp-1" });
+      return null;
+    }
+    renderToStaticMarkup(<Probe />);
+    return buttonsOf(tree);
+  }
+
+  test("focus previews at once; a single click selects; Enter and a double click open the record", () => {
+    const previews: string[] = [];
+    const selections: string[] = [];
+    let opened = 0;
+    const [withPreview, withoutPreview] = rowsWith({ onOpened: () => { opened += 1; }, onPreview: (group, item) => previews.push(`${group}:${item.id}`), onSelect: (group, item) => selections.push(`${group}:${item.id}`) });
+    withPreview.props.onFocus?.();
+    assert.deepEqual(previews, ["expenses:exp-1"]);
+    withPreview.props.onClick?.({ detail: 1 });
+    assert.deepEqual(selections, ["expenses:exp-1"]);
+    assert.equal(opened, 0);
+    assert.equal(withPreview.props["aria-pressed"], true);
+    withPreview.props.onClick?.({ detail: 0 });
+    withPreview.props.onClick?.({ detail: 2 });
+    assert.equal(opened, 2);
+    assert.equal(withoutPreview.props.onMouseEnter, undefined);
+    withoutPreview.props.onClick?.({ detail: 1 });
+    assert.equal(opened, 3);
+  });
+
+  test("hover previews after a short delay and a leave before it cancels", async () => {
+    const previews: string[] = [];
+    const [row] = rowsWith({ onPreview: (group, item) => previews.push(`${group}:${item.id}`) });
+    row.props.onMouseEnter?.();
+    row.props.onMouseLeave?.();
+    await new Promise((resolve) => setTimeout(resolve, HOVER_PREVIEW_MS + 50));
+    assert.deepEqual(previews, []);
+    row.props.onMouseEnter?.();
+    assert.deepEqual(previews, []);
+    await new Promise((resolve) => setTimeout(resolve, HOVER_PREVIEW_MS + 50));
+    assert.deepEqual(previews, ["expenses:exp-1"]);
+  });
+
+  test("without a preview handler a click opens the record as before", () => {
+    let opened = 0;
+    const [row] = rowsWith({ onOpened: () => { opened += 1; } });
+    row.props.onClick?.({ detail: 1 });
+    assert.equal(opened, 1);
+  });
+
+  test("every Business hit carries a preview that shows what the hit already knows", async () => {
+    const note: BusinessCapture = { draft_id: "draft-1", version: 5, revision: 2, source_id: "source-1", text: "pintura sin recibo", received_at: "2026-10-10T14:00:00Z", review_state: "open" };
+    const receipt = { id: "rcpt-9", channel: "web" as const, filename: "factura-9.pdf", media_type: "application/pdf", size_bytes: 1, received_at: "2026-10-07T14:00:00Z", status: "review_ready" as const, error_code: null, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null, attention: null, preparable: false, enterable: false };
+    const { groups: found, search: built } = await businessSearch({ expenses: [expense], receipts: [receipt], accounts: [] }, [note]);
+    assert.equal(built.previewAvailable, true);
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "en", resources: {} });
+    const html = (group: string) => renderToStaticMarkup(<I18nextProvider i18n={i18n}>{found.find((item) => item.id === group)!.hits[0].preview}</I18nextProvider>);
+    assert.ok(html("expenses").includes("Ferretería La Esquina") && html("expenses").includes("RD$"));
+    assert.ok(html("receipts").includes("factura-9.pdf"));
+    assert.ok(html("captures").includes("pintura sin recibo") && html("captures").includes("Revision 2"));
   });
 });

@@ -6,8 +6,11 @@ final class ProfileAuthModel: ObservableObject {
     enum State { case accountDeletionUncertain, accountDeletionPending, disabled, configurationInvalid, signedOut, authenticated, pendingSignOut, unsupportedAnonymous, credentialValidationRequired, reauthenticationRequired }
     @Published private(set) var state: State = .disabled
     @Published private(set) var busy = false
-    /// True once the first launch restore has finished, so a host can wait for it before choosing what to show.
-    @Published private(set) var hasRestored = false
+    @Published private var progress = RestoreProgress()
+    /// True once the session is known, so a host can wait for it before choosing what to show.
+    var hasRestored: Bool { progress.known }
+    /// After a restore ends signed out while the keychain still holds a session: offline or the server did not answer.
+    @Published private(set) var storedSessionUnconfirmed = false
     @Published private(set) var profile: SessionProfile?
     @Published private(set) var confirmationRequired = false
     @Published private(set) var errorKey: String?
@@ -47,6 +50,12 @@ final class ProfileAuthModel: ObservableObject {
         }
         self.init(configuration: loadedConfiguration, controller: loadedController,
                   providers: loadedController == nil ? .off : NativeProviderConfiguration.load(), initialState: initialState)
+    }
+
+    /// The real server for moving the on-device book into this account, bound to the session that is open now.
+    func guestClaimServer() async -> (any GuestClaimServer)? {
+        guard let controller else { return nil }
+        return SessionGuestClaimServer(controller: controller, identity: await controller.snapshot())
     }
 
     init(configuration loadedConfiguration: NativeAuthConfiguration?, controller loadedController: SessionController?,
@@ -108,12 +117,16 @@ final class ProfileAuthModel: ObservableObject {
         guard !started else { return }
         started = true
         await restore()
-        hasRestored = true
         await deletion?.load()
     }
 
     func restore() async {
-        guard let controller else { return }
+        guard let controller else { progress.noSession(); return }
+        #if DEBUG
+        // UI tests stand in for a slow hosted /me with `-cuadraoRestoreDelayMs`.
+        let delay = UserDefaults.standard.integer(forKey: "cuadraoRestoreDelayMs")
+        if delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
+        #endif
         do {
             accept(try await controller.requestCredentialRevalidation())
         } catch {
@@ -121,7 +134,7 @@ final class ProfileAuthModel: ObservableObject {
             errorKey = Self.messageKey(error)
         }
         revalidationRequested = true
-        guard !busy else { return }
+        guard progress.enter(busy: busy) else { return }
         busy = true
         defer { busy = false }
         repeat {
@@ -134,6 +147,8 @@ final class ProfileAuthModel: ObservableObject {
                 errorKey = Self.messageKey(error)
             }
         } while revalidationRequested
+        storedSessionUnconfirmed = state == .signedOut ? await controller.hasStoredSession() : false
+        progress.finishLoop()
     }
 
     private func finishOperation() {

@@ -120,3 +120,20 @@ Connected financial acceptance is owned by the current
 [execution manifest](../docs/specs/argus-execution-board.md), linked to the MVEE.
 See [financial setup](ACCOUNTS_SETUP.md) for the repeatable simulator and model
 checks. A simulator pass does not satisfy physical-iPhone internet acceptance.
+
+## UI tests need the Cuadrao configuration
+
+UI tests run only against a build that sets `ARGUS_AUTH_ENABLED = true`. Without
+it the app builds as the legacy foundation preview, not Cuadrao. The ignored
+`Config/Local.xcconfig` sets it. `python3 ios/scripts/auth/local_stack.py seed`
+writes that file for the local stack (see [Local acceptance](AUTH_SETUP.md#local-acceptance)).
+
+The UI test bundle reads the same build setting. If the value is not `true`, every
+UI test fails before setUp and launches no app. Each failure names
+`ios/Config/Local.xcconfig` and the setup command. The check runs whatever starts
+the tests: Xcode, `xcodebuild`, `scripts/verify.sh` or `scripts/auth/run-ui.py`.
+A run that passes `ARGUS_AUTH_ENABLED=false` on the command line stops the same
+way. To fix a stopped run, create the file and run build-for-testing again.
+
+A deliberate offline run, such as the auth-disabled design pass, sets
+`TEST_RUNNER_ARGUS_UI_TESTS_ALLOW_PREVIEW_BUILD=true`. The default stays strict.

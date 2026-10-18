@@ -21,8 +21,8 @@ struct AssetShareControl: View {
                     Button("assets.share.other") { custom = true }.accessibilityIdentifier("assets.share.other")
                 }.frame(minHeight: 44)
                 if custom {
-                    TextField("accounts.share", text: $share).keyboardType(.decimalPad).textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("assets.share.percent")
+                    PercentField(title: NSLocalizedString("accounts.share", comment: ""), text: $share, bounds: .share,
+                                 spanish: Locale.current.language.languageCode?.identifier == "es", identifier: "assets.share.percent")
                 }
             }
         }.font(ArgusStyle.body(13, relativeTo: .subheadline))

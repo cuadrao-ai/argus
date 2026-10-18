@@ -17,6 +17,7 @@ from argus.api.auth_sessions import (
     auth_session_is_active,
 )
 from argus.api.browser_cookies import set_browser_cookie
+from argus.api.browser_session import REFRESH_COOKIE_MAX_AGE, renew_browser_token
 from argus.api.guest_access import (
     guest_account_context,
     permanent_account_access_allowed,
@@ -27,6 +28,39 @@ from argus.api.guest_access import (
 from argus.api.schemas import CHAT_STREAM_MAX_BODY_BYTES, ChatStreamRequest, User
 
 CHAT_STREAM_PATH = "/api/v1/chat/stream"
+
+
+def validate_startup_configuration() -> None:
+    enabled_flags = [
+        name
+        for name in (
+            "NEXT_PUBLIC_MOCK_AUTH",
+            "ARGUS_MOCK_AUTH",
+            "ARGUS_DEV_ENDPOINTS_ENABLED",
+        )
+        if os.getenv(name, "").strip().lower() == "true"
+    ]
+    if not enabled_flags:
+        return
+    environments = {
+        value
+        for name in ("APP_ENV", "ENVIRONMENT", "ARGUS_ENV", "ARGUS_APP_ENV")
+        if (value := os.getenv(name, "").strip().lower())
+    }
+    local = bool(environments) and environments <= {
+        "local",
+        "development",
+        "dev",
+        "test",
+        "local-smoke",
+    }
+    hosted = os.getenv("RENDER", "").strip().lower() == "true" or bool(
+        os.getenv("RENDER_SERVICE_ID", "").strip()
+    )
+    if not local or hosted:
+        reason = "local_environment_required_for_" + ",".join(enabled_flags)
+        logger.error("startup_config_refused{{reason={}}}", reason)
+        raise RuntimeError(reason)
 
 
 class ChatRequestBoundaryMiddleware:
@@ -246,6 +280,9 @@ async def request_id_middleware(request: Request, call_next):  # type: ignore[no
             },
             status_code=500,
         )
+    renewed = getattr(request.state, "renewed_browser_session", None)
+    if renewed is not None and response.status_code < 400:
+        _apply_auth_session_cookies(request, response, renewed)
     response.headers["X-Request-Id"] = request_id
     return response
 
@@ -327,6 +364,8 @@ def require_account_capability(
 def auth_response(request: Request, payload: dict[str, Any]) -> JSONResponse:
     response = JSONResponse(payload)
     _apply_auth_session_cookies(request, response, payload)
+    # Conversion/sign-in owns the final session, after any source renewal.
+    request.state.renewed_browser_session = None
     return response
 
 
@@ -353,7 +392,12 @@ def _apply_auth_session_cookies(
     if isinstance(access_token, str) and access_token:
         set_browser_cookie(response, "sb-auth-token", access_token, **cookie_kwargs)
     if isinstance(refresh_token, str) and refresh_token:
-        set_browser_cookie(response, "sb-refresh-token", refresh_token, **cookie_kwargs)
+        set_browser_cookie(
+            response,
+            "sb-refresh-token",
+            refresh_token,
+            **{**cookie_kwargs, "max_age": REFRESH_COOKIE_MAX_AGE},
+        )
 
 
 def browser_cookie_policy(request: Request) -> dict[str, Any]:
@@ -392,6 +436,9 @@ def dev_memory_fallback_enabled() -> bool:
 
 def request_access_token(request: Request) -> str | None:
     """The bearer token, or the Supabase session cookie's access token."""
+    renewed_token = getattr(request.state, "access_token", None)
+    if isinstance(renewed_token, str) and renewed_token:
+        return renewed_token
     auth_header = request.headers.get("Authorization")
     token = None
     if auth_header and auth_header.startswith("Bearer "):
@@ -451,6 +498,16 @@ def current_user(request: Request) -> User:
         )
 
     token = request_access_token(request)
+    try:
+        token = renew_browser_token(request, api_state.supabase_gateway, token)
+    except Exception:
+        raise problem(
+            request,
+            status_code=401,
+            code="unauthorized",
+            title="Unauthorized",
+            detail="Invalid or expired session.",
+        ) from None
 
     if not token:
         raise problem(

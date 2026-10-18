@@ -8,10 +8,16 @@ space only with ``resolve_business_scope``.
 from __future__ import annotations
 
 from fastapi import HTTPException, Request
+from loguru import logger
 
 from argus.api import state as api_state
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
+from argus.domain.business.access import (
+    AccessStore,
+    InMemoryAccessStore,
+    PostgresAccessStore,
+)
 from argus.domain.business.spaces import (
     InMemorySpaceStore,
     PostgresSpaceStore,
@@ -19,6 +25,7 @@ from argus.domain.business.spaces import (
 )
 
 _spaces: SpaceStore | None = None
+_access: AccessStore | None = None
 
 
 def space_missing_problem(request: Request) -> HTTPException:
@@ -41,9 +48,37 @@ def configure_business_spaces(store: SpaceStore | None) -> None:
     _spaces = store
 
 
+def business_access() -> AccessStore | None:
+    return _access
+
+
+def configure_business_access(store: AccessStore | None) -> None:
+    global _access
+    _access = store
+
+
+def accept_business_invites(user_id: str) -> None:
+    """Pending Business invites for this person's confirmed email become grants.
+
+    Every read that can be a person's first after sign-in runs it (the profile
+    and the Business listing). Idempotent, and it never blocks the read."""
+
+    store = business_access()
+    if store is None:
+        return
+    try:
+        store.accept_invites(user_id)
+    except Exception as error:  # noqa: BLE001 - the read answers; the class is logged
+        logger.warning(
+            "business_access_accept_failed", user_id=user_id, error=type(error).__name__
+        )
+
+
 def start_business_spaces(app: object) -> None:
     if api_state.PERSISTENCE_MODE != "supabase":
         configure_business_spaces(InMemorySpaceStore())
+        configure_business_access(InMemoryAccessStore())
         return
     pool = getattr(getattr(app, "state", None), "financial_accounts_pool", None)
     configure_business_spaces(PostgresSpaceStore(pool) if pool is not None else None)
+    configure_business_access(PostgresAccessStore(pool) if pool is not None else None)

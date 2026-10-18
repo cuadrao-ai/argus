@@ -155,12 +155,37 @@ financial_import_observations
 financial_import_account_links
 ```
 
-Default-off, service-role only (`ARGUS_WHATSAPP_INTAKE_ENABLED`):
+Default-off, service-role only (`CUADRAO_WHATSAPP_INTAKE_ENABLED`):
 ```text
 whatsapp_link_codes
 whatsapp_sender_links
 whatsapp_inbound_messages
 ```
+
+Default-off, service-role only (`CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`, or the older `ARGUS_` name): one
+receiving address per Business, naming the Business owner as the documents'
+owner and a member's live client grant as the authority checked before each
+capture; a durable delivery queue; one row per attachment part.
+```text
+business_email_routes
+business_email_deliveries
+business_email_parts
+```
+
+Service-role only, part of the hosted Business beta (no flag):
+```text
+business_access_invites
+```
+
+Migration `20261014100000_business_ledger_human_actions.sql` widens the
+turn-less allow-list on `business_action_receipts` once for every person's own
+row the Business flows write from here on: `access_seen` (a grantee dismissed
+the one-time "you now have access" line), `email_ai_consent_declined` (the
+owner declined the emailed-receipts AI notice; no permission row exists),
+`mark_personal` and `decide_606` (the Personal mark and the 606 answer), and
+the three writes of the legacy receipt surface a grantee can make
+(`receipt_upload`, `receipt_review`, `receipt_confirm`), each only as a member
+with no turn and no action index.
 
 Optional or later:
 ```
@@ -3359,7 +3384,7 @@ write it. Proven by `tests/test_ingestion_shortcuts_postgres.py`.
 WhatsApp receipt intake keeps three service-role-only tables (migration
 `20261008130000_whatsapp_intake.sql`). Phone numbers, provider message ids and
 link codes are stored only as HMAC-SHA256 digests under
-`ARGUS_WHATSAPP_SENDER_KEY`. `destination_owner_id` references `auth.users`
+`CUADRAO_WHATSAPP_SENDER_KEY`. `destination_owner_id` references `auth.users`
 and is the person today; it becomes the business principal if the Business
 boundary proposal is approved.
 
@@ -3384,6 +3409,51 @@ boundary proposal is approved.
 
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
+
+### Business receipt reading consent and attention
+
+`20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version 1, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.
+
+This table is the only Business reading consent. Two earlier migrations stay in the repo because staging already applied them, so a fresh database and staging run the same files in order and end identical. `20261014090000_business_email_receipt_reading_consent.sql` created a per-address `business_email_ai_consents` table and a unique index `business_email_routes_consent_key` on `business_email_routes(id, space_id, principal_id)`. `20261014120000_business_ai_consents.sql` drops that table, its trigger function and that index, and adds `business_ai_consents`, a per-Business owner setting (service role only, RLS with no policies). No code reads or writes `business_ai_consents`. It is empty, superseded by `business_receipt_reading_consents`, and must not gain a reader.
+
+`business_receipt_read_states` stores `(space_id,person_id,connection_id)` and the exact server completion cursor. It stores no money, review facts or source text. An acknowledgement under the live read grant locks and rechecks the canonical record before changing only that person's boundary. `business_receipt_activity_baseline` records the migration time. Completions established before it start read without changing receipt content. New completions on old receipts remain unread. Tables have RLS with no direct client grants; only the existing service-role backend mutates them.
+
+### Business email daily receiving allowance
+
+`business_email_daily_usage` is server-only, with RLS and no client grants.
+Its primary key is `(route_id, day)`, where `day` is UTC and the immutable,
+unique route owns the receiving address. `messages` counts admitted messages
+and later download retries. `bytes_used` includes completed response-body bytes,
+outstanding 10 MiB fetch reservations, and conservative charges for interrupted
+fetches. A route deletion cascades its usage rows, including account/space deletion.
+Migration `20261014133457_business_email_daily_budget.sql` adds this table and
+internal delivery budget day, message-lease and fetch-token columns. The delivery
+and daily counter changes share short transactions. New-row admission deduplicates
+before charging; a quota wait is durable pending work due next UTC midnight.
+Each fetch checks the live delivery lease; settlement consumes its exact fetch
+token once. A reclaimed or expired worker cannot refund a later attempt. Crashed
+reservations remain charged for their original day. No automatic release of an
+uncertain reservation grants additional download capacity. Byte reservations on
+subsequent days charge that day's counter. Policy comes from receiving settings;
+it is not copied into a client or route row.
+
+### Business WhatsApp AI permission
+
+`business_whatsapp_ai_consents` is server-only, with RLS and no client grants.
+Migration `20261011100000_business_whatsapp_ai_consent.sql` binds each receipt
+through the existing sender-link composite identity to one Business owner and
+sender generation. It stores the consenting owner, actual grant/issuer, versioned
+purpose/disclosure, selected provider-route snapshot/hash, database timestamp,
+idempotency key/input hash and monotonic owner revocation. Identity and disclosure
+cannot be rewritten or directly erased; parent link/space/account deletion
+cascades without a retention exception. Service-role TRUNCATE is denied.
+
+The nullable immutable `whatsapp_inbound_messages.ai_consent_id` references the
+same consent/link/Business/owner/sender composite. Existing and unconsented rows
+remain null. A revoked receipt cannot be attached to a new capture, and an old
+capture cannot switch to a fresh opt-in. This keeps permission separate from
+financial facts, original evidence, action receipts, document extraction and
+Personal memory. No permission is created by migration or link establishment.
 
 ## Import reconciliation
 
@@ -3410,14 +3480,15 @@ establish delivery of all seven Business journeys.
 
 | Table | Durable owner and invariants |
 | --- | --- |
-| `business_client_grants` | Explicit direct grant to a named `grantee_id` for exactly one `space_id`, issuer, capabilities (`read`, `prepare`, `approve`), creation/expiry/revocation times. No role-derived capabilities and no grant seed/backfill. First-flow service resolves active grants on each operation. Firm identity, firm delegation and issuer onboarding remain unimplemented. |
+| `business_client_grants` | Explicit direct grant to a named `grantee_id` for exactly one `space_id`, issuer, capabilities (`read`, `prepare`, `approve`), creation/expiry/revocation times. No role-derived capabilities. The owner's own grant (grantee = issuer = owner, all three capabilities) is created with the space, or once on the next open of an older space. Named accountants hold read and prepare only: migration `20261014110000_business_grant_approve_owner_only.sql` makes the database refuse `approve` on any grant whose grantee is not the space's `created_by`, on insert and on update, whoever writes the row. First-flow service resolves active grants on each operation. Firm identity, firm delegation and issuer onboarding remain unimplemented. |
+| `business_access_invites` | A pending invite for an email with no confirmed account yet: `space_id`, `issuer_id` (the owner), lowercased `email`, `expires_at` (14 days), `accepted_at` and `accepted_grant_id` once a confirmed sign-in with that email turned it into a read+prepare grant, `revoked_at` when the owner withdrew it. One live invite per space and email. Service role only. Access changes write `business_action_receipts` rows without a turn. |
 | `business_sources` | Stable source identity and idempotent `(space_id, source_key)` for one original message, attachment, agent proposal or human `web_action`. Web actions require channel `web` and retain immutable canonical submitted command text, with server-derived source key and actual `member_set` provenance. Direct source updates/deletes fail; owning connection/client deletion cascades through source links and answered questions under the existing deletion policy. Message/proposal/web-action text is immutable; attachment references the existing source connection rather than copying bytes or extraction. A composite FK prevents another space's connection. |
 | `business_draft_sources` | Many-to-many source relationships pinned by composite FKs to the same client as the canonical candidate. No facts. |
 | `business_draft_revisions` | Append-only `(draft_id, version)` before/after typed fact snapshots, actual actor and grant/issuer display provenance, source IDs, optional turn key and timestamp. Every source ID is checked and locked against the same client on insertion. They are readable history, never an alternative current draft. Updates and direct deletes fail; deletion of the owning candidate/space cascades. |
 | `business_questions` | Stable field question, recipient, channel, prompt, allowed answer states and answer-source reference. An owner-does-not-know answer requires its source and moves recipient to accountant. It does not trigger another owner question. Composite FKs scope draft and answer source. Deleting the owning source cascades the answered question instead of clearing its provenance. |
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
-| `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Only human `review_draft`/`approve_expense` commands and the additive `capture_note` command below may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
+| `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
 
 Migration `20261011070000_business_manual_capture_command.sql` extends only
 the action-receipt checks to admit human `capture_note` commands without a turn.
@@ -3457,6 +3528,25 @@ a claim of one cross-service SQL transaction. Owner funds creates one expense
 without a Business bank debit and leaves capital/debt classification unresolved.
 Post-recording correction is unsupported in this slice.
 
+Migration `20261011110000_business_income_command.sql` extends the current
+`business_action_receipts_unplanned_command` constraint supplied by manual
+capture migration `20261011070000_business_manual_capture_command.sql`. It keeps
+`review_draft`, `approve_expense` and `capture_note`, and adds `approve_income`.
+The additional income constraint permits only actual `member` receipts without
+turn key or action index. Turn pairing, capture's human-only constraint,
+immutable actor/issuer/grant/command/hash, settled outcomes, RLS and lifecycle
+constraints are unchanged; no table, foreign key or client privilege is added.
+
+`IncomeApprovalCommand` stores the explicit `record_income` request and exact
+reviewed version. Its current facts remain `resolution.business`; the existing
+candidate acceptance claim and persisted canonical money request own recovery.
+No model action gains approval authority. Actions must recheck the original
+live grant and reviewed revision, require an explicit same-client receiving
+account, preserve income kind through the sole MoneyService and settle one
+canonical effect. Contract storage alone does not establish that income
+execution/readiness adapters have been delivered. Existing expense commands
+and their canonical hashes retain their behavior.
+
 Worker recovery consumes the persisted plan and receipts rather than asking the
 model to reinterpret a partially executed turn. Runtime compares normalized
 input hashes on replay and rejects changed input. Sender order and lease fences
@@ -3494,40 +3584,51 @@ under the attempt's live lease before the provider can be reached. The job is
 replaced together with the draft only while no lease is live. Legacy rows can have a batch without retained source; a duplicate
 upload can attach that source without changing the frozen batch.
 
-**Retained source objects (#778, `20261008100000`).** The source file lives in
-the private Storage bucket `financial-document-sources` at
-`{user_id}/{connection_id}/{sha256}`: owner-scoped, unguessable through the
-random connection id, and content-addressed, so a duplicate upload writes no
-second object. The bucket is private and `storage.objects` has no client
-policy, so only the service role reaches it. The row keeps `source_bucket`,
-`source_path`, `source_media_type`, `source_size_bytes` (1 to 10 MiB) and
-`source_sha256`, all set or all null; a check ties the path to the row's owner,
-connection and digest. `source_bytes` is legacy: never written, refused beside a
-reference, and still served for rows captured before the move until a later
-migration drops it. A retained source always has its draft, and a row with
-neither batch nor draft is refused. `argus.domain.ingestion.documents.objects`
-owns the put/get/delete interface; memory mode uses an in-memory store behind it.
+**Business preparation binding (`20261011194500`).** The existing `financial_document_extractions` row has an immutable optional `preparation_binding`. It names the binding ID, Business/owner, source connection and SHA-256, captured extractor provenance for the actual preparing human and exact grant/issuer, explicit target (`null` means create), affirmative per-document consent and capture time. This is not a new permission or consent policy. Later consent withdrawal still blocks completion.
 
-The October 2 founder clarification explicitly replaces this lane's former
-transient-file policy. Source files remain until explicit disconnect/deletion;
-rendered images and OCR intermediates stay transient. Row level security and
-revoked client grants remain. Owner/live-connection checks protect all draft and
-source reads. User/connection deletion cascades; disconnect removes source,
-draft and preparation while accepted financial activity follows existing retention.
+A bound extraction's saved batch cannot be replaced or cleared. A `prepare_attachment` action receipt requires a nonnull batch on the exact bound document. The service validates that JSON as `ExtractionBatch`, recomputes its digest with the existing canonical input encoder and compares the caller checkpoint before writing. SQL enforces linkage and immutability; it does not independently hash Python canonical JSON or authorize completion. The command stores that digest and the original binding, including explicit `target: null`; the existing receipt input hash covers the full command.
 
-Capture writes the object first, then locks the live owner connection and
-commits the draft and its reference before background dispatch. A crash in
-between leaves an unreferenced object, never a row pointing at nothing; an
-identical retry rewrites the same path and adopts it, and also restores an
-object that went missing (the draft says `source_available=false` until then).
-Capture refuses a person whose account deletion run is in flight and removes the
-object it wrote. `SOURCE_MAX_BYTES` and `SOURCE_MEDIA_TYPES` in
-`argus.domain.ingestion.documents.config` are the code's single copy of the
-bucket's limits; a real-Postgres test holds the bucket to them. Disconnect deletes the
-connection's prefix (orphans included) before the row, so a failed delete keeps
-the row and the idempotent disconnect retry finishes it. Account deletion
-deletes the person's prefix as its `storage` step, and once more right before
-the auth delete. No
+One existing Actions transaction locks the connection/document, checks the original live grant/issuer, owner/Business, source, consent, lease and exact target, then writes the canonical draft revision, source link and settled receipt. It rechecks completion conditions before commit. The original authority and saved-batch identity are never replaced on retry. There is no Money posting, new ledger or inferred legacy conversion. PostgreSQL checks stored source availability/reference and inline legacy bytes; it cannot make an external Storage object's existence atomic with its transaction.
+
+
+**Retained source objects (#778, `20261008100000`; Lane 06B, `20261016180000`).**
+One `financial_document_extractions` row still represents one document connection.
+New originals live at `sealed/{user_id}/{original_sha256}` and rebuilt copies at
+`rebuilt/{user_id}/{original_sha256}` in the private `financial-document-sources`
+bucket. Only the service role reaches the bucket. Same-owner connections may
+share an object. Writes never overwrite bytes; identical retries are no-ops.
+Existing `{user_id}/{connection_id}/{sha256}` objects remain in place.
+
+The row retains `source_bucket`, `source_path`, `source_media_type`,
+`source_size_bytes` and `source_sha256`, all set or all null. The additive
+migration accepts legacy and sealed paths. New `rebuilt_bucket`, `rebuilt_path`,
+`rebuilt_media_type`, `rebuilt_size_bytes` and `rebuilt_sha256` are also all set or
+all null. The rebuilt path uses the original digest; `rebuilt_sha256` verifies the
+actual rebuilt bytes. Checks bind both references to the owner, digest, allowed
+media types and 1 to 10 MiB size limits. Legacy `source_bytes` remains unchanged
+and is verified against the draft digest on reads. Non-image legacy sources may
+still download from inline bytes; images require a rebuilt copy. No existing
+objects or inline bytes move in this migration.
+
+User downloads and attachment exports select verified originals for PDF, text,
+CSV, XLSX, XML and EML, and verified rebuilt JPEGs for PNG/JPEG images. Lane 06C's
+bounded helper builds a missing image on its first download; later downloads
+reuse the stored copy. Originals always remain retained. There is no bulk rebuild
+and no original-image fallback. Conversion runs outside export snapshot locks;
+permission and source identity are rechecked before release. Existing extraction
+and email retry readers keep verified original access. Original reads identify
+their storage reader in logs; integrity mismatches log and fail closed. A separate
+service-role audit response remains a held contract item, not a new endpoint.
+
+Capture commits a pending reference before the external write, then publishes
+availability after the upload and capture hook commit. Pending sources are not
+queued for extraction. A crash leaves a reference that retry or disconnect can
+find. Owner advisory locks serialize writes and last-reference deletion. A
+copy shared by another connection remains until its last reference is removed.
+Disconnect deletes both copies and the legacy connection prefix before deleting
+the row; failure preserves the reference for retry. Account deletion's unchanged
+owner-prefix call expands to legacy, sealed and rebuilt prefixes. Row deletion
+also removes legacy inline bytes. No
 path deletes confirmed financial activity. Draft updates compare versions, and preparation completion
 checks the connection lease. Duplicate capture cannot replace a source or reset
 an attempt. A persisted in-flight state prevents automatic retry after uncertain

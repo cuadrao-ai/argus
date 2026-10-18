@@ -69,3 +69,39 @@ def test_guest_code_has_no_network_or_server_bound_model():
 def test_guest_copy_has_no_em_dash():
     for source in [*GUEST.rglob("*.swift")]:
         assert "—" not in source.read_text(), source.name
+
+
+def test_claim_uses_only_identity_bound_session_routes():
+    claim = ROOT / "ios/ArgusFoundation/Connected/GuestClaim"
+    for source in claim.glob("*.swift"):
+        text = source.read_text()
+        for token in ("URLSession", "URLRequest", "NWConnection", "WebSocket"):
+            assert token not in text, (source.name, token)
+        if source.name != "SessionGuestClaimServer.swift":
+            assert "SessionController" not in text, source.name
+    adapter = (claim / "SessionGuestClaimServer.swift").read_text()
+    assert "guard now == identity, now.phase == .authenticated else { return nil }" in adapter
+    calls = re.findall(r"controller\.(\w+)\((.*?)\)", adapter, re.DOTALL)
+    assert {name for name, _ in calls} == {
+        "snapshot", "financialAccounts", "createFinancialAccount", "updateFinancialAccount",
+        "financialActivityPreview", "sendFinancialConfirmation",
+    }
+    # The nested EditFinancialAccountRequest closes before the outer session call.
+    assert adapter.count("expectedIdentity: identity") == len(calls) - 1
+    for name, arguments in calls:
+        if name not in {"snapshot", "updateFinancialAccount"}:
+            assert "expectedIdentity: identity" in arguments, name
+    assert re.search(r"updateFinancialAccount\(.*?expectedIdentity: identity\)", adapter, re.DOTALL)
+
+
+def test_claim_entry_requires_the_signed_in_owner_and_explicit_start():
+    router = (GUEST / "GuestModeRouter.swift").read_text()
+    assert "guard CuadraoFirstRelease.guestClaim, auth.state == .authenticated, controller.hasStoredBook else { return nil }" in router
+    claim = ROOT / "ios/ArgusFoundation/Connected/GuestClaim"
+    for filename in ("GuestClaimModel.swift", "GuestClaimRunner.swift"):
+        text = (claim / filename).read_text()
+        owner = text.index("guard let owner = await server.owner()")
+        assert owner < text.index("try await server.accounts()"), filename
+    model = (claim / "GuestClaimModel.swift").read_text()
+    assert "guard owner != nil, case .preview = phase else { return }" in model
+    assert model.count("await engine.run(") == 1

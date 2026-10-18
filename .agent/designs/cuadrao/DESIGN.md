@@ -232,6 +232,15 @@ oval, rim or underline.
 Do not add raw `ToolbarItem(.cancellationAction)` or `(.confirmationAction)` items to
 a sheet. Alerts and confirmation dialogs keep the system look.
 
+**Approved exception: the guest first-save sheet.** The sheet shown once after a
+guest's first saved spending entry departs from the rules above on purpose. It has
+no leading Cancel or toolbar item. It is half height with a grabber, titled
+*Tus gastos solo están en este iPhone*. *Crear cuenta* is the primary button and
+*Ahora no* is the second, in that order. *Ahora no* and a swipe down both dismiss it,
+and it never blocks saving. Do not bring it in line with the rule above. Source: the October 14, 2026 lock in the
+sprint map (§1.1, built in #1120 and #1123) and sprint decision 17, approved
+October 15, 2026. Any other sheet with its own primary button keeps Cancel only.
+
 ### Choices and currency
 
 Single-choice selectors show the current value and a downward chevron, with a
@@ -354,7 +363,11 @@ Current shared collection gestures below supersede the original hold-action/reor
 tray experiment. Account detail retains its native back path and visible actions.
 
 Creation requires a type; name and initial balance remain optional. Blank balance
-means unknown. Currency belongs at the left of the right-aligned money editor.
+means unknown. **Pending founder confirmation (October 13, 2026):** the Mobile lane
+change #1047 (not on integration yet) starts a new money account saved with no opening
+amount at a recorded 0.00. Property, vehicle, other asset, Business and on-device guest
+accounts stay unknown. Until the founder confirms, "blank means unknown" is the rule
+on this page. Currency belongs at the left of the right-aligned money editor.
 Preserve approved vectors, inline validation, whole-unit-first entry and a disabled
 save while required input is invalid. Archive preserves history and supports recovery.
 
@@ -882,6 +895,10 @@ account, leaving a household or removing a member. Put Privacy and Terms in a
 stable signed-in Help or Account destination. Opening either preserves the user's
 place in Settings. Legal content must use approved URLs and remain reachable
 from authentication as appropriate.
+
+Temporary exception (founder, October 15, 2026): until the Cuadrao Privacy and Terms
+pages are published, the app hides its legal links instead of pointing at the old
+Argus pages. Restore the links, with the approved URLs, when the pages go live.
 
 Use one readable consequences screen, followed by one deliberate verification
 step. Show the applicable consequences together rather than a series of retention

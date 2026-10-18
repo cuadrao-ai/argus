@@ -8,6 +8,7 @@ that keeps those turns visible in telemetry.
 
 from __future__ import annotations
 
+import time
 from typing import Any, Awaitable, Callable
 
 from loguru import logger
@@ -219,3 +220,15 @@ async def self_corrected_response(
             ),
         )
         return None
+
+
+def record_legacy_failure(model_name: str | None, started_at: float, exc: Exception) -> None:
+    record_openrouter_route_receipt(
+        task="interpretation", model_name=model_name, mode="chat_model",
+        schema_name="LLMInterpretationResponse", latency_ms=int((time.perf_counter() - started_at) * 1000),
+        outcome="failed", failure_mode=type(exc).__name__,
+    )
+    log_openrouter_failure(
+        task="interpretation", model_name=model_name, exc=exc,
+        message="Primary LLM interpretation failed; attempting fallback",
+    )

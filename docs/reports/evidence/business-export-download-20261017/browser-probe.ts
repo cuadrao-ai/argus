@@ -1,0 +1,56 @@
+import { chromium } from '../../../../web/node_modules/playwright';
+import { createFixtureBusinessDataSource } from '../../../../web/components/business-app/fixture-data';
+const fixture = createFixtureBusinessDataSource();
+const browser = await chromium.launch({ headless: true });
+const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
+const calls: string[] = [];
+await context.addInitScript(() => localStorage.setItem('i18nextLng', 'es-419'));
+await context.route('**/*', async route => {
+  const url = new URL(route.request().url());
+  if (!['127.0.0.1', 'localhost'].includes(url.hostname)) return route.abort();
+  if (!url.pathname.startsWith('/api/v1/')) return route.continue();
+  const path = url.pathname.slice('/api/v1'.length);
+  let data: unknown;
+  if (path === '/business/space') data = { id: 'fixture-space', name: 'Taller Luna' };
+  else if (path === '/business/spaces' && route.request().method() === 'POST') data = { id: 'fixture-space', name: 'Taller Luna' };
+  else if (path === '/business/spaces') data = { spaces: [{ space_id: 'fixture-space', grant_id: 'owner-grant', name: 'Taller Luna', role: 'owner', capabilities: ['read', 'prepare', 'approve'], access_seen: true }] };
+  else if (path === '/business/workspace') data = await fixture.workspace();
+  else if (path === '/business/overview') data = await fixture.overview(url.searchParams.get('from') ?? '2026-10-01', url.searchParams.get('to'));
+  else if (path === '/business/receipts') data = await fixture.receiptPage!('inbox');
+  else if (path === '/business/captures') data = { items: [] };
+  else if (path === '/business/expenses') data = { items: await fixture.expenses('2000-01-01', '2026-10-17') };
+  else if (path === '/business/receipt-activity') data = { reading_count: 0, unread_count: 0, pending_review_count: 0, needs_attention_count: 0, presentation: 'none' };
+  else if (path === '/business/exports') {
+    calls.push(url.search);
+    return route.fulfill({ status: 200, headers: { 'Content-Type': 'application/zip', 'Access-Control-Allow-Origin': 'http://127.0.0.1:17978', 'Access-Control-Allow-Credentials': 'true' }, body: Buffer.from([80,75,3,4,0,255]) });
+  } else if (path === '/conversations') data = { items: [], conversations: [], total: 0 };
+  else if (path === '/me') data = { user: { id: 'mock-developer', email: 'mock@example.invalid', username: 'mock', display_name: 'Mock Developer', language: 'es-419', locale: 'es-419', onboarding: { completed: true, stage: 'completed', language_confirmed: true, primary_goal: null } }, account_kind: 'registered', guest: null, capabilities: { can_manage_account: true, can_create_additional_conversation: true, can_manage_conversation: true, can_use_omnisearch: true }, public_account_access_enabled: false };
+  else if (path === '/me/usage') data = {};
+  else if (path === '/memory/availability') data = { available: false };
+  else data = { items: [] };
+  return route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'http://127.0.0.1:17978', 'Access-Control-Allow-Credentials': 'true' }, body: JSON.stringify(data) });
+});
+try {
+const page = await context.newPage();
+page.on('pageerror', e => console.log('PAGEERROR', e.message));
+await page.goto('http://127.0.0.1:17978/biz?view=expenses');
+const download = page.getByRole('button', { name: 'Descargar CSV, Excel y originales', exact: true });
+await download.waitFor({ timeout: 10000 });
+console.log('CONTROL_VISIBLE', await download.isVisible());
+await page.screenshot({ path: 'temp/receipt-export/after-desktop.png', fullPage: true });
+await page.getByRole('radio', { name: 'Todo', exact: true }).click();
+await page.waitForFunction(() => [...document.querySelectorAll('button')].find(b => b.textContent === 'Descargar CSV, Excel y originales')?.disabled);
+console.log('ALL_DISABLED', await download.isDisabled());
+const form = page.getByRole('region', { name: 'Exportar registros del negocio', exact: true });
+await form.locator('input[type=date]').nth(0).fill('2026-10-01');
+await form.locator('input[type=date]').nth(1).fill('2026-10-17');
+await page.screenshot({ path: 'temp/receipt-export/after-explicit-dates.png', fullPage: true });
+const completed = page.waitForEvent('download');
+await download.click();
+const file = await completed;
+await file.saveAs('temp/receipt-export/' + file.suggestedFilename());
+console.log('DOWNLOAD', file.suggestedFilename(), 'QUERY', calls);
+await page.setViewportSize({ width: 390, height: 844 });
+await page.screenshot({ path: 'temp/receipt-export/after-mobile.png', fullPage: true });
+console.log('NO_OVERFLOW', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+} finally { await browser.close(); }

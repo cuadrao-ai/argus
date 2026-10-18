@@ -2,6 +2,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
 const PREVIEW = "/dev/business-preview";
+/** The Business build: the local recipe exports NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true for the dev server and for this runner alike. */
+const BUSINESS_BUILD = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED === "true";
 
 async function openPreview(
   page: Page,
@@ -46,9 +48,34 @@ const panelHeading = (page: Page, name: string) =>
 test.describe("Business preview", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
+  test("switching Business twelve times with a receipt open and a draft typed never shows the account-changed screen; the record and its address close on each switch", async ({ page }) => {
+    test.setTimeout(180_000);
+    const switchTo = async (name: string) => {
+      await page.getByTestId("business-switcher").getByRole("button").click();
+      await page.getByRole("option", { name: new RegExp(name) }).click();
+      await expect(page.getByTestId("business-current-name")).toHaveText(name);
+      await expect(page.getByText("Your account changed", { exact: false })).toHaveCount(0);
+    };
+    await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
+    for (let round = 0; round < 6; round += 1) {
+      // Each round: a receipt open in the own Business, a switch to the client, a draft typed, a switch back.
+      if (round > 0) await page.goto(`${PREVIEW}?receipt=rcpt-ferreteria`);
+      await expect(panelHeading(page, "Review receipt")).toBeVisible();
+      await switchTo("Colmado Peña");
+      await expect(page).not.toHaveURL(/receipt=|expense=|draft=/);
+      await expect(panelHeading(page, "Review receipt")).toHaveCount(0);
+      await expect(page.getByTestId("business-client-cue")).toHaveText("Client: Colmado Peña");
+      await page.getByTestId("chat-input").fill(`Pagué 850 en pintura ${round}`);
+      await switchTo("Mi negocio");
+      await expect(page.getByTestId("business-client-cue")).toHaveCount(0);
+      // The typed draft is kept: a switch is a change of scope, not a navigation.
+      await expect(page.getByTestId("chat-input")).toHaveText(`Pagué 850 en pintura ${round}`);
+    }
+  });
+
   test("an Overview draft survives a visit to the Inbox", async ({ page }) => {
     await openPreview(page);
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
 
     const composer = page.getByTestId("chat-input");
     await composer.click();
@@ -59,13 +86,13 @@ test.describe("Business preview", () => {
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
 
     await nav(page).getByRole("button", { name: /^Overview/ }).click();
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
     await expect(page.getByTestId("chat-input")).toHaveText("How much did I spend on paint?");
   });
 
   test("the Create menu opens from the collapsed rail inside the viewport", async ({ page }) => {
     await openPreview(page, PREVIEW, { sidebarMode: "collapsed" });
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
 
     const trigger = page.getByTestId("business-create");
     await expect(trigger).toHaveAccessibleName("Create");
@@ -395,7 +422,7 @@ test.describe("Business preview on a phone", () => {
 
   test("the drawer shows the Business destinations with labels and Create", async ({ page }) => {
     await openPreview(page);
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
 
     await page.getByTestId("chat-shell-menu-trigger").click();
 
@@ -403,13 +430,15 @@ test.describe("Business preview on a phone", () => {
     for (const label of ["Overview", "Inbox", "Expenses", "Updates"]) {
       await expect(drawerNav.getByText(label, { exact: true })).toBeVisible();
     }
-    await expect(drawerNav.getByRole("button", { name: /^Inbox/ })).toContainText("6");
+    await expect(drawerNav.getByRole("button", { name: /^Inbox/ })).toContainText("5");
     await expect(page.getByTestId("business-create")).toHaveText("Create");
   });
 });
 
 test.describe("Argus chat without a workspace", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
+  // On a Business build /chat sends everyone to the Business shell by design; this is the consumer build's page.
+  test.skip(BUSINESS_BUILD, "consumer build only: /chat is not a surface on a Business build");
 
   test("keeps the mention button and the legacy starter pills", async ({ page }) => {
     await page.route("**/*", (route) => {
@@ -433,6 +462,13 @@ test.describe("Argus chat without a workspace", () => {
 test.describe("A conversation opens in the shell of its own surface", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
+  /** Full page loads after the first: a reload loop shows up here as a count that keeps growing. */
+  function countDocumentLoads(page: Page) {
+    const loads: string[] = [];
+    page.on("request", (request) => { if (request.resourceType() === "document" && request.isNavigationRequest()) loads.push(request.url()); });
+    return loads;
+  }
+
   async function serveSurface(page: Page, surface: "personal" | "business", seen: string[]) {
     await page.route("**/api/v1/conversations/*/messages?**", (route) => {
       seen.push(new URL(route.request().url()).pathname);
@@ -455,14 +491,52 @@ test.describe("A conversation opens in the shell of its own surface", () => {
     });
   }
 
-  test("a Personal chat opened on /biz moves to /chat with its id", async ({ page }) => {
+
+  test("a guest session on the Business shell makes at most two page loads and never loops", async ({ page }) => {
+    test.skip(!BUSINESS_BUILD, "Business build only");
+    // The evaluator's case: a guest whose latest Personal conversation used to be picked on every load.
+    const seen: string[] = [];
+    await page.route("**/*", (route) => ["127.0.0.1", "localhost"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
+    await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: false, account: "guest" });
+    await serveSurface(page, "personal", seen);
+    const loads = countDocumentLoads(page);
+    await page.goto(PREVIEW);
+    await page.waitForTimeout(10000);
+    expect(loads.length).toBeLessThanOrEqual(2);
+    expect(seen.length).toBeLessThanOrEqual(1);
+    await expect(page).not.toHaveURL(/notice=conversation_unavailable/);
+  });
+
+  test("a Personal chat opened on /biz on a Business build goes nowhere but the notice: one hop, no loop, one link", async ({ page }) => {
+    test.skip(!BUSINESS_BUILD, "Business build only");
     const seen: string[] = [];
     await openPreview(page, PREVIEW, { emptyChat: false });
     await serveSurface(page, "personal", seen);
+    const loads = countDocumentLoads(page);
     await page.goto(`${PREVIEW}?conversation=conversation-alpha&message=message-1`);
 
-    await expect(page).toHaveURL(/\/chat\?conversation=conversation-alpha&message=message-1$/);
-    expect(seen.length).toBeGreaterThan(0);
+    const notice = page.getByTestId("conversation-unavailable");
+    await expect(notice).toBeVisible();
+    await expect(page).toHaveURL(/\/dev\/business-preview\?notice=conversation_unavailable$/);
+    await expect(notice).toContainText("This conversation isn't available in Cuadrao Business.");
+    await expect(notice.getByRole("link", { name: "Go to Cuadrao Business" })).toHaveAttribute("href", "/biz");
+    // Give a loop time to show itself: no further page load, no further ask for the conversation.
+    await page.waitForTimeout(3000);
+    expect(loads.length).toBeLessThanOrEqual(2);
+    expect(loads.filter((url) => url.includes("notice=conversation_unavailable")).length).toBe(1);
+    expect(seen.length).toBeLessThanOrEqual(1);
+    await expect(page).toHaveURL(/\/dev\/business-preview\?notice=conversation_unavailable$/);
+  });
+
+  test("a chat on its own surface stays and renders", async ({ page }) => {
+    test.skip(BUSINESS_BUILD, "consumer build only: /chat hops to /biz on a Business build");
+    const seen: string[] = [];
+    await openPreview(page, "/chat", { emptyChat: false });
+    await serveSurface(page, "personal", seen);
+    await page.goto("/chat?conversation=conversation-alpha");
+
+    await expect(page.getByText("Lunch with the supplier").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/chat\?conversation=conversation-alpha$/);
   });
 
   test("a Business chat opened on /chat moves to /biz with its id", async ({ page }) => {
@@ -474,14 +548,20 @@ test.describe("A conversation opens in the shell of its own surface", () => {
     await expect(page).toHaveURL(/\/biz\?conversation=conversation-alpha$/);
   });
 
-  test("a chat on its own surface stays and renders", async ({ page }) => {
+  test("an old /chat link on a Business build hops once to the Business shell with its id and stops", async ({ page }) => {
+    test.skip(!BUSINESS_BUILD, "Business build only");
+    // The server-side hop. The shell's own handling of a Personal id (the notice, no loop) is
+    // asserted above on the preview page; the live /biz needs the real API, which this fixture cannot serve.
     const seen: string[] = [];
     await openPreview(page, "/chat", { emptyChat: false });
     await serveSurface(page, "personal", seen);
+    const loads = countDocumentLoads(page);
     await page.goto("/chat?conversation=conversation-alpha");
 
-    await expect(page.getByText("Lunch with the supplier").first()).toBeVisible();
-    await expect(page).toHaveURL(/\/chat\?conversation=conversation-alpha$/);
+    await expect(page).toHaveURL(/\/biz\?conversation=conversation-alpha$/);
+    await page.waitForTimeout(3000);
+    expect(loads.length).toBeLessThanOrEqual(2);
+    await expect(page).not.toHaveURL(/\/chat/);
   });
 });
 
@@ -491,7 +571,7 @@ test.describe("Business preview while its chat is off", () => {
 
   async function openLoaded(page: Page, url = CHAT_OFF) {
     await openPreview(page, url, { emptyChat: false });
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
     // The inbox chip comes with the workspace payload, so chat_available has been read.
     await expect(
       page.getByTestId("workspace-panel-region").getByRole("button", { name: /^Review \d+ receipts/ }),
@@ -514,12 +594,13 @@ test.describe("Business preview while its chat is off", () => {
     await page.keyboard.press("ControlOrMeta+Shift+Comma");
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
 
     await page.getByTestId("business-create").click();
     await expect(page.getByRole("menu", { name: "Create" }).getByRole("menuitem")).toHaveText([
       "Upload receipt",
       "Record expense",
+      "Save a note",
     ]);
     await page.keyboard.press("Escape");
 
@@ -527,7 +608,7 @@ test.describe("Business preview while its chat is off", () => {
       ["Inbox", "Inbox"],
       ["Expenses", "Expenses"],
       ["Updates", "Updates"],
-      ["Overview", "Your business"],
+      ["Overview", "Mi negocio"],
     ]) {
       await nav(page).getByRole("button", { name: new RegExp(`^${label}`) }).click();
       await expect(panelHeading(page, heading)).toBeVisible();
@@ -588,7 +669,7 @@ test.describe("Business preview on a phone while its chat is off", () => {
 
   test("the drawer keeps the destinations and Create, with no New chat or Recents", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?chat=off`);
-    await expect(panelHeading(page, "Your business")).toBeVisible();
+    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
     await page.getByTestId("chat-shell-menu-trigger").click();
     for (const label of ["Overview", "Inbox", "Expenses", "Updates"]) {
       await expect(nav(page).getByText(label, { exact: true })).toBeVisible();

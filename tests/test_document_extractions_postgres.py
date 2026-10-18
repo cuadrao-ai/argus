@@ -1,5 +1,6 @@
 """Document checkpoints are private, immutable and fenced by the live lease."""
 
+import hashlib
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -68,7 +69,7 @@ def test_checkpoint_is_immutable_and_owner_scoped(
         connection_id=row.id,
         filename="legacy.pdf",
         media_type="application/pdf",
-        sha256="b" * 64,
+        sha256=hashlib.sha256(b"%PDF-fixture").hexdigest(),
         size_bytes=12,
         created_at=now,
         updated_at=now,
@@ -117,7 +118,7 @@ def test_capture_survives_new_store_handles_and_disconnect_hides_source(
         connection_id=connection.id,
         filename="synthetic.pdf",
         media_type="application/pdf",
-        sha256="a" * 64,
+        sha256=hashlib.sha256(b"%PDF-fixture").hexdigest(),
         size_bytes=12,
         created_at=now,
         updated_at=now,
@@ -199,7 +200,7 @@ def test_bucket_and_reference_check_use_the_python_limits(
         with pytest.raises(_RolledBack):
             reference(media_type, SOURCE_MAX_BYTES)
     for media_type, size in (
-        ("text/plain", 1),
+        ("application/zip", 1),
         ("application/pdf", SOURCE_MAX_BYTES + 1),
     ):
         with pytest.raises(errors.CheckViolation):

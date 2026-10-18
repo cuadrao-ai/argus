@@ -1,10 +1,14 @@
+import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
+import { chosenGrantHeader } from "./business-grant";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
+import { publicApiUrl } from "./public-env";
 
 export type AccountRequestOptions = RequestInit & { expectedUserId?: string };
 
 export const ARGUS_API_BASE_URL = (() => {
-  if (process.env.NEXT_PUBLIC_ARGUS_API_URL) {
-    return process.env.NEXT_PUBLIC_ARGUS_API_URL;
+  const configured = publicApiUrl();
+  if (configured) {
+    return configured;
   }
   if (typeof window !== "undefined") {
     return `${window.location.protocol}//${window.location.hostname}:8000/api/v1`;
@@ -16,9 +20,22 @@ export const ARGUS_CLIENT_CAPABILITIES = [
   "dossier_decision_conversion_v1",
 ] as const;
 
+/**
+ * Whether a request is a Business call: the chosen grant rides only on these.
+ * Personal chat and every other route never see the grant, so choosing a
+ * client's Business leaves the person's own chats as they were. With no path
+ * the caller is a Business fetch (receipt sources, exports) and carries it.
+ */
+export function carriesChosenGrant(path?: string): boolean {
+  if (path === undefined) return true;
+  if (path.startsWith("/business")) return true;
+  return path.startsWith("/conversations") && /[?&]surface=business(?:&|$)/.test(path);
+}
+
 export function argusApiRequestHeaders(
   optionsHeaders?: HeadersInit,
   authHeaders: Record<string, string> = {},
+  path?: string,
 ): Headers {
   const headers = new Headers({
     "Content-Type": "application/json",
@@ -29,6 +46,12 @@ export function argusApiRequestHeaders(
     "X-Argus-Client-Capabilities",
     ARGUS_CLIENT_CAPABILITIES.join(","),
   );
+  // The Business the person chose to work in, as the grant that admits them;
+  // the server proves it on every Business request. Absent for the own
+  // Business, and never on Personal chat.
+  if (carriesChosenGrant(path)) {
+    for (const [key, value] of Object.entries(chosenGrantHeader())) headers.set(key, value);
+  }
   return headers;
 }
 
@@ -37,16 +60,20 @@ export async function apiFetch<T>(
   options?: AccountRequestOptions,
 ): Promise<T> {
   const { expectedUserId, ...requestOptions } = options ?? {};
+  const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders(expectedUserId);
+  requireBrowserAuthGeneration(generation);
   requestOptions.signal?.throwIfAborted();
 
   const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, {
     ...requestOptions,
-    credentials: expectedUserId === undefined ? "include" : "omit",
-    headers: argusApiRequestHeaders(requestOptions.headers, authHeaders),
+    credentials: expectedUserId === undefined && (authHeaders.Authorization || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") ? "include" : "omit",
+    headers: argusApiRequestHeaders(requestOptions.headers, authHeaders, path),
   });
+  requireBrowserAuthGeneration(generation);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
+    requireBrowserAuthGeneration(generation);
     const detail = (body as { detail?: unknown }).detail;
     const errorMsg =
       typeof detail === "object" && detail !== null
@@ -62,7 +89,9 @@ export async function apiFetch<T>(
     error.context = (body as Record<string, unknown>).context;
     throw error;
   }
-  return response.json() as Promise<T>;
+  const body = await response.json() as T;
+  requireBrowserAuthGeneration(generation);
+  return body;
 }
 
 export async function unauthenticatedApiFetch<T>(

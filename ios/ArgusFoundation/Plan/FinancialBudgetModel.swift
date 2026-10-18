@@ -157,7 +157,14 @@ final class FinancialBudgetDraft: ObservableObject, Identifiable {
         currency = budget.currency; date = PlanPresentation.date(budget.month + "-01")
         accountIDs = Set(budget.accountIds); categoryIDs = Set(budget.categoryIds); includeUncategorized = budget.includeUncategorized
     }
-    var ready: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 100 && !limit.isEmpty && !accountIDs.isEmpty && (!categoryIDs.isEmpty || includeUncategorized) }
+    var ready: Bool { missing == nil }
+    /// The first thing this budget still needs; the save check and the editor's hint both read it.
+    var missing: ConnectedPlanMissing? {
+        if let problem = ConnectedPlanMissing.name(name) { return problem }
+        if limit.isEmpty { return .amount }
+        if accountIDs.isEmpty { return .accounts }
+        return categoryIDs.isEmpty && !includeUncategorized ? .categories : nil
+    }
     func command(locale: Locale) throws -> FinancialBudgetCommand {
         guard ready, let amount = try AccountEntry.amount(limit, locale: locale) else { throw AccountEntry.Failure.amount }
         return .init(name: name, limit: amount, currency: currency, month: String(PlanPresentation.day(date).prefix(7)),

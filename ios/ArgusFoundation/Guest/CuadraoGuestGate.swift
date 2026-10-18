@@ -9,14 +9,23 @@ extension CuadraoFirstRelease {
     static let guestBook = false
     #endif
 
-    /// Claiming the on-device book into an account is a later slice and stays off until it is approved.
+    /// Claiming the on-device book into an account stays off until it is approved. A development build opens it
+    /// with `--cuadrao-guest-claim`, and so does the founder phone build (Debug only; Release is always off).
+    #if DEBUG
+    static let guestClaim = founderPhone || ProcessInfo.processInfo.arguments.contains("--cuadrao-guest-claim")
+    #else
     static let guestClaim = false
+    #endif
 }
 
 #if DEBUG
 /// Development switches for the book: clear it at launch, or keep it in a chosen folder.
 enum CuadraoGuestLaunch {
     static let resets = ProcessInfo.processInfo.arguments.contains("--cuadrao-guest-reset")
+    /// Marks the one-time notices as already seen, so journeys that are not about them are not interrupted.
+    static let noticesSeen = ProcessInfo.processInfo.arguments.contains("--cuadrao-guest-notices-seen")
+    /// Pretends an account has signed in on this iPhone before, to see the login-only screen.
+    static let accountSignedInBefore = ProcessInfo.processInfo.arguments.contains("--cuadrao-account-signed-in-before")
 
     static var directory: URL? {
         let arguments = ProcessInfo.processInfo.arguments

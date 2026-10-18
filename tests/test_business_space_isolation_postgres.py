@@ -56,6 +56,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import ReceiptStub
+from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_sources_support import LOCAL_STORAGE, source_objects
 
 pytestmark = pytest.mark.skipif(
@@ -92,6 +93,7 @@ class World:
         self.documents = DocumentsService(
             self.hub, PostgresDocumentStore(pool, self.objects), ReceiptStub()
         )
+        self.documents.business_receipt_consent = reading_setting(pool)
         self.business = BusinessService(
             self.documents, self.imports, lambda _: frozenset()
         )
@@ -294,9 +296,12 @@ def test_business_routes_reach_only_their_own_space(world: World) -> None:
                 scope=a.owner,
             )
     for quadrant, original in before.items():
-        assert world.accounts.list_accounts(
-            user_id=world.people[quadrant[0]], scope=world.scope[quadrant]
-        ) == original
+        assert (
+            world.accounts.list_accounts(
+                user_id=world.people[quadrant[0]], scope=world.scope[quadrant]
+            )
+            == original
+        )
     expenses = service.expenses(a, date(2026, 10, 1), date(2026, 10, 31))
     assert [e["id"] for e in expenses] == [world.expense[("a", "business")]]
     assert (
@@ -544,6 +549,7 @@ def test_whatsapp_links_and_captures_into_the_business_space(world: World) -> No
 
 def test_a_job_for_a_business_receipt_keeps_its_space(world: World) -> None:
     person, a = world.people["a"], world.biz["a"]
+    turn_reading(world.documents.business_receipt_consent, a.owner.space_id, person)
     dispatched: list[tuple[str, str]] = []
     jobs = PreparationJobs(
         world.documents, lambda cid, aid: dispatched.append((cid, aid))

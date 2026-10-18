@@ -117,12 +117,26 @@ def _service_over(
         store = InMemoryDocumentStore(hub.connections)
     # With jobs on, an expired attempt waits for the job reconciler, which
     # resumes it once intake is back; a read never settles it.
-    return DocumentsService(
+    from argus.domain.business.actions import BusinessActions
+    from argus.domain.ingestion.reconcile.service import ReconciliationService
+
+    actions = (
+        BusinessActions(pool, hub.sink)
+        if pool is not None and isinstance(hub.sink, ReconciliationService)
+        else None
+    )
+    service = DocumentsService(
         hub,
         store,
         extractor,
         jobs_recover_interruptions=load_document_job_settings().enabled,
+        business_actions=actions,
+        business_preparation_required=pool is not None,
     )
+    from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
+
+    service.business_receipt_consent = BusinessReceiptConsentStore(pool)
+    return service
 
 
 def require_saved_documents(request: Request) -> DocumentsService:
@@ -224,7 +238,7 @@ async def read_document_upload(request: Request) -> tuple[str, bytes]:
             status_code=415,
             code="document_media_type_unsupported",
             title="Unsupported document",
-            detail="Upload a PDF, JPEG or PNG file.",
+            detail="Upload a PDF, JPEG, PNG, TXT, CSV, XLSX, XML or EML file.",
             headers=NO_STORE,
         )
     limit = load_document_extraction_settings().max_bytes
@@ -269,6 +283,23 @@ async def dispatch_preparation(
     A job reads its scope from the connection; the background task is told it.
     """
 
+    from uuid import UUID
+
+    from argus.domain.business.transactions import GrantImportStore
+    from argus.domain.owner_scope import space_id
+
+    if space_id(scope) is not None and (
+        service.business_actions is not None or service.business_preparation_required
+    ):
+        imports = getattr(service.hub.sink, "store", None)
+        if service.business_actions is None or not isinstance(imports, GrantImportStore):
+            raise DocumentServiceError("business_preparation_unavailable")
+        await asyncio.to_thread(
+            service.business_actions.capture_attachment_preparation,
+            imports.context,
+            UUID(connection_id),
+            target=None,
+        )
     jobs = document_jobs()
     if jobs is None:
         background_tasks.add_task(

@@ -141,6 +141,23 @@ describe("guest session entry contract", () => {
     ).toBe("argus-local-browser-qa");
   });
 
+  test.each([
+    [" cuadrao-key ", "argus-key", "cuadrao-key"],
+    [undefined, "argus-key", "argus-key"],
+    ["   ", "argus-key", "argus-key"],
+    ["cuadrao-key", undefined, "cuadrao-key"],
+    [undefined, undefined, undefined],
+    [" ", " ", undefined],
+  ])("resolves canonical and legacy site keys (%s, %s)", (canonical, legacy, expected) => {
+    expect(guestCaptchaPlanForEnvironment({
+      nodeEnv: "production",
+      apiUrl: "https://api.argus.example/api/v1",
+      localQaToken: undefined,
+      cuadraoTurnstileSiteKey: canonical,
+      turnstileSiteKey: legacy,
+    })).toEqual(expected ? { kind: "turnstile", siteKey: expected } : { kind: "unavailable" });
+  });
+
   test("acquires a production Turnstile challenge instead of failing guest entry", () => {
     expect(
       guestCaptchaPlanForEnvironment({

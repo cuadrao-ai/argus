@@ -8,11 +8,12 @@ from uuid import uuid4
 
 import pytest
 from argus.api.business_spaces import business_spaces
+from argus.api.documents import documents_service
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from fastapi.testclient import TestClient
 
 from tests.business.conftest import ALICE, BOB
-from tests.business.receipt_stub import ReceiptStub
+from tests.business.receipt_stub import PURCHASE, ReceiptStub
 
 BASE = "/api/v1/business"
 RECEIPT = (
@@ -55,9 +56,15 @@ class Owner:
         return self.client.get(BASE + path, params=params, headers=self.auth)
 
     def post(self, path: str, body: object = None, key: str | None = None, **headers):
+        if path == "/receipt-reading" and key is None:
+            key = str(uuid4())
         if key is not None:
             headers["Idempotency-Key"] = key
         return self.client.post(BASE + path, json=body, headers={**self.auth, **headers})
+
+    def reading(self, enabled: bool):
+        shown = self.get("/receipt-reading").json()
+        return self.post("/receipt-reading", {"enabled": enabled, "scope_version": 1, "disclosure_token": shown["disclosure_token"]})
 
     def account(self, currency: str = "DOP", nickname: str = "Operating") -> str:
         created = self.post(
@@ -69,15 +76,32 @@ class Owner:
         return created.json()["id"]
 
     def upload(
-        self, content: bytes = RECEIPT, consent: bool = True, name: str = "recibo.png"
+        self,
+        content: bytes = RECEIPT,
+        consent: bool = True,
+        name: str = "recibo.png",
+        media_type: str = "image/png",
     ):
         headers = {
             **self.auth,
-            "Content-Type": "image/png",
+            "Content-Type": media_type,
             "Idempotency-Key": str(uuid4()),
             "X-Document-Filename": quote(name),
         }
+        shown = self.get("/receipt-reading").json()
+        if not consent and shown["enabled"]:
+            assert self.post("/receipt-reading", {"enabled": False, "scope_version": 1}).status_code == 200
         if consent:
+            if not shown["enabled"]:
+                enabled = self.post(
+                    "/receipt-reading",
+                    {
+                        "enabled": True,
+                        "scope_version": shown["scope_version"],
+                        "disclosure_token": shown["disclosure_token"],
+                    },
+                )
+                assert enabled.status_code == 200, enabled.text
             headers["X-Extraction-Consent"] = "true"
         return self.client.post(BASE + "/receipts", content=content, headers=headers)
 
@@ -157,7 +181,9 @@ def test_document_intake_off_keeps_saved_receipts_and_owner_actions(
     assert alice.get("/space").status_code == 200
     assert receipt_id in [r["id"] for r in alice.get("/receipts").json()["items"]]
     source = alice.get(f"/receipts/{receipt_id}/source")
-    assert (source.status_code, source.content) == (200, RECEIPT)
+    assert source.status_code == 200
+    assert source.headers["content-type"] == "image/jpeg"
+    assert source.content.startswith(b"\xff\xd8") and source.content != RECEIPT
     refused = [
         alice.upload(content=RECEIPT + b"new"),
         alice.post(
@@ -299,7 +325,17 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
         "chat_available": False,
         "receipt_limits": {
             "max_bytes": 10485760,
-            "media_types": ["application/pdf", "image/jpeg", "image/png"],
+            "media_types": [
+                "application/pdf",
+                "image/jpeg",
+                "image/png",
+                "text/plain",
+                "text/csv",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/xml",
+                "text/xml",
+                "message/rfc822",
+            ],
         },
     }
 
@@ -402,10 +438,17 @@ def test_saved_receipt_prepares_only_with_consent(
         "document_extraction_consent_required",
     )
     assert stub.calls == []
-    queued = alice.post(
-        f"/receipts/{uploaded['id']}/prepare", **{"X-Extraction-Consent": "true"}
+    shown = alice.get("/receipt-reading").json()
+    enabled = alice.post(
+        "/receipt-reading",
+        {
+            "enabled": True,
+            "scope_version": shown["scope_version"],
+            "disclosure_token": shown["disclosure_token"],
+        },
     )
-    assert (queued.status_code, queued.json()["status"]) == (200, "queued")
+    assert enabled.status_code == 200, enabled.text
+    assert alice.detail(uploaded["id"])["status"] == "review_ready"
     assert alice.detail(uploaded["id"])["status"] == "review_ready"
     assert stub.calls == [uploaded["id"]]
 
@@ -499,10 +542,20 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
                 "account_id": account,
                 "occurred_on": "2026-10-06",
                 "receipt_id": receipt_id,
+                "fiscal_known": True,
             }
         ]
     }
-    assert alice.get("/receipts", view="inbox").json() == {"items": []}
+    assert alice.get("/receipts", view="inbox").json() == {
+        "items": [],
+        "activity": {
+            "reading_count": 0,
+            "unread_count": 0,
+            "presentation": "none",
+            "pending_review_count": 0,
+            "needs_attention_count": 0,
+        },
+    }
     [saved] = alice.get("/receipts", view="all").json()["items"]
     assert (saved["status"], saved["expense_id"]) == ("confirmed", expense_id)
 
@@ -531,6 +584,7 @@ def test_manual_expense_is_canonical_and_replays(alice: Owner) -> None:
             "account_id": account,
             "occurred_on": "2026-10-04",
             "receipt_id": None,
+            "fiscal_known": True,
         }
     )
     conflict = alice.post("/expenses", {**entered, "amount": "99.00"}, key="exp-1")
@@ -556,6 +610,7 @@ def test_overview_totals_each_currency_and_counts_the_inbox(alice: Owner) -> Non
             key=str(uuid4()),
         )
     prepared(alice)
+    alice.post("/receipt-reading", {"enabled": False, "scope_version": 1})
     alice.upload(content=RECEIPT + b"\0", consent=False)
     overview = alice.get("/overview", **{"from": "2026-10-01", "to": "2026-10-31"}).json()
     assert {
@@ -602,18 +657,34 @@ def test_updates_follow_receipt_states(alice: Owner) -> None:
     }
 
 
-def test_source_returns_the_uploaded_bytes_only_to_the_owner(
-    alice: Owner, bob: Owner
-) -> None:
+def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner) -> None:
     receipt_id = prepared(alice)
     source = alice.get(f"/receipts/{receipt_id}/source")
     assert source.status_code == 200
-    assert source.content == RECEIPT
+    assert source.content.startswith(b"\xff\xd8") and source.content != RECEIPT
+    store = documents_service().store
+    assert store.source(user_id=alice.scope().person_id, connection_id=receipt_id) == RECEIPT
+    before = dict(store.objects.objects)
+    assert alice.get(f"/receipts/{receipt_id}/source").content == source.content
+    assert store.objects.objects == before
     assert (source.headers["Cache-Control"], source.headers["Content-Type"]) == (
         "no-store",
-        "image/png",
+        "image/jpeg",
     )
     assert source.headers["X-Content-Type-Options"] == "nosniff"
+    from unittest.mock import patch
+
+    from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+
+    with patch.object(
+        documents_service().store,
+        "download_source",
+        side_effect=SourceStorageUnavailable("unavailable"),
+    ):
+        unavailable = alice.get(f"/receipts/{receipt_id}/source")
+    assert unavailable.status_code == 503
+    assert unavailable.json()["code"] == "document_storage_unavailable"
+
     account = alice.account()
     version = alice.review(
         receipt_id, alice.detail(receipt_id)["version"], account_id=account
@@ -631,9 +702,196 @@ def test_source_returns_the_uploaded_bytes_only_to_the_owner(
     assert [(r.status_code, r.json()["code"]) for r in calls] == [
         (404, "receipt_not_found")
     ] * 5
-    assert bob.get("/receipts", view="all").json() == {"items": []}
+    assert bob.get("/receipts", view="all").json() == {
+        "items": [],
+        "activity": {
+            "reading_count": 0,
+            "unread_count": 0,
+            "presentation": "none",
+            "pending_review_count": 0,
+            "needs_attention_count": 0,
+        },
+    }
     window = {"from": "2026-10-01", "to": "2026-10-31"}
     assert bob.get("/expenses", **window).json() == {"items": []}
     assert [e["id"] for e in alice.get("/expenses", **window).json()["items"]] == [
         expense_id
     ]
+
+
+def test_a_multi_row_csv_waits_for_attention_with_every_row_kept(
+    alice: Owner, stub: ReceiptStub
+) -> None:
+    """A spreadsheet is not one receipt: it is set aside, and its rows stay as evidence."""
+    stub.rows = [
+        PURCHASE,
+        {**PURCHASE, "row": 2, "amount": "100.00", "merchant": "COLMADO DON JOSE"},
+    ]
+    rows = b"date,amount,merchant\n2026-10-06,3450.00,Ferreteria\n2026-10-06,100.00,Colmado\n"
+    uploaded = alice.upload(content=rows, name="gastos.csv", media_type="text/csv")
+    assert uploaded.status_code == 200, uploaded.text
+    receipt_id = uploaded.json()["id"]
+    detail = alice.detail(receipt_id)
+    assert (detail["status"], detail["attention"], detail["media_type"]) == (
+        "needs_attention",
+        "several_purchases",
+        "text/csv",
+    )
+    assert detail["filename"] == "gastos.csv"
+    scope = alice.scope()
+    batch = documents_service().store.get(
+        user_id=scope.person_id, connection_id=receipt_id
+    )
+    # Nothing becomes a candidate purchase; every read row stays in the saved batch.
+    assert batch.candidates == ()
+    assert [row.amount for row in batch.observations] == ["3450.00", "100.00"]
+    assert "receipt_purchase_ambiguous" in {issue.code for issue in batch.issues}
+    source = alice.get(f"/receipts/{receipt_id}/source")
+    assert source.status_code == 200
+    assert source.content == rows
+    assert alice.get(
+        "/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}
+    ).json() == {"items": []}
+
+
+def test_upload_header_does_not_enable_business_reading(alice, stub):
+    response = alice.client.post(
+        BASE + "/receipts",
+        content=RECEIPT,
+        headers={
+            **alice.auth,
+            "Content-Type": "image/png",
+            "Idempotency-Key": str(uuid4()),
+            "X-Extraction-Consent": "true",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["activity"]["state"] == "saved_unread"
+    assert stub.calls == []
+    assert alice.get("/receipt-reading").json()["enabled"] is False
+
+
+def test_owner_enabling_reads_backlog_once_and_disabling_stops_new_reads(alice, stub):
+    saved = alice.upload(consent=False).json()
+    assert alice.get("/receipt-activity").json()["unread_count"] == 1
+    shown = alice.get("/receipt-reading").json()
+    body = {
+        "enabled": True,
+        "scope_version": 1,
+        "disclosure_token": shown["disclosure_token"],
+    }
+    assert alice.post("/receipt-reading", body).status_code == 200
+    assert alice.detail(saved["id"])["activity"]["state"] == "ready"
+    assert len(stub.calls) == 1
+    assert alice.post("/receipt-reading", body).status_code == 200
+    assert len(stub.calls) == 1
+    assert (
+        alice.post("/receipt-reading", {"enabled": False, "scope_version": 1}).status_code
+        == 200
+    )
+    second = alice.upload(content=RECEIPT + b"another", consent=False).json()
+    assert second["activity"]["state"] == "saved_unread"
+    assert len(stub.calls) == 1
+
+
+def test_receipt_list_and_detail_share_cursor_and_ack_does_not_record_money(alice):
+    rid = prepared(alice)
+    detail = alice.detail(rid)
+    listed = next(
+        row for row in alice.get("/receipts").json()["items"] if row["id"] == rid
+    )
+    assert (
+        listed["activity"]["completion_cursor"] == detail["activity"]["completion_cursor"]
+    )
+    before = alice.get("/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}).json()
+    ack = alice.post(
+        f"/receipts/{rid}/read",
+        {"completion_cursor": detail["activity"]["completion_cursor"]},
+    )
+    assert ack.status_code == 200, ack.text
+    assert ack.json()["unread"] is False
+    assert (
+        alice.get("/expenses", **{"from": "2026-10-01", "to": "2026-10-31"}).json()
+        == before
+    )
+
+
+def test_missing_source_does_not_strand_other_unread_receipts(alice, stub):
+    first = alice.upload(consent=False).json()
+    second = alice.upload(content=RECEIPT + b"second", consent=False).json()
+    documents = documents_service()
+    draft = documents.store.draft(
+        user_id=alice.scope().person_id, connection_id=first["id"]
+    )
+    documents._update(alice.scope().person_id, draft, source_available=False)
+    shown = alice.get("/receipt-reading").json()
+    enabled = alice.post(
+        "/receipt-reading",
+        {
+            "enabled": True,
+            "scope_version": 1,
+            "disclosure_token": shown["disclosure_token"],
+        },
+    )
+    assert enabled.status_code == 200, enabled.text
+    assert alice.detail(second["id"])["activity"]["state"] in ("ready", "read_failed")
+    assert len(stub.calls) == 1
+    assert alice.detail(first["id"])["activity"]["state"] == "saved_unread"
+
+
+@pytest.mark.parametrize("change", ["disconnect", "delete"])
+def test_source_rechecks_connection_after_image_conversion(alice: Owner, monkeypatch, change):
+    from datetime import datetime, timezone
+
+    from argus.domain.ingestion.documents import rebuilt
+
+    receipt_id = prepared(alice)
+    service = documents_service()
+    owner = alice.scope().person_id
+    real = rebuilt.ensure_rebuilt_image
+    def changing(**kwargs):
+        real(**kwargs)
+        if change == "disconnect":
+            service.hub.connections.disconnect(user_id=owner, connection_id=receipt_id, now=datetime.now(timezone.utc))
+        else:
+            service.store.forget(user_id=owner, connection_id=receipt_id)
+    monkeypatch.setattr(rebuilt, "ensure_rebuilt_image", changing)
+    response = alice.get(f"/receipts/{receipt_id}/source")
+    assert response.status_code == (410 if change == "disconnect" else 422)
+    assert not response.content.startswith(b"\xff\xd8")
+
+
+@pytest.mark.parametrize("media_type", [
+    "application/pdf", "text/plain", "text/csv", "application/xml", "text/xml",
+    "message/rfc822", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+])
+def test_nonimage_source_download_keeps_exact_bytes_without_image_producer(alice: Owner, monkeypatch, media_type):
+    from argus.domain.ingestion.documents import rebuilt
+
+    def forbidden(**_kwargs):
+        pytest.fail("non-image source must not invoke an image producer")
+
+    # The helper is allowed to classify the draft; decoding is not.
+    monkeypatch.setattr(rebuilt, "rebuild_image", forbidden)
+    from tests.ingestion.test_document_flat_files import workbook
+
+    fixtures = Path(__file__).parents[1] / "document_extraction_fixtures"
+    content = {
+        "application/pdf": (fixtures / "hotel-ecf.pdf").read_bytes(),
+        "application/xml": (fixtures / "hotel-ecf.xml").read_bytes(),
+        "text/xml": (fixtures / "hotel-ecf.xml").read_bytes(),
+        "message/rfc822": (fixtures / "hotel-ecf.eml").read_bytes(),
+        "text/plain": b"Paid 850 pesos\n",
+        "text/csv": b"date,amount\n2026-10-01,850\n",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": workbook(),
+    }[media_type]
+    saved = alice.upload(content=content, media_type=media_type, consent=False)
+    assert saved.status_code == 200, saved.text
+    source = alice.get(f"/receipts/{saved.json()['id']}/source")
+    assert source.status_code == 200
+    assert source.content == content
+    assert source.headers["content-type"].split(";")[0] == media_type
+    assert source.headers["cache-control"] == "no-store"
+    assert source.headers["x-content-type-options"] == "nosniff"
+    assert source.headers["content-disposition"].startswith("attachment;")
+    assert len(documents_service().store.objects.objects) == 1

@@ -5,8 +5,21 @@ import SwiftUI
 struct ConnectedCuadraoAuthFlow: View {
     @EnvironmentObject private var auth: ProfileAuthModel
     @Environment(\.locale) private var locale
+    @Environment(\.cuadraoGuestWelcome) private var guestWelcome
 
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+
+    /// After an account has signed in here, the signed-out screen is the login form alone.
+    @ViewBuilder private var signedOutRoot: some View {
+        if let guestWelcome, case .loginOnly(let line) = guestWelcome.shape {
+            ConnectedCreateAccount(spanish: spanish, signingIn: true)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if line { GuestOpenLine(spanish: spanish, open: guestWelcome.open) }
+                }
+        } else {
+            welcome.toolbar(.hidden, for: .navigationBar)
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -23,11 +36,10 @@ struct ConnectedCuadraoAuthFlow: View {
                                detail: String(localized: "auth.error.anonymous"))
                 } else if let deletion = auth.deletion {
                     ConnectedDeletionOutcome(model: deletion, unresolved: auth.state == .accountDeletionUncertain) {
-                        welcome.toolbar(.hidden, for: .navigationBar)
+                        signedOutRoot
                     }
                 } else {
-                    welcome
-                        .toolbar(.hidden, for: .navigationBar)
+                    signedOutRoot
                 }
             }
         }
@@ -181,24 +193,23 @@ struct ConnectedCreateAccount: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier(signingIn ? "cuadrao.signin.emailChoice" : "cuadrao.signup.email")
-                    if !signingIn {
+                    let legal = CuadraoLegalURLs.current
+                    if !signingIn, legal.hasTermsAndPrivacy, let terms = legal.terms, let privacy = legal.privacy {
                         VStack(spacing: 0) {
                             Text(spanish ? "Al crear tu cuenta, aceptas los términos."
                                  : "By creating an account, you accept the terms.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
-                            if let web = auth.configuration?.webURL {
-                                HStack(spacing: 20) {
-                                    Link(destination: web.appendingPathComponent("terms")) {
-                                        Text(spanish ? "Términos" : "Terms").underline().font(.footnote)
-                                            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                                    }
-                                    Link(destination: web.appendingPathComponent("privacy")) {
-                                        Text(spanish ? "Privacidad" : "Privacy").underline().font(.footnote)
-                                            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                                    }
-                                }
+                            HStack(spacing: 20) {
+                                Link(destination: terms) {
+                                    Text(spanish ? "Términos" : "Terms").underline().font(.footnote)
+                                        .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                                }.accessibilityIdentifier("cuadrao.signup.terms")
+                                Link(destination: privacy) {
+                                    Text(spanish ? "Privacidad" : "Privacy").underline().font(.footnote)
+                                        .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                                }.accessibilityIdentifier("cuadrao.signup.privacy")
                             }
                         }
                         .frame(maxWidth: .infinity)

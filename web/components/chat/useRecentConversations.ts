@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type Dispatch,
@@ -25,6 +26,7 @@ import {
 import { useConversationSurface } from "./ChatWorkspace";
 
 type UseRecentConversationsOptions = Readonly<{
+  enabled?: boolean;
   guestExpiresAt?: string | null;
   activityCausalClock?: ConversationActivityCausalClock;
 }>;
@@ -69,9 +71,13 @@ export const runHistoryRefreshSafely = (
 };
 
 export function useRecentConversations({
+  enabled = true,
   guestExpiresAt,
   activityCausalClock,
 }: UseRecentConversationsOptions): RecentConversationsState {
+  const enabledRef = useRef(enabled);
+  useLayoutEffect(() => { enabledRef.current = enabled; }, [enabled]);
+  const scopeRevision = useRef(0);
   const [fallbackActivityCausalClock] = useState(
     createConversationActivityCausalClock,
   );
@@ -114,6 +120,8 @@ export function useRecentConversations({
 
   const loadHistoryPage = useCallback(
     (nextCursor?: string | null, append = false) => {
+      if (!enabledRef.current) return Promise.resolve({ items: [], revision: causalClock.nextRevision() });
+      const requestScope = scopeRevision.current;
       const requestKey = nextCursor ?? "first-page";
       const existingRequest = pageRequestsRef.current.get(requestKey);
       if (existingRequest) return existingRequest;
@@ -127,6 +135,7 @@ export function useRecentConversations({
         deleted: false,
       })
         .then(({ items, next_cursor }) => {
+          if (!enabledRef.current || requestScope !== scopeRevision.current) return { items: [], revision: activityRevision };
           const projected = items
             .filter(
               (conversation) => conversation.preview?.kind !== "empty",
@@ -162,7 +171,7 @@ export function useRecentConversations({
           return { items: projected, revision: activityRevision };
         })
         .finally(() => {
-          pageRequestsRef.current.delete(requestKey);
+          if (pageRequestsRef.current.get(requestKey) === request) pageRequestsRef.current.delete(requestKey);
         });
       pageRequestsRef.current.set(requestKey, request);
       return request;
@@ -185,6 +194,7 @@ export function useRecentConversations({
   }, [refreshHistoryForActivity]);
 
   const clearHistory = useCallback(() => {
+    scopeRevision.current += 1;
     const revision = causalClock.nextRevision();
     setHistoryActivityState({
       historyItems: [],
@@ -213,8 +223,9 @@ export function useRecentConversations({
   }, [historyNextCursor, loadHistoryPage]);
 
   useEffect(() => {
+    if (!enabled) { clearHistory(); return; }
     void loadHistoryPage(null, false).catch(() => undefined);
-  }, [loadHistoryPage]);
+  }, [enabled, clearHistory, loadHistoryPage]);
 
   return {
     historyItems,

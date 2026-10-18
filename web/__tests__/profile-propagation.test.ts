@@ -49,8 +49,12 @@ function saveCalls(text: string): Array<{ awaited: boolean; args: string }> {
     },
   );
 }
+/** The auth page saves the language chosen before sign-in once, then leaves
+ * for the workspace: it holds no profile copy to hand the result to and no
+ * edit session a late answer could reach, so those two rules do not apply. */
+const AUTH_PAGE = "app/page.tsx";
 const WRITERS = SOURCES.filter(
-  (file) => file.path !== WRITE_PATH && saveCalls(file.text).length > 0,
+  (file) => file.path !== WRITE_PATH && file.path !== AUTH_PAGE && saveCalls(file.text).length > 0,
 );
 
 const user = (overrides: Partial<ApiUser> = {}): ApiUser => ({
@@ -149,6 +153,10 @@ describe("a saved profile reaches the greeting", () => {
     expect(writers).toContain("components/settings/LanguageModal.tsx");
     // The account holds no theme, so the appearance panel has nothing to save.
     expect(writers).not.toContain("components/settings/AppearanceModal.tsx");
+    // The auth page's one save still goes through the write path and leaves at once.
+    const authPage = source(AUTH_PAGE);
+    expect(saveCalls(authPage).length).toBe(1);
+    expect(authPage).toContain("router.replace(postAuthPath());");
   });
 
   test("every save hands the saved profile on, wherever it is made", () => {

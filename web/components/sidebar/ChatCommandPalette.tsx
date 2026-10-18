@@ -30,6 +30,7 @@ import CommandPaletteRowActions from "@/components/sidebar/command-palette/Comma
 import pointerAffordances from "@/components/sidebar/pointerAffordances.module.css";
 import { commandPaletteRowActions } from "@/components/sidebar/command-palette/rowActionItems";
 import CommandPaletteDossierSheet from "@/components/sidebar/command-palette/CommandPaletteDossierSheet";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useModalSurface } from "@/components/layout/useModalSurface";
 import { useRunDossierHistory } from "@/components/sidebar/command-palette/useRunDossierHistory";
@@ -269,9 +270,9 @@ function ChatCommandPaletteSurface({
   const { t, i18n } = useTranslation();
   const surface = useConversationSurface();
   const chatAvailable = useChatAvailable();
-  // Business chats hold no saved decisions or result dossiers, so its palette has no
-  // decision filters and no preview pane: a row opens its chat.
-  const hasPreviewPane = surface === "personal";
+  const workspaceSearch = useChatWorkspace()?.search ?? null;
+  // Personal shows run dossiers; a workspace whose hits carry previews keeps the pane too.
+  const hasPreviewPane = surface === "personal" || workspaceSearch?.previewAvailable === true;
   const searchSurface = useCallback(
     (params: Parameters<typeof searchGlobal>[0]) =>
       searchGlobal({ ...params, surface, includeLedgerGroups: surface === "personal" && params.includeLedgerGroups }),
@@ -531,8 +532,17 @@ function ChatCommandPaletteSurface({
     };
   }, [chatAvailable, decisionStateFilter, isLedgerMode, query, retryNonce, searchSurface]);
 
-  const workspaceSearch = useChatWorkspace()?.search ?? null;
   const workspaceResults = useWorkspaceSearch(isLedgerMode ? null : workspaceSearch, query);
+  const [workspaceSelection, setWorkspaceSelection] = useState<string | null>(null);
+  const [workspaceSheet, setWorkspaceSheet] = useState(false);
+  const workspaceGroups = workspaceResults.state.status === "ready" ? workspaceResults.state.groups : [];
+  const selectedWorkspaceHit = workspaceGroups.flatMap((group) => group.hits.map((hit) => ({ key: `${group.id}:${hit.id}`, hit }))).find((item) => item.key === workspaceSelection)?.hit;
+  // A new query or a conversation preview replaces the previewed record.
+  useEffect(() => { setWorkspaceSelection(null); setWorkspaceSheet(false); }, [query, previewItem]);
+  const workspaceDossier = selectedWorkspaceHit?.preview ? <div data-dossier-pane="true" className="flex h-full flex-col gap-4">
+    <div className="min-h-0 flex-1 overflow-y-auto">{selectedWorkspaceHit.preview}</div>
+    <button type="button" className="min-h-11 shrink-0 rounded-full bg-black px-4 text-sm text-white dark:bg-white dark:text-black" onClick={() => { onClose(); selectedWorkspaceHit.open(); }}>{t("business.search.open_record", "Open record")}</button>
+  </div> : null;
   const isFiltering = query.trim().length > 0;
   const isWaitingForIndexableQuery =
     isFiltering && !searchQueryIsIndexable(query);
@@ -1148,7 +1158,7 @@ function ChatCommandPaletteSurface({
   };
 
   const isLoading = isResultMode ? isSearching || isLedgerLoading : isColdStartLoading;
-  const footerCount = displayItems.length;
+  const footerCount = displayItems.length + workspaceGroups.reduce((count, group) => count + group.hits.length, 0);
   const selectedCanManageShortcutActions = Boolean(canManageConversation && selectedPreview?.canManageConversation);
 
   // One dossier body, shown as a pane on desktop and as a sheet below 1024px.
@@ -1488,7 +1498,7 @@ function ChatCommandPaletteSurface({
             data-command-palette-action-region
             {...shortcutLegend.actionRegionProps}
           >
-            {workspaceSearch && <WorkspaceSearchResults search={workspaceSearch} {...workspaceResults} onOpened={onClose} />}
+            {workspaceSearch && <WorkspaceSearchResults search={workspaceSearch} {...workspaceResults} onOpened={onClose} selectedKey={workspaceSelection ?? undefined} onPreview={workspaceSearch.previewAvailable ? (group, hit) => setWorkspaceSelection(`${group}:${hit.id}`) : undefined} onSelect={workspaceSearch.previewAvailable ? (group, hit) => { setWorkspaceSelection(`${group}:${hit.id}`); if (isBelowDesktop || effectiveLayoutMode === "collapsed") setWorkspaceSheet(true); } : undefined} />}
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="h-5 w-5 animate-spin text-black/20 dark:text-white/20" />
@@ -1799,11 +1809,12 @@ function ChatCommandPaletteSurface({
 
           {effectiveLayoutMode === "expanded" && !isBelowDesktop && (
             <div className={commandPaletteDossierPanelClassName(dossierPaneState.view)}>
-              {dossierPaneContent}
+              {workspaceDossier ?? dossierPaneContent}
             </div>
           )}
         </div>
 
+        {workspaceSheet && selectedWorkspaceHit && workspaceDossier ? <BottomSheet isOpen height="full" title={selectedWorkspaceHit.title} closeLabel={t("command_palette.close_dossier", "Close dossier")} onClose={() => setWorkspaceSheet(false)}>{workspaceDossier}</BottomSheet> : null}
         {isBelowDesktop && isDossierSheetOpen && selectedPreview ? (
           <CommandPaletteDossierSheet
             preview={selectedPreview}

@@ -396,7 +396,7 @@ async function mockGuestJourney(
 }
 
 async function readGuestEmptySurface(page: Page) {
-  const heading = page.getByRole("heading", { name: "argus" });
+  const heading = page.getByRole("heading", { name: "Cuadrao", exact: true });
   const starterActions = page
     .getByTestId("starter-actions")
     .getByRole("button");
@@ -407,7 +407,7 @@ async function readGuestEmptySurface(page: Page) {
     headingGroup: await heading.locator("..").innerText(),
     placeholder: await page.getByTestId("chat-input").getAttribute("placeholder"),
     starterLabels: await starterActions.allTextContents(),
-    headerTitle: (await page.locator("header h1").innerText()).trim(),
+    headerHeadingCount: await page.locator("header h1").count(),
   };
 }
 
@@ -420,7 +420,7 @@ test("@guest-shell Start over reuses the guest landing surface", async ({
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   const landingSurface = await readGuestEmptySurface(page);
-  expect(landingSurface.headerTitle).toBe("");
+  expect(landingSurface.headerHeadingCount).toBe(0);
 
   const composer = page.getByTestId("chat-input");
   await composer.fill("Compare Apple with SPY");
@@ -521,7 +521,7 @@ test("@guest-shell a null landing profile stays auth-first without guest work", 
   const evidence = await mockGuestJourney(page, { initialProfileNull: true });
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByRole("heading", { name: "argus" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cuadrao", exact: true })).toBeVisible();
   await expect(page.getByTestId("chat-input")).toHaveCount(0);
   expect({
     bootstrap: evidence.bootstrapCalls,
@@ -554,6 +554,7 @@ for (const preBootstrapSidebarCase of [
     expiryCopy: /Available until/,
     noRecentCopy: "No recent chats yet.",
     recentsLabel: "Recents",
+    expandLabel: "Expand",
   },
   {
     language: "es-419",
@@ -561,6 +562,7 @@ for (const preBootstrapSidebarCase of [
     expiryCopy: /Disponible hasta/,
     noRecentCopy: "Aún no hay chats recientes.",
     recentsLabel: "Recientes",
+    expandLabel: "Expandir",
   },
 ] as const) {
   test(`@guest-shell ${preBootstrapSidebarCase.language} pre-bootstrap sidebar makes no retention promise`, async ({
@@ -573,7 +575,7 @@ for (const preBootstrapSidebarCase of [
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByTestId("chat-input")).toBeVisible();
-    await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await page.getByRole("button", { name: preBootstrapSidebarCase.expandLabel, exact: true }).click();
     const sidebar = page.locator("aside");
     await expect
       .poll(async () => (await sidebar.boundingBox())?.width ?? 0)
@@ -1213,7 +1215,7 @@ test("@guest-shell capability chrome stays visible and opens typed conversion", 
 
   await page.getByRole("button", { name: "Sign in" }).click();
   const requestAccessDialog = page.getByRole("dialog", {
-    name: "Request access to Argus",
+    name: "Request access to Cuadrao",
   });
   await expect(requestAccessDialog).toBeVisible();
   await expect(requestAccessDialog).toContainText(
@@ -1263,7 +1265,7 @@ test("@guest-shell capability chrome stays visible and opens typed conversion", 
   ).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "Expand sidebar" }).click();
+  await page.getByRole("button", { name: "Expandir", exact: true }).click();
   await expect(page.getByRole("button", { name: "Buscar" })).toBeVisible();
   await expect(page.getByTestId("guest-temporary-notice")).toHaveCount(1);
   await expect(page.locator("aside").getByText(/Chat temporal/)).toHaveCount(0);
@@ -1278,7 +1280,7 @@ test("@guest-shell capability chrome stays visible and opens typed conversion", 
   await expect(
     page.getByRole("button", { name: "Cerrar búsqueda" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await page.getByRole("button", { name: "Contraer", exact: true }).click();
   await expect(page.getByTestId("guest-temporary-notice")).toHaveCount(1);
 
   await page.getByTestId("chat-input").fill("Compara Apple con SPY");
@@ -1384,7 +1386,7 @@ test("@guest-shell mobile keeps composer, legal copy, and 44px controls reachabl
     ),
   ).toBe(true);
 
-  await page.getByRole("button", { name: "Expand sidebar" }).click();
+  await page.getByRole("button", { name: "Expand", exact: true }).click();
   await expect
     .poll(async () => (await page.locator("aside").boundingBox())?.width ?? 0)
     .toBeGreaterThanOrEqual(280);
@@ -1395,7 +1397,7 @@ test("@guest-shell mobile keeps composer, legal copy, and 44px controls reachabl
     0,
   );
   await expect(page.getByTestId("guest-temporary-notice")).toHaveCount(1);
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await page.getByRole("button", { name: "Collapse", exact: true }).click();
   await expect(page.getByTestId("guest-temporary-notice")).toHaveCount(1);
   expect(
     await page.evaluate(
@@ -1499,7 +1501,7 @@ test("@guest-shell hints require typed artifacts and dismiss locally without wri
   );
   await page.getByRole("button", { name: "Add decision" }).click();
   const decisionDialog = page.getByRole("dialog", {
-    name: "Request access to Argus",
+    name: "Request access to Cuadrao",
   });
   await expect(decisionDialog).toContainText(
     "Share your email to request access.",

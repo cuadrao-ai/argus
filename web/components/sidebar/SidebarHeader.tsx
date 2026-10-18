@@ -1,10 +1,8 @@
 "use client";
 
-import { useConversationSurface } from "@/components/chat/ChatWorkspace";
-import Image from "next/image";
 import { PanelLeft, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { ArgusLogo } from "@/components/ArgusLogo";
+import { CuadraoMark } from "@/components/CuadraoMark";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 export type SidebarVariant = "rail" | "drawer";
@@ -21,26 +19,9 @@ export default function SidebarHeader({
   onRequestClose?: () => void;
 }) {
   const { t } = useTranslation();
-  const isBusiness = useConversationSurface() === "business";
-  const brandName = isBusiness ? "cuadrao" : "argus";
-  const brandMark = (drawer = false) => isBusiness ? (
-    <Image
-      unoptimized
-      loading="eager"
-      src="/brand/cuadrao-mark-light.svg"
-      width={32}
-      height={32}
-      alt=""
-      aria-hidden="true"
-      className="h-8 w-8 shrink-0"
-      data-testid={drawer ? "sidebar-drawer-logo" : undefined}
-    />
-  ) : (
-    <ArgusLogo
-      className="h-8 w-8 shrink-0 text-black dark:text-white"
-      aria-hidden="true"
-      data-testid={drawer ? "sidebar-drawer-logo" : undefined}
-    />
+  const brandName = "cuadrao";
+  const brandMark = (drawer = false) => (
+    <CuadraoMark size={32} className="h-8 w-8 shrink-0" testId={drawer ? "sidebar-drawer-logo" : undefined} />
   );
 
   if (variant === "drawer") {
@@ -75,7 +56,7 @@ export default function SidebarHeader({
         <button
           onClick={onToggle}
           className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5 active:scale-95"
-          aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+          aria-label={isOpen ? t("common.collapse", "Collapse") : t("common.expand", "Expand")}
         >
           {isOpen ? (
             <PanelLeft className="h-5 w-5 text-black/60 dark:text-white/60" />

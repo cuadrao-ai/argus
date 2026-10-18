@@ -74,21 +74,20 @@ extension FinancialLoopUITests {
         XCTAssertTrue(guestRow("Everyday").label.contains("DOP"))
         capture("guest-account-first")
 
-        addGuestAccount(type: "cash", name: "Yen cash", currency: "JPY", amount: "15000")
-        addGuestAccount(type: "savings", name: "Dinar savings", currency: "KWD", amount: "12.345")
+        addGuestAccount(type: "cash", name: "Dollar cash", currency: "USD", amount: "15000")
+        addGuestAccount(type: "savings", name: "Euro savings", currency: "EUR", amount: "12.34")
         addGuestAccount(type: "credit_card", name: "Card", currency: "USD", amount: "250.50")
         addGuestAccount(type: "checking", name: "Euro unknown", currency: "EUR")
         addGuestAccount(type: "savings", name: "Zero known", currency: "USD", amount: "0")
-        XCTAssertTrue(guestRow("Yen cash").label.contains("15,000"), "a 0-digit currency has no decimals: " + guestRow("Yen cash").label)
-        XCTAssertFalse(guestRow("Yen cash").label.contains("15,000."))
-        XCTAssertTrue(guestRow("Dinar savings").label.contains("12.345"), "a 3-digit currency keeps three: " + guestRow("Dinar savings").label)
+        XCTAssertTrue(guestRow("Dollar cash").label.contains("15,000.00"), "a dollar keeps two decimals: " + guestRow("Dollar cash").label)
+        XCTAssertTrue(guestRow("Euro savings").label.contains("12.34"), "a euro keeps its cents: " + guestRow("Euro savings").label)
         XCTAssertTrue(guestRow("Card").label.contains("-250.50"), "a debt is stored owed: " + guestRow("Card").label)
         XCTAssertTrue(guestRow("Card").label.contains("owed"))
         XCTAssertTrue(guestRow("Euro unknown").label.contains("Balance unknown"), "blank is unknown: " + guestRow("Euro unknown").label)
         XCTAssertTrue(guestRow("Zero known").label.contains("0.00"), "zero is a known balance: " + guestRow("Zero known").label)
         XCTAssertFalse(guestRow("Zero known").label.contains("unknown"))
         capture("guest-accounts-many-currencies")
-        let names = ["Everyday", "Yen cash", "Dinar savings", "Card", "Euro unknown", "Zero known"]
+        let names = ["Everyday", "Dollar cash", "Euro savings", "Card", "Euro unknown", "Zero known"]
         let before = names.map { guestRow($0).label }
 
         app.terminate()
@@ -100,21 +99,38 @@ extension FinancialLoopUITests {
         capture("guest-accounts-after-relaunch")
     }
 
+    /// The picker offers the approved currencies only, not the world list.
+    func testGuestCurrencyPickerListsOnlyTheApprovedCurrencies() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book"])
+        enterGuestBook()
+        tapVisible(app.buttons["accounts.add"])
+        app.buttons["guest.account.type.cash"].tap()
+        dismissGuestKeyboard()
+        app.buttons["guest.account.currency"].tap()
+        func row(_ code: String) -> XCUIElement { app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", code)).firstMatch }
+        XCTAssertTrue(row("DOP").waitForExistence(timeout: 10))
+        let codes = app.buttons.matching(NSPredicate(format: "label MATCHES %@", "^[A-Z]{3}(,.*)?$|^[A-Z]{3} .*"))
+        XCTAssertEqual(codes.count, 3, "DOP, USD and EUR, nothing else")
+        for code in ["DOP", "USD", "EUR"] { XCTAssertTrue(row(code).exists, code) }
+        for code in ["JPY", "KWD", "GBP", "MXN"] { XCTAssertFalse(row(code).exists, code) }
+        capture("guest-currency-picker-approved-only")
+    }
+
     func testGuestAmountFieldRefusesWhatTheCurrencyCannotHold() throws {
         launchSignedOut(arguments: ["--cuadrao-guest-book"])
         enterGuestBook()
         tapVisible(app.buttons["accounts.add"])
         app.buttons["guest.account.type.cash"].tap()
-        chooseCurrency("JPY")
+        chooseCurrency("USD")
         let amount = app.textFields["guest.account.amount"]
         dismissGuestKeyboard()
         amount.tap()
-        amount.typeText("12.5")
+        amount.typeText("12.345")
         let error = app.staticTexts["amount-error"]
-        XCTAssertTrue(error.waitForExistence(timeout: 5), "a yen has no decimals")
-        XCTAssertEqual(error.label, "Check decimal places for JPY.")
-        XCTAssertEqual(amount.value as? String, "12.", "the digit was refused, nothing rounded")
-        capture("guest-jpy-no-decimals")
+        XCTAssertTrue(error.waitForExistence(timeout: 5), "a dollar has two decimals")
+        XCTAssertEqual(error.label, "Check decimal places for USD.")
+        XCTAssertEqual(amount.value as? String, "12.34", "the third decimal was refused, nothing rounded")
+        capture("guest-usd-two-decimals")
         XCTAssertFalse(app.buttons["guest.account.save"].isEnabled, "no save while the amount is wrong")
         amount.typeText(XCUIKeyboardKey.delete.rawValue)
         XCTAssertTrue(error.waitForNonExistence(timeout: 5), "a valid edit clears the error")
@@ -123,13 +139,13 @@ extension FinancialLoopUITests {
         XCTAssertTrue(app.buttons["guest.account.save"].waitForNonExistence(timeout: 5))
         tapVisible(app.buttons["accounts.add"])
         app.buttons["guest.account.type.savings"].tap()
-        chooseCurrency("KWD")
-        let dinar = app.textFields["guest.account.amount"]
-        dinar.tap()
-        dinar.typeText("12.12345")
-        XCTAssertEqual(error.label, "Check decimal places for KWD.")
-        XCTAssertEqual(dinar.value as? String, "12.123", "dinar keeps three decimals, so the fourth digit was refused")
-        capture("guest-kwd-three-decimals")
+        chooseCurrency("EUR")
+        let euro = app.textFields["guest.account.amount"]
+        euro.tap()
+        euro.typeText("12.12345")
+        XCTAssertEqual(error.label, "Check decimal places for EUR.")
+        XCTAssertEqual(euro.value as? String, "12.12", "a euro keeps two decimals, so the third digit was refused")
+        capture("guest-eur-two-decimals")
         closeKeyboard()
         app.buttons["guest.account.cancel"].tap()
         XCTAssertTrue(app.buttons["guest.account.save"].waitForNonExistence(timeout: 5))
@@ -141,7 +157,7 @@ extension FinancialLoopUITests {
         enterGuestBook()
         addGuestAccount(type: "checking", name: "Locked", currency: "USD", amount: "100")
         addGuestAccount(type: "savings", name: "Open later", currency: "EUR")
-        guestRow("Open later").tap()
+        tapVisible(guestRow("Open later"))
         XCTAssertTrue(app.descendants(matching: .any)["guest.account.detail"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["No balance recorded"].exists)
         XCTAssertTrue(app.staticTexts["guest.account.empty"].exists, "an account with no movements shows the shared empty state")
@@ -180,10 +196,12 @@ extension FinancialLoopUITests {
         XCTAssertTrue(guestRow("Open later").waitForExistence(timeout: 10), "Undo restored it")
         XCTAssertFalse(app.buttons["guest.accounts.archived"].exists)
 
-        guestRow("Locked").tap()
+        tapVisible(guestRow("Locked"))
         app.buttons["guest.account.archive"].tap()
         app.buttons["accounts.archive.confirm"].tap()
         XCTAssertTrue(app.buttons["guest.accounts.archived"].waitForExistence(timeout: 10))
+        // The Undo toast can sit over the Archived link; tapping through it would undo the archive.
+        XCTAssertTrue(app.buttons["accounts.archived.undo"].waitForNonExistence(timeout: 20), "the toast is gone")
         app.buttons["guest.accounts.archived"].tap()
         let restore = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.account.restore.'")).firstMatch
         XCTAssertTrue(restore.waitForExistence(timeout: 10))
@@ -207,7 +225,7 @@ extension FinancialLoopUITests {
         addGuestAccount(type: "savings", name: "Sin saldo")
         XCTAssertTrue(guestRow("Sin saldo").label.contains("Saldo desconocido"), guestRow("Sin saldo").label)
         capture("guest-accounts-es")
-        guestRow("Tarjeta").tap()
+        tapVisible(guestRow("Tarjeta"))
         XCTAssertTrue(app.buttons["guest.account.archive"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.buttons["guest.account.archive"].label, "Archivar cuenta")
         capture("guest-account-detail-es")
@@ -238,6 +256,7 @@ extension FinancialLoopUITests {
             ["First", "Second", "Third"].sorted { guestRow($0).frame.minY < guestRow($1).frame.minY }
         }
         XCTAssertEqual(order(), ["First", "Second", "Third"], "new accounts are added at the end")
+        app.swipeUp()
         guestRow("Third").press(forDuration: 1.2, thenDragTo: guestRow("Second"))
         let moved = NSPredicate { _, _ in order() == ["First", "Third", "Second"] }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 10), .completed,

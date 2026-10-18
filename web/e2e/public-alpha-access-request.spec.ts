@@ -357,7 +357,7 @@ test("gated landing opens request access by default", async ({ page }) => {
 
   await expect(page).toHaveURL(/\?auth=request$/);
   await expect(
-    page.getByRole("heading", { name: "Request access to Argus" }),
+    page.getByRole("heading", { name: "Request access to Cuadrao" }),
   ).toBeVisible();
 });
 
@@ -370,7 +370,7 @@ test("landing request route submits a generic request and focuses acceptance", a
 
   const email = page.getByRole("textbox", { name: "Email address" });
   await expect(
-    page.getByRole("heading", { name: "Request access to Argus" }),
+    page.getByRole("heading", { name: "Request access to Cuadrao" }),
   ).toBeVisible();
   await expect(page.getByText(/If approved, we’ll email you/)).toBeVisible();
   await expect(email).toBeFocused();
@@ -398,7 +398,7 @@ test("approval signup and existing login remain separate landing modes", async (
   await expect(page.getByPlaceholder("Name")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign up" })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Request access to Argus" }),
+    page.getByRole("heading", { name: "Request access to Cuadrao" }),
   ).toHaveCount(0);
 
   await page.goto("/?auth=request");
@@ -447,7 +447,7 @@ test("request state is localized in Latin American Spanish", async ({
   await page.goto("/?auth=request");
 
   await expect(
-    page.getByRole("heading", { name: "Solicita acceso a Argus" }),
+    page.getByRole("heading", { name: "Solicita acceso a Cuadrao" }),
   ).toBeVisible();
   await expect(page.getByText(/Si se aprueba, te enviaremos/)).toBeVisible();
   await page.getByRole("textbox", { name: "Correo electrónico" }).fill(
@@ -475,7 +475,7 @@ test("gated guest conversion wraps the mounted conversation and restores focus",
 
   await opener.click();
   let dialog = page.getByRole("dialog", {
-    name: "Request access to Argus",
+    name: "Request access to Cuadrao",
   });
   await expect(dialog).toBeVisible();
   await expect(chatInput).toHaveCount(1);
@@ -488,7 +488,7 @@ test("gated guest conversion wraps the mounted conversation and restores focus",
 
   await opener.click();
   dialog = page.getByRole("dialog", {
-    name: "Request access to Argus",
+    name: "Request access to Cuadrao",
   });
   await dialog.getByRole("button", { name: "Sign in" }).click();
   dialog = page.getByRole("dialog", { name: "Sign in" });
@@ -498,7 +498,7 @@ test("gated guest conversion wraps the mounted conversation and restores focus",
 
   await opener.click();
   dialog = page.getByRole("dialog", {
-    name: "Request access to Argus",
+    name: "Request access to Cuadrao",
   });
   await dialog.getByRole("textbox", { name: "Email address" }).fill(
     "guest@example.com",
@@ -527,7 +527,7 @@ test("Spanish guest conversion submits the localized access request", async ({
 
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
   let dialog = page.getByRole("dialog", {
-    name: "Solicita acceso a Argus",
+    name: "Solicita acceso a Cuadrao",
   });
   await expect(dialog.getByText(/Si se aprueba, te enviaremos/)).toBeVisible();
   await dialog.getByRole("textbox", { name: "Correo electrónico" }).fill(
@@ -558,7 +558,7 @@ test("enabled guest account access preserves the direct auth flow", async ({
   let dialog = page.getByRole("dialog", { name: "Sign in" });
   await expect(dialog).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Request access to Argus" }),
+    page.getByRole("heading", { name: "Request access to Cuadrao" }),
   ).toHaveCount(0);
 
   await dialog.getByRole("button", { name: "Sign up" }).click();
@@ -588,7 +588,7 @@ test("approved guest creates a distinct identity while public signup is gated", 
 
   await page.getByRole("button", { name: "Sign in" }).click();
   let dialog = page.getByRole("dialog", {
-    name: "Request access to Argus",
+    name: "Request access to Cuadrao",
   });
   await dialog.getByRole("button", { name: "Sign up" }).click();
   dialog = page.getByRole("dialog", { name: "Create your account" });

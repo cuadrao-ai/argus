@@ -147,4 +147,50 @@ extension FinancialLoopUITests {
         app.buttons["guest.receipts.delete.confirm"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["guest.receipts.empty"].waitForExistence(timeout: 10), "deleted from the iPhone")
     }
+
+    private func openGuestReceiptsPage() {
+        app.buttons["header.profile"].tap()
+        let entry = app.buttons["guest.profile.receipts"]
+        for _ in 0..<4 where !(entry.exists && entry.isHittable) { app.swipeUp() }
+        entry.tap()
+    }
+
+    /// Receipts' empty state is Home's: the illustration, a title and a line, and one add button with the three sources.
+    func testReceiptsEmptyStateMatchesHomesAndAddsAReceipt() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-saved-receipts-sample"])
+        enterGuestBook()
+        openGuestReceiptsPage()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.receipts.empty"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["No receipts yet."].exists)
+        let add = app.buttons["guest.receipts.add"]
+        XCTAssertTrue(add.exists)
+        XCTAssertEqual(add.label, "Add a receipt")
+        capture("guest-receipts-empty")
+        add.tap()
+        for source in ["scan", "photos", "file"] {
+            XCTAssertTrue(app.buttons["guest.receipts.add." + source].firstMatch.waitForExistence(timeout: 5), source)
+        }
+        app.buttons["guest.receipts.add.photos"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Receipt saved on this iPhone"].waitForExistence(timeout: 10), "the receipt is kept on this iPhone")
+    }
+
+    /// A destructive swipe is red, never the app's green.
+    func testDeleteSwipeOnAReceiptIsRed() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-saved-receipts-sample"])
+        enterGuestBook()
+        openGuestReceiptsPage()
+        app.buttons["guest.receipts.add"].tap()
+        app.buttons["guest.receipts.add.photos"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["guest.receipt.later"].waitForExistence(timeout: 10))
+        app.buttons["guest.receipt.later"].tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.receipts.row.'")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.swipeLeft()
+        let delete = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 5))
+        capture("guest-receipt-delete-swipe")
+        let (red, green) = app.colorCounts(in: delete.frame)
+        XCTAssertGreaterThan(red, 20, "the delete action is red")
+        XCTAssertEqual(green, 0, "no brand-green pixels in the delete action")
+    }
 }

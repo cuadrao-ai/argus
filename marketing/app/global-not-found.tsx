@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 // to read from an unknown path.
 export default function GlobalNotFound() {
   return (
-    <html lang="es-DO">
+    <html lang="es-DO" data-page-background="not-found">
       <body className={styles.page}>
         <main className={styles.card}>
           <span className={styles.mark} aria-hidden="true">c</span>

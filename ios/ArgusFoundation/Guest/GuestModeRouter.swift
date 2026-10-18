@@ -1,14 +1,20 @@
 import SwiftUI
 
-private struct GuestEntryKey: EnvironmentKey {
-    static let defaultValue: (() -> Void)? = nil
+/// What the signed-out screen shows about the book, and how to open it.
+struct GuestWelcomeContext {
+    let shape: GuestAccessPolicy.Welcome
+    let open: () -> Void
+}
+
+private struct GuestWelcomeKey: EnvironmentKey {
+    static let defaultValue: GuestWelcomeContext? = nil
 }
 
 extension EnvironmentValues {
-    /// Set only while the guest door is open; the welcome screen shows "Probar sin cuenta" when it is non-nil.
-    var cuadraoGuestEntry: (() -> Void)? {
-        get { self[GuestEntryKey.self] }
-        set { self[GuestEntryKey.self] = newValue }
+    /// Set only while the guest door is open; nil means the welcome screen has the two native actions and nothing else.
+    var cuadraoGuestWelcome: GuestWelcomeContext? {
+        get { self[GuestWelcomeKey.self] }
+        set { self[GuestWelcomeKey.self] = newValue }
     }
 }
 
@@ -47,16 +53,25 @@ private struct GuestModeHost<Content: View>: View {
                                        restored: auth.hasRestored && bookReady, auth: phase)
     }
 
+    /// The profile offers the claim only while it is switched on, an account is signed in and a book is on the iPhone.
+    private var claimEntry: GuestClaimEntry? {
+        guard CuadraoFirstRelease.guestClaim, auth.state == .authenticated, controller.hasStoredBook else { return nil }
+        return GuestClaimEntry(directory: controller.bookDirectory, discard: { await controller.discardStoredBook() })
+    }
+
     var body: some View {
         Group {
             switch route {
             case .connected:
-                content.environment(\.cuadraoGuestEntry, { controller.enter() })
+                content.environment(\.cuadraoGuestClaim, claimEntry).environment(\.cuadraoGuestWelcome, GuestWelcomeContext(
+                    shape: GuestAccessPolicy.welcome(doorOpen: true, accountSignedInBefore: controller.accountSignedInBefore,
+                                                     hasGuestData: controller.hasStoredBook),
+                    open: { controller.enter() }))
             case .launching:
                 WelcomePalette.brandPaper.ignoresSafeArea().accessibilityIdentifier("guest.launching")
             case .guest:
                 if let model = controller.model {
-                    GuestRoot(model: model, appearance: $appearance, webURL: auth.configuration?.webURL,
+                    GuestRoot(model: model, appearance: $appearance,
                               leave: { controller.leave() }, deleteData: { await controller.deleteDataAndLeave() })
                         .environment(\.guestReceipts, controller.receipts)
                 }
@@ -64,7 +79,9 @@ private struct GuestModeHost<Content: View>: View {
         }
         // Signing in always wins: the book stays on the device and the signed-in app opens.
         .onChange(of: auth.state) { _, state in
+            if state == .authenticated { controller.noteAccountSignedIn() }
             if state == .authenticated, controller.active { controller.leave() }
         }
+        .onAppear { if auth.state == .authenticated { controller.noteAccountSignedIn() } }
     }
 }

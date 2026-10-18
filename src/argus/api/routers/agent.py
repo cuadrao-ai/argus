@@ -270,6 +270,9 @@ async def chat_stream(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     user: User = Depends(current_user),  # noqa: B008
 ) -> StreamingResponse:
+    from argus.api.conversation_surface import refuse_business_under_grant as refuse
+
+    refuse(request, user_id=user.id, conversation_id=payload.conversation_id)
     bind_refusal_request(request, payload=payload, user_id=user.id)
     turn_account = account_context(request)
     # One turn, one subject: allowance read, job row and settlement agree.
