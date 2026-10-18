@@ -97,9 +97,33 @@ final class SessionControllerTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(after, before)
     }
 
+    func testSignupRequiresAgeConfirmationBeforeDispatch() async throws {
+        let fixture = try SessionFixture()
+        do {
+            _ = try await fixture.controller().signup(email: "new@example.test", password: "synthetic-password",
+                captchaToken: "synthetic-captcha", language: "es-419")
+            XCTFail("Missing confirmation must refuse signup")
+        } catch { XCTAssertEqual(error as? SessionFailure, .rejected(status: 422, code: "age_confirmation_required")) }
+        let requests = await fixture.server.captured()
+        XCTAssertTrue(requests.isEmpty)
+    }
+
+    func testSignupRetainsOriginalGuestTimestampWithoutRawAge() async throws {
+        let fixture = try SessionFixture()
+        let original = "2026-01-01T09:30:00.125-04:00"
+        _ = try await fixture.controller().signup(email: "new@example.test", password: "synthetic-password",
+            captchaToken: "synthetic-captcha", language: "es-419", ageConfirmation: AgeConfirmation(timestamp: original))
+        let requests = await fixture.server.captured()
+        let request = try XCTUnwrap(requests.first)
+        XCTAssertEqual(request.url?.path, "/api/v1/auth/signup")
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String])
+        XCTAssertEqual(body["age_confirmed_at"], original)
+        XCTAssertEqual(Set(body.keys), ["email", "password", "captcha_token", "language", "age_confirmed_at"])
+    }
+
     func testSignupWithoutSessionRequiresConfirmationWithoutAutomaticLogin() async throws {
         let fixture = try SessionFixture()
-        let result = try await fixture.controller().signup(email: "new@example.test", password: "synthetic-password", captchaToken: "synthetic-captcha", language: "es-419")
+        let result = try await fixture.controller().signup(email: "new@example.test", password: "synthetic-password", captchaToken: "synthetic-captcha", language: "es-419", ageConfirmation: AgeConfirmation.recorded())
         XCTAssertEqual(result, .confirmationRequired)
         let requests = await fixture.server.captured()
         XCTAssertEqual(requests.count, 1)

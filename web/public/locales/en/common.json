@@ -57,15 +57,15 @@
     "back_to_argus": "Back to Cuadrao",
     "terms": {
       "title": "Terms of Use",
-      "intro": "Argus is an early access product for educational investing research. These terms describe how Argus works today. Argus is still being built, so these terms will change as the product does.",
+      "intro": "Cuadrao is an early access product for educational investing research. These terms describe how Cuadrao works today. Cuadrao is still being built, so these terms will change as the product does.",
       "sections": {
         "no_investment_advice": {
           "title": "No investment advice",
-          "body": "Argus provides educational tools that help you structure and review investing ideas. Argus does not provide investment, legal, tax, accounting, or financial advice. You are responsible for your own decisions."
+          "body": "Cuadrao provides educational tools that help you structure and review investing ideas. Cuadrao does not provide investment, legal, tax, accounting, or financial advice. You are responsible for your own decisions."
         },
         "no_brokerage": {
           "title": "No brokerage or trading relationship",
-          "body": "Argus is not a broker, dealer, investment adviser, fiduciary, exchange, custodian, or trading venue. Argus does not hold funds, place orders, execute trades, or connect to brokerage accounts."
+          "body": "Cuadrao is not a broker, dealer, investment adviser, fiduciary, exchange, custodian, or trading venue. Cuadrao does not hold funds, place orders, execute trades, or connect to brokerage accounts."
         },
         "historical_simulations": {
           "title": "Historical simulations are hypothetical",
@@ -73,23 +73,23 @@
         },
         "early_access_changes": {
           "title": "Early access availability and changes",
-          "body": "Argus is in early access and is provided as is, without warranties. Features may change, break, reset, or be removed without notice, and some may never reach a full release. We may limit access, suspend accounts, or remove content that creates security, abuse, compliance, or operational risk."
+          "body": "Cuadrao is in early access and is provided as is, without warranties. Features may change, break, reset, or be removed without notice, and some may never reach a full release. We may limit access, suspend accounts, or remove content that creates security, abuse, compliance, or operational risk."
         },
         "eligibility": {
           "title": "Eligibility",
-          "body": "You must be old enough to form a binding agreement in your jurisdiction and allowed to use Argus under applicable law. Do not use Argus on behalf of another person or organization unless you are authorized to do so."
+          "body": "You must be old enough to form a binding agreement in your jurisdiction and allowed to use Cuadrao under applicable law. Do not use Cuadrao on behalf of another person or organization unless you are authorized to do so."
         },
         "acceptable_use": {
           "title": "Acceptable use",
-          "body": "Do not use Argus to break the law, abuse the service, reverse engineer private systems, overload providers, submit sensitive third-party data, or present generated output as professional advice."
+          "body": "Do not use Cuadrao to break the law, abuse the service, reverse engineer private systems, overload providers, submit sensitive third-party data, or present generated output as professional advice."
         },
         "third_party_services": {
           "title": "Third-party services",
-          "body": "Argus relies on third-party services for hosting, authentication, market data, model access, bot protection, and chart rendering. TradingView Lightweight Charts is used for chart rendering and attribution, not as an Argus market data source."
+          "body": "Cuadrao relies on third-party services for hosting, authentication, market data, model access, bot protection, and chart rendering. TradingView Lightweight Charts is used for chart rendering and attribution, not as a Cuadrao market data source."
         },
         "account_support": {
           "title": "Account support",
-          "body_before_email": "While Argus is in early access, account deletion and support requests are handled by a person. Contact",
+          "body_before_email": "While Cuadrao is in early access, account deletion and support requests are handled by a person. Contact",
           "body_after_email": " or use the in-app account deletion request."
         }
       }
@@ -1101,7 +1101,7 @@
       "upgrade_pro": "Try upgrading to Pro for Free"
     },
     "app": {
-      "title": "App",
+      "title": "Preferences",
       "language": "App language",
       "close_language_modal": "Close language modal",
       "sidebar": "Sidebar",
@@ -1189,16 +1189,6 @@
       "deleted_item_note": "Currently restorable.",
       "no_deleted_items": "No recently deleted items",
       "chat_item": "Chat",
-      "delete_all_conversations": "Delete all conversations",
-      "delete_all_confirm": {
-        "title": "Delete all conversations?",
-        "description": "This moves all active and archived conversations to Recently Deleted. You can restore them before permanent removal.",
-        "confirm": "Delete all conversations"
-      },
-      "delete_all_success_one": "Moved {{count}} conversation to Recently Deleted.",
-      "delete_all_success_other": "Moved {{count}} conversations to Recently Deleted.",
-      "delete_all_empty": "No conversations to delete.",
-      "delete_all_error": "Couldn’t delete conversations. Try again.",
       "security": "Security",
       "usage": "Usage",
       "usage_panel": {
@@ -1233,8 +1223,8 @@
     },
     "help": {
       "title": "Help & Legal",
-      "terms": "Terms of Use",
-      "privacy": "Privacy Policy"
+      "terms": "Terms",
+      "privacy": "Privacy"
     },
     "about": {
       "title": "About",
@@ -1555,6 +1545,8 @@
     "errors": {
       "generic": "Something went wrong. Please try again.",
       "captcha_unavailable": "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
+      "browser_check_failed": "We couldn’t verify your browser. Try again.",
+      "browser_check_retry": "Try again",
       "unauthorized": "We couldn’t verify those account details. Check them and try again.",
       "auth_signup_failed": "We couldn’t create the account. Please try again.",
       "too_many_requests": "Too many attempts. Wait a moment and try again.",
@@ -2223,6 +2215,28 @@
       "turn_off": "Turn reading off",
       "turn_on": "Turn receipt reading on"
     },
+    "consent": {
+      "title": "[DRAFT] Before AI is used for your business",
+      "intro": "[DRAFT] Receipt reading with AI and the assistant send business data to a model provider. Review the notice and confirm that you accept it. Counsel replaces this marker with the final text.",
+      "privacy_link": "[DRAFT] Read the privacy notice",
+      "opt_in": "[DRAFT] I accept the Cuadrao Business privacy notice I just saw, for this version.",
+      "accept": "[DRAFT] Accept and continue",
+      "decline": "[DRAFT] Do not accept",
+      "saving": "[DRAFT] Saving your acceptance…",
+      "save_error": "[DRAFT] Your acceptance could not be saved. Try again.",
+      "decline_title": "[DRAFT] Without this permission, AI stays off",
+      "decline_body": "[DRAFT] If you do not accept, receipt reading with AI and the assistant stay unavailable. You can still upload receipts, record expenses, and review what is already saved.",
+      "continue_without": "[DRAFT] Continue without AI",
+      "holding": "[DRAFT] Turning receipt reading off…",
+      "hold_error": "[DRAFT] Receipt reading could not be turned off. AI would stay available, so we stayed here.",
+      "back": "[DRAFT] Back to the notice",
+      "accepted_title": "[DRAFT] Acceptance kept in this browser",
+      "accepted_body": "[DRAFT] We kept who accepted, when, the notice version, the language, and a fingerprint of the text shown. This copy lives only in this tab until the server can store it.",
+      "continue": "[DRAFT] Continue",
+      "held": "[DRAFT] Receipt reading with AI and the assistant stay off until you accept the current notice.",
+      "review": "[DRAFT] Review the notice",
+      "version_label": "[DRAFT] Version {{version}}"
+    },
     "export": {
       "title": "Export Business records",
       "scope": "{{name}} · CSV, Excel and retained originals in one ZIP.",
@@ -2464,6 +2478,18 @@
       "retry": "Try again",
       "account_unknown": "Unknown"
     },
+    "privacy_notice": {
+      "title": "[DRAFT] Cuadrao Business privacy notice",
+      "close": "[DRAFT] Close notice",
+      "paragraphs": [
+        "[DRAFT] This notice is a placeholder. It is not published and a lawyer has not reviewed it. The final text replaces these sentences.",
+        "[DRAFT] It covers Cuadrao Business, the business web app. The business owner is responsible for the business records. Cuadrao processes them on the owner's behalf. The legal operator, address, and privacy contact remain {{OPERADOR_LEGAL}}, {{DIRECCION_LEGAL}}, and {{CONTACTO_PRIVACIDAD}}.",
+        "[DRAFT] We collect the account of the person who signs in, business records, original receipts, what reading proposes, and tax data that appears on a receipt, such as RNC, NCF or e-CF, and ITBIS. That tax data stays unverified until an authorized person reviews it.",
+        "[DRAFT] Reading a receipt with AI sends the photo, PDF, or document to a model, only to propose the merchant, amount, date, and tax data. The assistant sends the message text and the context it needs. Neither records an expense on its own.",
+        "[DRAFT] Without your acceptance of this notice, those features stay off. Uploading a receipt, recording an expense, or reviewing what is saved is not permission to send data to a model.",
+        "[DRAFT] You can ask for access, correction, deletion, objection, and portability. Response times and the applicable law, including Law 172-13, are for counsel to confirm. [A CONFIRMAR]"
+      ]
+    },
     "sample": {
       "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."
     },
@@ -2536,6 +2562,8 @@
     },
     "inbox": {
       "title": "Inbox",
+      "por_revisar": "{{count}} por revisar",
+      "review_receipts": "Revisar recibos",
       "subtitle": "Receipts waiting for you to review. Nothing here is an expense until you confirm it.",
       "error": "We couldn't load your inbox. Try again.",
       "notes_title": "Notes awaiting review",
@@ -2544,6 +2572,8 @@
       "notes_latest": "Showing the latest 50 saved notes. Older open notes are reachable through search.",
       "note_more_one": "{{count}} earlier note",
       "note_more_other": "{{count}} earlier notes",
+      "aside_reading_placeholder": "{{count}} todavía leyéndose",
+      "aside_unreadable_placeholder": "{{count}} no se pudo leer",
       "empty_body": "Upload a receipt or send one by WhatsApp. It will wait here for your review.",
       "all_reviewed": "All reviewed"
     },
@@ -2816,40 +2846,6 @@
       "excluded_606_by": "Left out of the 606 by {{name}}",
       "decide_failed": "We could not save the answer. Try again.",
       "none_fiscal": "None with fiscal value in this period."
-    },
-    "consent": {
-      "title": "[DRAFT] Before AI is used for your business",
-      "intro": "[DRAFT] Receipt reading with AI and the assistant send business data to a model provider. Review the notice and confirm that you accept it. Counsel replaces this marker with the final text.",
-      "privacy_link": "[DRAFT] Read the privacy notice",
-      "opt_in": "[DRAFT] I accept the Cuadrao Business privacy notice I just saw, for this version.",
-      "accept": "[DRAFT] Accept and continue",
-      "decline": "[DRAFT] Do not accept",
-      "saving": "[DRAFT] Saving your acceptance…",
-      "save_error": "[DRAFT] Your acceptance could not be saved. Try again.",
-      "decline_title": "[DRAFT] Without this permission, AI stays off",
-      "decline_body": "[DRAFT] If you do not accept, receipt reading with AI and the assistant stay unavailable. You can still upload receipts, record expenses, and review what is already saved.",
-      "continue_without": "[DRAFT] Continue without AI",
-      "holding": "[DRAFT] Turning receipt reading off…",
-      "hold_error": "[DRAFT] Receipt reading could not be turned off. AI would stay available, so we stayed here.",
-      "back": "[DRAFT] Back to the notice",
-      "accepted_title": "[DRAFT] Acceptance kept in this browser",
-      "accepted_body": "[DRAFT] We kept who accepted, when, the notice version, the language, and a fingerprint of the text shown. This copy lives only in this tab until the server can store it.",
-      "continue": "[DRAFT] Continue",
-      "held": "[DRAFT] Receipt reading with AI and the assistant stay off until you accept the current notice.",
-      "review": "[DRAFT] Review the notice",
-      "version_label": "[DRAFT] Version {{version}}"
-    },
-    "privacy_notice": {
-      "title": "[DRAFT] Cuadrao Business privacy notice",
-      "close": "[DRAFT] Close notice",
-      "paragraphs": [
-        "[DRAFT] This notice is a placeholder. It is not published and a lawyer has not reviewed it. The final text replaces these sentences.",
-        "[DRAFT] It covers Cuadrao Business, the business web app. The business owner is responsible for the business records. Cuadrao processes them on the owner's behalf. The legal operator, address, and privacy contact remain {{OPERADOR_LEGAL}}, {{DIRECCION_LEGAL}}, and {{CONTACTO_PRIVACIDAD}}.",
-        "[DRAFT] We collect the account of the person who signs in, business records, original receipts, what reading proposes, and tax data that appears on a receipt, such as RNC, NCF or e-CF, and ITBIS. That tax data stays unverified until an authorized person reviews it.",
-        "[DRAFT] Reading a receipt with AI sends the photo, PDF, or document to a model, only to propose the merchant, amount, date, and tax data. The assistant sends the message text and the context it needs. Neither records an expense on its own.",
-        "[DRAFT] Without your acceptance of this notice, those features stay off. Uploading a receipt, recording an expense, or reviewing what is saved is not permission to send data to a model.",
-        "[DRAFT] You can ask for access, correction, deletion, objection, and portability. Response times and the applicable law, including Law 172-13, are for counsel to confirm. [A CONFIRMAR]"
-      ]
     }
   },
   "money": {
@@ -2875,7 +2871,7 @@
     "title": "Access",
     "subtitle": "Who can see and prepare your business records. Only you approve.",
     "owner": "Owner",
-    "member": "Reads and prepares",
+    "member": "Member",
     "since": "Since {{date}}",
     "pending_title": "Pending invites",
     "pending_until": "Expires {{date}}",

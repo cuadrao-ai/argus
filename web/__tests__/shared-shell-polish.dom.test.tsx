@@ -93,7 +93,6 @@ describe("Controles de datos danger group", () => {
             isOpen
             onClose={() => calls.push("close")}
             onLogout={() => undefined}
-            onDeleteAllConversations={() => calls.push("delete-all")}
             anchorRef={{ current: anchor }}
           />
         </I18nextProvider>,
@@ -109,9 +108,9 @@ describe("Controles de datos danger group", () => {
     return { act, host };
   }
 
-  test("Usage, a separator, then both danger rows in that order, with confirm steps intact", async () => {
+  test("Usage, a separator, then delete account, with no delete-all row", async () => {
     const calls: string[] = [];
-    const { act } = await mountOpenDataMenu(calls);
+    await mountOpenDataMenu(calls);
     const usageButton = Array.from(document.body.querySelectorAll("button")).find(
       (b) => b.textContent?.trim().startsWith("Uso"),
     )!;
@@ -119,17 +118,14 @@ describe("Controles de datos danger group", () => {
     const index = (text: string) =>
       rows.findIndex((n) => n.textContent?.trim().startsWith(text));
     const usage = index("Uso");
-    const deleteAll = index("Eliminar todas las conversaciones");
     const deleteAccount = index("Eliminar cuenta");
     const separator = rows.findIndex((n) => n.getAttribute("role") === "separator" && rows.indexOf(n) > usage);
-    assert.ok(usage > -1 && deleteAll > -1 && deleteAccount > -1, "rows present");
+    assert.equal(index("Eliminar todas las conversaciones"), -1);
+    assert.ok(usage > -1 && deleteAccount > -1, "rows present");
     assert.ok(separator > usage, "a separator follows Usage");
-    assert.ok(separator < deleteAll, "the separator sits above the first danger row");
-    assert.ok(deleteAll < deleteAccount, "delete account is last");
-    assert.equal(rows.length - 1, deleteAccount, "nothing follows the danger group");
-
-    await act(async () => (rows[deleteAll] as HTMLButtonElement).click());
-    assert.deepEqual(calls, ["close", "delete-all"], "delete all hands off to its confirm dialog, deleting nothing itself");
+    assert.ok(separator < deleteAccount, "the separator sits above delete account");
+    assert.equal(rows.length - 1, deleteAccount, "nothing follows delete account");
+    assert.deepEqual(calls, []);
   });
 
   test("Eliminar cuenta opens its confirm dialog and requests nothing", async () => {
