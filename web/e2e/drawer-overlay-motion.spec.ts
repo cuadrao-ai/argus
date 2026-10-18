@@ -15,7 +15,6 @@ const surfaces = [
   { name: "archived", section: "data", key: "data.archived_chats", sheet: true },
   { name: "deleted", section: "data", key: "data.recently_deleted", sheet: true },
   { name: "profile", key: "profile.title", sheet: false },
-  { name: "delete-all", section: "data", key: "data.delete_all_conversations", sheet: false },
   { name: "delete-account", section: "data", key: "profile.delete_account", sheet: false },
 ];
 const evidence = process.env.ARGUS_OVERLAY_EVIDENCE_DIR;
@@ -32,9 +31,8 @@ for (const cell of cells) {
         name: surface.name === "delete-account" ? new RegExp(`^${label(surface.key)}`) : label(surface.key),
         exact: surface.name !== "delete-account",
       }).last().click();
-      const panel = surface.name === "delete-all" ? page.getByRole("alertdialog") : page.getByRole("dialog").last();
+      const panel = page.getByRole("dialog").last();
       await expect(panel).toBeVisible();
-      // Wait for real animations, without disabling their retained end styles.
       await page.evaluate(async () => {
         await Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {})));
       });

@@ -14,8 +14,7 @@ import type {
  * Conversation activity rail ("turn map") derivation and interaction gating.
  *
  * Ticks are derived at render time from the transcript's existing message
- * payloads — no durable model, no LLM/provider calls. See
- * docs/superpowers/specs/2026-07-31-conversation-activity-rail.md.
+ * payloads — no durable model, no LLM/provider calls.
  */
 
 /**

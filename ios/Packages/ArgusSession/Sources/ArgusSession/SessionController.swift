@@ -99,10 +99,12 @@ public actor SessionController {
     }
 
     public func signup(email: String, password: String, captchaToken: String, language: String,
-                       displayName: String? = nil) async throws -> SignupOutcome {
+                       displayName: String? = nil, ageConfirmation: AgeConfirmation? = nil) async throws -> SignupOutcome {
         try beginMutation(); defer { mutating = false }
         try requireEntry()
-        var body = ["email": email, "password": password, "captcha_token": captchaToken, "language": language]
+        guard let ageConfirmation else { throw SessionFailure.rejected(status: 422, code: "age_confirmation_required") }
+        var body = ["email": email, "password": password, "captcha_token": captchaToken, "language": language,
+                    "age_confirmed_at": ageConfirmation.timestamp]
         if let displayName { body["display_name"] = displayName }
         let response = try await entry(path: "auth/signup", body: body)
         guard let credentials = response.session else { return .confirmationRequired }

@@ -1,0 +1,133 @@
+{
+  "kind": "synthetic Chromium CSS preview; not Gmail/iOS Mail/Outlook proof",
+  "results": [
+    {
+      "name": "confirmation",
+      "colorScheme": "light",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(247, 245, 238)"
+    },
+    {
+      "name": "confirmation",
+      "colorScheme": "dark",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(17, 28, 24)"
+    },
+    {
+      "name": "magic_link",
+      "colorScheme": "light",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(247, 245, 238)"
+    },
+    {
+      "name": "magic_link",
+      "colorScheme": "dark",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(17, 28, 24)"
+    },
+    {
+      "name": "recovery",
+      "colorScheme": "light",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(247, 245, 238)"
+    },
+    {
+      "name": "recovery",
+      "colorScheme": "dark",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(17, 28, 24)"
+    },
+    {
+      "name": "email_change_old",
+      "colorScheme": "light",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(247, 245, 238)"
+    },
+    {
+      "name": "email_change_old",
+      "colorScheme": "dark",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(17, 28, 24)"
+    },
+    {
+      "name": "email_change_new",
+      "colorScheme": "light",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(247, 245, 238)"
+    },
+    {
+      "name": "email_change_new",
+      "colorScheme": "dark",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(17, 28, 24)"
+    },
+    {
+      "name": "reauthentication",
+      "colorScheme": "light",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(247, 245, 238)"
+    },
+    {
+      "name": "reauthentication",
+      "colorScheme": "dark",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(17, 28, 24)"
+    },
+    {
+      "name": "password_changed",
+      "colorScheme": "light",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(247, 245, 238)"
+    },
+    {
+      "name": "password_changed",
+      "colorScheme": "dark",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(17, 28, 24)"
+    },
+    {
+      "name": "email_changed",
+      "colorScheme": "light",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(247, 245, 238)"
+    },
+    {
+      "name": "email_changed",
+      "colorScheme": "dark",
+      "legal": "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.",
+      "unsubscribe": false,
+      "overflow": false,
+      "bodyBackground": "rgb(17, 28, 24)"
+    }
+  ]
+}

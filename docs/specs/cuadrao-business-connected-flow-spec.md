@@ -354,18 +354,18 @@ The module can be useful before live certification or supplier selection. It doe
 - Counsel/lane assessment: local/merged work differs from hosted acceptance; Business isolation slices 1–3 were reported in progress. This spec makes no fresh GitHub, CI, hosted, Meta or phone-install claim.
 - **“Cuadrao: who does what?”**, Oct 5 PNG and one-page PDF, recovered by the parent's separate worker. That supplied reconstruction—not a new inspection here—shows invoice details → engine XML → authorized signer → engine signed XML → DGII status, with separate customer delivery/collections. It assigns responsibility, not exhaustive production states. Original artifact identity should remain attached to the parent review; no filename/id was invented here.
 
-### Midday interaction references
+### Interaction references
 
-Observed on 2026-10-08 in the user's Safari second tab, via recorded Mobbin flows. Screenshots show interaction patterns, not persisted behavior, permission enforcement or current live product guarantees.
+Observed on 2026-10-08 in the user's browser, via recorded reference flows. Screenshots show interaction patterns, not persisted behavior, permission enforcement or current live product guarantees.
 
 | Exact reference | Inspected evidence and limit |
 |---|---|
-| [Creating customers](https://mobbin.com/flows/61b3a618-78a4-48e1-bf84-02cf03012104) | Opening customer list and creation drawer; not all nine screens. |
-| [Creating an invoice](https://mobbin.com/flows/f59b4d7a-2426-4074-a75a-7906463a1743) | Editor, inline customer selection, populated items/totals, Create & Send and list entry; some of 16 screens skipped/unloaded. |
-| [Marking an invoice as paid](https://mobbin.com/flows/6f1aa8aa-f6a7-4c3c-be7d-d3b3574aceb8) | Five stages including manual paid date, Paid state, activity and list; no partial allocation proof. |
-| [Re-matching a file](https://mobbin.com/flows/49780e56-26c2-44e3-8b33-310feebf9d40) | Three stages: source preview, retry/analyzing/pending and manual transaction selector; no successful match demonstrated. |
-| [Exporting transactions](https://mobbin.com/flows/769e5de0-d616-4785-a0f7-fe07405893ad) | Selection/readiness, CSV/XLSX/email options, progress, completion/download; exported package not opened. |
-| [Sharing a URL](https://mobbin.com/flows/dc26bb9b-fbd1-4dc0-ba8c-f3b101f19a7f) | Adjacent three-screen row: expiration choices and copied-link feedback; access/revocation untested. |
+| Creating customers | Opening customer list and creation drawer; not all nine screens. |
+| Creating an invoice | Editor, inline customer selection, populated items/totals, Create & Send and list entry; some of 16 screens skipped/unloaded. |
+| Marking an invoice as paid | Five stages including manual paid date, Paid state, activity and list; no partial allocation proof. |
+| Re-matching a file | Three stages: source preview, retry/analyzing/pending and manual transaction selector; no successful match demonstrated. |
+| Exporting transactions | Selection/readiness, CSV/XLSX/email options, progress, completion/download; exported package not opened. |
+| Sharing a URL | Adjacent three-screen row: expiration choices and copied-link feedback; access/revocation untested. |
 
 Useful patterns: contextual drawers, inline related-record creation, source beside editable facts, visible activity, exception queues, explicit export completion. Uninspected catalogue flows include receipt upload, expense creation, recurring invoices, reminders, cancellation, customer portal, bank connection, reports and roles. They are not claimed as reviewed. Cuadrao's orchestration, Dominican fiscal states and connected money model are its own design requirements.
 

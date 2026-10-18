@@ -110,7 +110,7 @@ operate within those conversations. A consumer continuous-conversation target
 does not require replacing Business history in this assignment.
 
 Preserve the broader Business direction for accounts, planning, customers and
-useful actions. It is not necessary to build all of Midday to finish this pilot.
+useful actions. It is not necessary to build the full Business scope to finish this pilot.
 Company logo customization, a detachable/draggable desktop composer, dashboard
 builders, invoicing, bank integration, team billing and the native Business app
 are outside this slice.
@@ -319,7 +319,7 @@ and "Show the receipt for this expense."
   applicable scorecard/evaluation gates and separately bounded live spend.
 
 The wider approved direction includes connecting an owner's external AI through
-MCP, similar to [Midday's connection flow](https://midday.ai/mcp/chatgpt/).
+MCP, through a guided connection flow.
 That lets the external AI use authorized Cuadrao tools. It does not mean a user's
 ChatGPT subscription powers Cuadrao's composer. External MCP/OAuth and customer
 API-key support are deferred follow-ups. Preserve reusable tool boundaries now;
