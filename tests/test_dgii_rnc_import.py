@@ -687,6 +687,7 @@ def test_copy_stream_writes_header_rows_and_terminator(tmp_path: Path) -> None:
     _write_copy(sink, _copy_header(LOAD).encode("ascii"), payload)
     assert sink.getvalue() == (
         b"SET statement_timeout = '5min';\n"
+        b"SET client_encoding = 'UTF8';\n"
         b"TRUNCATE public.dgii_rnc_load;\n"
         b"COPY public.dgii_rnc_load (rnc, name, trade_name, status, file_date) "
         b"FROM STDIN WITH (FORMAT text);\n"

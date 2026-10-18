@@ -570,6 +570,7 @@ def _copy_header(config: LoadConfig) -> str:
     timeout = _statement_timeout(config.statement_timeout)
     return (
         f"SET statement_timeout = '{timeout}';\n"
+        "SET client_encoding = 'UTF8';\n"
         f"TRUNCATE {table};\n"
         f"COPY {table} (rnc, name, trade_name, status, file_date) "
         "FROM STDIN WITH (FORMAT text);\n"
@@ -757,11 +758,6 @@ def _psql_copy(database_url: str, header: str, payload_path: str) -> str:
         )
     except BrokenPipeError:
         pass
-    finally:
-        try:
-            completed.stdin.close()
-        except BrokenPipeError:
-            pass
     stdout, stderr = completed.communicate()
     if completed.returncode != 0:
         detail = _redact(stderr.decode("utf-8", "replace"), database_url).strip()
