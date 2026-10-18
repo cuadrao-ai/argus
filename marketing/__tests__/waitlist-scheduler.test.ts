@@ -3,7 +3,7 @@ import { handleReminderRequest, STAGING_URL } from "../../supabase/functions/wai
 
 const env = { SUPABASE_URL: STAGING_URL, SUPABASE_SERVICE_ROLE_KEY: "fixture-service-key", CUADRAO_WAITLIST_SCHEDULER_KEY: "fixture-scheduler-key", RESEND_API_KEY: "fixture-mail", MARKETING_WAITLIST_FROM: "Cuadrao <hola@cuadrao.ai>", MARKETING_POSTAL_ADDRESS: "Fixture address", CUADRAO_WAITLIST_ORIGIN: "https://cuadrao.example.test" };
 const row = { verification_id: "ab".repeat(32), email: "fixture@example.test", confirmed_at: null, last_confirmation_sent_at: "2026-10-16T12:00:00Z" };
-const request = (key = env.CUADRAO_WAITLIST_SCHEDULER_KEY) => new Request(`${STAGING_URL}/functions/v1/waitlist-reminders`, { method: "POST", headers: { Authorization: `Bearer ${key}` } });
+const request = (key = env.CUADRAO_WAITLIST_SCHEDULER_KEY) => new Request(`${STAGING_URL}/functions/v1/waitlist-reminders`, { method: "POST", headers: { "X-Cuadrao-Waitlist-Scheduler-Key": key } });
 function transport(outcome = 200, active = true) {
   const calls: { url: string; body: unknown; key: string | null }[] = [];
   const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -72,6 +72,9 @@ test("scheduler requires an explicit caller credential and retains the separate 
   expect((await handleReminderRequest(request(), { ...env, CUADRAO_WAITLIST_SCHEDULER_KEY: undefined }, f.fetcher)).status).toBe(503);
   expect((await handleReminderRequest(request(), { ...env, CUADRAO_WAITLIST_SCHEDULER_KEY: " " }, f.fetcher)).status).toBe(503);
   expect((await handleReminderRequest(request(env.SUPABASE_SERVICE_ROLE_KEY), env, f.fetcher)).status).toBe(401);
+  expect((await handleReminderRequest(new Request(STAGING_URL, { method: "POST", headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } }), env, f.fetcher)).status).toBe(401);
+  expect((await handleReminderRequest(new Request(STAGING_URL, { method: "POST", headers: { Authorization: `Bearer ${env.CUADRAO_WAITLIST_SCHEDULER_KEY}` } }), env, f.fetcher)).status).toBe(401);
+  expect((await handleReminderRequest(request(env.SUPABASE_SERVICE_ROLE_KEY), { ...env, CUADRAO_WAITLIST_SCHEDULER_KEY: env.SUPABASE_SERVICE_ROLE_KEY }, f.fetcher)).status).toBe(503);
   expect(f.calls).toEqual([]);
   const databaseHeaders: Headers[] = [];
   const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -83,5 +86,6 @@ test("scheduler requires an explicit caller credential and retains the separate 
   for (const headers of databaseHeaders) {
     expect(headers.get("apikey")).toBe(env.SUPABASE_SERVICE_ROLE_KEY);
     expect(headers.get("authorization")).toBe(`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
+    expect(headers.get("x-cuadrao-waitlist-scheduler-key")).toBeNull();
   }
 });

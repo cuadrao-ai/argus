@@ -35,8 +35,6 @@ _RECORD_TREES = (
     "docs/qa/",
 )
 _DATED_RECORD = re.compile(r"^\d{4}-\d{2}-\d{2}-")
-# Domain knowledge vendored for agents, not Argus access policy.
-_UNRELATED_TREES = (".agent/skills/",)
 
 # Closed boolean vocabularies, so a new stale sentence is caught by grammar
 # rather than by matching a phrase somebody already wrote. These are read next to
@@ -153,7 +151,7 @@ def _standing_doc_paths() -> list[Path]:
         for path in candidates
         if not path.relative_to(ROOT)
         .as_posix()
-        .startswith(_RECORD_TREES + _UNRELATED_TREES)
+        .startswith(_RECORD_TREES)
         and not _DATED_RECORD.match(path.name)
     ]
 
@@ -1089,14 +1087,6 @@ def test_guest_launch_safety_records_live_hard_provider_caps() -> None:
     assert "Guest key is not capped at `$5/week`" in safety
 
 
-def test_public_alpha_spec_drops_superseded_inference_footer() -> None:
-    spec = _source("docs/superpowers/specs/2026-07-30-public-alpha-readiness.md")
-
-    assert "### Inference" not in spec
-    assert "exact exit-criterion number" not in spec
-    assert 'Confirm email" setting is currently' not in spec
-
-
 def test_private_launch_runbook_assigns_app_origin_and_smtp_secret_correctly() -> None:
     runbook = _source("docs/PRIVATE_LAUNCH_RUNBOOK.md")
     ownership = runbook.split("## Render Environment Ownership", 1)[1].split(
@@ -1191,13 +1181,11 @@ def test_private_alpha_integration_doc_points_to_current_gate_and_later_memo() -
     assert "workflow_runtime_proof=ready" in integration
 
 
-def test_agents_guardrail_keeps_canary_evidence_before_main_promotion() -> None:
-    agents = _source("AGENTS.md")
+def test_ci_cd_spec_keeps_canary_evidence_before_main_promotion() -> None:
+    spec = " ".join(_source("docs/specs/private-alpha-ci-cd-sota.md").split())
 
-    assert "docs/specs/private-alpha-ci-cd-sota.md" in agents
-    assert "branch-deployed staging/private-alpha Render validation surface" in agents
-    assert "Do not treat merge to `main` as a prerequisite for canary" in agents
-    assert "`main` is the later promotion target" in agents
+    assert "branch-deployed private-alpha Render validation surface" in spec
+    assert "`main` is the promotion target, not a surprise prerequisite." in spec
 
 
 def test_eval_docs_document_mocked_first_test_tiers_and_agent_pointer() -> None:

@@ -10,6 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20261016154607_adopt_staging_rls_auto_enable.sql"
+HARDENING = ROOT / "supabase/migrations/20261018030016_security_extensions_waitlist.sql"
 OBSERVED = (
     ROOT
     / "docs/reports/evidence/cuadrao-business/lane08-rls-forward/staging-artifact.json"
@@ -39,13 +40,17 @@ def artifact(db):
     return function, trigger
 
 
-def test_adopted_artifact_matches_staging(db):
+def test_hardened_artifact_preserves_staging_definition_and_trigger(db):
     observed = json.loads(OBSERVED.read_text())
     function, trigger = artifact(db)
     assert function is not None
     assert function[0] == observed["function"]["definition"]
     assert function[1] == "postgres"
-    assert set(function[2]) == set(observed["function"]["acl"])
+    assert set(function[2]) == {
+        grant
+        for grant in observed["function"]["acl"]
+        if not grant.startswith(("=", "anon=", "authenticated="))
+    }
     assert function[3] == ["search_path=pg_catalog"]
     assert trigger == (
         "ddl_command_end",
@@ -64,6 +69,7 @@ def test_reapply_preserves_existing_artifact_and_identity(db):
     assert identity is not None
     for _ in range(2):
         db.execute(MIGRATION.read_text())
+        db.execute(HARDENING.read_text())
         assert artifact(db) == before
         assert (
             db.execute(

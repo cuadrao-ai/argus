@@ -10,26 +10,38 @@ Signup sends confirmation immediately. Welcome is sent only after confirmation.
 1. Confirm the linked database is `skedzwocnmrhfigiwyzi`. Run the repository's
    migration preflight and inspect the pending list. Apply approved pending
    migrations with `supabase db push`. Do not use MCP DDL or apply this branch.
-2. Deploy with `supabase functions deploy waitlist-reminders --project-ref skedzwocnmrhfigiwyzi`. Keep JWT verification enabled. The CLI bundles the relative
+2. Deploy with `supabase functions deploy waitlist-reminders --project-ref skedzwocnmrhfigiwyzi`. The function's `verify_jwt = false` setting lets its dedicated
+   header reach the handler. The handler rejects missing or incorrect credentials
+   before any database or provider call. The CLI bundles the relative
    marketing imports; deploy from the repository root.
 3. Privately set these Edge secrets using existing approved values:
    `RESEND_API_KEY`, `MARKETING_WAITLIST_FROM`, `MARKETING_POSTAL_ADDRESS`, and
-   `CUADRAO_WAITLIST_ORIGIN`. Also set `CUADRAO_WAITLIST_SCHEDULER_KEY` to the
-   same existing staging service-role credential used by the caller and Vault.
-   This explicit setting owns the bearer comparison; do not create a new key.
+   `CUADRAO_WAITLIST_ORIGIN`. Lucas must separately authorize generation of a new,
+   cryptographically random scheduler-only secret of at least 32 bytes. Set
+   `CUADRAO_WAITLIST_SCHEDULER_KEY` to that secret.
+   It must differ from the staging service-role credential. The caller supplies
+   it in `X-Cuadrao-Waitlist-Scheduler-Key`. The handler compares fixed-length
+   SHA-256 digests with `timingSafeEqual`. Authorization bearer values are rejected.
    A missing value returns 503 before any database or provider call. Supabase supplies `SUPABASE_URL` and the existing
    legacy `SUPABASE_SERVICE_ROLE_KEY` for database access only. No CAPTCHA secret is needed by this function.
 4. Through the existing private staging database connection, use parameterized
    `vault.create_secret` or `vault.update_secret` calls to set the names
-   `cuadrao_waitlist_service_role_key` and `cuadrao_waitlist_project_url`.
-   Reuse the existing staging service-role credential. The URL must equal
+   `cuadrao_waitlist_scheduler_key` and `cuadrao_waitlist_project_url`.
+   Use the same scheduler-only secret as the Edge setting. The URL must equal
    `https://skedzwocnmrhfigiwyzi.supabase.co`. Never put credential literals in
    SQL files, tool arguments, shell history, logs, or the PR. Set the URL last.
-5. Read back secret names only. Check both named jobs and their next real runs.
+5. Lucas must separately authorize rotation of the staging service-role credential
+   previously sent through pg_net. Update its approved consumers and remove the
+   obsolete Vault secret `cuadrao_waitlist_service_role_key`. This code change
+   does not rotate credentials or change hosted settings.
+6. Read back secret names only. Check both named jobs and their next real runs.
    Do not release before an actual scheduled retention run and reminder
    invocation succeed on staging. Direct function calls do not satisfy this gate.
 
-The migration installs pg_cron and pg_net. Vault already exists in staging.
+The historical migration installs pg_cron and pg_net. The forward security
+migration changes the scheduler credential source and request header. Vault
+already exists in staging. Queue readers can see the dedicated secret while a
+request is pending, so the secret authorizes only this bounded reminder handler.
 It registers two idempotent jobs, without new tables or columns:
 
 - `cuadrao-waitlist-reminders`: every five minutes, at most two due reminders.
@@ -64,7 +76,8 @@ Do not remove the consent columns or undo completed retention deletions.
 Use an owned Supabase PostgreSQL container with `pg_cron`, `pg_net`, and
 `supabase_vault` preloaded, plus a local Vault key. Apply the original signup,
 personal confirmation, and scheduler migrations in that order. Replay the scheduler
-migration to check the two job IDs remain stable. Run
+migration to check the two job IDs remain stable, then apply the forward security
+migration. Do not replay the historical scheduler migration after its forward fix. Run
 `supabase/tests/waitlist-scheduler.sql` and
 `marketing/__tests__/waitlist-postgres.sql` with `psql -v ON_ERROR_STOP=1`.
 The scheduler test rolls back its pg_net queue insertion before commit, so no
