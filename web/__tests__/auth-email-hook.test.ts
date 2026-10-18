@@ -26,9 +26,8 @@ const payload = (action = "recovery") => ({
     token_hash: "a".repeat(64), token_hash_new: "b".repeat(64),
   },
 });
-function request(value: unknown, id = "test-webhook-id") {
+function request(value: unknown, id = "test-webhook-id", timestamp = new Date()) {
   const body = JSON.stringify(value);
-  const timestamp = new Date();
   return new Request("https://cuadrao-web-staging.onrender.com/api/auth/send-email", {
     method: "POST", headers: {
       "content-type": "application/json",
@@ -173,6 +172,25 @@ describe("staging Auth email hook", () => {
       assert.notEqual(response.status, 200);
       assert.equal((sent).length, 0);
       assert.ok(!(await response.text()).includes("synthetic"));
+    }
+  });
+
+  test("rejects invalid, unverified, stale and future delivery timestamps before sending security notices", async () => {
+    for (const action of ["password_changed_notification", "email_changed_notification"]) {
+      const value = { user: { email: "new@example.test" }, email_data: { email_action_type: action, old_email: "old@example.test", site_url: config.appOrigin, redirect_to: "" } };
+      const invalid = request(value);
+      invalid.headers.set("webhook-timestamp", "invalid");
+      const unverified = request(value);
+      unverified.headers.set("webhook-timestamp", String(Math.floor(Date.now() / 1000) - 1));
+      for (const candidate of [
+        invalid, unverified,
+        request(value, "stale-security", new Date(Date.now() - 301_000)),
+        request(value, "future-security", new Date(Date.now() + 301_000)),
+      ]) {
+        const sent: AuthDelivery[] = [];
+        assert.equal((await handleAuthEmailHook(candidate, config, async email => { sent.push(email); })).status, 401);
+        assert.equal(sent.length, 0);
+      }
     }
   });
 });
