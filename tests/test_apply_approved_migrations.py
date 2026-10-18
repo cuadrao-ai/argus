@@ -1064,6 +1064,145 @@ def test_mismatched_quotes_around_the_url_are_left_alone(
     assert not leaked
 
 
+def _refusal_chain(error: BaseException) -> str:
+    pieces: list[str] = []
+    pending: list[BaseException | None] = [error]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        pieces.append(str(current))
+        pending.append(current.__cause__)
+        pending.append(current.__context__)
+    return "\n".join(pieces)
+
+
+def _require_quiet_refusal(error: Exception | None, out: str, err: str) -> None:
+    if not isinstance(error, applier.ApplyError):
+        raise AssertionError("the refusal was not an ApplyError")
+    visible = "\n".join((out, err, _refusal_chain(error)))
+    if _STAGING_PASSWORD in visible:
+        raise AssertionError("the database password appeared in the refusal")
+
+
+def _connect_must_not_run(*_args: object, **_kwargs: object) -> None:
+    raise RuntimeError("connected")
+
+
+def _refuse_quoted_url(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    url: str,
+    connect: object,
+) -> None:
+    path, sha, versions = _STAGING_RECORDS[0]
+    monkeypatch.setattr("psycopg.connect", connect)
+    caught: Exception | None = None
+    try:
+        _quoted_main(monkeypatch, tmp_path, path, sha, versions, url)
+    except Exception as error:
+        caught = error
+    captured = capsys.readouterr()
+    _require_quiet_refusal(caught, captured.out, captured.err)
+
+
+def test_a_quoted_url_with_a_leading_space_does_not_echo_the_password(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bare = _staging_url(f"postgres.{_STAGING_REF}", _STAGING_POOLER)
+    _refuse_quoted_url(
+        monkeypatch,
+        tmp_path,
+        capsys,
+        '"' + " " + bare + '"',
+        _connect_must_not_run,
+    )
+
+
+def test_a_control_character_in_the_password_does_not_echo_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bare = _staging_url(
+        f"postgres.{_STAGING_REF}",
+        _STAGING_POOLER,
+        password=_STAGING_PASSWORD + "\x07",
+    )
+    _refuse_quoted_url(
+        monkeypatch,
+        tmp_path,
+        capsys,
+        '"' + bare + '"',
+        _connect_must_not_run,
+    )
+
+
+def test_a_fullwidth_at_in_the_password_does_not_echo_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bare = _staging_url(
+        f"postgres.{_STAGING_REF}",
+        _STAGING_POOLER,
+        password=_STAGING_PASSWORD + "\uff20",
+    )
+    _refuse_quoted_url(
+        monkeypatch,
+        tmp_path,
+        capsys,
+        '"' + bare + '"',
+        _connect_must_not_run,
+    )
+
+
+def test_a_connect_failure_does_not_echo_the_password(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import psycopg
+
+    bare = _staging_url(f"postgres.{_STAGING_REF}", _STAGING_POOLER)
+
+    def connect(*_args: object, **_kwargs: object) -> None:
+        raise psycopg.OperationalError("connect failed " + _STAGING_PASSWORD)
+
+    _refuse_quoted_url(monkeypatch, tmp_path, capsys, '"' + bare + '"', connect)
+
+
+@pytest.mark.parametrize(("outer", "inner"), [('"', "'"), ('"', '"')])
+def test_a_second_quote_pair_around_a_valid_url_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    outer: str,
+    inner: str,
+) -> None:
+    bare = _staging_url(f"postgres.{_STAGING_REF}", _STAGING_POOLER)
+    _refuse_quoted_url(
+        monkeypatch,
+        tmp_path,
+        capsys,
+        outer + inner + bare + inner + outer,
+        _connect_must_not_run,
+    )
+
+
+def test_another_project_ref_in_the_pooler_username_is_refused() -> None:
+    other_ref = "p9k3m7n2q8r4t6v1x5z0"
+    assert other_ref != _STAGING_REF
+    path, sha, versions = _STAGING_RECORDS[0]
+    with pytest.raises(applier.ApplyError, match="project ref") as caught:
+        applier.check_target(
+            _staging_url(f"postgres.{other_ref}", _STAGING_POOLER),
+            [_STAGING_DIRECT, _STAGING_POOLER],
+            ["postgres"],
+            environ={},
+            hosted=_staging_approval(path, sha, versions),
+        )
+    if _STAGING_PASSWORD in str(caught.value):
+        raise AssertionError("the database password appeared in the refusal")
+
+
 def _assert_quoted_dry_run(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
