@@ -5,7 +5,8 @@ import { Mail, ShieldCheck, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { cardClass, dangerButtonClass, dangerConfirmButtonClass, LoadingRows, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { cardClass, dangerButtonClass, dangerConfirmButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { Settle } from "./business-skeletons";
 
 import BusinessLifecycleControls from "./BusinessLifecycleControls";
 
@@ -182,7 +183,7 @@ export default function BusinessAccessPanel() {
       {failed ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">{t("business_access.error", "We couldn't load access. Try again.")}</p>
       ) : access === null ? (
-        <LoadingRows />
+        <Settle pending layout="rows" />
       ) : (
         <>
           <AccessList access={access} busyId={busyId} onRemove={setPending} onResend={resend} />
