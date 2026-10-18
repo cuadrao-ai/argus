@@ -165,7 +165,8 @@ final class ProfileAuthModel: ObservableObject {
         do {
             if signup {
                 let outcome = try await controller.signup(email: email, password: password, captchaToken: captchaToken,
-                                                          language: language, displayName: displayName.isEmpty ? nil : displayName)
+                                                          language: language, displayName: displayName.isEmpty ? nil : displayName,
+                                                          ageConfirmation: AgeConfirmationStore().confirmation)
                 switch outcome {
                 case .confirmationRequired:
                     confirmationRequired = true

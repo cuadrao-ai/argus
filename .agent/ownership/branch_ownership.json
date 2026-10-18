@@ -2198,6 +2198,24 @@
         "web/.env.local"
       ]
     },
+    "codex/ios-age-confirmation": {
+      "description": "Approved 18+ native entry gate: retained attestation timestamp, under-18 refusal, guarded Apple Declared Age Range and synthetic tests. Merge held for receipt gate and independent exact-head Eval. No hosted changes, production, TestFlight or local environment edits.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        ".github/workflows/cuadrao-ios-age-confirmation.yml",
+        "ios/**"
+      ],
+      "deny": [
+        ".env",
+        "web/**",
+        "marketing/**",
+        "src/**",
+        "supabase/migrations/**",
+        "ios/Config/Local.xcconfig",
+        "ios/Config/Device.local.xcconfig"
+      ]
+    },
     "codex/email-dependency-cleanup": {
       "description": "Remove unused React Email dependencies while preserving the hand-written shared email layout. User email lane item 1.",
       "base_ref": "origin/codex/private-alpha-next",

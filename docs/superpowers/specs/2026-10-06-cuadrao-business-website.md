@@ -147,11 +147,11 @@ inset as page content. Biography, typography and final copy remain reviewable.
 Authority: working design guide, PRODUCT, MVEE, architecture and execution board.
 Mobbin images were inspected directly on October 6:
 
-- [Midday](https://mobbin.com/sites/sections/76493ef8-007e-47f8-971d-60d00fab1961): editorial restraint, clear hierarchy.
+- Editorial reference site: editorial restraint, clear hierarchy.
 - [Revolut Business](https://mobbin.com/sites/sections/84f53af0-8825-4816-ab6f-0220478a4e81): Personal/Business entrances.
 - [Ramp demo](https://mobbin.com/sites/sections/aa950d43-7969-42f3-a11b-f0890c66fdae): explain the conversation beside the action.
-- [Midday story](https://mobbin.com/sites/sections/1066980e-92c0-4746-b748-07ec0b72ac26): concise human context.
-- [Midday live](https://midday.ai/): oversized cropped footer, checked in browser.
+- Founder story reference: concise human context.
+- Live reference site: oversized cropped footer, checked in browser.
 
 These references support design judgment; Mobbin did not supply ranking,
 conversion, or trend-performance evidence. No such claims are made.

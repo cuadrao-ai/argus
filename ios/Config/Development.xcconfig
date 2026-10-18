@@ -5,7 +5,8 @@ CUADRAO_DESIGN_PREVIEW = false
 // Local ad-hoc simulator signature supplies Keychain identity; no account/team.
 CODE_SIGNING_ALLOWED = YES
 CODE_SIGN_IDENTITY = -
-CODE_SIGN_ENTITLEMENTS = Config/Simulator.entitlements
+CODE_SIGN_ENTITLEMENTS = Config/DeclaredAgeRange.entitlements
+CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*] = Config/Simulator.entitlements
 CODE_SIGNING_REQUIRED = NO
 DEVELOPMENT_TEAM =
 SDKROOT = iphoneos
