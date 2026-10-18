@@ -331,6 +331,8 @@ services:
         sync: false
       - key: CUADRAO_AUTH_EMAIL_RESEND_API_KEY
         sync: false
+      - key: CUADRAO_EMAIL_ASSET_ORIGIN
+        sync: false
       - key: NEXT_PUBLIC_APP_ENV
         value: staging
       - key: NEXT_PUBLIC_SUPABASE_URL

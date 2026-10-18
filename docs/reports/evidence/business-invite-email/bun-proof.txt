@@ -1,0 +1,17 @@
+bun test v1.4.2 (744846f84)
+
+__tests__/business-access-panel.test.tsx:
+(pass) Business access list > Spanish: the owner is locked, the accountant can be removed, the invite shows its expiry [7.81ms]
+(pass) Business access list > English follows the same rule and no invites renders no pending section [0.83ms]
+(pass) expired invitation retains the exact owner message and explicit resend [0.78ms]
+
+__tests__/business-invite-email-template.test.ts:
+(pass) invite HTML and plain text match the canonical Python artifact snapshots [0.57ms]
+(pass) the button cannot contain an accept token and template values cannot inject HTML [0.11ms]
+
+__tests__/business-invite-expiry.dom.test.tsx:
+(pass) expired message stays until the owner's explicit resend and busy prevents another click [8.71ms]
+
+ 6 pass
+ 0 fail
+Ran 6 tests across 3 files. [185.00ms]

@@ -2705,7 +2705,7 @@ describe("Argus Alpha frontend contract", () => {
       '"effective_date": "Fecha de entrada en vigor: 7 de agosto de 2026"',
     );
     expect(es).toContain("No es asesoría de inversión");
-    expect(es).toContain("Argus no es broker");
+    expect(es).toContain("Cuadrao no es broker");
     expect(es).toContain("Las simulaciones históricas son hipotéticas");
     expect(es).toContain("OpenRouter");
     expect(es).toContain("Supabase");
