@@ -38,6 +38,45 @@ def command(w, *, auth=None):
     )
 
 
+def erase_open_owner(pool, user_id: str):
+    """The account-deletion command an open Business owner actually runs."""
+
+    return command({"pool": pool, "objects": graph.FakeObjects()}).delete_account(
+        user_id=user_id
+    )
+
+
+def release_custodian(space_id: str) -> None:
+    """Drop a handed-off Business and its placeholder after an erasure test."""
+
+    import psycopg
+
+    with psycopg.connect(graph.DSN) as db:
+        custodian = db.execute(
+            "select created_by::text from public.spaces where id=%s", (space_id,)
+        ).fetchone()
+        db.execute(
+            "delete from argus_private.business_purge_runs where space_id=%s",
+            (space_id,),
+        )
+        for table in (
+            "business_custody_changes",
+            "business_custody_objects",
+            "business_custody_moves",
+            "business_departure_aliases",
+        ):
+            db.execute(
+                f"delete from argus_private.{table} where space_id=%s", (space_id,)
+            )
+        db.execute(
+            "delete from argus_private.business_custody_reservations where space_id=%s",
+            (space_id,),
+        )
+        db.execute("delete from public.spaces where id=%s", (space_id,))
+        if custodian is not None:
+            db.execute("delete from auth.users where id=%s", (custodian[0],))
+
+
 def close(w):
     return PostgresBusinessLifecycle(w["pool"]).close(
         owner_id=w["old"],

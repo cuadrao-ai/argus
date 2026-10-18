@@ -26,7 +26,14 @@ class BusinessAccountDeletion:
         self.departures = PostgresBusinessDepartures(connections)
 
     def retain(self, *, user_id: str, run_id: str, claim_id: str, renew: Callable):
-        with self.connections.connection() as db:
+        with self.connections.connection() as db, db.transaction():
+            # An open Business still names this person. Close it here so the
+            # copy and the custody move can run before Auth is deleted.
+            db.execute(
+                "update public.spaces set closed_at=clock_timestamp()"
+                " where kind='business' and current_owner_id=%s and closed_at is null",
+                (user_id,),
+            )
             spaces = db.execute(
                 "select id::text from public.spaces where kind='business' and created_by=%s order by id",
                 (user_id,),

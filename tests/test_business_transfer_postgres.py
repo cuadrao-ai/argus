@@ -443,44 +443,29 @@ def test_accept_against_decline_or_withdraw_has_one_terminal_result(world, other
         )
 
 
-def test_account_deletion_refuses_open_current_owner_before_run_or_external_calls(world):
-    from types import SimpleNamespace
+def test_open_owner_account_deletion_hands_off_custody_and_erases_the_person(world):
+    from tests.test_business_account_deletion_postgres import erase_open_owner
 
-    from argus.domain.account_deletion.service import (
-        AccountDeletionRejected,
-        AccountDeletionService,
-        subject_hash,
-    )
-    from argus.observability.analytics_deletion import RecordingAnalyticsDeletion
-
-    pool, _, people, _, _ = world
-    service = AccountDeletionService(
-        households=pool,
-        auth_admin=SimpleNamespace(),
-        revoker=None,
-        analytics=RecordingAnalyticsDeletion(),
-        allow_fake_analytics=True,
-    )
-    try:
-        with pytest.raises(AccountDeletionRejected, match="business_owner_must_exit"):
-            service._claim(people["owner"], subject_hash(people["owner"]))
-        with pool.connection() as db:
-            assert not db.execute(
-                "select 1 from argus_private.account_deletion_runs where user_id=%s",
-                (people["owner"],),
-            ).fetchone()
-            assert (
-                db.execute(
-                    "select banned_until from auth.users where id=%s", (people["owner"],)
-                ).fetchone()[0]
-                is None
-            )
-    finally:
-        with pool.connection() as db:
+    pool, space, people, _, _ = world
+    outcome = erase_open_owner(pool, people["owner"])
+    assert outcome.status == "done"
+    with pool.connection() as db:
+        assert (
             db.execute(
-                "delete from argus_private.account_deletion_runs where user_id=%s",
-                (people["owner"],),
-            )
+                "select 1 from auth.users where id=%s", (people["owner"],)
+            ).fetchone()
+            is None
+        )
+        saved = db.execute(
+            "select created_by::text, current_owner_id::text, closed_at is not null"
+            " from public.spaces where id=%s",
+            (space.id,),
+        ).fetchone()
+        assert saved[1] is None and saved[2] is True
+        assert saved[0] != people["owner"]
+    from tests.test_business_account_deletion_postgres import release_custodian
+
+    release_custodian(space.id)
 
 
 def test_transfer_invalidates_ai_consent_without_fabricating_a_human_revocation(world):

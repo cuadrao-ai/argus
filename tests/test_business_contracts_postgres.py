@@ -601,6 +601,52 @@ def test_direct_source_erasure_preserves_history_but_parent_deletion_cascades(
 
 
 def test_answered_attachment_allows_existing_account_deletion_order(
+    users: dict[str, str],
+) -> None:
+    from psycopg_pool import ConnectionPool
+
+    from tests.test_business_account_deletion_postgres import (
+        erase_open_owner,
+        release_custodian,
+    )
+
+    owner = users["owner"]
+    with Connection.connect(shared.DSN) as db:
+        client = {
+            "id": space(db, owner),
+            "owner": owner,
+            "draft": "",
+            "grant": fake.uuid4(),
+        }
+        client["draft"] = event(db, owner, client["id"])
+        _answered_attachment_then_delete_connection(db, client)
+        db.commit()
+        space_id, draft_id = client["id"], client["draft"]
+    with ConnectionPool(shared.DSN, min_size=0, max_size=4) as pool:
+        outcome = erase_open_owner(pool, owner)
+    assert outcome.status == "done"
+    with Connection.connect(shared.DSN) as db:
+        assert (
+            db.execute("select 1 from auth.users where id=%s", (owner,)).fetchone()
+            is None
+        )
+        saved = db.execute(
+            "select created_by::text, current_owner_id::text, closed_at is not null"
+            " from public.spaces where id=%s",
+            (space_id,),
+        ).fetchone()
+        assert saved[0] != owner and saved[1] is None and saved[2] is True
+        assert (
+            db.execute(
+                "select count(*) from public.business_draft_revisions where draft_id=%s",
+                (draft_id,),
+            ).fetchone()[0]
+            == 1
+        )
+    release_custodian(space_id)
+
+
+def _answered_attachment_then_delete_connection(
     db: Connection, client: dict[str, str]
 ) -> None:
     connection_id = connection(db, client["owner"], client["id"])
@@ -638,27 +684,6 @@ def test_answered_attachment_allows_existing_account_deletion_order(
         == 0
     )
     db.execute("reset role")
-    db.execute("select set_config('argus.locked_history_writer', 'deletion', true)")
-    db.execute(
-        "select argus_private.deletion_finish(%s, %s)", (client["owner"], fake.sha256())
-    )
-    with pytest.raises(
-        errors.CheckViolation, match="business_custody_identity_detachment_required"
-    ), db.transaction():
-        db.execute("delete from auth.users where id=%s", (client["owner"],))
-    assert (
-        db.execute(
-            "select count(*) from public.spaces where id=%s", (client["id"],)
-        ).fetchone()[0]
-        == 1
-    )
-    assert (
-        db.execute(
-            "select count(*) from public.business_draft_revisions where draft_id=%s",
-            (client["draft"],),
-        ).fetchone()[0]
-        == 1
-    )
 
 
 @pytest.mark.parametrize(
