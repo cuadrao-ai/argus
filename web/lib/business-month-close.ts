@@ -95,12 +95,37 @@ export type MonthCloseSnapshot = {
   figures?: MonthCloseFigures;
 };
 
+export type MonthCloseStatusCell = {
+  count: number;
+  before_itbis_minor: number;
+};
+
+export type MonthCloseByStatus = {
+  invoices: { pendiente: MonthCloseStatusCell; cobrado: MonthCloseStatusCell };
+  receipts: { pendiente: MonthCloseStatusCell; pagado: MonthCloseStatusCell };
+};
+
 export type MonthCloseFigures = {
   income_before_itbis: string | null;
   expense_before_itbis: string | null;
   net_before_itbis: string | null;
   itbis_owed: string | null;
+  by_status?: MonthCloseByStatus;
 };
+
+export function monthCloseStatusView(byStatus: MonthCloseByStatus): {
+  settled_count: number;
+  settled_before_itbis: string;
+  any_documents: boolean;
+} {
+  const cells = [byStatus.invoices.pendiente, byStatus.invoices.cobrado, byStatus.receipts.pendiente, byStatus.receipts.pagado];
+  const settledMinor = BigInt(byStatus.invoices.cobrado.before_itbis_minor) + BigInt(byStatus.receipts.pagado.before_itbis_minor);
+  return {
+    settled_count: byStatus.invoices.cobrado.count + byStatus.receipts.pagado.count,
+    settled_before_itbis: formatDopCents(settledMinor),
+    any_documents: cells.some((cell) => cell.count > 0),
+  };
+}
 
 export type MonthCloseSummary = {
   currency: MonthCloseCurrency;
@@ -701,6 +726,23 @@ function wireDocument(line: WireLine): MonthCloseDocument {
   };
 }
 
+function readStatusCell(value: unknown): MonthCloseStatusCell | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.count !== "number" || !Number.isInteger(value.count) || value.count < 0) return null;
+  if (typeof value.before_itbis_minor !== "number" || !Number.isInteger(value.before_itbis_minor)) return null;
+  return { count: value.count, before_itbis_minor: value.before_itbis_minor };
+}
+
+function readByStatus(value: unknown): MonthCloseByStatus | undefined {
+  if (!isRecord(value) || !isRecord(value.invoices) || !isRecord(value.receipts)) return undefined;
+  const pendiente = readStatusCell(value.invoices.pendiente);
+  const cobrado = readStatusCell(value.invoices.cobrado);
+  const receiptPending = readStatusCell(value.receipts.pendiente);
+  const pagado = readStatusCell(value.receipts.pagado);
+  if (!pendiente || !cobrado || !receiptPending || !pagado) return undefined;
+  return { invoices: { pendiente, cobrado }, receipts: { pendiente: receiptPending, pagado } };
+}
+
 function readFigures(value: unknown): MonthCloseFigures | undefined {
   if (!Array.isArray(value)) throw new MonthCloseError("unavailable", "month close currencies are missing");
   const dop = value.find((item) => isRecord(item) && item.currency === "DOP");
@@ -711,11 +753,13 @@ function readFigures(value: unknown): MonthCloseFigures | undefined {
     itbis_owed: null,
   };
   const text = (field: string) => (typeof dop[field] === "string" ? readAmount(dop[field]) : null);
+  const byStatus = readByStatus(dop.by_status);
   return {
     income_before_itbis: text("income_before_itbis"),
     expense_before_itbis: text("expense_before_itbis"),
     net_before_itbis: text("net_result"),
     itbis_owed: text("itbis_owed"),
+    ...(byStatus ? { by_status: byStatus } : {}),
   };
 }
 

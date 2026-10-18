@@ -367,3 +367,79 @@ describe("month close HTTP contract", () => {
     await expect(client.load("2026-10")).rejects.toMatchObject({ code: "unavailable" });
   });
 });
+
+const mappedWire = {
+  month: "2026-10",
+  from: "2026-10-01",
+  to: "2026-10-31",
+  closed: true,
+  reasons: [],
+  currencies: [
+    {
+      currency: "USD",
+      income_before_itbis: "1.00",
+      expense_before_itbis: "1.00",
+      net_result: "1.00",
+      itbis_charged: "1.00",
+      itbis_owed: "1.00",
+    },
+    {
+      currency: "DOP",
+      income_before_itbis: "4000.00",
+      expense_before_itbis: "1500.00",
+      net_result: "2500.00",
+      itbis_charged: "720.00",
+      itbis_owed: "180.00",
+      by_status: {
+        invoices: {
+          pendiente: { count: 1, before_itbis_minor: 100000 },
+          cobrado: { count: 2, before_itbis_minor: 200000 },
+        },
+        receipts: {
+          pendiente: { count: 0, before_itbis_minor: 0 },
+          pagado: { count: 1, before_itbis_minor: 100000 },
+        },
+      },
+    },
+  ],
+  missing_rnc: [],
+  missing_ncf: [],
+  cuentas_por_cobrar: [{
+    activity_id: "act-cobro",
+    document_kind: "invoice",
+    currency: "DOP",
+    occurred_on: "2026-10-04",
+    total_minor: 118000,
+    before_itbis_minor: 100000,
+    itbis_minor: 18000,
+    status: "pendiente",
+  }],
+  cuentas_por_pagar: [],
+};
+
+describe("live figure mapping", () => {
+  test("M3 net reads net_result, not income", () => {
+    const figures = readMonthCloseWire(mappedWire).figures;
+    expect(figures?.net_before_itbis).toBe("2500.00");
+    expect(figures?.income_before_itbis).toBe("4000.00");
+  });
+
+  test("M4 the ITBIS card reads itbis_owed, not itbis_charged", () => {
+    expect(readMonthCloseWire(mappedWire).figures?.itbis_owed).toBe("180.00");
+  });
+
+  test("M5 figures come from DOP, not the first currency", () => {
+    const figures = readMonthCloseWire(mappedWire).figures;
+    expect(figures?.income_before_itbis).toBe("4000.00");
+    expect(figures?.expense_before_itbis).toBe("1500.00");
+    expect(figures?.net_before_itbis).toBe("2500.00");
+  });
+
+  test("M6 minor units stay in cents", () => {
+    expect(readMonthCloseWire(mappedWire).documents[0]?.amount).toBe("1180.00");
+  });
+
+  test("M7 a document keeps its itbis_minor", () => {
+    expect(readMonthCloseWire(mappedWire).documents[0]?.itbis).toBe("180.00");
+  });
+});

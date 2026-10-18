@@ -21,6 +21,7 @@ import {
   monthCloseBlockers,
   monthCloseClient,
   monthCloseNetDisplay,
+  monthCloseStatusView,
   monthCloseSummary,
   monthPickerMonths,
   paperNcf,
@@ -364,7 +365,7 @@ export function BusinessMonthCloseView({
   const blockers = listedBlockers.filter((blocker) => blocker.kind === "missing_rnc" || blocker.kind === "missing_ncf");
   const net = snapshot ? monthCloseNetDisplay(snapshot.documents, listedBlockers, snapshot.figures ? snapshot.figures.net_before_itbis : undefined) : null;
   const gate = snapshot ? canCloseMonth(snapshot) : { ok: false as const, reason: "not_calendar_month" as const };
-  const closed = Boolean(snapshot?.closed_at) || snapshot?.closed === true;
+  const locked = Boolean(snapshot?.closed_at);
   const statusLabel = (status: MonthCloseStatus) =>
     ({
       pendiente: t("business.month_close.status_pendiente", "Pending"),
@@ -382,7 +383,7 @@ export function BusinessMonthCloseView({
   }
 
   async function mark(document: MonthCloseDocument) {
-    if (!canMutate || !snapshot || snapshot.closed_at || snapshot.closed || document.status !== "pendiente" || inFlight.current.has(document.id)) return;
+    if (!canMutate || !snapshot || snapshot.closed_at || phase === "loading" || document.status !== "pendiente" || inFlight.current.has(document.id)) return;
     const started = generation.current;
     const documentId = document.id;
     inFlight.current.add(documentId);
@@ -464,12 +465,14 @@ export function BusinessMonthCloseView({
     documents.filter((document) => document.status !== "pendiente" && !pendingIds.has(document.id) && (!rncPresent(document.rnc) || !fiscalNumberPresent(document))),
     "newest",
   );
-  const lockedRows = closed ? sortDocuments(documents, "newest") : [];
+  const lockedRows = locked ? sortDocuments(documents, "newest") : [];
+  const statusView = snapshot?.figures?.by_status ? monthCloseStatusView(snapshot.figures.by_status) : null;
+  const noDocuments = statusView ? !statusView.any_documents : documents.length === 0;
   const rowGrid = "tablet:grid tablet:grid-cols-[7.5rem_minmax(0,1.4fr)_6.5rem_7rem_auto] tablet:items-center tablet:gap-3";
 
   function renderRow(document: MonthCloseDocument, layout: "pending" | "overdue" | "closed" = "pending") {
     const overdue = overdueNow(document);
-    const pending = canMutate && document.status === "pendiente" && !closed;
+    const pending = canMutate && document.status === "pendiente" && !locked;
     const relative = dueLabel(document);
     return (
       <li
@@ -482,7 +485,7 @@ export function BusinessMonthCloseView({
         data-status={document.status}
         data-overdue={overdue ? "true" : "false"}
         data-layout={overdue ? "overdue" : layout}
-        data-locked={closed ? "true" : "false"}
+        data-locked={locked ? "true" : "false"}
         className={`flex flex-col gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 ${rowGrid}`}
       >
         <StatusChip status={document.status} overdue={overdue} label={overdue ? t("business.month_close.status_vencida", "Overdue") : statusLabel(document.status)} />
@@ -509,7 +512,7 @@ export function BusinessMonthCloseView({
               type="button"
               data-testid={document.kind === "invoice" ? "month-close-mark-cobrado" : "month-close-mark-pagado"}
               className={`${secondaryButtonClass} min-w-11 px-3.5`}
-              disabled={pendingIds.has(document.id)}
+              disabled={pendingIds.has(document.id) || phase === "loading"}
               aria-label={document.kind === "invoice"
                 ? t("business.month_close.mark_cobrado_named", "Mark {{name}} collected", { name: document.counterparty })
                 : t("business.month_close.mark_pagado_named", "Mark {{name}} paid", { name: document.counterparty })}
@@ -534,7 +537,7 @@ export function BusinessMonthCloseView({
         data-kind={document.kind}
         data-status={document.status}
         data-layout="matched"
-        data-locked={closed ? "true" : "false"}
+        data-locked={locked ? "true" : "false"}
         className="flex min-h-12 items-center gap-3 px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50"
       >
         <Check className="h-4 w-4 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" />
@@ -571,8 +574,10 @@ export function BusinessMonthCloseView({
     );
   }
 
-  function stateCard(testId: string, next: ListFilter, label: string, rows: MonthCloseDocument[]) {
+  function stateCard(testId: string, next: ListFilter, label: string, rows: MonthCloseDocument[], totals?: { count: number; amount: string }) {
     const pressed = filter === next;
+    const amount = totals?.amount ?? documentsTotal(rows);
+    const count = totals?.count ?? rows.length;
     return (
       <button
         type="button"
@@ -581,9 +586,9 @@ export function BusinessMonthCloseView({
         onClick={() => setFilter((current) => (current === next ? "all" : next))}
         className={`${cardClass} min-h-11 w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 ${pressed ? "ring-2 ring-[var(--cuadrao-green)]" : ""}`}
       >
-        <p className="font-display text-[24px] font-medium leading-tight tracking-tight tabular-nums text-black dark:text-white">{formatMoney(documentsTotal(rows), "DOP", locale)}</p>
+        <p className="font-display text-[24px] font-medium leading-tight tracking-tight tabular-nums text-black dark:text-white">{formatMoney(amount, "DOP", locale)}</p>
         <span className="mt-2 block text-[15px] font-medium text-black dark:text-white">{label}</span>
-        <span className="mt-1 block text-[13px] text-black/55 dark:text-white/55">{countLabel(rows.length)}</span>
+        <span className="mt-1 block text-[13px] text-black/55 dark:text-white/55">{countLabel(count)}</span>
       </button>
     );
   }
@@ -591,7 +596,7 @@ export function BusinessMonthCloseView({
   const loadingBar = "rounded-md bg-black/[0.06] dark:bg-white/[0.08]";
 
   return (
-    <section aria-labelledby="month-close-title" aria-busy={phase === "loading" ? true : undefined} data-testid="month-close" data-closed={closed ? "true" : "false"} className="mb-8">
+    <section aria-labelledby="month-close-title" aria-busy={phase === "loading" ? true : undefined} data-testid="month-close" data-closed={locked ? "true" : "false"} className="mb-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <MonthSwitcher
@@ -605,7 +610,7 @@ export function BusinessMonthCloseView({
           <p className="mt-1 px-2 text-[13px] text-black/55 dark:text-white/55">{t("business.month_close.subtitle", "Income, expenses, and ITBIS for the month.")}</p>
         </div>
         <div className="flex flex-col items-stretch gap-2 tablet:items-end">
-          {closed && snapshot?.closed_at ? (
+          {locked && snapshot?.closed_at ? (
             <p role="status" data-testid="month-close-closed" className="text-[14px] font-medium text-[var(--cuadrao-green)]">
               {t("business.month_close.closed", "Month closed")}
               <span className="mt-0.5 block text-[13px] font-normal text-black/60 dark:text-white/60">
@@ -723,7 +728,7 @@ export function BusinessMonthCloseView({
             </section>
           ) : null}
 
-          {documents.length === 0 ? (
+          {noDocuments ? (
             <div data-testid="month-close-empty" data-layout="empty" className="flex items-center justify-center">
               <div className="flex flex-col items-center py-16 text-center">
                 <h4 className="font-display text-[18px] font-medium text-black dark:text-white">{t("business.month_close.empty_title", "This month has no documents")}</h4>
@@ -733,14 +738,18 @@ export function BusinessMonthCloseView({
                 </button>
               </div>
             </div>
-          ) : closed ? (
+          ) : locked ? (
             renderList("month-close-rows", t("business.month_close.locked_title", "Documents in this month"), lockedRows, "", "closed")
           ) : (
             <>
               <div className="mt-4 grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-4" data-testid="month-close-states">
                 {stateCard("month-close-state-receivable", "receivable", t("business.month_close.receivable_title", "To collect"), receivable)}
                 {stateCard("month-close-state-overdue", "overdue", t("business.month_close.filter_overdue", "Overdue"), overdueRows)}
-                {stateCard("month-close-state-matched", "matched", t("business.month_close.filter_matched", "Collected and paid"), matchedRows)}
+                {statusView
+                  ? stateCard("month-close-state-matched", "matched", t("business.month_close.filter_matched", "Collected and paid"), matchedRows, { count: statusView.settled_count, amount: statusView.settled_before_itbis })
+                  : snapshot.figures
+                    ? null
+                    : stateCard("month-close-state-matched", "matched", t("business.month_close.filter_matched", "Collected and paid"), matchedRows)}
                 {stateCard("month-close-state-payable", "payable", t("business.month_close.payable_title", "To pay"), payable)}
               </div>
               {filter === "overdue" ? renderList("month-close-overdue", t("business.month_close.filter_overdue", "Overdue"), overdueRows, t("business.month_close.overdue_empty", "Nothing overdue."), "overdue") : null}

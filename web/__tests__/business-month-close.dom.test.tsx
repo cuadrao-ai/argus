@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { createMockMonthCloseClient, MonthCloseError, statementMissingBlocker, unmatchedCharges, type MonthCloseClient, type MonthCloseSnapshot } from "../lib/business-month-close";
+import { createHttpMonthCloseClient, createMockMonthCloseClient, MonthCloseError, statementMissingBlocker, unmatchedCharges, type MonthCloseClient, type MonthCloseDocument, type MonthCloseSnapshot } from "../lib/business-month-close";
 import type { BusinessContextValue } from "../components/business-app/BusinessWorkspace";
 
 beforeAll(() => {
@@ -328,6 +328,7 @@ describe("month close layouts", () => {
   test("switching months keeps the previous numbers and shows the loading line", async () => {
     const inner = createMockMonthCloseClient({ now });
     let calls = 0;
+    let marks = 0;
     let release: (value: MonthCloseSnapshot) => void = () => {};
     const client: MonthCloseClient = {
       mode: "mock",
@@ -336,8 +337,14 @@ describe("month close layouts", () => {
         if (calls === 1) return inner.load(month, scope);
         return new Promise((resolve) => { release = resolve; });
       },
-      markCobrado: (id, scope, day) => inner.markCobrado(id, scope, day),
-      markPagado: (id, scope, day) => inner.markPagado(id, scope, day),
+      markCobrado(id, scope, day) {
+        marks += 1;
+        return inner.markCobrado(id, scope, day);
+      },
+      markPagado(id, scope, day) {
+        marks += 1;
+        return inner.markPagado(id, scope, day);
+      },
       closeMonth: (month, scope) => inner.closeMonth(month, scope),
     };
     const { act, host, root } = await renderView(client);
@@ -353,6 +360,14 @@ describe("month close layouts", () => {
     assert.equal(host.querySelector('[data-testid="month-close-cards"]')?.getAttribute("data-loading"), "true");
     assert.equal(host.querySelector('[data-testid="month-close-loading"]'), null);
     assert.match(host.querySelector('[data-testid="month-close-refreshing"]')?.textContent ?? "", /Cargando el mes/);
+    const marksWhileLoading = [...host.querySelectorAll('[data-testid="month-close-mark-cobrado"], [data-testid="month-close-mark-pagado"]')];
+    assert.ok(marksWhileLoading.length >= 2);
+    assert.ok(marksWhileLoading.every((button) => button instanceof HTMLButtonElement && button.disabled));
+    await act(async () => {
+      (marksWhileLoading[0] as HTMLButtonElement).click();
+      await Promise.resolve();
+    });
+    assert.equal(marks, 0);
     await act(async () => {
       release(await inner.load("2026-09"));
       await Promise.resolve();
@@ -363,6 +378,170 @@ describe("month close layouts", () => {
     await act(async () => root.unmount());
     host.remove();
   });
+
+function wireLine(activityId: string, kind: "invoice" | "receipt", totalMinor: number, itbisMinor: number) {
+  return {
+    activity_id: activityId,
+    document_kind: kind,
+    currency: "DOP",
+    occurred_on: "2026-10-04",
+    total_minor: totalMinor,
+    before_itbis_minor: totalMinor - itbisMinor,
+    itbis_minor: itbisMinor,
+    status: "pendiente",
+  };
+}
+
+function statusCell(count: number, beforeItbisMinor: number) {
+  return { count, before_itbis_minor: beforeItbisMinor };
+}
+
+describe("fiscal complete months stay editable", () => {
+  test("a month with complete fiscal data still allows Marcar cobrado and Marcar pagado", async () => {
+    const calls: { path: string; method: string; body?: string }[] = [];
+    const client = createHttpMonthCloseClient(async (path, init) => {
+      calls.push({ path, method: init?.method ?? "GET", body: typeof init?.body === "string" ? init.body : undefined });
+      if (init?.method === "PATCH") {
+        return { activity_id: "act-invoice", document_kind: "invoice", status: "cobrado", settled_on: "2026-10-18", payment_method: "otro", changed: true };
+      }
+      return {
+        month: "2026-10",
+        from: "2026-10-01",
+        to: "2026-10-31",
+        closed: true,
+        reasons: [],
+        currencies: [{
+          currency: "DOP",
+          income_before_itbis: "4000.00",
+          expense_before_itbis: "500.00",
+          net_result: "3500.00",
+          itbis_charged: "720.00",
+          itbis_owed: "180.00",
+          by_status: {
+            invoices: { pendiente: statusCell(1, 100000), cobrado: statusCell(0, 0) },
+            receipts: { pendiente: statusCell(1, 50000), pagado: statusCell(0, 0) },
+          },
+        }],
+        missing_rnc: [],
+        missing_ncf: [],
+        cuentas_por_cobrar: [wireLine("act-invoice", "invoice", 118000, 18000)],
+        cuentas_por_pagar: [wireLine("act-receipt", "receipt", 59000, 9000)],
+      };
+    });
+    const { act, host, root } = await renderView(client);
+    const cobrado = host.querySelector('[data-testid="month-close-mark-cobrado"]');
+    const pagado = host.querySelector('[data-testid="month-close-mark-pagado"]');
+    assert.ok(cobrado instanceof HTMLButtonElement);
+    assert.ok(pagado instanceof HTMLButtonElement);
+    assert.equal(cobrado.disabled, false);
+    assert.equal(pagado.disabled, false);
+    assert.equal(cobrado.textContent, "Marcar cobrado");
+    assert.equal(pagado.textContent, "Marcar pagado");
+    assert.equal(host.querySelector('[data-testid="month-close-closed"]'), null);
+    assert.equal(host.querySelector('[data-testid="month-close"]')?.getAttribute("data-closed"), "false");
+    await act(async () => {
+      cobrado.click();
+      await Promise.resolve();
+    });
+    const patch = calls.find((call) => call.method === "PATCH");
+    assert.equal(patch?.path, "/business/month-close/documents/act-invoice");
+    assert.deepEqual(JSON.parse(patch?.body ?? "{}"), {
+      status: "cobrado",
+      settled_on: "2026-10-18",
+      payment_method: "otro",
+    });
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  test("an explicit closed_at locks both mark buttons", async () => {
+    const invoice: MonthCloseDocument = {
+      id: "inv-ready",
+      kind: "invoice",
+      counterparty: "Colmado Don Luis",
+      occurred_on: "2026-10-04",
+      due_on: "2026-10-20",
+      amount: "1180.00",
+      itbis: "180.00",
+      rnc: "101-23456-7",
+      ncf: "B0100000042",
+      ecf: null,
+      status: "pendiente",
+    };
+    const receipt: MonthCloseDocument = {
+      ...invoice,
+      id: "rcpt-ready",
+      kind: "receipt",
+      counterparty: "Ferretería La Esquina",
+      amount: "590.00",
+      itbis: "90.00",
+      status: "pendiente",
+    };
+    const snapshot: MonthCloseSnapshot = {
+      month: "2026-10",
+      from: "2026-10-01",
+      to: "2026-10-31",
+      currency: "DOP",
+      closed_at: "2026-10-18T15:00:00",
+      closed: true,
+      earliest_month: null,
+      documents: [invoice, receipt],
+    };
+    const client: MonthCloseClient = {
+      mode: "mock",
+      async load() { return snapshot; },
+      async markCobrado() { throw new Error("no mark"); },
+      async markPagado() { throw new Error("no mark"); },
+      async closeMonth() { throw new Error("no close"); },
+    };
+    const { act, host, root } = await renderView(client);
+    assert.equal(host.querySelector('[data-testid="month-close-mark-cobrado"]'), null);
+    assert.equal(host.querySelector('[data-testid="month-close-mark-pagado"]'), null);
+    assert.match(host.querySelector('[data-testid="month-close-closed"]')?.textContent ?? "", /Mes cerrado/);
+    assert.equal(host.querySelector('[data-testid="month-close"]')?.getAttribute("data-closed"), "true");
+    await act(async () => root.unmount());
+    host.remove();
+  });
+});
+
+describe("a fully settled month", () => {
+  test("collected and paid reads the settled counts, and the month is not empty", async () => {
+    const client = createHttpMonthCloseClient(async () => ({
+      month: "2026-10",
+      from: "2026-10-01",
+      to: "2026-10-31",
+      closed: true,
+      reasons: [],
+      currencies: [{
+        currency: "DOP",
+        income_before_itbis: "4000.00",
+        expense_before_itbis: "1000.00",
+        net_result: "3000.00",
+        itbis_charged: "720.00",
+        itbis_owed: "180.00",
+        by_status: {
+          invoices: { pendiente: statusCell(0, 0), cobrado: statusCell(2, 200000) },
+          receipts: { pendiente: statusCell(0, 0), pagado: statusCell(1, 100000) },
+        },
+      }],
+      missing_rnc: [],
+      missing_ncf: [],
+      cuentas_por_cobrar: [],
+      cuentas_por_pagar: [],
+    }));
+    const { act, host, root } = await renderView(client);
+    const matched = host.querySelector('[data-testid="month-close-state-matched"]');
+    assert.match(matched?.textContent ?? "", /RD\$ 3,000\.00/);
+    assert.match(matched?.textContent ?? "", /Cobradas y pagadas/);
+    assert.match(matched?.textContent ?? "", /3 documentos/);
+    assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 4,000\.00/);
+    assert.equal(host.querySelector('[data-testid="month-close-empty"]'), null);
+    assert.equal(host.textContent?.includes("Este mes no tiene documentos"), false);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+});
+
 });
 
 describe("Inicio month close source", () => {
