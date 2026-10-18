@@ -45,11 +45,36 @@ export function fallbackChain(shown: string | undefined, defaultLanguage: ArgusL
 export const DEFAULT_LANGUAGE = defaultLanguage(SPANISH_ENABLED, businessPilotEnabled);
 export const LANGUAGE_DETECTION_ORDER = languageDetectionOrder(businessPilotEnabled);
 
-export function normalizeEnabledLanguage(language?: string | null): ArgusLanguage {
-  if (SPANISH_ENABLED && language?.toLowerCase().startsWith("es")) {
+export function normalizeEnabledLanguage(language?: string | null, spanishEnabled: boolean = SPANISH_ENABLED): ArgusLanguage {
+  if (spanishEnabled && language?.toLowerCase().startsWith("es")) {
     return "es-419";
   }
   return "en";
+}
+
+/** Language applied once the account is known. Business stays on its default until this device has saved a choice. A consumer build keeps the account language. */
+export function accountLanguageToApply(
+  businessBuild: boolean,
+  accountLanguage: string | null | undefined,
+  storedLanguage: string | null | undefined,
+  spanishEnabled: boolean = SPANISH_ENABLED,
+): string | null {
+  if (!businessBuild) return accountLanguage ?? null;
+  if (storedLanguage?.trim()) return normalizeEnabledLanguage(storedLanguage, spanishEnabled);
+  return defaultLanguage(spanishEnabled, true);
+}
+
+/** Document language. Business Spanish is `es`. A consumer page stays `es-419` or `en`. Nothing resolved yet keeps the Business default instead of falling through to English. */
+export function documentLanguage(
+  language: string | null | undefined,
+  businessBuild: boolean,
+  spanishEnabled: boolean = SPANISH_ENABLED,
+): "en" | "es" | "es-419" {
+  if (businessBuild && spanishEnabled) {
+    if (!language || language.toLowerCase().startsWith("es")) return "es";
+    return "en";
+  }
+  return normalizeEnabledLanguage(language, spanishEnabled);
 }
 
 export function localeForLanguage(language?: string | null): ArgusLocale {

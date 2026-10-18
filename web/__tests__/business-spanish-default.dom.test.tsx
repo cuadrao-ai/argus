@@ -68,6 +68,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
     const { ReceiptUploadQueue } = await import("@/components/business-app/receipt-upload-queue");
 
     setChosenGrant(null);
+    const base = createFixtureBusinessDataSource({ chatAvailable: false });
     const i18n = i18next.createInstance();
     await i18n.init({
       lng: language ?? "en",
@@ -78,8 +79,9 @@ describe("Business stays in Spanish for an en-US browser", () => {
       interpolation: { escapeValue: false },
     });
     const source = {
-      ...createFixtureBusinessDataSource({ chatAvailable: false }),
+      ...base,
       spaces: async () => [{ space_id: "own", name: "My business", grant_id: "own-grant", role: "owner" as const, capabilities: ["read", "prepare", "approve"], access_seen: true }],
+      overview: async (from: string, to: string | null) => ({ ...await base.overview(from, to), totals: [], fiscal_totals: [], without_fiscal_totals: [] }),
     } satisfies Partial<BusinessDataSource>;
     const queue = new ReceiptUploadQueue(async () => { throw new Error("unused"); }, () => undefined);
     const host = document.createElement("div");
@@ -99,8 +101,9 @@ describe("Business stays in Spanish for an en-US browser", () => {
         </I18nextProvider>,
       );
     });
-    const text = () => host.textContent ?? "";
-    for (let i = 0; i < 40 && !text().includes("Comercio"); i += 1) {
+    const text = () => document.body.textContent ?? "";
+    const ready = () => ["Abrir la bandeja", "Subir recibos", "Registrar gasto", "Pagado desde"].every((item) => text().includes(item));
+    for (let i = 0; i < 80 && !ready(); i += 1) {
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     }
     const visible = text();

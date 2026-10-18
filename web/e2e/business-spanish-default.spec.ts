@@ -36,6 +36,7 @@ test("an en-US browser shows Spanish across Business overview, upload, record ex
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   const overview = page.locator("#business-overview-title");
   await expect(overview).toHaveText("Mi negocio");
+  await expect(page.getByTestId("overview-inbox")).toContainText("1 por revisar");
   await expect(page.getByTestId("overview-inbox")).toContainText("Abrir la bandeja");
   await expect(page.getByTestId("overview-real-expenses")).toContainText("Gastos reales");
   await expect(page.getByTestId("overview-real-expenses")).toContainText("Todavía no hay gastos guardados en este período.");
@@ -57,11 +58,10 @@ test("an en-US browser shows Spanish across Business overview, upload, record ex
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  await page.getByTestId("business-create").click();
-  await page.getByRole("menuitem", { name: "Registrar gasto" }).click();
+  await page.getByRole("button", { name: "Registrar gasto" }).click();
   const record = page.getByRole("dialog", { name: "Registrar gasto" });
   await expect(record).toBeVisible();
-  for (const label of ["Comercio", "Fecha", "Categoría", "Moneda", "Pagado desde"]) {
+  for (const label of ["Comercio", "Total en DOP", "Fecha", "Pagado desde", "Categoría"]) {
     await expect(record).toContainText(label);
   }
   await expect(record).not.toContainText("Record expense");
@@ -69,8 +69,10 @@ test("an en-US browser shows Spanish across Business overview, upload, record ex
   await expect(record).not.toContainText("Paid from");
   await page.screenshot({ path: testInfo.outputPath("record-expense-en-us.png") });
   await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  await page.goto("/biz?receipt=rcpt-ferreteria");
+  await page.getByTestId("overview-inbox").click();
+  await page.getByTestId("business-inbox-receipts").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   const review = page.getByRole("main");
   await expect(review).toContainText("Comercio");

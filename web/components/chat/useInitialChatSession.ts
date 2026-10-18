@@ -4,6 +4,9 @@ import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { getMe, listConversations } from "@/lib/argus-api";
+import { LANGUAGE_STORAGE_KEY, readStored } from "@/lib/browser-storage";
+import { accountLanguageToApply } from "@/lib/language-features";
+import { businessPilotEnabled } from "@/lib/private-alpha-flags";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
 import { readActiveConversationRouteState } from "@/lib/chat-conversation-routing";
 import { currentAuthLoginPath } from "@/lib/landing-intent";
@@ -73,7 +76,11 @@ export function useInitialChatSession({
         } catch (error) {
           probeOutcome = guestProfileProbeOutcome(error);
         }
-        const resolvedLanguage = meResponse?.user?.language ?? i18n.language;
+        const resolvedLanguage = accountLanguageToApply(
+          businessPilotEnabled,
+          meResponse?.user?.language,
+          readStored(LANGUAGE_STORAGE_KEY),
+        );
         if (resolvedLanguage && resolvedLanguage !== i18n.language) {
           await i18n.changeLanguage(resolvedLanguage);
         }
