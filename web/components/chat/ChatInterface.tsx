@@ -61,7 +61,7 @@ import {
 } from "@/lib/argus-api";
 import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-deletion-api";
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
-import { businessPilotEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
+import { businessPilotEnabled, businessSearchEntryEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
 import { leaveSession } from "@/lib/logout-flow";
 import {
   useTranscriptTurnAnchor,
@@ -2129,9 +2129,11 @@ export default function ChatInterface() {
     guestSubmissionPending ||
     hasConversationLoadFailure;
 
+  const searchEntryEnabled =
+    omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const keyboardShortcuts = useChatKeyboardShortcuts({
     enabled: !mobileShell.isBelowTablet,
-    requestSearch: omnisearchEnabled ? () => setSearchOverlayOpen(true) : undefined,
+    requestSearch: searchEntryEnabled ? () => setSearchOverlayOpen(true) : undefined,
     isChatView: currentView === "chat",
     canManageConversation,
     conversationId,
@@ -2237,7 +2239,7 @@ export default function ChatInterface() {
         onLoadMoreHistory={loadMoreHistory}
         onOpenSearch={() => {
           closeDrawer();
-          if (omnisearchEnabled) {
+          if (searchEntryEnabled) {
             requestOmnisearch();
           }
         }}
@@ -2261,7 +2263,7 @@ export default function ChatInterface() {
         settingsOpenRequest={keyboardShortcuts.settingsOpenRequest}
         mode={sidebarMode}
         omnisearchEnabled={
-          omnisearchEnabled && (!isGuest || canUseOmnisearch)
+          searchEntryEnabled && (!isGuest || canUseOmnisearch)
         }
         shortcutHintsSuppressed={searchOverlayOpen}
         canManageConversation={canManageConversation}
@@ -2286,7 +2288,7 @@ export default function ChatInterface() {
         }
       />
 
-      {omnisearchEnabled &&
+      {searchEntryEnabled &&
         (!isGuest || canUseOmnisearch) &&
         searchOverlayOpen && (
           <ChatCommandPalette

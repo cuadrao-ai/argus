@@ -49,6 +49,7 @@ import {
 import type { ApiUser, HistoryItem, SearchConversationItem } from "@/lib/argus-api";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import { sidebarShortcutHintsVisible } from "@/lib/sidebar-shortcuts";
+import { businessSearchEntryEnabled } from "@/lib/private-alpha-flags";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -190,7 +191,9 @@ export default function ChatSidebar({
 }: ChatSidebarProps) {
   const { t, i18n } = useTranslation();
   const chatAvailable = useChatAvailable();
-  const workspaceShortcuts = useChatWorkspace()?.keyboardShortcuts;
+  const workspace = useChatWorkspace();
+  const workspaceShortcuts = workspace?.keyboardShortcuts;
+  const searchVisible = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const { selectPresentation, selectAggregatePresentation, selectOperationLabel } =
     useConversationActivityPresentation();
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -484,7 +487,7 @@ export default function ChatSidebar({
           />
         )}
 
-        {omnisearchEnabled && (
+        {searchVisible && (
           <SidebarNavButton
             icon={Search}
             label={t("common.search", "Search")}
