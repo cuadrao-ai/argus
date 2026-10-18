@@ -1,0 +1,74 @@
+"""NG 07-2018 annex order, shared by TXT and the review workbook."""
+
+PURCHASE_COLUMNS = (
+    ("rnc", "RNC o Cédula"),
+    ("id_type", "Tipo Id"),
+    ("category", "Tipo Bienes y Servicios Comprados"),
+    ("ncf", "NCF"),
+    ("modified_ncf", "NCF ó Documento Modificado"),
+    ("occurred_on", "Fecha Comprobante"),
+    ("paid_on", "Fecha Pago"),
+    ("services_amount", "Monto Facturado en Servicios"),
+    ("goods_amount", "Monto Facturado en Bienes"),
+    ("billed_amount", "Total Monto Facturado"),
+    ("itbis", "ITBIS Facturado"),
+    ("itbis_withheld", "ITBIS Retenido"),
+    ("itbis_proportionality", "ITBIS sujeto a Proporcionalidad (Art. 349)"),
+    ("itbis_cost", "ITBIS llevado al Costo"),
+    ("itbis_advance", "ITBIS por Adelantar"),
+    ("itbis_perceived", "ITBIS percibido en compras"),
+    ("income_withholding_type", "Tipo de Retención en ISR"),
+    ("income_withheld", "Monto Retención Renta"),
+    ("income_perceived", "ISR Percibido en compras"),
+    ("selective_tax", "Impuesto Selectivo al Consumo"),
+    ("other_taxes", "Otros Impuesto/Tasas"),
+    ("legal_tip", "Monto Propina Legal"),
+    ("payment_method", "Forma de Pago"),
+)
+
+SALES_COLUMNS = (
+    ("rnc", "RNC/Cédula o Pasaporte"),
+    ("id_type", "Tipo Identificación"),
+    ("ncf", "Número Comprobante Fiscal"),
+    ("modified_ncf", "Número Comprobante Fiscal Modificado"),
+    ("income_type", "Tipo de Ingreso"),
+    ("occurred_on", "Fecha Comprobante"),
+    ("withheld_on", "Fecha de Retención"),
+    ("billed_amount", "Monto Facturado"),
+    ("itbis", "ITBIS Facturado"),
+    ("itbis_withheld_by_third_parties", "ITBIS Retenido por Terceros"),
+    ("itbis_perceived", "ITBIS Percibido"),
+    ("income_withheld_by_third_parties", "Retención Renta por Terceros"),
+    ("income_perceived", "ISR Percibido"),
+    ("selective_tax", "Impuesto Selectivo al Consumo"),
+    ("other_taxes", "Otros Impuestos/Tasas"),
+    ("legal_tip", "Monto Propina Legal"),
+    ("cash", "Efectivo"),
+    ("bank", "Cheque/ Transferencia/ Depósito"),
+    ("card", "Tarjeta Débito/Crédito"),
+    ("credit", "Venta a Crédito"),
+    ("gift", "Bonos o Certificados de Regalo"),
+    ("barter", "Permuta"),
+    ("other_payment", "Otras Formas de Ventas"),
+)
+
+COLUMNS = {"606": PURCHASE_COLUMNS, "607": SALES_COLUMNS}
+PAYMENT_BUCKETS = ("cash", "bank", "card", "credit", "gift", "barter", "other_payment")
+# A blank and a zero both leave the cell empty. Required and calculated amounts
+# stay numeric, including 0.00.
+OPTIONAL_AMOUNTS = frozenset(
+    {
+        "services_amount",
+        "goods_amount",
+        "itbis_withheld",
+        "itbis_proportionality",
+        "itbis_cost",
+        "income_withheld",
+        "itbis_withheld_by_third_parties",
+        "income_withheld_by_third_parties",
+        "selective_tax",
+        "other_taxes",
+        "legal_tip",
+        *PAYMENT_BUCKETS,
+    }
+)

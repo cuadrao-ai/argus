@@ -2135,6 +2135,32 @@
     }
   },
   "business": {
+    "dgii": {
+      "business_rnc": "RNC del negocio",
+      "save_rnc": "Guardar RNC",
+      "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
+      "details": "Datos fiscales para 606 / 607",
+      "review_note": "Usa los montos del comprobante y tu clasificación fiscal. Deja en blanco los datos que no sabes. Guardar crea una revisión; aprobar es otro paso.",
+      "form": "Formato",
+      "load_failed": "No se pudieron cargar los campos fiscales.",
+      "save_failed": "No se confirmó que los datos fiscales se guardaran. Revisa el registro actual antes de aprobar.",
+      "actual_refund": "Se recibió un reembolso de dinero por esta nota de crédito",
+      "original_purchase": "Compra original",
+      "purchases_failed": "No se pudieron cargar las compras originales.",
+      "save": "Guardar revisión fiscal",
+      "revision": "Datos fiscales de esta revisión",
+      "period_hint": "El 606 y el 607 requieren un mes completo y cerrado. El Excel muestra los datos fiscales pendientes y el resumen de consumo por separado.",
+      "approve_income": "Aprobar ingreso",
+      "approve_refund": "Aprobar reembolso",
+      "recorded_income": "Se registró un ingreso después de aprobar la revisión {{version}}.",
+      "recorded_refund": "Se registró un reembolso después de aprobar la revisión {{version}}.",
+      "error": {
+        "fiscal_duplicate_document": "Este comprobante fiscal ya pertenece a otro registro guardado. Revísalo antes de aprobar.",
+        "fiscal_credit_settlement_required": "Registra un reembolso solo después de confirmar que se recibió el dinero y elegir la compra original.",
+        "recorded_correction_unsupported": "Los datos fiscales de un registro aprobado no se pueden cambiar en este flujo.",
+        "stale_version": "Este registro cambió. Abre la revisión actual antes de guardar."
+      }
+    },
     "activity": {
       "all_channels": "Receipt reading is managed for your Business across email, WhatsApp and uploads.",
       "error": "Receipt reading could not be updated. Try again.",
@@ -2693,7 +2719,6 @@
       "heic": "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first.",
       "title": "Upload receipt",
       "queue_title": "Upload receipts",
-      "busy": "Wait for the current upload to finish before adding files.",
       "review_saved": "Review saved receipts",
       "save_pending": "Save remaining files",
       "drop_multiple": "Drop your receipts here.",
