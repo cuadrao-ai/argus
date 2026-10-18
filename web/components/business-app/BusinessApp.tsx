@@ -9,8 +9,9 @@ import ConversationUnavailableNotice from "./ConversationUnavailableNotice";
 import { BusinessWorkspaceProvider } from "./BusinessWorkspace";
 import { liveBusinessDataSource, type BusinessDataSource } from "./business-data";
 import { createFixtureBusinessDataSource, type FixtureOptions } from "./fixture-data";
+import BusinessTransferEntry from "./BusinessTransferEntry";
 
-export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
+export default function BusinessApp({ sample, transferId }: { sample?: FixtureOptions; transferId?: string }) {
   const { t } = useTranslation();
   const [source] = useState<BusinessDataSource>(() =>
     sample ? createFixtureBusinessDataSource(sample) : liveBusinessDataSource,
@@ -43,6 +44,7 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
       <ConversationShellGuard />
       <ConversationUnavailableNotice />
       <ChatInterface />
+      {!sample && transferId ? <BusinessTransferEntry transferId={transferId} /> : null}
     </BusinessWorkspaceProvider>
   );
 }

@@ -18,6 +18,11 @@ export const businessTransferCopyEs = {
   accept: "Aceptar transferencia",
   decline: "Rechazar",
   declined: "{Nombre} rechazó la transferencia. {Negocio} sigue siendo tuyo.",
+  expired: "La solicitud a {Nombre} venció.",
+  empty: "Para transferir el negocio, primero invita a un miembro.",
+  accepted: "Transferencia completada",
+  cancelled: "Transferencia retirada",
+  declinedRecipient: "Transferencia rechazada",
 };
 
 type TransferCopy = { [Key in keyof typeof businessTransferCopyEs]: string };
@@ -25,7 +30,9 @@ export type BusinessTransferView =
   | { kind: "request"; members: { grantId: string; name: string }[]; onRequest: (grantId: string, confirmation: string) => void }
   | { kind: "pending"; targetName: string; onWithdraw: () => void }
   | { kind: "recipient"; ownerName: string; onAccept: () => void; onDecline: () => void }
-  | { kind: "declined"; targetName: string };
+  | { kind: "declined"; targetName: string }
+  | { kind: "expired"; targetName: string }
+  | { kind: "accepted" | "cancelled" | "declinedRecipient" };
 
 function text(template: string, values: Record<string, string>): string {
   return template.replace(/\{([^}]+)\}/g, (token: string, key: string) => values[key] ?? token);
@@ -51,6 +58,7 @@ export default function BusinessTransferDialog({ businessName, copy, view, state
   return <AdaptivePanel title={copy.title} closeLabel={copy.cancel} onClose={dismiss} width="md" initialFocusRef={view.kind === "request" ? memberRef : undefined}>
     <div className="space-y-5 p-5" aria-busy={submitting}>
       {view.kind === "request" ? <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); if (canRequest) view.onRequest(grantId, confirmation); }}>
+        {view.members.length === 0 ? <p className="text-[14px] leading-relaxed">{copy.empty}</p> : null}
         <div>
           <label htmlFor={memberId} className="block text-[14px]">{copy.member}</label>
           <select ref={memberRef} id={memberId} value={grantId} disabled={submitting} onChange={(event) => setGrantId(event.target.value)} aria-describedby={helpId} className="mt-2 min-h-11 w-full rounded-[12px] border border-black/15 bg-transparent px-3 text-[16px] dark:border-white/20">
@@ -81,6 +89,8 @@ export default function BusinessTransferDialog({ businessName, copy, view, state
         </div>
       </> : null}
       {view.kind === "declined" ? <p className="text-[14px] leading-relaxed">{text(copy.declined, { Nombre: view.targetName, Negocio: businessName })}</p> : null}
+      {view.kind === "expired" ? <p className="text-[14px] leading-relaxed">{text(copy.expired, { Nombre: view.targetName })}</p> : null}
+      {view.kind === "accepted" || view.kind === "cancelled" || view.kind === "declinedRecipient" ? <p className="text-[14px] leading-relaxed">{copy[view.kind]}</p> : null}
       {state.kind === "error" ? <p role="alert" className="text-[14px] leading-relaxed">{state.message}</p> : null}
     </div>
   </AdaptivePanel>;

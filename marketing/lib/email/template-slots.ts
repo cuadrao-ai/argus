@@ -8,10 +8,6 @@ export const EMAIL_TEMPLATE_SLOTS = {
   identity_unlinked_notification: empty,
   mfa_factor_enrolled_notification: empty,
   mfa_factor_unenrolled_notification: empty,
-  business_transfer_request_recipient: empty,
-  business_transfer_declined_owner: empty,
-  business_transfer_accepted_both: empty,
-  business_transfer_withdrawn_recipient: empty,
 } as const;
 
 export type EmailTemplateSlot = keyof typeof EMAIL_TEMPLATE_SLOTS;

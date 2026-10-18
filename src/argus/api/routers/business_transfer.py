@@ -1,6 +1,7 @@
 """Unmounted transfer transport guarded by the full lifecycle readiness gate."""
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -31,7 +32,20 @@ class TransferResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     space_id: str
-    status: Literal["pending", "accepted", "cancelled", "declined"]
+    status: Literal["pending", "accepted", "cancelled", "declined", "expired"]
+    expires_at: datetime | None = None
+
+
+class TransferListResponse(BaseModel):
+    transfers: list["TransferDetailsResponse"]
+
+
+class TransferDetailsResponse(TransferResponse):
+    business_name: str
+    owner_name: str
+    target_name: str
+    role: Literal["owner", "target"]
+    grant_id: str
 
 
 def require_transfer(request: Request) -> PostgresBusinessTransfer:
@@ -63,6 +77,7 @@ def _invoke(
             "business_transfer_target_invalid",
             "business_transfer_not_pending",
             "business_transfer_pending",
+            "business_transfer_expired",
         ):
             raise problem(
                 request,
@@ -73,6 +88,16 @@ def _invoke(
                 headers=NO_STORE,
             ) from None
         raise lifecycle_problem(request, error) from None
+
+
+@router.get("/ownership-transfers", response_model=TransferListResponse)
+def discover_transfers(person: Person, service: Transfer) -> TransferListResponse:
+    return TransferListResponse(
+        transfers=[
+            TransferDetailsResponse.model_validate(row)
+            for row in service.discover(actor_id=person.person_id)
+        ]
+    )
 
 
 @router.post("/spaces/{space_id}/ownership-transfers", response_model=TransferResponse)

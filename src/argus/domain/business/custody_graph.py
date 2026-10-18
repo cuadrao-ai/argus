@@ -120,6 +120,10 @@ def retained_dependencies(connection: Any, departing_user_id: str) -> tuple[str,
         ),
         ("business_lifecycle_commands", "owner_id=%s"),
         ("business_ownership_transfers", "owner_id=%s or target_id=%s"),
+        (
+            "business_transfer_mail_outbox",
+            "owner_id=%s or target_id=%s or recipient_id=%s",
+        ),
     ):
         if connection.execute(
             sql.SQL("select exists(select 1 from public.{} where ").format(
@@ -558,6 +562,11 @@ class PostgresBusinessCustodyGraph:
 
     @staticmethod
     def _remove_transport(db: Any, scope: dict[str, Any], user: str) -> None:
+        db.execute(
+            "delete from public.business_transfer_mail_outbox where transfer_id in"
+            " (select id from public.business_ownership_transfers where space_id=%s)",
+            (scope["s"],),
+        )
         for table in ("checkpoint_writes", "checkpoint_blobs", "checkpoints"):
             db.execute(
                 sql.SQL("delete from public.{} where thread_id=any(%s)").format(

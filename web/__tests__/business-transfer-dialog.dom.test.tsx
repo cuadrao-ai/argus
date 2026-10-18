@@ -71,3 +71,15 @@ test("recipient accepts or declines; submission blocks repeated actions", async 
     assert.ok(document.body.textContent?.includes("Rosa rechazó la transferencia. Taller Luna sigue siendo tuyo."));
   } finally { await view.close(); }
 });
+
+test("empty member list and expired request use the approved text", async () => {
+  const view = await mount();
+  try {
+    await view.render({ kind: "request", members: [], onRequest: () => { view.calls.push("request"); } });
+    assert.ok(document.body.textContent?.includes("Para transferir el negocio, primero invita a un miembro."));
+    assert.equal(view.button("Solicitar transferencia").disabled, true);
+    await view.render({ kind: "expired", targetName: "Rosa" });
+    assert.ok(document.body.textContent?.includes("La solicitud a Rosa venció."));
+    assert.deepEqual(view.calls, []);
+  } finally { await view.close(); }
+});

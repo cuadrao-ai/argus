@@ -6,7 +6,7 @@ from argus.api.business import require_business_person, require_business_surface
 from argus.api.routers.business_lifecycle import require_lifecycle_ready
 from argus.api.routers.business_transfer import require_transfer, router
 from argus.domain.business.lifecycle import BusinessLifecycleError
-from argus.domain.business.transfer import TransferResult
+from argus.domain.business.transfer import TransferDetails
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -23,8 +23,16 @@ class Service:
     def __init__(self):
         self.calls = []
         self.error = None
-        self.result = TransferResult(
-            str(uuid4()), str(uuid4()), str(uuid4()), str(uuid4()), "pending"
+        self.result = TransferDetails(
+            str(uuid4()),
+            str(uuid4()),
+            str(uuid4()),
+            str(uuid4()),
+            "pending",
+            business_name="Taller Luna",
+            owner_name="Ana",
+            target_name="Rosa",
+            role="target",
         )
 
     def request(self, **kwargs):
@@ -38,6 +46,10 @@ class Service:
 
     def cancel(self, **kwargs):
         return self._called("withdraw", kwargs)
+
+    def discover(self, **kwargs):
+        self.calls.append(("discover", kwargs))
+        return (self.result,)
 
     def _called(self, kind, kwargs):
         self.calls.append((kind, kwargs))
@@ -119,6 +131,7 @@ def test_terminal_commands_derive_authenticated_actor(client, action):
         ("business_transfer_target_invalid", 409),
         ("business_transfer_not_pending", 409),
         ("business_transfer_pending", 409),
+        ("business_transfer_expired", 409),
         ("business_record_not_found", 404),
     ],
 )
@@ -135,6 +148,53 @@ def test_known_domain_refusals_remain_private(client, code, status):
 
 world = lifecycle.world
 users = lifecycle.users
+
+
+def test_transfer_link_discovery_is_authenticated_read_only(client):
+    transport, service, person, app = client
+    app.dependency_overrides[require_lifecycle_ready] = lambda: None
+    reply = transport.get("/api/v1/business/ownership-transfers")
+    assert reply.status_code == 200
+    assert reply.headers["cache-control"] == "no-store"
+    assert reply.json()["transfers"][0]["id"] == service.result.id
+    assert service.calls == [("discover", {"actor_id": person.person_id})]
+
+
+@pytest.mark.skipif(not shared.DSN, reason="Disposable database required")
+def test_expired_get_discovery_does_not_change_history_or_send_email(client, world):
+    from argus.domain.business.transfer import PostgresBusinessTransfer
+
+    from tests.test_business_transfer_mail_postgres import expire
+
+    transport, _, person, app = client
+    pool, space, people, _, member = world
+    service = PostgresBusinessTransfer(pool)
+    pending = service.request(
+        owner_id=people["owner"],
+        space_id=space.id,
+        target_grant_id=member.id,
+        confirmation=space.name,
+        idempotency_key="read-link",
+    )
+    expire(world, pending)
+    person.person_id = people["other"]
+    app.dependency_overrides[require_lifecycle_ready] = lambda: None
+    app.dependency_overrides[require_transfer] = lambda: service
+    for _ in range(2):
+        reply = transport.get("/api/v1/business/ownership-transfers")
+        assert reply.json()["transfers"][0]["status"] == "expired"
+    with pool.connection() as db:
+        assert db.execute(
+            "select status,resolved_at from public.business_ownership_transfers where id=%s",
+            (pending.id,),
+        ).fetchone() == ("pending", None)
+        assert (
+            db.execute(
+                "select count(*) from public.business_transfer_mail_outbox where transfer_id=%s",
+                (pending.id,),
+            ).fetchone()[0]
+            == 1
+        )
 
 
 @pytest.mark.skipif(not shared.DSN, reason="Disposable database required")

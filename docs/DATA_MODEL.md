@@ -3724,6 +3724,33 @@ revoked. The current owner must consent separately. Private/client behavior,
 retention and account-deletion custody movement remain WIP, with global account
 deletion and lifecycle readiness still closed.
 
+### Business transfer expiry and mail, WIP October 18, 2026
+
+The transfer successor migration `20261018080006_business_transfer_mail_expiry.sql`
+adds immutable `business_ownership_transfers.expires_at`, exactly 168 hours after
+`created_at`, plus the terminal `expired` state. It preserves the scoped custody
+rewrite guard added by migration 080005. GET computes deadline status without
+changing history; new requests close expired pending commands under the same
+Business lock.
+
+`business_transfer_mail_outbox` owns personal notification transport only. Its
+model checklist covers every new column. `id`, `transfer_id`, `variant`,
+`recipient_id`, `owner_id`, `target_id`, `recipient_email`, `context` and
+`created_at` identify one event and freeze its recipient and source facts.
+`first_attempt_at` and `payload` reserve the first send before provider work.
+`sent_at`, `provider_receipt`, `suppressed_at` and `uncertain_at` record its
+outcome. A unique transfer/variant/recipient key prevents duplicate journal rows.
+The transfer FK cascades deletion. Independent actor columns allow dependency
+checks even after canonical transfer history becomes anonymous.
+
+The table has RLS and no public, anon or authenticated privileges. Only the
+server service role can read, insert, update and delete. Its pending index
+supports recovery. No client policy exposes names, addresses or payloads.
+Custody cleanup deletes the Business's outbox before changing historical actors.
+The Auth deletion guard refuses unresolved outbox dependencies. Canonical
+transfer history survives anonymously; transport is not retained Business data.
+The complete account-deletion orchestration and lifecycle activation remain held.
+
 ### Business custody copy reservations, draft October 18, 2026
 
 The forward migration `20261018080002_business_custody_object_manifest.sql` adds

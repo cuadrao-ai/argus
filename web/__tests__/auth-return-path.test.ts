@@ -4,6 +4,13 @@ import { readReturnPath } from "../lib/auth-return-path";
 import { authLoginPathFromSearch, pathWithSearch } from "../lib/landing-intent";
 
 describe("sign-in return path", () => {
+  test("a signed-out transfer email returns to the transfer screen without an acceptance token", () => {
+    const id = "4100626b-f480-4249-97bd-04bdc03f1a15";
+    const login = authLoginPathFromSearch(`?transfer=${id}&accept=1&token=discard`, "/biz");
+    expect(readReturnPath(login.slice(login.indexOf("?")))).toBe(`/biz?transfer=${id}`);
+    expect(login).not.toContain("accept");
+    expect(login).not.toContain("token");
+  });
   test("a signed-out Business receipt link returns to that receipt", () => {
     const login = authLoginPathFromSearch("?receipt=rcpt-123&utm_source=whatsapp", "/biz");
     const search = login.slice(login.indexOf("?"));

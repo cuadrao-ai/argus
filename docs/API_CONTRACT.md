@@ -9918,3 +9918,32 @@ recipient actions. Withdrawal is an owner action. Their transfer ID supplies
 terminal replay identity. All response fields are server facts, with private
 no-store responses and the same known domain refusals. Defining this transport
 adds no application route until the full retention gate is complete.
+
+The October 18 transfer email successor adds authenticated
+`GET /business/ownership-transfers`. It returns only transfers where the actor
+is an original participant and still has a live grant to the open Business.
+Each item includes `id`, `space_id`, server-computed `status`, `expires_at`,
+`business_name`, `owner_name`, `target_name`, the actor's live `grant_id` and `owner` or `target`
+role. GET does not accept, decline, withdraw, expire or send mail.
+
+A request expires exactly 168 hours after creation. At or after the deadline,
+acceptance returns `business_transfer_expired` with HTTP 409. The next valid
+request resolves the expired pending row before creating a new request. An
+accepted transfer has no undo operation. A reverse transfer uses a new request
+and the same normal recipient acceptance.
+
+The configured transfer command path queues notifications in the same database
+transaction and calls the existing Resend SMTP transport after commit. Request
+and withdrawal go to the target; decline goes to the original owner; acceptance
+has separate messages for both people. Expiry sends no mail. Saved content,
+per-recipient event IDs and provider idempotency keys protect retries. Automatic
+retries stop after 23 hours from the first attempted send, before Resend's
+24-hour key retention ends; unresolved delivery then requires reconciliation.
+Missing provider or presentation configuration leaves the event unsent.
+
+Email actions navigate to `/biz?transfer=<id>`, which preserves the transfer ID
+through sign-in and loads the authorized transfer screen. Only explicit POST
+controls change ownership. The screen wiring is conditional on the existing
+Business pilot and transfer readiness. The transfer router remains unmounted
+and its readiness dependency still denies access in this WIP branch. No email
+or hosted activation is established by synthetic provider/browser proof.

@@ -4,9 +4,16 @@ import { apiFetch } from "./argus-api-transport";
 const transferResult = z.object({
   id: z.uuid(),
   space_id: z.uuid(),
-  status: z.enum(["pending", "accepted", "cancelled", "declined"]),
+  status: z.enum(["pending", "accepted", "cancelled", "declined", "expired"]),
+  expires_at: z.iso.datetime({ offset: true }).nullable().optional(),
 });
 export type BusinessTransferResult = z.infer<typeof transferResult>;
+const transferDetails = transferResult.extend({ business_name: z.string(), owner_name: z.string(), target_name: z.string(), role: z.enum(["owner", "target"]), grant_id: z.uuid() });
+export type BusinessTransferDetails = z.infer<typeof transferDetails>;
+
+export async function discoverBusinessTransfers(signal?: AbortSignal): Promise<BusinessTransferDetails[]> {
+  return z.object({ transfers: z.array(transferDetails) }).parse(await apiFetch<unknown>("/business/ownership-transfers", { signal })).transfers;
+}
 
 export async function requestBusinessTransfer({ spaceId, targetGrantId, confirmation, idempotencyKey, signal }: {
   spaceId: string;

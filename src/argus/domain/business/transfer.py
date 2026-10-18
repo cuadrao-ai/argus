@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
 from argus.domain.business.access import MEMBER_CAPABILITIES, OWNER_CAPABILITIES, _lock
+from argus.domain.business.authority import ActionError, authorize
+from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.lifecycle import (
     BusinessLifecycleError,
     PostgresBusinessLifecycle,
+)
+from argus.domain.business.transfer_mail import (
+    deliver_transfer_mail,
+    enqueue_transfer_mail,
 )
 
 
@@ -21,10 +29,20 @@ class TransferResult:
     space_id: str
     owner_id: str
     target_id: str
-    status: Literal["pending", "accepted", "cancelled", "declined"]
+    status: Literal["pending", "accepted", "cancelled", "declined", "expired"]
+    expires_at: datetime | None = None
 
 
-_COLUMNS = "id::text,space_id::text,owner_id::text,target_id::text,status"
+@dataclass(frozen=True)
+class TransferDetails(TransferResult):
+    business_name: str = ""
+    owner_name: str = ""
+    target_name: str = ""
+    role: Literal["owner", "target"] = "target"
+    grant_id: str = ""
+
+
+_COLUMNS = "id::text,space_id::text,owner_id::text,target_id::text,case when status='pending' and expires_at<=clock_timestamp() then 'expired' else status end,expires_at"
 
 
 class PostgresBusinessTransfer:
@@ -32,6 +50,25 @@ class PostgresBusinessTransfer:
         self.pool = pool
 
     def request(
+        self,
+        *,
+        owner_id: str,
+        space_id: str,
+        target_grant_id: str,
+        confirmation: str,
+        idempotency_key: str,
+    ) -> TransferResult:
+        result = self._request(
+            owner_id=owner_id,
+            space_id=space_id,
+            target_grant_id=target_grant_id,
+            confirmation=confirmation,
+            idempotency_key=idempotency_key,
+        )
+        deliver_transfer_mail(self.pool, result.id)
+        return result
+
+    def _request(
         self,
         *,
         owner_id: str,
@@ -55,14 +92,19 @@ class PostgresBusinessTransfer:
             if closed_at is not None:
                 raise BusinessLifecycleError("business_record_not_found")
             _lock(db, space_id)
+            db.execute(
+                "update public.business_ownership_transfers set status='expired',resolved_at=clock_timestamp()"
+                " where space_id=%s and status='pending' and expires_at<=clock_timestamp()",
+                (space_id,),
+            )
             old = db.execute(
                 f"select {_COLUMNS},target_grant_id::text,confirmation from public.business_ownership_transfers where space_id=%s and owner_id=%s and idempotency_key=%s",
                 (space_id, owner_id, idempotency_key),
             ).fetchone()
             if old:
-                if old[5:] != (target_grant_id, confirmation):
+                if old[6:] != (target_grant_id, confirmation):
                     raise BusinessLifecycleError("idempotency_conflict")
-                return TransferResult(*old[:5])
+                return TransferResult(*old[:6])
             if confirmation != name:
                 raise BusinessLifecycleError("business_name_mismatch")
             target = self._target(db, space_id, target_grant_id, owner_id)
@@ -82,16 +124,72 @@ class PostgresBusinessTransfer:
                     idempotency_key,
                 ),
             ).fetchone()
+            enqueue_transfer_mail(db, row[0], "pending")
             return TransferResult(*row)
 
     def accept(self, *, actor_id: str, transfer_id: str) -> TransferResult:
-        return self._resolve(actor_id, transfer_id, resolution="accepted")
+        return self._command(actor_id, transfer_id, "accepted")
 
     def cancel(self, *, owner_id: str, transfer_id: str) -> TransferResult:
-        return self._resolve(owner_id, transfer_id, resolution="cancelled")
+        return self._command(owner_id, transfer_id, "cancelled")
 
     def decline(self, *, actor_id: str, transfer_id: str) -> TransferResult:
-        return self._resolve(actor_id, transfer_id, resolution="declined")
+        return self._command(actor_id, transfer_id, "declined")
+
+    def _command(
+        self,
+        actor_id: str,
+        transfer_id: str,
+        resolution: Literal["accepted", "cancelled", "declined"],
+    ) -> TransferResult:
+        result = self._resolve(actor_id, transfer_id, resolution=resolution)
+        deliver_transfer_mail(self.pool, result.id)
+        return result
+
+    def discover(self, *, actor_id: str) -> tuple[TransferDetails, ...]:
+        with self.pool.connection() as db:
+            rows = db.execute(
+                f"with participant(id,space_id,owner_id,target_id,status,expires_at) as (select {_COLUMNS} from public.business_ownership_transfers t"
+                " where (owner_id=%s or target_id=%s) and exists("
+                " select 1 from public.spaces s join public.business_client_grants g on g.space_id=s.id"
+                " join auth.users u on u.id=g.grantee_id where s.id=t.space_id and s.closed_at is null"
+                " and g.grantee_id=%s and g.revoked_at is null"
+                " and (g.expires_at is null or g.expires_at>clock_timestamp())"
+                " and 'read'=any(g.capabilities) and coalesce(u.is_anonymous,false)=false"
+                " and (u.banned_until is null or u.banned_until<=clock_timestamp()))"
+                " order by created_at desc,id)"
+                " select t.*,s.name,coalesce(nullif(btrim(p.display_name),''),p.username,'Member'),"
+                " coalesce(nullif(btrim(q.display_name),''),q.username,'Member'),"
+                " (select g.id::text from public.business_client_grants g where g.space_id=t.space_id::uuid"
+                " and g.grantee_id=%s and g.revoked_at is null and 'read'=any(g.capabilities)"
+                " and (g.expires_at is null or g.expires_at>clock_timestamp()) order by g.created_at,g.id limit 1)"
+                " from participant t join public.spaces s on s.id=t.space_id::uuid"
+                " left join public.profiles p on p.id=t.owner_id::uuid"
+                " left join public.profiles q on q.id=t.target_id::uuid",
+                (actor_id, actor_id, actor_id, actor_id),
+            ).fetchall()
+            details = []
+            for row in rows:
+                if not row[9]:
+                    continue
+                try:
+                    authorize(
+                        db,
+                        TrustedActor(
+                            actor_id=UUID(actor_id),
+                            actor_kind="member",
+                            space_id=UUID(row[1]),
+                        ),
+                        UUID(row[9]),
+                    ).require("read")
+                except ActionError:
+                    continue
+                details.append(
+                    TransferDetails(
+                        *row[:9], "owner" if actor_id == row[2] else "target", row[9]
+                    )
+                )
+        return tuple(details)
 
     def _resolve(
         self,
@@ -131,18 +229,18 @@ class PostgresBusinessTransfer:
             ).fetchone()
             expected = resolution
             if command[4] == expected:
-                return TransferResult(*command[:5])
+                return TransferResult(*command[:6])
+            if command[4] == "expired":
+                raise BusinessLifecycleError("business_transfer_expired")
             if command[4] != "pending":
                 raise BusinessLifecycleError("business_transfer_not_pending")
+            resolved_at = db.execute("select clock_timestamp()").fetchone()[0]
+            if resolved_at >= command[5]:
+                raise BusinessLifecycleError("business_transfer_expired")
             if not space or space != (command[2], None):
                 raise BusinessLifecycleError("business_record_not_found")
             PostgresBusinessLifecycle._owned_space(db, command[2], command[1])
             if recipient:
-                from uuid import UUID
-
-                from argus.domain.business.authority import ActionError, authorize
-                from argus.domain.business.contracts.authority import TrustedActor
-
                 try:
                     authorize(
                         db,
@@ -151,14 +249,14 @@ class PostgresBusinessTransfer:
                             actor_kind="member",
                             space_id=UUID(command[1]),
                         ),
-                        UUID(command[5]),
+                        UUID(command[6]),
                     ).require("prepare")
                 except ActionError:
                     raise BusinessLifecycleError(
                         "business_transfer_target_invalid"
                     ) from None
             if accept:
-                self._target(db, command[1], command[5], command[2])
+                self._target(db, command[1], command[6], command[2])
                 db.execute(
                     "update public.business_client_grants set capabilities=%s::text[] where space_id=%s and grantee_id=%s and revoked_at is null",
                     (list(MEMBER_CAPABILITIES), command[1], command[2]),
@@ -181,16 +279,17 @@ class PostgresBusinessTransfer:
                 )
                 db.execute(
                     "update public.business_client_grants set capabilities=%s::text[],expires_at=null where id=%s",
-                    (list(OWNER_CAPABILITIES), command[5]),
+                    (list(OWNER_CAPABILITIES), command[6]),
                 )
                 db.execute(
                     "update public.business_access_invites set issuer_id=%s where space_id=%s",
                     (actor_id, command[1]),
                 )
             row = db.execute(
-                f"update public.business_ownership_transfers set status=%s,resolved_at=clock_timestamp() where id=%s returning {_COLUMNS}",
-                (expected, transfer_id),
+                f"update public.business_ownership_transfers set status=%s,resolved_at=%s where id=%s returning {_COLUMNS}",
+                (expected, resolved_at, transfer_id),
             ).fetchone()
+            enqueue_transfer_mail(db, transfer_id, expected)
             return TransferResult(*row)
 
     @staticmethod

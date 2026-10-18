@@ -688,6 +688,65 @@ def _closed_args(w):
     )
 
 
+@pytest.mark.owner_acts
+def test_transfer_outbox_pii_is_removed_before_canonical_history_is_anonymized(custody):
+    w = custody
+    with w["pool"].connection() as db:
+        db.execute(
+            "update auth.users set email_confirmed_at=now() where id=any(%s::uuid[])",
+            ([w["old"], w["users"]["other"]],),
+        )
+        target = db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,array['read','prepare']) returning id::text",
+            (w["space"], w["users"]["other"], w["old"]),
+        ).fetchone()[0]
+    service = PostgresBusinessTransfer(w["pool"])
+    transfer = service.request(
+        owner_id=w["old"],
+        space_id=w["space"],
+        target_grant_id=target,
+        confirmation="Colmado",
+        idempotency_key="privacy-request",
+    )
+    service.decline(actor_id=w["users"]["other"], transfer_id=transfer.id)
+    with w["pool"].connection() as db:
+        assert "business_transfer_mail_outbox" in retained_dependencies(db, w["old"])
+        assert (
+            db.execute(
+                "select count(*) from public.business_transfer_mail_outbox where transfer_id=%s",
+                (transfer.id,),
+            ).fetchone()[0]
+            == 2
+        )
+        db.execute(
+            "update public.business_transfer_mail_outbox set first_attempt_at=clock_timestamp(),payload=%s where transfer_id=%s",
+            (
+                Jsonb(
+                    {
+                        "html": "Synthetic departing member name and email",
+                        "text": "Private recipient detail",
+                        "subject": "Private",
+                    }
+                ),
+                transfer.id,
+            ),
+        )
+    args = _closed_args(w)
+    PostgresBusinessCustodyGraph(w["pool"]).detach(**args)
+    with w["pool"].connection() as db:
+        assert not db.execute(
+            "select 1 from public.business_transfer_mail_outbox where transfer_id=%s",
+            (transfer.id,),
+        ).fetchone()
+        assert not retained_dependencies(db, w["old"])
+        owner, target_id, status = db.execute(
+            "select owner_id::text,target_id::text,status from public.business_ownership_transfers where id=%s",
+            (transfer.id,),
+        ).fetchone()
+        assert owner == args["reservation"].deleted_actor_id
+        assert target_id == w["users"]["other"] and status == "declined"
+
+
 def _snapshot(w):
     with w["pool"].connection() as db:
         scope = PostgresBusinessCustodyGraph._scope(db, w["space"], w["old"], lock=False)
