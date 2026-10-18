@@ -32,6 +32,7 @@ export const RECEIPT_ATTENTIONS = [
   "interrupted",
   "outcome_unknown",
   "no_purchase_found",
+  "not_a_receipt",
   "several_purchases",
   "source_unavailable",
   "check_details",
