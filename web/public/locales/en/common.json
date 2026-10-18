@@ -2215,6 +2215,56 @@
       "turn_off": "Turn reading off",
       "turn_on": "Turn receipt reading on"
     },
+    "bank": {
+      "empty": {
+        "no_account": "Add the business bank account before importing a statement.",
+        "no_lines": "This statement has no lines."
+      },
+      "error": {
+        "layout_not_ready": "This bank's statement layout is not ready yet.",
+        "line_already_confirmed": "This line already has a confirmed match.",
+        "one_account": "This business already has a bank account.",
+        "pair_declined": "This match was declined.",
+        "unsupported_layout": "This file does not match a supported statement."
+      },
+      "import": {
+        "account": "Bank account",
+        "choose_file": "Choose a statement file",
+        "column_amount": "Amount column",
+        "column_credit": "Credit column",
+        "column_date": "Date column",
+        "column_debit": "Debit column",
+        "column_description": "Description column",
+        "column_sign": "Sign column",
+        "converged": "Already imported",
+        "inserted": "New lines",
+        "mapped_csv": "Mapped CSV",
+        "reader": "Statement layout",
+        "submit": "Import statement",
+        "title": "Import a statement"
+      },
+      "line": {
+        "charge": "Charge",
+        "deposit": "Deposit",
+        "zero": "Zero"
+      },
+      "nav": "Bank matching",
+      "suggestion": {
+        "confidence": "Match strength",
+        "confirm": "Confirm",
+        "confirmed": "Confirmed",
+        "decline": "Not this one",
+        "declined": "Declined",
+        "pending": "Suggested",
+        "receipt": "Expense",
+        "venta": "Sale"
+      },
+      "unmatched": {
+        "count": "Charges without a receipt",
+        "empty": "Every charge in this period has a receipt.",
+        "title": "Charges without a receipt"
+      }
+    },
     "export": {
       "title": "Export Business records",
       "scope": "{{name}} · CSV, Excel and retained originals in one ZIP.",

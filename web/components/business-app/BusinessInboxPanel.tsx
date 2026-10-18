@@ -14,10 +14,11 @@ import { useBusiness } from "./BusinessWorkspace";
 import { bandejaReceipts } from "./bandeja-order";
 import { countPorRevisar, countStillReading, countUnreadable, porRevisar } from "@/lib/business-review-count";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, LoadingRows, PanelHeading, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
+import { cardClass, PanelHeading, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
 import { PrimaryUpload } from "./foundation/PrimaryUpload";
 import { ToastQueue, type ToastKind } from "./foundation/ToastNotice";
+import { Settle } from "./business-skeletons";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
@@ -296,37 +297,39 @@ export default function BusinessInboxPanel() {
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.inbox.error", "We couldn't load your inbox. Try again.")}
         </p>
-      ) : items === null || notes === null ? (
-        <LoadingRows />
-      ) : empty ? (
-        <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={isBelowTablet ? null : upload ? { label: upload.label, run: upload.run } : null} />
       ) : (
-        <>
-          <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
-          {items.length ? (
-            <ListPager
-              items={items}
-              pageSize={INBOX_PAGE}
-              revealLabel={t("business.inbox.reveal_more", "Ver más")}
-              loadLabel={t("business.inbox.load_more", "Cargar más")}
-              retryLabel={t("common.retry", "Reintentar")}
-              listClassName={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}
-              listTestId="business-inbox-receipts"
-              renderItem={(receipt) => (
-                <ReceiptRow
-                  key={receipt.id}
-                  receipt={receipt}
-                  onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
-                  onMark={personal.mark}
-                  onRetry={async () => {
-                    try { await source.prepareReceipt(receipt.id); } finally { reload(); }
-                  }}
-                  onUpload={upload ? () => upload.run() : undefined}
+        <Settle pending={items === null || notes === null} layout="inbox">
+          {items === null || notes === null ? null : empty ? (
+            <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={isBelowTablet ? null : upload ? { label: upload.label, run: upload.run } : null} />
+          ) : (
+            <>
+              <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
+              {items.length ? (
+                <ListPager
+                  items={items}
+                  pageSize={INBOX_PAGE}
+                  revealLabel={t("business.inbox.reveal_more", "Ver más")}
+                  loadLabel={t("business.inbox.load_more", "Cargar más")}
+                  retryLabel={t("common.retry", "Reintentar")}
+                  listClassName={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}
+                  listTestId="business-inbox-receipts"
+                  renderItem={(receipt) => (
+                    <ReceiptRow
+                      key={receipt.id}
+                      receipt={receipt}
+                      onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
+                      onMark={personal.mark}
+                      onRetry={async () => {
+                        try { await source.prepareReceipt(receipt.id); } finally { reload(); }
+                      }}
+                      onUpload={upload ? () => upload.run() : undefined}
+                    />
+                  )}
                 />
-              )}
-            />
-          ) : null}
-        </>
+              ) : null}
+            </>
+          )}
+        </Settle>
       )}
       <InboxForwardingCard />
       <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />
