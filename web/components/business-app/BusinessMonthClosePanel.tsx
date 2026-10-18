@@ -280,8 +280,8 @@ export function BusinessMonthCloseView({
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
-  const clock = useRef(now ?? new Date());
-  const currentMonth = currentMonthKey(clock.current);
+  const [clock] = useState(() => now ?? new Date());
+  const currentMonth = currentMonthKey(clock);
   const [month, setMonth] = useState(currentMonth);
   const [snapshot, setSnapshot] = useState<MonthCloseSnapshot | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
