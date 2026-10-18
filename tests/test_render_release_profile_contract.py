@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 
 from tests.test_environment_scripts import (
+    _contract_array,
     _real_workflow_api_env_payload,
     _render_env_payload,
     _run_render_release_audit,
@@ -86,6 +87,50 @@ def test_release_contract_keeps_all_three_services_on_manual_deploys() -> None:
     assert "argus-backtests" in runbook
 
 
+def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
+    render_config = yaml.safe_load(_source("render.yaml"))
+    services = {service["name"]: service for service in render_config["services"]}
+    web = services["cuadrao-web"]
+    assert (
+        web["rootDir"],
+        web["branch"],
+        web["buildCommand"],
+        web["startCommand"],
+    ) == (
+        "marketing",
+        "main",
+        "bun install --frozen-lockfile && bun run build --webpack",
+        "bun run start -- -p $PORT",
+    )
+    assert "envVars" not in web
+    stage_api = services["cuadrao-api-staging"]
+    assert (
+        stage_api["runtime"],
+        stage_api["branch"],
+        stage_api["plan"],
+        stage_api["autoDeployTrigger"],
+        stage_api["buildCommand"],
+    ) == (
+        "python",
+        "codex/private-alpha-next",
+        "0.5c-512mb",
+        "checksPass",
+        "poetry install",
+    )
+    manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
+    declared = {item["key"]: item for item in stage_api["envVars"]}
+    assert declared == {
+        entry["name"]: {
+            "key": entry["name"],
+            **({"value": entry["value"]} if "value" in entry else {"sync": False}),
+        }
+        for entry in manifest["services"]["api"]["entries"]
+    }
+    assert services["cuadrao-marketing-staging"]["branch"] == "main"
+    assert "NEXT_PUBLIC_ARGUS_API_URL" in _contract_array("ARGUS_RENDER_WEB_ENV")
+    assert "NEXT_PUBLIC_ARGUS_API_URL" not in _source("render.yaml")
+
+
 def test_argus_api_disables_the_default_render_subdomain() -> None:
     render_config = yaml.safe_load(_source("render.yaml"))
     render_by_name = {service["name"]: service for service in render_config["services"]}
@@ -113,19 +158,19 @@ def test_workflow_version_status_derives_proof_from_ready_version(
     fake_render = bin_dir / "render"
     fake_render.write_text(
         "#!/bin/bash\n"
-        "printf '%s' '[{\"createdAt\":\"2026-08-12T15:00:00Z\","
-        "\"id\":\"wfv-current\",\"name\":\"d67cef9\","
-        "\"status\":\"ready\",\"workflowId\":\"wfl-test\"}]'\n",
+        'printf \'%s\' \'[{"createdAt":"2026-08-12T15:00:00Z",'
+        '"id":"wfv-current","name":"d67cef9",'
+        '"status":"ready","workflowId":"wfl-test"}]\'\n',
         encoding="utf-8",
     )
     fake_render.chmod(0o755)
     fake_curl = bin_dir / "curl"
     fake_curl.write_text(
         "#!/bin/bash\n"
-        "printf '%s' '[{\"envVar\":{\"key\":"
-        "\"ARGUS_RENDER_WORKFLOW_RELEASE_COMMIT\",\"value\":\"stale000\"}},"
-        "{\"envVar\":{\"key\":\"ARGUS_RENDER_WORKFLOW_RELEASE_VERSION_ID\","
-        "\"value\":\"wfv-stale\"}}]'\n",
+        'printf \'%s\' \'[{"envVar":{"key":'
+        '"ARGUS_RENDER_WORKFLOW_RELEASE_COMMIT","value":"stale000"}},'
+        '{"envVar":{"key":"ARGUS_RENDER_WORKFLOW_RELEASE_VERSION_ID",'
+        '"value":"wfv-stale"}}]\'\n',
         encoding="utf-8",
     )
     fake_curl.chmod(0o755)
@@ -230,6 +275,11 @@ def test_render_env_sync_audit_compares_the_transition_cors_allowlist(
 def test_supabase_public_keys_are_supplied_by_the_service_environment() -> None:
     config = yaml.safe_load(_source("render.yaml"))
     keys = {"SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"}
-    entries = [entry for service in config["services"] for entry in service.get("envVars", []) if entry["key"] in keys]
+    entries = [
+        entry
+        for service in config["services"]
+        for entry in service.get("envVars", [])
+        if entry["key"] in keys
+    ]
     assert entries
     assert all(entry == {"key": entry["key"], "sync": False} for entry in entries)

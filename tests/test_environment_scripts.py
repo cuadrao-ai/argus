@@ -17,6 +17,17 @@ def _source(path: str) -> str:
 
 
 def _render_env(service_name: str) -> dict[str, dict[str, str | bool]]:
+    if service_name == "argus-app":
+        block = json.loads(_source(".github/private-alpha-release-profile.json"))[
+            "services"
+        ]["web"]
+        env: dict[str, dict[str, str | bool]] = {
+            key: {"key": key, "value": str(value)} for key, value in block["env"].items()
+        }
+        for key in (*block["required_present"], *block["optional"]):
+            env.setdefault(key, {"key": key, "sync": False})
+        return env
+
     render_config = yaml.safe_load(_source("render.yaml"))
 
     for service in render_config["services"]:
@@ -26,40 +37,6 @@ def _render_env(service_name: str) -> dict[str, dict[str, str | bool]]:
     raise AssertionError(f"{service_name} service missing from render.yaml")
 
 
-def _profile_web_env_payload(
-    *,
-    omit: set[str] | None = None,
-    extra: dict[str, str] | None = None,
-    overrides: dict[str, str] | None = None,
-) -> str:
-    profile = json.loads(_source(".github/private-alpha-release-profile.json"))
-    web = profile["services"]["web"]
-    omitted = omit or set()
-    extra = extra or {}
-    overrides = overrides or {}
-    rows: list[dict[str, dict[str, str]]] = []
-    keys = [
-        *web["env"].keys(),
-        *web["required_present"],
-        *web["optional"],
-    ]
-    for key in keys:
-        if key in omitted:
-            continue
-        if key in overrides:
-            value = overrides[key]
-        elif key in web["env"]:
-            value = str(web["env"][key])
-        elif key == "NEXT_PUBLIC_POSTHOG_KEY":
-            value = ""
-        else:
-            value = f"fake-secret-{key.lower()}"
-        rows.append({"envVar": {"key": key, "value": value}})
-    for key, value in extra.items():
-        rows.append({"envVar": {"key": key, "value": value}})
-    return json.dumps(rows)
-
-
 def _render_env_payload(
     service_name: str,
     *,
@@ -67,8 +44,6 @@ def _render_env_payload(
     extra: dict[str, str] | None = None,
     overrides: dict[str, str] | None = None,
 ) -> str:
-    if service_name == "argus-app":
-        return _profile_web_env_payload(omit=omit, extra=extra, overrides=overrides)
     omitted = omit or set()
     extra = extra or {}
     overrides = overrides or {}
@@ -378,8 +353,6 @@ def test_render_blueprint_uses_current_env_contract_names_only() -> None:
     ):
         assert key in contract
         assert key in render_yaml
-    assert "NEXT_PUBLIC_ARGUS_API_URL" in contract
-    assert "NEXT_PUBLIC_ARGUS_API_URL" not in render_yaml
 
     for legacy_key in (
         "NEXT_PUBLIC_API_URL",
@@ -448,68 +421,33 @@ def test_env_example_declares_render_api_key_once() -> None:
 
 def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
     assert set(_contract_array("ARGUS_RENDER_API_ENV")) == set(_render_env("cuadrao-api"))
-    profile = json.loads(_source(".github/private-alpha-release-profile.json"))
-    web_profile = profile["services"]["web"]
-    web_contract = set(web_profile["env"])
-    web_contract.update(web_profile["required_present"])
-    web_contract.update(web_profile["optional"])
-    assert set(_contract_array("ARGUS_RENDER_WEB_ENV")) == web_contract
+    assert set(_contract_array("ARGUS_RENDER_WEB_ENV")) == set(_render_env("argus-app"))
     render_config = yaml.safe_load(_source("render.yaml"))
     services = {service["name"]: service for service in render_config["services"]}
-    assert set(services) == {
-        "cuadrao-api",
-        "cuadrao-web",
-        "cuadrao-api-staging",
-        "cuadrao-web-staging",
-        "cuadrao-marketing-staging",
-    }
-    marketing_site = services["cuadrao-web"]
-    assert marketing_site["rootDir"] == "marketing"
-    assert marketing_site["autoDeployTrigger"] == "off"
-    assert "--webpack" in marketing_site["buildCommand"]
-    assert "envVars" not in marketing_site
-    stage_api = services["cuadrao-api-staging"]
-    assert stage_api["runtime"] == "python"
-    assert stage_api["branch"] == "codex/private-alpha-next"
-    assert stage_api["plan"] == "0.5c-512mb"
-    assert stage_api["autoDeployTrigger"] == "checksPass"
-    assert stage_api["renderSubdomainPolicy"] == "enabled"
+    assert set(services) == set(
+        "cuadrao-api cuadrao-web cuadrao-api-staging cuadrao-web-staging "
+        "cuadrao-marketing-staging".split()
+    )
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
-    api_entries = manifest["services"]["api"]["entries"]
-    declared = {item["key"]: item for item in stage_api["envVars"]}
-    assert set(declared) == {entry["name"] for entry in api_entries}
-    for entry in api_entries:
-        item = declared[entry["name"]]
-        if "value" in entry:
-            assert item["value"] == entry["value"]
-        else:
-            assert item.get("sync") is False
-            assert "value" not in item
     stage = _render_env("cuadrao-web-staging")
     entries = manifest["services"]["web"]["entries"]
     held = {entry["name"] for entry in manifest["services"]["web"]["hold"]}
     assert set(stage) == {entry["name"] for entry in entries} | held | {
-        "NEXT_PUBLIC_APP_ENV", "NEXT_PUBLIC_MOCK_AUTH",
+        "NEXT_PUBLIC_APP_ENV",
+        "NEXT_PUBLIC_MOCK_AUTH",
     }
     for entry in entries:
         if "value" in entry:
             assert stage[entry["name"]]["value"] == entry["value"]
     marketing = services["cuadrao-marketing-staging"]
-    assert marketing["branch"] == "main"
     assert (marketing["plan"], marketing["autoDeployTrigger"]) == ("free", "off")
-    assert marketing["envVars"] == [
-        {"key": "CUADRAO_SITE_INDEXING", "value": "private"}
-    ]
+    assert marketing["envVars"] == [{"key": "CUADRAO_SITE_INDEXING", "value": "private"}]
 
 
 def test_render_web_declares_exact_server_only_https_app_origin() -> None:
     api_env = _render_env("cuadrao-api")
-    profile = json.loads(_source(".github/private-alpha-release-profile.json"))
+    web_env = _render_env("argus-app")
     env_contract = ENV_CONTRACT.read_text()
-    marketing_site = yaml.safe_load(_source("render.yaml"))
-    cuadrao_web = next(
-        service for service in marketing_site["services"] if service["name"] == "cuadrao-web"
-    )
 
     transition_origins = (
         "https://argus-app-suz5.onrender.com,https://arguschat.ai,"
@@ -517,9 +455,8 @@ def test_render_web_declares_exact_server_only_https_app_origin() -> None:
     )
     assert api_env["ARGUS_APP_ORIGIN"]["value"] == "https://arguschat.ai"
     assert api_env["ARGUS_CORS_ALLOW_ORIGINS"]["value"] == transition_origins
-    assert profile["services"]["web"]["env"]["ARGUS_APP_ORIGIN"] == "https://arguschat.ai"
-    assert "NEXT_PUBLIC_ARGUS_API_URL" in profile["services"]["web"]["required_present"]
-    assert "envVars" not in cuadrao_web
+    assert web_env["ARGUS_APP_ORIGIN"]["value"] == "https://arguschat.ai"
+    assert "value" not in web_env["NEXT_PUBLIC_ARGUS_API_URL"]
     assert "ARGUS_APP_ORIGIN" in _contract_array("ARGUS_RENDER_WEB_ENV")
     assert 'ARGUS_PRIVATE_LAUNCH_APP_URL="https://arguschat.ai"' in env_contract
     assert 'ARGUS_PRIVATE_LAUNCH_API_URL="https://api.arguschat.ai"' in env_contract
@@ -529,20 +466,17 @@ def test_render_web_declares_exact_server_only_https_app_origin() -> None:
 
 def test_render_blueprint_syncs_public_supabase_coordinates() -> None:
     api_env = _render_env("cuadrao-api")
-    profile = json.loads(_source(".github/private-alpha-release-profile.json"))
-    blueprint = yaml.safe_load(_source("render.yaml"))
-    cuadrao_web = next(
-        service for service in blueprint["services"] if service["name"] == "cuadrao-web"
-    )
+    web_env = _render_env("argus-app")
 
     assert "value" in api_env["SUPABASE_URL"]
     assert api_env["SUPABASE_URL"].get("sync") is not False
     assert "YOUR_" not in str(api_env["SUPABASE_URL"]["value"])
+    assert "your_" not in str(api_env["SUPABASE_URL"]["value"])
     assert api_env["SUPABASE_ANON_KEY"]["sync"] is False
     assert "value" not in api_env["SUPABASE_ANON_KEY"]
-    assert "NEXT_PUBLIC_SUPABASE_URL" in profile["services"]["web"]["required_present"]
-    assert "NEXT_PUBLIC_SUPABASE_ANON_KEY" in profile["services"]["web"]["required_present"]
-    assert "envVars" not in cuadrao_web
+    assert "value" not in web_env["NEXT_PUBLIC_SUPABASE_URL"]
+    assert web_env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]["sync"] is False
+    assert "value" not in web_env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
 
 
 def test_render_blueprint_syncs_non_secret_model_routing() -> None:
@@ -600,30 +534,21 @@ def test_workflow_proof_env_contract_is_documented_but_not_blueprinted() -> None
     assert "ARGUS_BACKTEST_WORKFLOW_TIMEOUT_SECONDS=300" in env_example
     assert "ARGUS_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS=30" in env_example
     assert "ARGUS_RENDER_WORKFLOW_PROOF_ENV=(" in env_contract
-    assert "APP_ENV" in env_contract
-    assert "ARGUS_WORKFLOW_DATABASE_URL" in env_contract
-    assert "ARGUS_RENDER_WORKFLOW_PROOF_TASK" in env_contract
-    assert "ARGUS_WORKFLOW_PROOF_PLAN" in env_contract
-    assert "POETRY_VERSION" in env_contract
-    assert "ARGUS_BACKTEST_WORKFLOW_TIMEOUT_SECONDS" in env_contract
-    assert "ARGUS_MARKET_DATA_PROVIDER_MODE" in env_contract
-    assert "ENABLE_MARKET_DATA_CACHE" in env_contract
-    assert "ALPACA_API_KEY" in env_contract
-    assert "ALPACA_SECRET_KEY" in env_contract
-    assert "ALPACA_PAPER_TRADING" in env_contract
-    assert "ARGUS_PROD_OPENROUTER_API_KEY" in env_contract
-    assert "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY" in env_contract
-    assert "ARGUS_UTILITY_MODEL" in env_contract
-    assert "ARGUS_UTILITY_FALLBACK_MODEL" in env_contract
-    assert "ARGUS_CHAT_MODEL" in env_contract
-    assert "ARGUS_CHAT_FALLBACK_MODEL" in env_contract
-    assert "ARGUS_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS" in env_contract
-    assert "ARGUS_STRUCTURED_MODEL" in env_contract
-    assert "ARGUS_STRUCTURED_FALLBACK_MODEL" in env_contract
-    assert "ARGUS_CONTEXT_MODEL" in env_contract
-    assert "ARGUS_CONTEXT_FALLBACK_MODEL" in env_contract
-    assert "ARGUS_READOUT_MODEL" in env_contract
-    assert "ARGUS_READOUT_FALLBACK_MODEL" in env_contract
+    assert all(
+        name in env_contract
+        for name in (
+            "APP_ENV ARGUS_WORKFLOW_DATABASE_URL ARGUS_RENDER_WORKFLOW_PROOF_TASK "
+            "ARGUS_WORKFLOW_PROOF_PLAN POETRY_VERSION "
+            "ARGUS_BACKTEST_WORKFLOW_TIMEOUT_SECONDS ARGUS_MARKET_DATA_PROVIDER_MODE "
+            "ENABLE_MARKET_DATA_CACHE ALPACA_API_KEY ALPACA_SECRET_KEY "
+            "ALPACA_PAPER_TRADING ARGUS_PROD_OPENROUTER_API_KEY "
+            "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY ARGUS_UTILITY_MODEL "
+            "ARGUS_UTILITY_FALLBACK_MODEL ARGUS_CHAT_MODEL ARGUS_CHAT_FALLBACK_MODEL "
+            "ARGUS_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS ARGUS_STRUCTURED_MODEL "
+            "ARGUS_STRUCTURED_FALLBACK_MODEL ARGUS_CONTEXT_MODEL "
+            "ARGUS_CONTEXT_FALLBACK_MODEL ARGUS_READOUT_MODEL ARGUS_READOUT_FALLBACK_MODEL"
+        ).split()
+    )
     workflow_env_section = env_contract.split(
         "ARGUS_RENDER_WORKFLOW_PROOF_ENV=(",
         maxsplit=1,
@@ -1188,15 +1113,13 @@ def test_render_env_sync_audit_declares_mode_specific_render_key_contract() -> N
 
 def test_render_blueprint_preserves_optional_posthog_key() -> None:
     env_contract = _contract_array("ARGUS_RENDER_WEB_ENV")
-    profile = json.loads(_source(".github/private-alpha-release-profile.json"))
-    blueprint = yaml.safe_load(_source("render.yaml"))
-    cuadrao_web = next(
-        service for service in blueprint["services"] if service["name"] == "cuadrao-web"
-    )
+    web_env = _render_env("argus-app")
 
     assert "NEXT_PUBLIC_POSTHOG_KEY" in env_contract
-    assert "NEXT_PUBLIC_POSTHOG_KEY" in profile["services"]["web"]["optional"]
-    assert "envVars" not in cuadrao_web
+    assert web_env["NEXT_PUBLIC_POSTHOG_KEY"] == {
+        "key": "NEXT_PUBLIC_POSTHOG_KEY",
+        "sync": False,
+    }
 
 
 def test_warmup_script_defaults_to_private_launch_render_urls() -> None:
