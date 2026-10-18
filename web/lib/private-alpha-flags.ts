@@ -27,3 +27,12 @@ export const evidenceReceiptSharingEnabled =
 // inside the chat shell on /biz. Default off until the connected pilot passes.
 export const businessPilotEnabled =
   process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED === "true";
+
+// Statement match cards. Default off, and nested under the Business pilot.
+// CUADRAO wins when both names are set.
+export const businessBankMatchingEnabled = (() => {
+  const cuadrao = process.env.NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED;
+  const legacy = process.env.NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED;
+  const value = (cuadrao ?? legacy ?? "").trim().toLowerCase();
+  return businessPilotEnabled && ["1", "true", "yes", "on"].includes(value);
+})();
