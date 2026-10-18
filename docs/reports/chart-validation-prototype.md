@@ -6,7 +6,7 @@ exact deliverable head are recorded in the PR closeout comment after review.
 
 ## Scope and contract
 
-The [spec](../superpowers/specs/2026-09-28-chart-validation-prototype.md) bounds
+The [spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-chart-validation-prototype.md) bounds
 the work. [Prototype setup](../../prototypes/chart-validation/README.md) links
 standalone platform commands. One [proposed fixture contract](../../prototypes/chart-validation/CONTRACT.md)
 preserves canonical historical `{time, value}` semantics and adds prototype-only

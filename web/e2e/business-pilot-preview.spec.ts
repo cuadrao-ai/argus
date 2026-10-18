@@ -227,9 +227,9 @@ test.describe("Business preview", () => {
 
   test("an unreadable receipt offers entry by hand and no AI retry", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-blurry`);
-    await expect(page.getByTestId("receipt-attention")).toContainText(
-      "We couldn't read this receipt. Enter the details yourself or send a clearer photo.",
-    );
+    await expect(page.getByTestId("receipt-attention")).toContainText("We couldn't read this file");
+    await expect(page.getByRole("button", { name: "Upload another file" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Enter details" })).toBeVisible();
     await expect(page.getByRole("button", { name: /with AI/ })).toHaveCount(0);
     await expect(page.getByLabel("Merchant")).toBeEnabled();
   });

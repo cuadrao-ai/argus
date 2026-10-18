@@ -23,6 +23,7 @@ export default function GuestExperienceSurfaces({
           publicAccountAccessEnabled={conversion.publicAccountAccessEnabled}
           onClose={conversion.close}
           onAuthenticate={conversion.authenticate}
+          onEmailConfirmed={conversion.finishConfirmedSignup}
         />
       )}
       <GuestNewConversationDialog

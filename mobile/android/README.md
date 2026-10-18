@@ -65,7 +65,7 @@ Manager is an alternative. Do not overwrite another lane's AVD.
 
 ## Design and future integration
 
-The first commit's [lane spec](../../docs/superpowers/specs/2026-09-28-android-phone-foundation.md)
+The first commit's [lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-android-phone-foundation.md)
 records ownership, exact design source and exclusions. #727 at
 `e29ee6f930a58d0eeca4ca49b2545a3cb63a1d43` was open/unmerged when implementation
 started. Its archive owns the visual reference; this project does not import
@@ -94,7 +94,7 @@ exact device evidence, source revisions and remaining limitations.
 
 ## Local registered-session development
 
-The [session spec](../../docs/superpowers/specs/2026-09-28-android-registered-session.md)
+The [session spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-android-registered-session.md)
 owns this continuation. The five-tab sample remains available without sign-in.
 An enabled build adds Account under Profile & settings. Argus owns password
 validation and profile truth through `/api/v1/auth/login` and bearer `/api/v1/me`.

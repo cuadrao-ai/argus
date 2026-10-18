@@ -1101,7 +1101,7 @@
       "upgrade_pro": "Prueba Pro gratis"
     },
     "app": {
-      "title": "App",
+      "title": "Preferencias",
       "language": "Idioma de la app",
       "close_language_modal": "Cerrar selector de idioma",
       "sidebar": "Barra lateral",
@@ -1189,16 +1189,6 @@
       "deleted_item_note": "Se puede restaurar actualmente.",
       "no_deleted_items": "No hay elementos borrados recientemente",
       "chat_item": "Chat",
-      "delete_all_conversations": "Eliminar todas las conversaciones",
-      "delete_all_confirm": {
-        "title": "¿Eliminar todas las conversaciones?",
-        "description": "Esto mueve todas las conversaciones activas y archivadas a Borrados recientemente. Puedes restaurarlas antes de que se eliminen permanentemente.",
-        "confirm": "Eliminar todas las conversaciones"
-      },
-      "delete_all_success_one": "Se movió {{count}} conversación a Borrados recientemente.",
-      "delete_all_success_other": "Se movieron {{count}} conversaciones a Borrados recientemente.",
-      "delete_all_empty": "No hay conversaciones para eliminar.",
-      "delete_all_error": "No se pudieron eliminar las conversaciones. Inténtalo de nuevo.",
       "security": "Seguridad",
       "usage": "Uso",
       "usage_panel": {
@@ -1233,8 +1223,8 @@
     },
     "help": {
       "title": "Ayuda y legal",
-      "terms": "Términos de uso",
-      "privacy": "Política de privacidad"
+      "terms": "Términos",
+      "privacy": "Privacidad"
     },
     "about": {
       "title": "Acerca de",
@@ -1511,7 +1501,10 @@
       "new_account": "¿Nuevo en Cuadrao?",
       "password_requirement": "Mínimo 8 caracteres.",
       "confirmation_title": "Revisa tu correo",
-      "confirmation_description": "Usa el enlace de confirmación que enviamos para terminar de crear tu cuenta. Luego vuelve aquí para iniciar sesión."
+      "confirmation_description": "Escribe el código del correo, o abre el enlace de confirmación. Cualquiera de los dos termina de crear tu cuenta.",
+      "confirmation_code_label": "Código de confirmación",
+      "confirmation_submit": "Confirmar",
+      "confirmation_loading": "Confirmando..."
     },
     "legal": {
       "continuing_prefix": "Al continuar, aceptas nuestros"
@@ -1552,6 +1545,8 @@
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
       "captcha_unavailable": "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
+      "browser_check_failed": "No pudimos verificar tu navegador. Intenta de nuevo.",
+      "browser_check_retry": "Intentar de nuevo",
       "unauthorized": "No pudimos verificar los datos de la cuenta. Revísalos e inténtalo de nuevo.",
       "auth_signup_failed": "No pudimos crear la cuenta. Inténtalo de nuevo.",
       "too_many_requests": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
@@ -1573,7 +1568,8 @@
       "guest_handoff_source_not_anonymous": "Esta conversación ya no pertenece a una cuenta temporal.",
       "guest_handoff_unsafe_product_graph": "No pudimos transferir esta conversación de forma segura. La conversación original no cambió.",
       "guest_handoff_workspace_unavailable": "Esta conversación temporal ya no está disponible.",
-      "guest_handoff_claim_unavailable": "No pudimos conservar la conversación temporal en este momento. Inténtalo de nuevo."
+      "guest_handoff_claim_unavailable": "No pudimos conservar la conversación temporal en este momento. Inténtalo de nuevo.",
+      "otp_rejected": "Ese código no fue aceptado. Revisa el correo e inténtalo de nuevo."
     }
   },
   "account_security": {
@@ -2478,11 +2474,20 @@
       "duplicate": "Parece un recibo que ya guardaste: mismo comercio, fecha y total. No se guardará como un segundo gasto.",
       "interrupted": "La preparación se detuvo antes de terminar. Tu recibo está guardado. Reintenta o escribe los detalles tú mismo.",
       "no_purchase_found": "Cuadrao leyó este recibo pero no encontró una compra para guardar. Escribe los detalles tú mismo.",
+      "not_a_receipt": "Esto no parece un recibo",
       "other": "Algo salió mal con este recibo. Sigue guardado. Escribe los detalles tú mismo.",
       "outcome_unknown": "No pudimos recuperar el resultado de la lectura con IA. Tu recibo sigue guardado. Reintenta o escribe los detalles tú mismo.",
       "several_purchases": "Cuadrao no pudo asociar este recibo a una sola compra. Escribe los detalles tú mismo para guardar un gasto.",
       "source_unavailable": "El archivo original ya no está disponible. Escribe los detalles tú mismo.",
       "unreadable": "No pudimos leer este recibo. Escribe los detalles tú mismo o envía una foto más clara."
+    },
+    "file_read": {
+      "unreadable_title": "No pudimos leer este archivo",
+      "unreadable_body": "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz, o escribe los datos a mano.",
+      "not_a_receipt_title": "Esto no parece un recibo",
+      "not_a_receipt_body": "Leímos el archivo, pero no encontramos una compra con su total. Los estados de cuenta y los avisos de pago no van aquí. Si es una factura que tú emitiste, márcala como Venta.",
+      "upload_another": "Subir otro archivo",
+      "enter_details": "Escribir datos"
     },
     "expenses": {
       "empty": "No hay gastos guardados en este período.",
@@ -2828,7 +2833,7 @@
     "title": "Acceso",
     "subtitle": "Quién puede ver y preparar los registros de tu negocio. Solo tú apruebas.",
     "owner": "Dueño",
-    "member": "Ve y prepara",
+    "member": "Miembro",
     "since": "Desde {{date}}",
     "pending_title": "Invitaciones pendientes",
     "pending_until": "Vence {{date}}",

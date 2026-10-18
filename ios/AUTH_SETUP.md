@@ -183,5 +183,5 @@ and retains its local data. Shut down only assigned simulators; never erase a
 shared device or stop unrelated containers. Local synthetic evidence is not
 hosted readiness. Guest transfer, resend and callbacks remain separate work.
 Financial wiring has its own [setup and evidence](ACCOUNTS_SETUP.md).
-See the [lane spec](../docs/superpowers/specs/2026-09-28-ios-auth-session.md)
+See the [lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-ios-auth-session.md)
 for ownership and exact integration/design/auth reference commits.

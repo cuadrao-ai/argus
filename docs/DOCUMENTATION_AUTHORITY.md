@@ -9,7 +9,7 @@ Current delivered work, remaining scope and action authority live in the
 
 ## Start here
 
-1. Read [AGENTS.md](../AGENTS.md) for repository, safety, review, and delivery rules.
+1. Read [AGENTS.md](../AGENTS.md) for codebase facts and safety rules.
 2. Read [PRODUCT.md](PRODUCT.md) for the product overview and the boundary between the existing Alpha and the approved pivot.
 3. Read the [minimum viable ecosystem experience (MVEE)](specs/argus-minimum-viable-ecosystem-experience.md) for the approved audience, surfaces, ingestion, loop, household collaboration, and open decisions.
 4. Read [ARCHITECTURE.md](ARCHITECTURE.md), [API_CONTRACT.md](API_CONTRACT.md), [DATA_MODEL.md](DATA_MODEL.md), and [DESIGN.md](../.agent/designs/argus/DESIGN.md) before relevant technical or UI work. Their existing contracts are not replaced by experience prose.
@@ -57,7 +57,7 @@ authorize Apple TestFlight or change public signup or marketing publication.
 | Which core flows exist for both apps, and when was each last walked? | [Core flows](CORE_FLOWS.md) | Owns the flow list, labels and last-walked evidence. It is the founder's test checklist and claims no more than a row's walk date. Other documents link here and do not repeat the list. |
 | What is an agent authorized to build now? | Explicit assignment and its scoped package/spec | MVEE approval does not assign every feature, unlock stages, or authorize provider integrations |
 | What is next, who owns it, and what counts as done? | [Private iPhone execution manifest](specs/argus-execution-board.md) | One execution map; states and evidence links do not authorize a restart, merge or deployment |
-| How is work reviewed and released? | AGENTS.md, [CI/CD discipline](specs/private-alpha-ci-cd-sota.md), [launch runbook](PRIVATE_LAUNCH_RUNBOOK.md), [manifest template](release-manifests/TEMPLATE.md) | Existing evaluation, privacy, branch, merge, and deployment gates remain in force |
+| How is work reviewed and released? | Yelena's ship playbooks (internal), [CI/CD discipline](specs/private-alpha-ci-cd-sota.md), [launch runbook](PRIVATE_LAUNCH_RUNBOOK.md), [manifest template](release-manifests/TEMPLATE.md) | Existing evaluation, privacy, branch, merge, and deployment gates remain in force |
 | What evidence or thinking informed a direction? | Linked research and historical strategy docs | Inputs and provenance, not independent scope authority |
 
 ## Constitution source material
