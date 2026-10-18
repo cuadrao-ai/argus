@@ -31,7 +31,10 @@ Future assigned Cuadrao endpoints derive their approval, authorization and retry
 requirements from the [architecture action principles](ARCHITECTURE.md#cuadrao-action-and-integration-principles).
 Specify each endpoint's payload and failure behavior in its own contract before
 implementation. The constitution sources introduce no routes or envelopes and
-do not change the behavior of existing endpoints.
+do not change the behavior of existing endpoints. Month close
+(`GET /api/v1/business/month-close` and
+`PATCH /api/v1/business/month-close/documents/{activity_id}`) is specified in
+[the month-close contract](contracts/business-month-close.md).
 
 ## Forward Evolvable
 
@@ -9226,7 +9229,14 @@ or instead of `facts`. It holds explicitly entered fiscal identity and ITBIS plu
 a typed `606` purchase or `607` sale declaration. Blank required facts remain
 unknown. The existing live prepare grant, expected version, immutable web-action
 source and review receipt govern this operation. Tax fields never enter the
-model-facing `BusinessFactPatch` or `TurnPlan`. Accepted records remain immutable;
+model-facing `BusinessFactPatch` or `TurnPlan` schema. A person may send an
+optional `facts.purchase` review for the 606 expense type, payment form, payment
+date, goods and services split, and withholdings. That object is stored on the
+purchase declaration, which remains the only 606 column owner. A suggested
+expense type is not confirmed and stays out of the export column. The 606
+manifest keeps blocking problems in `issues` and lists warn-only gaps in
+`warnings`, including an unverified or inactive supplier RNC. An RNC registry
+state never blocks approval or the export file. Accepted records remain immutable;
 this operation cannot change an approved tax declaration or repost money.
 The existing approval endpoint also accepts human `record_refund`, requiring an
 explicit actual refund linked to an original purchase. Other credit-note

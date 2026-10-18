@@ -135,6 +135,32 @@
       ],
       "optional": ["NEXT_PUBLIC_POSTHOG_KEY"]
     },
+    "marketing": {
+      "name": "cuadrao-web",
+      "auto_deploy_trigger": "off",
+      "env": {
+        "NODE_VERSION": "24.21.0",
+        "NEXT_TELEMETRY_DISABLED": "1",
+        "CUADRAO_INQUIRY_FROM": "Cuadrao <website@notify.cuadrao.ai>",
+        "CUADRAO_INQUIRY_TO": "hola@cuadrao.ai"
+      },
+      "required_present": [
+        "RESEND_API_KEY",
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY"
+      ],
+      "optional": [
+        "RESEND_API_URL",
+        "CUADRAO_SITE_INDEXING",
+        "CUADRAO_TRUSTED_CLIENT_IP_HEADER",
+        "CUADRAO_SOCIAL_PREVIEW",
+        "MARKETING_WAITLIST_FROM",
+        "MARKETING_POSTAL_ADDRESS",
+        "CUADRAO_WAITLIST_ORIGIN",
+        "CUADRAO_WAITLIST_TURNSTILE_SECRET",
+        "CUADRAO_WAITLIST_TURNSTILE_SITE_KEY"
+      ]
+    },
     "workflow": {
       "name": "argus-backtests",
       "auto_deploy_trigger": "off",

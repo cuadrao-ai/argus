@@ -2112,6 +2112,115 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/month-close:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: month
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthClose'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/month-close/documents/{activity_id}:
+    patch:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: activity_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettlementUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettlementResult'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '409':
+          description: '`business_document_settlement_conflict`: another first settlement
+            of this document landed, and a fresh retry still collided.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/v1/business/fiscal-profile:
     get:
       tags:
@@ -14538,6 +14647,26 @@ components:
       - note
       - recorded_at
       - recorded_by
+    CloseReason:
+      properties:
+        code:
+          type: string
+          enum:
+          - missing_rnc
+          - missing_ncf
+        activity_id:
+          type: string
+        document_kind:
+          type: string
+          enum:
+          - invoice
+          - receipt
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      - activity_id
+      - document_kind
     CommandResult:
       properties:
         household_id:
@@ -15401,6 +15530,65 @@ components:
       - membership_id
       - expected_authorization_version
       - definition
+    CurrencyBlock:
+      properties:
+        currency:
+          type: string
+        income_before_itbis_minor:
+          type: integer
+        income_before_itbis:
+          type: string
+        expense_before_itbis_minor:
+          type: integer
+        expense_before_itbis:
+          type: string
+        net_result_minor:
+          type: integer
+        net_result:
+          type: string
+        itbis_charged_minor:
+          type: integer
+        itbis_charged:
+          type: string
+        itbis_paid_minor:
+          type: integer
+        itbis_paid:
+          type: string
+        itbis_owed_minor:
+          type: integer
+        itbis_owed:
+          type: string
+        cuentas_por_cobrar_minor:
+          type: integer
+        cuentas_por_cobrar:
+          type: string
+        cuentas_por_pagar_minor:
+          type: integer
+        cuentas_por_pagar:
+          type: string
+        by_status:
+          $ref: '#/components/schemas/StatusTotals'
+      additionalProperties: false
+      type: object
+      required:
+      - currency
+      - income_before_itbis_minor
+      - income_before_itbis
+      - expense_before_itbis_minor
+      - expense_before_itbis
+      - net_result_minor
+      - net_result
+      - itbis_charged_minor
+      - itbis_charged
+      - itbis_paid_minor
+      - itbis_paid
+      - itbis_owed_minor
+      - itbis_owed
+      - cuentas_por_cobrar_minor
+      - cuentas_por_cobrar
+      - cuentas_por_pagar_minor
+      - cuentas_por_pagar
+      - by_status
     CurrencySummaryResponse:
       properties:
         currency:
@@ -16291,6 +16479,41 @@ components:
       type: object
       required:
       - items
+    DocumentLine:
+      properties:
+        activity_id:
+          type: string
+        document_kind:
+          type: string
+          enum:
+          - invoice
+          - receipt
+        currency:
+          type: string
+        occurred_on:
+          type: string
+          format: date
+        total_minor:
+          type: integer
+        before_itbis_minor:
+          type: integer
+        itbis_minor:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        status:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - activity_id
+      - document_kind
+      - currency
+      - occurred_on
+      - total_minor
+      - before_itbis_minor
+      - itbis_minor
+      - status
     DocumentResponse:
       properties:
         connection_id:
@@ -19135,6 +19358,17 @@ components:
       additionalProperties: false
       type: object
       description: A code typed by hand, or the token from a link or QR. Exactly one.
+    InvoiceStatuses:
+      properties:
+        pendiente:
+          $ref: '#/components/schemas/StatusCell'
+        cobrado:
+          $ref: '#/components/schemas/StatusCell'
+      additionalProperties: false
+      type: object
+      required:
+      - pendiente
+      - cobrado
     ItemAssignment:
       properties:
         item_id:
@@ -20965,6 +21199,55 @@ components:
       - kind
       - amount
       - occurred_at
+    MonthClose:
+      properties:
+        month:
+          type: string
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        closed:
+          type: boolean
+        reasons:
+          items:
+            $ref: '#/components/schemas/CloseReason'
+          type: array
+        currencies:
+          items:
+            $ref: '#/components/schemas/CurrencyBlock'
+          type: array
+        missing_rnc:
+          items:
+            $ref: '#/components/schemas/DocumentLine'
+          type: array
+        missing_ncf:
+          items:
+            $ref: '#/components/schemas/DocumentLine'
+          type: array
+        cuentas_por_cobrar:
+          items:
+            $ref: '#/components/schemas/DocumentLine'
+          type: array
+        cuentas_por_pagar:
+          items:
+            $ref: '#/components/schemas/DocumentLine'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - month
+      - from
+      - to
+      - closed
+      - reasons
+      - currencies
+      - missing_rnc
+      - missing_ncf
+      - cuentas_por_cobrar
+      - cuentas_por_pagar
     NetworkNumbers:
       properties:
         beta:
@@ -22845,6 +23128,9 @@ components:
             - '10'
             - '11'
           - type: 'null'
+        category_suggested:
+          type: boolean
+          default: false
         paid_on:
           anyOf:
           - type: string
@@ -23867,6 +24153,17 @@ components:
           - type: 'null'
       additionalProperties: false
       type: object
+    ReceiptStatuses:
+      properties:
+        pendiente:
+          $ref: '#/components/schemas/StatusCell'
+        pagado:
+          $ref: '#/components/schemas/StatusCell'
+      additionalProperties: false
+      type: object
+      required:
+      - pendiente
+      - pagado
     ReceiptStrategy:
       properties:
         strategy_type:
@@ -25275,6 +25572,54 @@ components:
       required:
       - version
       description: A person settles the read purchases a recorded draft does not cover.
+    SettlementResult:
+      properties:
+        activity_id:
+          type: string
+        document_kind:
+          type: string
+          enum:
+          - invoice
+          - receipt
+        status:
+          type: string
+        settled_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        payment_method:
+          anyOf:
+          - type: string
+          - type: 'null'
+        changed:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - activity_id
+      - document_kind
+      - status
+      - settled_on
+      - payment_method
+      - changed
+    SettlementUpdate:
+      properties:
+        status:
+          type: string
+        settled_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        payment_method:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - status
     SharePlan:
       properties:
         membership_id:
@@ -25805,6 +26150,28 @@ components:
       type: object
       required:
       - prompts
+    StatusCell:
+      properties:
+        count:
+          type: integer
+        before_itbis_minor:
+          type: integer
+      additionalProperties: false
+      type: object
+      required:
+      - count
+      - before_itbis_minor
+    StatusTotals:
+      properties:
+        invoices:
+          $ref: '#/components/schemas/InvoiceStatuses'
+        receipts:
+          $ref: '#/components/schemas/ReceiptStatuses'
+      additionalProperties: false
+      type: object
+      required:
+      - invoices
+      - receipts
     SuccessResponse:
       properties:
         success:
