@@ -11,10 +11,10 @@ do $$ begin
  end;
 end $$;
 select vault.create_secret('https://skedzwocnmrhfigiwyzi.supabase.co','cuadrao_waitlist_project_url');
-select vault.create_secret('local-fixture-only','cuadrao_waitlist_service_role_key');
+select vault.create_secret('local-fixture-only','cuadrao_waitlist_scheduler_key');
 do $$ declare request bigint; begin
  request := cuadrao_scheduler.remind_waitlist();
- if not exists (select 1 from net.http_request_queue where id=request and url='https://skedzwocnmrhfigiwyzi.supabase.co/functions/v1/waitlist-reminders' and headers->>'Authorization'='Bearer local-fixture-only' and timeout_milliseconds=120000) then raise exception 'wrong scheduler handoff'; end if;
+ if not exists (select 1 from net.http_request_queue where id=request and url='https://skedzwocnmrhfigiwyzi.supabase.co/functions/v1/waitlist-reminders' and headers->>'X-Cuadrao-Waitlist-Scheduler-Key'='local-fixture-only' and not headers ? 'Authorization' and timeout_milliseconds=120000) then raise exception 'wrong scheduler handoff'; end if;
 end $$;
 -- Rollback prevents pg_net from sending anything to a hosted service.
 rollback;
