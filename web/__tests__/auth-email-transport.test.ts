@@ -14,18 +14,31 @@ describe("Auth email compatibility and delivery", () => {
     const cases: AuthMail[] = [
       { ...linked, action: "signup", token: "55070219" },
       { ...linked, action: "magiclink", token: "55070219" },
+      { ...linked, action: "invite" },
       { ...linked, action: "email_change", audience: "old_address", newEmail: "new@example.test" },
+      { ...linked, action: "email_change", audience: "new_address", recipient: "new@example.test", newEmail: "new@example.test" },
       { action: "reauthentication", recipient: linked.recipient, token: "55070219" },
     ];
     for (const mail of cases) {
-      const rendered = await renderAuthMail(mail, "https://skedzwocnmrhfigiwyzi.supabase.co", 3600);
-      assert.equal(rendered.subject.includes("55070219"), ["signup", "magiclink", "reauthentication"].includes(mail.action));
-      assert.equal(rendered.text.includes("55070219"), ["signup", "magiclink", "reauthentication"].includes(mail.action));
+      const rendered = await renderAuthMail(mail, "https://app.example.test", 3600);
+      const carriesCode = mail.action === "signup" || mail.action === "magiclink" || mail.action === "reauthentication";
+      assert.equal(rendered.subject.startsWith("55070219 "), carriesCode);
+      assert.equal(rendered.text.includes("55070219"), carriesCode);
       assert.ok(rendered.html.includes('alt="Cuadrao"'));
       assert.ok(rendered.html.includes("Saludos,<br>Cuadrao"));
       assert.ok(!rendered.html.includes("Salir de la lista"));
-      if (mail.action !== "reauthentication") {
-        assert.ok(rendered.text.includes(`type=${mail.action}&redirect_to=`));
+      assert.ok(rendered.text.includes("Cuadrao LLC"));
+      assert.ok(!rendered.text.includes("Cuadrao LLC,"));
+      if (mail.action === "signup" || mail.action === "magiclink") {
+        assert.equal(/https?:\/\//.test(rendered.text), false);
+        assert.equal(rendered.html.includes('href="https:'), false);
+        assert.ok(!rendered.text.includes("/auth/"));
+      }
+      if (mail.action === "invite" || mail.action === "email_change") {
+        assert.ok(rendered.text.includes("https://app.example.test/auth/confirm?token_hash="));
+        assert.ok(rendered.text.includes(`type=${mail.action}`));
+        assert.ok(!rendered.text.includes("supabase.co"));
+        assert.ok(!rendered.text.includes("redirect_to="));
       }
     }
   });
