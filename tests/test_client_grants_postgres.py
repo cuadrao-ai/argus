@@ -710,3 +710,27 @@ def test_client_roles_cannot_see_their_own_private_objects(owned_rows, role) -> 
                 "select count(*) from storage.objects where name = %s", (name,)
             )
             assert cursor.fetchone() == (0,)
+
+
+def test_service_role_cannot_rewrite_address_events(catalog) -> None:
+    catalog.execute(
+        "select has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'SELECT'),"
+        " has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'INSERT'),"
+        " has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'UPDATE'),"
+        " has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'DELETE')"
+    )
+    assert catalog.fetchone() == (True, True, False, False)
+    with psycopg.connect(DSN) as connection:
+        with connection.cursor() as cursor:
+            for statement in (
+                "update public.business_email_address_events set event_type = event_type",
+                "delete from public.business_email_address_events",
+            ):
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    with connection.transaction():
+                        _act_as(cursor, "service_role")
+                        cursor.execute(statement)

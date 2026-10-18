@@ -230,6 +230,15 @@ def test_suggestions_add_a_number_and_a_city():
     ]
 
 
+def test_a_partial_name_list_is_filled_with_the_code_fallback():
+    base = "ferreteriagomez"
+    free_name = "ferreteriagomez2"
+    taken = set(name_candidates(base)) - {free_name}
+    codes = iter(("q7kmn1", "q7kmn2"))
+    found = free_suggestions(base, lambda alias: alias in taken, code=lambda: next(codes))
+    assert found == [free_name, "ferreteriagomezq7kmn1", "ferreteriagomezq7kmn2"]
+
+
 def test_a_random_code_is_used_only_when_every_name_is_taken():
     base = "ferreteriagomez"
     names = set(name_candidates(base))

@@ -742,6 +742,8 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
         first_scan=False,
     )
     store.finish(claimed, "captured")
+    draft_id = uuid4()
+    store.link_draft_documents(route.space_id, draft_id, [document_id])
 
     class Recording:
         def __init__(self) -> None:
@@ -767,7 +769,7 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
         service, uuid4(), route.space_id
     )
     body = {"version": 1, "action": "record_expense"}
-    url = f"/business/drafts/{document_id}/approve"
+    url = f"/business/drafts/{draft_id}/approve"
     with TestClient(app) as drafts:
         blocked = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
         assert blocked.status_code == 403, blocked.text
@@ -782,7 +784,7 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
         opened = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
     assert opened.status_code == 422, opened.text
     assert opened.json()["detail"]["code"] == "expense_blocked"
-    assert service.calls == [document_id]
+    assert service.calls == [draft_id]
     assert store.get(delivery.id, route.space_id).approved is False
 
 
@@ -823,6 +825,8 @@ def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
         first_scan=False,
     )
     store.finish(claimed, "captured")
+    draft_id = uuid4()
+    store.link_draft_documents(route.space_id, draft_id, [document_id])
     alice.post(
         "/email/senders",
         {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},
@@ -852,7 +856,7 @@ def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
         service, uuid4(), route.space_id
     )
     body = {"version": 1, "action": "record_expense"}
-    url = f"/business/drafts/{document_id}/approve"
+    url = f"/business/drafts/{draft_id}/approve"
     with TestClient(app) as drafts:
         forged = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
         assert forged.status_code == 403, forged.text

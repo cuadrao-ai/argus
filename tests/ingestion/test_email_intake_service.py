@@ -461,6 +461,7 @@ async def test_authorized_mail_books_when_the_server_says_it_is_aligned():
     world = rig()
     _authorize(world)
     world.provider.authentication = {"spf": "pass", "dkim": "pass", "dmarc": "pass"}
+    world.provider.provider_from = "proveedor@example.test"
     delivery = world.enqueue()
     assert await world.runtime.next()
     saved = world.store.get(delivery.id, world.route.space_id)
@@ -556,6 +557,7 @@ def _insert_from(raw: bytes, value: str) -> bytes:
 def _aligned(world: Rig, address: str) -> None:
     world.store.upsert_sender(world.route.space_id, "address", address, "authorized")
     world.provider.sender = address
+    world.provider.provider_from = address
     world.provider.authentication = {"spf": "pass", "dkim": "pass", "dmarc": "pass"}
 
 
@@ -571,10 +573,11 @@ async def test_two_from_headers_stay_with_new_senders():
     world = rig(raw)
     _aligned(world, "vendor@x.com")
     saved = await _captured(world)
-    assert (saved.inbox_group, saved.auth_result, saved.state) == (
+    assert (saved.inbox_group, saved.auth_result, saved.state, saved.cap_exempt) == (
         "remitentes_nuevos",
         "unknown",
         "captured",
+        False,
     )
 
 
@@ -583,10 +586,11 @@ async def test_two_from_addresses_in_one_header_stay_with_new_senders():
     world = rig(_png_message("vendor@x.com, attacker@own-domain.test"))
     _aligned(world, "vendor@x.com")
     saved = await _captured(world)
-    assert (saved.inbox_group, saved.auth_result, saved.state) == (
+    assert (saved.inbox_group, saved.auth_result, saved.state, saved.cap_exempt) == (
         "remitentes_nuevos",
         "unknown",
         "captured",
+        False,
     )
 
 
@@ -596,11 +600,103 @@ async def test_a_provider_from_that_differs_from_the_message_stays_with_new_send
     _aligned(world, "vendor@x.com")
     world.provider.provider_from = "attacker@own-domain.test"
     saved = await _captured(world)
-    assert (saved.inbox_group, saved.auth_result, saved.state) == (
+    assert (saved.inbox_group, saved.auth_result, saved.state, saved.cap_exempt) == (
         "remitentes_nuevos",
         "unknown",
         "captured",
+        False,
     )
+
+
+def _usage(world: Rig) -> list[int]:
+    day = business_day(world.clock())
+    return world.store._usage.get((world.route.id, day), [0, 0])
+
+
+async def _send(world: Rig, count: int) -> None:
+    for _ in range(count):
+        world.runtime.enqueue_resend(str(uuid4()), (RECIPIENT,))
+        await world.runtime.next()
+
+
+@pytest.mark.asyncio
+async def test_a_forged_authorized_sender_is_charged_and_stops_at_the_byte_cap():
+    from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+    from argus.domain.ingestion.email_intake.budget import DailyEmailBudget
+
+    world = rig()
+    world.store.budget = DailyEmailBudget(100, 2 * SOURCE_MAX_BYTES)
+    _authorize(world)
+    world.provider.authentication = {"spf": "pass", "dkim": "fail", "dmarc": "fail"}
+    world.provider.provider_from = "proveedor@example.test"
+    await _send(world, 6)
+    assert world.provider.calls == 2
+    assert _usage(world) == [2, 2 * SOURCE_MAX_BYTES]
+
+
+@pytest.mark.asyncio
+async def test_a_full_message_cap_does_not_fetch_spoofed_authorized_mail():
+    from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+    from argus.domain.ingestion.email_intake.budget import DailyEmailBudget
+
+    world = rig()
+    world.store.budget = DailyEmailBudget(2, 100 * SOURCE_MAX_BYTES)
+    _authorize(world)
+    world.provider.authentication = {"spf": "pass", "dkim": "fail", "dmarc": "fail"}
+    world.provider.provider_from = "proveedor@example.test"
+    await _send(world, 6)
+    assert world.provider.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_an_empty_second_from_header_stays_with_new_senders():
+    raw = _png_message("vendor@x.com")
+    start = raw.lower().find(b"from:")
+    end = raw.find(b"\n", start)
+    world = rig(raw[:end] + b"\nFrom:" + raw[end:])
+    _aligned(world, "vendor@x.com")
+    saved = await _captured(world)
+    assert (saved.inbox_group, saved.auth_result, saved.cap_exempt) == (
+        "remitentes_nuevos",
+        "unknown",
+        False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_missing_provider_from_counts_as_unknown():
+    world = rig(_png_message("vendor@x.com"))
+    _aligned(world, "vendor@x.com")
+    world.provider.provider_from = None
+    saved = await _captured(world)
+    assert (saved.inbox_group, saved.auth_result) == ("remitentes_nuevos", "unknown")
+
+
+@pytest.mark.parametrize("spoofed", [b"From : attacker@evil.test", b"From\t: attacker@evil.test"])
+@pytest.mark.asyncio
+async def test_a_from_header_with_space_before_the_colon_is_ambiguous(spoofed: bytes):
+    raw = _png_message("vendor@x.com")
+    start = raw.lower().find(b"from:")
+    end = raw.find(b"\n", start)
+    world = rig(raw[:end] + b"\n" + spoofed + raw[end:])
+    _aligned(world, "vendor@x.com")
+    saved = await _captured(world)
+    assert (saved.inbox_group, saved.auth_result, saved.cap_exempt) == (
+        "remitentes_nuevos",
+        "unknown",
+        False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_blocked_from_in_the_message_is_rejected_after_an_open_preview():
+    world = rig(_png_message("blocked@tienda.test"))
+    world.provider.sender = "proveedor@example.test"
+    world.store.upsert_sender(
+        world.route.space_id, "address", "blocked@tienda.test", "blocked"
+    )
+    saved = await _captured(world)
+    assert (saved.state, saved.error_code) == ("rejected", "email_sender_blocked")
 
 
 @pytest.mark.asyncio
@@ -622,6 +718,8 @@ async def test_aligned_mail_with_a_display_name_can_be_approved():
         for part in world.store.parts(delivery.id)
         if part.filename == "recibo.png"
     )
+    draft_id = uuid4()
+    world.store.link_draft_documents(world.route.space_id, draft_id, [document_id])
 
     class Recording:
         def __init__(self) -> None:
@@ -650,7 +748,7 @@ async def test_aligned_mail_with_a_display_name_can_be_approved():
     try:
         with TestClient(app) as drafts:
             response = drafts.post(
-                f"/business/drafts/{document_id}/approve",
+                f"/business/drafts/{draft_id}/approve",
                 json={"version": 1, "action": "record_expense"},
                 headers={"Idempotency-Key": str(uuid4())},
             )
@@ -658,6 +756,6 @@ async def test_aligned_mail_with_a_display_name_can_be_approved():
         configure_email_intake(None)
     assert response.status_code == 422, response.text
     assert response.json()["detail"]["code"] == "expense_blocked"
-    assert [str(call) for call in service.calls] == [str(document_id)]
+    assert [str(call) for call in service.calls] == [str(draft_id)]
     assert saved.sender == "caja@tienda.test"
     assert (saved.inbox_group, saved.auth_result) == ("bandeja", "aligned")

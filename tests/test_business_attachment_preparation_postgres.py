@@ -332,6 +332,74 @@ def test_disconnected_source_refuses_completion(prepared):
         finish(prepared)
 
 
+@pytest.mark.owner_acts
+def test_approve_refuses_a_forged_sender_on_the_real_draft(prepared):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from psycopg.types.json import Jsonb
+
+    from argus.api.business_drafts import DraftContext, require_drafts
+    from argus.api.email_intake import configure_email_intake, email_intake
+    from argus.api.routers.business_drafts import router
+    from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+
+    service, context, grant, cid, _, _ = prepared
+    bind(prepared)
+    draft_id = finish(prepared).draft_id
+    assert str(draft_id) != str(cid)
+    space = str(context.actor.space_id)
+    store = PostgresEmailStore(service.authority.pool)
+    route = store.create_route(
+        recipient=f"recibos-{uuid4().hex[:8]}@recibos.example.test",
+        space_id=space,
+        principal_id=str(context.owner_id),
+        granted_by=str(context.owner_id),
+        grant_id=str(grant),
+    )
+    store.upsert_sender(space, "address", "caja@tienda.test", "authorized")
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_email_deliveries("
+            "provider, external_id, recipients, route_id, space_id, principal_id,"
+            " state, original_document_id, sender, auth_result, inbox_group)"
+            " values ('resend', %s, %s, %s, %s, %s, 'captured', %s,"
+            " 'caja@tienda.test', 'failed', 'remitentes_nuevos')",
+            (
+                str(uuid4()),
+                Jsonb(["caja@tienda.test"]),
+                route.id,
+                space,
+                str(context.owner_id),
+                cid,
+            ),
+        )
+    assert store.email_document_standing(space, str(cid)) == "new"
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "approve-forged-draft"
+        return await call_next(request)
+
+    app.include_router(router)
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(
+        service, context.actor.actor_id, space
+    )
+    previous = email_intake()
+    configure_email_intake(None)
+    try:
+        with TestClient(app) as drafts:
+            blocked = drafts.post(
+                f"/business/drafts/{draft_id}/approve",
+                json={"version": 1, "action": "record_expense"},
+                headers={"Idempotency-Key": str(uuid4())},
+            )
+    finally:
+        configure_email_intake(previous)
+    assert blocked.status_code == 403, blocked.text
+    assert blocked.json()["detail"]["code"] == "email_sender_unauthorized"
+
+
 def test_nonexistent_target_refuses_binding(prepared):
     with pytest.raises(ActionError):
         bind(prepared, ExistingDraft(draft_id=uuid4(), version=1))

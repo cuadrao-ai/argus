@@ -35,6 +35,8 @@ class Provider:
     def __init__(self, raw: bytes, recipients: tuple[str, ...]) -> None:
         self.raw, self.recipients, self.calls = raw, recipients, 0
         self.sender = "proveedor@example.test"
+        self.authentication = None
+        self.provider_from = None
 
     async def preview_from(self, email_id: str) -> str | None:
         return self.sender
@@ -44,7 +46,9 @@ class Provider:
         self.calls += 1
         if budget:
             await budget.settle(reservation, len(self.raw))
-        return ReceivedEmail(self.raw, self.recipients)
+        return ReceivedEmail(
+            self.raw, self.recipients, self.authentication, self.provider_from
+        )
 
 
 def fresh_alias() -> str:
@@ -443,6 +447,57 @@ def test_address_and_sender_changes_leave_an_audit_row(rig):
     ]
     assert {event.actor_id for event in events} == {actor}
     assert all(event.created_at is not None for event in events)
+
+
+def _daily(rig) -> tuple[int, int] | None:
+    with rig["pool"].connection() as db:
+        return db.execute(
+            "select messages, bytes_used from public.business_email_daily_usage"
+            " where route_id=%s",
+            (rig["route"].id,),
+        ).fetchone()
+
+
+def _spoof(rig, messages: int, byte_cap: int) -> None:
+    from argus.domain.ingestion.email_intake.budget import DailyEmailBudget
+
+    rig["store"].budget = DailyEmailBudget(messages, byte_cap)
+    rig["store"].upsert_sender(
+        rig["route"].space_id, "address", "proveedor@example.test", "authorized"
+    )
+    rig["provider"].authentication = {"spf": "pass", "dkim": "fail", "dmarc": "fail"}
+    rig["provider"].provider_from = "proveedor@example.test"
+    for _ in range(6):
+        rig["runtime"].enqueue_resend(str(uuid4()), (rig["route"].recipient,))
+        asyncio.run(rig["runtime"].next())
+
+
+def test_a_forged_authorized_sender_is_charged_on_postgres(rig):
+    from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+
+    _spoof(rig, 100, 2 * SOURCE_MAX_BYTES)
+    assert rig["provider"].calls == 2
+    assert _daily(rig) == (2, 2 * SOURCE_MAX_BYTES)
+    with rig["pool"].connection() as db:
+        flags = db.execute(
+            "select cap_exempt from public.business_email_deliveries where route_id=%s",
+            (rig["route"].id,),
+        ).fetchall()
+    assert [flag[0] for flag in flags] == [False, False, False, False, False, False]
+
+
+def test_a_full_message_cap_does_not_fetch_spoofed_mail_on_postgres(rig):
+    from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+
+    _spoof(rig, 2, 100 * SOURCE_MAX_BYTES)
+    assert rig["provider"].calls == 2
+    with rig["pool"].connection() as db:
+        flags = db.execute(
+            "select cap_exempt from public.business_email_deliveries where route_id=%s",
+            (rig["route"].id,),
+        ).fetchall()
+    assert flags
+    assert all(flag[0] is False for flag in flags)
 
 
 def test_deleting_the_space_keeps_the_alias_taken(rig):
