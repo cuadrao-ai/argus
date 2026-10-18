@@ -3279,6 +3279,7 @@
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
+        ".gitattributes",
         "docs/API_CONTRACT.md",
         "docs/DATA_MODEL.md",
         "docs/api/openapi.yaml",
