@@ -56,6 +56,7 @@ class Provider:
         self.raw, self.recipients, self.calls = raw, recipients, 0
         self.sender = "proveedor@example.test"
         self.authentication = None
+        self.provider_from: str | None = None
         self.failure: EmailProviderError | None = None
 
     async def preview_from(self, email_id: str) -> str | None:
@@ -68,7 +69,9 @@ class Provider:
             raise self.failure
         if budget:
             await budget.settle(reservation, len(self.raw))
-        return ReceivedEmail(self.raw, self.recipients, self.authentication)
+        return ReceivedEmail(
+            self.raw, self.recipients, self.authentication, self.provider_from
+        )
 
 
 class Clock:
@@ -532,3 +535,129 @@ async def test_message_text_cannot_instruct_the_reader_or_approve():
     parts = world.store.parts(delivery.id)
     assert seen == [part.document_id for part in parts if part.media_type == "image/png"]
     assert saved.original_document_id not in seen
+
+
+def _png_message(from_value: str) -> bytes:
+    msg = EmailMessage()
+    msg["From"] = from_value
+    msg["To"] = RECIPIENT
+    msg["Subject"] = "Factura"
+    msg.set_content("Adjunto la factura.")
+    msg.add_attachment(png(), maintype="image", subtype="png", filename="recibo.png")
+    return msg.as_bytes()
+
+
+def _insert_from(raw: bytes, value: str) -> bytes:
+    start = raw.lower().find(b"from:")
+    end = raw.find(b"\n", start)
+    return raw[:end] + b"\nFrom: " + value.encode() + raw[end:]
+
+
+def _aligned(world: Rig, address: str) -> None:
+    world.store.upsert_sender(world.route.space_id, "address", address, "authorized")
+    world.provider.sender = address
+    world.provider.authentication = {"spf": "pass", "dkim": "pass", "dmarc": "pass"}
+
+
+async def _captured(world: Rig):
+    delivery = world.runtime.enqueue_resend(str(uuid4()), (RECIPIENT,))
+    assert await world.runtime.next()
+    return world.store.get(delivery.id, world.route.space_id)
+
+
+@pytest.mark.asyncio
+async def test_two_from_headers_stay_with_new_senders():
+    raw = _insert_from(_png_message("vendor@x.com"), "attacker@own-domain.test")
+    world = rig(raw)
+    _aligned(world, "vendor@x.com")
+    saved = await _captured(world)
+    assert (saved.inbox_group, saved.auth_result, saved.state) == (
+        "remitentes_nuevos",
+        "unknown",
+        "captured",
+    )
+
+
+@pytest.mark.asyncio
+async def test_two_from_addresses_in_one_header_stay_with_new_senders():
+    world = rig(_png_message("vendor@x.com, attacker@own-domain.test"))
+    _aligned(world, "vendor@x.com")
+    saved = await _captured(world)
+    assert (saved.inbox_group, saved.auth_result, saved.state) == (
+        "remitentes_nuevos",
+        "unknown",
+        "captured",
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_provider_from_that_differs_from_the_message_stays_with_new_senders():
+    world = rig(_png_message("vendor@x.com"))
+    _aligned(world, "vendor@x.com")
+    world.provider.provider_from = "attacker@own-domain.test"
+    saved = await _captured(world)
+    assert (saved.inbox_group, saved.auth_result, saved.state) == (
+        "remitentes_nuevos",
+        "unknown",
+        "captured",
+    )
+
+
+@pytest.mark.asyncio
+async def test_aligned_mail_with_a_display_name_can_be_approved():
+    from argus.api.business_drafts import DraftContext, require_drafts
+    from argus.api.email_intake import configure_email_intake
+    from argus.api.routers.business_drafts import router
+    from argus.domain.business.contracts.actions import Refused
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    world = rig(_png_message("Caja <caja@tienda.test>"))
+    _aligned(world, "caja@tienda.test")
+    delivery = world.enqueue()
+    assert await world.runtime.next()
+    saved = world.store.get(delivery.id, world.route.space_id)
+    document_id = next(
+        part.document_id
+        for part in world.store.parts(delivery.id)
+        if part.filename == "recibo.png"
+    )
+
+    class Recording:
+        def __init__(self) -> None:
+            self.calls: list = []
+
+        def context_for_draft(self, actor_id, draft_id, **_pin):
+            return object()
+
+        def approve(self, context, draft_id, request, key):
+            self.calls.append(draft_id)
+            return Refused(outcome="invalid_input", code="expense_blocked")
+
+    service = Recording()
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "approve-display-name"
+        return await call_next(request)
+
+    app.include_router(router)
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(
+        service, uuid4(), world.route.space_id
+    )
+    configure_email_intake(world.runtime)
+    try:
+        with TestClient(app) as drafts:
+            response = drafts.post(
+                f"/business/drafts/{document_id}/approve",
+                json={"version": 1, "action": "record_expense"},
+                headers={"Idempotency-Key": str(uuid4())},
+            )
+    finally:
+        configure_email_intake(None)
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["code"] == "expense_blocked"
+    assert [str(call) for call in service.calls] == [str(document_id)]
+    assert saved.sender == "caja@tienda.test"
+    assert (saved.inbox_group, saved.auth_result) == ("bandeja", "aligned")

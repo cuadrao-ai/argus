@@ -50,6 +50,7 @@ class ReceivedEmail:
     raw: bytes
     recipients: tuple[str, ...]
     authentication: dict | None = None
+    provider_from: str | None = None
 
 
 class ResendReceivingClient:
