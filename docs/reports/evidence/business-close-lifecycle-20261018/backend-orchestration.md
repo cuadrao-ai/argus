@@ -82,7 +82,7 @@ persisted purge plan and readback before settlement.
 
 The owned `business_deletion_orchestration_testdb` was cloned from the preserved
 `business_close_testdb`. Only that new database received checked-in forward
-migrations 20261018240005 through 20261018240008. The root baseline `postgres` database and the
+migrations 20261019000005 through 20261019000008. The root baseline `postgres` database and the
 source fixture were not changed. Python was the shared read-only 3.10 runtime.
 `load_project_dotenv` was disabled in the test process and provider credentials
 were blanked. External Auth, Storage, SMTP and provider effects used fake
@@ -108,4 +108,4 @@ Keep the readiness denial and global deletion off through that work. Required
 continuation step 6 remains with root. All three receipt cases must pass, then
 independent final Eval and Rafael's permission retest must run on the reconciled
 final head. Only root can consider integration or staging under separate grants.
-New migrations 20261018240007 and 20261018240008 can reach staging only through the merged PR.
+New migrations 20261019000007 and 20261019000008 can reach staging only through the merged PR.

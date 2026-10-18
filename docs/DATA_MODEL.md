@@ -3681,7 +3681,7 @@ status) and kept with the record.
 
 ### Business closure lifecycle command history, draft October 18, 2026
 
-`20261018240000_business_close_lifecycle.sql` adds
+`20261019000000_business_close_lifecycle.sql` adds
 `business_lifecycle_commands`. One row stores the original result of one owner's
 close or reopen command, uniquely keyed by `(space_id, idempotency_key)`.
 The composite `(space_id, owner_id)` foreign key references the canonical
@@ -3702,7 +3702,7 @@ this bounded domain slice.
 
 ### Business current owner and transfer commands, draft October 18, 2026
 
-The forward migration `20261018240001_business_current_owner_transfer.sql`
+The forward migration `20261019000001_business_current_owner_transfer.sql`
 separates `spaces.current_owner_id`, the current person's authority, from
 `spaces.created_by`, the unchanged record custodian. The new owner column is
 backfilled, indexed, nullable only for a closed Business and references Auth
@@ -3730,10 +3730,10 @@ deletion and lifecycle readiness still closed.
 
 ### Business transfer expiry and mail, WIP October 18, 2026
 
-The transfer successor migration `20261018240006_business_transfer_mail_expiry.sql`
+The transfer successor migration `20261019000006_business_transfer_mail_expiry.sql`
 adds immutable `business_ownership_transfers.expires_at`, exactly 168 hours after
 `created_at`, plus the terminal `expired` state. It preserves the scoped custody
-rewrite guard added by migration 20261018240005. GET computes deadline status without
+rewrite guard added by migration 20261019000005. GET computes deadline status without
 changing history; new requests close expired pending commands under the same
 Business lock.
 
@@ -3757,7 +3757,7 @@ The complete account-deletion orchestration and lifecycle activation remain held
 
 ### Business custody copy reservations, draft October 18, 2026
 
-The forward migration `20261018240002_business_custody_object_manifest.sql` adds
+The forward migration `20261019000002_business_custody_object_manifest.sql` adds
 `argus_private.business_custody_reservations` and `business_custody_objects`.
 The first owns one dedicated placeholder ID and anonymous historical actor ID
 per Business, with creation and Auth-ready times. It stores no departed-person
@@ -3777,12 +3777,12 @@ verified. Full custody and privacy completion remain pending.
 
 ### Transfer decline and automatic consent invalidation
 
-The forward migration `20261018240003_business_transfer_decline.sql` adds the
+The forward migration `20261019000003_business_transfer_decline.sql` adds the
 terminal `declined` transfer state. It preserves immutable command history.
 The owner withdraws through cancellation. Recipient decline and withdrawal both
 end pending state and leave ownership unchanged.
 
-`20261018240004_business_consent_transfer_invalidation.sql` adds the indexed
+`20261019000004_business_consent_transfer_invalidation.sql` adds the indexed
 nullable `business_ai_consents.invalidated_by_transfer_id` FK. It identifies an
 automatic invalidation by an accepted ownership transfer. The original owner and
 consenting actor stay unchanged. `revoked_by` stays NULL because nobody issued a
@@ -3795,7 +3795,7 @@ anonymization writer.
 
 ### Business member departure aliases and day-30 purge, backend WIP October 18, 2026
 
-Forward migration `20261018240007_business_account_deletion_orchestration.sql`
+Forward migration `20261019000007_business_account_deletion_orchestration.sql`
 adds private `business_departure_aliases`. Its composite `space_id,actor_id`
 key identifies a Business-scoped historical actor with no Auth account or grant.
 `departing_user_id,deletion_run_id,claim_id,started_at` fence the exact identity
@@ -3805,7 +3805,7 @@ survives until its Business is purged. The existing custody graph guard and
 transfer-outbox Auth deletion guard stay composed. No service or client role
 can write the alias table or invoke the privileged identity writer.
 
-Forward migration `20261018240008_business_closed_purge.sql` adds private
+Forward migration `20261019000008_business_closed_purge.sql` adds private
 `business_purge_runs` and `business_purge_objects`. `id,space_id,closed_at`
 identify one purge and its original deadline. `status,claim_id,claimed_until`
 serialize the existing sweep across retries. `placeholder_id` names only the
@@ -3827,7 +3827,7 @@ is introduced. The original `spaces.closed_at` owns the thirty-day deadline.
 
 ### Business close notification transport, held October 18, 2026
 
-Forward migration `20261018240009_business_close_mail.sql` adds
+Forward migration `20261019000009_business_close_mail.sql` adds
 `business_close_mail_outbox`. This is server-only personal mail transport, with
 RLS and no `anon` or `authenticated` rights. Only `service_role` receives CRUD.
 It is separate from retained Business history.

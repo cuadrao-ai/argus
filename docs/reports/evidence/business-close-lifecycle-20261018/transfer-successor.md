@@ -98,13 +98,13 @@ reopen controls remain unmounted with the unfinished close orchestration.
   local synthetic browser proof, not hosted or inbox proof.
 
 The disposable `business_transfer_mail_testdb` was cloned from the parked lane's
-synthetic database. New migrations 20261018240005 and 20261018240006 were replayed in order.
+synthetic database. New migrations 20261019000005 and 20261019000006 were replayed in order.
 The baseline `postgres` database was read only. No provider/model calls ran.
 
 The fixture was created using `CREATE DATABASE business_transfer_mail_testdb
-TEMPLATE business_close_testdb`, then psycopg executed the checked-in 20261018240005 and
-20261018240006 SQL files in lexical order with autocommit. The main fixture already
-contained migrations 20261018240000 through 20261018240004. The successor did not change it.
+TEMPLATE business_close_testdb`, then psycopg executed the checked-in 20261019000005 and
+20261019000006 SQL files in lexical order with autocommit. The main fixture already
+contained migrations 20261019000000 through 20261019000004. The successor did not change it.
 The final test command was run from the repository root.
 
 ```sh

@@ -246,7 +246,7 @@ nonmember receipt refusal. These are synthetic local tests, not hosted proof.
 
 The Supabase CLI generated a migration timestamp earlier than the already
 committed close migration's future timestamp. The new generated file was moved
-to `20261018240001` so fresh application follows its lifecycle dependency.
+to `20261019000001` so fresh application follows its lifecycle dependency.
 Only the lane-owned disposable database at port 59432 was changed. Its
 schema-only baseline omitted the receipt activity singleton. Restoring that
 migration-owned synthetic row let the existing receipt regressions run.
@@ -301,7 +301,7 @@ existing owner attribution.
 
 The root approved a separate graph writer on its own branch. Its only files
 are a new custody_graph module, a focused Postgres test and new migration
-`20261018240005_business_custody_graph.sql`. That migration number is reserved.
+`20261019000005_business_custody_graph.sql`. That migration number is reserved.
 The lifecycle writer owns orchestration, copies, chat access, UI, email and purge.
 No graph movement SQL is included in this checkpoint. The root ledger contains
 `business-custody-graph-writer-contract.md` with the exact proposed API and gates.
