@@ -3379,7 +3379,7 @@
         "src/argus/domain/supabase_gateway.py",
         "src/argus/domain/supabase_guest_accounts.py",
         "src/argus/domain/supabase_signup.py",
-        "supabase/migrations/20261018090000_profile_age_confirmation.sql",
+        "supabase/migrations/20261018250000_profile_age_confirmation.sql",
         "tests/test_age_confirmation.py",
         "tests/test_age_confirmation_postgres.py",
         "tests/test_alpha_api_supabase.py",
