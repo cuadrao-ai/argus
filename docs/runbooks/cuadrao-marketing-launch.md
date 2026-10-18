@@ -53,6 +53,17 @@ The practical consequence: the signup table can go to production alone and early
 3. Supabase stays on the Free plan; nothing here depends on a plan change.
 4. CI is terminal and green on the exact candidate, and the signup migration is not applied by promotion: the consumer's applier is the only production path.
 
+### Waitlist scheduler credential order
+
+For a future approved promotion that carries [PR #1223](https://github.com/lagarcess/argus/pull/1223), use this order after migration `20261018030016_security_extensions_waitlist.sql` applies. This checklist grants no production or secret action. Receipt gates remain held.
+
+1. Before rotating the old service-role key, privately set Vault `cuadrao_waitlist_scheduler_key` and Edge `CUADRAO_WAITLIST_SCHEDULER_KEY` to the same dedicated scheduler secret. If setup cannot finish first, pause the named waitlist reminder job before rotation.
+2. Verify the dedicated-header handler configuration and the scheduler's credential source. Record only setting names and outcomes. Never print or commit either secret.
+3. Only after setup or a verified job pause, rotate the old service-role key under separate approval. Update approved consumers and remove obsolete Vault `cuadrao_waitlist_service_role_key` through the authorized operator.
+4. Resume a paused job only after its dedicated secret and handler are ready. Verify the actual scheduled outcome under hosted acceptance authority.
+
+The [reviewed migration](https://github.com/lagarcess/argus/blob/03d6ca64acfa76250ac5d58637f4a31cc3cc1dda/supabase/migrations/20261018030016_security_extensions_waitlist.sql) reads only the new Vault name and fails when it is absent. It calls `cuadrao_scheduler.require_staging()` and targets the staging Edge URL. This checklist does not authorize changing that guard or retargeting the job to production. A production scheduler needs its own reviewed configuration and grant. Credential separation does not resolve the remaining [pg_net grant blocker #1227](https://github.com/lagarcess/argus/issues/1227).
+
 ## 2. Render service
 
 Create only after the candidate is on `main`, Section 4 is complete and the founder has approved cost and creation. Creating the service starts its first deploy.
