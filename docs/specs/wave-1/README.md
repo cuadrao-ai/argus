@@ -20,7 +20,6 @@ against integration tip `5fb0f079b92ed5391da770cb9a7b89c1c4807684`.
 | `00-shared-rules.md` | Rules for every stage. Part 1 is Iris's product rules R1 to R7 (verbatim). Part 2 is the engineering rules E1 to E7: worktrees, the stage unlock rule, PR rules, contractor access, the review gate, and copy rules. Part 3 is the reuse map RM-1 to RM-19: what already exists in the code and must be reused. |
 | `01-stage-0-safety-and-analytics.md` | SPEC 0, stage 0. Iris's product half (verbatim, with her round 2 and round 3 answers), then the engineering half: the safety fixes (#681, #692, #693), the 10 analytics events, the invite cohort code (the one planned migration), work packages 0A to 0C, merge order, acceptance checks A1 to A9, and clashes resolved. |
 | `02-stage-1-layout-ai-landing-card-payoff.md` | SPEC 1, stage 1. Iris's product half (verbatim, with her round 2 and round 3 answers), then the engineering half: navigation, the AI landing and its six chips, the card payoff calculator with its exact math and reference values, "Before taxes" on every result, work packages 1A to 1F, merge order, acceptance checks B1 to B9, and clashes resolved. |
-| `contractor-prompt.md` | The one prompt every contractor session follows, the package queue in merge order, and environment setup (local and cloud). Start a session with: "Implement package `<ID>` following `docs/specs/wave-1/contractor-prompt.md`." |
 | `iris-product-halves.md` | Iris's source document. Not edited. The spec files quote it word for word. |
 
 ## Reading order

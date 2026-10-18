@@ -13593,6 +13593,7 @@ components:
             - interrupted
             - outcome_unknown
             - no_purchase_found
+            - not_a_receipt
             - several_purchases
             - source_unavailable
             - check_details
@@ -22676,6 +22677,7 @@ components:
             - interrupted
             - outcome_unknown
             - no_purchase_found
+            - not_a_receipt
             - several_purchases
             - source_unavailable
             - check_details
@@ -23300,6 +23302,7 @@ components:
             - interrupted
             - outcome_unknown
             - no_purchase_found
+            - not_a_receipt
             - several_purchases
             - source_unavailable
             - check_details
