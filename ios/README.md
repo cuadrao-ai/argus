@@ -138,3 +138,24 @@ way. To fix a stopped run, create the file and run build-for-testing again.
 
 A deliberate offline run, such as the auth-disabled design pass, sets
 `TEST_RUNNER_ARGUS_UI_TESTS_ALLOW_PREVIEW_BUILD=true`. The default stays strict.
+
+## Localization foundation
+
+`ArgusFoundation/Resources/Localizable.xcstrings` owns the existing 843 keys
+and their English and Latin American Spanish values. The catalog preserves
+baseline wording, including existing untranslated copy. The project development
+region is `es-419`. This sets the bundle fallback language. It does not translate
+hardcoded Swift strings or override an explicit supported device language.
+`InfoPlist.strings` remains a separate resource.
+
+`python3 ios/scripts/localization_guard.py` checks catalog structure and warns
+about direct, single-line UI literals that have not moved into the catalog.
+These warnings return exit code zero during the foundation phase. Invalid
+catalog or registry inputs return a nonzero exit code. The scan is deliberately
+partial. It does not prove that every user-visible string is localized.
+The build and test wrapper runs it before Xcode.
+
+`ios/scripts/localization_noncopy.json` starts empty. Later slices can add exact
+`path`, `literal`, and `reason` entries for technical values found by the scan.
+Run the CLI tests with
+`python3 -m unittest discover -s ios/scripts -p test_localization_guard.py -v`.

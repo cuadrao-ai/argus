@@ -13,6 +13,7 @@ if [[ -z "${SIMULATOR_ID:-}" ]]; then
   exit 2
 fi
 python3 "$ios_dir/scripts/check-age-sdk.py"
+python3 "$ios_dir/scripts/localization_guard.py"
 result_dir="${RESULT_DIR:-$ios_dir/.build/results}"
 mkdir -p "$result_dir"
 result_bundle="$result_dir/$action-$(date -u +%Y%m%dT%H%M%SZ).xcresult"
