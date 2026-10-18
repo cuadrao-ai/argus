@@ -23353,7 +23353,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "No category"
+            "value": "Sin categoría"
           }
         },
         "en": {
@@ -23363,7 +23363,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Approved existing copy at fb6d969505f364fa08e4eb89e7317619f7de4781 in ios/ArgusFoundation/Accounts/FinancialEditorView.swift nil-category choice"
     },
     "copy.receiptJourneyCopy.22aeea771f": {
       "extractionState": "manual",
@@ -23893,7 +23893,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Merchant"
+            "value": "Comercio"
           }
         },
         "en": {
@@ -23903,7 +23903,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Approved existing copy at fb6d969505f364fa08e4eb89e7317619f7de4781 in ios/ArgusFoundation/Cuadrao/Receipts/CuadraoReceiptReview.swift merchant TextField"
     },
     "copy.receiptJourneyCopy.f19696359f": {
       "extractionState": "manual",
@@ -48625,7 +48625,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "OK"
+            "value": "Entendido"
           }
         },
         "en": {
@@ -48635,7 +48635,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Approved Spanish is missing. ios/ArgusFoundation/Invitations/InvitationViews.swift"
+      "comment": "Approved alert-dismiss copy at fb6d969505f364fa08e4eb89e7317619f7de4781 in ios/ArgusFoundation/Resources/es-419.lproj/Localizable.strings auth.apple.capture.dismiss"
     },
     "copy.releaseInviteGate.64be81e0d0": {
       "extractionState": "manual",

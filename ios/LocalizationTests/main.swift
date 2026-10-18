@@ -29,4 +29,7 @@ expect(CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: tr
 expect(CuadraoCopy.text("copy.connectedAccountPresentation.f9d32ca2e5", spanish: true) == "Cuenta", "Approved account label remains Spanish")
 expect(CuadraoCopy.text("copy.connectedCuadraoHome.67c7ee0c0f", spanish: true) == "Categoría", "Approved category label remains Spanish")
 expect(CuadraoCopy.text("copy.connectedCuadraoAuth.ada77fc089", spanish: true) == "Reintentar", "Approved retry label remains Spanish")
-print("Localization behavior: 18 assertions passed; unknown locale, supported languages, bundle copy, interpolation, percent, decimal-comma roundtrip")
+expect(CuadraoCopy.text("copy.receiptJourneyCopy.e47fa08736", spanish: true) == "Comercio", "Approved receipt merchant label is reused")
+expect(CuadraoCopy.text("copy.receiptJourneyCopy.225664ae74", spanish: true) == "Sin categoría", "Approved nil category label is reused")
+expect(CuadraoCopy.text("copy.invitationViews.2b2821ec48", spanish: true) == "Entendido", "Approved alert dismiss label is reused")
+print("Localization behavior: 21 assertions passed; unknown locale, supported languages, bundle copy, interpolation, percent, decimal-comma roundtrip")
