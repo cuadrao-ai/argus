@@ -1,5 +1,3 @@
-# Brand canon. A line ending in /** matches that directory and everything under it.
-# Any other line matches that exact path.
 marketing/brand/**
 marketing/app/apple-icon.png
 marketing/app/favicon.ico
