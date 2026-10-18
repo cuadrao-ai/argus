@@ -1,0 +1,14 @@
+(node:25037) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:25053) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:25053) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:25053) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › web/e2e/business-access.spec.ts:17:9 › Business access at 1280px › the owner sees who has access, invites an email and cancels the invite (3.5s)
+  ✓  2 [chromium] › web/e2e/business-access.spec.ts:17:9 › Business access at 390px › the owner sees who has access, invites an email and cancels the invite (3.4s)
+
+  2 passed (7.2s)

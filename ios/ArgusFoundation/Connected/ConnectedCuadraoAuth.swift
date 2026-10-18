@@ -164,6 +164,14 @@ struct ConnectedCreateAccount: View {
     }
 
     var body: some View {
+        if signingIn {
+            form
+        } else {
+            AgeConfirmationGate { form }
+        }
+    }
+
+    private var form: some View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {

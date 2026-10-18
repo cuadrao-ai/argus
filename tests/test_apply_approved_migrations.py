@@ -855,3 +855,38 @@ def test_the_probe_is_scoped_to_the_two_tables() -> None:
         "public.strategies'::regclass" in query
         and "public.backtest_runs'::regclass" in query
     )
+
+
+_STAGING_APPROVAL = (
+    "docs/release-manifests/2026-10-18-staging-security-waitlist-apply.json"
+)
+_STAGING_SHA = "c940a8b319086bea023bc63b8b6817a87dbffafd"
+_STAGING_VERSIONS = ["20261018030000", "20261018030016", "20261018040000"]
+
+
+def test_the_staging_security_waitlist_record_holds_inside_its_window() -> None:
+    text = (Path(__file__).resolve().parents[1] / _STAGING_APPROVAL).read_text()
+    approval = applier.parse_hosted_approval(
+        text,
+        _STAGING_SHA,
+        _STAGING_VERSIONS,
+        (),
+        datetime.fromisoformat("2026-10-19T15:00:00-05:00"),
+    )
+    assert approval == applier.HostedApproval(
+        "staging-apply-2026-10-18",
+        "skedzwocnmrhfigiwyzi",
+        ("db.skedzwocnmrhfigiwyzi.supabase.co",),
+        "postgres",
+        _STAGING_SHA,
+        "b963585771acb2fd0922a3d8cf9d020e60a5dc14786fe4f032f8764d0d49d866",
+        datetime.fromisoformat("2026-10-21T03:38:00-05:00"),
+    )
+    with pytest.raises(applier.ApplyError, match="not valid now"):
+        applier.parse_hosted_approval(
+            text,
+            _STAGING_SHA,
+            _STAGING_VERSIONS,
+            (),
+            datetime.fromisoformat("2026-10-21T03:38:00-05:00"),
+        )

@@ -1,9 +1,12 @@
 import { expect, test } from "@playwright/test";
 
 import en from "../public/locales/en/common.json";
+import es from "../public/locales/es-419/common.json";
 
 const SCREENSHOT_DIR =
   "../docs/release-evidence/screenshots/issue-321";
+const BROWSER_CHECK_DIR =
+  "../docs/reports/evidence/business-signin-browser-check";
 
 type FakeTurnstileMode = "visible" | "stuck";
 
@@ -143,7 +146,9 @@ for (const fixture of [
     }, fixture.language === "en");
     await expect(shell).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: /Sign in|Iniciar sesión/ }),
+      page.getByRole("button", {
+        name: /Sign in|Iniciar sesión|Try again|Intentar de nuevo/,
+      }),
     ).toBeFocused({ timeout: 8_000 });
   });
 }
@@ -156,9 +161,17 @@ test("a stuck shared CAPTCHA times out and leaves login ready", async ({
   await submitLogin(page);
 
   await expect(page.getByTestId("auth-submit-spinner")).toBeVisible();
+  await page.screenshot({
+    path: `${BROWSER_CHECK_DIR}/spinner-while-browser-check.png`,
+    fullPage: true,
+  });
   await expect(
-    page.getByText(en.auth.errors.captcha_unavailable),
+    page.getByText(en.auth.errors.browser_check_failed),
   ).toBeVisible({ timeout: 18_000 });
+  await page.screenshot({
+    path: `${BROWSER_CHECK_DIR}/browser-check-retry-en.png`,
+    fullPage: true,
+  });
   await expect(page.getByPlaceholder("Email address")).toHaveValue(
     "captcha-probe@example.com",
   );
@@ -166,7 +179,27 @@ test("a stuck shared CAPTCHA times out and leaves login ready", async ({
     "not-a-real-password",
   );
   await expect(
-    page.getByRole("button", { name: "Sign in", exact: true }),
+    page.getByRole("button", { name: en.auth.errors.browser_check_retry, exact: true }),
   ).toBeEnabled();
   await expect(page.getByTestId("turnstile-challenge-shell")).toHaveCount(0);
+});
+
+test("a stuck shared CAPTCHA shows the Spanish retry", async ({ page }) => {
+  test.setTimeout(25_000);
+  await prepareCaptcha(page, "es-419", "stuck");
+  await submitLogin(page);
+
+  await expect(page.getByText(es.auth.errors.browser_check_failed)).toBeVisible({
+    timeout: 18_000,
+  });
+  await expect(
+    page.getByRole("button", {
+      name: es.auth.errors.browser_check_retry,
+      exact: true,
+    }),
+  ).toBeEnabled();
+  await page.screenshot({
+    path: `${BROWSER_CHECK_DIR}/browser-check-retry-es-419.png`,
+    fullPage: true,
+  });
 });
