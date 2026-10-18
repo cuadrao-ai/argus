@@ -30,9 +30,14 @@ export function defaultLanguage(spanishEnabled: boolean, businessBuild: boolean)
   return spanishEnabled && businessBuild ? "es-419" : "en";
 }
 
-/** Where the shown language comes from, in order: a choice saved on this device; on a consumer build the browser's language too. The browser never decides on a Business build. */
+/** Where the shown language comes from. A Business build reads nothing, so a stored value and the browser cannot decide. A consumer build reads a saved choice, then the browser. */
 export function languageDetectionOrder(businessBuild: boolean): readonly string[] {
-  return businessBuild ? ["localStorage"] : ["localStorage", "navigator"];
+  return businessBuild ? [] : ["localStorage", "navigator"];
+}
+
+/** Where a language change is written. A Business build writes nothing, so it cannot store English. A consumer build keeps the saved choice. */
+export function languageDetectionCaches(businessBuild: boolean): readonly string[] {
+  return businessBuild ? [] : ["localStorage"];
 }
 
 /** The languages to read a key from, in order, when the shown language lacks it: an English reader never sees Spanish; a Spanish reader falls back to English; nothing shown yet starts from the default. */
@@ -52,28 +57,46 @@ export function normalizeEnabledLanguage(language?: string | null, spanishEnable
   return "en";
 }
 
-/** Language applied once the account is known. Business stays on its default until this device has saved a choice. A consumer build keeps the account language. */
+/** Language a build may show. Business Spanish is always es-419. A consumer build shows the requested language. */
+export function languageToShow(
+  businessBuild: boolean,
+  requested: string | null | undefined,
+  spanishEnabled: boolean = SPANISH_ENABLED,
+): string | null {
+  if (businessBuild && spanishEnabled) return "es-419";
+  return requested ?? null;
+}
+
+/** Language applied once the account is known. Business ignores the account and anything stored on the device. A consumer build keeps the account language. */
 export function accountLanguageToApply(
   businessBuild: boolean,
   accountLanguage: string | null | undefined,
-  storedLanguage: string | null | undefined,
   spanishEnabled: boolean = SPANISH_ENABLED,
 ): string | null {
-  if (!businessBuild) return accountLanguage ?? null;
-  if (storedLanguage?.trim()) return normalizeEnabledLanguage(storedLanguage, spanishEnabled);
-  return defaultLanguage(spanishEnabled, true);
+  if (businessBuild && spanishEnabled) return "es-419";
+  return accountLanguage ?? null;
 }
 
-/** Document language. Business Spanish is `es`. A consumer page stays `es-419` or `en`. Nothing resolved yet keeps the Business default instead of falling through to English. */
+/** Switches the shell language. A Business build can only move to es-419. */
+export async function commitShellLanguage(
+  i18n: { language?: string; changeLanguage: (language: string) => Promise<unknown> },
+  businessBuild: boolean,
+  accountLanguage: string | null | undefined,
+  spanishEnabled: boolean = SPANISH_ENABLED,
+): Promise<void> {
+  const resolved = accountLanguageToApply(businessBuild, accountLanguage, spanishEnabled);
+  if (!resolved || resolved === i18n.language) return;
+  if (businessBuild && resolved !== "es-419") return;
+  await i18n.changeLanguage(resolved);
+}
+
+/** Document language. Business Spanish is `es` for the whole response. A consumer page stays `es-419` or `en`. */
 export function documentLanguage(
   language: string | null | undefined,
   businessBuild: boolean,
   spanishEnabled: boolean = SPANISH_ENABLED,
 ): "en" | "es" | "es-419" {
-  if (businessBuild && spanishEnabled) {
-    if (!language || language.toLowerCase().startsWith("es")) return "es";
-    return "en";
-  }
+  if (businessBuild && spanishEnabled) return "es";
   return normalizeEnabledLanguage(language, spanishEnabled);
 }
 

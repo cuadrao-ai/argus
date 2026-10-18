@@ -19,7 +19,7 @@ beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
   Object.defineProperty(window.navigator, "language", { configurable: true, value: "en-US" });
   Object.defineProperty(window.navigator, "languages", { configurable: true, value: ["en-US", "en"] });
-  window.localStorage.removeItem("i18nextLng");
+  window.localStorage.setItem("i18nextLng", "en");
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
@@ -34,7 +34,8 @@ describe("Business stays in Spanish for an en-US browser", () => {
     const provider = readFileSync(join(root, "components/I18nProvider.tsx"), "utf-8");
     const layout = readFileSync(join(root, "app/layout.tsx"), "utf-8");
     for (const source of [chat, session]) {
-      assert.match(source, /accountLanguageToApply\(/);
+      assert.match(source, /commitShellLanguage\(/);
+      assert.equal(source.includes("i18n.changeLanguage"), false);
     }
     assert.match(provider, /documentLanguage\(/);
     assert.match(layout, /documentLanguage\(/);
@@ -42,14 +43,20 @@ describe("Business stays in Spanish for an en-US browser", () => {
   });
 
   test("overview, upload, record expense, and receipt review render Spanish", async () => {
-    const { accountLanguageToApply, documentLanguage } = await import("@/lib/language-features");
-    const language = accountLanguageToApply(true, "en", null, true);
+    const { accountLanguageToApply, commitShellLanguage, documentLanguage } = await import("@/lib/language-features");
+    const calls: string[] = [];
+    await commitShellLanguage(
+      { language: "en", changeLanguage: async (next: string) => { calls.push(next); } },
+      true,
+      "en",
+      true,
+    );
+    assert.deepEqual(calls, ["es-419"]);
+    const language = accountLanguageToApply(true, "en", true);
     assert.equal(language, "es-419");
-    assert.equal(accountLanguageToApply(true, "en", "en", true), "en");
-    assert.equal(accountLanguageToApply(false, "en", null, true), "en");
-    assert.equal(accountLanguageToApply(false, "es-419", "en", true), "es-419");
+    assert.equal(window.localStorage.getItem("i18nextLng"), "en");
     assert.equal(documentLanguage(language, true, true), "es");
-    assert.equal(documentLanguage("en", true, true), "en");
+    assert.equal(documentLanguage("en", true, true), "es");
     assert.equal(documentLanguage("es-419", false, true), "es-419");
     document.documentElement.lang = documentLanguage(language, true, true);
 

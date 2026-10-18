@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
 import { useProfileUpdates } from "@/components/chat/useProfileUpdates";
 import { useTranslation } from "react-i18next";
-import { LANGUAGE_STORAGE_KEY, readStored, writeStored } from "@/lib/browser-storage";
+import { readStored, writeStored } from "@/lib/browser-storage";
 import { signedInHomePath } from "@/lib/landing-intent";
 import ChatCommandPalette from "@/components/sidebar/ChatCommandPalette";
 import { KeyboardShortcutSurfaces } from "@/components/keyboard/KeyboardShortcutSurfaces";
@@ -54,7 +54,7 @@ import {
 } from "@/lib/argus-api";
 import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-deletion-api";
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
-import { accountLanguageToApply } from "@/lib/language-features";
+import { commitShellLanguage } from "@/lib/language-features";
 import { businessPilotEnabled, businessSearchEntryEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
 import { leaveSession } from "@/lib/logout-flow";
 import {
@@ -260,14 +260,7 @@ export default function ChatInterface() {
     if (nextAccount === null) return null;
     authenticatedUserIdRef.current = nextAccount.user.id;
     setAccount(nextAccount);
-    const resolvedLanguage = accountLanguageToApply(
-      businessPilotEnabled,
-      nextAccount.user.language,
-      readStored(LANGUAGE_STORAGE_KEY),
-    );
-    if (resolvedLanguage && resolvedLanguage !== i18n.language) {
-      await i18n.changeLanguage(resolvedLanguage);
-    }
+    await commitShellLanguage(i18n, businessPilotEnabled, nextAccount.user.language);
     setProfileState("established");
     return nextAccount;
   }, [i18n]);

@@ -6,7 +6,15 @@ async function setup(page: Page) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: true });
   await page.addInitScript(() => {
-    window.localStorage.removeItem("i18nextLng");
+    window.localStorage.setItem("i18nextLng", "en");
+    const seen: string[] = [];
+    const current = () => document.documentElement.lang;
+    seen.push(current());
+    new MutationObserver(() => seen.push(current())).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["lang"],
+    });
+    Object.assign(window, { __businessLangs: seen });
   });
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   const receipt = await source.receipt("rcpt-ferreteria");
@@ -30,10 +38,16 @@ async function setup(page: Page) {
   });
 }
 
-test("an en-US browser shows Spanish across Business overview, upload, record expense, and review", async ({ page }, testInfo) => {
+test("an en-US browser with stored English and an English account still shows Spanish Business", async ({ page }, testInfo) => {
   await setup(page);
-  await page.goto("/biz");
+  const response = await page.goto("/biz");
+  const html = await response?.text();
+  expect(html ?? "").toMatch(/<html[^>]*\slang="es"/);
+  expect(html ?? "").not.toMatch(/<html[^>]*\slang="en"/);
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  const langs = await page.evaluate(() => (window as Window & { __businessLangs?: string[] }).__businessLangs ?? []);
+  expect(langs.every((lang) => lang === "es")).toBe(true);
+  expect(await page.evaluate(() => window.localStorage.getItem("i18nextLng"))).toBe("en");
   const overview = page.locator("#business-overview-title");
   await expect(overview).toHaveText("Mi negocio");
   await expect(page.getByTestId("overview-inbox")).toContainText("1 por revisar");
