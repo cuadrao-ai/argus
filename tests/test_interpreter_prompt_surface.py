@@ -61,7 +61,7 @@ def test_all_document_schema_instructions_change_the_surface(
     assert source.count(text) == 1
     _write(tmp_path, owner, source)
     first = model_facing_surface(tmp_path)
-    assert first[owner]["entries"] == 10
+    assert first[owner]["entries"] == 6
     _write(tmp_path, owner, source.replace(text, "Changed instruction"))
     assert model_facing_surface(tmp_path)[owner] != first[owner]
 

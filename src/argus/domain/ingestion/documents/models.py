@@ -67,33 +67,13 @@ class ReceiptItem(_Frozen):
 class ReceiptDetails(_Frozen):
     suggested_category: str | None = Field(default=None, max_length=120)
     merchant: str | None = Field(default=None, max_length=300)
-    occurred_on: date | None = Field(
-        default=None,
-        description="Source-supported paid purchase date. Null when only an order, "
-        "invoice issue or expected payment date is printed.",
-    )
+    occurred_on: date | None = None
     currency: str | None = Field(default=None, max_length=20)
     items: tuple[ReceiptItem, ...] = Field(default=(), max_length=300)
     subtotal: str | None = Field(default=None, max_length=80)
-    payment_status: Literal["paid", "pending", "unknown"] = Field(
-        default="unknown",
-        description="Payment evidence in this source. Paid requires a completed "
-        "payment or paid receipt, not an order confirmation, billing contact, "
-        "invoice total or payment instructions. Pending means explicitly not yet "
-        "paid; unknown means the source does not settle payment.",
-    )
-    tax: str | None = Field(
-        default=None,
-        max_length=80,
-        description="Printed final tax amount. Null for estimated tax; retain a "
-        "printed estimate in estimated_tax instead. Never calculate tax.",
-    )
-    estimated_tax: str | None = Field(
-        default=None,
-        max_length=80,
-        description="Tax amount explicitly marked estimated in the source. It is "
-        "not final tax or ITBIS. Null if absent, unreadable or conflicting.",
-    )
+    payment_status: Literal["paid", "pending", "unknown"] = "unknown"
+    tax: str | None = Field(default=None, max_length=80)
+    estimated_tax: str | None = Field(default=None, max_length=80)
     service: str | None = Field(default=None, max_length=80)
     tip: str | None = Field(default=None, max_length=80)
     total: str | None = Field(default=None, max_length=80)

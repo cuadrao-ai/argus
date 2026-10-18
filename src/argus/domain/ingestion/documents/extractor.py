@@ -70,12 +70,6 @@ transactions for items, tax, subtotal, tender or change. If the source does not 
 purchase, do not invent an observation. Copy printed item amounts with their fractional
 digits intact; absent, unreadable or conflicting item values are null.
 Do not round or adjust item amounts to reconcile the receipt total.
-Set receipt.payment_status from the source's payment evidence. An order confirmation,
-quote, invoice total, billing contact or Payment heading alone does not prove payment.
-Without a source-supported paid purchase, return no purchase observation and leave the
-paid purchase date unknown. An ordered-on date is not a paid date. Keep a printed
-estimated tax amount in receipt.estimated_tax, with receipt.tax null; never turn an
-estimate into final tax or ITBIS.
 Card payment notices are not proof of a new purchase. Preserve
 statement periods separately. Do not infer a transaction from a change in balances.
 For each observation set page to its 1-based source page and row to its unique 1-based
