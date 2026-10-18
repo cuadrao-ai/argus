@@ -225,6 +225,10 @@
         {
           "name": "CUADRAO-DEV-KEY-PILOT",
           "note": "deletion waits for the coordinator"
+        },
+        {
+          "name": "CUADRAO_EMAIL_ASSET_ORIGIN",
+          "reason": "Optional HTTPS origin for shared email images. Preserve current value; do not inject during this build."
         }
       ],
       "distinct": [
@@ -305,7 +309,11 @@
       ],
       "hold": [
         { "name": "CUADRAO_AUTH_EMAIL_HOOK_SECRET", "reason": "Inject only for reviewed staging hook activation." },
-        { "name": "CUADRAO_AUTH_EMAIL_RESEND_API_KEY", "reason": "Dedicated Auth sending credential; activation only after review." }
+        { "name": "CUADRAO_AUTH_EMAIL_RESEND_API_KEY", "reason": "Dedicated Auth sending credential; activation only after review." },
+        {
+          "name": "CUADRAO_EMAIL_ASSET_ORIGIN",
+          "reason": "Optional HTTPS origin for shared email images. Preserve current value; do not inject during this build."
+        }
       ],
       "distinct": []
     }
