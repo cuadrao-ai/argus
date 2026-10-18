@@ -68,7 +68,9 @@ def resolve_openrouter_api_key(
     if selected is None:
         if not hosted:
             return ""
-        raise RuntimeError(f"{names[-1]} is required in hosted environments.")
+        raise RuntimeError(
+            f"{', '.join(names)} is required in hosted environments."
+        )
     key_name, value = selected
     _log_selected_key(resolved_kind or "local", key_name)
     return value
