@@ -44,7 +44,7 @@ describe("shared account email layout", () => {
     expect(rendered.html).not.toContain('<p class="code"');
     expect(rendered.text).toContain("Este enlace vence en 48 horas.");
   });
-  test("account and waitlist mail share the configured legal address without account unsubscribe", () => {
+  test("waitlist mail uses the configured legal address and account mail stays Cuadrao LLC", () => {
     const address = "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.";
     const rendered = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: link, postalAddress: address});
     expect(rendered.text).toContain(address);
@@ -52,8 +52,9 @@ describe("shared account email layout", () => {
     expect(rendered.html.indexOf(address)).toBeGreaterThan(rendered.html.indexOf("hola@cuadrao.ai"));
     for (const postalAddress of [address, address.replace("Cuadrao LLC, ", "")]) {
       const account = renderAccountEmail({title: "Cuenta", paragraphs: []}, {postalAddress});
-      expect(account.text).toContain(address);
-      expect(account.html).toContain(address);
+      expect(account.text).toContain("Cuadrao LLC");
+      expect(account.text).not.toContain("1209 Mountain");
+      expect(account.html).not.toContain("1209 Mountain");
       expect(account.text.match(/Cuadrao LLC/g)).toHaveLength(1);
       expect(account.html).not.toContain("Salir de la lista");
     }
@@ -107,12 +108,4 @@ test("unsubscribe footer fails closed without a postal address and includes it w
   const fromEnv = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave});
   expect(fromEnv.html).toContain(address);
   expect(fromEnv.text).toContain(address);
-});
-
-test("missing or multiline legal address refuses rendering", () => {
-  delete process.env.MARKETING_POSTAL_ADDRESS;
-  expect(() => renderAccountEmail({title: "Cuenta", paragraphs: []})).toThrow("postal address");
-  for (const postalAddress of ["bad\naddress", "Cuadrao LLC"]) {
-    expect(() => renderAccountEmail({title: "Cuenta", paragraphs: []}, {postalAddress})).toThrow("postal address");
-  }
 });
