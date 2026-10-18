@@ -66,13 +66,13 @@ test("an invalid token shows the confirm error and does not echo the hash", asyn
       verify,
     );
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("/auth/confirm/error");
+    expect(response.headers.get("location")).toBe("/auth/confirm/error?type=email");
     expect(response.headers.get("location")).not.toContain(hash);
     expect(calls).toHaveLength(1);
   }
   const malformed = verifier({ error: null });
   const response = await confirmAuthGet(confirmRequest("token_hash=short&type=email&next=/"), malformed.verify);
-  expect(response.headers.get("location")).toBe("/auth/confirm/error");
+  expect(response.headers.get("location")).toBe("/auth/confirm/error?type=email");
   expect(malformed.calls).toHaveLength(0);
 });
 
@@ -91,7 +91,8 @@ test("an external next is rejected before the token is verified", async () => {
       confirmRequest(`token_hash=${hash}&type=email&next=${encodeURIComponent(next)}`),
       verify,
     );
-    expect(response.headers.get("location")).toBe("/auth/confirm/error");
+    expect(response.headers.get("location")).toBe("/auth/confirm/error?type=email");
+    expect(response.headers.get("location")).not.toContain("evil.example");
     expect(calls).toHaveLength(0);
   }
 });
@@ -113,10 +114,29 @@ test("a localhost bind origin never appears in the redirect", async () => {
     blocked.verify,
   );
   const errorLocation = errorResponse.headers.get("location");
-  expect(errorLocation).toBe("/auth/confirm/error");
+  expect(errorLocation).toBe("/auth/confirm/error?type=recovery");
   expect(errorLocation).not.toContain("://");
   expect(errorLocation).not.toContain("localhost");
   expect(blocked.calls).toHaveLength(0);
+});
+
+test("a confirm failure passes error, error_code, and type, and drops the token", async () => {
+  const { verify } = verifier({ error: { message: "expired" } });
+  const response = await confirmAuthGet(
+    confirmRequest(`token_hash=${hash}&type=recovery&error=access_denied&error_code=otp_expired`),
+    verify,
+  );
+  expect(response.headers.get("location")).toBe(
+    "/auth/confirm/error?error=access_denied&error_code=otp_expired&type=recovery",
+  );
+  expect(response.headers.get("location")).not.toContain(hash);
+
+  const hostile = verifier({ error: { message: "nope" } });
+  const dropped = await confirmAuthGet(
+    confirmRequest(`token_hash=${hash}&type=recovery&error=${encodeURIComponent("otp expired at the provider")}`),
+    hostile.verify,
+  );
+  expect(dropped.headers.get("location")).toBe("/auth/confirm/error?type=recovery");
 });
 
 test("the confirm route wires verifyOtp through the server client", () => {

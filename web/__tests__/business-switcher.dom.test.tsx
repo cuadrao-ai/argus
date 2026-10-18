@@ -140,6 +140,7 @@ describe("inside a client's Business every screen says so", () => {
       const value = {
         chosen: current,
         lostAccess,
+        clearLostAccess: () => undefined,
         markAccessSeen: async () => { seen.push(current?.grant_id ?? ""); setCurrent(current ? { ...current, access_seen: true } : current); },
       } as unknown as BusinessContextValue;
       return (
@@ -189,7 +190,8 @@ describe("inside a client's Business every screen says so", () => {
 
   test("a grant that died mid-session says so once, in the own Business", async () => {
     const page = await mountCue(OWN, true);
-    assert.equal(page.host.querySelector('[data-testid="business-access-lost"]')?.textContent, "Ya no tienes acceso a este negocio.");
+    assert.equal(page.host.querySelector("h1")?.textContent, "No tienes acceso a este negocio.");
+    assert.equal(page.host.querySelector("button")?.textContent, "Ir a mis negocios");
     assert.equal(page.host.querySelector('[data-testid="business-client-cue"]'), null);
     await page.act(async () => page.root.unmount());
   });

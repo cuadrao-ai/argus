@@ -1530,12 +1530,20 @@
       "cleanup_warning": "Las sesiones fueron revocadas, pero este navegador no pudo confirmar la limpieza de cookies. Aún necesitas iniciar sesión de nuevo."
     },
     "screen": {
+      "email_wait": "Espera un minuto antes de pedir otro correo.",
+      "go_home": "Ir a Inicio",
+      "go_to_businesses": "Ir a mis negocios",
       "go_to_cuadrao": "Ir a Cuadrao",
       "invite_line": "Pide a quien te invitó que te envíe otra invitación.",
       "link_expired_title": "Este enlace ya venció o ya se usó.",
       "not_found_detail": "Puede que el enlace esté viejo o mal copiado.",
       "not_found_title": "No encontramos esta página.",
-      "request_new_link": "Pedir un enlace nuevo"
+      "offline": "Sin conexión. Revisa tu internet.",
+      "removed_title": "No tienes acceso a este negocio.",
+      "request_new_link": "Pedir un enlace nuevo",
+      "server_title": "Algo salió mal de nuestro lado.",
+      "session_ended": "Tu sesión terminó. Entra de nuevo.",
+      "try_again": "Intentar de nuevo"
     },
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
