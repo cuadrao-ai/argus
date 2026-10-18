@@ -1291,11 +1291,13 @@ paths:
               oneOf:
               - $ref: '#/components/schemas/ApproveExpense'
               - $ref: '#/components/schemas/ApproveIncome'
+              - $ref: '#/components/schemas/ApproveRefund'
               discriminator:
                 propertyName: action
                 mapping:
                   record_expense: '#/components/schemas/ApproveExpense'
                   record_income: '#/components/schemas/ApproveIncome'
+                  record_refund: '#/components/schemas/ApproveRefund'
       responses:
         '200':
           description: Successful Response
@@ -2204,6 +2206,149 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/business/fiscal-profile:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiscalProfile'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FiscalProfileInput'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiscalProfile'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/fiscal-profile/fields:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FiscalField'
+                propertyNames:
+                  enum:
+                  - '606'
+                  - '607'
         '422':
           description: Validation Error
           content:
@@ -12108,6 +12253,19 @@ components:
       required:
       - version
       - action
+    ApproveRefund:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        action:
+          type: string
+          const: record_refund
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - action
     AssetChangeResponse:
       properties:
         version:
@@ -13634,6 +13792,17 @@ components:
             - approve
           type: array
           uniqueItems: true
+        dgii:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/PurchaseDeclaration'
+            - $ref: '#/components/schemas/SalesDeclaration'
+            discriminator:
+              propertyName: form
+              mapping:
+                '606': '#/components/schemas/PurchaseDeclaration'
+                '607': '#/components/schemas/SalesDeclaration'
+          - type: 'null'
         draft_id:
           type: string
           format: uuid
@@ -16434,6 +16603,28 @@ components:
         created_at:
           type: string
           format: date-time
+        before_dgii:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/PurchaseDeclaration'
+            - $ref: '#/components/schemas/SalesDeclaration'
+            discriminator:
+              propertyName: form
+              mapping:
+                '606': '#/components/schemas/PurchaseDeclaration'
+                '607': '#/components/schemas/SalesDeclaration'
+          - type: 'null'
+        after_dgii:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/PurchaseDeclaration'
+            - $ref: '#/components/schemas/SalesDeclaration'
+            discriminator:
+              propertyName: form
+              mapping:
+                '606': '#/components/schemas/PurchaseDeclaration'
+                '607': '#/components/schemas/SalesDeclaration'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -17415,6 +17606,101 @@ components:
             source_ids: []
       additionalProperties: false
       type: object
+    FiscalField:
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        kind:
+          type: string
+          enum:
+          - select
+          - date
+          - text
+          - money
+        options:
+          items:
+            type: string
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - label
+      - kind
+      - options
+    FiscalInput:
+      properties:
+        rnc:
+          anyOf:
+          - type: string
+            pattern: ^[A-Z0-9]{1,19}$
+          - type: 'null'
+        ncf:
+          anyOf:
+          - type: string
+            pattern: ^[A-Z0-9]{1,19}$
+          - type: 'null'
+        itbis:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - rnc
+      - ncf
+      - itbis
+    FiscalProfile:
+      properties:
+        rnc:
+          anyOf:
+          - type: string
+          - type: 'null'
+        can_edit:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - rnc
+      - can_edit
+    FiscalProfileInput:
+      properties:
+        rnc:
+          anyOf:
+          - type: string
+            pattern: ^(?:[0-9]{9}|[0-9]{11})$
+          - type: 'null'
+        previous_rnc:
+          anyOf:
+          - type: string
+            pattern: ^(?:[0-9]{9}|[0-9]{11})$
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - rnc
+      - previous_rnc
+    FiscalReview:
+      properties:
+        fiscal:
+          $ref: '#/components/schemas/FiscalInput'
+        declaration:
+          oneOf:
+          - $ref: '#/components/schemas/PurchaseDeclaration'
+          - $ref: '#/components/schemas/SalesDeclaration'
+          discriminator:
+            propertyName: form
+            mapping:
+              '606': '#/components/schemas/PurchaseDeclaration'
+              '607': '#/components/schemas/SalesDeclaration'
+      additionalProperties: false
+      type: object
+      required:
+      - fiscal
+      - declaration
     ForecastCurrency:
       properties:
         currency:
@@ -22794,6 +23080,154 @@ components:
       required:
       - time
       - value
+    PurchaseDeclaration:
+      properties:
+        id_type:
+          anyOf:
+          - type: string
+            enum:
+            - '1'
+            - '2'
+          - type: 'null'
+        modified_ncf:
+          anyOf:
+          - type: string
+            pattern: ^[A-Z0-9]{1,19}$
+          - type: 'null'
+        selective_tax:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        other_taxes:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        legal_tip:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        form:
+          type: string
+          const: '606'
+        category:
+          anyOf:
+          - type: string
+            enum:
+            - '01'
+            - '02'
+            - '03'
+            - '04'
+            - '05'
+            - '06'
+            - '07'
+            - 08
+            - 09
+            - '10'
+            - '11'
+          - type: 'null'
+        paid_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        services_amount:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        goods_amount:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis_withheld:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis_proportionality:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis_cost:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis_perceived:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        income_withholding_type:
+          anyOf:
+          - type: string
+            enum:
+            - '01'
+            - '02'
+            - '03'
+            - '04'
+            - '05'
+            - '06'
+            - '07'
+            - 08
+            - 09
+          - type: 'null'
+        income_withheld:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        income_perceived:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        payment_method:
+          anyOf:
+          - type: string
+            enum:
+            - '01'
+            - '02'
+            - '03'
+            - '04'
+            - '05'
+            - '06'
+            - '07'
+          - type: 'null'
+        actual_refund:
+          type: boolean
+          default: false
+        purchase_activity_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - id_type
+      - modified_ncf
+      - selective_tax
+      - other_taxes
+      - legal_tip
+      - form
+      - category
+      - paid_on
+      - services_amount
+      - goods_amount
+      - itbis_withheld
+      - itbis_proportionality
+      - itbis_cost
+      - itbis_perceived
+      - income_withholding_type
+      - income_withheld
+      - income_perceived
+      - payment_method
     PurchasePageResponse:
       properties:
         items:
@@ -24313,12 +24747,17 @@ components:
           type: integer
           minimum: 1.0
         facts:
-          $ref: '#/components/schemas/BusinessFactPatch'
+          anyOf:
+          - $ref: '#/components/schemas/BusinessFactPatch'
+          - type: 'null'
+        dgii:
+          anyOf:
+          - $ref: '#/components/schemas/FiscalReview'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
       - version
-      - facts
     ReviewQuestion:
       properties:
         id:
@@ -24465,6 +24904,138 @@ components:
             format: date
           - type: 'null'
       type: object
+    SalesDeclaration:
+      properties:
+        id_type:
+          anyOf:
+          - type: string
+            enum:
+            - '1'
+            - '2'
+            - '3'
+          - type: 'null'
+        modified_ncf:
+          anyOf:
+          - type: string
+            pattern: ^[A-Z0-9]{1,19}$
+          - type: 'null'
+        selective_tax:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        other_taxes:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        legal_tip:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        form:
+          type: string
+          const: '607'
+        income_type:
+          anyOf:
+          - type: string
+            enum:
+            - '1'
+            - '2'
+            - '3'
+            - '4'
+            - '5'
+            - '6'
+          - type: 'null'
+        withheld_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        billed_amount:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis_withheld_by_third_parties:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis_perceived:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        income_withheld_by_third_parties:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        income_perceived:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        cash:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        bank:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        card:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        credit:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        gift:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        barter:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        other_payment:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - id_type
+      - modified_ncf
+      - selective_tax
+      - other_taxes
+      - legal_tip
+      - form
+      - income_type
+      - withheld_on
+      - billed_amount
+      - itbis_withheld_by_third_parties
+      - itbis_perceived
+      - income_withheld_by_third_parties
+      - income_perceived
+      - cash
+      - bank
+      - card
+      - credit
+      - gift
+      - barter
+      - other_payment
     Schedule:
       properties:
         cadence:

@@ -3,6 +3,7 @@ installEmailFixture();
 import { expect, test, spyOn } from "bun:test";
 import { readFileSync } from "node:fs";
 import { parseAuthMail, renderAuthMail, type AuthMail } from "../server/emails/auth-actions";
+import { renderAccountEmail } from "../server/emails/account-layout.generated";
 import { assertEmailPresentation } from "./helpers/email-presentation";
 import { emailExpiry } from "../server/emails/expiry";
 import { DISABLED_SECURITY_NOTICES } from "../server/emails/security-notices";
@@ -12,6 +13,7 @@ const signin: AuthMail[] = [
   { ...base, action: "signup", token: "123456" },
   { ...base, action: "magiclink", token: "123456" },
   { ...base, action: "recovery" },
+  { ...base, action: "invite" },
   { ...base, action: "email_change", audience: "old_address", newEmail: "new@example.test" },
   { ...base, action: "email_change", audience: "new_address", recipient: "new@example.test", newEmail: "new@example.test" },
   { action: "reauthentication", recipient: base.recipient, token: "123456" },
@@ -24,7 +26,7 @@ const sentAt = new Date("2026-10-17T02:05:00Z");
 
 for (const [index, mail] of [...signin, ...security].entries()) {
   test(`approved HTML and plain text ${mail.action} ${index}`, async () => {
-    const rendered = await renderAuthMail(mail, "https://auth.example.test", 3600, sentAt);
+    const rendered = await renderAuthMail(mail, "https://app.example.test", 3600, sentAt);
     expect(rendered).toMatchSnapshot();
     assertEmailPresentation(rendered.html, rendered.text);
     expect(rendered.html).toContain('<div class="preheader" style="display:none;');
@@ -39,9 +41,52 @@ for (const [index, mail] of [...signin, ...security].entries()) {
   });
 }
 
+test("account templates render Cuadrao LLC and no postal address when the env is unset", async () => {
+  delete process.env.MARKETING_POSTAL_ADDRESS;
+  for (const mail of [...signin, ...security]) {
+    const rendered = await renderAuthMail(mail, "https://auth.example.test", 3600, sentAt);
+    expect(rendered.html).toContain(">Cuadrao LLC</p>");
+    expect(rendered.text).toContain("\n\nCuadrao LLC");
+    expect(rendered.html).not.toContain("Cuadrao LLC,");
+    expect(rendered.text).not.toContain("Cuadrao LLC,");
+    expect(rendered.html).not.toContain("Salir de la lista");
+  }
+});
+
+test("auth and security mail render with the postal address unset and unsubscribe mail refuses", async () => {
+  delete process.env.MARKETING_POSTAL_ADDRESS;
+  const required = new Set([
+    "signup",
+    "magiclink",
+    "recovery",
+    "invite",
+    "email_change",
+    "reauthentication",
+    "password_changed_notification",
+    "email_changed_notification",
+  ]);
+  const seen = new Set<string>();
+  for (const mail of [...signin, ...security]) {
+    seen.add(mail.action);
+    const rendered = await renderAuthMail(mail, "https://auth.example.test", 3600, sentAt);
+    expect(rendered.html).toContain(">Cuadrao LLC</p>");
+    expect(rendered.text).toContain("\n\nCuadrao LLC");
+    expect(rendered.html).not.toContain("Cuadrao LLC,");
+    expect(rendered.text).not.toContain("Cuadrao LLC,");
+    expect(rendered.html).not.toContain("Salir de la lista");
+  }
+  expect(seen).toEqual(required);
+  expect(signin.filter(mail => mail.action === "email_change").map(mail => mail.audience)).toEqual(["old_address", "new_address"]);
+  expect(() => renderAccountEmail({
+    title: "Lista",
+    paragraphs: [],
+    unsubscribeUrl: "https://example.test/leave",
+  })).toThrow("postal address");
+});
+
 test("local 60-second configuration produces truthful expiry in all sign-in mail", async () => {
   for (const mail of signin) {
-    const rendered = await renderAuthMail(mail, "https://auth.example.test", 60, sentAt);
+    const rendered = await renderAuthMail(mail, "https://app.example.test", 60, sentAt);
     expect(rendered.html).toContain("1 minuto");
     expect(rendered.text).toContain("1 minuto");
     expect(rendered.text).not.toContain("1 hora");
@@ -54,11 +99,11 @@ test("local 60-second configuration produces truthful expiry in all sign-in mail
 });
 
 test("security notices show send time in RD and old-address notice has no reset or action link", async () => {
-  const password = await renderAuthMail(security[0], "https://auth.example.test", 3600, sentAt);
+  const password = await renderAuthMail(security[0], "https://app.example.test", 3600, sentAt);
   expect(password.text).toContain("16 de octubre de 2026");
   expect(password.text).toMatch(/10:05.*p\.?\s*m\.?/);
   expect(password.text).toContain('"¿Olvidaste tu contraseña?"');
-  const changed = await renderAuthMail(security[1], "https://auth.example.test", 3600, sentAt);
+  const changed = await renderAuthMail(security[1], "https://app.example.test", 3600, sentAt);
   expect(changed.text).toContain("de old@example.test a n***@example.test");
   expect(changed.text).toContain("respondiendo a este correo para recuperar tu cuenta.");
   for (const part of [changed.html, changed.text]) {
@@ -96,7 +141,7 @@ test("security send time normalizes ICU day-period spaces", async () => {
       return { format: (date: Date) => value.format(date).replace(/p\.[\s\u00a0\u202f]+m\./g, `p.${space}m.`) } as Intl.DateTimeFormat;
     });
     try {
-      const rendered = await renderAuthMail(security[0], "https://auth.example.test", 3600, sentAt);
+      const rendered = await renderAuthMail(security[0], "https://app.example.test", 3600, sentAt);
       expect(rendered.text).toContain("10:05 p. m. (hora de RD).");
       expect(rendered.text).not.toMatch(/[\u00a0\u202f]/);
     } finally { formatter.mockRestore(); }

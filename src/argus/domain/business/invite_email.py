@@ -70,31 +70,15 @@ def render_invite_email(
     expires_at: datetime,
     sign_in_origin: str,
     asset_origin: str | None = None,
-    postal_address: str | None = None,
 ) -> InviteEmail:
     for value in (owner_name, business_name):
         if not value.strip() or any(c in value for c in "\r\n"):
             raise ValueError("Invite names must be nonempty single-line values")
-    address = (
-        postal_address
-        if postal_address is not None
-        else os.getenv("MARKETING_POSTAL_ADDRESS", "")
-    ).strip()
-    if (
-        not address
-        or re.fullmatch(r"Cuadrao LLC[,\s]*", address, re.IGNORECASE)
-        or any(c in address for c in "\r\n")
-    ):
-        raise ValueError("Email postal address configuration is required")
-    legal_line = (
-        address if re.match(r"Cuadrao LLC(?:,|$)", address) else f"Cuadrao LLC, {address}"
-    )
     artifact = json.loads(
         Path(__file__).with_name("business_invite_email.generated.json").read_text()
     )
     values = {
         "ownerName": owner_name,
-        "postalAddress": legal_line,
         "businessName": business_name,
         "expiresDate": spanish_expiry_date(expires_at),
         "signInUrl": _origin(sign_in_origin) + "/",

@@ -132,7 +132,7 @@
             },
             "preferences": {
               "label": "Preferencias que tú eliges",
-              "body": "El almacenamiento local de tu navegador guarda tu idioma, que empieza con el de tu propio navegador hasta que lo cambies, junto con tus preferencias de apariencia y diseño, los avisos que descartaste, las conversaciones que marcaste como temporales y el anuncio o enlace que te trajo aquí. El idioma, la apariencia, el diseño, los avisos y las marcas temporales quedan en tu dispositivo. La campaña también se guarda ahí, y Argus puede recibirla cuando empiezas como invitado o creas una cuenta. Esta pestaña guarda temporalmente el identificador de tu cuenta, la hora de reinicio del límite diario y si cerraste el aviso. Ese estado se borra cuando se reinicia el límite, una pregunta se completa, cierras sesión o cambias de cuenta, o cierras la pestaña. Argus nunca envía nada de esto a anunciantes."
+              "body": "El almacenamiento local de tu navegador guarda tu idioma, que empieza con el de tu propio navegador hasta que lo cambies, junto con tus preferencias de apariencia y diseño, los avisos que descartaste, las conversaciones que marcaste como temporales y el anuncio o enlace que te trajo aquí. El idioma, la apariencia, el diseño, los avisos y las marcas temporales quedan en tu dispositivo. La campaña también se guarda ahí, y Argus puede recibirla cuando empiezas como invitado o creas una cuenta. Esta pestaña guarda temporalmente el identificador de tu cuenta, la hora de reinicio del límite diario y si cerraste el aviso. Ese estado se borra cuando se reinicia el límite, una pregunta se completa, cierras sesión o cambias de cuenta, o cierras la pestaña. Esta pestaña también guarda si aceptaste el aviso de privacidad vigente de Cuadrao Business, hasta que esa aceptación pueda guardarse en el servidor. Cerrar la pestaña borra esa copia. Argus nunca envía nada de esto a anunciantes."
             }
           },
           "body_after": "Argus no usa cookies publicitarias, píxeles de anuncios, rastreadores de marketing ni rastreo entre sitios, y no comparte datos de tu navegador con socios publicitarios. La analítica de producto, cuando está activa, corre en los servidores de Argus y no guarda nada en tu navegador. Puedes borrar o bloquear este almacenamiento desde la configuración de tu navegador, aunque el inicio de sesión dejará de funcionar si bloqueas las cookies de sesión."
@@ -307,29 +307,6 @@
       "announce_needs_attention": "{{title}} necesita atención.",
       "announce_needs_input": "{{title}} necesita tu respuesta.",
       "announce_new_activity": "{{title}} ya está lista."
-    },
-    "starter_actions": {
-      "tsla": {
-        "label": "Prueba Apple vs SPY",
-        "value": "Compara Apple con SPY durante los últimos 12 meses."
-      },
-      "btc": {
-        "label": "Prueba mantener Bitcoin (BTC)",
-        "value": "¿Qué habría pasado si compraba Bitcoin en lo que va del año?"
-      },
-      "dca": {
-        "label": "Prueba compras semanales de Nvidia",
-        "value": "¿Qué habría pasado si compraba $250 de Nvidia cada semana durante el último año?"
-      }
-    },
-    "landing_starters": {
-      "backtest": "¿Qué habría pasado si hubiera comprado un fondo del S&P 500 en los últimos 12 meses?",
-      "savings": "Si aparto $200 cada mes, ¿cuánto tendría en un año?"
-    },
-    "example_queries": {
-      "q1": "¿Cómo gana dinero Netflix?",
-      "q2": "Compara Costco con Walmart y Target",
-      "q3": "¿Y si hubiera comprado Coca-Cola cada mes durante cinco años?"
     },
     "research_job": {
       "queued": {
@@ -1481,6 +1458,11 @@
       "existing_action": "Inicia sesión",
       "error": "No pudimos enviar tu solicitud. Inténtalo de nuevo."
     },
+    "business_unavailable": {
+      "body": "Si crees que es un error, escríbenos a admin@cuadrao.ai.",
+      "sign_out": "Cerrar sesión",
+      "title": "Cuadrao Business aún no está disponible para tu cuenta."
+    },
     "login": {
       "brand": "cuadrao",
       "subtitle": "Inicia sesión para continuar",
@@ -1501,10 +1483,15 @@
       "new_account": "¿Nuevo en Cuadrao?",
       "password_requirement": "Mínimo 8 caracteres.",
       "confirmation_title": "Revisa tu correo",
-      "confirmation_description": "Escribe el código del correo, o abre el enlace de confirmación. Cualquiera de los dos termina de crear tu cuenta.",
+      "confirmation_description": "Escribe el código que te enviamos a {{correo}}.",
       "confirmation_code_label": "Código de confirmación",
       "confirmation_submit": "Confirmar",
       "confirmation_loading": "Confirmando..."
+    },
+    "confirm": {
+      "error_title": "Este enlace no funcionó",
+      "error_body": "Falta, venció o ya se usó. Pide uno nuevo e inténtalo otra vez.",
+      "back_to_sign_in": "Volver a iniciar sesión"
     },
     "legal": {
       "continuing_prefix": "Al continuar, aceptas nuestros"
@@ -1541,6 +1528,14 @@
       "retrying_revocation": "Reintentando...",
       "revocation_retry_error": "Cuadrao aún no pudo confirmar que todas las sesiones se cerraron. Inténtalo de nuevo.",
       "cleanup_warning": "Las sesiones fueron revocadas, pero este navegador no pudo confirmar la limpieza de cookies. Aún necesitas iniciar sesión de nuevo."
+    },
+    "screen": {
+      "go_to_cuadrao": "Ir a Cuadrao",
+      "invite_line": "Pide a quien te invitó que te envíe otra invitación.",
+      "link_expired_title": "Este enlace ya venció o ya se usó.",
+      "not_found_detail": "Puede que el enlace esté viejo o mal copiado.",
+      "not_found_title": "No encontramos esta página.",
+      "request_new_link": "Pedir un enlace nuevo"
     },
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
@@ -1617,78 +1612,15 @@
     "privacy": "Política de Privacidad"
   },
   "guest": {
-    "entry": {
-      "loading": "Abriendo Cuadrao",
-      "sending": "Enviando...",
-      "error": "Cuadrao no pudo abrir un chat temporal. Inténtalo de nuevo.",
-      "reload": "Actualizar"
-    },
-    "expired": {
-      "title": "Este chat temporal venció",
-      "detail": "Sus mensajes y resultados no se pueden recuperar.",
-      "start_new": "Iniciar un nuevo chat temporal",
-      "sign_in": "Iniciar sesión",
-      "create_account": "Crear cuenta",
-      "restart_error": "Cuadrao no pudo iniciar un nuevo chat temporal. Inténtalo de nuevo."
-    },
-    "conversion": {
-      "eyebrow": "Sigue con Cuadrao",
-      "sign_in_title": "Iniciar sesión",
-      "create_title": "Crea tu cuenta",
-      "simulation_limit": "Inicia sesión para ejecutar otra simulación.",
-      "simulation_limit_reset": "Este chat temporal alcanzó el límite de simulaciones de hoy. Se restablece el {{date}}. Crea una cuenta para continuar ahora.",
-      "simulation_limit_request_access": "Este chat temporal alcanzó el límite de simulaciones de hoy. Se restablece el {{date}}. Solicita acceso o inicia sesión para continuar.",
-      "simulation_workspace_limit_reset": "Este chat temporal alcanzó el límite de simulaciones. Vence el {{date}}. Crea una cuenta para continuar ahora.",
-      "simulation_workspace_limit_request_access": "Este chat temporal alcanzó el límite de simulaciones. Vence el {{date}}. Solicita acceso o inicia sesión para continuar.",
-      "save_decision": "Inicia sesión para guardar esta decisión.",
-      "new_conversation": "Inicia sesión para conservar esta conversación y comenzar otra.",
-      "new_conversation_create": "Crea una cuenta para conservar esta conversación y comenzar otra.",
-      "keep_history": "Inicia sesión para conservar esta conversación y comenzar otra.",
-      "discovery_searches": "Inicia sesión para más búsquedas con fuentes.",
-      "share_result": "Crea una cuenta o inicia sesión para compartir esta respuesta y mantener el control de su enlace."
-    },
-    "new_conversation": {
-      "title": "¿Quieres iniciar otra conversación?",
-      "description": "Empezar de nuevo reemplaza esta conversación temporal. Inicia sesión para conservarla y comenzar otra.",
-      "public_description": "Empezar de nuevo reemplaza esta conversación temporal. Crea una cuenta para conservarla y comenzar otra.",
-      "start_over": "Empezar de nuevo",
-      "sign_in": "Iniciar sesión para conservarla",
-      "create_account": "Crear cuenta",
-      "error": "El chat temporal no cambió."
-    },
-    "history": {
-      "expires_at": "Disponible hasta {{date}}",
-      "keep_history": "Inicia sesión para conservar tu historial"
-    },
     "shell": {
-      "value_title": "Prueba una idea de inversión con datos históricos.",
-      "input_placeholder": "Pregunta sobre cualquier empresa o idea",
-      "input_placeholder_prerail": "¿Qué quieres probar?",
       "sign_in": "Iniciar sesión",
       "settings": "Ajustes de invitado",
       "language": "Idioma",
       "feedback": "Comentarios",
-      "temporary_until": "Chat temporal · disponible hasta {{date}}",
-      "before_message": {
-        "prefix": "Al enviar mensajes a Argus, aceptas los ",
-        "terms": "Términos",
-        "middle": " y reconoces la ",
-        "privacy": "Privacidad"
-      },
-      "after_message": {
-        "safety": "Argus puede equivocarse. Solo con fines educativos. No es asesoría financiera.",
-        "terms": "Términos",
-        "privacy": "Privacidad"
-      },
       "new_chat_unavailable": "Inicia sesión para conservar esta conversación y comenzar otra.",
       "search_unavailable": "La búsqueda aún no está disponible para chats temporales.",
       "decision_unavailable": "Inicia sesión para guardar esta decisión.",
       "sign_in_unavailable": "El inicio de sesión no está disponible en esta vista previa. Tu chat temporal permanece aquí."
-    },
-    "hints": {
-      "confirmation": "Revisa los supuestos y luego ejecuta la prueba.",
-      "result": "Cambia el rango del gráfico o haz una pregunta de seguimiento.",
-      "dismiss": "Descartar sugerencia"
     }
   },
   "receipt": {
@@ -2203,6 +2135,32 @@
     }
   },
   "business": {
+    "dgii": {
+      "business_rnc": "RNC del negocio",
+      "save_rnc": "Guardar RNC",
+      "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
+      "details": "Datos fiscales para 606 / 607",
+      "review_note": "Usa los montos del comprobante y tu clasificación fiscal. Deja en blanco los datos que no sabes. Guardar crea una revisión; aprobar es otro paso.",
+      "form": "Formato",
+      "load_failed": "No se pudieron cargar los campos fiscales.",
+      "save_failed": "No se confirmó que los datos fiscales se guardaran. Revisa el registro actual antes de aprobar.",
+      "actual_refund": "Se recibió un reembolso de dinero por esta nota de crédito",
+      "original_purchase": "Compra original",
+      "purchases_failed": "No se pudieron cargar las compras originales.",
+      "save": "Guardar revisión fiscal",
+      "revision": "Datos fiscales de esta revisión",
+      "period_hint": "El 606 y el 607 requieren un mes completo y cerrado. El Excel muestra los datos fiscales pendientes y el resumen de consumo por separado.",
+      "approve_income": "Aprobar ingreso",
+      "approve_refund": "Aprobar reembolso",
+      "recorded_income": "Se registró un ingreso después de aprobar la revisión {{version}}.",
+      "recorded_refund": "Se registró un reembolso después de aprobar la revisión {{version}}.",
+      "error": {
+        "fiscal_duplicate_document": "Este comprobante fiscal ya pertenece a otro registro guardado. Revísalo antes de aprobar.",
+        "fiscal_credit_settlement_required": "Registra un reembolso solo después de confirmar que se recibió el dinero y elegir la compra original.",
+        "recorded_correction_unsupported": "Los datos fiscales de un registro aprobado no se pueden cambiar en este flujo.",
+        "stale_version": "Este registro cambió. Abre la revisión actual antes de guardar."
+      }
+    },
     "activity": {
       "all_channels": "La lectura de recibos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
       "error": "No se pudo actualizar la lectura de recibos. Inténtalo de nuevo.",
@@ -2264,6 +2222,28 @@
         "empty": "[placeholder] business.bank.unmatched.empty",
         "title": "[placeholder] business.bank.unmatched.title"
       }
+    },
+    "consent": {
+      "title": "[BORRADOR] Antes de usar IA en tu negocio",
+      "intro": "[BORRADOR] La lectura de recibos con IA y el asistente envían datos de tu negocio a un proveedor de modelos. Revisa el aviso y confirma que lo aceptas. El texto definitivo lo reemplaza el abogado; esto es un marcador.",
+      "privacy_link": "[BORRADOR] Leer el aviso de privacidad",
+      "opt_in": "[BORRADOR] Acepto el aviso de privacidad de Cuadrao Business que acabo de ver, en esta versión.",
+      "accept": "[BORRADOR] Aceptar y continuar",
+      "decline": "[BORRADOR] No aceptar",
+      "saving": "[BORRADOR] Guardando tu aceptación…",
+      "save_error": "[BORRADOR] No se pudo guardar tu aceptación. Inténtalo otra vez.",
+      "decline_title": "[BORRADOR] Sin este permiso, la IA queda apagada",
+      "decline_body": "[BORRADOR] Si no aceptas, la lectura de recibos con IA y el asistente no están disponibles. Puedes seguir subiendo recibos, escribiendo gastos y revisando lo que ya guardaste.",
+      "continue_without": "[BORRADOR] Continuar sin IA",
+      "holding": "[BORRADOR] Apagando la lectura de recibos…",
+      "hold_error": "[BORRADOR] No pudimos apagar la lectura de recibos. La IA seguiría disponible, así que seguimos aquí.",
+      "back": "[BORRADOR] Volver al aviso",
+      "accepted_title": "[BORRADOR] Aceptación registrada en este navegador",
+      "accepted_body": "[BORRADOR] Guardamos quién aceptó, cuándo, la versión del aviso, el idioma y una huella del texto mostrado. Esta copia vive solo en esta pestaña hasta que el servidor pueda guardarla.",
+      "continue": "[BORRADOR] Continuar",
+      "held": "[BORRADOR] La lectura de recibos con IA y el asistente siguen apagados hasta que aceptes el aviso vigente.",
+      "review": "[BORRADOR] Revisar el aviso",
+      "version_label": "[BORRADOR] Versión {{version}}"
     },
     "export": {
       "title": "Exportar registros del negocio",
@@ -2703,6 +2683,18 @@
       "last_30_days": "Últimos 30 días",
       "last_month": "Mes pasado",
       "this_month": "Este mes"
+    },
+    "privacy_notice": {
+      "title": "[BORRADOR] Aviso de privacidad de Cuadrao Business",
+      "close": "[BORRADOR] Cerrar aviso",
+      "paragraphs": [
+        "[BORRADOR] Este aviso es un marcador. No está publicado ni revisado por un abogado. El texto definitivo reemplaza estas frases.",
+        "[BORRADOR] Cubre Cuadrao Business, la app web del negocio. El dueño del negocio es responsable de sus registros. Cuadrao los trata por encargo suyo. El responsable legal, el domicilio y el contacto de privacidad siguen como {{OPERADOR_LEGAL}}, {{DIRECCION_LEGAL}} y {{CONTACTO_PRIVACIDAD}}.",
+        "[BORRADOR] Recopilamos la cuenta de quien entra, los registros del negocio, los recibos originales, lo que la lectura propone y los datos fiscales que aparecen en un recibo, como RNC, NCF o e-CF e ITBIS. Esos datos fiscales quedan sin verificar hasta que una persona autorizada los revise.",
+        "[BORRADOR] Leer un recibo con IA envía la foto, el PDF o el documento a un modelo, solo para proponer comercio, monto, fecha y datos fiscales. El asistente envía el texto del mensaje y el contexto que necesita. Ninguno registra un gasto por sí solo.",
+        "[BORRADOR] Sin tu aceptación de este aviso, esas funciones no se activan. Subir un recibo, escribir un gasto o revisar lo guardado no es un permiso para enviar datos a un modelo.",
+        "[BORRADOR] Puedes pedir acceso, corrección, eliminación, oposición y portabilidad. Los plazos y la ley aplicable, incluida la Ley 172-13, los confirma el abogado. [A CONFIRMAR]"
+      ]
     },
     "receipt": {
       "untitled": "Recibo"
