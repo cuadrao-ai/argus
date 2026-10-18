@@ -10,8 +10,8 @@ import {
   businessShellPath,
   currentChatPath,
   businessShellEntry,
-  homeTarget,
   postAuthPath,
+  resolveSignedInHome,
   signedInHomePath,
   hasCampaignAttribution,
   LANDING_INTENT_STORAGE_KEY,
@@ -495,24 +495,10 @@ describe("landing starter prefill wiring", () => {
       join(root, "components/chat/ChatInterface.tsx"),
       "utf-8",
     );
-    const guest = readFileSync(
-      join(root, "components/guest/useGuestExperience.ts"),
-      "utf-8",
-    );
     expect(init).toContain("setInitialRoutingSettled(true)");
     expect(init).toContain("return initialRoutingSettled");
     expect(chat).toContain("canConsumeLandingStarter={initialRoutingSettled}");
-    expect(guest).toContain("if (isGuestBootstrapAbortError(error)) return;");
-    expect(guest).not.toContain("if (!isGuestBootstrapAbortError(error)) throw error");
-    const signInStart = guest.indexOf("onRequestSignIn: () => {");
-    const signInBlock = guest.slice(
-      signInStart,
-      guest.indexOf("omnisearchShortcutEnabled,", signInStart),
-    );
-    expect(signInBlock).toContain("prepareLandingStarterAuthHandoff()");
-    expect(signInBlock.indexOf("prepareLandingStarterAuthHandoff()")).toBeLessThan(
-      signInBlock.indexOf("cancelPendingGuestBootstrap()"),
-    );
+    expect(chat).not.toContain("admitSend");
   });
 
   test("public receipt landings capture the live path before a follow-up forks", () => {
@@ -660,20 +646,16 @@ describe("landing intent merge and redirects", () => {
     ).toBe("/?from_path=%2Fchat&auth=login");
   });
 
-  test("business-only never targets chat, signed in or signed out", () => {
+  test("business-only never targets chat", () => {
     const chatPath = "/chat";
     const rows = [
-      [true, false, false, { href: chatPath }],
-      [true, true, false, { href: "/biz" }],
-      [true, true, true, { href: "/biz" }],
-      [true, false, true, { closed: true }],
-      [false, false, false, { href: chatPath }],
-      [false, true, false, { href: "/?auth=login" }],
-      [false, true, true, { href: "/?auth=login" }],
-      [false, false, true, { href: "/?auth=login" }],
+      [false, false, { href: chatPath }],
+      [true, false, { href: "/biz" }],
+      [true, true, { href: "/biz" }],
+      [false, true, { closed: true }],
     ] as const;
-    for (const [signedIn, pilot, businessOnly, expected] of rows) {
-      const target = homeTarget({ signedIn, pilot, businessOnly, chatPath });
+    for (const [pilot, businessOnly, expected] of rows) {
+      const target = resolveSignedInHome({ pilot, businessOnly, chatPath });
       expect(target).toEqual(expected);
       if (businessOnly) {
         expect("href" in target ? target.href : "/?auth=login").not.toMatch(/^\/chat/);

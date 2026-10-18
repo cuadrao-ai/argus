@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 from psycopg.types.json import Jsonb
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from argus.domain.business.actions import plans, sources
 from argus.domain.business.actions.facts import facts_of, patched_facts, validate_facts
@@ -22,10 +22,17 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.authority import ActorProvenance
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
+from argus.domain.business.contracts.dgii import (
+    DgiiDeclaration,
+    FiscalReview,
+    PurchaseDeclaration,
+    SalesDeclaration,
+)
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
     BusinessResolution,
+    Known,
     ReadPurchase,
 )
 from argus.domain.business.transactions import ActionTransaction
@@ -83,6 +90,7 @@ def save_revision(
     read_total: str | None = None,
     ecf_checks: EcfVerification | None = None,
     dgii_qr: DgiiQr | None = None,
+    dgii: DgiiDeclaration | None = None,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -109,14 +117,15 @@ def save_revision(
         ecf_checks=ecf_checks,
         dgii_qr=dgii_qr,
         remainder_settled=bool(previous.get("remainder_settled", False)),
+        dgii=dgii if dgii is not None else previous.get("dgii"),
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
     sources.attach(tx, event.id, source_ids)
     tx.rows(
         "insert into public.business_draft_revisions"
-        " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key)"
-        " values (%s,%s,%s,%s,%s,%s,%s,%s)",
+        " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,before_dgii,after_dgii)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             tx.context.actor.space_id,
             event.id,
@@ -126,6 +135,10 @@ def save_revision(
             Jsonb(after.model_dump(mode="json")),
             list(source_ids),
             turn_key,
+            Jsonb(previous.get("dgii")) if previous.get("dgii") else None,
+            Jsonb(resolution["business"].get("dgii"))
+            if resolution["business"].get("dgii")
+            else None,
         ),
     )
     return Applied(outcome="applied", draft_id=event.id, version=event.version)
@@ -134,12 +147,13 @@ def save_revision(
 def revise(
     tx: ActionTransaction,
     ref: ExistingDraft | None,
-    patch: BusinessFactPatch,
+    patch: BusinessFactPatch | None,
     source_ids: tuple[UUID, ...],
     actor: ActorProvenance,
     *,
     turn_key: str | None = None,
     answer_id: UUID | None = None,
+    fiscal_review: FiscalReview | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     now = datetime.now(timezone.utc)
@@ -156,12 +170,20 @@ def revise(
         "extractor": "extracted",
     }[actor.actor_kind]
     try:
-        after = patched_facts(before, patch, source_ids, origin=origin)
+        after = (
+            patched_facts(before, patch, source_ids, origin=origin)
+            if patch is not None
+            else before
+        )
+        if fiscal_review is not None:
+            from argus.domain.business.actions.fiscal import reviewed_fiscal_facts
+
+            after = reviewed_fiscal_facts(after, fiscal_review, source_ids, origin)
     except ValidationError:
         raise ActionError("invalid_input", "business_fact_provenance_invalid") from None
     if answer_id is not None:
         answer_question(tx, event.id, answer_id, patch, source_ids[-1])
-    elif actor.actor_kind == "member":
+    elif actor.actor_kind == "member" and patch is not None:
         for question in tx.rows(
             "select id,field from public.business_questions where space_id=%s"
             " and draft_id=%s and state in ('open','owner_does_not_know','waiting_for_window')",
@@ -170,7 +192,31 @@ def revise(
             value = getattr(patch, question["field"])
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
-    return save_revision(tx, event, before, after, source_ids, actor, turn_key)
+    declared = fiscal_review.declaration if fiscal_review else None
+    if patch is not None and patch.purchase is not None:
+        current = declared
+        if current is None:
+            raw = (event.resolution.get("business") or {}).get("dgii")
+            current = TypeAdapter(DgiiDeclaration).validate_python(raw) if raw else None
+        if not isinstance(current, SalesDeclaration):
+            from argus.domain.business.purchase_review import apply_purchase
+
+            amount = after.amount.value if isinstance(after.amount, Known) else None
+            declared = apply_purchase(
+                current if isinstance(current, PurchaseDeclaration) else None,
+                patch.purchase,
+                amount,
+            )
+    return save_revision(
+        tx,
+        event,
+        before,
+        after,
+        source_ids,
+        actor,
+        turn_key,
+        dgii=declared,
+    )
 
 
 def answer_question(

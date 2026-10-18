@@ -6,6 +6,7 @@ import { BUSINESS_FISCAL_FIELDS, type BusinessDraftRevision, type BusinessFactFi
 import { formatTimestamp } from "./business-format";
 import { cardClass, useCategoryLabel } from "./business-ui";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
+import FiscalRevision from "./FiscalRevision";
 
 export default function ReceiptHistory({ history, accounts }: { history: BusinessDraftRevision[]; accounts: BusinessAccount[] }) {
   const { t, i18n } = useTranslation();
@@ -60,6 +61,7 @@ export default function ReceiptHistory({ history, accounts }: { history: Busines
                     <p className="mt-1 text-[12px] text-black/55 dark:text-white/55">{fiscalStatus(revision.before?.fiscal?.[key])} → {fiscalStatus(revision.after.fiscal?.[key])}</p>
                   </div>)}
                 </dl>
+                {revision.after_dgii && JSON.stringify(revision.before_dgii) !== JSON.stringify(revision.after_dgii) ? <FiscalRevision declaration={revision.after_dgii} /> : null}
                 {!changed.length && !changedFiscal.length ? <p className="mt-2 text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.reviewed_revision", "This revision was reviewed.")}</p> : null}
               </li>
             );

@@ -1,10 +1,11 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 
 import { requestPasswordRecovery } from "@/lib/auth-security";
+import { prefilledEmail } from "@/lib/auth-link-error";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 
 export default function ForgotPasswordPage() {
@@ -13,6 +14,11 @@ export default function ForgotPasswordPage() {
   const [status, setStatus] = useState<"idle" | "submitting" | "sent" | "error">(
     "idle",
   );
+
+  useEffect(() => {
+    const next = prefilledEmail(new URLSearchParams(window.location.search).get("email"));
+    if (next) setEmail(next);
+  }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
