@@ -244,6 +244,8 @@ services:
         value: "true"
       - key: NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED
         value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
+        value: "true"
 
   # Existing staging service: srv-db5ihr7lot8c73f3b3h0.
   - type: web
@@ -277,6 +279,8 @@ services:
       - key: NEXT_PUBLIC_MOCK_AUTH
         value: "false"
       - key: NEXT_PUBLIC_BUSINESS_PILOT_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
         value: "true"
       - key: NEXT_PUBLIC_CUADRAO_API_URL
         value: https://cuadrao-api-staging.onrender.com/api/v1

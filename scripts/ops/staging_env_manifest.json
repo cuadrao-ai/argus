@@ -265,6 +265,11 @@
           "value": "true"
         },
         {
+          "name": "NEXT_PUBLIC_BUSINESS_ONLY_WEB",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
           "name": "NEXT_PUBLIC_CUADRAO_API_URL",
           "kind": "plain",
           "copy_from": "NEXT_PUBLIC_ARGUS_API_URL"

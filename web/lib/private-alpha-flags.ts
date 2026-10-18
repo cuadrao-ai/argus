@@ -27,3 +27,13 @@ export const evidenceReceiptSharingEnabled =
 // inside the chat shell on /biz. Default off until the connected pilot passes.
 export const businessPilotEnabled =
   process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED === "true";
+
+// Business is the only web app. Unset is on. The string "false" restores the
+// consumer web (root, guest chat, and /chat).
+export function businessOnlyWebFromEnv(value: string | undefined): boolean {
+  return value !== "false";
+}
+
+export const businessOnlyWebEnabled = businessOnlyWebFromEnv(
+  process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB,
+);
