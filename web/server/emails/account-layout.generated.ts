@@ -8,6 +8,7 @@ export const emailPalette = {
 
 type EmailContent = {
   title: string;
+  preheader?: string;
   paragraphs: readonly string[];
   action?: { label: string; url: string };
   expiryNote?: string;
@@ -20,7 +21,16 @@ export type AccountEmail = EmailContent & (
 );
 
 const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif";
-const assets = "https://cuadrao-web-staging.onrender.com/email";
+export type EmailLayoutOptions = { assetOrigin?: string };
+
+function emailAssets(options: EmailLayoutOptions): string {
+  const value = options.assetOrigin ?? (process.env.CUADRAO_EMAIL_ASSET_ORIGIN || "https://cuadrao.ai");
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash || /[\r\n]/.test(value)) {
+    throw new Error("Email image origin must be an HTTPS origin without credentials or a path");
+  }
+  return `${url.origin}/email`;
+}
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 })[character]!);
@@ -33,7 +43,8 @@ function safeUrl(value: string): string {
   return escapeHtml(url.href);
 }
 
-export function renderAccountEmail(content: AccountEmail): { html: string; text: string } {
+export function renderAccountEmail(content: AccountEmail, options: EmailLayoutOptions = {}): { html: string; text: string } {
+  const assets = emailAssets(options);
   if (content.code !== undefined && (!/^\d{6,10}$/.test(content.code) || content.unsubscribeUrl)) {
     throw new Error("Invalid account email code");
   }
@@ -63,8 +74,8 @@ export function renderAccountEmail(content: AccountEmail): { html: string; text:
     ? `<p class="muted" style="margin:12px 0 0;color:${p.muted};font-size:14px;line-height:21px"><a href="${safeUrl(content.unsubscribeUrl)}" style="color:inherit;text-decoration:underline">Salir de la lista</a></p>` : "";
   const code = content.code
     ? `<p class="code" style="margin:0 0 20px;padding:20px 12px;border-radius:8px;background:${p.tint};color:${p.text};font-size:32px;line-height:40px;font-weight:700;letter-spacing:4px;text-align:center;white-space:nowrap">${content.code}</p>` : "";
-  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){${dark}}${dark.replace(/(^|\})\s*([^{}]+)\{/g, (_, end, selectors) => `${end}${selectors.split(",").map((selector: string) => `[data-ogsc] ${selector.trim()}`).join(",")}{`)}</style></head>
-<body class="page" style="margin:0;padding:32px 12px;background:${p.page};font-family:${font}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:${p.card};border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:${p.text};border-radius:12px 12px 0 0">
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(content.title)}</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){${dark}}${dark.replace(/(^|\})\s*([^{}]+)\{/g, (_, end, selectors) => `${end}${selectors.split(",").map((selector: string) => `[data-ogsc] ${selector.trim()}`).join(",")}{`)}</style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:${p.page};font-family:${font}">${content.preheader ? `<div class="preheader" style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:transparent">${escapeHtml(content.preheader)}</div>` : ""}<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:${p.card};border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:${p.text};border-radius:12px 12px 0 0">
 <img class="logo-light" src="${assets}/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
 <!--[if !mso]><!--><img class="logo-dark" src="${assets}/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
 </td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:${p.text};font-size:24px;line-height:32px;font-weight:700">${escapeHtml(content.title)}</h1>${code}${content.code && content.expiryNote ? muted(content.expiryNote) : ""}${content.paragraphs.map(paragraph).join("")}${action}${!content.code && content.expiryNote ? muted(content.expiryNote) : ""}${content.afterAction ? muted(content.afterAction) : ""}${content.beforeFooter ? paragraph(content.beforeFooter) : ""}</td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:${p.card}"><p class="copy" style="margin:0 0 12px;color:${p.text};font-size:16px;line-height:24px">Saludos, el equipo de Cuadrao</p><p class="muted" style="margin:0;color:${p.muted};font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p>${address}${leave}</td></tr></table></td></tr></table></body></html>`;
