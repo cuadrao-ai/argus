@@ -116,7 +116,8 @@ test("a receipt row has exactly one marker and the badge uses server count", asy
   const ready = render(detail);
   assert.ok(ready.includes("receipt-unread-dot"));
   assert.ok(!ready.includes("receipt-reading-ring"));
-  assert.equal(inboxCount({ receiptActivity: { ...counts, unread_count: 7, pending_review_count: 9 } }), 9);
+  assert.equal(inboxCount({ inbox: null }), null);
+  assert.equal(inboxCount({ inbox: [{ status: "review_ready" }, { status: "needs_attention", attention: "unreadable" }, { status: "queued", read_pending: true }] }), 1);
 });
 
 test("opening or old hydration does not mark seen; focused visible hydrated content does", async () => {

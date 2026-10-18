@@ -674,8 +674,18 @@ export function createFixtureBusinessDataSource(
       if (!address.includes("@")) throw Object.assign(new Error("invalid_email"), { status: 422 });
       if (!access.invites.some((item) => item.email === address) && !access.grants.some((item) => item.email === address)) {
         const now = new Date();
-        access.invites.push({ id: `inv-${access.invites.length + 1}`, email: address, created_at: now.toISOString(), expires_at: new Date(now.getTime() + 14 * 86_400_000).toISOString() });
+        access.invites.push({ id: `inv-${access.invites.length + 1}`, email: address, created_at: now.toISOString(), expires_at: new Date(now.getTime() + 7 * 86_400_000).toISOString(), state: "pending" });
       }
+      return { grants: [...access.grants], invites: [...access.invites] };
+    },
+    resendAccessInvite: async (id) => {
+      await delay();
+      const found = access.invites.find((item) => item.id === id);
+      if (!found) throw Object.assign(new Error("not_found"), { status: 404 });
+      const now = new Date();
+      found.created_at = now.toISOString();
+      found.expires_at = new Date(now.getTime() + 7 * 86_400_000).toISOString();
+      found.state = "pending";
       return { grants: [...access.grants], invites: [...access.invites] };
     },
     revokeAccessGrant: async (id) => {
