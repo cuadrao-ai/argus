@@ -15,6 +15,7 @@ from pydantic import (
 )
 
 from .authority import ActorProvenance
+from .dgii import FiscalReview
 from .facts import (
     BusinessFactPatch,
     BusinessShare,
@@ -137,7 +138,14 @@ class TurnPlan(Contract):
 
 class ReviewDraft(Contract):
     version: int = Field(ge=1)
-    facts: BusinessFactPatch
+    facts: BusinessFactPatch | None = None
+    dgii: FiscalReview | None = None
+
+    @model_validator(mode="after")
+    def some_review_input(self):
+        if self.facts is None and self.dgii is None:
+            raise ValueError("supply review facts or fiscal declaration")
+        return self
 
 
 class ApproveExpense(Contract):
@@ -148,6 +156,11 @@ class ApproveExpense(Contract):
 class ApproveIncome(Contract):
     version: int = Field(ge=1, strict=True)
     action: Literal["record_income"]
+
+
+class ApproveRefund(Contract):
+    version: int = Field(ge=1, strict=True)
+    action: Literal["record_refund"]
 
 
 class SettleRemainder(Contract):
@@ -236,6 +249,12 @@ class IncomeApprovalCommand(Contract):
     request: ApproveIncome
 
 
+class RefundApprovalCommand(Contract):
+    action: Literal["approve_refund"] = "approve_refund"
+    draft_id: UUID
+    request: ApproveRefund
+
+
 class AttachmentPreparationBinding(Contract):
     schema_version: Literal[1] = 1
     binding_id: UUID
@@ -302,6 +321,7 @@ Command = (
     | ApprovalCommand
     | CaptureCommand
     | IncomeApprovalCommand
+    | RefundApprovalCommand
     | PrepareAttachmentCommand
     | SettleRemainderCommand
     | RebindAttachmentCommand

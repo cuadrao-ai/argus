@@ -20,6 +20,7 @@ from pydantic.json_schema import SkipJsonSchema
 from typing_extensions import TypeAliasType
 
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
+from argus.domain.business.contracts.dgii import DgiiDeclaration
 
 T = TypeVar("T")
 
@@ -238,6 +239,7 @@ class ReadPurchase(Contract):
 class BusinessResolution(Contract):
     schema_version: Literal[1] = 1
     facts: BusinessFacts
+    dgii: DgiiDeclaration | None = None
     #: Empty for a single clean read. Several entries mean the read showed
     #: several purchases; the facts above hold only what they all share.
     read_purchases: tuple[ReadPurchase, ...] = ()

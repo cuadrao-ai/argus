@@ -16,6 +16,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
     ApproveExpense,
     ApproveIncome,
+    ApproveRefund,
     DecideFiscalInclusion,
     MarkPersonal,
     Refused,
@@ -56,6 +57,8 @@ def _run(request, response, context, draft_id, command=None, key=None):
                 method = context.service.decide_606
             elif isinstance(command, ApproveIncome):
                 method = context.service.approve_income
+            elif isinstance(command, ApproveRefund):
+                method = context.service.approve_refund
             else:
                 method = context.service.approve
             result = method(actor, draft_id, command, key)
@@ -130,7 +133,7 @@ def approve_draft(
     request: Request,
     response: Response,
     draft_id: UUID,
-    body: Annotated[ApproveExpense | ApproveIncome, Body(discriminator="action")],
+    body: Annotated[ApproveExpense | ApproveIncome | ApproveRefund, Body(discriminator="action")],
     context: Annotated[DraftContext, Depends(require_drafts)],
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
