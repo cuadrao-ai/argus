@@ -83,7 +83,7 @@ for (const shot of SHOTS) {
         await installBusiness(page);
         await openScreen(page, screen);
         await page.screenshot({
-          path: `../docs/reports/evidence/business-web-foundation/${phase}-${screen}-${shot.name}.png`,
+          path: `test-results/business-web-foundation/${phase}-${screen}-${shot.name}.png`,
           fullPage: false,
         });
         if (phase === "after") await noHorizontalScroll(page);
