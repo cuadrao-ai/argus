@@ -1,3 +1,5 @@
+import { installEmailFixture } from "./helpers/email-fixture";
+installEmailFixture();
 import { expect, test } from "bun:test";
 import { renderAccountEmail } from "../server/emails/account-layout.generated";
 import { EMAIL_TEMPLATE_SLOTS, renderTemplateSlot } from "../../marketing/lib/email/template-slots";

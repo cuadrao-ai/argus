@@ -1,6 +1,9 @@
-import { expect, test } from "bun:test";
+import { installEmailFixture } from "./helpers/email-fixture";
+installEmailFixture();
+import { expect, test, spyOn } from "bun:test";
 import { readFileSync } from "node:fs";
 import { parseAuthMail, renderAuthMail, type AuthMail } from "../server/emails/auth-actions";
+import { assertEmailPresentation } from "./helpers/email-presentation";
 import { emailExpiry } from "../server/emails/expiry";
 import { DISABLED_SECURITY_NOTICES } from "../server/emails/security-notices";
 
@@ -23,6 +26,7 @@ for (const [index, mail] of [...signin, ...security].entries()) {
   test(`approved HTML and plain text ${mail.action} ${index}`, async () => {
     const rendered = await renderAuthMail(mail, "https://auth.example.test", 3600, sentAt);
     expect(rendered).toMatchSnapshot();
+    assertEmailPresentation(rendered.html, rendered.text);
     expect(rendered.html).toContain('<div class="preheader" style="display:none;');
     expect(rendered.text).toContain("Hola,");
     expect(rendered.text).toContain("Saludos,\nCuadrao");
@@ -80,5 +84,21 @@ test("notification recipients derive from signed documented fields and disabled 
   }
   for (const old_email of ["", "victim@example.test\r\nBcc: another@example.test"]) {
     expect(() => parseAuthMail({...payload, email_data: {...payload.email_data, old_email}}, "https://app.example.test")).toThrow();
+  }
+});
+
+
+test("security send time normalizes ICU day-period spaces", async () => {
+  const original = Intl.DateTimeFormat;
+  for (const space of [" ", "\u00a0", "\u202f"]) {
+    const formatter = spyOn(Intl, "DateTimeFormat").mockImplementation((locale, options) => {
+      const value = new original(locale, options);
+      return { format: (date: Date) => value.format(date).replace(/p\.[\s\u00a0\u202f]+m\./g, `p.${space}m.`) } as Intl.DateTimeFormat;
+    });
+    try {
+      const rendered = await renderAuthMail(security[0], "https://auth.example.test", 3600, sentAt);
+      expect(rendered.text).toContain("10:05 p. m. (hora de RD).");
+      expect(rendered.text).not.toMatch(/[\u00a0\u202f]/);
+    } finally { formatter.mockRestore(); }
   }
 });

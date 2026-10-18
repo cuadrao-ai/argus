@@ -1,3 +1,5 @@
+import { installEmailFixture } from "./helpers/email-fixture";
+installEmailFixture();
 import assert from "node:assert/strict";
 import { describe, test } from "bun:test";
 import { Webhook } from "standardwebhooks";
