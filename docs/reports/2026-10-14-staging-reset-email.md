@@ -6,23 +6,33 @@ SPF/DKIM/DMARC and actual email-client dark-mode proof remain pending.
 
 ## Owners and delivery
 
-`web/server/emails` owns one shared React Email layout, the approved Spanish
-reset email, explicit current core Auth templates and the signed hook transport.
-Supabase owns tokens, verification and expiry. The existing web recovery route
-owns CAPTCHA, configured origin, rate limits and enumeration-safe responses.
-The sender is `Cuadrao <hola@mail.cuadrao.ai>` with Reply-To `hola@cuadrao.ai`.
-The approved preview is “Crea una nueva contraseña para tu cuenta.” The footer
-is only “Cuadrao LLC”. Brand art comes from `marketing/brand/README.md`, using
-existing staging `/icons/cuadrao-192.png`. The template has paired light/dark
-colours, including a green button in both modes, media-query and Outlook
-`data-ogsc` selectors. Browser CSS rendering is not actual email-client proof.
+The hand-written renderer in `marketing/lib/email/account-layout.ts` owns the
+shared account and waitlist layout. `scripts/emails/sync-layout.mjs --check`
+checks its generated web copy. Auth and security copy lives in
+`web/server/emails`; Supabase owns tokens, verification and expiry.
 
-The staging snapshot on October 14 has six default core templates and seven
-disabled notifications. Golden fixtures retain the non-recovery subjects and
-bodies, with equivalent HTML escaping normalized. There is no Go template
-engine. The hook covers signup confirmation, invitation, magic link, recovery,
-secure two-recipient email change and reauthentication. Unknown actions return
-an error. No email is silently acknowledged or delegated to Supabase SMTP.
+The sender is `Cuadrao <no-responder@mail.cuadrao.ai>` with Reply-To
+`hola@cuadrao.ai`. Mail has a hidden preheader, HTML title, a greeting above the
+code, and the footer `Saludos,` followed by `Cuadrao` on a new line. The legal
+line contains the company and approved address from `MARKETING_POSTAL_ADDRESS`.
+The renderer refuses missing or multiline postal configuration. Callers may
+supply the same address through `postalAddress`; account mail has no unsubscribe
+link or headers. No environment files or hosted settings were changed.
+
+Images use `CUADRAO_EMAIL_ASSET_ORIGIN`, defaulting to `https://cuadrao.ai`, or an
+explicit `assetOrigin`. The shared renderer supports media-query dark styles
+and Outlook `data-ogsc` selectors. The generated Business close artifact carries
+a full `tokens.postalAddress` marker; its Python caller must substitute the
+configured legal line once, just like the asset-origin marker.
+
+The hook supports signup, magic link, recovery, secure two-recipient email
+change and reauthentication. Supabase invitation is excluded. Business invitation
+has a separate owner and template. Password-changed and email-changed notices
+have approved copy; email-changed goes to the old address. The other five
+security notices are disabled and send nothing. Committed notification flags do
+not prove hosted activation. Security notices use send time in
+`America/Santo_Domingo`, with non-breaking day-period spaces normalized so ICU
+versions produce identical snapshots.
 
 Signed payloads are capped at 64 KiB. Standard Webhooks verifies the raw body
 and timestamp before JSON schema parsing. The dedicated secret, project ref,
@@ -37,7 +47,7 @@ prefixes are retained. Empty redirects preserve Supabase's site default;
 nonempty redirects remain in the staging origin. No payload, recipient, token,
 provider response or secret is logged.
 
-Resend receives explicit HTML and generated plain text from the same React
+Resend receives explicit HTML and generated plain text from the same shared
 render. A hashed webhook/action/recipient key makes repeats and partial
 email-change retries duplicate-safe within Resend's idempotency retention.
 The sender shares a four-second deadline across both recipients and does not
@@ -47,8 +57,9 @@ retry automatically. A failed or uncertain send returns a generic hook error.
 
 1. Complete exact-head review/Eval and obtain explicit activation authority.
 2. Read back `skedzwocnmrhfigiwyzi` Auth settings. Require `mailer_otp_exp=3600`,
-   all seven notification flags disabled and unchanged five non-recovery
-   subject/body templates. Do not infer enablement from template presence.
+   the reviewed core templates and the two approved notification flags.
+   The other five notices must stay disabled. Do not infer hosted enablement
+   from committed template presence.
 3. Verify `mail.cuadrao.ai` sender identity and disable auth-link tracking.
 4. Inject `CUADRAO_AUTH_EMAIL_HOOK_SECRET` and the dedicated server-only
    `CUADRAO_AUTH_EMAIL_RESEND_API_KEY` using an authorized staging sending
@@ -81,6 +92,32 @@ were changed. No database migration is needed. Production is outside this scope.
 
 Use Bun for render, hook, sender and existing auth-security tests. Provider fetch
 is injected and mocked; these tests send no email. Focused tests cover full
-captured core content, sender headers, MIME parts, signature mutation/staleness,
+approved HTML/plain snapshots, sender headers, MIME parts, signature mutation/staleness,
 project/origin/expiry refusal, body limits, PKCE, empty redirects, two-recipient
 mapping and partial-send retry keys. Root retains browser CSS layout evidence.
+
+
+## October 17 template verification
+
+The Auth snapshot tests check all eight recipient-specific renders. The shared
+presentation test snapshots four waitlist templates, nine disabled preview slots
+and Business close mail. Each render checks visible text/background contrast at
+4.5:1 in light CSS and Outlook dark CSS. The tests inject bad colors in each mode
+to prove the checks fail. New invite and transfer writers must call
+`assertEmailPresentation(html, text)` from
+`web/__tests__/helpers/email-presentation.ts` beside their own snapshots.
+
+Fresh synthetic Chromium light/dark screenshots for all eight Auth renders are
+in `evidence/shared-account-email/final-delta`. They confirm the address, absence
+of account unsubscribe and lack of horizontal overflow. They are browser CSS
+proof only. Gmail, iOS Mail and Outlook screenshots still need explicit staging
+hook activation and real inbox delivery authority.
+
+The universal checker command is `node scripts/emails/check-branding.mjs`.
+It scans canonical/deployed email renderers, generated Python artifacts and
+active email snapshots. It currently fails on the live legacy
+`src/argus/domain/access_approval_email.py`. Removal is blocked because its send
+path is coupled to admission approval and a database guard. The coordinator
+needs a product decision before that path can change. CI activation of this
+checker is held until that dependency is resolved; no legacy allowlist is used.
+The universal branding requirement remains open.
