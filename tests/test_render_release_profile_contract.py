@@ -128,7 +128,9 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
     }
     assert services["cuadrao-marketing-staging"]["branch"] == "main"
     assert "NEXT_PUBLIC_ARGUS_API_URL" in _contract_array("ARGUS_RENDER_WEB_ENV")
-    assert "NEXT_PUBLIC_ARGUS_API_URL" not in _source("render.yaml")
+    assert "NEXT_PUBLIC_ARGUS_API_URL" in {
+        item["key"] for item in services["argus-app"]["envVars"]
+    }
 
 
 def test_argus_api_disables_the_default_render_subdomain() -> None:

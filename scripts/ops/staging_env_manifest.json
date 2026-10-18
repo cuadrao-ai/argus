@@ -76,6 +76,11 @@
           "value": "true"
         },
         {
+          "name": "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
           "name": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED",
           "kind": "plain",
           "value": "true"
@@ -279,12 +284,27 @@
           "value": "true"
         },
         {
+          "name": "NEXT_PUBLIC_BUSINESS_ONLY_WEB",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
           "name": "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED",
           "kind": "plain",
           "value": "false"
         },
         {
           "name": "NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
+          "name": "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
+          "name": "NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED",
           "kind": "plain",
           "value": "false"
         },

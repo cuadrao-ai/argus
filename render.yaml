@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cuadrao-api
+    name: argus-api
     runtime: python
     repo: https://github.com/lagarcess/argus
     branch: main
@@ -72,6 +72,8 @@ services:
       - key: ARGUS_ACCOUNT_DELETION_ENABLED
         value: "false"
       - key: ARGUS_INGESTION_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
         value: "false"
       - key: ARGUS_INGESTION_SECRET_KEY
         sync: false
@@ -205,6 +207,265 @@ services:
         value: "true"
 
   - type: web
+    name: argus-app
+    runtime: node
+    repo: https://github.com/lagarcess/argus
+    branch: main
+    rootDir: web
+    region: virginia
+    plan: starter
+    autoDeployTrigger: "off"
+    buildCommand: npm install -g bun && bun install --frozen-lockfile && bun run build
+    startCommand: bun run start -- -p $PORT
+    envVars:
+      - key: ARGUS_TRUSTED_CLIENT_IP_HEADER
+        value: *trusted-client-ip-header
+      - key: ARGUS_APP_ORIGIN
+        value: https://arguschat.ai
+      - key: NEXT_PUBLIC_APP_ENV
+        value: production
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: https://lgdhvepyrzbnscqssgqq.supabase.co
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: NEXT_PUBLIC_POSTHOG_KEY
+        sync: false
+      - key: NEXT_PUBLIC_MOCK_AUTH
+        value: "false"
+      - key: NEXT_PUBLIC_ENABLE_SPANISH
+        value: "true"
+      - key: NEXT_PUBLIC_ARGUS_API_URL
+        value: https://api.arguschat.ai/api/v1
+      - key: NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY
+        sync: false
+      - key: NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL
+        value: support@get-argus.com
+      - key: NEXT_PUBLIC_OMNISEARCH_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_RESEARCH_RAIL_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
+        value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
+
+  # Existing staging service: srv-db5ihr7lot8c73f3b3h0.
+  - type: web
+    name: cuadrao-api
+    runtime: python
+    repo: https://github.com/lagarcess/argus
+    branch: main
+    rootDir: .
+    region: virginia
+    plan: standard
+    autoDeployTrigger: "off"
+    buildCommand: poetry config virtualenvs.create false && poetry install --only main --no-interaction
+    startCommand: poetry run uvicorn argus.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    renderSubdomainPolicy: disabled
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: POETRY_VERSION
+        value: "2.1.3"
+      - key: ARGUS_PERSISTENCE_MODE
+        value: supabase
+      - key: ARGUS_DEV_MEMORY_FALLBACK
+        value: "false"
+      - key: ARGUS_MARKET_DATA_PROVIDER_MODE
+        value: live_provider
+      - key: MARKET_DATA_CACHE_TTL
+        value: "43200"
+      - key: ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS
+        value: "180"
+      - key: ARGUS_RUNTIME_EVENT_KEEPALIVE_SECONDS
+        value: "15"
+      - key: ARGUS_CHECKPOINTER_MODE
+        value: postgres
+      - key: ARGUS_MOCK_AUTH
+        value: "false"
+      - key: ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED
+        value: "true"
+      - key: ARGUS_CORS_ALLOW_ORIGINS
+        value: https://argus-app-suz5.onrender.com,https://arguschat.ai,https://www.arguschat.ai
+      - key: ARGUS_APP_ORIGIN
+        value: https://arguschat.ai
+      - key: ARGUS_BACKTEST_JOBS_SHADOW_ENABLED
+        value: "true"
+      - key: ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED
+        value: "true"
+      - key: ARGUS_BACKTEST_WORKFLOW_TASK
+        value: argus-backtests/workflow_proof
+      - key: ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED
+        value: "true"
+      - key: ARGUS_BACKTEST_REAL_WORKFLOW_TASK
+        value: argus-backtests/run_backtest_job
+      - key: ARGUS_BACKTEST_JOBS_USER_RUNNING_LIMIT
+        value: "1"
+      - key: ARGUS_BACKTEST_JOBS_USER_QUEUED_LIMIT
+        value: "2"
+      - key: ARGUS_BACKTEST_JOBS_GLOBAL_RUNNING_LIMIT
+        value: "5"
+      - key: ARGUS_BACKTEST_JOBS_GLOBAL_QUEUED_LIMIT
+        value: "10"
+      - key: ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED
+        value: "false"
+      - key: ARGUS_FINANCIAL_ACCOUNTS_ENABLED
+        value: "false"
+      - key: ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED
+        value: "false"
+      - key: ARGUS_HOUSEHOLDS_ENABLED
+        value: "false"
+      - key: ARGUS_BETA_INVITES_ENABLED
+        value: "false"
+      - key: ARGUS_BETA_INVITE_GATE_ENABLED
+        value: "false"
+      - key: ARGUS_ACCOUNT_DELETION_ENABLED
+        value: "false"
+      - key: ARGUS_INGESTION_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
+      - key: ARGUS_INGESTION_SECRET_KEY
+        sync: false
+      - key: ARGUS_INVITE_CODE_SECRET
+        sync: false
+      - key: ARGUS_INVITE_CODE_SECRET_PREVIOUS
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        sync: false
+      - key: PLAID_CLIENT_ID
+        sync: false
+      - key: PLAID_SECRET
+        sync: false
+      - key: PLAID_ENV
+        value: "sandbox"
+      - key: PLAID_CREDENTIALS_INJECTED
+        value: "false"
+      - key: PLAID_WEBHOOK_URL
+        sync: false
+      - key: PLAID_COUNTRY_CODES
+        value: "US"
+      - key: ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED
+        value: "false"
+      - key: ARGUS_APPLE_TEAM_ID
+        sync: false
+      - key: ARGUS_APPLE_SIGN_IN_KEY_ID
+        sync: false
+      - key: ARGUS_APPLE_SIGN_IN_PRIVATE_KEY
+        sync: false
+      - key: ARGUS_APPLE_BUNDLE_ID
+        sync: false
+      - key: ARGUS_IN_PLACE_CARD_EDITS_ENABLED
+        value: "true"
+      - key: ARGUS_CONTEXT_PACKETS_ENABLED
+        value: "true"
+      - key: ARGUS_CONTEXT_PACKET_BUDGET_SECONDS
+        value: "4"
+      - key: ARGUS_TITLE_AUTOGEN_ENABLED
+        value: "true"
+      - key: ARGUS_TITLE_AUTOGEN_TIMEOUT_MS
+        value: "250"
+      - key: ARGUS_READINESS_ASSET_TIMEOUT_SECONDS
+        value: "25"
+      - key: ARGUS_OPS_TOKEN
+        sync: false
+      - key: ARGUS_VISITOR_KEY_SECRET
+        sync: false
+      - key: PERPLEXITY_API_KEY
+        sync: false
+      - key: POSTHOG_PROJECT_TOKEN
+        sync: false
+      - key: POSTHOG_REGION
+        value: us
+      - key: ARGUS_ENABLE_EXECUTION_REALISM
+        value: "true"
+      - key: ARGUS_ENABLE_PERSONALIZATION_MEMORY
+        value: "true"
+      - key: ARGUS_RESEARCH_RAIL_ENABLED
+        value: "true"
+      - key: ARGUS_RESEARCH_GLOBAL_DAILY_CEILING
+        value: "5000"
+      - key: ARGUS_TRUSTED_CLIENT_IP_HEADER
+        value: *trusted-client-ip-header
+      - key: ARGUS_GUEST_SESSION_DAILY_TURN_CEILING
+        value: "100"
+      - key: ARGUS_REGISTERED_DAILY_TURN_CEILING
+        value: "200"
+      - key: ARGUS_REGISTERED_DAILY_RESEARCH_CEILING
+        value: "15"
+      - key: ARGUS_ENABLE_MEMORY_SEMANTIC_RECALL
+        value: "false"
+      - key: ARGUS_MEMORY_EMBEDDING_MODEL
+        value: pplx-embed-v1-0.6b
+      - key: ARGUS_MEMORY_EMBEDDING_DIMENSIONS
+        value: "1024"
+      - key: ARGUS_MEMORY_EMBEDDING_TIMEOUT_SECONDS
+        value: "8.0"
+      - key: ARGUS_MEMORY_VECTOR_COLLECTION
+        value: argus_memory_vectors
+      - key: ARGUS_DISCOVERY_SEARCH_PROVIDER
+        value: perplexity_direct
+      - key: ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        value: https://lgdhvepyrzbnscqssgqq.supabase.co
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: RENDER_API_KEY
+        sync: false
+      - key: ARGUS_PROD_OPENROUTER_API_KEY
+        sync: false
+      - key: ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY
+        sync: false
+      - key: ARGUS_UTILITY_MODEL
+        value: google/gemini-2.5-flash-lite
+      - key: ARGUS_UTILITY_FALLBACK_MODEL
+        value: qwen/qwen3.5-9b
+      - key: ARGUS_CHAT_MODEL
+        value: deepseek/deepseek-v4-flash
+      - key: ARGUS_CHAT_FALLBACK_MODEL
+        value: qwen/qwen3.5-9b
+      - key: ARGUS_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS
+        value: "30"
+      - key: ARGUS_STRUCTURED_MODEL
+        value: x-ai/grok-4.3
+      - key: ARGUS_STRUCTURED_FALLBACK_MODEL
+        value: anthropic/claude-haiku-4.5
+      - key: ARGUS_CONTEXT_MODEL
+        value: openai/gpt-oss-120b
+      - key: ARGUS_CONTEXT_FALLBACK_MODEL
+        value: deepseek/deepseek-v4-flash
+      - key: ARGUS_READOUT_MODEL
+        value: openai/gpt-5.6-luna
+      - key: ARGUS_READOUT_FALLBACK_MODEL
+        value: openai/gpt-5.6-luna
+      - key: ALPACA_API_KEY
+        sync: false
+      - key: ALPACA_SECRET_KEY
+        sync: false
+      - key: ALPACA_PAPER_TRADING
+        value: "true"
+
+  - type: web
     name: cuadrao-web
     runtime: node
     repo: https://github.com/lagarcess/argus
@@ -255,6 +516,8 @@ services:
         value: "true"
       - key: CUADRAO_BUSINESS_PILOT_ENABLED
         value: "true"
+      - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
       - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
         value: "true"
       - key: CUADRAO_FINANCIAL_ACCOUNTS_ENABLED
@@ -345,9 +608,15 @@ services:
         value: "false"
       - key: NEXT_PUBLIC_BUSINESS_PILOT_ENABLED
         value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
+        value: "true"
       - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
         value: "false"
       - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED
         value: "false"
       - key: NEXT_PUBLIC_CUADRAO_API_URL
         value: https://cuadrao-api-staging.onrender.com/api/v1

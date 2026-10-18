@@ -6,7 +6,8 @@ import { useTranslation } from "react-i18next";
 import type { BusinessUpdate } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatRelativeTime } from "./business-format";
-import { cardClass, LoadingRows, PanelHeading, useAttentionLabel } from "./business-ui";
+import { cardClass, PanelHeading, useAttentionLabel } from "./business-ui";
+import { Settle } from "./business-skeletons";
 
 /**
  * Updates are read from the receipts' and expenses' own states. There is no
@@ -52,9 +53,9 @@ export default function BusinessUpdatesPanel() {
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.updates.error", "We couldn't load updates. Try again.")}
         </p>
-      ) : items === null ? (
-        <LoadingRows />
-      ) : items.length === 0 ? (
+      ) : (
+        <Settle pending={items === null} layout="updates">
+          {items === null ? null : items.length === 0 ? (
         <div className={`${cardClass} text-center text-[14px] text-black/55 dark:text-white/55`}>
           {t("business.updates.empty", "Nothing new. Results from your receipts will appear here.")}
         </div>
@@ -80,6 +81,8 @@ export default function BusinessUpdatesPanel() {
             );
           })}
         </ul>
+          )}
+        </Settle>
       )}
     </section>
   );
