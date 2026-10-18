@@ -42,6 +42,7 @@ import {
   resultMetricDisplayOrder,
 } from "./result-card-display";
 import { acquirePasswordAuthCaptchaToken } from "./guest-captcha";
+import { postPasswordAuth } from "./password-auth-request";
 import { attributionBody } from "./landing-intent";
 import { resultReadoutContentFromMetadata, type ResultReadoutContent } from "./result-readout-content";
 import { resultReadoutFacts } from "./result-readout-facts";
@@ -658,50 +659,6 @@ export async function getStarterPrompts() {
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
-
-export const PASSWORD_AUTH_REQUEST_TIMEOUT_MS = 45_000;
-
-function stalledBrowserCheck(): Error & { code: string } {
-  return Object.assign(new Error("The browser check did not finish."), {
-    code: "captcha_unavailable",
-  });
-}
-
-function isStalledPasswordRequest(error: unknown): boolean {
-  return error instanceof Error && error.name === "AbortError";
-}
-
-async function postPasswordAuth<T>(
-  path: string,
-  body: unknown,
-  timeoutMs = PASSWORD_AUTH_REQUEST_TIMEOUT_MS,
-): Promise<T> {
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      controller.abort();
-      reject(stalledBrowserCheck());
-    }, timeoutMs);
-  });
-  const request = unauthenticatedApiFetch<T>(path, {
-    method: "POST",
-    body: JSON.stringify(body),
-    signal: controller.signal,
-  }).then(
-    (value) => value,
-    (error: unknown) => {
-      throw isStalledPasswordRequest(error) ? stalledBrowserCheck() : error;
-    },
-  );
-  // The deadline can win first. A later abort must not reject unhandled.
-  void request.catch(() => undefined);
-  try {
-    return await Promise.race([request, deadline]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}
 
 export async function signupWithEmail(payload: {
   email: string;

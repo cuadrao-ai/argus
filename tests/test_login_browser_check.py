@@ -5,10 +5,8 @@ import httpx
 import pytest
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
-from argus.domain.supabase_gateway import (
-    CaptchaVerificationError,
-    SupabaseGateway,
-)
+from argus.domain.login_browser_check import CaptchaVerificationError
+from argus.domain.supabase_gateway import SupabaseGateway
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
