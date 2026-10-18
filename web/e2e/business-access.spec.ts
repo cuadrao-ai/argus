@@ -21,7 +21,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       const grants = page.getByTestId("business-access-grants");
       await expect(grants).toContainText("Dueño");
       await expect(grants).toContainText("Tu propio acceso no se puede quitar.");
-      await expect(grants).toContainText("Ve y prepara");
+      await expect(grants).toContainText("Miembro");
       await expect(grants.getByRole("button", { name: "Quitar acceso" })).toHaveCount(1);
       await capture(page, `access-spanish-${viewport.width}`);
       const form = page.getByTestId("business-access-give");
