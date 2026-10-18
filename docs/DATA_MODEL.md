@@ -3637,7 +3637,12 @@ repeat without another model request. The process background task is not the
 source of durability.
 
 Preparation status is `saved|queued|preparing|review_ready|needs_attention`.
-Approval state remains in reconciliation events. Valid observations can project
+Approval state remains in reconciliation events. The immutable batch retains receipt
+`payment_status` and separate final `tax` and `estimated_tax` values. A new read
+without source-supported payment records `receipt_payment_unproven`; its raw
+rows and source remain evidence, without purchase candidate projection or
+Business purchase-fact reconstruction. Older saved batches keep their stored
+candidates and are not backfilled or automatically prepared again. Valid observations can project
 independently while incompatible observations stay on the draft with issues.
 Opening/running scopes and unknown scopes remain reviewable preparation evidence
 without being relabeled into the narrower canonical candidate scope enum. Receipt
