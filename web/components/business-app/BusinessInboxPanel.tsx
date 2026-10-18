@@ -9,6 +9,7 @@ import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import { bandejaReceipts } from "./bandeja-order";
 import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows, PanelHeading, pillButtonClass, secondaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel } from "./business-ui";
@@ -229,6 +230,7 @@ function EmptyInbox() {
 
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
+  const consent = useBusinessConsent();
   const { records, openPanel, actions, panel, chosen, source, reload, revision } = useBusiness();
   const personal = usePersonalMark();
   const items = records.inbox ? bandejaReceipts(records.inbox) : null;
@@ -271,6 +273,10 @@ export default function BusinessInboxPanel() {
                   onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
                   onMark={personal.mark}
                   onRetry={async () => {
+                    if (!consent.accepted) {
+                      consent.reopen();
+                      return;
+                    }
                     try { await source.prepareReceipt(receipt.id); } finally { reload(); }
                   }}
                 />

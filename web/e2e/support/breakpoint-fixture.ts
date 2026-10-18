@@ -1,4 +1,6 @@
 import type { Page, Route } from "@playwright/test";
+import { BUSINESS_PRIVACY_NOTICE_STORAGE_KEY } from "../../lib/browser-storage";
+import { BUSINESS_PRIVACY_NOTICE_VERSION, MOCK_AUTH_CONSENT_USER_ID } from "../../lib/business-privacy-notice";
 
 /**
  * Deterministic whole-app fixture for breakpoint work.
@@ -350,6 +352,8 @@ export async function installBreakpointFixture(
     theme?: Theme;
     usage?: UsageState;
     emptyChat?: boolean;
+    /** Returning journeys already accepted the current notice. The consent spec starts without one. */
+    consent?: "accepted" | "required";
   } = {},
 ): Promise<void> {
   const account = options.account ?? "registered";
@@ -357,6 +361,7 @@ export async function installBreakpointFixture(
   const theme = options.theme ?? "dark";
   const usage = options.usage ?? "healthy";
   const emptyChat = options.emptyChat ?? false;
+  const consent = options.consent ?? "accepted";
   const isGuest = account === "guest";
   const isSpanish = language === "es-419";
 
@@ -369,6 +374,26 @@ export async function installBreakpointFixture(
     },
     [language, theme],
   );
+  // Existing journeys are returning people. The consent spec starts from an empty tab.
+  if (consent === "accepted") {
+    await page.addInitScript(
+      ({ key, userId, version }) => {
+        const record = {
+          userId,
+          acceptedAt: "2026-10-18T12:00:00.000Z",
+          noticeVersion: version,
+          locale: "es-419",
+          textSha256: "a".repeat(64),
+        };
+        window.sessionStorage.setItem(key, JSON.stringify({ [userId]: record }));
+      },
+      {
+        key: BUSINESS_PRIVACY_NOTICE_STORAGE_KEY,
+        userId: MOCK_AUTH_CONSENT_USER_ID,
+        version: BUSINESS_PRIVACY_NOTICE_VERSION,
+      },
+    );
+  }
 
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());

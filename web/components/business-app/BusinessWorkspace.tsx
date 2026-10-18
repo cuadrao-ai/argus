@@ -51,6 +51,7 @@ import RecordExpenseDialog from "./RecordExpenseDialog";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
+import { useBusinessConsent } from "./business-consent-context";
 
 export type BusinessPanelState =
   | { kind: "overview" }
@@ -393,7 +394,8 @@ function BusinessWorkspaceContent({
     [actions, attachedReceipt, bridge, chooseBusiness, chosen, lostAccess, markAccessSeen, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
   );
 
-  const chatAvailable = businessChatAvailable(records.workspace);
+  const consent = useBusinessConsent();
+  const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;
   const businessSearch = useBusinessSearch({
     source,
     chatAvailable,

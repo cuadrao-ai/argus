@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { BUSINESS_PRIVACY_NOTICE_STORAGE_KEY } from "../lib/browser-storage";
+import { BUSINESS_PRIVACY_NOTICE_VERSION, MOCK_AUTH_CONSENT_USER_ID } from "../lib/business-privacy-notice";
 
 // Requires a local API with ReceiptStub and no paid provider calls.
 // Reading-on review also requires the canonical Business database and Actions.
@@ -14,10 +16,18 @@ async function openBusiness(page: Page) {
     const { hostname } = new URL(route.request().url());
     return ["127.0.0.1", "localhost"].includes(hostname) ? route.continue() : route.abort("blockedbyclient");
   });
-  await page.addInitScript(() => {
+  await page.addInitScript(({ key, userId, version }) => {
     window.localStorage.setItem("argus:sidebar_mode", "expanded");
     window.localStorage.setItem("i18nextLng", "en");
-  });
+    const record = {
+      userId,
+      acceptedAt: "2026-10-18T12:00:00.000Z",
+      noticeVersion: version,
+      locale: "en",
+      textSha256: "a".repeat(64),
+    };
+    window.sessionStorage.setItem(key, JSON.stringify({ [userId]: record }));
+  }, { key: BUSINESS_PRIVACY_NOTICE_STORAGE_KEY, userId: MOCK_AUTH_CONSENT_USER_ID, version: BUSINESS_PRIVACY_NOTICE_VERSION });
   await page.goto("/biz");
 }
 

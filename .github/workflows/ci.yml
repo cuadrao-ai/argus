@@ -212,6 +212,7 @@ jobs:
           cd web
           bunx playwright test e2e/browser-storage-disclosure.spec.ts
           NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3101 bunx playwright test e2e/business-receipt-upload-recovery.spec.ts
+          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ENABLE_SPANISH=true PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
 
       - name: Retain receipt upload browser evidence
         if: always()

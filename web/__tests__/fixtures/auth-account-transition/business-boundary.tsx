@@ -2,13 +2,19 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
+import { createContext } from "react";
+const BusinessContext = createContext<unknown>(null);
 let listener: (event: string, session: { user: { id: string } } | null) => void = () => {};
 let releaseInitial!: (result: unknown) => void;
 mock.module("@/lib/supabase-client", () => ({ getSupabaseClient: () => ({ auth: {
   onAuthStateChange: (next: typeof listener) => { listener = next; return { data: { subscription: { unsubscribe: () => {} } } }; },
   getSession: () => new Promise(resolve => { releaseInitial = resolve; }),
 } }) }));
-mock.module("@/components/business-app/BusinessWorkspace", () => ({ BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children }));
+mock.module("@/components/business-app/BusinessWorkspace", () => ({
+  BusinessContext,
+  useBusiness: () => { throw new Error("workspace is replaced in this boundary test"); },
+  BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children,
+}));
 mock.module("@/components/chat/ChatInterface", () => ({ default: () => <input aria-label="Account draft" defaultValue="" /> }));
 mock.module("@/components/chat/ConversationShellGuard", () => ({ default: () => null }));
 mock.module("@/components/business-app/ConversationUnavailableNotice", () => ({ default: () => null }));
@@ -22,6 +28,17 @@ test("account changes discard the old workspace, and late initial session cannot
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { default: BusinessApp } = await import("@/components/business-app/BusinessApp");
+  const { rememberPrivacyNoticeAcceptance } = await import("@/lib/business-privacy-notice-client");
+  const { BUSINESS_PRIVACY_NOTICE_VERSION } = await import("@/lib/business-privacy-notice");
+  for (const userId of ["old", "new"]) {
+    rememberPrivacyNoticeAcceptance({
+      userId,
+      acceptedAt: "2026-10-18T12:00:00.000Z",
+      noticeVersion: BUSINESS_PRIVACY_NOTICE_VERSION,
+      locale: "en",
+      textSha256: "ab".repeat(32),
+    });
+  }
   const host = document.createElement("div"); document.body.appendChild(host);
   const root = createRoot(host);
   await act(async () => root.render(<BusinessApp />));

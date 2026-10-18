@@ -19,6 +19,7 @@ import {
   type ReceiptSummary,
 } from "@/lib/business-api";
 import type { BusinessPanelState } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import { inboxCount } from "./inbox-count";
 import type { IntakeTarget } from "./ReceiptIntakeDialog";
 
@@ -76,9 +77,11 @@ export function useBusinessActions({
   openPanel,
 }: ActionInput): BusinessActions {
   const { t } = useTranslation();
+  const consent = useBusinessConsent();
   // The Bandeja's own number, the same one its badge and the Resumen show.
   const awaiting = inboxCount(records) ?? 0;
   const canAsk =
+    consent.accepted &&
     businessChatAvailable(records.workspace) &&
     Boolean(records.workspace?.assistant_available) &&
     (records.overview?.totals ?? []).some((total) => total.count > 0);

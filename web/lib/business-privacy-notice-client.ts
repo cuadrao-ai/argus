@@ -1,0 +1,107 @@
+import { BUSINESS_PRIVACY_NOTICE_STORAGE_KEY, readSessionStored, writeSessionStored } from "./browser-storage";
+import {
+  type PrivacyNoticeAcceptance,
+  type PrivacyNoticeLocale,
+  isPrivacyNoticeLocale,
+} from "./business-privacy-notice";
+
+/**
+ * Client for the Cuadrao Business privacy-notice acceptance.
+ *
+ * No existing endpoint stores this fact. Receipt-reading consent
+ * (`POST /business/receipt-reading`) records a different disclosure, locks
+ * scope_version to 1, requires a model route, and does not store locale.
+ * `business_ai_consents` must not gain a reader. Email consent was dropped.
+ * WhatsApp AI consent does not cover the web notice.
+ *
+ * This stub keeps the acceptance in this tab only. The server contract that
+ * should replace it is documented on `BusinessPrivacyNoticeClient`.
+ */
+
+export type PrivacyNoticeAcceptInput = {
+  userId: string;
+  noticeVersion: string;
+  locale: PrivacyNoticeLocale;
+  textSha256: string;
+};
+
+/**
+ * Needed backend contract (not implemented in this lane):
+ *
+ * `GET /api/v1/business/privacy-notice`
+ *   200 `PrivacyNoticeAcceptance` for the authenticated user, or 404 when none.
+ *   `user_id` comes from the session. The body never names another person.
+ *
+ * `POST /api/v1/business/privacy-notice`
+ *   Header `Idempotency-Key` (1–80 characters).
+ *   Body `{ notice_version, locale: "en" | "es-419", text_sha256 }` where
+ *   `text_sha256` is the SHA-256 hex of the notice paragraphs shown, joined by
+ *   a blank line, in order.
+ *   200 the stored row: `user_id`, `accepted_at` (server clock), `notice_version`,
+ *   `locale`, `text_sha256`.
+ *   Replay of the same key returns the original row. A different body for the
+ *   same key is a conflict.
+ *
+ * Table `business_privacy_notice_acceptances` (service role writes, owner can
+ * read their own row): `user_id`, `notice_version`, `locale`, `text_sha256`
+ * (64 hex chars), `accepted_at`. Unique `(user_id, notice_version)`. Immutable
+ * after insert. Not a substitute for receipt-reading consent.
+ */
+export interface BusinessPrivacyNoticeClient {
+  read(userId: string): Promise<PrivacyNoticeAcceptance | null>;
+  accept(input: PrivacyNoticeAcceptInput): Promise<PrivacyNoticeAcceptance>;
+}
+
+type StoredAcceptances = Record<string, PrivacyNoticeAcceptance>;
+
+function isAcceptance(value: unknown): value is PrivacyNoticeAcceptance {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Partial<PrivacyNoticeAcceptance>;
+  return typeof record.userId === "string"
+    && typeof record.acceptedAt === "string"
+    && typeof record.noticeVersion === "string"
+    && typeof record.locale === "string"
+    && isPrivacyNoticeLocale(record.locale)
+    && typeof record.textSha256 === "string";
+}
+
+export function readStoredAcceptances(): StoredAcceptances {
+  const raw = readSessionStored(BUSINESS_PRIVACY_NOTICE_STORAGE_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    const stored: StoredAcceptances = {};
+    for (const [userId, value] of Object.entries(parsed)) {
+      if (isAcceptance(value) && value.userId === userId) stored[userId] = value;
+    }
+    return stored;
+  } catch {
+    return {};
+  }
+}
+
+export function readPrivacyNoticeAcceptance(userId: string): PrivacyNoticeAcceptance | null {
+  return readStoredAcceptances()[userId] ?? null;
+}
+
+export function rememberPrivacyNoticeAcceptance(record: PrivacyNoticeAcceptance): PrivacyNoticeAcceptance {
+  const stored = readStoredAcceptances();
+  stored[record.userId] = record;
+  writeSessionStored(BUSINESS_PRIVACY_NOTICE_STORAGE_KEY, JSON.stringify(stored));
+  return record;
+}
+
+/** In-tab stand-in. `acceptedAt` is stamped here, never taken from the caller. */
+export function createStubPrivacyNoticeClient(
+  clock: () => string = () => new Date().toISOString(),
+): BusinessPrivacyNoticeClient {
+  return {
+    async read(userId) {
+      return readPrivacyNoticeAcceptance(userId);
+    },
+    async accept(input) {
+      return rememberPrivacyNoticeAcceptance({ ...input, acceptedAt: clock() });
+    },
+  };
+}
