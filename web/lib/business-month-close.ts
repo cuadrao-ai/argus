@@ -8,11 +8,12 @@ import { apiFetch } from "./argus-api-transport";
  * Assumed HTTP contract, under `/api/v1`:
  *
  * - `GET /business/month-close?month=YYYY-MM`
- *   The selected month is the only window. The response may include
- *   `earliest_month` (`YYYY-MM`) when it knows the first month with data.
- * - `POST /business/month-close/documents/{id}/cobrado`
- * - `POST /business/month-close/documents/{id}/pagado`
- * - `POST /business/month-close/{month}/close` with `{month}` as `YYYY-MM`
+ *   The selected month is the only query. `closed` is derived: true when
+ *   every business document has an RNC and a fiscal number. There is no
+ *   close request.
+ * - `PATCH /business/month-close/documents/{activity_id}`
+ *   Body: `status`, `settled_on`, `payment_method`. A settled status needs
+ *   both a date and a method. Pending omits them.
  *
  * Money is DOP decimal text with at most two fraction digits, never a float.
  * `amount` is the document total. `itbis` is the ITBIS printed on it, or null
@@ -64,6 +65,11 @@ export type MonthCloseDocument = {
   /** e-CF / e-NCF as printed. Null when absent. Distinct from `ncf`. */
   ecf: string | null;
   status: MonthCloseStatus;
+  /**
+   * False when this row does not carry RNC or fiscal-number text.
+   * Absent means those fields are the record.
+   */
+  fiscal_known?: boolean;
 };
 
 export type MonthCloseWindow = {
@@ -82,6 +88,19 @@ export type MonthCloseSnapshot = {
   /** First month with data, when the response includes it. Null when it does not. */
   earliest_month: string | null;
   documents: MonthCloseDocument[];
+  /** Server-derived close. The mock still records `closed_at` when the sample month is locked. */
+  closed?: boolean;
+  /** Present means these blockers, including none. Absent means derive them from the documents. */
+  blockers?: MonthCloseBlocker[];
+  /** A null figure is unknown. Absent means the cards compute the figure from the documents. */
+  figures?: MonthCloseFigures;
+};
+
+export type MonthCloseFigures = {
+  income_before_itbis: string | null;
+  expense_before_itbis: string | null;
+  net_before_itbis: string | null;
+  itbis_owed: string | null;
 };
 
 export type MonthCloseSummary = {
@@ -96,22 +115,38 @@ export type MonthCloseSummary = {
   itbis_owed: string;
 };
 
-/** Pending collection or payment is not a close blocker. Only a missing RNC or comprobante is. */
-export type MonthCloseBlockerKind = "missing_rnc" | "missing_ncf";
+/**
+ * Close blockers. Fiscal gaps lock the month. The two statement kinds are
+ * part of the same union so a later count can be added without a new gate.
+ * This screen does not render them.
+ */
+export type MonthCloseBlocker =
+  | { kind: "missing_rnc"; id: string; documentId: string }
+  | { kind: "missing_ncf"; id: string; documentId: string }
+  | { kind: "statement_missing" }
+  | { kind: "unmatched_charges"; count: number };
 
-export type MonthCloseBlocker = {
-  id: string;
-  documentId: string;
-  kind: MonthCloseBlockerKind;
-};
+export const statementMissingBlocker: MonthCloseBlocker = { kind: "statement_missing" };
+
+/** A count of charges with no receipt. Zero is not a state. */
+export function unmatchedCharges(count: number): MonthCloseBlocker {
+  if (!Number.isInteger(count) || count < 1) throw new MonthCloseError("unavailable", "unmatched charges need a count");
+  return { kind: "unmatched_charges", count };
+}
+
+export function isFiscalBlocker(
+  blocker: MonthCloseBlocker,
+): blocker is Extract<MonthCloseBlocker, { kind: "missing_rnc" | "missing_ncf" }> {
+  return blocker.kind === "missing_rnc" || blocker.kind === "missing_ncf";
+}
 
 export type MonthCloseGate =
   | { ok: true; month: string }
   | { ok: false; reason: "not_calendar_month" | "closed" | "blockers" };
 
-/** A pending month has no money string. A final month has the net and nothing else that could be read as a second total. */
+/** A pending or unknown month has no money string. A final month has the net and nothing else that could be read as a second total. */
 export type MonthCloseNetDisplay =
-  | { state: "pending"; pending_count: number }
+  | { state: "pending"; pending_count: number; reason: "documents" | "unmatched" | "unknown" }
   | { state: "final"; net_before_itbis: string };
 
 export type MonthCloseErrorCode = "not_found" | "closed" | "invalid_status" | "blockers" | "unavailable";
@@ -130,8 +165,9 @@ export type MonthCloseClient = {
   readonly mode: "mock" | "http";
   /** `scope` is the selected Business grant. The mock keeps each grant's marks apart. The HTTP client refetches when the view's scope changes; the session already carries the grant. `month` is `YYYY-MM` and is the `month` query sent to the server. */
   load(month: string, scope?: string): Promise<MonthCloseSnapshot>;
-  markCobrado(documentId: string, scope?: string): Promise<MonthCloseDocument>;
-  markPagado(documentId: string, scope?: string): Promise<MonthCloseDocument>;
+  markCobrado(documentId: string, scope?: string, settledOn?: string): Promise<MonthCloseDocument>;
+  markPagado(documentId: string, scope?: string, settledOn?: string): Promise<MonthCloseDocument>;
+  /** The sample client locks the month locally. The HTTP client has no close request. */
   closeMonth(month: string, scope?: string): Promise<MonthCloseSnapshot>;
 };
 
@@ -210,11 +246,17 @@ export function monthCloseSummary(documents: readonly MonthCloseDocument[]): Mon
   };
 }
 
-/** Net result for the card. Pending wins over the computed number, which is withheld entirely. */
-export function monthCloseNetDisplay(documents: readonly MonthCloseDocument[]): MonthCloseNetDisplay {
+/** Net result for the card. Pending documents, unmatched charges, or an unknown figure withhold the number. */
+export function monthCloseNetDisplay(
+  documents: readonly MonthCloseDocument[],
+  blockers: readonly MonthCloseBlocker[] = [],
+  net: string | null = monthCloseSummary(documents).net_before_itbis,
+): MonthCloseNetDisplay {
   const pendingCount = documents.reduce((count, document) => count + (document.status === "pendiente" ? 1 : 0), 0);
-  if (pendingCount > 0) return { state: "pending", pending_count: pendingCount };
-  return { state: "final", net_before_itbis: monthCloseSummary(documents).net_before_itbis };
+  if (pendingCount > 0) return { state: "pending", pending_count: pendingCount, reason: "documents" };
+  if (blockers.some((blocker) => blocker.kind === "unmatched_charges")) return { state: "pending", pending_count: 0, reason: "unmatched" };
+  if (net === null) return { state: "pending", pending_count: 0, reason: "unknown" };
+  return { state: "final", net_before_itbis: net };
 }
 
 export function documentsTotal(documents: readonly Pick<MonthCloseDocument, "amount">[]): string {
@@ -345,10 +387,11 @@ export function monthCloseRequestPath(month: string): string {
  * Pure close gate. The month-close button and the Exportar 606/607 checklist
  * both call this. Pending collection or payment is not an input.
  */
-export function canCloseMonth(snapshot: Pick<MonthCloseSnapshot, "month" | "closed_at" | "documents">): MonthCloseGate {
+export function canCloseMonth(snapshot: Pick<MonthCloseSnapshot, "month" | "closed_at" | "documents" | "blockers" | "closed">): MonthCloseGate {
   if (!snapshot.month) return { ok: false, reason: "not_calendar_month" };
-  if (snapshot.closed_at) return { ok: false, reason: "closed" };
-  if (monthCloseBlockers(snapshot.documents).length > 0) return { ok: false, reason: "blockers" };
+  if (snapshot.closed_at || snapshot.closed) return { ok: false, reason: "closed" };
+  const blockers = snapshot.blockers ?? monthCloseBlockers(snapshot.documents);
+  if (blockers.some(isFiscalBlocker)) return { ok: false, reason: "blockers" };
   return { ok: true, month: snapshot.month };
 }
 
@@ -579,31 +622,197 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
   };
 }
 
-async function readHttp<T>(path: string, init?: RequestInit): Promise<T> {
+/** The settlement body the month-close route accepts. One tap uses the residual method. */
+export const MONTH_CLOSE_MARK_METHOD = "otro";
+
+export type MonthCloseSettlementBody = {
+  status: "cobrado" | "pagado" | "pendiente";
+  settled_on?: string;
+  payment_method?: string;
+};
+
+export type MonthCloseRequest = {
+  method: "GET" | "PATCH";
+  path: string;
+  body?: MonthCloseSettlementBody;
+};
+
+/** `GET /business/month-close?month=YYYY-MM`. No other query. */
+export function monthCloseLoadRequest(month: string): MonthCloseRequest {
+  return { method: "GET", path: monthCloseRequestPath(month) };
+}
+
+/** `PATCH /business/month-close/documents/{activity_id}`. A settled status carries the day and the method. */
+export function monthCloseSettlementRequest(activityId: string, status: "cobrado" | "pagado", settledOn: string): MonthCloseRequest {
+  if (!DAY.test(settledOn)) throw new MonthCloseError("unavailable", "settlement date is unknown");
+  if (activityId.length === 0) throw new MonthCloseError("unavailable", "month close document has no id");
+  return {
+    method: "PATCH",
+    path: `/business/month-close/documents/${encodeURIComponent(activityId)}`,
+    body: { status, settled_on: settledOn, payment_method: MONTH_CLOSE_MARK_METHOD },
+  };
+}
+
+function minorToAmount(minor: number): string {
+  if (!Number.isInteger(minor)) throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
+  return formatDopCents(BigInt(minor));
+}
+
+type WireLine = {
+  activity_id: string;
+  document_kind: MonthCloseKind;
+  occurred_on: string;
+  total_minor: number;
+  itbis_minor: number | null;
+  status: string;
+};
+
+function readWireLine(value: unknown): WireLine {
+  if (!isRecord(value)) throw new MonthCloseError("unavailable", "month close document was not an object");
+  if (typeof value.activity_id !== "string" || value.activity_id.length === 0) throw new MonthCloseError("unavailable", "month close document has no id");
+  if (value.document_kind !== "invoice" && value.document_kind !== "receipt") throw new MonthCloseError("unavailable", "month close document kind is unknown");
+  if (typeof value.occurred_on !== "string" || !DAY.test(value.occurred_on)) throw new MonthCloseError("unavailable", "month close document date is unknown");
+  if (typeof value.total_minor !== "number") throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
+  if (!(value.itbis_minor === null || typeof value.itbis_minor === "number")) throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
+  if (typeof value.status !== "string" || !statusFits(value.document_kind, value.status)) throw new MonthCloseError("unavailable", "month close status does not fit the document");
+  return {
+    activity_id: value.activity_id,
+    document_kind: value.document_kind,
+    occurred_on: value.occurred_on,
+    total_minor: value.total_minor,
+    itbis_minor: value.itbis_minor,
+    status: value.status,
+  };
+}
+
+function wireDocument(line: WireLine): MonthCloseDocument {
+  return {
+    id: line.activity_id,
+    kind: line.document_kind,
+    counterparty: line.document_kind === "invoice" ? "Factura" : "Gasto",
+    occurred_on: line.occurred_on,
+    due_on: null,
+    amount: minorToAmount(line.total_minor),
+    itbis: line.itbis_minor === null ? null : minorToAmount(line.itbis_minor),
+    rnc: null,
+    ncf: null,
+    ecf: null,
+    status: line.status as MonthCloseStatus,
+    fiscal_known: false,
+  };
+}
+
+function readFigures(value: unknown): MonthCloseFigures | undefined {
+  if (!Array.isArray(value)) throw new MonthCloseError("unavailable", "month close currencies are missing");
+  const dop = value.find((item) => isRecord(item) && item.currency === "DOP");
+  if (!dop || !isRecord(dop)) return {
+    income_before_itbis: null,
+    expense_before_itbis: null,
+    net_before_itbis: null,
+    itbis_owed: null,
+  };
+  const text = (field: string) => (typeof dop[field] === "string" ? readAmount(dop[field]) : null);
+  return {
+    income_before_itbis: text("income_before_itbis"),
+    expense_before_itbis: text("expense_before_itbis"),
+    net_before_itbis: text("net_result"),
+    itbis_owed: text("itbis_owed"),
+  };
+}
+
+/** The month-close GET body: derived `closed`, currency figures, and the four document lists. */
+export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
+  if (!isRecord(value)) throw new MonthCloseError("unavailable", "month close response was not an object");
+  if (typeof value.month !== "string" || !MONTH.test(value.month)) throw new MonthCloseError("unavailable", "month close month is unknown");
+  if (typeof value.from !== "string" || !DAY.test(value.from) || typeof value.to !== "string" || !DAY.test(value.to)) {
+    throw new MonthCloseError("unavailable", "month close window is unknown");
+  }
+  if (typeof value.closed !== "boolean") throw new MonthCloseError("unavailable", "month close timestamp is unknown");
+  if (!Array.isArray(value.reasons)) throw new MonthCloseError("unavailable", "month close documents are missing");
+  const lists = ["missing_rnc", "missing_ncf", "cuentas_por_cobrar", "cuentas_por_pagar"] as const;
+  const lines: WireLine[] = [];
+  const seen = new Set<string>();
+  for (const key of lists) {
+    if (!Array.isArray(value[key])) throw new MonthCloseError("unavailable", "month close documents are missing");
+    for (const item of value[key]) {
+      const line = readWireLine(item);
+      if (seen.has(line.activity_id)) continue;
+      seen.add(line.activity_id);
+      lines.push(line);
+    }
+  }
+  const blockers: MonthCloseBlocker[] = value.reasons.map((reason) => {
+    if (!isRecord(reason) || (reason.code !== "missing_rnc" && reason.code !== "missing_ncf") || typeof reason.activity_id !== "string") {
+      throw new MonthCloseError("unavailable", "month close document was not an object");
+    }
+    return { kind: reason.code, id: `${reason.activity_id}:${reason.code}`, documentId: reason.activity_id };
+  });
+  return {
+    month: value.month,
+    from: value.from,
+    to: value.to,
+    currency: "DOP",
+    closed_at: null,
+    closed: value.closed,
+    earliest_month: null,
+    documents: lines.map(wireDocument),
+    blockers,
+    figures: readFigures(value.currencies),
+  };
+}
+
+export type MonthCloseTransport = (path: string, init?: RequestInit) => Promise<unknown>;
+
+function monthCloseError(error: unknown): MonthCloseError {
+  const code = (error as { code?: string }).code;
+  const mapped: Record<string, MonthCloseErrorCode> = {
+    business_record_not_found: "not_found",
+    business_status_invalid: "invalid_status",
+    business_settlement_incomplete: "invalid_status",
+    business_payment_method_invalid: "invalid_status",
+    not_found: "not_found",
+    closed: "closed",
+    invalid_status: "invalid_status",
+    blockers: "blockers",
+    unavailable: "unavailable",
+  };
+  return new MonthCloseError(mapped[code ?? ""] ?? "unavailable", error instanceof Error ? error.message : "month close request failed");
+}
+
+async function readTransport(transport: MonthCloseTransport, request: MonthCloseRequest): Promise<unknown> {
   try {
-    return await apiFetch<T>(path, init);
+    return await transport(request.path, {
+      method: request.method,
+      ...(request.body ? { body: JSON.stringify(request.body) } : {}),
+    });
   } catch (error) {
-    const code = (error as { code?: string }).code;
-    const known: MonthCloseErrorCode[] = ["not_found", "closed", "invalid_status", "blockers", "unavailable"];
-    throw new MonthCloseError(known.find((item) => item === code) ?? "unavailable", error instanceof Error ? error.message : "month close request failed");
+    throw monthCloseError(error);
   }
 }
 
 /** Backend client. Not selected until `monthCloseClient` points here. */
-export function createHttpMonthCloseClient(): MonthCloseClient {
+export function createHttpMonthCloseClient(transport: MonthCloseTransport = (path, init) => apiFetch(path, init)): MonthCloseClient {
   return {
     mode: "http",
     async load(month) {
-      return readMonthCloseSnapshot(await readHttp(monthCloseRequestPath(month)));
+      return readMonthCloseWire(await readTransport(transport, monthCloseLoadRequest(month)));
     },
-    async markCobrado(documentId) {
-      return readMonthCloseDocument(await readHttp(`/business/month-close/documents/${encodeURIComponent(documentId)}/cobrado`, { method: "POST" }));
+    async markCobrado(documentId, _scope, settledOn) {
+      if (!settledOn) throw new MonthCloseError("unavailable", "settlement date is unknown");
+      const request = monthCloseSettlementRequest(documentId, "cobrado", settledOn);
+      const saved = await readTransport(transport, request);
+      if (!isRecord(saved) || saved.status !== "cobrado") throw new MonthCloseError("unavailable", "month close status does not fit the document");
+      return wireDocument({ activity_id: documentId, document_kind: "invoice", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "cobrado" });
     },
-    async markPagado(documentId) {
-      return readMonthCloseDocument(await readHttp(`/business/month-close/documents/${encodeURIComponent(documentId)}/pagado`, { method: "POST" }));
+    async markPagado(documentId, _scope, settledOn) {
+      if (!settledOn) throw new MonthCloseError("unavailable", "settlement date is unknown");
+      const request = monthCloseSettlementRequest(documentId, "pagado", settledOn);
+      const saved = await readTransport(transport, request);
+      if (!isRecord(saved) || saved.status !== "pagado") throw new MonthCloseError("unavailable", "month close status does not fit the document");
+      return wireDocument({ activity_id: documentId, document_kind: "receipt", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "pagado" });
     },
-    async closeMonth(month) {
-      return readMonthCloseSnapshot(await readHttp(`/business/month-close/${encodeURIComponent(month)}/close`, { method: "POST" }));
+    async closeMonth() {
+      throw new MonthCloseError("unavailable", "the month closes from the recorded documents");
     },
   };
 }

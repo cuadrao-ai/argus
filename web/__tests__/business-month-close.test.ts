@@ -9,18 +9,24 @@ import {
   dueDistance,
   canStepMonth,
   closeGate,
+  createHttpMonthCloseClient,
   createMockMonthCloseClient,
   fiscalNumberPresent,
   formatMonthLabel,
   monthCloseBlockers,
+  monthCloseLoadRequest,
   monthCloseNetDisplay,
   monthCloseRequestPath,
   monthCloseSampleDocuments,
+  monthCloseSettlementRequest,
   monthCloseSummary,
   monthPickerFloor,
   monthPickerMonths,
   readMonthCloseDocument,
+  readMonthCloseWire,
   rncPresent,
+  statementMissingBlocker,
+  unmatchedCharges,
   shiftMonthKey,
   type MonthCloseDocument,
 } from "../lib/business-month-close";
@@ -90,13 +96,13 @@ describe("month close net honesty", () => {
       document({ id: "open", kind: "invoice", amount: "118.00", itbis: "18.00", status: "pendiente" }),
       document({ id: "paid", kind: "receipt", amount: "59.00", itbis: "9.00", status: "pagado" }),
     ]);
-    expect(display).toEqual({ state: "pending", pending_count: 1 });
+    expect(display).toEqual({ state: "pending", pending_count: 1, reason: "documents" });
     expect(display).not.toHaveProperty("net_before_itbis");
   });
 
   test("the sample month stays pending, and a settled month shows the number", () => {
     const current = monthCloseSampleDocuments(now).filter((item) => item.occurred_on.startsWith("2026-10"));
-    expect(monthCloseNetDisplay(current)).toEqual({ state: "pending", pending_count: 4 });
+    expect(monthCloseNetDisplay(current)).toEqual({ state: "pending", pending_count: 4, reason: "documents" });
     const settled = current.map((item) => ({ ...item, status: item.kind === "invoice" ? "cobrado" as const : "pagado" as const }));
     expect(monthCloseNetDisplay(settled)).toEqual({ state: "final", net_before_itbis: "48800.00" });
   });
@@ -290,5 +296,74 @@ describe("month switcher", () => {
       ecf: null,
       status: "pendiente",
     })).toThrow(MonthCloseError);
+  });
+});
+
+describe("future statement blockers stay in the gate and out of the lock", () => {
+  test("a missing statement does not lock the month, and unmatched charges withhold the net without a zero", () => {
+    const documents = [document({ id: "ready", kind: "invoice", amount: "100.00", itbis: "18.00", status: "cobrado" })];
+    expect(statementMissingBlocker.kind).toBe("statement_missing");
+    expect(canCloseMonth({ month: "2026-10", closed_at: null, documents, blockers: [statementMissingBlocker] })).toEqual({ ok: true, month: "2026-10" });
+    expect(unmatchedCharges(3)).toEqual({ kind: "unmatched_charges", count: 3 });
+    expect(() => unmatchedCharges(0)).toThrow(MonthCloseError);
+    expect(monthCloseNetDisplay(documents, [unmatchedCharges(2)])).toEqual({ state: "pending", pending_count: 0, reason: "unmatched" });
+    expect(monthCloseNetDisplay(documents, [], null)).toEqual({ state: "pending", pending_count: 0, reason: "unknown" });
+    expect(JSON.stringify(monthCloseNetDisplay(documents, [unmatchedCharges(2)]))).not.toContain("0.00");
+  });
+});
+
+const wire = {
+  month: "2026-10",
+  from: "2026-10-01",
+  to: "2026-10-31",
+  closed: false,
+  reasons: [{ code: "missing_rnc", activity_id: "act-1", document_kind: "invoice" }],
+  currencies: [],
+  missing_rnc: [{ activity_id: "act-1", document_kind: "invoice", currency: "DOP", occurred_on: "2026-10-02", total_minor: 640000, before_itbis_minor: 640000, itbis_minor: null, status: "pendiente" }],
+  missing_ncf: [],
+  cuentas_por_cobrar: [],
+  cuentas_por_pagar: [],
+};
+
+describe("month close HTTP contract", () => {
+  test("load is GET with month only, marks are PATCH with the settlement body, and close sends nothing", async () => {
+    expect(monthCloseLoadRequest("2026-10")).toEqual({ method: "GET", path: "/business/month-close?month=2026-10" });
+    expect(monthCloseSettlementRequest("act-1", "cobrado", "2026-10-18")).toEqual({
+      method: "PATCH",
+      path: "/business/month-close/documents/act-1",
+      body: { status: "cobrado", settled_on: "2026-10-18", payment_method: "otro" },
+    });
+    expect(monthCloseSettlementRequest("act-2", "pagado", "2026-10-18").body).toEqual({
+      status: "pagado",
+      settled_on: "2026-10-18",
+      payment_method: "otro",
+    });
+    const calls: { path: string; method: string; body?: string }[] = [];
+    const client = createHttpMonthCloseClient(async (path, init) => {
+      calls.push({ path, method: init?.method ?? "GET", body: typeof init?.body === "string" ? init.body : undefined });
+      if (init?.method === "PATCH") return { activity_id: "act-1", document_kind: "invoice", status: "cobrado", settled_on: "2026-10-18", payment_method: "otro", changed: true };
+      return wire;
+    });
+    const loaded = await client.load("2026-10");
+    expect(calls[0]).toEqual({ path: "/business/month-close?month=2026-10", method: "GET", body: undefined });
+    expect(loaded.closed).toBe(false);
+    expect(loaded.figures).toEqual({ income_before_itbis: null, expense_before_itbis: null, net_before_itbis: null, itbis_owed: null });
+    expect(loaded.documents.map((item) => item.id)).toEqual(["act-1"]);
+    expect(loaded.blockers).toEqual([{ kind: "missing_rnc", id: "act-1:missing_rnc", documentId: "act-1" }]);
+    await client.markCobrado("act-1", undefined, "2026-10-18");
+    expect(JSON.parse(calls[1].body ?? "{}")).toEqual({ status: "cobrado", settled_on: "2026-10-18", payment_method: "otro" });
+    expect(calls[1].method).toBe("PATCH");
+    await expect(client.closeMonth("2026-10")).rejects.toMatchObject({ code: "unavailable" });
+    expect(calls).toHaveLength(2);
+  });
+
+  test("an empty document list stays empty, and a failed load is an error", async () => {
+    const snapshot = readMonthCloseWire({ ...wire, reasons: [], missing_rnc: [] });
+    expect(snapshot.documents).toEqual([]);
+    expect(monthCloseNetDisplay(snapshot.documents, snapshot.blockers, snapshot.figures?.net_before_itbis ?? null).reason).toBe("unknown");
+    const client = createHttpMonthCloseClient(async () => {
+      throw Object.assign(new Error("down"), { code: "business_month_close_unavailable" });
+    });
+    await expect(client.load("2026-10")).rejects.toMatchObject({ code: "unavailable" });
   });
 });

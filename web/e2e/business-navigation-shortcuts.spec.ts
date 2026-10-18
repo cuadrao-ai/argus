@@ -22,7 +22,8 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await expect(page.getByTestId("business-sidebar-nav")).toBeVisible();
   await expect(page.getByTestId("business-sidebar-nav").getByRole("button")).toHaveCount(4);
   await expect(page.getByRole("button", { name: "Recientes", exact: true })).toHaveCount(0);
-  await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+  await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
+  await expect(page.getByTestId("month-close-cards")).toBeVisible();
   await screenshot(page, "after-navigation-1280");
   await chord(page, "Slash");
   const sheet = page.getByRole("dialog", { name: "Atajos de teclado", exact: true });

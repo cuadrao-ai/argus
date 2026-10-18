@@ -2449,6 +2449,7 @@
       "ask_spending": "¿Cuánto gasté este mes?",
       "attach_receipt": "Agregar un recibo",
       "record_expense": "Registrar gasto",
+      "review_receipts": "Revisar recibos",
       "review_inbox_one": "Revisar {{count}} recibo",
       "review_inbox_other": "Revisar {{count}} recibos",
       "upload_receipt": "Subir recibo"
@@ -2718,6 +2719,12 @@
       "never": "ninguno todavía",
       "no_expenses": "Todavía no hay gastos guardados en este período.",
       "open_inbox": "Abrir la bandeja",
+      "por_revisar": "por revisar",
+      "por_revisar_none": "Nada por revisar",
+      "problem_one": "{{count}} con problema",
+      "problem_other": "{{count}} con problema",
+      "reading_one": "{{count}} todavía leyendo",
+      "reading_other": "{{count}} todavía leyendo",
       "separate_currencies": "Cada moneda se suma por separado. Sin conversión.",
       "title": "Mi negocio"
     },

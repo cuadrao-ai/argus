@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { createMockMonthCloseClient, MonthCloseError, type MonthCloseClient } from "../lib/business-month-close";
+import { createMockMonthCloseClient, MonthCloseError, statementMissingBlocker, unmatchedCharges, type MonthCloseClient, type MonthCloseSnapshot } from "../lib/business-month-close";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -285,6 +285,41 @@ describe("month close layouts", () => {
     assert.equal(host.querySelector('[data-testid="month-close-matched"]')?.getAttribute("data-layout"), "matched");
     assert.equal(host.querySelector('[data-document-id="inv-colmado"]')?.getAttribute("data-layout"), "matched");
     assert.equal(host.querySelector('[data-document-id="inv-farmacia"]'), null);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  test("unknown figures say Pendiente and never a zero, and unrendered blockers stay off the screen", async () => {
+    const snapshot: MonthCloseSnapshot = {
+      month: "2026-10",
+      from: "2026-10-01",
+      to: "2026-10-31",
+      currency: "DOP",
+      closed_at: null,
+      earliest_month: null,
+      documents: [],
+      figures: { income_before_itbis: null, expense_before_itbis: null, net_before_itbis: null, itbis_owed: null },
+      blockers: [statementMissingBlocker, unmatchedCharges(2)],
+    };
+    const client: MonthCloseClient = {
+      mode: "mock",
+      async load() { return snapshot; },
+      async markCobrado() { throw new Error("no mark"); },
+      async markPagado() { throw new Error("no mark"); },
+      async closeMonth() { throw new Error("no close"); },
+    };
+    const { host, root, act } = await renderView(client);
+    for (const id of ["month-close-income", "month-close-expenses", "month-close-net", "month-close-itbis"]) {
+      const card = host.querySelector(`[data-testid="${id}"]`);
+      assert.equal(card?.getAttribute("data-state"), "pending");
+      assert.equal(card?.getAttribute("data-amount"), null);
+      assert.match(card?.textContent ?? "", /Pendiente/);
+      assert.doesNotMatch(card?.textContent ?? "", /RD\$/);
+      assert.doesNotMatch(card?.textContent ?? "", /0[,.]00/);
+    }
+    assert.equal(host.textContent?.includes("Sube el estado de cuenta"), false);
+    assert.equal(host.textContent?.includes("sin comprobante"), false);
+    assert.equal(host.querySelectorAll('[data-primary="true"]').length, 0);
     await act(async () => root.unmount());
     host.remove();
   });

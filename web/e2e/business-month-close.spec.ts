@@ -79,7 +79,7 @@ test.describe("inicio is the month close", () => {
       await expect(page.getByTestId("month-close-blockers")).toContainText("Suplidores del Caribe no tiene NCF ni e-CF");
       await expect(page.getByTestId("month-close-close")).toBeDisabled();
       await expect(page.getByTestId("month-close-reason")).toContainText("Falta el RNC o el NCF");
-      await page.getByTestId("month-close-cards").scrollIntoViewIfNeeded();
+      await page.locator("#business-overview-title").scrollIntoViewIfNeeded();
       await shot(page, `${prefix}-inicio`);
 
       const blocker = page.getByRole("link", { name: "Farmacia Central no tiene RNC" });

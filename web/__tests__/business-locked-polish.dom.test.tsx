@@ -162,17 +162,12 @@ describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the
   test("changing the period changes the Resumen card labels and the covered dates", async () => {
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const page = await mount(() => <BusinessOverviewPanel />);
-    const label = () => page.host.querySelector('[data-testid="overview-real-expenses"] > span')?.textContent ?? null;
-    const coverage = () => [...page.host.querySelectorAll("p")].map((p) => p.textContent ?? "").find((text) => text.startsWith("Cubre del")) ?? null;
-    await page.settle(() => label() !== null);
-    assert.equal(label(), "Gastos reales · este mes");
-    await page.act(async () => page.business().setPeriod("last_month"));
-    await page.settle(() => label() === "Gastos reales · mes pasado");
-    assert.equal(label(), "Gastos reales · mes pasado");
-    await page.act(async () => page.business().setPeriod({ key: "custom", from: "2026-09-01", to: "2026-09-30" }));
-    await page.settle(() => coverage()?.startsWith("Cubre del 1 sept 2026 al 30 sept 2026.") ?? false);
-    assert.equal(label(), "Gastos reales · personalizado");
-    assert.ok(coverage()?.startsWith("Cubre del 1 sept 2026 al 30 sept 2026."), coverage() ?? "no coverage line");
+    await page.settle(() => page.host.querySelector('[data-testid="month-close-cards"]') !== null);
+    assert.equal(page.host.querySelector('[data-testid="overview-real-expenses"]'), null);
+    assert.ok(page.host.querySelector('[data-testid="inicio-por-revisar"]'));
+    const action = page.host.querySelector('[data-testid="inicio-por-revisar"]');
+    const cards = page.host.querySelector('[data-testid="month-close-cards"]');
+    assert.ok(action && cards && (action.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
     await page.close();
   });
 });

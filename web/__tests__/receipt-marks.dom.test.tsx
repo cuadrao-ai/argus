@@ -80,12 +80,10 @@ describe("the Overview's two totals", () => {
     const overview: BusinessOverview = { from: "2026-10-01", to: "2026-10-31", today: "2026-10-13", totals: [{ currency: "DOP", amount: "5000.00", count: 3 }], fiscal_totals: [{ currency: "DOP", amount: "3500.00", count: 2 }], without_fiscal_totals: [{ currency: "DOP", amount: "1500.00", count: 1 }], needs_attention: 0, last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null };
     const value = { records: { overview, inbox: [], notes: [], workspace: null, error: false, notesError: false, notesTruncated: false }, period: { key: "this_month", from: "2026-10-01", to: null }, setPeriod: () => undefined, openPanel: () => undefined, actions: { starterEntries: [] }, chosen: null } as unknown as BusinessContextValue;
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><BusinessOverviewPanel /></BusinessContext.Provider></env.I18nextProvider>); });
-    const real = env.host.querySelector('[data-testid="overview-real-expenses"]')!;
-    const fiscal = env.host.querySelector('[data-testid="overview-fiscal-expenses"]')!;
-    assert.ok(real.textContent?.includes("Gastos reales") && real.textContent?.includes("5,000.00"));
-    assert.ok(fiscal.textContent?.includes("Con valor fiscal") && fiscal.textContent?.includes("3,500.00"));
-    assert.ok(env.host.querySelector('[data-testid="overview-without-fiscal"]')?.textContent?.includes("Sin comprobante fiscal: RD$ 1,500.00 no entra al 606") || env.host.querySelector('[data-testid="overview-without-fiscal"]')?.textContent?.includes("no entra al 606"));
-    assert.equal(real.className, fiscal.className, "equal weight");
+    assert.equal(env.host.querySelector('[data-testid="overview-real-expenses"]'), null);
+    assert.equal(env.host.querySelector('[data-testid="overview-fiscal-expenses"]'), null);
+    assert.ok(env.host.querySelector('[data-testid="inicio-por-revisar"]'));
+    assert.equal(env.host.textContent?.includes("0 por revisar"), false);
     await env.act(async () => env.root.unmount());
   });
 });

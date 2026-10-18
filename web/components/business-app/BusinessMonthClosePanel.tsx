@@ -243,6 +243,7 @@ function StatusChip({ status, label, overdue = false }: { status: MonthCloseStat
 }
 
 function fiscalLine(document: MonthCloseDocument, text: (key: string, fallback: string, options?: Record<string, unknown>) => string): string {
+  if (document.fiscal_known === false) return "";
   const parts: string[] = [];
   const rnc = rncPresent(document.rnc) ? document.rnc : null;
   if (rnc) parts.push(text("business.month_close.rnc", "RNC {{value}}", { value: rnc }));
@@ -258,6 +259,12 @@ function fiscalLine(document: MonthCloseDocument, text: (key: string, fallback: 
 function blockerLabel(blocker: MonthCloseBlocker, document: MonthCloseDocument, text: (key: string, fallback: string, options?: Record<string, unknown>) => string): string {
   if (blocker.kind === "missing_rnc") return text("business.month_close.blocker_rnc", "{{name}} has no RNC", { name: document.counterparty });
   return text("business.month_close.blocker_ncf", "{{name}} has no NCF or e-CF", { name: document.counterparty });
+}
+
+function figureCard(computed: string, override: string | null | undefined, hasFigures: boolean, pending: string): { state: "pending" | "final"; value: string } {
+  if (!hasFigures) return { state: "final", value: computed };
+  if (override === null || override === undefined) return { state: "pending", value: pending };
+  return { state: "final", value: override };
 }
 
 function SummaryCard({
@@ -349,10 +356,11 @@ export function BusinessMonthCloseView({
   }, [toast]);
 
   const summary = snapshot ? monthCloseSummary(snapshot.documents) : null;
-  const net = snapshot ? monthCloseNetDisplay(snapshot.documents) : null;
-  const blockers = snapshot ? monthCloseBlockers(snapshot.documents) : [];
+  const listedBlockers = snapshot ? snapshot.blockers ?? monthCloseBlockers(snapshot.documents) : [];
+  const blockers = listedBlockers.filter((blocker) => blocker.kind === "missing_rnc" || blocker.kind === "missing_ncf");
+  const net = snapshot ? monthCloseNetDisplay(snapshot.documents, listedBlockers, snapshot.figures ? snapshot.figures.net_before_itbis : undefined) : null;
   const gate = snapshot ? canCloseMonth(snapshot) : { ok: false as const, reason: "not_calendar_month" as const };
-  const closed = Boolean(snapshot?.closed_at);
+  const closed = Boolean(snapshot?.closed_at) || snapshot?.closed === true;
   const statusLabel = (status: MonthCloseStatus) =>
     ({
       pendiente: t("business.month_close.status_pendiente", "Pending"),
@@ -370,7 +378,7 @@ export function BusinessMonthCloseView({
   }
 
   async function mark(document: MonthCloseDocument) {
-    if (!canMutate || !snapshot || snapshot.closed_at || document.status !== "pendiente" || inFlight.current.has(document.id)) return;
+    if (!canMutate || !snapshot || snapshot.closed_at || snapshot.closed || document.status !== "pendiente" || inFlight.current.has(document.id)) return;
     const started = generation.current;
     const documentId = document.id;
     inFlight.current.add(documentId);
@@ -383,9 +391,9 @@ export function BusinessMonthCloseView({
         : current,
     );
     try {
-      const saved = document.kind === "invoice" ? await client.markCobrado(documentId, scopeKey) : await client.markPagado(documentId, scopeKey);
+      const saved = document.kind === "invoice" ? await client.markCobrado(documentId, scopeKey, today) : await client.markPagado(documentId, scopeKey, today);
       if (started !== generation.current) return;
-      setSnapshot((current) => (current ? { ...current, documents: current.documents.map((item) => (item.id === saved.id ? saved : item)) } : current));
+      setSnapshot((current) => (current ? { ...current, documents: current.documents.map((item) => (item.id === documentId ? { ...item, status: saved.status } : item)) } : current));
     } catch {
       if (started !== generation.current) return;
       setSnapshot((current) =>
@@ -605,7 +613,7 @@ export function BusinessMonthCloseView({
               <button
                 type="button"
                 data-testid="month-close-close"
-                className={`${pillButtonClass} min-w-11 ${gate.ok ? "bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : ""}`}
+                className={`${secondaryButtonClass} min-w-11`}
                 disabled={!canMutate || !gate.ok}
                 aria-describedby={reason ? "month-close-reason" : undefined}
                 onClick={() => setConfirming(true)}
@@ -662,19 +670,21 @@ export function BusinessMonthCloseView({
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-4" data-testid="month-close-cards">
-            <SummaryCard testId="month-close-income" label={t("business.month_close.income_label", "Income")} value={summary.income_before_itbis} hint={t("business.month_close.income_hint", "Invoice totals before ITBIS.")} locale={locale} />
-            <SummaryCard testId="month-close-expenses" label={t("business.month_close.expense_label", "Expenses")} value={summary.expense_before_itbis} hint={t("business.month_close.expense_hint", "Expense totals before ITBIS.")} locale={locale} />
+            <SummaryCard testId="month-close-income" label={t("business.month_close.income_label", "Income")} {...figureCard(summary.income_before_itbis, snapshot.figures?.income_before_itbis, Boolean(snapshot.figures), t("business.month_close.pending_label", "Pending"))} hint={t("business.month_close.income_hint", "Invoice totals before ITBIS.")} locale={locale} />
+            <SummaryCard testId="month-close-expenses" label={t("business.month_close.expense_label", "Expenses")} {...figureCard(summary.expense_before_itbis, snapshot.figures?.expense_before_itbis, Boolean(snapshot.figures), t("business.month_close.pending_label", "Pending"))} hint={t("business.month_close.expense_hint", "Expense totals before ITBIS.")} locale={locale} />
             <SummaryCard
               testId="month-close-net"
               label={t("business.month_close.net_label", "Net result")}
               state={net.state}
               value={net.state === "final" ? net.net_before_itbis : t("business.month_close.pending_label", "Pending")}
               hint={net.state === "pending"
-                ? t("business.month_close.pending_reason", "{{count}} documents still pending", { count: net.pending_count })
+                ? (net.reason === "documents"
+                  ? t("business.month_close.pending_reason", "{{count}} documents still pending", { count: net.pending_count })
+                  : t("business.month_close.pending_label", "Pending"))
                 : t("business.month_close.net_hint", "Income minus expenses, before ITBIS.")}
               locale={locale}
             />
-            <SummaryCard testId="month-close-itbis" label={t("business.month_close.itbis_label", "ITBIS to pay")} value={summary.itbis_owed} hint={t("business.month_close.itbis_hint", "ITBIS on invoices minus ITBIS on expenses.")} locale={locale} />
+            <SummaryCard testId="month-close-itbis" label={t("business.month_close.itbis_label", "ITBIS to pay")} {...figureCard(summary.itbis_owed, snapshot.figures?.itbis_owed, Boolean(snapshot.figures), t("business.month_close.pending_label", "Pending"))} hint={t("business.month_close.itbis_hint", "ITBIS on invoices minus ITBIS on expenses.")} locale={locale} />
           </div>
 
           {blockers.length > 0 ? (
