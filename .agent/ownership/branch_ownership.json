@@ -3368,12 +3368,13 @@
         "web/server/emails/auth-hook.ts",
         "web/server/emails/expiry.ts",
         "web/server/emails/reset-password.tsx",
-        "web/server/emails/security-notices.ts"
+        "web/server/emails/security-notices.ts",
+        "render.yaml",
+        "tests/test_feedback_notification.py"
       ],
       "deny": [
         ".env",
-        "web/.env.local",
-        "render.yaml"
+        "web/.env.local"
       ]
     }
   }
