@@ -9,6 +9,7 @@
 > `docs/specs/private-alpha-ci-cd-sota.md` and
 > `docs/release-manifests/TEMPLATE.md` for release gating.
 > For CI/CD promotion decisions, the decision memo is a later-context document, not part of this release gate.
+> The ordered staging-to-production sequence is [Cuadrao production promotion](#cuadrao-production-promotion).
 
 > [!NOTE]
 > The validated 2026-07-14 private-alpha checkpoint is recorded in
@@ -78,7 +79,342 @@ vendor claims from research need current evidence before a release relies on the
   Changing the host requires an `argus-app` rebuild, because
   `NEXT_PUBLIC_ARGUS_API_URL` is baked into the web bundle at build time.
 
+## Cuadrao production promotion
+
+This is the ordered checklist from the integration staging branch to production.
+It does not authorize the promotion, a migration, a Render write, or tester
+access. Lucas approves the window. James (Release) applies approved migrations
+with the reviewed applier. Nobody edits the production database by hand, in the
+Supabase SQL editor, or with `supabase db push`.
+
+The comparison below was taken from the repository, not from a live Render or
+Supabase read. Dashboard service names are `cuadrao-api` and `cuadrao-web`.
+`cuadrao-web` intentionally serves the marketing site at `cuadrao.ai` and
+`www.cuadrao.ai`. The release profile and `render-env-sync.sh` still label the
+API and the business web contract `argus-api` and `argus-app`. Those labels are
+audit names, not a second pair of Render services.
+
+Never Blueprint-sync until the `render.yaml` service names match the dashboard
+and someone has reviewed the sync diff. This checklist does not sync anything.
+
+- Integration tip: `origin/codex/private-alpha-next` at `651870a54be4e5506dbb38f3902fef1a97eef8df`
+- `origin/main` at `78e6f3f88ea6694711cc34c91973449a1446a0c2`
+
+If either tip has moved, stop and re-diff before using the inventory:
+
+```bash
+git fetch origin main codex/private-alpha-next
+git diff --name-status origin/main...origin/codex/private-alpha-next -- supabase/migrations render.yaml .github/private-alpha-release-profile.json
+```
+
+Command detail that already exists stays in [Before Tester Sessions](#before-tester-sessions),
+[Applying an approved migration list](#applying-an-approved-migration-list),
+[Auth Email Deliverability](#auth-email-deliverability), and
+[Smoke Test](#smoke-test). Fill the candidate record from
+[TEMPLATE.md](release-manifests/TEMPLATE.md).
+
+### 1. Preflight
+
+1. Fetch `origin/codex/private-alpha-next` and `origin/main`. Record the integration tip SHA, the main SHA, and the time. The promotion candidate is that integration tip only after Lucas names the window. A later tip is a new candidate.
+2. Required GitHub checks on that exact tip are green, including the `ci` rollup. Record the check URL. A red or pending required check stops the window.
+3. An independent Eval verdict covers that same SHA. The verdict comes from someone who did not write the code, and it says `PASS` or `PASS+NOTES`. Green CI and an approving bot review are not that verdict. Record who wrote it and the SHA it names. A `FAIL`, a missing verdict, or a verdict for a different SHA stops the window.
+4. Lucas approves the promotion window in writing: the candidate SHA, the maintenance posture for destructive migrations, and who may touch production. That approval is the sign-off's first line. It is not implied by this checklist.
+5. Promotion onto `main` follows the Shipping playbook. Land one promotion PR at a time with a squash (`gh pr merge <pr> --squash` on GitHub, or `origin pr merge <pr>` when the Origin CLI resolves this repository). Read the PR back and require it merged with `main` as its base. A queued merge is not a landed tip. After each squash, `git fetch origin main` and require `origin/main` to be that squash commit before the next squash starts. Recheck that the Eval verdict still describes the patch. A squash creates a new SHA, so the earlier migration-gate report does not carry forward.
+6. Resolve the exact would-be `main` commit and run the production migration gate on it before it is published, using the command in [Before Tester Sessions](#before-tester-sessions). Keep all three autodeploy triggers manual (`off`). After the squash lands, check out that landed SHA and rerun the gate with `--verify-landed-ref origin/main`. `status=pass` on the landed SHA is the only schema proof that authorizes a deploy. Any new squash, rebase, or concurrent main movement sends the operator back to this step.
+
+### 2. Supabase, before the code deploy
+
+Run the gate in the previous step before any production apply and again after the apply. The gate never applies SQL. Its `missing` list, in version order, is the apply list. Its `unexpected`, `name-drift`, and `content-drift` lists are stops. The checked-in production project ref the gate verifies is `lgdhvepyrzbnscqssgqq`, from `cuadrao-api`'s `SUPABASE_URL` in `render.yaml`.
+
+The last ledger snapshot written in this repo is the read-only note in [the marketing launch runbook](runbooks/cuadrao-marketing-launch.md) from 2026-10-07: production head `20260914120000`, with historical ledger rows that do not match `main`. That note is not a current ledger. Do not apply from it. The live gate report replaces it.
+
+Repository delta at the SHAs above: 63 migration files are on integration and absent from `main`. No same-version file differs in content. `main` also contains three files at or after `20260920000000` that the 2026-10-07 snapshot had not recorded as applied. The gate's classifier (`classify_migration` in `scripts/ops/production_migration_gate.py`) labels the 63 as 39 destructive, 22 contract-replacing, and 2 additive. Ambiguous SQL stays contract-replacing. Do not edit a file to change its label.
+
+If the landed gate reports production's latest applied version at or above `20261017010000`, stop. Those two waitlist versions are already on `main`, and the 63 versions below sort before them. `scripts/ops/apply_approved_migrations.py` records a strict prefix above the ledger head and refuses a skipped version, so those 63 cannot be inserted under an already-applied higher version. That case is [open question 4](#open-questions-for-the-founder).
+
+Apply only the gate's missing versions, in version order, before deploying `cuadrao-api` or `argus-backtests`. There is no production business-web service to deploy. James runs the hosted path in [Applying an approved migration list](#applying-an-approved-migration-list): a committed approval record under `docs/release-manifests/`, `--hosted-approval`, `--ssl-root-cert`, a dry-run plan that matches the gate's missing list, then `--execute` with `--hosted-confirm`. Lucas is `approved_by` on that record. The record is valid for at most three days. One file, one transaction, lock timeout default `5s`. After a stop, versions the tool printed as committed stay applied.
+
+Live requirement from the classifier:
+
+- `additive`: human review and a live readback.
+- `contract-replacing`: an expand/contract plan or a maintenance window.
+- `destructive`: a maintenance window, a backup and readback plan, and Lucas's approval for that file.
+
+`20261003150100_invite_code_digests_private` is destructive. Set `ARGUS_INVITE_CODE_SECRET` on `cuadrao-api` before the API deploy that follows it, using `openssl rand -base64 48` as in the [household hosted gate](#household-and-beta-invite-hosted-gate). Keep `ARGUS_HOUSEHOLDS_ENABLED`, `ARGUS_BETA_INVITES_ENABLED`, and `ARGUS_BETA_INVITE_GATE_ENABLED` false until that secret is installed and readiness has passed. Do not put the secret in the manifest.
+
+These three files are on `main`. Apply one only when the landed gate lists it as missing, and apply it in version order with the 63:
+
+| Version | Name | Classification | Live requirement |
+| --- | --- | --- | --- |
+| `20260920000000` | `cuadrao_early_access_signups` | contract-replacing | `expand_contract_or_maintenance_required` |
+| `20261017010000` | `personal_waitlist_confirmation` | contract-replacing | `expand_contract_or_maintenance_required` |
+| `20261017020000` | `waitlist_supabase_scheduling` | contract-replacing | `expand_contract_or_maintenance_required` |
+
+Integration files absent from `main`, in apply order:
+
+| # | Version | Name | Classification | Live requirement |
+| ---: | --- | --- | --- | --- |
+| 1 | `20260925120000` | `claim_guest_compute_usage` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 2 | `20260925140000` | `claim_registered_compute_usage` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 3 | `20260928200000` | `financial_accounts_first_slice` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 4 | `20260929090000` | `financial_loop` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 5 | `20260929120000` | `personal_money_activities` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 6 | `20260929130000` | `personal_money_revision_integrity` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 7 | `20260929150000` | `connected_plan` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 8 | `20260930010000` | `connected_budgets` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 9 | `20260930170000` | `connected_savings_goals` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 10 | `20260930210000` | `connected_debt_plans` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 11 | `20260930230000` | `connected_personal_assets` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 12 | `20261001090000` | `household_membership` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 13 | `20261001120000` | `household_consent_recovery` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 14 | `20261001130000` | `household_grant_deletion` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 15 | `20261001190000` | `goal_residual_allocations` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 16 | `20261002000000` | `shared_household_planning` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 17 | `20261002010000` | `shared_money_original_leg_owners` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 18 | `20261002020000` | `shared_plan_retained_revision_scope` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 19 | `20261002030000` | `shared_plan_consent_lifecycle` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 20 | `20261002040000` | `shared_plan_responsibility_carry` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 21 | `20261002050000` | `shared_contributor_retention` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 22 | `20261002120000` | `financial_source_connections` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 23 | `20261002120100` | `financial_source_gmail_senders` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 24 | `20261002120200` | `financial_shortcut_device_tokens` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 25 | `20261002120300` | `financial_import_reconciliation` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 26 | `20261003120000` | `financial_document_extractions` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 27 | `20261003120001` | `admit_vision_route_receipt_tier` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 28 | `20261003130000` | `financial_document_drafts` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 29 | `20261003140000` | `household_invite_codes_and_beta_access` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 30 | `20261003150000` | `apple_sign_in_credentials` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 31 | `20261003150100` | `invite_code_digests_private` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 32 | `20261004090000` | `account_deletion` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 33 | `20261005090000` | `explicit_client_grants` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 34 | `20261005160000` | `apple_credential_subject_binding` | additive | `human_review_and_live_readback` |
+| 35 | `20261005230000` | `apple_name_initialization` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 36 | `20261008100000` | `financial_document_source_objects` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 37 | `20261008110000` | `document_preparation_jobs` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 38 | `20261008130000` | `whatsapp_intake` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 39 | `20261008140000` | `business_spaces` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 40 | `20261010223000` | `business_contract_foundation` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 41 | `20261011010000` | `business_owner_funded_expenses` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 42 | `20261011020000` | `business_whatsapp_worker` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 43 | `20261011070000` | `business_manual_capture_command` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 44 | `20261011100000` | `business_whatsapp_ai_consent` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 45 | `20261011110000` | `business_income_command` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 46 | `20261011194500` | `business_attachment_prepare` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 47 | `20261012020000` | `document_source_media_types` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 48 | `20261012030000` | `business_email_intake` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 49 | `20261012040000` | `business_access_invites` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 50 | `20261012050000` | `business_rebind_attachment` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 51 | `20261012070000` | `business_settle_remainder` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 52 | `20261012080000` | `document_source_xml` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 53 | `20261012090000` | `whatsapp_receipt_reading_consent` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 54 | `20261014090000` | `business_email_receipt_reading_consent` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 55 | `20261014100000` | `business_ledger_human_actions` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 56 | `20261014110000` | `business_grant_approve_owner_only` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 57 | `20261014120000` | `business_ai_consents` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 58 | `20261014130000` | `business_receipt_reading_activity` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 59 | `20261014133457` | `business_email_daily_budget` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 60 | `20261016065035` | `whatsapp_reply_grouping` | contract-replacing | `expand_contract_or_maintenance_required` |
+| 61 | `20261016090033` | `document_source_prefixes` | destructive | `maintenance_backup_and_founder_approval_required` |
+| 62 | `20261016142927` | `business_name_prompt` | additive | `human_review_and_live_readback` |
+| 63 | `20261016154607` | `adopt_staging_rls_auto_enable` | destructive | `maintenance_backup_and_founder_approval_required` |
+
+After the apply, read grants and RLS back, then rerun the same gate.
+
+- For each new or replaced function, read `proacl` and compare it with the `GRANT` statements in the file just applied.
+- For each new table, read `relrowsecurity` and the table grants and compare them with that file. RLS on is the expected result where the file enables it.
+- `20261016154607_adopt_staging_rls_auto_enable` grants `EXECUTE` on `public.rls_auto_enable()` to `PUBLIC`, `anon`, `authenticated`, `postgres`, and `service_role`. That grant is the file. Leave it.
+- A mismatch stops the promotion. The fix is a reviewed migration, not a hand edit.
+- The rerun must report `status=pass` and an empty missing list before any service deploy. Attach that JSON to the manifest.
+
+### 3. Render environment on production
+
+Do not copy `cuadrao-api-staging` or `cuadrao-web-staging` onto production. The staging manifest turns surfaces on that the production release profile keeps off.
+
+`release-config-audit` fails a live key that is outside the candidate profile's allowed set (`env`, `required_present`, and `optional`) with `unexpected_live_env`. It also fails a missing or different value for every key in the profile `env` map. Set the keys below to the integration profile values before the audit, unless Lucas changes the profile in a reviewed commit and the landed SHA is gated again. This checklist does not change the profile.
+
+`render.yaml` marks `SUPABASE_ANON_KEY` on `cuadrao-api` as `sync: false`. `main`'s blueprint inlines a value on the old `argus-api` name. Do not sync. On promotion day, after a reviewed diff, read back that the name is still present. Do not record the value. `NEXT_PUBLIC_SUPABASE_ANON_KEY` belongs to the business app, which has no production web service, so it is not declared on `cuadrao-web`.
+
+#### Founder choice: evidence-receipt sharing
+
+| Dashboard service | Audit label | Name | `origin/main` profile and `render.yaml` | Integration profile |
+| --- | --- | --- | --- | --- |
+| `cuadrao-api` | `argus-api` | `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` on `main`, `false` on integration | `false` |
+| none yet | `argus-app` | `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` on `main`'s business-web block | `false` |
+
+`cuadrao-web` is the marketing site and does not carry the business-web flag. Live production was not read for this checklist. Lucas chooses the business-web value before a business web service exists. The candidate audit expects the candidate profile, which says `false`. Choosing `true` means a reviewed profile change, a new landed SHA, and a new gate before the audit. The web value is baked at build time, so the choice is made before that future build. Record the choice in the manifest. Do not set the business-web flag on `cuadrao-web`.
+
+#### Service setting from PR #695
+
+`cuadrao-api` in `render.yaml` keeps `renderSubdomainPolicy: disabled` (PR #695, issue #686). Production still has that onrender subdomain enabled. Applying `disabled` is a promotion-day item, not something this checklist syncs. `release-config-audit` does not read this setting. After the founder applies it, prove it before calling the hostname done: a control-plane readback of `serviceDetails.renderSubdomainPolicy=disabled` on `cuadrao-api`, or `GET https://argus-ohr5.onrender.com/health` returning HTTP `404`. That proof is separate from the #694 check below. `cuadrao-api-staging` keeps `renderSubdomainPolicy: enabled`.
+
+#### Keys the integration profile adds
+
+Set these on the dashboard service before that service's deploy. Code defaults for the three ceilings match these numbers (`src/argus/domain/usage_limits.py`); the profile still requires the names to be present. The trusted-header default in code is `CF-Connecting-IP` when the name is absent; the profile requires it set on the API and on the business-web contract. The business app (`web/`) has no production web service yet. Creating one needs a third custom domain, which means a Render plan change. That is a promotion-day founder item. Do not copy the business-web contract onto `cuadrao-web`.
+
+On `cuadrao-api` (audit label `argus-api`), before the API deploy:
+
+| Name | Profile value |
+| --- | --- |
+| `ARGUS_TRUSTED_CLIENT_IP_HEADER` | `CF-Connecting-IP` |
+| `ARGUS_GUEST_SESSION_DAILY_TURN_CEILING` | `100` |
+| `ARGUS_REGISTERED_DAILY_TURN_CEILING` | `200` |
+| `ARGUS_REGISTERED_DAILY_RESEARCH_CEILING` | `15` |
+| `ARGUS_ACCOUNT_DELETION_ENABLED` | `false` |
+| `ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED` | `false` |
+| `ARGUS_BETA_INVITES_ENABLED` | `false` |
+| `ARGUS_BETA_INVITE_GATE_ENABLED` | `false` |
+| `ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED` | `false` |
+| `ARGUS_FINANCIAL_ACCOUNTS_ENABLED` | `false` |
+| `ARGUS_HOUSEHOLDS_ENABLED` | `false` |
+| `ARGUS_INGESTION_ENABLED` | `false` |
+| `PLAID_ENV` | `sandbox` |
+| `PLAID_CREDENTIALS_INJECTED` | `false` |
+| `PLAID_COUNTRY_CODES` | `US` |
+
+The business-web contract (audit label `argus-app`) still requires `ARGUS_TRUSTED_CLIENT_IP_HEADER=CF-Connecting-IP` before that service's build. There is no production service to set it on until the founder creates one.
+
+`argus-backtests` has no new profile keys in this delta. Leave its env on the existing workflow contract. `cuadrao-web` env is not declared in `render.yaml`: the live marketing env was not read. Do not invent it, and do not sync that service's env until the live names are transcribed and reviewed.
+
+These profile `optional` names are secrets. Set one only when Lucas is turning that surface on, and never record the value. Absence is allowed by the audit. `ARGUS_INVITE_CODE_SECRET` is the exception timed above. The others are `ARGUS_INVITE_CODE_SECRET_PREVIOUS`, `ARGUS_INGESTION_SECRET_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_WEBHOOK_URL`, `ARGUS_APPLE_TEAM_ID`, `ARGUS_APPLE_SIGN_IN_KEY_ID`, `ARGUS_APPLE_SIGN_IN_PRIVATE_KEY`, and `ARGUS_APPLE_BUNDLE_ID`.
+
+Leave these unset on `cuadrao-api`. They are not in the production profile, staging sets several of them true, and a live value would fail the audit as unexpected under the `argus-api` label: `CUADRAO_WHATSAPP_*`, `CUADRAO_BUSINESS_PILOT_ENABLED`, `CUADRAO_DOCUMENT_EXTRACTION_ENABLED`, `CUADRAO_FINANCIAL_ACCOUNTS_ENABLED`, `CUADRAO_INGESTION_ENABLED`, `NEXT_PUBLIC_CUADRAO_API_URL`, `NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY`, and `NEXT_PUBLIC_BUSINESS_PILOT_ENABLED`. The future business web build keeps reading `NEXT_PUBLIC_ARGUS_API_URL` and `NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY` until a reviewed profile change says otherwise. Do not copy the staging-true flags onto `cuadrao-web`.
+
+#### `CUADRAO_VISION_MODEL` on `cuadrao-api`
+
+Set `CUADRAO_VISION_MODEL` on `cuadrao-api` before the API deploy. Document extraction resolves the vision tier from `CUADRAO_VISION_MODEL`, then `ARGUS_VISION_MODEL` (`src/argus/llm/openrouter_model_env.py`). With neither set, an extraction call fails `missing_vision_model`.
+
+Neither name is in the `argus-api` allowed set. Setting either one makes `release-config-audit` report `forbidden argus-api:CUADRAO_VISION_MODEL unexpected_live_env` (or the `ARGUS_VISION_MODEL` equivalent). The audit label stays `argus-api` even though the dashboard service is `cuadrao-api`. The staging manifest keeps the current value and does not record the model id. The model id is [open question 2](#open-questions-for-the-founder). The profile allow-list change is [open question 3](#open-questions-for-the-founder). Do not set the variable, and do not treat a red audit as success, until that allow-list change has landed and been gated. Do not omit the variable once the allow-list includes it.
+
+#### `MARKETING_POSTAL_ADDRESS` before the auth hook
+
+This is a hard gate. The Supabase Send Email Hook stays off until `MARKETING_POSTAL_ADDRESS` is set on every production process that sends mail required to carry a postal address, and a readback confirms the value is present, non-empty, and equal to the string Lucas approved. Do not write the string into git, chat, logs, or the manifest.
+
+The waitlist sender refuses to start without it (`marketing/lib/waitlist/runtime.ts`, `supabase/functions/waitlist-reminders/handler.ts`). Auth and account templates refuse a postal address in the body (`Postal addresses are only for waitlist mail`). The address is still required before the hook is turned on. Production marketing is `cuadrao-web`, which already serves `cuadrao.ai` and `www.cuadrao.ai`. That is intentional. The approved string, and whether the live service already holds the name, were not read. That remains [open question 1](#open-questions-for-the-founder). The name is not a `cuadrao-api`, business-web, or `argus-backtests` profile key, so it is not set on those services, and it is not invented onto `cuadrao-web` in `render.yaml`.
+
+### 4. Auth email hook
+
+Preconditions, all required before anyone enables the hook:
+
+1. The postal-address gate above has passed.
+2. Sender and SMTP. Today's production Auth mail is the [Auth Email Deliverability](#auth-email-deliverability) path: Supabase Auth sends as `noreply@get-argus.com` through Resend. SPF, DKIM, and DMARC stay as that section states them: root SPF `v=spf1 include:_spf.mx.cloudflare.net ~all` for inbound `support@get-argus.com`, Resend MAIL FROM at `send.get-argus.com` with `v=spf1 include:amazonses.com ~all`, DKIM at `resend._domainkey.get-argus.com`, and DMARC at `_dmarc.get-argus.com` starting at `p=none`. Site URL `https://arguschat.ai`, with the two recovery redirects that section names.
+3. The hook's own sender, if it is ever enabled, is a different identity: `Cuadrao <hola@mail.cuadrao.ai>` with Reply-To `hola@cuadrao.ai` (`web/server/emails/auth-hook.ts`). DNS and Resend verification for `mail.cuadrao.ai` are [open question 5](#open-questions-for-the-founder). Do not assume the `get-argus.com` records cover that sender.
+4. Read back, without pasting secrets: `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` is absent or `false`; production Supabase's Send Email Hook is not pointed at the app; `mailer` settings were not changed by this promotion. Absence of the flag is what the handler treats as off (`=== "true"`). The name is not in the business-web allowed set, so putting it on a service the audit calls `argus-app` fails the audit until a reviewed profile change allows it.
+5. The From address is an open item. It will be confirmed from a fresh-account test email, outside this PR. Do not copy a sender into this checklist.
+
+Enablement stays an open item on this tree. `handleAuthEmailHook` returns 503 unless project ref, Supabase URL, app origin, expiry, and `RENDER_SERVICE_ID` all equal the staging constants in `STAGING_AUTH_EMAIL`: project `skedzwocnmrhfigiwyzi`, origin `https://cuadrao-web-staging.onrender.com`, expiry `3600`, and Render service `srv-db5ihr7lot8c73f3b3h0`. Pointing production Supabase (`lgdhvepyrzbnscqssgqq`, origin `https://arguschat.ai`) at `POST /api/auth/send-email` would replace Auth delivery and then fail it. Leave the hook off through the deploy. A later enablement needs a reviewed code change that accepts the production binding, plus the postal-address gate, plus the deliverability readback, plus the From address from that test email. That work is [open question 5](#open-questions-for-the-founder).
+
+### 5. Deploy order
+
+After the landed gate reports `status=pass` and the env readbacks above match the founder choices:
+
+1. Do not Blueprint-sync. The hard gate is: never sync until the `render.yaml` service names match the dashboard and someone has reviewed the sync diff. The names in this file are `cuadrao-api` and `cuadrao-web`. Reviewing that diff is a promotion-day step, and this checklist does not perform the sync. `renderSubdomainPolicy: disabled` on `cuadrao-api` stays in the file and is not applied here, because production still has the subdomain enabled. `argus-backtests` is not in `render.yaml`. Its contract stays the release profile plus `.github/render-env-sync.sh workflow-runtime`. Autodeploy on `cuadrao-api`, `cuadrao-web`, and `argus-backtests` stays `off`. `cuadrao-web-staging` and `cuadrao-api-staging` are `checksPass` in the blueprint, matching the staging dashboard for the web service and the requested staging API setting. `cuadrao-marketing-staging` tracks `main`, matching the dashboard. The previous blueprint said `codex/private-alpha-next` for that service; that branch drift is corrected in the file and is not a sync.
+2. Set the env in [section 3](#3-render-environment-on-production) on `cuadrao-api` before that service deploys. Run `.github/render-env-sync.sh api-real-workflow-on` for the API service the script still labels `argus-api`, then restart it if the env change did not already restart it. Do not set the business-web contract on `cuadrao-web`.
+3. Run the audit before the three deploys:
+
+```bash
+.github/render-env-sync.sh release-config-audit --expect-mode real-workflow
+```
+
+`status=ready` is required. A drift or `unexpected_live_env` line stops the deploy. The vision-model allow-list stop in section 3 applies here.
+
+4. Deploy `cuadrao-api`, then `argus-backtests`, from the landed SHA. Manual triggers, in that order. There is no production deploy of the business app: `web/` has no production web service. `cuadrao-web` is the marketing site. Do not deploy it from this promotion until the build and start strings in `render.yaml` are confirmed against the dashboard ([open question 7](#open-questions-for-the-founder)). Do not finish the API and the workflow on different commits. The command reference in [Before Tester Sessions](#before-tester-sessions) still names the audit labels `argus-api`, then `argus-app`, then `argus-backtests`. The `argus-app` step has no dashboard service until the founder creates the business web service.
+5. Read deploy status:
+
+```bash
+ARGUS_RELEASE_SHA="$(git rev-parse HEAD)"
+.github/render-env-sync.sh api-deploy-status
+.github/render-env-sync.sh web-deploy-status
+.github/render-env-sync.sh workflow-version-status
+```
+
+Each deployed commit is `ARGUS_RELEASE_SHA`. The workflow ready version name matches that commit's prefix.
+6. Run the audit again inside warmup, against the deployed SHA:
+
+```bash
+.github/warmup-render.sh --expect-mode real-workflow
+```
+
+Warmup dispatches a paid workflow proof. Lucas approves that spend in the window before this command runs.
+
+### 6. Post-deploy verification
+
+1. Health. `GET https://api.arguschat.ai/health` returns HTTP 200. The app origin `https://arguschat.ai` loads. After the subdomain proof, `GET https://argus-ohr5.onrender.com/health` returns HTTP 404.
+2. Smoke. Walk [Smoke Test](#smoke-test) on the deployed SHA with an allowlisted account. Then run both canary surfaces in [Before Tester Sessions](#before-tester-sessions): release coherence and the authenticated browser journey. Both must pass on that SHA.
+3. Forged `CF-Connecting-IP`, issue #694, still open. The test is unchanged: requests to `api.arguschat.ai` with forged `CF-Connecting-IP`, `True-Client-IP`, and `X-Forwarded-For` values must resolve to the tester's real egress IP (IPv6 to the /64), not to the forged value. Issue #694's ops-gated `GET /internal/client-ip` is not in this tree, and the issue says to build it only for the promotion window and remove it afterward. Do not send the forged-header probe until that endpoint exists. Building it is [open question 6](#open-questions-for-the-founder). A Cloudflare Worker in front of `argus-api` remains forbidden: Worker subrequests rewrite `CF-Connecting-IP` to one Cloudflare IPv6.
+4. Log watch on `cuadrao-api` through the smoke and both canaries. Stop on a burst of claim failures. The lines are `Guest compute claim failed; returning claim unavailable`, `Registered compute claim failed; returning claim unavailable`, and `Research allowance claim failed; treating capacity as exhausted`. A claim failure is HTTP 503 with `Argus could not start this turn. Please try again.` An ordinary ceiling is HTTP 429 with `Too many conversation turns today.` The canary should not trip the ceiling. One deliberate 429 is recorded; a 429 during the canary stops the promotion.
+5. Vision model. After `CUADRAO_VISION_MODEL` is set and the audit is green, read back that the name is present on `argus-api` and record the model id in the manifest the same way the other model ids are recorded. A live extraction proof needs Lucas to turn extraction on. `CUADRAO_DOCUMENT_EXTRACTION_ENABLED` defaults off, is not in the release profile, and `ARGUS_INGESTION_ENABLED` is `false`. Until both the allow-list and an approved extraction call exist, the readback is the name and the model id only. That limit is [open question 2](#open-questions-for-the-founder) and [open question 3](#open-questions-for-the-founder).
+
+### 7. Rollback, in order
+
+1. Stop tester exposure. Leave the Send Email Hook off.
+2. Emergency-only env flips, used for the incident they match and then recorded:
+   - `.github/render-env-sync.sh api-safe-off` on `argus-api`. This disables workflow dispatch and execution and removes the Render API key from `argus-api`.
+   - Guest access: set `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=false`, then `ARGUS_GUEST_ACCESS_ENABLED=false`. Leave `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`.
+   - `ARGUS_ENABLE_EXECUTION_REALISM=false` is the execution-realism kill switch.
+   Sharing flags, the three ceilings, `ARGUS_TRUSTED_CLIENT_IP_HEADER`, and `renderSubdomainPolicy` are not emergency flips.
+3. Revert code, keep migrations. Roll `cuadrao-api` and `argus-backtests` back to the same previous successful deploy. Roll `cuadrao-web` back only if this promotion deployed it. There is no business-web service to roll back. A Render rollback restores that deploy's env values as well, so read the env back afterward and re-apply any secret that was rotated since that artifact. Do not reverse, edit, or delete applied SQL. Old code has to tolerate the expanded schema, or Lucas approves a forward fix. The [waitlist rollback floor](#waitlist-rollback-floor) still forbids a code rollback below `061ba50e` while active `requested` rows can exist, until that section's maintenance proof is done.
+4. If the hook was enabled despite section 4, disable production Supabase's Send Email Hook first, then set the web flag false. Restoring the previous Auth SMTP sender is part of that readback.
+5. Code rollback does not change `renderSubdomainPolicy`. Production still has the `cuadrao-api` onrender subdomain enabled. Restoring or disabling `https://argus-ohr5.onrender.com` is a separate founder decision on promotion day.
+
+### 8. Sign-off record
+
+Copy this into the release manifest. Times are UTC. Full 40-character SHAs. No secret values, no postal-address string, no tokens.
+
+```text
+Window approved by: Lucas
+Approval time:
+Integration tip SHA:
+Eval verdict: PASS or PASS+NOTES
+Eval author (did not write the code):
+Eval SHA:
+Landed origin/main SHA:
+Landed-ref gate: status=pass / fail
+Gate report path:
+Migrations applied (versions, in order):
+Applied by: James (Release)
+Grant and RLS readback: match / mismatch
+Post-apply gate: status=pass / fail
+Sharing choice: true / false
+renderSubdomainPolicy on argus-api: disabled readback / 404 readback
+ARGUS_TRUSTED_CLIENT_IP_HEADER on argus-api and argus-app:
+Ceilings (guest turn / registered turn / registered research):
+CUADRAO_VISION_MODEL set on argus-api: yes / blocked, model id:
+MARKETING_POSTAL_ADDRESS: set and matched approved string / not set
+Auth hook: off
+Hook readback (flag absent or false; Supabase hook not pointed at the app):
+release-config-audit before deploy:
+Deploy SHAs (cuadrao-api, cuadrao-web if deployed, argus-backtests):
+release-config-audit inside warmup:
+Health:
+Smoke and both canaries:
+Forged CF-Connecting-IP (#694):
+429 / claim-failure watch:
+Vision extraction proof: not run / run
+Rollback target SHA:
+Operator time:
+```
+
+### Later, not blocking
+
+- Every Render service currently allows `0.0.0.0/0`. Tightening that allowlist is later work.
+- There are no PR preview environments. Adding them is later work.
+
+### Open questions for the founder
+
+1. Which production process holds `MARKETING_POSTAL_ADDRESS`, and what is the approved string? Production marketing is `cuadrao-web`. The live env was not read, and `render.yaml` does not invent the value. Test fixtures are not the approved string. The waitlist Edge Function refuses any non-staging project URL.
+2. Which model id is `CUADRAO_VISION_MODEL` on production? The staging manifest keeps the live value and does not record it.
+3. When does a reviewed change add `CUADRAO_VISION_MODEL` to the `argus-api` release-profile allow-list so the required variable and a green `release-config-audit` can both be true? The same question applies to `CUADRAO_DOCUMENT_EXTRACTION_ENABLED` if this window is supposed to prove extraction with a live call.
+4. What is the production ledger head now? If it is already at or above `20261017010000`, the 63 integration-only versions are not a legal prefix for the applier. The 2026-10-07 snapshot said the head was `20260914120000` and that the ledger did not match `main`.
+5. Production Auth mail stays on `noreply@get-argus.com` until a reviewed change teaches the hook the production project, origin, and Render service id. The From address will be confirmed from a fresh-account test email, outside this PR. Who verifies `mail.cuadrao.ai`, and is that in this window? The business-web Render service does not exist yet, so it has no service id in the repo.
+6. Issue #694's `GET /internal/client-ip` is not in this tree. Does this window build it, run the forged-header check, and remove it, or does the check stay blocked?
+7. What are the exact live `cuadrao-web` build and start commands? `render.yaml` uses the marketing-staging strings already in that file (`bun install --frozen-lockfile && bun run build --webpack` and `bun run start -- -p $PORT`) because they are the only checked-in `--webpack` build. The marketing launch runbook records a different pair for a service it calls `cuadrao-marketing`: `npm install -g bun@1.3.14 && bun install --frozen-lockfile && bun run build` and `npm run start -- -p $PORT`. Confirm the dashboard strings before any sync. The live env names on `cuadrao-web` were not read either.
+8. `cuadrao-api-staging` build and start in `render.yaml` are copied from the production API block in that file. They were not read from the live staging service. Confirm them before any sync.
+
 ## Before Tester Sessions
+
+For the Cuadrao production promotion, follow
+[Cuadrao production promotion](#cuadrao-production-promotion) in order. The
+numbered commands in this section are the command reference that sequence calls.
 
 The promotion target is `main`, but `codex/private-alpha-next` remains the
 integration staging branch until the founder approves promotion. Do not merge

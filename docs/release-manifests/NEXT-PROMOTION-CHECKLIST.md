@@ -1,5 +1,11 @@
 # Next promotion: run the gates in this order
 
+The ordered Cuadrao staging-to-production checklist is the launch runbook
+section
+[Cuadrao production promotion](../PRIVATE_LAUNCH_RUNBOOK.md#cuadrao-production-promotion).
+This file remains the historical preparation checklist for eval identity,
+local rehearsal, and spending records.
+
 This is a preparation checklist, not a promotion manifest or permission to deploy.
 The rehearsal report is [promotion-readiness](../reports/evidence/promotion-readiness/README.md).
 Create the actual candidate record from [TEMPLATE.md](TEMPLATE.md).
