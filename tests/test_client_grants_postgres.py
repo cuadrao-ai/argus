@@ -57,6 +57,18 @@ CLIENT_SCHEMA_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
 
 CLIENT_RELATION_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
     "public.backtest_jobs": {"authenticated": frozenset({"SELECT"})},
+    "public.business_bank_accounts": {
+        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
+    },
+    "public.business_bank_imports": {
+        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
+    },
+    "public.business_bank_lines": {
+        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
+    },
+    "public.business_bank_suggestions": {
+        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
+    },
     "public.chat_turn_lifecycles": {"authenticated": frozenset({"SELECT"})},
     "public.conversation_read_states": {"authenticated": frozenset({"SELECT"})},
     "public.financial_accounts": {"authenticated": frozenset({"SELECT"})},
@@ -240,6 +252,9 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
 # Functions a client role can execute, directly or through PUBLIC. Extension
 # members are excluded.
 CLIENT_EXECUTABLE_FUNCTIONS: dict[str, frozenset[str]] = {
+    "argus_private.business_bank_has_capability(uuid, text)": frozenset(
+        {"authenticated"}
+    ),
     "public.argus_search_symbol_casefold(text)": frozenset({"anon", "authenticated"}),
     "public.is_active_household_member(uuid, uuid)": frozenset({"authenticated"}),
     # The historical staging adoption retains this existing helper grant.
