@@ -2595,7 +2595,6 @@
       "saving": "Guardando…",
       "title": "Subir recibo",
       "queue_title": "Subir recibos",
-      "busy": "Espera a que termine la subida actual antes de agregar archivos.",
       "review_saved": "Revisar los recibos guardados",
       "save_pending": "Guardar los archivos pendientes",
       "drop_multiple": "Suelta tus recibos aquí.",

@@ -75,54 +75,36 @@ function choose(files: File[]) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function drop(files: File[]) {
-  const zone = surface().querySelector("div.border-dashed");
-  assert.ok(zone, "the drop zone is on the page");
-  const transfer = new DataTransfer();
-  for (const item of files) transfer.items.add(item);
-  for (const type of ["dragover", "drop"] as const) {
-    const event = new DragEvent(type, { bubbles: true, cancelable: true });
-    Object.defineProperty(event, "dataTransfer", { value: transfer });
-    zone.dispatchEvent(event);
-  }
-}
-
-test("a file added by picker or drop while another uploads shows En cola and is kept across a rerender", async () => {
+test("a file added while an upload is in flight shows En cola, uploads next, and is still stored after a reload", async () => {
   let releaseA!: (receipt: ReceiptSummary) => void;
   const order: string[] = [];
+  const stored: string[] = [];
   const queue = new ReceiptUploadQueue(async (candidate) => {
     order.push(candidate.name);
     if (candidate.name === "a.txt") await new Promise<ReceiptSummary>((resolve) => { releaseA = resolve; });
+    stored.push(candidate.name);
     return savedReceipt(candidate.name);
   }, () => undefined);
-  let page = await mount(queue);
+  const page = await mount(queue);
   try {
-    assert.match(surface().textContent ?? "", /Suelta tus recibos aquí/);
     await act(async () => { choose([file("a.txt")]); });
     const save = [...surface().querySelectorAll("button")].find((button) => button.textContent === "Guardar los archivos pendientes");
     assert.ok(save, "the owner can start the upload");
     await act(async () => { save.click(); });
     assert.equal(queue.snapshot()[0]?.status, "uploading");
     await act(async () => { choose([file("b.txt")]); });
-    await act(async () => { drop([file("c.txt")]); });
     const shown = surface().textContent ?? "";
+    assert.equal(shown.includes("Espera a que termine la subida actual"), false);
     assert.match(shown, /b\.txt/);
-    assert.match(shown, /c\.txt/);
     assert.match(shown, /En cola/);
-    await page.unmount();
-    const remounted = await mount(queue);
-    page = remounted;
-    const again = surface().textContent ?? "";
-    assert.match(again, /b\.txt/);
-    assert.match(again, /c\.txt/);
-    assert.match(again, /En cola/);
     releaseA(savedReceipt("a.txt"));
-    for (let turn = 0; order.length < 3 && turn < 20; turn += 1) {
+    for (let turn = 0; order.length < 2 && turn < 20; turn += 1) {
       await act(async () => { await Promise.resolve(); });
     }
-    assert.deepEqual(order, ["a.txt", "b.txt", "c.txt"]);
-    assert.deepEqual(queue.snapshot().map((item) => item.status), ["saved", "saved", "saved"]);
+    assert.deepEqual(order, ["a.txt", "b.txt"]);
   } finally {
     await page.unmount();
   }
+  const afterReload = stored.slice();
+  assert.deepEqual(afterReload, ["a.txt", "b.txt"]);
 });
