@@ -45,7 +45,7 @@
     },
     {
       "id": "order-confirmation-estimated-tax",
-      "path": "docs/reports/evidence/cuadrao-receipt-payment-truth-1212/measurement-fixtures/order-confirmation.png",
+      "path": "tests/fixtures/receipt-payment-truth/order-confirmation.png",
       "sha256": "bdbec2022e702b7aaf7d436897ca5f9bba6696470ee410eade2d8a7fbb452eda",
       "expected": {
         "readable": true,
