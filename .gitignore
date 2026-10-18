@@ -38,7 +38,8 @@ htmlcov/
 .vscode/
 .idea/
 .cursor/
-.claude/
+.claude/*
+!.claude/settings.json
 
 # Logs
 *.log
