@@ -368,6 +368,10 @@ Preconditions, all required before anyone enables the hook:
 
 Enablement stays an open item on this tree. `handleAuthEmailHook` returns 503 unless project ref, Supabase URL, app origin, expiry, and `RENDER_SERVICE_ID` all equal the staging constants in `STAGING_AUTH_EMAIL`: project `skedzwocnmrhfigiwyzi`, origin `https://cuadrao-web-staging.onrender.com`, expiry `3600`, and Render service `srv-db5ihr7lot8c73f3b3h0`. Pointing production Supabase (`lgdhvepyrzbnscqssgqq`, origin `https://arguschat.ai`) at `POST /api/auth/send-email` would replace Auth delivery and then fail it. Leave the hook off through the deploy. A later enablement needs the must-fix above, a reviewed code change that accepts the production binding, the postal-address gate, the deliverability readback, and the From address from that test email. That work is [open question 5](#open-questions-for-the-founder).
 
+### DGII RNC schedule
+
+The daily RNC load is `.github/workflows/dgii-rnc-import.yml` in PR #1257. GitHub runs that schedule only from the default branch, `main`. Merging the file onto `codex/private-alpha-next` does not start it. Once the file is on `main`, the schedule runs at 07:00 UTC. The load stays off until the repository variable `DGII_RNC_LOAD_ENABLED` is the string `true` and the repository secret `SUPABASE_STAGING_DB_URL` is set. This promotion sets neither. The job writes the staging registry. Do not point it at the production database.
+
 ### 5. Deploy order
 
 After the landed gate reports `status=pass` and the env readbacks above match the founder choices:

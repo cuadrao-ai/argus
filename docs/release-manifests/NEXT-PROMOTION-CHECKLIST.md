@@ -27,6 +27,12 @@ section
      and magic link unpasted. Do not apply a template from this commit.
   5. Read back that Supabase Authentication, Hooks, Send Email stays disabled
      until steps 2, 3, and 4 are done.
+- The DGII RNC schedule starts only on `main`. PR #1257 adds
+  `.github/workflows/dgii-rnc-import.yml`. GitHub runs that schedule from the
+  default branch. A merge to `codex/private-alpha-next` does not start it.
+  Leave `DGII_RNC_LOAD_ENABLED` unset. Do not set `SUPABASE_STAGING_DB_URL`
+  from this promotion. The job writes staging, not production. See
+  [DGII RNC schedule](../PRIVATE_LAUNCH_RUNBOOK.md#dgii-rnc-schedule).
 
 This file remains the historical preparation checklist for eval identity,
 local rehearsal, and spending records.
