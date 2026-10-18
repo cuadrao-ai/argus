@@ -4,9 +4,12 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
 MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
+RENDER_PATH = ROOT / "render.yaml"
 
 APPROVED_STAGING_OVERRIDES: dict[str, str] = {
     "ARGUS_BETA_INVITES_ENABLED": (
@@ -109,7 +112,26 @@ def prod_values_other_than_false(
     render_config: dict,
     overrides: Mapping[str, str],
 ) -> list[str]:
-    return []
+    bad: list[str] = []
+    for name, reason in overrides.items():
+        if not reason.strip():
+            continue
+        profile_values = [
+            service["env"][name]
+            for service in profile["services"].values()
+            if name in service.get("env", {})
+        ]
+        render_values = [
+            item.get("value")
+            for service in render_config.get("services", [])
+            for item in service.get("envVars", [])
+            if item.get("key") == name
+        ]
+        if any(value != "false" for value in profile_values):
+            bad.append(name)
+        if any(value != "false" for value in render_values):
+            bad.append(name)
+    return sorted(set(bad))
 
 
 def test_override_true_in_prod_fails() -> None:
@@ -136,6 +158,9 @@ def test_override_true_in_prod_fails() -> None:
     assert prod_values_other_than_false(profile_false, render_true, overrides) == [
         "SAMPLE_FLAG_ENABLED"
     ]
+    assert (
+        prod_values_other_than_false(profile_false, render_false, overrides) == []
+    )
 
 
 def test_approved_staging_overrides_record_a_reason() -> None:
@@ -144,6 +169,17 @@ def test_approved_staging_overrides_record_a_reason() -> None:
         for name, reason in APPROVED_STAGING_OVERRIDES.items()
         if not reason.strip()
     ] == []
+
+
+def test_staging_overrides_stay_false_in_prod() -> None:
+    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    render_config = yaml.safe_load(RENDER_PATH.read_text(encoding="utf-8"))
+    assert (
+        prod_values_other_than_false(
+            profile, render_config, APPROVED_STAGING_OVERRIDES
+        )
+        == []
+    )
 
 
 def test_default_off_profile_flags_are_not_turned_on_in_staging() -> None:
