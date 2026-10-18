@@ -35,12 +35,11 @@ Layout: `src/argus/` API (`api/`, `agent_runtime/` chat runtime, `domain/`, with
 
 - Python is pinned by `.python-version` (3.10); run it through `poetry run`. Frontend
   packages use bun, not npm. Docs-only work skips setup and every env write.
-- Run `.github/setup.sh` once per runtime worktree; it links missing `.env` files to
-  the canonical integration worktree. Check without printing values:
-  `bash .github/setup-worktree-env.sh --check "$PWD"`. `missing` or `conflicting-link`
-  means stop and fix first.
+- Run `.github/setup.sh` once per runtime worktree; it links missing `.env` files to the
+  integration worktree. Check (prints no values): `bash .github/setup-worktree-env.sh --check "$PWD"`.
+  `missing` or `conflicting-link` means stop and fix first.
 - Fast mode: `.github/dev.sh` (memory store, synthetic fixtures, mock auth), then
-  `cd web && bun run dev` with `NEXT_PUBLIC_MOCK_AUTH=true`. Parity mode: `.github/qa.sh`.
+  `cd web && bun run dev` with `NEXT_PUBLIC_MOCK_AUTH=true`. Parity: `.github/qa.sh`.
 - The `web/` framework breaks older APIs: read `web/node_modules/next/dist/docs/` first.
 
 ## Checks (CI runs these)
@@ -57,8 +56,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 
 - Hermetic chat sweep (seconds; minutes means a live path leaked, so stop):
   `OPENROUTER_API_KEY= ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture poetry run pytest tests/agent_runtime tests/test_spine_guardrails.py -q --no-cov`
-- Postgres tests need `ARGUS_DISPOSABLE_DATABASE_URL` on a throwaway local database,
-  never staging or production.
+- Postgres tests need `ARGUS_DISPOSABLE_DATABASE_URL` on a throwaway local DB, never staging/prod.
 - Evals: read the Test Tiers in `tests/evals/README.md`. Use the mocked harness for
   every change. A live eval runs only at its documented gates with spend approved in
   your brief. Browser QA is real-API work and spends tokens.
@@ -79,9 +77,8 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
   totals, statuses or options. Money is exact. Business approval is the owner's alone.
 - A schema change updates `docs/API_CONTRACT.md` and `docs/api/openapi.yaml` in the
   same PR. Data changes update `docs/DATA_MODEL.md`.
-- Shared hot files (locale files, `docs/api/openapi.yaml`, `docs/API_CONTRACT.md`,
-  `docs/DATA_MODEL.md`, the ownership manifest): add your block where its key sorts.
-  Never reorder or reformat.
+- Shared hot files (locales, `docs/api/openapi.yaml`, `docs/API_CONTRACT.md`, `docs/DATA_MODEL.md`,
+  ownership manifest): add your block where its key sorts. Never reorder or reformat.
 - Python: `loguru` not `print()`, `pydantic-settings` not `os.environ`, typed signatures.
 - Tests: failing test first for a bug. Shared fixtures and parametrize, Faker data.
 - Unfinished features ship behind a default-off switch (`web/lib/private-alpha-flags.ts`,
@@ -112,9 +109,12 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 - No "Argus", provider or vendor names in user-facing copy. Never name outside
   companies or competitors in code, comments, docs, PRs, issues or commit messages.
 
-## Commits and PRs
+## Commits, PRs and review
 
 - Conventional commits: `type(scope): summary (#issue)`. One job per PR, no stacks.
 - Merge `codex/private-alpha-next` in before the last push. Never rebase a published branch.
 - Visual evidence goes under `docs/reports/evidence/<pr>/` or on the PR, at the exact head.
 - Never merge your own PR. Report the PR link, head SHA, tests added and the proof.
+- Review against the named parent branch; never assume `main` is the comparison base.
+- Findings give file and line, severity, impact and the smallest safe fix.
+- No broad rewrites, future-slice work or new product surfaces unless they block the job.
