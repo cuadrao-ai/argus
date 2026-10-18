@@ -1,16 +1,18 @@
 """Fail when a pull request adds evidence media.
 
-The diff is `git diff --name-status --diff-filter=A <merge-base>...HEAD`.
-It compares that merge base to HEAD. It does not diff the work tree, so
-files that arrive by merging the base branch are not added files.
+The diff is `git diff --name-status --find-renames --find-copies
+--diff-filter=ACR <merge-base>...HEAD`. It compares that merge base to
+HEAD. It does not diff the work tree, so files that arrive by merging
+the base branch are not added files.
 
 A path is evidence when it is under docs/reports/, or when any directory
 segment is "evidence" or ends with "-evidence". Directory names and
 suffixes match without regard to case. Suffixes are png, jpg, jpeg, gif,
 webp, mp4, mov, and pdf.
 
-Only added files fail. A modification or a rename does not. A line in
-.github/media-allowlist.txt does not exempt an evidence path.
+An add, rename, or copy fails when its destination is evidence media.
+A modification does not. A rename whose destination is not evidence
+media does not.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from pathlib import Path
 MEDIA_SUFFIXES = frozenset(
     {".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mov", ".pdf"}
 )
+INTRODUCED_STATUSES = frozenset({"A", "C", "R"})
 REJECTION = (
     "do not commit evidence media. Attach it on the pull request, "
     "or upload it with actions/upload-artifact."
@@ -49,32 +52,10 @@ def is_evidence_path(path: str) -> bool:
     )
 
 
-def load_globs(text: str) -> tuple[str, ...]:
-    globs: list[str] = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped and not stripped.startswith("#"):
-            globs.append(stripped)
-    return tuple(globs)
-
-
-def matches_glob(path: str, pattern: str) -> bool:
-    if pattern.endswith("/**"):
-        prefix = pattern[: -len("/**")]
-        return path == prefix or path.startswith(prefix + "/")
-    return path == pattern
-
-
-def is_exempt(path: str, globs: tuple[str, ...]) -> bool:
-    if is_evidence_path(path):
-        return False
-    return any(matches_glob(path, pattern) for pattern in globs)
-
-
-def blocking_paths(changes: list[tuple[str, str]], globs: tuple[str, ...]) -> list[str]:
+def blocking_paths(changes: list[tuple[str, str]]) -> list[str]:
     blocked: list[str] = []
     for letter, path in changes:
-        if letter != "A" or not is_media(path) or is_exempt(path, globs):
+        if letter not in INTRODUCED_STATUSES or not is_media(path):
             continue
         if is_evidence_path(path):
             blocked.append(path)
@@ -133,7 +114,8 @@ def changed_paths(root: Path, base: str) -> list[tuple[str, str]]:
             "diff",
             "--name-status",
             "--find-renames",
-            "--diff-filter=A",
+            "--find-copies",
+            "--diff-filter=" + "".join(sorted(INTRODUCED_STATUSES)),
             "-z",
             f"{resolved}...HEAD",
         ],
@@ -148,7 +130,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--base", default=os.environ.get("PR_BASE_SHA", ""))
-    parser.add_argument("--allowlist", type=Path, default=None)
     args = parser.parse_args(argv)
     base = args.base.strip()
     if not base:
@@ -156,14 +137,12 @@ def main(argv: list[str] | None = None) -> int:
             print("PR_BASE_SHA is required.", file=sys.stderr)
             return 1
         return 0
-    allowlist = args.allowlist or (args.root / ".github" / "media-allowlist.txt")
-    globs = load_globs(allowlist.read_text(encoding="utf-8"))
     try:
         changes = changed_paths(args.root, base)
     except MergeBaseMissing as exc:
         print(exc, file=sys.stderr)
         return 1
-    blocked = blocking_paths(changes, globs)
+    blocked = blocking_paths(changes)
     for path in blocked:
         print(f"{display_path(path)}: {REJECTION}", file=sys.stderr)
     return int(bool(blocked))
