@@ -16,6 +16,11 @@ import xlsxwriter
 from argus.domain.business.dgii_export import build_fiscal_packet
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
+from argus.domain.business.rnc_registry import (
+    RncRegistry,
+    postgres_rnc_fetch,
+    registry_from_config,
+)
 from argus.domain.store import utcnow
 
 MAX_ROWS = 1000
@@ -221,6 +226,7 @@ def _xlsx(
 def build_archive(
     snapshot: ExportSnapshot,
     read_original: Callable[[ExportSource], bytes | None],
+    registry: RncRegistry | None = None,
 ) -> bytes:
     rows = record_rows(snapshot)
     included = {UUID(row["activity_id"]) for row in rows}
@@ -309,6 +315,7 @@ def build_archive(
             start=snapshot.period.start,
             end=snapshot.period.end,
             captured_on=snapshot.captured_at.date(),
+            registry=registry,
         )
         for name, content in fiscal.files.items():
             archive.writestr(name, content)
@@ -632,6 +639,14 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 except SourceStorageUnavailable:
                     return None
 
-            result = build_archive(snapshot, original)
+            def lookup(sql, params):
+                cursor.execute(sql, params)
+                return cursor.fetchone()
+
+            result = build_archive(
+                snapshot,
+                original,
+                registry_from_config("dgii", postgres_rnc_fetch(lookup)),
+            )
             authorize(connection, context.actor, context.grant_id).require("read")
             return result
