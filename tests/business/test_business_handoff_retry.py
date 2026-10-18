@@ -194,7 +194,9 @@ async def test_a_terminal_refusal_is_logged_without_the_document(
         scope=scope,
     )
     messages: list[str] = []
-    sink = logger.add(lambda message: messages.append(message.record["message"]), level="WARNING")
+    sink = logger.add(
+        lambda message: messages.append(message.record["message"]), level="WARNING"
+    )
     try:
         with pytest.raises(ActionError, match="not_a_receipt"):
             await service.resume(

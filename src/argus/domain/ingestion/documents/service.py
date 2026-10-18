@@ -758,6 +758,16 @@ class DocumentsService:
                 )
                 else "document_extraction_failed"
             )
+            if code in {
+                "unreadable_document",
+                "not_a_receipt",
+                "receipt_requires_review",
+            }:
+                logger.warning(
+                    "document_preparation_refused connection_id={} code={}",
+                    connection_id,
+                    code,
+                )
             try:
                 withdrawn = code == "document_reading_not_allowed"
                 if draft.source_available:
