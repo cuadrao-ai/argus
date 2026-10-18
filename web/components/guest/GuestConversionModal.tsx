@@ -30,6 +30,7 @@ type GuestConversionModalProps = {
   onAuthenticate: (
     submission: AuthFormSubmission,
   ) => Promise<AuthFormSubmissionResult | void>;
+  onEmailConfirmed?: () => void | Promise<void>;
 };
 
 export function GuestConversionModalSurface({
@@ -42,6 +43,7 @@ export function GuestConversionModalSurface({
   locale = "en-US",
   onClose,
   onAuthenticate,
+  onEmailConfirmed,
 }: GuestConversionModalProps) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<AuthFormMode | "request">(
@@ -173,6 +175,7 @@ export function GuestConversionModalSurface({
               embedded
               onModeChange={setMode}
               onSubmit={onAuthenticate}
+              onEmailConfirmed={onEmailConfirmed}
             />
           </>
         )}

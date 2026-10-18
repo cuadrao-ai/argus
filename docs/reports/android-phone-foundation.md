@@ -2,7 +2,7 @@
 
 Development-only Kotlin/Compose shell; no production-auth or financial-runtime
 readiness claim. See [setup](../../mobile/android/README.md) and the
-[bounded lane spec](../superpowers/specs/2026-09-28-android-phone-foundation.md).
+[bounded lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-android-phone-foundation.md).
 
 ## Provenance and ownership
 

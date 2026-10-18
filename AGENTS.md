@@ -1,133 +1,120 @@
-# Argus and Cuadrao agent startup
+# Cuadrao: repository guide for coding agents
 
-This is the shared startup index for Codex, Claude and Cursor. Read the linked
-operating reference before implementation or review. It preserves the complete
-repository instructions, examples, workflow catalog and environment guidance.
-Keep this index compact. Add detailed rules to their existing owner.
+Cuadrao is a Spanish-first personal and Business finance app for people in the
+Dominican Republic. Code still lives under `src/argus/` and many settings keep an
+`ARGUS_` prefix. Those are code names, not the product name.
 
-## Read these first
+This file holds codebase facts. Team process lives outside the repo and arrives in
+your launch prompt. On process, follow the prompt; on codebase facts, this file wins.
 
-Before code changes, read these documents in order and within their named scope.
+## How to work
 
-1. [PRODUCT](docs/PRODUCT.md) owns current product behavior and availability.
-2. [Documentation authority](docs/DOCUMENTATION_AUTHORITY.md) maps scope and
-   conflicts. The [MVEE](docs/specs/argus-minimum-viable-ecosystem-experience.md)
-   owns approved experience.
-3. [ARCHITECTURE](docs/ARCHITECTURE.md) owns runtime and service boundaries.
-4. [API_CONTRACT](docs/API_CONTRACT.md) owns endpoints and payloads.
-5. [DATA_MODEL](docs/DATA_MODEL.md) owns persistence, ownership and RLS.
-6. [Argus DESIGN](.agent/designs/argus/DESIGN.md) owns the existing web guide.
-   Use the applicable native or Business design owner named by the authority map.
-7. [Operating reference](docs/agents/operating-reference.md) contains the full
-   repository rules. Read it in full before implementation or review.
-8. [Decision log](docs/specs/argus-decision-log.md) records later founder locks.
-   [Execution manifest](docs/specs/argus-execution-board.md) is the single map
-   of current work, owners, dependencies, acceptance and action grants.
-   Then read your explicitly assigned package and its issue.
+- Work in poteto mode: one job per PR, no slop, proven before you call it done.
+- Base and PR target: `codex/private-alpha-next`, never `main`. Record its fetched SHA first.
+- Edit only the files your brief names. Stop and report if you need a file someone
+  else holds, hit contradicting contracts, lack permission, or fail the same way twice.
+- Start with `git status`; keep others' changes. Use a sibling worktree, never a nested
+  one: it inherits the parent `.env` and turns mocked runs into live calls.
+- Scratch goes in `temp/`. Delete what you create. No new Markdown notes outside docs.
 
-Vision, a historical plan, a prior grant or a green test does not assign work.
-Resolve conflicting contracts in their affected scope. Continue unrelated work
-that is already authorized. Do not invent an API, permission or shipped feature
-from experience prose.
+## Where truth lives
 
-## Current Business assignment
+Product today: `docs/PRODUCT.md`. Which doc owns what: `docs/DOCUMENTATION_AUTHORITY.md`.
+Services: `docs/ARCHITECTURE.md`. Endpoints: `docs/API_CONTRACT.md` and
+`docs/api/openapi.yaml`. Tables and row security: `docs/DATA_MODEL.md`. Core flows:
+`docs/CORE_FLOWS.md`. Design: `.agent/designs/cuadrao/DESIGN.md` (native) and
+`.agent/designs/cuadrao-business/DESIGN.md`. Status: `docs/specs/argus-execution-board.md`.
+A spec, roadmap or green test does not assign work. Your brief does.
 
-Read the board's [current state](docs/specs/argus-execution-board.md#current-state-october-13-2026)
-first. The grant it rests on is the [October 10 hosted Business assignment](docs/specs/argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
-and [decision](docs/specs/argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant).
-The [Business execution spec](docs/specs/lanes/cuadrao-business-agent-execution-spec.md)
-owns C0-first order and J1 to J3. The [Business handoff](docs/handoffs/cuadrao-business-lane.md)
-is superseded history of integration and preserved exclusions. Tracker #942 owns the larger flows.
+Layout: `src/argus/` API (`api/`, `agent_runtime/` chat runtime, `domain/`, with
+`domain/business/` for Business), `web/` web app, `marketing/` marketing site,
+`ios/` and `mobile/android/` native apps (see their READMEs), `supabase/migrations/`,
+`tests/` (with `tests/evals/`), `scripts/` checks and ops tools, `.github/` CI and setup.
 
-The bounded grant is an invite-only internet Business build on integration and
-staging. It does not authorize main or production, public signup, marketing
-publication, Apple TestFlight or unrelated Consumer work. The root coordinator
-alone owns merge and staging actions. Workers act only within their assigned
-files. Before READY, use the manifest’s mandatory owner handoff: every approved
-family has LANDED/PENDING/SUPERSEDED status, exact approval/source/delivery
-commits and retained unpublished work. A PR alone does not complete the work.
-Affected branding requires actual render and browser regression evidence.
-The Render workspace and named runtime model choices are approved. Grok 4.3 is the first evaluation judge. The 22:32 UTC
-continuation authorizes the existing development `OPENROUTER_API_KEY` within
-its conservative remaining allowance until expiry. It replaces the $5 run cap
-and spending hold. Only the root coordinator controls synthetic live calls,
-reservations, concurrency and token bounds. Read the manifest before any call.
-First acceptance uses one direct named-accountant grant for one Business.
-The manifest preserves the later L11 firm-delegation requirement.
+## Setup and run
 
-"Pagué 850" is one example. Interpret varied natural-language transactions,
-follow-ups, uncertainty and corrections through the existing typed runtime.
-Never route intent through phrase or regex gates. Acceptance checks saved state,
-source links, revision history and authorized human approval across varied cases.
-Laptop or synthetic transport proof does not establish hosted customer readiness.
+- Python is pinned by `.python-version` (3.10); run it through `poetry run`. Frontend
+  packages use bun, not npm. Docs-only work skips setup and every env write.
+- Run `.github/setup.sh` once per runtime worktree; it links missing `.env` files to the
+  integration worktree. Check (prints no values): `bash .github/setup-worktree-env.sh --check "$PWD"`.
+  `missing` or `conflicting-link` means stop and fix first.
+- Fast mode: `.github/dev.sh` (memory store, synthetic fixtures, mock auth), then
+  `cd web && bun run dev` with `NEXT_PUBLIC_MOCK_AUTH=true`. Parity: `.github/qa.sh`.
+- The `web/` framework breaks older APIs: read `web/node_modules/next/dist/docs/` first.
 
-## Bootstrap and stop conditions
+## Checks (CI runs these)
 
-Start with `git status`. Preserve user changes. Work in a sibling worktree with
-one named writer. Record the fetched `origin/codex/private-alpha-next` SHA as
-the integration base. Ordinary Cuadrao workers do not start from main.
-Before READY, fetch integration again, merge it one-way into the worker when
-needed, audit semantic overlap and verify the affected result. Do not rebase a
-published or evidenced lane. Follow the reference's exact-head evidence rules.
+```bash
+poetry run ruff check src tests workflows scripts
+poetry run python scripts/check_modularity_budget.py
+poetry run pytest tests -q --no-cov
+python scripts/check_config_credentials.py
+python .agent/scripts/ownership/verify_branch_ownership.py
+cd web && bun run lint && bun test && bun run build
+cd marketing && bun run lint && bun run typecheck && bun test && bun run build
+```
 
-For docs-only work, use offline checks. Skip bootstrap and environment writes.
-For runtime work, read [environment doctrine](docs/agents/operating-reference.md#local-environment-doctrine)
-and [worktree environment contract](docs/agents/operating-reference.md#worktree-environment-contract)
-before setup or tests. Read topology with
-`bash .github/setup-worktree-env.sh --check "$PWD"` without exposing values.
-Missing or conflicting topology blocks affected runtime work. Shared `.env` and
-`web/.env.local` links are not write targets. Do not print secrets, overwrite the
-canonical environment, or run paid provider or Render tasks without the scoped
-grant. Python uses `.python-version`; frontend work uses Bun.
+- Hermetic chat sweep (seconds; minutes means a live path leaked, so stop):
+  `OPENROUTER_API_KEY= ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture poetry run pytest tests/agent_runtime tests/test_spine_guardrails.py -q --no-cov`
+- Postgres tests need `ARGUS_DISPOSABLE_DATABASE_URL` on a throwaway local DB, never staging/prod.
+- Evals: read the Test Tiers in `tests/evals/README.md`. Use the mocked harness for
+  every change. A live eval runs only at its documented gates with spend approved in
+  your brief. Browser QA is real-API work and spends tokens.
+- Modularity budgets (`.agent/modularity_budget.json`) are shared: check the merged tree.
 
-Stop affected work for duplicate writers, contradictory contracts, denied or
-missing action authority, scope expansion, uncertain external outcomes or
-repeated unproductive failures. Notify the coordinator with the concrete
-blocker. Do not bypass a hold through another agent. Keep unrelated work moving.
+## Codebase rules
 
-## Runtime, review and release rules
+- One owner per fact. Ask of every change who else holds this fact and what forces
+  them to agree. Derive from one source; never keep two copies in sync.
+- One chat runtime. User language reaches the structured interpreter before any
+  routing: no regex, phrase lists or language gates in front of it. Code checks facts
+  after interpretation, and any layer that patches a weak model read logs when it fires.
+- Model-facing text is measured. Prompt builders and `Field(description=...)` are
+  fingerprinted by `tests/test_interpreter_prompt_freeze.py`. Changing them needs a
+  live scorecard under `docs/reports/evidence/`, no regression against the one named
+  in `.agent/interpreter_prompt_fingerprint.json`, and a regenerated fingerprint.
+- The backend owns truth; the frontend renders its state and never invents progress,
+  totals, statuses or options. Money is exact. Business approval is the owner's alone.
+- A schema change updates `docs/API_CONTRACT.md` and `docs/api/openapi.yaml` in the
+  same PR. Data changes update `docs/DATA_MODEL.md`.
+- Shared hot files (locales, `docs/api/openapi.yaml`, `docs/API_CONTRACT.md`, `docs/DATA_MODEL.md`,
+  ownership manifest): add your block where its key sorts. Never reorder or reformat.
+- Python: `loguru` not `print()`, `pydantic-settings` not `os.environ`, typed signatures.
+- Tests: failing test first for a bug. Shared fixtures and parametrize, Faker data.
+- Unfinished features ship behind a default-off switch (`web/lib/private-alpha-flags.ts`,
+  `web/lib/language-features.ts`, backend settings), never on a parked branch.
 
-Ask who owns each fact and what forces all readers to agree. One canonical owner
-must supply durable facts. LangGraph is the only chat brain. Supabase owns
-product records. The frontend renders backend state. Tools enforce current
-permissions, exact money, revision approval and duplicate-safe effects.
+## Migrations, security and data
 
-### Agent Quality Pillars
+- New migration: `supabase/migrations/<UTC timestamp>_<name>.sql`, unique version
+  (`tests/test_migration_versions_unique.py`). Never edit an applied migration; fix forward.
+- Every new table gets row-level security (own rows only), proven by disposable Postgres tests.
+- Hosted databases change only via `scripts/ops/apply_approved_migrations.py` with a
+  committed approval record, and staging gets a migration only from a merged PR.
+- Staging only. Never touch production databases, services or keys. Keep paid hosted
+  jobs off locally (`ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED` unset).
+- Never commit secrets or env files (`.example` files hold placeholders). Never print
+  secret values or write through a linked `.env`. The web gets only `NEXT_PUBLIC_*`.
+- New settings use `CUADRAO_*` names (`ARGUS_*` is a read-only fallback). Declare hosted
+  ones in `.env.example`, `render.yaml`, `.github/private-alpha-release-profile.json`
+  and `scripts/ops/staging_env_manifest.json`.
+- Synthetic data only (Faker, the seed script). No real customer data anywhere.
 
-The canonical [four pillars](docs/agents/operating-reference.md#agent-quality-pillars)
-remain in the full operating reference. Use them as the same quality lens.
+## Copy
 
-### Never-Violate Standard 12
+- Spanish first (`es-419`), in natural Dominican wording. Every user-facing string lives
+  in `web/public/locales/es-419/common.json` and its `en` twin. No hardcoded strings.
+- Spanish copy comes through your brief; until then, ship marked placeholder keys.
+- No em dash in user-facing copy, in any language (`src/argus/domain/visible_reply.py`).
+- No "Argus", provider or vendor names in user-facing copy. Never name outside
+  companies or competitors in code, comments, docs, PRs, issues or commit messages.
 
-Model-facing prompts and schema field descriptions require a committed live
-scorecard with no regression and an updated fingerprint under
-[Standard 12](docs/agents/operating-reference.md#-never-violate-standards).
-Do not make a live call before named-model and spend authorization.
-Read the [Business scope grant](docs/specs/argus-decision-log.md#october-11-2026-scoped-business-acceptance-and-instrumented-diagnostics).
-Legacy equity/Alpaca: NOT RUN, outside the first-flow prerequisite. Keep Consumer
-regressions and live evidence. T1 scope proof is pending; no checker weakening
-or investment-access requests.
+## Commits, PRs and review
 
-Read [tests/evals/README.md](tests/evals/README.md) Test Tiers before eval work.
-Use the mocked harness for every change. Reserve live eval for the documented
-gates with explicit spending authority. Browser QA is real-API work and spends
-tokens. Passing deterministic tests does not replace required live evidence.
-
-Review reachable defects proportionally and fix their shared cause. Follow the
-reference's clean-delta review termination and unresolved-thread checks.
-Before READY, verify modularity budgets on the would-be merged tree and record
-the exact head, integration reconciliation, retained evidence and terminal CI.
-
-[CI/CD discipline](docs/specs/private-alpha-ci-cd-sota.md),
-[launch runbook](docs/PRIVATE_LAUNCH_RUNBOOK.md) and
-[release manifest template](docs/release-manifests/TEMPLATE.md) own release gates.
-Use the branch-deployed staging/private-alpha Render validation surface for
-exact-candidate canary evidence. Do not treat merge to `main` as a prerequisite for canary.
-In the legacy Argus promotion contract, `main` is the later promotion target
-after founder approval. The current Business grant stops at integration and staging.
-
-### Commit and checkpoint discipline
-
-Make atomic changes. Verify each coherent slice before committing it. Report
-checks, evidence, caveats and a commit or the reason work remains uncommitted.
-Keep scratch material in `temp/`. Do not commit unrelated changes or customer data.
+- Conventional commits: `type(scope): summary (#issue)`. One job per PR, no stacks.
+- Merge `codex/private-alpha-next` in before the last push. Never rebase a published branch.
+- Visual evidence goes under `docs/reports/evidence/<pr>/` or on the PR, at the exact head.
+- Never merge your own PR. Report the PR link, head SHA, tests added and the proof.
+- Review against the named parent branch; never assume `main` is the comparison base.
+- Findings give file and line, severity, impact and the smallest safe fix.
+- No broad rewrites, future-slice work or new product surfaces unless they block the job.

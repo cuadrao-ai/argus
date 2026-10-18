@@ -184,14 +184,7 @@ if git ls-files -- .env web/.env.local '.env.*.local' 'web/.env.*.local' 2>/dev/
 fi
 
 # ============================================================================
-# 11. NUMBA JIT WARMUP REMINDER
-# ============================================================================
-echo "🟢 [Setup] Remember:"
-echo "   - When editing /src/argus/analysis/, call warmup_jit() in test entrypoints"
-echo "   - See .agent/skills/numba-patterns/SKILL.md for details"
-
-# ============================================================================
-# 12. SUCCESS
+# 11. SUCCESS
 # ============================================================================
 echo ""
 echo "🟢 ============================================================================"
@@ -204,4 +197,4 @@ echo "  2. Choose your mode and start:"
 echo "     Dev Mode:  .github/dev.sh (then: cd web && bun run dev)"
 echo "     QA Mode:   .github/qa.sh (then: cd web && bun run dev)"
 echo ""
-echo "For more details, see AGENTS.md → Quick Start"
+echo "For more details, see AGENTS.md → Setup and run"

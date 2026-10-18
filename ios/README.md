@@ -70,7 +70,7 @@ Financial rules and calculations remain backend responsibilities.
 
 ## Reference and shared owners
 
-The committed [lane spec](../docs/superpowers/specs/2026-09-28-ios-foundation.md)
+The committed [lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-ios-foundation.md)
 defines ownership and acceptance. The experience reference is
 [PR #727 at a1c294319a2c047623b9bbe5bedd36155d2e931d](https://github.com/lagarcess/argus/tree/a1c294319a2c047623b9bbe5bedd36155d2e931d/docs/reports/evidence/mobile-design-lock-2026-09-28),
 archive `mobile-2026-09-28`, SHA-256
@@ -85,7 +85,7 @@ behavior and explicitly labeled sample destinations within its assigned scope.
 The historical account-only continuation inspected the now-merged #727 at exact head
 `f0a64ffb9d70ce5b82491cf8e1803bb8a6ec7431`; the same locked archive remains
 the experience reference. Its recovered implementation is described by the
-[account client spec](../docs/superpowers/specs/2026-09-29-ios-financial-accounts.md).
+[account client spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-29-ios-financial-accounts.md).
 
 Shared semantic tokens and controls live in `ArgusFoundation/`. The shell owns
 destination selection; individual views own transient presentation state.

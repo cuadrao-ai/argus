@@ -2,7 +2,7 @@
 
 Closure evidence for the failure-class visual consistency lane.
 
-- **Scope note:** [`docs/superpowers/specs/2026-07-31-failure-class-visual-consistency.md`](../superpowers/specs/2026-07-31-failure-class-visual-consistency.md)
+- **Scope note:** [`docs/superpowers/specs/2026-07-31-failure-class-visual-consistency.md`](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-07-31-failure-class-visual-consistency.md)
 - **Anchor:** founder root-cause diagnosis in [PR #311 comment 5141228550](https://github.com/lagarcess/argus/pull/311#issuecomment-5141228550)
 - **Reconciliation PR:** #320 against `codex/private-alpha-next`
 - **Audited at:** `cbe160d6` (integration tip) · **reconciled at:** `38edd364`
