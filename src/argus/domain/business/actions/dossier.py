@@ -236,5 +236,6 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         unrecorded_purchases=resolution.unrecorded_purchases(),
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
+        bill_mark=resolution.bill_mark,
         **draft_marks(tx, draft_id, facts),
     )

@@ -147,6 +147,9 @@ class BusinessDossier(RecordContext):
     ecf_checks: EcfVerification | None = None
     #: The DGII QR the receipt carried: the link a person opens on DGII's page.
     dgii_qr: DgiiQr | None = None
+    #: The due-notice mark on this one expense. Unpaid is "Factura por pagar".
+    #: Paid, the same record becomes "Factura pagada".
+    bill_mark: Literal["Factura por pagar", "Factura pagada"] | None = None
     #: The record's marks, read by the same function every list uses: Personal,
     #: who last changed that mark when it was not the owner, whether the fiscal
     #: reading is settled, the fiscal number the draft carries (ncf, ecf), and

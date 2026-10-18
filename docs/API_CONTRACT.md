@@ -9603,7 +9603,12 @@ accept path recorded.
   fiscal bill. Replaying that batch refuses the same way, so the retry asks
   the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
-  statement period. Other interrupted hand-offs retry the same way. A terminal
+  statement period. An NCF due notice is that one expense, marked
+  `Factura por pagar` on the dossier as `bill_mark`. When the same record
+  is prepared again as paid, the mark becomes `Factura pagada`. The draft
+  id does not change and a second expense is not opened. A paid purchase
+  that is not a due notice carries `bill_mark: null`. Other interrupted
+  hand-offs retry the same way. A terminal
   refusal is never reported as `no_purchase_found`, which stays for a receipt
   that was read and found no purchase row. The stored `error_code` is not
   rewritten.
