@@ -20,6 +20,7 @@ from scripts.ops.dgii_rnc_import import (
     _apply_load,
     _config_from_env,
     _copy_header,
+    _psql_copy,
     _write_copy,
     copy_text,
     headroom_sql,
@@ -654,6 +655,28 @@ def test_unretained_parse_reports_the_same_summary() -> None:
         )
     finally:
         os.unlink(result.spill_path)
+
+
+def test_copy_session_reaps_a_real_child(tmp_path: Path, monkeypatch) -> None:
+    payload = tmp_path / "copy.txt"
+    payload.write_bytes(b"123456789\tACME\t\\N\tACTIVO\t2026-10-18\n")
+    real_popen = subprocess.Popen
+
+    def popen(args, **kwargs):
+        assert kwargs["stdin"] is subprocess.PIPE
+        assert kwargs["stdout"] is subprocess.PIPE
+        assert kwargs["stderr"] is subprocess.PIPE
+        return real_popen(["sh", "-c", "cat >/dev/null"], **kwargs)
+
+    monkeypatch.setattr("scripts.ops.dgii_rnc_import.subprocess.Popen", popen)
+    assert (
+        _psql_copy(
+            "postgres://user:secret@db/postgres",
+            _copy_header(LOAD),
+            str(payload),
+        )
+        == ""
+    )
 
 
 def test_copy_stream_writes_header_rows_and_terminator(tmp_path: Path) -> None:
