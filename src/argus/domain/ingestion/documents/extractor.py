@@ -6,12 +6,13 @@ import asyncio
 import base64
 import hashlib
 import re
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import date, datetime
 from decimal import Decimal
 from typing import get_args
 from uuid import UUID
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from argus.domain.business.contracts.checks import DgiiQr
 from argus.domain.business.contracts.facts import FiscalFacts
@@ -37,6 +38,7 @@ from argus.domain.ingestion.documents.models import (
     ExtractionResult,
     ProjectionIssue,
     ReceiptDetails,
+    ReceiptItem,
 )
 from argus.domain.ingestion.documents.preparation import (
     PreparedDocument,
@@ -141,27 +143,159 @@ def ncf_bill(batch: ExtractionBatch) -> bool:
     return bool(receipt.ncf.strip()) and plain_amount(receipt.total)
 
 
-def amount_due_row(batch: ExtractionBatch) -> ExtractedObservation | None:
-    """One amount-due row a readable, complete read can review.
+@dataclass(frozen=True)
+class PricedAmount:
+    """One positive amount from the read model and the currency that prices it."""
 
-    A positive amount and a currency are required. Zero, missing, or
-    non-positive amounts, no currency, or any other number of amount-due
-    rows are not a receipt. A row beside a purchase is not this rescue.
+    amount: str
+    value: Decimal
+    currency: str
+    merchant: str | None
+    occurred_on: date | None
+
+
+def _max_length(field: object) -> int | None:
+    for item in field.metadata:
+        length = getattr(item, "max_length", None)
+        if length is not None:
+            return length
+    return None
+
+
+def _amount_fields(model: type[BaseModel]) -> tuple[str, ...]:
+    """Money columns on a read model.
+
+    An amount field is an optional short string. Identifier prose is not
+    money. A count is not money either, so a quantity cannot outrank a price.
+    The scan does not care what the column is called.
     """
 
-    if batch.readable is not True or batch.complete is not True:
+    names = []
+    for name, field in model.model_fields.items():
+        if name == "quantity":
+            continue
+        args = getattr(field.annotation, "__args__", ())
+        if str not in args or type(None) not in args or _max_length(field) != 80:
+            continue
+        description = (field.description or "").casefold()
+        if description and not any(
+            word in description for word in ("amount", "total", "price")
+        ):
+            continue
+        names.append(name)
+    return tuple(names)
+
+
+_OBSERVATION_AMOUNTS = _amount_fields(ExtractedObservation)
+_RECEIPT_AMOUNTS = _amount_fields(ReceiptDetails)
+_ITEM_AMOUNTS = _amount_fields(ReceiptItem)
+
+
+def _named_currencies(batch: ExtractionBatch) -> set[str]:
+    named: set[str] = set()
+    for row in batch.observations:
+        for raw in (row.currency, row.account.currency):
+            code = _currency(raw) if raw else None
+            if code:
+                named.add(code)
+    receipt = batch.receipt
+    if receipt is not None:
+        code = _currency(receipt.currency) if receipt.currency else None
+        if code:
+            named.add(code)
+    return named
+
+
+def _agreed_currency(batch: ExtractionBatch) -> str | None:
+    """The one currency named on the read, when every named currency agrees."""
+
+    named = _named_currencies(batch)
+    if len(named) == 1:
+        return named.pop()
+    return None
+
+
+def _consider(
+    found: list[PricedAmount],
+    text: str | None,
+    currency: str | None,
+    merchant: str | None,
+    occurred_on: date | None,
+) -> None:
+    if not plain_amount(text):
+        return
+    value = Decimal(text)
+    if value <= 0:
+        return
+    if currency is None:
+        return
+    found.append(
+        PricedAmount(
+            amount=text,
+            value=value,
+            currency=currency,
+            merchant=merchant,
+            occurred_on=occurred_on,
+        )
+    )
+
+
+def priced_amounts(batch: ExtractionBatch) -> tuple[PricedAmount, ...]:
+    """Every positive amount on a readable read whose currency is determinable.
+
+    The amount's own currency wins. An observation's account currency is its
+    own. When the amount names none, the one currency named anywhere else on
+    the same read is used, and only when every named currency agrees. No
+    currency, or currencies that disagree, leaves that amount unpriced.
+    """
+
+    if batch.readable is not True:
+        return ()
+    agreed = _agreed_currency(batch)
+    found: list[PricedAmount] = []
+    for row in batch.observations:
+        own = _currency(row.currency) if row.currency else None
+        if own is None and row.account.currency:
+            own = _currency(row.account.currency)
+        for name in _OBSERVATION_AMOUNTS:
+            _consider(
+                found,
+                getattr(row, name),
+                own or agreed,
+                row.merchant,
+                row.occurred_on,
+            )
+    receipt = batch.receipt
+    if receipt is not None:
+        currency = _currency(receipt.currency) if receipt.currency else None
+        currency = currency or agreed
+        for name in _RECEIPT_AMOUNTS:
+            _consider(
+                found,
+                getattr(receipt, name),
+                currency,
+                receipt.merchant,
+                receipt.occurred_on,
+            )
+        for item in receipt.items:
+            for name in _ITEM_AMOUNTS:
+                _consider(
+                    found,
+                    getattr(item, name),
+                    currency,
+                    receipt.merchant,
+                    receipt.occurred_on,
+                )
+    return tuple(found)
+
+
+def review_amount(batch: ExtractionBatch) -> PricedAmount | None:
+    """The greatest positive priced amount on the read, when it has one."""
+
+    priced = priced_amounts(batch)
+    if not priced:
         return None
-    if any(row.evidence == "transaction" for row in batch.observations):
-        return None
-    rows = [row for row in batch.observations if row.evidence == "due_notice"]
-    if len(rows) != 1:
-        return None
-    row = rows[0]
-    if _currency(row.currency) is None:
-        return None
-    if not plain_amount(row.amount) or Decimal(row.amount) <= 0:
-        return None
-    return row
+    return max(priced, key=lambda item: item.value)
 
 
 def batch_from_result(
