@@ -1,16 +1,19 @@
 """Fail when a pull request adds evidence media.
 
-The diff is `git diff --name-status --diff-filter=A <merge-base>...HEAD`.
-It compares that merge base to HEAD. It does not diff the work tree, so
-files that arrive by merging the base branch are not added files.
+The diff is `git diff --name-status --find-renames --find-copies
+--diff-filter=ACR <merge-base>...HEAD`. It compares that merge base to
+HEAD. It does not diff the work tree, so files that arrive by merging
+the base branch are not added files.
 
 A path is evidence when it is under docs/reports/, or when any directory
 segment is "evidence" or ends with "-evidence". Directory names and
 suffixes match without regard to case. Suffixes are png, jpg, jpeg, gif,
 webp, mp4, mov, and pdf.
 
-Only added files fail. A modification or a rename does not. A line in
-.github/media-allowlist.txt does not exempt an evidence path.
+An add, rename, or copy fails when its destination is evidence media.
+A modification does not. A rename whose destination is not evidence
+media does not. A line in .github/media-allowlist.txt does not exempt
+an evidence path.
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ from pathlib import Path
 MEDIA_SUFFIXES = frozenset(
     {".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mov", ".pdf"}
 )
+INTRODUCED_STATUSES = frozenset({"A", "C", "R"})
 REJECTION = (
     "do not commit evidence media. Attach it on the pull request, "
     "or upload it with actions/upload-artifact."
@@ -74,7 +78,7 @@ def is_exempt(path: str, globs: tuple[str, ...]) -> bool:
 def blocking_paths(changes: list[tuple[str, str]], globs: tuple[str, ...]) -> list[str]:
     blocked: list[str] = []
     for letter, path in changes:
-        if letter != "A" or not is_media(path) or is_exempt(path, globs):
+        if letter not in INTRODUCED_STATUSES or not is_media(path) or is_exempt(path, globs):
             continue
         if is_evidence_path(path):
             blocked.append(path)
@@ -133,7 +137,8 @@ def changed_paths(root: Path, base: str) -> list[tuple[str, str]]:
             "diff",
             "--name-status",
             "--find-renames",
-            "--diff-filter=A",
+            "--find-copies",
+            "--diff-filter=" + "".join(sorted(INTRODUCED_STATUSES)),
             "-z",
             f"{resolved}...HEAD",
         ],
