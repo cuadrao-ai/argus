@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, MoreHorizontal, NotebookPen, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
@@ -11,7 +12,10 @@ import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
 import { bandejaReceipts } from "./bandeja-order";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, LoadingRows, PanelHeading, pillButtonClass, secondaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel, useTerminalRead } from "./business-ui";
+import { cardClass, LoadingRows, PanelHeading, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
+import { ListPager } from "./foundation/ListPager";
+import { PrimaryUpload } from "./foundation/PrimaryUpload";
+import { ToastQueue, type ToastKind } from "./foundation/ToastNotice";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
@@ -179,12 +183,15 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { rec
   );
 }
 
-/** One tap marks or unmarks; the toast offers the way back for a moment. */
+/** One tap marks or unmarks. Toasts wait in line and only the first is on screen. */
 export function usePersonalMark() {
   const { t } = useTranslation();
   const { source, reload } = useBusiness();
-  const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
-  const close = useCallback(() => setToast(null), []);
+  const [toasts, setToasts] = useState<{ text: string; kind: ToastKind; onUndo?: () => void }[]>([]);
+  const dismiss = useCallback(() => setToasts((items) => items.slice(1)), []);
+  const push = useCallback((item: { text: string; kind: ToastKind; onUndo?: () => void }) => {
+    setToasts((items) => [...items, item]);
+  }, []);
   const mark = useCallback(async (receipt: ReceiptSummary) => {
     try {
       const detail = await source.receipt(receipt.id);
@@ -193,21 +200,24 @@ export function usePersonalMark() {
       const next = !receipt.personal;
       const marked = await source.markPersonal(draftId, detail.version, next, crypto.randomUUID());
       reload();
-      setToast({
+      push({
+        kind: "undo",
         text: next ? t("business.marks.marked_personal", "Marked as personal. It does not count in the Business totals.") : t("business.marks.unmarked_personal", "No longer personal. It counts in the totals again."),
-        undo: async () => {
-          setToast(null);
-          try { await source.markPersonal(draftId, marked.version, !next, crypto.randomUUID()); reload(); } catch { setToast({ text: t("business.marks.mark_failed", "We could not save the change. Try again.") }); }
+        onUndo: () => {
+          dismiss();
+          void source.markPersonal(draftId, marked.version, !next, crypto.randomUUID()).then(() => reload()).catch(() => {
+            push({ kind: "error", text: t("business.marks.mark_failed", "We could not save the change. Try again.") });
+          });
         },
       });
     } catch {
-      setToast({ text: t("business.marks.mark_failed", "We could not save the change. Try again.") });
+      push({ kind: "error", text: t("business.marks.mark_failed", "We could not save the change. Try again.") });
     }
-  }, [reload, source, t]);
-  return { mark, toast: toast ? <UndoToast text={toast.text} onUndo={toast.undo} onClose={close} /> : null };
+  }, [dismiss, push, reload, source, t]);
+  return { mark, toast: <ToastQueue items={toasts} onDismiss={dismiss} /> };
 }
 
-function EmptyInbox() {
+function EmptyInbox({ upload }: { upload: { label: string; run: () => void } | null }) {
   const { t, i18n } = useTranslation();
   const { source, records } = useBusiness();
   const [proof, setProof] = useState<{ source: typeof source; activity: typeof records.receiptActivity; approved: boolean } | null>(null);
@@ -228,34 +238,33 @@ function EmptyInbox() {
         {i18n.resolvedLanguage === "es-419" ? "Todo aprobado. Pa'que cuadre." : t("business.inbox.all_reviewed", "All reviewed")}
       </p> : null}
       <p className={`${approved ? "mt-1 " : ""}text-[14px] text-black/65 dark:text-white/70`}>
-        {t("business.inbox.empty_body", "Upload a receipt or send one by WhatsApp. It will wait here for your review.")}
+        {t("business.inbox.empty_body", "Aún no has subido recibos.")}
       </p>
+      {upload ? <div className="mt-4"><PrimaryUpload label={upload.label} onClick={upload.run} /></div> : null}
     </div>
   );
 }
 
+const INBOX_PAGE = 8;
+
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
+  const { isBelowTablet } = useResponsiveLayout();
   const { records, openPanel, actions, panel, chosen, source, reload, revision } = useBusiness();
   const personal = usePersonalMark();
   const items = records.inbox ? bandejaReceipts(records.inbox) : null;
   const notes = records.notes === null ? null : openNotesByDraft(records.notes);
-
   const upload = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
+  const empty = items !== null && notes !== null && items.length === 0 && notes.length === 0 && !records.notesError && !records.error;
 
   return (
     <section>
+      {upload && isBelowTablet ? <div className="mb-4"><PrimaryUpload fullWidth label={upload.label} onClick={upload.run} /></div> : null}
       <ReceiptReadingControl hideWhenEnabled />
       <PanelHeading
         title={t("business.inbox.title", "Inbox")}
         subtitle={t("business.inbox.subtitle", "Receipts waiting for you to review. Nothing here is an expense until you confirm it.")}
-        action={
-          upload ? (
-            <button type="button" data-testid="business-primary-upload" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>
-              {upload.label}
-            </button>
-          ) : null
-        }
+        action={upload && !isBelowTablet && !empty ? <PrimaryUpload label={upload.label} onClick={upload.run} /> : null}
       />
       <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />
       {records.error ? (
@@ -264,14 +273,21 @@ export default function BusinessInboxPanel() {
         </p>
       ) : items === null || notes === null ? (
         <LoadingRows />
-      ) : items.length === 0 && notes.length === 0 && !records.notesError ? (
-        <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} />
+      ) : empty ? (
+        <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={isBelowTablet ? null : upload ? { label: upload.label, run: upload.run } : null} />
       ) : (
         <>
           <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
           {items.length ? (
-            <ul data-testid="business-inbox-receipts" className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
-              {items.map((receipt) => (
+            <ListPager
+              items={items}
+              pageSize={INBOX_PAGE}
+              revealLabel={t("business.inbox.reveal_more", "Ver más")}
+              loadLabel={t("business.inbox.load_more", "Cargar más")}
+              retryLabel={t("common.retry", "Reintentar")}
+              listClassName={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}
+              listTestId="business-inbox-receipts"
+              renderItem={(receipt) => (
                 <ReceiptRow
                   key={receipt.id}
                   receipt={receipt}
@@ -282,8 +298,8 @@ export default function BusinessInboxPanel() {
                   }}
                   onUpload={upload ? () => upload.run() : undefined}
                 />
-              ))}
-            </ul>
+              )}
+            />
           ) : null}
         </>
       )}

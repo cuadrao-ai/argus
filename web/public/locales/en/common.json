@@ -2468,6 +2468,9 @@
       "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."
     },
     "status": {
+      "pill_approved": "Approved",
+      "pill_attention": "Needs attention",
+      "pill_pending": "Pending",
       "saved": "Saved, unread",
       "queued": "Waiting to prepare",
       "preparing": "Preparing",
@@ -2522,10 +2525,10 @@
     },
     "nav": {
       "label": "Business",
-      "overview": "Overview",
+      "overview": "Home",
       "inbox": "Inbox",
-      "expenses": "Expenses",
-      "updates": "Updates"
+      "expenses": "Receipts",
+      "updates": "Notifications"
     },
     "home": {
       "title": "What can we do for your business?",
@@ -2535,6 +2538,8 @@
       "untitled": "Receipt"
     },
     "inbox": {
+      "load_more": "Load more",
+      "reveal_more": "Show more",
       "title": "Inbox",
       "subtitle": "Receipts waiting for you to review. Nothing here is an expense until you confirm it.",
       "error": "We couldn't load your inbox. Try again.",
@@ -2790,7 +2795,8 @@
       "role_accountant": "View and prepare",
       "access_line": "You now have access to {{name}} · View and prepare",
       "got_it": "Got it",
-      "lost": "You no longer have access to this Business."
+      "lost": "You no longer have access to this Business.",
+      "team": "Team and access"
     },
     "marks": {
       "real_expenses": "Actual expenses",

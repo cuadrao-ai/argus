@@ -71,6 +71,8 @@ type ConversationActivityReadOwner = Readonly<{
 export type ChatSidebarProps = {
   /** Whether the sidebar is expanded or collapsed */
   isOpen: boolean;
+  /** Tablet icon strip stays collapsed. The mark does not expand it. */
+  railLocked?: boolean;
   onToggle: () => void;
 
   /** Sidebar behavior mode */
@@ -156,6 +158,7 @@ function historyConversationId(item: HistoryItem): string {
 
 export default function ChatSidebar({
   isOpen,
+  railLocked = false,
   onToggle,
   mode = "expanded",
   currentView,
@@ -230,7 +233,7 @@ export default function ChatSidebar({
 
   const handleMouseEnter = () => {
     isPointerInsideSidebarRef.current = true;
-    if (mode !== "hover") return;
+    if (railLocked || mode !== "hover") return;
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     
     hoverTimeoutRef.current = setTimeout(() => {
@@ -516,6 +519,7 @@ export default function ChatSidebar({
       <SidebarHeader
         variant={variant}
         isOpen={isOpen}
+        railLocked={railLocked}
         onToggle={onToggle}
         onRequestClose={onRequestClose}
       />

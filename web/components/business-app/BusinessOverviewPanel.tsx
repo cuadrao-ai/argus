@@ -7,7 +7,8 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useBusiness } from "./BusinessWorkspace";
 import { inboxCount } from "./inbox-count";
 import { formatBusinessName, formatDay, formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, LoadingRows, pillButtonClass } from "./business-ui";
+import { cardClass, LoadingRows } from "./business-ui";
+import { PrimaryUpload } from "./foundation/PrimaryUpload";
 import BusinessPeriodControl, { usePeriodLabel } from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
 
@@ -25,17 +26,14 @@ export default function BusinessOverviewPanel() {
 
   return (
     <section aria-labelledby="business-overview-title">
+      {upload && isBelowTablet ? <div className="mb-4"><PrimaryUpload fullWidth label={upload.label} onClick={upload.run} /></div> : null}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
           {formatBusinessName(chosen?.name, t("business.overview.title", "My business"))}
         </h2>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <BusinessPeriodControl period={period} setPeriod={setPeriod} />
-          {upload ? (
-            <button type="button" data-testid="business-primary-upload" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>
-              {upload.label}
-            </button>
-          ) : null}
+          {upload && !isBelowTablet ? <PrimaryUpload label={upload.label} onClick={upload.run} /> : null}
         </div>
       </div>
 
