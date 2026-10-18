@@ -182,7 +182,9 @@ proof and mocked components without environment writes. No real application
 stack, external SQL, provider, email, staging, production or paid work was run.
 The only dependency link created for these checks was removed after verification.
 
-The screenshots below render the actual component and shared AdaptivePanel in an
+At the coordinator's explicit handoff direction, screenshot binaries are retained
+in the durable root ledger outside Git. The source tests and this record remain
+in the PR. The screenshots below render the actual component and shared AdaptivePanel in an
 isolated local-file browser fixture. All browser requests were intercepted and
 fulfilled from local files. No HTTP server or product API was used. The fixture
 uses synthetic export callbacks, Arial fallback and generated repository CSS.
@@ -190,9 +192,9 @@ This proves the isolated component at 390x844 and 1280x900, without horizontal
 overflow, with Close disabled initially and enabled after the exact name. It does
 not prove mounted application flow, real export, authentication or customer readiness.
 
-![Close dialog phone fixture](close-phone.png)
+![Close dialog phone fixture](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/business-close-ui-evidence/close-phone.png)
 
-![Close dialog desktop fixture](close-desktop.png)
+![Close dialog desktop fixture](/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/business-close-ui-evidence/close-desktop.png)
 
 Remaining BLOCKED work is the canonical current-owner/custodian design and
 implementation, owner deletion during grace, full purge including originals,
