@@ -905,10 +905,33 @@ What the logs and run record tell you:
   updated in the last 24 hours have seen one (any provider), the run logs
   `account_deletion.already_revoked_spike` (with the count): worth a look, a
   provider may be revoking grants on its own.
-- **PostHog.** Outside tests and local dev the step stays pending
-  (`analytics_adapter_unconfigured`) until a real deletion adapter ships
-  (#806). Don't turn on `ARGUS_ACCOUNT_DELETION_ENABLED` before then, nor
-  before #805 (decision 17's closed-line balance).
+- **PostHog.** Only the API service's configuration decides whether the step
+  is `not_applicable`, when the person's request opens the run. A sweep, a
+  force run or a later retry never marks the step `not_applicable`, whatever
+  its own environment holds. A step left pending stays pending and keeps its
+  `analytics_evidence`.
+  - `ARGUS_ANALYTICS_DELETION_ENABLED` on: the PostHog deletion adapter (#806)
+    runs, whether or not `POSTHOG_PROJECT_TOKEN` is set.
+  - Flag off and no `POSTHOG_PROJECT_TOKEN` on the API service: the server
+    sends no PostHog events, so the run opens with
+    `analytics: not_applicable` and
+    `analytics_evidence.reason: posthog_not_configured` and can finish, never
+    `deleted`
+    ([decision 1B](specs/argus-decision-log.md#october-15-2026-account-deletion-analytics-step-without-posthog-events)).
+    On October 15, 2026, a read-only check found no `POSTHOG_PROJECT_TOKEN`
+    on the staging API service, no PostHog setting on the staging web
+    service, and no client PostHog setup in the web or iOS code.
+  - Flag off and the token set: outside tests and local dev the step stays
+    pending (`analytics_adapter_unconfigured`) until the adapter deletes the
+    events or an operator forces it (`operator_forced`). A no-token environment
+    cannot force analytics complete: the step remains pending even with
+    `--confirm`, until the adapter confirms deletion.
+
+  A deployment that has ever sent events keeps them at PostHog after its
+  token is removed. Turn on the deletion adapter there before removing the
+  token. Don't turn on `ARGUS_ACCOUNT_DELETION_ENABLED` before #805
+  (decision 17's closed-line balance), nor, on a deployment that sends
+  PostHog events, before #806 closes.
 - **The 7-day alert.** A step pending for 7 days logs
   `account_deletion.needs_operator` (with the step and its last error, no user
   id). Decide whether it can still finish. If it can't (Apple keeps answering
@@ -931,8 +954,10 @@ It refuses a step pending for less than 7 days (`step_pending_under_7_days`)
 or not pending at all (`step_not_pending`). With `--confirm`, an Apple, Plaid
 or Gmail step first gets one more revoke attempt, recorded in the run like any
 pass (`revoke_attempt` in the output); if that finishes the step nothing is
-forced. Otherwise it records the step `operator_forced` with the reason and
-your name in the run record, which outlives the deletion, then resumes the
+forced. A no-token analytics force run also stays pending and returns
+`forced: false` until the adapter confirms deletion; missing configuration never
+proves deletion. Otherwise it records the step `operator_forced` with the reason
+and your name in the run record, which outlives the deletion, then resumes the
 run. **The reason must
 not contain personal data**: no name, email or account details (the script
 refuses an `@`). There is no route for this. Get the user id from the support

@@ -234,6 +234,12 @@ def live_analytics_sink_enabled() -> bool:
     )
 
 
+def posthog_project_token_configured() -> bool:
+    """False means this server sends no PostHog events: capture_event
+    suppresses every one as posthog_not_configured."""
+    return _posthog_project_token() is not None
+
+
 def _registered_payload(
     envelope: ArgusEventEnvelope,
 ) -> tuple[str, dict[str, Any]] | None:

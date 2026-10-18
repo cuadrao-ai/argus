@@ -85,12 +85,17 @@ from argus.domain.household import deletion as household_deletion
 from argus.domain.ingestion.documents.objects import SourceObjects, owner_prefix
 from argus.domain.ingestion.secrets import SecretBox
 from argus.observability.analytics_deletion import (
+    NOT_APPLICABLE_REASON,
     AnalyticsDeletion,
     EventAnalyticsDeletion,
+    NoAnalyticsEvents,
+    advance_with_retry,
 )
+from argus.observability.envelope import posthog_project_token_configured
 from argus.observability.product_events import actor_hash_for_user
 
 RunStatus = Literal["started", "data_deleted", "done"]
+DeletionOrigin = Literal["route_first_pass", "sweep", "force"]
 _ATTEMPTS = 3
 # A run the sweep may resume: one no request has touched for this long.
 SWEEP_IDLE_SECONDS = 120
@@ -203,7 +208,8 @@ class AccountDeletionService:
         self._box = secret_box
         # The recording fake counts as done only where it is explicitly the
         # adapter (tests, local dev). Anywhere else the PostHog step stays
-        # pending until a real deletion adapter ships.
+        # pending until a real deletion adapter ships, unless the server sends
+        # no PostHog events at all (not_applicable, decision 1B).
         self._allow_fake_analytics = allow_fake_analytics
         self._sources = source_objects
         self._clock = clock
@@ -211,14 +217,20 @@ class AccountDeletionService:
     # -- entry point -------------------------------------------------------------
 
     def delete_account(
-        self, *, user_id: str, apple_authorization_code: str | None = None
+        self,
+        *,
+        user_id: str,
+        apple_authorization_code: str | None = None,
+        origin: DeletionOrigin = "route_first_pass",
     ) -> DeletionOutcome:
         user_id = _uuid(user_id)
         subject = subject_hash(user_id)
         run = None
         try:
             if apple_authorization_code is not None:
-                run = self._claim_classified(user_id, subject, existing_only=True)
+                run = self._claim_classified(
+                    user_id, subject, existing_only=True, origin=origin
+                )
                 try:
                     if self._apple is None:
                         raise AccountDeletionAdmissionError(
@@ -248,17 +260,24 @@ class AccountDeletionService:
                         "account_deletion_unavailable"
                     ) from None
             if run is None:
-                run = self._claim_classified(user_id, subject)
+                run = self._claim_classified(user_id, subject, origin=origin)
             return self._run(user_id, subject, run)
         finally:
             if run is not None:
                 self._release(run["id"], run["claim"])
 
     def _claim_classified(
-        self, user_id: str, subject: str, *, existing_only: bool = False
+        self,
+        user_id: str,
+        subject: str,
+        *,
+        existing_only: bool = False,
+        origin: DeletionOrigin = "route_first_pass",
     ) -> dict[str, Any] | None:
         try:
-            return self._claim(user_id, subject, existing_only=existing_only)
+            return self._claim(
+                user_id, subject, existing_only=existing_only, origin=origin
+            )
         except (
             AccountDeletionAdmissionError,
             AccountDeletionIncomplete,
@@ -316,7 +335,7 @@ class AccountDeletionService:
             self._record_step(subject, "apple_revoke", "pending", run=run)
             pending["apple"] = apple
         pending.update(self._revoke_providers(user_id, subject))
-        analytics = self._delete_analytics(subject)
+        analytics = self._delete_analytics(subject, run)
         if analytics is not None:
             pending["analytics"] = analytics
         storage = self._erase_sources(user_id, subject, run)
@@ -364,7 +383,7 @@ class AccountDeletionService:
         result = {"resumed": 0, "done": 0, "pending": 0, "failed": 0, "busy": 0}
         for uid in user_ids:
             try:
-                self.delete_account(user_id=uid)
+                self.delete_account(user_id=uid, origin="sweep")
                 result["resumed"] += 1
                 result["done"] += 1
                 continue
@@ -448,18 +467,21 @@ class AccountDeletionService:
         }
         if not confirm:
             return {**plan, "dry_run": True, "forced": False}
-        run = self._claim(user_id, subject)
+        run = self._claim(user_id, subject, origin="force")
         try:
             # One more revoke first, recorded like any pass: forcing must
             # never skip a token that would revoke now.
             if step == "apple":
                 left = self._revoke_apple(user_id, subject, run)
             elif step == "analytics":
-                left = self._delete_analytics(subject)
+                left = self._delete_analytics(subject, run)
             else:
                 left = self._revoke_providers(user_id, subject, only=step).get(step)
             plan["revoke_attempt"] = left or "completed"
             if left is None:
+                return {**plan, "dry_run": False, "forced": False}
+            if step == "analytics" and not posthog_project_token_configured():
+                self._track_pending(subject, {**steps.get("last_error", {}), step: left})
                 return {**plan, "dry_run": False, "forced": False}
             self._force(run, user_id, subject, step, reason, operator)
         finally:
@@ -517,7 +539,12 @@ class AccountDeletionService:
     # -- 1. the run and its claim --------------------------------------------------
 
     def _claim(
-        self, user_id: str, subject: str, *, existing_only: bool = False
+        self,
+        user_id: str,
+        subject: str,
+        *,
+        existing_only: bool = False,
+        origin: DeletionOrigin = "route_first_pass",
     ) -> dict[str, Any] | None:
         """Open the run if this is the first request (idempotent: two first
         requests open one run), then take its claim for this pass."""
@@ -533,6 +560,8 @@ class AccountDeletionService:
             if row is None:
                 if existing_only:
                     return None
+                if origin != "route_first_pass":
+                    raise AccountDeletionRejected("no_existing_run")
                 if user is None:
                     raise AccountDeletionRejected("unknown_user")
                 # A guest is deleted by this same command (Lane 6 acceptance);
@@ -548,9 +577,14 @@ class AccountDeletionService:
                 # then inserts nothing and locks the row the other one made.
                 connection.execute(
                     "insert into argus_private.account_deletion_runs"
-                    " (subject_hash, user_id, analytics_distinct_id, status)"
-                    " values (%s, %s, %s, 'started') on conflict do nothing",
-                    (subject, user_id, actor_hash_for_user(user_id)),
+                    " (subject_hash, user_id, analytics_distinct_id, status, steps)"
+                    " values (%s, %s, %s, 'started', %s::jsonb) on conflict do nothing",
+                    (
+                        subject,
+                        user_id,
+                        actor_hash_for_user(user_id),
+                        json.dumps(self._analytics_at_open(origin)),
+                    ),
                 )
                 row = connection.execute(select, (subject,)).fetchone()
                 if row is None:
@@ -566,7 +600,13 @@ class AccountDeletionService:
                 " set claim_id = %s, claimed_until = %s where id = %s",
                 (claim, now + timedelta(seconds=CLAIM_SECONDS), run_id),
             )
-        return {"id": str(run_id), "status": status, "steps": steps or {}, "claim": claim}
+        return {
+            "id": str(run_id),
+            "status": status,
+            "steps": steps or {},
+            "claim": claim,
+            "origin": origin,
+        }
 
     def _lock_live_claim(self, connection: Any, run: dict[str, Any]) -> dict[str, Any]:
         held = connection.execute(
@@ -1166,48 +1206,82 @@ class AccountDeletionService:
         self._record_step(subject, "storage", "deleted", run=run)
         return None
 
-    def _delete_analytics(self, subject: str) -> str | None:
-        """The reason while the PostHog person deletion is still owed."""
+    def _analytics_at_open(self, origin: DeletionOrigin) -> dict[str, Any]:
+        """Only the route opening a run can decide there are no events."""
+        if origin != "route_first_pass" or not isinstance(
+            self._analytics, NoAnalyticsEvents
+        ):
+            return {}
+        return {
+            "analytics": "not_applicable",
+            "analytics_origin": origin,
+            "analytics_evidence": {"reason": NOT_APPLICABLE_REASON},
+        }
 
-        done = {"deleted", "operator_forced"}
+    def _delete_analytics(self, subject: str, run: dict[str, Any]) -> str | None:
+        """Advance one claimed step; absence of configuration never settles it."""
+        done = {"deleted", "operator_forced", "not_applicable"}
         if self._allow_fake_analytics:
             done.add("recorded_by_fake")
-        with self._households.connection() as connection:
-            run_id, distinct_id, steps = connection.execute(
-                "select id, analytics_distinct_id, steps from argus_private.account_deletion_runs"
-                " where subject_hash = %s",
-                (subject,),
-            ).fetchone()
-        if (steps or {}).get("analytics") in done:
-            return None
-        if isinstance(self._analytics, EventAnalyticsDeletion):
-            submission_id = str(run_id)
-            previous = (steps or {}).get("analytics_evidence") or {}
-            request_id = previous.get("request_id")
-            result = self._analytics.advance(distinct_id, submission_id, request_id)
-            with self._households.connection() as connection, connection.transaction():
-                connection.execute(
-                    "update argus_private.account_deletion_runs"
-                    " set steps = steps || jsonb_build_object("
-                    " 'analytics', %s::text, 'analytics_evidence', %s::jsonb),"
-                    " updated_at = %s where subject_hash = %s",
-                    (
-                        result.outcome,
-                        json.dumps(result.evidence(submission_id)),
-                        self._clock(),
-                        subject,
-                    ),
-                )
-            if result.outcome == "deleted":
+        with self._households.connection() as connection, connection.transaction():
+            steps = self._lock_live_claim(connection, run)
+            if steps.get("analytics") in done:
                 return None
-            return f"analytics_delete_{result.outcome}"
-        outcome = self._analytics.delete_person(distinct_id)
-        if outcome == "recorded_by_fake" and not self._allow_fake_analytics:
-            # Nothing was deleted at PostHog. Never counted as done here.
-            self._record_step(subject, "analytics", "pending")
-            return "analytics_adapter_unconfigured"
-        self._record_step(subject, "analytics", outcome)
-        return "analytics_delete_failed" if outcome == "failed" else None
+            distinct_id = connection.execute(
+                "select analytics_distinct_id from argus_private.account_deletion_runs "
+                "where id = %s",
+                (run["id"],),
+            ).fetchone()[0]
+            connection.execute(
+                "update argus_private.account_deletion_runs set steps = steps || "
+                "jsonb_build_object('analytics', 'pending', 'analytics_origin', %s::text) "
+                "where id = %s and claim_id = %s",
+                (run["origin"], run["id"], run["claim"]),
+            )
+        evidence = None
+        attempts = 0
+        if isinstance(self._analytics, EventAnalyticsDeletion):
+            request_id = (steps.get("analytics_evidence") or {}).get("request_id")
+            result, attempts = advance_with_retry(
+                self._analytics, distinct_id, run["id"], request_id
+            )
+            outcome = "pending" if result.outcome == "failed" else result.outcome
+            evidence = result.evidence(run["id"])
+            error = (
+                None
+                if result.outcome == "deleted"
+                else f"analytics_delete_{result.outcome}"
+            )
+        else:
+            outcome = self._analytics.delete_person(distinct_id)
+            if outcome == "not_applicable" or (
+                outcome == "recorded_by_fake" and not self._allow_fake_analytics
+            ):
+                outcome, error = "pending", "analytics_adapter_unconfigured"
+            elif outcome == "failed":
+                outcome, error = "pending", "analytics_delete_failed"
+            else:
+                error = None
+        with self._households.connection() as connection, connection.transaction():
+            self._lock_live_claim(connection, run)
+            changed = connection.execute(
+                "update argus_private.account_deletion_runs set steps = steps || "
+                "jsonb_build_object('analytics', %s::text, 'analytics_attempts', "
+                "coalesce((steps ->> 'analytics_attempts')::int, 0) + %s) || %s::jsonb, "
+                "updated_at = %s where id = %s and claim_id = %s "
+                "and steps ->> 'analytics' = 'pending' returning id",
+                (
+                    outcome,
+                    attempts,
+                    json.dumps({"analytics_evidence": evidence} if evidence else {}),
+                    self._clock(),
+                    run["id"],
+                    run["claim"],
+                ),
+            ).fetchone()
+            if changed is None:
+                raise AccountDeletionIncomplete("in_progress")
+        return error
 
     def _record_revocation(
         self, subject: str, provider: str, source_ref: str, status: str, error: str | None
