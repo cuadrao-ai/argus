@@ -3339,6 +3339,7 @@
         "tests/business/test_invite_email_api.py",
         "tests/business/test_invite_expiry.py",
         "tests/test_access_approval_email.py",
+        "tests/test_access_request_postgres.py",
         "tests/test_business_access_postgres.py",
         "tests/test_business_invite_seven_day_postgres.py",
         "web/.env.local.example",
