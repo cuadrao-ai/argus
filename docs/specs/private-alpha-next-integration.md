@@ -438,10 +438,10 @@ Claude review is a bounded review aid, not an always-on push hook.
   manual GitHub workflow, PR label, or review command after the lane is stable.
 - Do not run Claude review automatically on every push. WIP branches should not
   accumulate noisy automated review comments before a lane is ready.
-- Claude reviews must use the root `CLAUDE.md`, `AGENTS.md`, the canon docs,
-  the active roadmap or lane spec, and the correct parent branch for the diff.
-- Promotion-gate review focus is defined by the root `CLAUDE.md`. The
-  integration workflow especially depends on regression detection,
+- Reviews use `AGENTS.md` ("Commits, PRs and review"), the canon docs, the
+  active roadmap or lane spec, and the correct parent branch for the diff.
+- Promotion-gate review focus is defined by Yelena's ship playbooks (internal).
+  The integration workflow especially depends on regression detection,
   language-agnostic runtime-spine protection, modularity, API contract drift,
   frontend truth ownership, tests/browser-QA gaps, and release-gate discipline.
 

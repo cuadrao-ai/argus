@@ -8,10 +8,12 @@ import {
   registerGuestAccount,
 } from "@/lib/guest-api";
 import {
+  getMe,
   loginWithEmail,
   normalizeApiLanguage,
   signupWithEmail,
 } from "@/lib/argus-api";
+import { EmailOtpRejectedError } from "@/lib/email-otp";
 import type { UserResponse } from "@/lib/guest-account";
 import {
   pendingGuestActionSummary,
@@ -216,6 +218,19 @@ export function useGuestConversion({
     ],
   );
 
+  const finishConfirmedSignup = useCallback(async () => {
+    const me = await getMe();
+    const userId = me?.user.id;
+    if (typeof userId !== "string" || userId.length === 0) {
+      throw new EmailOtpRejectedError();
+    }
+    const refreshed = await refreshAccount(userId);
+    onAuthenticationComplete(refreshed?.user.id ?? null);
+    setIsOpen(false);
+    handoffPreparedRef.current = false;
+    void Promise.resolve().then(refreshHistory).catch(() => undefined);
+  }, [onAuthenticationComplete, refreshAccount, refreshHistory]);
+
   return {
     isOpen,
     reason,
@@ -231,5 +246,6 @@ export function useGuestConversion({
     requestConversion,
     close,
     authenticate,
+    finishConfirmedSignup,
   };
 }

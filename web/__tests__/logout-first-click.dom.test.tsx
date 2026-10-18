@@ -44,10 +44,10 @@ async function mount(options: { businessBuild: boolean; revocation?: "complete" 
 }
 
 describe("logout on the first click", () => {
-  test("Business build: one click tells the boundary, signs out, clears local state and lands on /biz", async () => {
+  test("Business build: one click tells the boundary, signs out, clears local state and lands on login", async () => {
     const page = await mount({ businessBuild: true });
     await page.clickOnce();
-    assert.deepEqual(page.log, ["beginConversion", "signOut", "clear", "navigate:/biz"]);
+    assert.deepEqual(page.log, ["beginConversion", "signOut", "clear", "navigate:/?auth=login"]);
     await page.act(async () => page.root.unmount());
   });
 
@@ -56,7 +56,7 @@ describe("logout on the first click", () => {
     await page.clickOnce();
     assert.deepEqual(page.log, ["beginConversion", "signOut", "clear", "navigate:/"]);
     assert.equal(signedOutLanding(false), "/");
-    assert.equal(signedOutLanding(true), "/biz");
+    assert.equal(signedOutLanding(true), "/?auth=login");
     await page.act(async () => page.root.unmount());
   });
 

@@ -42,6 +42,7 @@ import {
   resultMetricDisplayOrder,
 } from "./result-card-display";
 import { acquirePasswordAuthCaptchaToken } from "./guest-captcha";
+import { postPasswordAuth } from "./password-auth-request";
 import { attributionBody } from "./landing-intent";
 import { resultReadoutContentFromMetadata, type ResultReadoutContent } from "./result-readout-content";
 import { resultReadoutFacts } from "./result-readout-facts";
@@ -674,27 +675,29 @@ export async function signupWithEmail(payload: {
   }
   const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
-  const response = await unauthenticatedApiFetch<AuthResponsePayload>("/auth/signup", {
-    method: "POST",
-    body: JSON.stringify({ ...payload, captcha_token: captchaToken, ...attributionBody() }),
+  const response = await postPasswordAuth<AuthResponsePayload>("/auth/signup", {
+    ...payload,
+    captcha_token: captchaToken,
+    ...attributionBody(),
   });
   requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);
   return { response, needsEmailConfirmation: !response.session };
 }
 
-export async function loginWithEmail(payload: {
-  email: string;
-  password: string;
-}) {
+export async function loginWithEmail(
+  payload: {
+    email: string;
+    password: string;
+  },
+  options?: { requestTimeoutMs?: number },
+) {
   const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
-  const response = await unauthenticatedApiFetch<AuthResponsePayload>(
+  const response = await postPasswordAuth<AuthResponsePayload>(
     "/auth/login",
-    {
-      method: "POST",
-      body: JSON.stringify({ ...payload, captcha_token: captchaToken }),
-    },
+    { ...payload, captcha_token: captchaToken },
+    options?.requestTimeoutMs,
   );
   requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);

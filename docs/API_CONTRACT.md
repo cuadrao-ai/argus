@@ -2933,6 +2933,22 @@ well when it is closed.
 }
 ```
 
+A failed or unfinished browser check is a different response. Supabase Auth
+runs the Turnstile siteverify. When it rejects the token, or the provider
+call does not finish within 30 seconds, login returns `400`
+`captcha_unavailable` and does not create a session. The check is not skipped.
+
+```json
+{
+  "type": "https://api.argus.app/problems/captcha-unavailable",
+  "title": "Browser Check Failed",
+  "status": 400,
+  "detail": "The browser check did not complete. Try again.",
+  "code": "captcha_unavailable",
+  "request_id": "uuid"
+}
+```
+
 ## `POST /auth/apple/authorization-code`
 
 Default-off behind `ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED`. The native app
@@ -9592,10 +9608,22 @@ accept path recorded.
   metadata records `document_currency`.
 - A read that was saved but never became a record (the hosted hand-off refused
   or failed after the extractor answered) is `needs_attention` with attention
-  `interrupted`, `preparable: true` and the real cause in `error_code`; "Try
-  again with AI" replays the saved read without a new provider call and runs
-  the hand-off again. It is never reported as `no_purchase_found`, which stays
-  for a read that found nothing.
+  `interrupted`, `preparable: true` and the real cause in `error_code`, except
+  two terminal refusals derived from the saved batch. An unreadable read
+  (`readable` false, or issue `unreadable_document`) is attention `unreadable`
+  and `preparable: false`. A notice or statement with no purchase, and any
+  read that has no receipt object, is attention `not_a_receipt` and
+  `preparable: false`. A readable fiscal bill (an NCF and a plain total on
+  `batch.receipt`) that was refused stays `interrupted` and `preparable: true`.
+  "Try again with AI" replays the saved read without a new provider call and
+  runs the hand-off again, except for an incomplete receipt that is not a
+  fiscal bill. Replaying that batch refuses the same way, so the retry asks
+  the provider for a new read. On a replay a fiscal bill becomes one expense
+  from the receipt total, even when every observation is a due notice or a
+  statement period. Other interrupted hand-offs retry the same way. A terminal
+  refusal is never reported as `no_purchase_found`, which stays for a receipt
+  that was read and found no purchase row. The stored `error_code` is not
+  rewritten.
 - A read that shows several purchases, or one it cannot settle, still becomes
   one open draft on the hosted bridge: the facts every read purchase shares are
   known, the amount stays unknown for a person to set, and each read purchase
@@ -9729,7 +9757,8 @@ accept path recorded.
   `unreadable` (the file cannot be read), `ai_unavailable`, `interrupted`,
   `outcome_unknown` (an attempt may have reached the provider; only the
   owner's consented retry starts another), `no_purchase_found`,
-  `several_purchases` (several or ambiguous purchases), `source_unavailable`,
+  `not_a_receipt` (a statement, a payment notice, or a file with no receipt
+  object), `several_purchases` (several or ambiguous purchases), `source_unavailable`,
   `check_details` (a purchase is ready but the read was incomplete) or
   `other`. `error_code` stays the precise cause. Nothing is retried
   automatically because of it.
