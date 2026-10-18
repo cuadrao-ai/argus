@@ -69,7 +69,7 @@ an uncertain response. Automatic retry stops after 23 hours. A command replay
 retries the same pending queue. Reopening suppresses unsent notices for the old
 close generation. No expiry or transfer-mail behavior changed.
 
-Forward migration `20261018080009_business_close_mail.sql` owns the service-only
+Forward migration `20261018240009_business_close_mail.sql` owns the service-only
 queue. RLS and explicit grants exclude browser roles. Departing owners and
 members lose their personal close-mail transport before account settlement.
 Custody detachment removes scoped close transport, and Business purge cascades
@@ -80,7 +80,7 @@ entry in the canonical deletion census. No earlier migration changed.
 
 All database proof uses the lane-owned `business_close_ui_testdb`, cloned from
 the preserved `business_close_testdb`. Only the owned clone received forward
-migrations 080005 through 080009. The root `postgres` baseline and source fixture
+migrations 20261018240005 through 20261018240009. The root `postgres` baseline and source fixture
 were not changed. The test process disabled project dotenv loading and removed
 provider credentials. Auth, Storage and SMTP remained fake. Python used the
 shared read-only 3.10 runtime. No environment or local configuration file changed.
