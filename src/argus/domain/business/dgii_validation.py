@@ -12,7 +12,11 @@ from argus.domain.business.contracts.dgii import (
 )
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_columns import PAYMENT_BUCKETS
-from argus.domain.business.fiscal_identity import normalized_ncf, normalized_taxpayer_id
+from argus.domain.business.fiscal_identity import (
+    COUNTERPARTY_ID_LENGTH,
+    normalized_ncf,
+    normalized_taxpayer_id,
+)
 
 
 @dataclass(frozen=True)
@@ -157,7 +161,7 @@ def record_issues(
         else fact_value(record, "rnc")
     )
     if not consumption:
-        expected = {"1": 9, "2": 11}.get(declaration.id_type)
+        expected = COUNTERPARTY_ID_LENGTH.get(declaration.id_type)
         if (
             identity is None
             or expected

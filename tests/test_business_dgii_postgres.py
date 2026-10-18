@@ -51,6 +51,29 @@ def actions(shared_actions):
     yield service, context, grant
 
 
+PRACTICE_NAME = "PRÁCTICA José"
+
+
+def filer_change(
+    value: str | None,
+    previous: str | None = None,
+    *,
+    name: str = PRACTICE_NAME,
+    previous_name: str = PRACTICE_NAME,
+):
+    def tax(digits: str | None):
+        if digits is None:
+            return None
+        return {"type": "cedula" if len(digits) == 11 else "rnc", "value": digits}
+
+    return FiscalProfileChange(
+        name=name,
+        previous_name=previous_name,
+        tax_id=tax(value),
+        previous_tax_id=tax(previous),
+    )
+
+
 def cash_account(service, context):
     return service.imports.money.repository.create(
         user_id=context.owner_id,
@@ -138,7 +161,7 @@ def test_practice_human_capture_revision_approval_and_actual_export(actions):
     set_profile(
         service.authority,
         context,
-        FiscalProfileChange(rnc="199990013", previous_rnc=None),
+        filer_change("199990013"),
         "rnc",
     )
     first = None
@@ -262,7 +285,7 @@ def test_accountant_cannot_change_rnc_or_approve_refund_but_reads_same_fiscal_pa
         set_profile(
             service.authority,
             accountant,
-            FiscalProfileChange(rnc="199990013", previous_rnc=None),
+            filer_change("199990013"),
             "rnc",
         )
     denied = service.approve_refund(
@@ -290,7 +313,7 @@ def test_accountant_cannot_change_rnc_or_approve_refund_but_reads_same_fiscal_pa
 def test_rnc_profile_revision_and_accepted_fiscal_edit_never_reposts_money(actions):
     service, context, _ = actions
     account = cash_account(service, context)
-    command = FiscalProfileChange(rnc="199990013", previous_rnc=None)
+    command = filer_change("199990013")
     assert set_profile(service.authority, context, command, "same") == set_profile(
         service.authority, context, command, "same"
     )
@@ -298,7 +321,7 @@ def test_rnc_profile_revision_and_accepted_fiscal_edit_never_reposts_money(actio
         set_profile(
             service.authority,
             context,
-            FiscalProfileChange(rnc=None, previous_rnc=None),
+            filer_change(None),
             "stale",
         )
     draft = reviewed(service, context, account)
@@ -383,7 +406,8 @@ def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, u
     with TestClient(app) as client:
         profile = client.get("/business/fiscal-profile")
         assert profile.status_code == 200 and profile.json() == {
-            "rnc": None,
+            "name": "PRÁCTICA José",
+            "tax_id": None,
             "can_edit": True,
         }
         assert profile.headers["cache-control"] == "no-store"
@@ -394,18 +418,33 @@ def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, u
         )["options"] == ["1", "2", "3", "4", "5", "6"]
         invalid = client.patch(
             "/business/fiscal-profile",
-            json={"rnc": "000000000", "previous_rnc": None},
+            json={
+                "name": "PRÁCTICA José",
+                "previous_name": "PRÁCTICA José",
+                "tax_id": {"type": "rnc", "value": "000000000"},
+                "previous_tax_id": None,
+            },
             headers={"Idempotency-Key": "invalid"},
         )
         assert (
-            invalid.status_code == 422 and invalid.headers["cache-control"] == "no-store"
+            invalid.status_code == 422
+            and invalid.headers["cache-control"] == "no-store"
+            and invalid.json()["detail"]["code"] == "tax_id_all_zero"
         )
         changed = client.patch(
             "/business/fiscal-profile",
-            json={"rnc": "199990013", "previous_rnc": None},
+            json={
+                "name": "PRÁCTICA José",
+                "previous_name": "PRÁCTICA José",
+                "tax_id": {"type": "rnc", "value": "199-99001-3"},
+                "previous_tax_id": None,
+            },
             headers={"Idempotency-Key": "valid"},
         )
-        assert changed.status_code == 200 and changed.json()["rnc"] == "199990013"
+        assert changed.status_code == 200 and changed.json()["tax_id"] == {
+            "type": "rnc",
+            "value": "199990013",
+        }
         with service.authority.pool.connection() as db:
             assert (
                 db.execute(
@@ -415,7 +454,7 @@ def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, u
             )
             assert (
                 db.execute(
-                    "select has_column_privilege('anon','public.spaces','business_rnc','UPDATE')"
+                    "select has_column_privilege('anon','public.spaces','business_tax_id_type','UPDATE')"
                 ).fetchone()[0]
                 is False
             )
@@ -434,10 +473,10 @@ def test_cedula_filer_persists_and_exports_both_formats(actions):
     profile = set_profile(
         service.authority,
         context,
-        FiscalProfileChange(rnc=filer, previous_rnc=None),
+        filer_change(filer),
         "cedula-profile",
     )
-    assert profile["rnc"] == filer
+    assert profile["tax_id"]["value"] == filer
     from psycopg.errors import CheckViolation
 
     with service.authority.pool.connection() as db:
@@ -447,7 +486,7 @@ def test_cedula_filer_persists_and_exports_both_formats(actions):
                     "update public.spaces set business_rnc=%s where id=%s",
                     ("00000000000", context.actor.space_id),
                 )
-    assert read_profile(service.authority, context)["rnc"] == filer
+    assert read_profile(service.authority, context)["tax_id"]["value"] == filer
     for index in (0, 4):
         assert (
             approve(service, context, reviewed(service, context, account, index)).outcome

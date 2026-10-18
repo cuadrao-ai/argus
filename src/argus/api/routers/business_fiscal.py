@@ -12,8 +12,8 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.dgii import FiscalField, FiscalProfile
 from argus.domain.business.dgii_form import input_fields
 from argus.domain.business.fiscal_profile import (
-    FiscalProfileChange,
     FiscalProfileInput,
+    accepted_change,
     read_profile,
     set_profile,
 )
@@ -65,7 +65,7 @@ def change_fiscal_profile(
         return set_profile(
             context.service.authority,
             actor,
-            FiscalProfileChange(**body.model_dump()),
+            accepted_change(body),
             _key(request, idempotency_key),
         )
     except ActionError as error:

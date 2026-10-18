@@ -91,9 +91,16 @@ class FiscalReview(BaseModel):
     declaration: DgiiDeclaration
 
 
+class TaxId(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    type: Literal["rnc", "cedula"]
+    value: str
+
+
 class FiscalProfile(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    rnc: str | None
+    name: str
+    tax_id: TaxId | None
     can_edit: bool
 
 

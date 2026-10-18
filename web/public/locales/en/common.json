@@ -2209,8 +2209,14 @@
   "business": {
     "dgii": {
       "business_rnc": "RNC del negocio",
+      "business_name": "Business name",
+      "tax_id_type": "Tax id",
+      "tax_id_rnc": "RNC",
+      "tax_id_cedula": "Cédula",
+      "tax_id_value": "Number",
       "save_rnc": "Guardar RNC",
-      "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
+      "save_profile": "Save",
+      "profile_failed": "The business profile could not be read or saved. Check the open business and try again.",
       "details": "Datos fiscales para 606 / 607",
       "review_note": "Usa los montos del comprobante y tu clasificación fiscal. Deja en blanco los datos que no sabes. Guardar crea una revisión; aprobar es otro paso.",
       "form": "Formato",
@@ -2230,7 +2236,14 @@
         "fiscal_duplicate_document": "Este comprobante fiscal ya pertenece a otro registro guardado. Revísalo antes de aprobar.",
         "fiscal_credit_settlement_required": "Registra un reembolso solo después de confirmar que se recibió el dinero y elegir la compra original.",
         "recorded_correction_unsupported": "Los datos fiscales de un registro aprobado no se pueden cambiar en este flujo.",
-        "stale_version": "Este registro cambió. Abre la revisión actual antes de guardar."
+        "stale_version": "Este registro cambió. Abre la revisión actual antes de guardar.",
+        "tax_id_type": "Choose RNC or cédula.",
+        "tax_id_not_digits": "Use digits only. Spaces and hyphens are removed.",
+        "tax_id_length": "An RNC has 9 digits. A cédula has 11 digits.",
+        "tax_id_all_zero": "Enter a tax id that is not all zeros.",
+        "business_name_invalid": "Enter a business name of 1 to 80 characters.",
+        "business_owner_required": "Only the business owner can change this profile.",
+        "business_permission_denied": "You can view this profile. You cannot change it."
       }
     },
     "activity": {
