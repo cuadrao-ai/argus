@@ -897,6 +897,7 @@ def test_concurrent_same_username_signup_calls_auth_only_for_winner(
             [{"email": first_email}, {"email": second_email}]
         ).execute()
         payload = {
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "password": password,
             "captcha_token": "local-captcha-proof",
             "username": username,

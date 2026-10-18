@@ -124,3 +124,31 @@ The earlier browser, web and API evidence is retained because this correction
 changes only migration transaction limits. Root owns the independent delta
 review and terminal CI follow-up. The receipt gate and merge hold remain.
 The correction owner used GPT-6.1-sol low, with no nested helpers.
+
+## Anonymous Auth CI fixture correction
+
+CI run `39100232222` at `bfac2d9e99c3787c43129259b00ce08929bd7250`
+reported one failure and 12 passes in the pinned local anonymous Auth matrix.
+The same-username concurrency test omitted `age_confirmed_at`, so request
+validation refused the first signup before Auth could set its completion event.
+One local reproduction using the original fixture payload and the API returned
+HTTP 422 with missing `body.age_confirmed_at` and zero signup provider calls.
+
+The positive fixture now includes `2026-01-01T00:00:00Z`, as the other positive
+Auth fixtures do. The concurrency assertions and missing-confirmation rejection
+tests remain intact. No runtime gate, legal copy or migration changed.
+
+The corrected payload passed schema validation. The focused age, guest Auth,
+guest conversion and prompt fingerprint selection passed 65 tests. The full
+documented mocked evaluation harness passed 276 tests. Local Python was 3.10.20.
+The installed SciPy 1.15.3 arm64 binary failed to load; the mocked run used a
+temporary SciPy 1.13.1 wheel with a verified `scipy.linalg` import. Missing lxml
+and zxing dependencies were also supplied in the owned temporary test directory.
+No shared environment or dependency lockfile changed.
+
+Integration remains `651870a54be4e5506dbb38f3902fef1a97eef8df`, already an
+ancestor of the candidate, so no merge was needed. Ownership, modularity and
+whitespace checks passed. No local Supabase stack was started. Fresh exact-head
+CI must prove the complete real Auth concurrency case, and independent Eval
+must review the new final head. The receipt-first review and merge hold remain.
+Frozen PR #1176 remains untouched at its recorded head.
