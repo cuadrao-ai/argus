@@ -8,7 +8,8 @@ import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { LoadingRows, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { Settle } from "./business-skeletons";
 import { receiptFileAccept, receiptFormatLabels } from "./receipt-file";
 import { ReceiptUploadQueue, isUnfinishedUpload, type IntakeTarget, type UploadRejection } from "./receipt-upload-queue";
 import { readClipboardFile, useInputCapabilities } from "./useInputCapabilities";
@@ -37,7 +38,7 @@ function IntakeSurface(props: IntakeProps) {
   ) : (
     <AdaptivePanel title={t("business.intake.title", "Upload receipt")} closeLabel={t("common.close", "Close")} onClose={props.onClose} width="md">
       <div className="px-4 pb-4">
-        <LoadingRows rows={2} />
+        <Settle pending layout="rows" rows={2} />
       </div>
     </AdaptivePanel>
   );

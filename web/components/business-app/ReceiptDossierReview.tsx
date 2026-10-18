@@ -24,7 +24,8 @@ import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { formatBusinessName, formatMoney } from "./business-format";
 import { handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
-import { cardClass, LoadingRows, pillButtonClass, secondaryButtonClass } from "./business-ui";
+import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
+import { ContentFade, Settle } from "./business-skeletons";
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
 
@@ -288,7 +289,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       <button type="button" disabled={checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
     </section>{captureDialog}</>
   );
-  if (!dossier) return <>{captureRecovery}<LoadingRows rows={4} layout="detail" />{captureDialog}</>;
+  if (!dossier) return <>{captureRecovery}<Settle pending layout="detail" />{captureDialog}</>;
 
   const accounts = dossier.accounts;
   const amount = dossier.facts.amount.state === "known" ? dossier.facts.amount.value : null;
@@ -308,7 +309,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const confirmationCount = Object.keys(confirmations).length;
 
   const canMove = mutable && !dirty && !editing.length && !advancing && !settling;
-  return (<>
+  return (<ContentFade><>
     <ReceiptShortcutRegistration actions={{
       ...(canApprove && expense && approvable ? { approve: () => { void write("approve"); }, ...(receipt ? { approve_next: () => { void approveAndNext(); } } : {}) } : {}),
       ...(canMove && receipt ? receiptNavigationActions(receipt.id, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {}),
@@ -373,6 +374,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     {/* The note dialog keeps the third place in every branch, so a refused save keeps its message. */}
     {captureDialog}
     {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
-  </>
+  </></ContentFade>
   );
 }

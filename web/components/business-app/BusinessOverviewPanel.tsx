@@ -7,7 +7,8 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useBusiness } from "./BusinessWorkspace";
 import { inboxCount } from "./inbox-count";
 import { formatBusinessName, formatDay, formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, LoadingRows, pillButtonClass } from "./business-ui";
+import { cardClass, pillButtonClass } from "./business-ui";
+import { Settle } from "./business-skeletons";
 import BusinessPeriodControl, { usePeriodLabel } from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
 
@@ -43,9 +44,9 @@ export default function BusinessOverviewPanel() {
         <div role="alert" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>
           {t("business.overview.error", "We couldn't load your business records. Your saved receipts and expenses are safe. Try again.")}
         </div>
-      ) : !overview ? (
-        <LoadingRows rows={3} layout="overview" />
       ) : (
+        <Settle pending={!overview} layout="overview">
+          {overview ? (
         <div className="grid gap-3 tablet:grid-cols-2">
           <button
             type="button"
@@ -143,6 +144,8 @@ export default function BusinessOverviewPanel() {
             })}
           </p>
         </div>
+          ) : null}
+        </Settle>
       )}
 
       <div className="mt-8">

@@ -10,6 +10,7 @@ import { useBusiness } from "./BusinessWorkspace";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatRelativeTime } from "./business-format";
 import { cardClass, secondaryButtonClass } from "./business-ui";
+import { Settle } from "./business-skeletons";
 
 type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 
@@ -93,7 +94,7 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
         <div className="space-y-3 px-3 pb-3">
           {waiting ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.waiting_resume", "This email is waiting. Processing resumes automatically from {{time}} UTC. You do not need to send it again.", { time: resumeAt })}</p> : null}
           {!waiting && delivery.error_code ? <p className="text-[13px] text-black/55 dark:text-white/55">{t(`business.email.error.${delivery.error_code}`, t("business.email.error.other", "Part of this email could not be saved."))}</p> : null}
-          {!waiting && body?.status === "loading" ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("common.loading", "Loading...")}</p> : null}
+          {!waiting && body?.status === "loading" ? <Settle pending layout="rows" rows={2} /> : null}
           {!waiting && body?.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.body_failed", "Could not load the message.")}</p> : null}
           {!waiting && body?.status === "ready" ? <blockquote className="whitespace-pre-wrap break-words border-l-2 border-black/10 pl-3 text-[14px] leading-relaxed text-black/75 dark:border-white/15 dark:text-white/75">{body.data.text_body || t("business.email.no_body", "No message text.")}</blockquote> : null}
           <ul className="space-y-2">
