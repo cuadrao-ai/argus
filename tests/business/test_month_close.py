@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from contextlib import contextmanager, nullcontext
 from datetime import date
-from uuid import uuid4
+from decimal import Decimal
+from uuid import UUID, uuid4
 
 import pytest
 from argus.api.business_month_close_schemas import MonthClose
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.business.contracts.dgii import SalesDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     BusinessResolution,
@@ -18,6 +20,9 @@ from argus.domain.business.contracts.facts import (
     OwnerFunding,
     WholeBusinessShare,
 )
+from argus.domain.business.dgii_columns import SALES_COLUMNS
+from argus.domain.business.dgii_export import build_fiscal_packet
+from argus.domain.business.dgii_validation import FiscalRecord, credit_note
 from argus.domain.business.month_close import (
     IMPLICIT,
     MonthDocument,
@@ -326,6 +331,158 @@ def test_a_draft_projects_onto_the_activity_and_a_transfer_stays_out():
     assert documents[0].total_minor == 11800
     assert documents[0].itbis_minor == 1800
     assert read_fiscal({"business": {"schema_version": 1}}, "DOP").rnc is None
+
+
+def _known(value, source: UUID):
+    return Known(value=value, origin="member_set", source_ids=(source,))
+
+
+def _sale_record(
+    index: int,
+    *,
+    ncf: str,
+    billed: str,
+    itbis: str,
+    gross: str,
+    legal_tip: str = "0.00",
+    modified_ncf: str | None = None,
+    bank: str | None = None,
+) -> FiscalRecord:
+    source = UUID(int=index)
+    day = date(2026, 9, 10 + index)
+    declaration = SalesDeclaration(
+        form="607",
+        id_type="1",
+        modified_ncf=modified_ncf,
+        selective_tax="0.00",
+        other_taxes="0.00",
+        legal_tip=legal_tip,
+        income_type="1",
+        withheld_on=None,
+        billed_amount=billed,
+        itbis_withheld_by_third_parties="0.00",
+        itbis_perceived="0.00",
+        income_withheld_by_third_parties="0.00",
+        income_perceived="0.00",
+        cash="0.00",
+        bank=bank if bank is not None else gross,
+        card="0.00",
+        credit="0.00",
+        gift="0.00",
+        barter="0.00",
+        other_payment="0.00",
+    )
+    facts = BusinessFacts(
+        kind=_known("income", source),
+        amount=_known(gross, source),
+        currency=_known("DOP", source),
+        occurred_on=_known(day, source),
+        fiscal=FiscalFacts(
+            rnc=_known("199990099", source),
+            ncf=_known(ncf, source),
+            itbis=_known(itbis, source),
+        ),
+    )
+    return FiscalRecord(
+        str(UUID(int=index + 50)),
+        1,
+        str(UUID(int=index + 80)),
+        2,
+        day,
+        gross,
+        "DOP",
+        "income",
+        facts,
+        declaration,
+        (str(source),),
+    )
+
+
+def _project(records: tuple[FiscalRecord, ...]) -> list[MonthDocument]:
+    activities = []
+    resolutions = []
+    for record in records:
+        activities.append(
+            {
+                "activity_id": record.activity_id,
+                "kind": record.kind,
+                "amount_minor": to_minor(record.amount, record.currency),
+                "currency": record.currency,
+                "occurred_at": f"{record.occurred_on.isoformat()}T12:00:00-04:00",
+                "time_zone": "America/Santo_Domingo",
+            }
+        )
+        resolutions.append(
+            {
+                "activity_id": record.activity_id,
+                "resolution": {
+                    "business": BusinessResolution(
+                        facts=record.facts, dgii=record.declaration
+                    ).model_dump(mode="json")
+                },
+            }
+        )
+    return project_documents(activities, resolutions, {}, "space-a")
+
+
+def _export_607_income(result) -> Decimal:
+    billed_at = next(
+        index for index, (name, _label) in enumerate(SALES_COLUMNS) if name == "billed_amount"
+    )
+    ncf_at = next(index for index, (name, _label) in enumerate(SALES_COLUMNS) if name == "ncf")
+    income = Decimal(result.manifest["consumption_summary"]["base"])
+    lines = (
+        result.files["dgii/DGII_F_607_199990013_202609.TXT"].decode("ascii").splitlines()[1:]
+    )
+    for line in lines:
+        fields = line.split("|")
+        sign = -1 if credit_note(fields[ncf_at]) else 1
+        income += sign * Decimal(fields[billed_at])
+    return income
+
+
+def test_607_income_matches_the_export_when_billed_amount_is_not_total_minus_itbis():
+    from tests.dgii.test_packet import packet, practice_records
+
+    original = _sale_record(
+        1, ncf="B0100000099", billed="2000.00", itbis="360.00", gross="2560.00", legal_tip="200.00"
+    )
+    credit = _sale_record(
+        2,
+        ncf="B0400000099",
+        billed="100.00",
+        itbis="18.00",
+        gross="118.00",
+        modified_ncf="B0100000099",
+        bank="0.00",
+    )
+    records = (*practice_records(), original, credit)
+    result = packet(records)
+    assert result.manifest["issues"] == []
+    documents = _project(record for record in records if record.kind == "income")
+    start, end = month_period("2026-09")
+    income = formato_totals(documents, start, end)["DOP"].income_before_itbis
+    assert income == to_minor(format(_export_607_income(result), "f"), "DOP")
+
+
+def test_an_ecf_sale_is_outside_607_income():
+    paper = _sale_record(3, ncf="B0100000098", billed="1000.00", itbis="180.00", gross="1180.00")
+    electronic = _sale_record(
+        4, ncf="E310000000001", billed="5000.00", itbis="900.00", gross="5900.00"
+    )
+    result = build_fiscal_packet(
+        (paper, electronic),
+        rnc="199990013",
+        business_name="Taller Ensayo",
+        start=date(2026, 9, 1),
+        end=date(2026, 9, 30),
+        captured_on=date(2026, 10, 18),
+    )
+    assert any(issue["code"] == "fiscal_607_ecf_excluded" for issue in result.manifest["issues"])
+    documents = _project((paper, electronic))
+    start, end = month_period("2026-09")
+    income = formato_totals(documents, start, end)["DOP"].income_before_itbis
+    assert income == to_minor("1000.00", "DOP")
 
 
 class _Lock:

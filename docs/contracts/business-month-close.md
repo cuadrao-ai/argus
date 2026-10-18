@@ -89,10 +89,10 @@ The sample minors are illustrative. Each currency the month actually contains is
 | --- | --- |
 | `closed` | True when every business document in the month has an RNC and a fiscal number (NCF or e-CF). |
 | `reasons` | Why `closed` is false. `missing_rnc` or `missing_ncf`, with the activity. |
-| `income_before_itbis_minor` | Sales lines that would go on the 607, total minus ITBIS. |
+| `income_before_itbis_minor` | Sales lines that would go on the 607. The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
 | `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS. |
 | `net_result_minor` | Income before ITBIS minus expenses before ITBIS. Negative when expenses are larger. |
-| `itbis_charged_minor` | ITBIS on the 607 lines. |
+| `itbis_charged_minor` | ITBIS on the 607 lines. A credit note subtracts. |
 | `itbis_paid_minor` | ITBIS on the 606 lines. |
 | `itbis_owed_minor` | Charged minus paid. Negative when the business paid more ITBIS than it charged. |
 | `by_status` | Count and before-ITBIS total of every business document in the month, including one that is missing an RNC or a fiscal number. Those incomplete documents are not part of the net. |
@@ -176,4 +176,4 @@ where space_id = $space
   and owner_id = $owner
 ```
 
-The latest draft for an activity supplies RNC, NCF, e-CF, ITBIS, the personal mark, and the inclusion answer. The settlement row supplies status. Totals are then summed in `summarize` from those parts and the activity's minor-unit total. `EXPLAIN` for both reads needs a disposable database with the migrations applied. This change did not have one, so no plan is attached. Staging and production were not migrated from here.
+The latest draft for an activity supplies RNC, NCF, e-CF, ITBIS, the 607 billed amount when the draft declares one, the personal mark, and the inclusion answer. The settlement row supplies status. Totals are then summed in `summarize` from those parts and the activity's minor-unit total. `EXPLAIN` for both reads needs a disposable database with the migrations applied. This change did not have one, so no plan is attached. Staging and production were not migrated from here.
