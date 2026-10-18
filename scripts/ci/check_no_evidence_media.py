@@ -5,12 +5,12 @@ It compares that merge base to HEAD. It does not diff the work tree, so
 files that arrive by merging the base branch are not added files.
 
 A path is evidence when it is under docs/reports/, or when any directory
-segment is "evidence" or ends with "-evidence". The match is
-case-insensitive for that segment and for the suffix. Suffixes are png,
-jpg, jpeg, gif, webp, mp4, mov, and pdf.
+segment is "evidence" or ends with "-evidence". Directory names and
+suffixes match without regard to case. Suffixes are png, jpg, jpeg, gif,
+webp, mp4, mov, and pdf.
 
-Only added files fail. A modification or a rename does not. Brand canon
-paths in .github/media-allowlist.txt are exempt.
+Only added files fail. A modification or a rename does not. A line in
+.github/media-allowlist.txt does not exempt an evidence path.
 """
 
 from __future__ import annotations
@@ -41,14 +41,12 @@ def is_media(path: str) -> bool:
 
 
 def is_evidence_path(path: str) -> bool:
-    parts = path.split("/")
-    if len(parts) >= 2 and parts[0] == "docs" and parts[1] == "reports":
+    directories = [segment.lower() for segment in path.split("/")[:-1]]
+    if directories[:2] == ["docs", "reports"]:
         return True
-    for segment in parts[:-1]:
-        lowered = segment.lower()
-        if lowered == "evidence" or lowered.endswith("-evidence"):
-            return True
-    return False
+    return any(
+        segment == "evidence" or segment.endswith("-evidence") for segment in directories
+    )
 
 
 def load_globs(text: str) -> tuple[str, ...]:
@@ -67,17 +65,28 @@ def matches_glob(path: str, pattern: str) -> bool:
     return path == pattern
 
 
+def is_exempt(path: str, globs: tuple[str, ...]) -> bool:
+    if is_evidence_path(path):
+        return False
+    return any(matches_glob(path, pattern) for pattern in globs)
+
+
 def blocking_paths(changes: list[tuple[str, str]], globs: tuple[str, ...]) -> list[str]:
     blocked: list[str] = []
     for letter, path in changes:
-        if letter != "A":
+        if letter != "A" or not is_media(path) or is_exempt(path, globs):
             continue
-        if not is_media(path) or not is_evidence_path(path):
-            continue
-        if any(matches_glob(path, pattern) for pattern in globs):
-            continue
-        blocked.append(path)
+        if is_evidence_path(path):
+            blocked.append(path)
     return blocked
+
+
+def decode_field(field: bytes) -> str:
+    return field.decode("utf-8", "surrogateescape")
+
+
+def display_path(path: str) -> str:
+    return path.encode("utf-8", "surrogateescape").decode("utf-8", "backslashreplace")
 
 
 def parse_name_status(blob: bytes) -> list[tuple[str, str]]:
@@ -87,13 +96,12 @@ def parse_name_status(blob: bytes) -> list[tuple[str, str]]:
     changes: list[tuple[str, str]] = []
     index = 0
     while index < len(parts):
-        status = parts[index].decode()
-        letter = status[:1]
+        letter = decode_field(parts[index])[:1]
         if letter in {"R", "C"}:
-            changes.append((letter, parts[index + 2].decode()))
+            changes.append((letter, decode_field(parts[index + 2])))
             index += 3
             continue
-        changes.append((letter, parts[index + 1].decode()))
+        changes.append((letter, decode_field(parts[index + 1])))
         index += 2
     return changes
 
@@ -157,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     blocked = blocking_paths(changes, globs)
     for path in blocked:
-        print(f"{path}: {REJECTION}", file=sys.stderr)
+        print(f"{display_path(path)}: {REJECTION}", file=sys.stderr)
     return int(bool(blocked))
 
 
