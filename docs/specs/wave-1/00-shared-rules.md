@@ -51,9 +51,9 @@ only adds the wave 1 delivery rules below.
 Two older rule files conflict with the delivery rules here. For wave 1 work,
 this file wins:
 
-- `.agent/rules/git-workflow.md` says "Squash merge to main" and "Parallel PRs
-  OK". Wave 1 PRs target `codex/private-alpha-next`, never `main`, and land one
-  at a time (E4).
+- The old git-workflow rule file (since removed) said "Squash merge to main"
+  and "Parallel PRs OK". Wave 1 PRs target `codex/private-alpha-next`, never
+  `main`, and land one at a time (E4).
 - There is no `.github/pull_request_template.md` on the branch. The PR body
   headings in E4 are the template until the docs owner commits one.
 

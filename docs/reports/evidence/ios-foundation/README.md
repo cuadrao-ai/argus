@@ -117,4 +117,4 @@ semantic overlap; no reconciliation merge needed at that check. The worker tree
 therefore is the would-be merged tree, and modularity reports no violations.
 Locked design reference remains #727 at
 `d7faac770369242436a5e108bb557ba0bae893d3`, with the unchanged archive identified
-in the [lane spec](../../../superpowers/specs/2026-09-28-ios-foundation.md).
+in the [lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-ios-foundation.md).

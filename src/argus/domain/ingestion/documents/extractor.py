@@ -134,6 +134,19 @@ def plain_amount(value: str | None) -> bool:
     )
 
 
+def ncf_bill(batch: ExtractionBatch) -> bool:
+    """A readable fiscal bill: the receipt carries an NCF and a plain total.
+
+    Observations have no NCF field. The receipt is the only place one can live,
+    so a due notice or a statement period still counts when this is true.
+    """
+
+    receipt = batch.receipt
+    if batch.readable is not True or receipt is None or not receipt.ncf:
+        return False
+    return bool(receipt.ncf.strip()) and plain_amount(receipt.total)
+
+
 def batch_from_result(
     result: ExtractionResult,
     digest: str,

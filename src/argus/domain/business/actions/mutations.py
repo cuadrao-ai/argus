@@ -34,6 +34,7 @@ from argus.domain.ingestion.documents.models import (
     RECEIPT_PAYMENT_UNPROVEN,
     DocumentDraft,
     ExtractionBatch,
+    ReceiptDetails,
 )
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
@@ -299,13 +300,17 @@ def prepare_attachment(
     actor: ActorProvenance,
 ) -> Applied:
     from argus.domain.business.contracts.dossier import AttachmentSource
-    from argus.domain.ingestion.documents.extractor import fiscal_facts_from_receipt
+    from argus.domain.ingestion.documents.extractor import (
+        fiscal_facts_from_receipt,
+        ncf_bill,
+    )
 
     candidates = [
         candidate for candidate in batch.candidates if candidate.evidence == "transaction"
     ]
-    if batch.complete is not True or batch.readable is not True or batch.receipt is None:
-        raise ActionError("invalid_input", "receipt_requires_review")
+    refusal = _read_refusal(batch)
+    if refusal is not None:
+        raise ActionError("invalid_input", refusal)
     if any(
         candidate.source.connection_id != draft.connection_id for candidate in candidates
     ):
@@ -313,7 +318,15 @@ def prepare_attachment(
     payment_unproven = any(
         issue.code == RECEIPT_PAYMENT_UNPROVEN for issue in batch.issues
     )
-    purchases = [] if payment_unproven else candidates or _observed_purchases(batch)
+    bill = ncf_bill(batch)
+    purchases = candidates or _observed_purchases(batch)
+    if not purchases and bill and batch.receipt is not None:
+        purchases = [_bill_purchase(batch.receipt)]
+    if not bill and payment_unproven:
+        purchases = []
+    if not purchases and _notice_only(batch):
+        raise ActionError("invalid_input", "not_a_receipt")
+    withhold = payment_unproven and not bill
     # One clean purchase becomes the draft's facts. Several purchases, or an
     # ambiguous read, still become one draft: it keeps only what every read
     # purchase shares, leaves the amount for a person, and carries each read
@@ -322,7 +335,7 @@ def prepare_attachment(
         issue.code == "receipt_purchase_ambiguous" for issue in batch.issues
     )
     read_purchases: tuple[ReadPurchase, ...] | None = ()
-    if payment_unproven:
+    if withhold:
         read_purchases = None
     elif ambiguous:
         read_purchases = tuple(
@@ -336,7 +349,7 @@ def prepare_attachment(
             )
             for index, candidate in enumerate(purchases, 1)
         )
-    read_total = batch.receipt.total if ambiguous and not payment_unproven else None
+    read_total = batch.receipt.total if ambiguous and not withhold else None
     candidate = _consensus(purchases) if ambiguous else purchases[0]
     source_id = sources.record_source(
         tx,
@@ -384,7 +397,7 @@ def prepare_attachment(
     ).model_dump(mode="json")
     # The typed merge after decode and read: the QR fills only what the read
     # left unknown, each filled fact naming its origin; a mismatch fills nothing.
-    if not payment_unproven:
+    if not withhold:
         facts = fill_from_qr(
             facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1
         )
@@ -418,6 +431,56 @@ def prepare_attachment(
 
 
 KINDS = frozenset({"expense", "income", "transfer", "refund"})
+
+
+def _read_refusal(batch: ExtractionBatch) -> str | None:
+    """Why this read cannot become a draft, before its purchases are considered.
+
+    An unreadable file is terminal. A readable fiscal bill is not, even when
+    the read is incomplete or the rows are notices. No receipt object is not
+    a receipt. An incomplete receipt that is not a fiscal bill stays on the
+    retryable review.
+    """
+
+    from argus.domain.ingestion.documents.extractor import ncf_bill
+
+    if batch.readable is not True:
+        return "unreadable_document"
+    if ncf_bill(batch):
+        return None
+    if batch.receipt is None:
+        return "not_a_receipt"
+    if batch.complete is not True:
+        return "receipt_requires_review"
+    return None
+
+
+def _notice_only(batch: ExtractionBatch) -> bool:
+    """Rows that name a balance, a period, or an amount due, and no purchase."""
+
+    if not batch.observations:
+        return False
+    return not any(row.evidence == "transaction" for row in batch.observations)
+
+
+def _bill_purchase(receipt: ReceiptDetails) -> SimpleNamespace:
+    """One expense from the fiscal bill's own total. The notice row is not it."""
+
+    uncertain: set[str] = set()
+    if receipt.currency is None:
+        uncertain.add("currency")
+    if receipt.occurred_on is None:
+        uncertain.add("occurred_on")
+    if not receipt.merchant:
+        uncertain.add("merchant")
+    return SimpleNamespace(
+        amount=receipt.total,
+        currency=receipt.currency,
+        occurred_on=receipt.occurred_on,
+        merchant=receipt.merchant,
+        kind_hint="expense",
+        uncertain=frozenset(uncertain),
+    )
 
 
 def _observed_purchases(batch: ExtractionBatch) -> list[SimpleNamespace]:
