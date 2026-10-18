@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import textwrap
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -779,6 +780,29 @@ def test_the_hosted_connection_must_be_on_port_5432() -> None:
         applier.verify_connection(wrong, [POOLER], ["postgres"], _approval())
 
 
+def _connected_user(host: str, user: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        info=SimpleNamespace(host=host, hostaddr="3.4.5.6", port=5432, user=user),
+        execute=lambda _sql: _Row("postgres"),
+    )
+
+
+def test_the_connected_user_must_match_the_approval_record() -> None:
+    hosted = _approval()
+    allowed = ([DIRECT, POOLER], ["postgres"])
+    applier.verify_connection(
+        _connected_user(POOLER, f"postgres.{REF}"), *allowed, hosted
+    )
+    applier.verify_connection(_connected_user(DIRECT, "postgres"), *allowed, hosted)
+    for host, user in (
+        (POOLER, "postgres"),
+        (DIRECT, f"postgres.{REF}"),
+        (POOLER, "postgres.lgdhvepyrzbnscqssgqq"),
+    ):
+        with pytest.raises(applier.ApplyError, match="connected user"):
+            applier.verify_connection(_connected_user(host, user), *allowed, hosted)
+
+
 # --- unrecorded versions leave no trace, so each has an effect probe ------------------------
 
 
@@ -855,6 +879,61 @@ def test_the_probe_is_scoped_to_the_two_tables() -> None:
         "public.strategies'::regclass" in query
         and "public.backtest_runs'::regclass" in query
     )
+
+
+def _operator_exit() -> BaseException:
+    source = Path(applier.__file__).read_text()
+    guard = textwrap.dedent(source.split('if __name__ == "__main__":\n', 1)[1])
+    namespace = dict(applier.__dict__)
+    namespace["__name__"] = "__main__"
+    try:
+        exec(compile(guard, applier.__file__, "exec"), namespace)
+    except BaseException as error:
+        return error
+    raise AssertionError("the tool returned")
+
+
+def test_a_staging_record_refuses_the_pooler_user_lgdhvepyrzbnscqssgqq(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path, sha, versions = _STAGING_RECORDS[0]
+    url = _staging_url("postgres.lgdhvepyrzbnscqssgqq", _STAGING_POOLER)
+    with pytest.raises(applier.ApplyError, match="project ref") as caught:
+        applier.check_target(
+            url, [_STAGING_DIRECT, _STAGING_POOLER], ["postgres"], environ={},
+            hosted=_staging_approval(path, sha, versions),
+        )  # fmt: skip
+    monkeypatch.setattr("psycopg.connect", lambda *_a, **_k: pytest.fail("connected"))
+    with pytest.raises(applier.ApplyError, match="project ref") as refused:
+        _quoted_main(monkeypatch, tmp_path, path, sha, versions, url)
+    captured = capsys.readouterr()
+    _require_quiet_refusal(caught.value, "", "")
+    _require_quiet_refusal(refused.value, captured.out, captured.err)
+
+
+def test_a_non_utf8_password_exits_with_the_fixed_refusal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    password = _STAGING_PASSWORD + "\udcff"
+    path, sha, versions = _STAGING_RECORDS[0]
+    url = _staging_url(f"postgres.{_STAGING_REF}", _STAGING_POOLER, password=password)
+    refused: BaseException | None = None
+    try:
+        _quoted_main(monkeypatch, tmp_path, path, sha, versions, url)
+    except BaseException as error:
+        refused = error
+    assert type(refused).__name__ == "ApplyError", type(refused).__name__
+    assert str(refused) == "the database connection was refused"
+    assert refused.__cause__ is None and refused.__context__ is None
+    assert password not in _refusal_chain(refused)
+    exit_error = _operator_exit()
+    captured = capsys.readouterr()
+    visible = captured.out + captured.err + _refusal_chain(exit_error)
+    assert isinstance(exit_error, SystemExit) and exit_error.code == 2
+    assert captured.err == "refused: the database connection was refused\n"
+    assert "Traceback" not in visible
+    assert password not in visible
+    assert exit_error.__cause__ is None and exit_error.__context__ is None
 
 
 _STAGING_APPROVAL = (
