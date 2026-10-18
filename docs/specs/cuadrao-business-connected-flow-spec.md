@@ -356,7 +356,7 @@ The module can be useful before live certification or supplier selection. It doe
 
 ### Interaction references
 
-Observed on 2026-10-08 in the user's Safari second tab, via recorded Mobbin flows. Screenshots show interaction patterns, not persisted behavior, permission enforcement or current live product guarantees.
+Observed on 2026-10-08 in the user's browser, via recorded reference flows. Screenshots show interaction patterns, not persisted behavior, permission enforcement or current live product guarantees.
 
 | Exact reference | Inspected evidence and limit |
 |---|---|
