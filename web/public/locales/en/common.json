@@ -1101,7 +1101,7 @@
       "upgrade_pro": "Try upgrading to Pro for Free"
     },
     "app": {
-      "title": "App",
+      "title": "Preferences",
       "language": "App language",
       "close_language_modal": "Close language modal",
       "sidebar": "Sidebar",
@@ -1189,16 +1189,6 @@
       "deleted_item_note": "Currently restorable.",
       "no_deleted_items": "No recently deleted items",
       "chat_item": "Chat",
-      "delete_all_conversations": "Delete all conversations",
-      "delete_all_confirm": {
-        "title": "Delete all conversations?",
-        "description": "This moves all active and archived conversations to Recently Deleted. You can restore them before permanent removal.",
-        "confirm": "Delete all conversations"
-      },
-      "delete_all_success_one": "Moved {{count}} conversation to Recently Deleted.",
-      "delete_all_success_other": "Moved {{count}} conversations to Recently Deleted.",
-      "delete_all_empty": "No conversations to delete.",
-      "delete_all_error": "Couldn’t delete conversations. Try again.",
       "security": "Security",
       "usage": "Usage",
       "usage_panel": {
@@ -1233,8 +1223,8 @@
     },
     "help": {
       "title": "Help & Legal",
-      "terms": "Terms of Use",
-      "privacy": "Privacy Policy"
+      "terms": "Terms",
+      "privacy": "Privacy"
     },
     "about": {
       "title": "About",
@@ -2828,7 +2818,7 @@
     "title": "Access",
     "subtitle": "Who can see and prepare your business records. Only you approve.",
     "owner": "Owner",
-    "member": "Reads and prepares",
+    "member": "Member",
     "since": "Since {{date}}",
     "pending_title": "Pending invites",
     "pending_until": "Expires {{date}}",

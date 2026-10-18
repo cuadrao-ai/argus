@@ -897,7 +897,6 @@ export default function ChatInterface() {
     startNewChat,
     adoptGuestConversation,
     handleConversationRemoved,
-    handleAllConversationsDeleted,
   } = useChatSurfaceLifecycle({
     conversationId,
     setHistoryItems,
@@ -909,11 +908,6 @@ export default function ChatInterface() {
         removedConversationId,
         "conversation_delete",
       );
-    },
-    onAllConversationsDeleted: () => {
-      transcriptSessionCache.clearAuthenticatedState();
-      clearConversationActivityTranscript(activityTranscriptReadiness, readyTranscriptConversationIdRef);
-      pendingScrollRestoreRef.current = null;
     },
   });
   const archiveActiveConversation = useArchiveActiveConversation({
@@ -2250,8 +2244,6 @@ export default function ChatInterface() {
         onHistoryMutated={refreshHistory}
         onProfileUpdated={onProfileUpdated}
         onConversationRemoved={handleConversationRemoved}
-        onAllConversationsDeleted={handleAllConversationsDeleted}
-        onToast={showToast}
         onLogout={(options) => {
           void handleLogout(options);
         }}
