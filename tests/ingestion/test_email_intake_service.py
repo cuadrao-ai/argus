@@ -19,7 +19,7 @@ from argus.domain.ingestion.documents.service import (
 from argus.domain.ingestion.documents.store import InMemoryDocumentStore
 from argus.domain.ingestion.email_intake.models import RecipientRoute
 from argus.domain.ingestion.email_intake.provider import EmailProviderError, ReceivedEmail
-from argus.domain.ingestion.email_intake.routing import UNVERIFIED_NOTE
+from argus.domain.ingestion.email_intake.budget import business_day
 from argus.domain.ingestion.email_intake.service import EmailCapture, reader_bytes
 from argus.domain.ingestion.email_intake.store import (
     MAX_ATTEMPTS,
@@ -470,20 +470,25 @@ async def test_authorized_mail_books_when_the_server_says_it_is_aligned():
 
 
 @pytest.mark.asyncio
-async def test_authorized_mail_stays_pending_when_the_server_does_not_align():
+async def test_a_forged_from_with_a_failed_check_goes_to_new_senders_and_counts():
     raw = (
-        b"Authentication-Results: mx.example; dmarc=pass\r\n" + message(("recibo.png", "image/png", png()))
+        b"Authentication-Results: mx.example; dmarc=pass\r\n"
+        + message(("recibo.png", "image/png", png()))
     )
     world = rig(raw)
     _authorize(world)
-    world.provider.authentication = {"spf": "pass", "dkim": "gray", "dmarc": "fail"}
-    delivery = world.enqueue()
+    world.provider.authentication = {"spf": "pass", "dkim": "pass", "dmarc": "fail"}
+    delivery = world.runtime.enqueue_resend(str(uuid4()), (RECIPIENT,))
     assert await world.runtime.next()
     saved = world.store.get(delivery.id, world.route.space_id)
     assert saved.auth_result == "failed"
-    assert saved.review_note == UNVERIFIED_NOTE
+    assert saved.review_note is None
     assert saved.approved is False
-    assert saved.inbox_group == "bandeja"
+    assert saved.cap_exempt is False
+    assert saved.inbox_group == "remitentes_nuevos"
+    assert saved.state == "captured"
+    day = business_day(world.clock())
+    assert world.store._usage[(world.route.id, day)][0] == 1
 
 
 @pytest.mark.asyncio

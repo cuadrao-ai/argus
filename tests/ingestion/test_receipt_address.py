@@ -32,7 +32,6 @@ from argus.domain.ingestion.email_intake.budget import (
 )
 from argus.domain.ingestion.email_intake.routing import (
     FIRST_SCAN_LABEL,
-    UNVERIFIED_NOTE,
     bounce_copy,
     decide,
 )
@@ -268,7 +267,7 @@ def test_a_token_address_without_an_alias_still_routes():
     assert route.alias is None
 
 
-def test_routing_never_approves_and_keeps_unverified_mail_in_the_tray():
+def test_routing_never_approves_and_unverified_mail_goes_to_new_senders():
     new = decide("new", "unknown", first_authorized=False)
     assert (new.group, new.approved, new.skip) == ("remitentes_nuevos", False, False)
     aligned = decide("authorized", "aligned", first_authorized=True)
@@ -278,12 +277,16 @@ def test_routing_never_approves_and_keeps_unverified_mail_in_the_tray():
         True,
         False,
     )
-    pending = decide("authorized", "unknown", first_authorized=False)
-    assert (pending.group, pending.note, pending.skip) == (
-        "bandeja",
-        UNVERIFIED_NOTE,
+    pending = decide("authorized", "failed", first_authorized=True)
+    assert (pending.group, pending.note, pending.skip, pending.first_scan, pending.approved) == (
+        "remitentes_nuevos",
+        None,
+        False,
+        False,
         False,
     )
+    unknown = decide("authorized", "unknown", first_authorized=False)
+    assert (unknown.group, unknown.approved) == ("remitentes_nuevos", False)
     assert FIRST_SCAN_LABEL == "Prueba recibida"
 
 
@@ -394,13 +397,15 @@ async def test_authorized_mail_is_not_counted_or_held_when_the_cap_is_full():
     world.store.upsert_sender(
         world.route.space_id, "address", "proveedor@example.test", "authorized"
     )
+    world.provider.authentication = {"spf": "pass", "dkim": "pass", "dmarc": "pass"}
     incoming = world.runtime.enqueue_resend(str(uuid4()), (RECIPIENT,))
     assert await world.runtime.next()
     saved = world.store.get(incoming.id, world.route.space_id)
     assert saved.state == "captured"
     assert saved.cap_exempt is True
     assert saved.inbox_group == "bandeja"
-    assert saved.review_note == UNVERIFIED_NOTE
+    assert saved.review_note is None
+    assert saved.auth_result == "aligned"
     assert saved.first_scan is True
     assert saved.approved is False
     day = business_day(world.clock())

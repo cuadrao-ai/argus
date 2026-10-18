@@ -604,6 +604,27 @@ def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runti
     assert "ferreterianunez@" not in answer.text
 
 
+def test_alias_lookups_are_limited_for_the_owner(alice: Owner, runtime) -> None:  # noqa: F811
+    from argus.api.routers import email_intake as routes
+
+    limiter = getattr(routes, "_alias_lookup_limiter", None)
+    if limiter is not None:
+        limiter.reset()
+    try:
+        statuses = [
+            alice.get("/email/availability", alias=f"nombre{i:02d}").status_code
+            for i in range(30)
+        ]
+        suggestion = alice.get("/email/suggestion", name="Ferreteria Gomez")
+        assert statuses == [200] * 30
+        assert suggestion.status_code == 429, suggestion.text
+        assert suggestion.json()["code"] == "email_alias_lookup_limited"
+    finally:
+        limiter = getattr(routes, "_alias_lookup_limiter", None)
+        if limiter is not None:
+            limiter.reset()
+
+
 def test_the_owner_removes_a_sender(alice: Owner, runtime) -> None:  # noqa: F811
     created = alice.post(
         "/email/senders",
@@ -713,6 +734,13 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
         claimed,
         EmailDeliveryPart("1.2", "recibo.png", "image/png", "captured", str(document_id), None),
     )
+    store.stamp_route(
+        claimed,
+        inbox_group="bandeja",
+        auth_result="aligned",
+        review_note=None,
+        first_scan=False,
+    )
     store.finish(claimed, "captured")
 
     class Recording:
@@ -756,3 +784,81 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
     assert opened.json()["detail"]["code"] == "expense_blocked"
     assert service.calls == [document_id]
     assert store.get(delivery.id, route.space_id).approved is False
+
+
+def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
+    alice: Owner, runtime
+) -> None:  # noqa: F811
+    from argus.api.business_drafts import DraftContext, require_drafts
+    from argus.api.routers.business_drafts import router
+    from argus.domain.business.contracts.actions import Refused
+    from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
+    from fastapi import FastAPI
+
+    store = runtime.store
+    route = _route_for(store, alice, "recibos-approve2@recibos.example.test")
+    document_id = uuid4()
+    store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=route.space_id,
+        principal_id=route.principal_id,
+    )
+    claimed = store.claim()
+    store.update(claimed, sender="caja@tienda.test")
+    store.put_part(
+        claimed,
+        EmailDeliveryPart(
+            "1.2", "recibo.png", "image/png", "captured", str(document_id), None
+        ),
+    )
+    store.stamp_route(
+        claimed,
+        inbox_group="remitentes_nuevos",
+        auth_result="failed",
+        review_note=None,
+        first_scan=False,
+    )
+    store.finish(claimed, "captured")
+    alice.post(
+        "/email/senders",
+        {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},
+    )
+
+    class Recording:
+        def __init__(self) -> None:
+            self.calls: list = []
+
+        def context_for_draft(self, actor_id, draft_id, **_pin):  # noqa: ANN001
+            return object()
+
+        def approve(self, context, draft_id, request, key):  # noqa: ANN001
+            self.calls.append(draft_id)
+            return Refused(outcome="invalid_input", code="expense_blocked")
+
+    service = Recording()
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):  # noqa: ANN001
+        request.state.request_id = "approve-forged"
+        return await call_next(request)
+
+    app.include_router(router)
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(
+        service, uuid4(), route.space_id
+    )
+    body = {"version": 1, "action": "record_expense"}
+    url = f"/business/drafts/{document_id}/approve"
+    with TestClient(app) as drafts:
+        forged = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
+        assert forged.status_code == 403, forged.text
+        assert forged.json()["detail"]["code"] == "email_sender_unauthorized"
+        assert service.calls == []
+        runtime.store = None
+        down = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
+    assert down.status_code == 503, down.text
+    assert down.json()["detail"]["code"] == "email_store_unavailable"
+    assert service.calls == []

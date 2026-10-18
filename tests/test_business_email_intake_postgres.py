@@ -438,3 +438,18 @@ def test_address_and_sender_changes_leave_an_audit_row(rig):
     ]
     assert {event.actor_id for event in events} == {actor}
     assert all(event.created_at is not None for event in events)
+
+
+def test_deleting_the_space_keeps_the_alias_taken(rig):
+    alias = "colmadodonaines"
+    store = rig["store"]
+    store.change_address(
+        rig["route"].id,
+        alias=alias,
+        alias_normalized=alias,
+        recipient=f"{alias}@recibos.example.test",
+        review_required=False,
+    )
+    with rig["pool"].connection() as db:
+        db.execute("delete from public.spaces where id=%s", (rig["route"].space_id,))
+    assert store.alias_taken(alias) is True

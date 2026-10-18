@@ -309,6 +309,17 @@ def test_the_own_business_routes_and_the_owner_channels_refuse_a_chosen_grant(
         403,
         "business_permission_denied",
     )
+    changed = bob.post("/email/address", {"alias": "otroalias"}, **headers)
+    assert (changed.status_code, changed.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
+    for path in ("/email/availability", "/email/suggestion"):
+        refused = get_as(bob, path, grant, alias="ferreterianunez", name="Ferreteria")
+        assert (refused.status_code, refused.json()["code"]) == (
+            403,
+            "business_permission_denied",
+        ), path
 
 
 def test_whatsapp_stays_the_owners_channel_under_a_chosen_grant(
