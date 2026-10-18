@@ -350,6 +350,13 @@ The waitlist sender refuses to start without it (`marketing/lib/waitlist/runtime
 
 ### 4. Auth email hook
 
+Must-fix before `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` is turned on in any environment.
+
+1. Leave the flag off. The Send Email hook schema in `web/server/emails/auth-actions.tsx` does not accept `invite` on `email_action_type`. With the hook enabled, Supabase hands every auth email to the hook, so an invite fails and nobody gets one.
+2. Before enabling, add `invite` to the hook schema and renderer. Use `/auth/confirm?token_hash=...&type=invite`. Add a test.
+3. Confirm that PR #1267 has landed, so the hook's signup and magic-link mails are code only.
+4. Read back that Supabase Authentication, Hooks, Send Email stays disabled until steps 2 and 3 are done.
+
 Preconditions, all required before anyone enables the hook:
 
 1. The postal-address gate above has passed.
@@ -358,7 +365,7 @@ Preconditions, all required before anyone enables the hook:
 4. Read back, without pasting secrets: `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` is absent or `false`; production Supabase's Send Email Hook is not pointed at the app; `mailer` settings were not changed by this promotion. Absence of the flag is what the handler treats as off (`=== "true"`). The name is not in the business-web allowed set, so putting it on a service the audit calls `argus-app` fails the audit until a reviewed profile change allows it.
 5. Staging already sends auth mail while yaml says the flag is `false`. [Item 6](#render-services-and-promotion-day-items) keeps both options open. Option A is the dashboard flag `true` with the hook secret set, mail from `Cuadrao <hola@mail.cuadrao.ai>`. Option B is the Supabase Send Email hook off, with Supabase or custom SMTP sending. The tell is the From address on a fresh-account test email, confirmed outside this PR. Do not copy a sender into this checklist.
 
-Enablement stays an open item on this tree. `handleAuthEmailHook` returns 503 unless project ref, Supabase URL, app origin, expiry, and `RENDER_SERVICE_ID` all equal the staging constants in `STAGING_AUTH_EMAIL`: project `skedzwocnmrhfigiwyzi`, origin `https://cuadrao-web-staging.onrender.com`, expiry `3600`, and Render service `srv-db5ihr7lot8c73f3b3h0`. Pointing production Supabase (`lgdhvepyrzbnscqssgqq`, origin `https://arguschat.ai`) at `POST /api/auth/send-email` would replace Auth delivery and then fail it. Leave the hook off through the deploy. A later enablement needs a reviewed code change that accepts the production binding, plus the postal-address gate, plus the deliverability readback, plus the From address from that test email. That work is [open question 5](#open-questions-for-the-founder).
+Enablement stays an open item on this tree. `handleAuthEmailHook` returns 503 unless project ref, Supabase URL, app origin, expiry, and `RENDER_SERVICE_ID` all equal the staging constants in `STAGING_AUTH_EMAIL`: project `skedzwocnmrhfigiwyzi`, origin `https://cuadrao-web-staging.onrender.com`, expiry `3600`, and Render service `srv-db5ihr7lot8c73f3b3h0`. Pointing production Supabase (`lgdhvepyrzbnscqssgqq`, origin `https://arguschat.ai`) at `POST /api/auth/send-email` would replace Auth delivery and then fail it. Leave the hook off through the deploy. A later enablement needs the must-fix above, a reviewed code change that accepts the production binding, the postal-address gate, the deliverability readback, and the From address from that test email. That work is [open question 5](#open-questions-for-the-founder).
 
 ### 5. Deploy order
 

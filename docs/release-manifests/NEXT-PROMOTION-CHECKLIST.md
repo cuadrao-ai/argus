@@ -8,6 +8,20 @@ section
   on dashboard `cuadrao-api`. The check is the name and on/off only. Never set
   or change it on production without the founder's explicit approval. See
   [Dashboard checks (founder, at promotion)](../PRIVATE_LAUNCH_RUNBOOK.md#dashboard-checks-founder-at-promotion).
+- Must-fix before `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` is turned on in any
+  environment. Do not change production from this item. The same steps are in
+  [Auth email hook](../PRIVATE_LAUNCH_RUNBOOK.md#4-auth-email-hook).
+
+  1. Leave the flag off. The Send Email hook schema in
+     `web/server/emails/auth-actions.tsx` does not accept `invite` on
+     `email_action_type`. With the hook enabled, Supabase hands every auth
+     email to the hook, so an invite fails and nobody gets one.
+  2. Before enabling, add `invite` to the hook schema and renderer. Use
+     `/auth/confirm?token_hash=...&type=invite`. Add a test.
+  3. Confirm that PR #1267 has landed, so the hook's signup and magic-link
+     mails are code only.
+  4. Read back that Supabase Authentication, Hooks, Send Email stays disabled
+     until steps 2 and 3 are done.
 
 This file remains the historical preparation checklist for eval identity,
 local rehearsal, and spending records.
