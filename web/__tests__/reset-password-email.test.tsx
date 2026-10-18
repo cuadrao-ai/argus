@@ -1,3 +1,5 @@
+import { installEmailFixture } from "./helpers/email-fixture";
+installEmailFixture();
 import assert from "node:assert/strict";
 import { test } from "bun:test";
 import { renderResetPasswordEmail } from "../server/emails/reset-password";

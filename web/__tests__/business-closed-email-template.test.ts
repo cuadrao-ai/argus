@@ -1,3 +1,5 @@
+import { installEmailFixture } from "./helpers/email-fixture";
+installEmailFixture();
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -23,7 +25,7 @@ test("Python artifact is derived from the renderer and supports single-pass lite
   expect(result.status).toBe(0);
   const artifact = JSON.parse(readFileSync(new URL('../../src/argus/domain/business/business_closed_email.generated.json', import.meta.url), 'utf8'));
   expect(artifact.schemaVersion).toBe(1);
-  const replacements = new Map(Object.entries(artifact.tokens).map(([key, token]) => [token, key === 'assetOrigin' ? 'https://assets.example.test' : data[key as keyof typeof data]]));
+  const replacements = new Map(Object.entries(artifact.tokens).map(([key, token]) => [token, key === 'assetOrigin' ? 'https://assets.example.test' : key === 'postalAddress' ? process.env.MARKETING_POSTAL_ADDRESS : data[key as keyof typeof data]]));
   const pattern = new RegExp([...replacements.keys()].map(value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
   const text = artifact.text.replace(pattern, (token:string) => replacements.get(token));
   expect(text).toBe(renderBusinessClosedEmail(data).text);
