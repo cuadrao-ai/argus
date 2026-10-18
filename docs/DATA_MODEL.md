@@ -170,7 +170,14 @@ capture; a durable delivery queue; one row per attachment part.
 business_email_routes
 business_email_deliveries
 business_email_parts
+business_email_retired_aliases
+business_email_senders
 ```
+
+A route may carry one current alias. Changing it appends the previous
+recipient to `business_email_retired_aliases` and leaves existing deliveries
+on the route id. `business_email_senders` is one rule per Business, kind, and
+value. The daily allowance day is America/Santo_Domingo.
 
 Service-role only, part of the hosted Business beta (no flag):
 ```text

@@ -291,6 +291,16 @@ def test_the_own_business_routes_and_the_owner_channels_refuse_a_chosen_grant(
         403,
         "business_permission_denied",
     )
+    assert get_as(bob, "/email/senders", grant).status_code == 200
+    posted = bob.post(
+        "/email/senders",
+        {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},
+        **headers,
+    )
+    assert (posted.status_code, posted.json()["code"]) == (
+        403,
+        "business_permission_denied",
+    )
 
 
 def test_whatsapp_stays_the_owners_channel_under_a_chosen_grant(

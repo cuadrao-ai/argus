@@ -6,6 +6,7 @@ import asyncio
 import ipaddress
 import json
 from dataclasses import dataclass
+from email.utils import parseaddr
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -41,6 +42,24 @@ class ResendReceivingClient:
         self._api_key = api_key
         self._hosts = frozenset(allowed_download_hosts)
 
+    async def preview_from(self, email_id: str) -> str | None:
+        """Sender address from provider metadata. This read is not metered."""
+
+        try:
+            if str(UUID(email_id)) != email_id:
+                return None
+        except (ValueError, AttributeError):
+            return None
+        try:
+            payload = await self._get(self._metadata_url(email_id), authenticated=True)
+            sender = json.loads(payload).get("from")
+        except (EmailProviderError, ValueError, TypeError):
+            return None
+        if not isinstance(sender, str):
+            return None
+        address = parseaddr(sender)[1].strip().lower()
+        return address or None
+
     async def raw_message(
         self, email_id: str, *, budget: FetchBudget | None = None
     ) -> ReceivedEmail:
@@ -60,9 +79,7 @@ class ResendReceivingClient:
         except (ValueError, AttributeError):
             raise EmailProviderError("invalid_email_id") from None
         metadata_bytes = await self._get(
-            f"https://api.resend.com/emails/receiving/{email_id}?html_format=cid",
-            authenticated=True,
-            budget=budget,
+            self._metadata_url(email_id), authenticated=True, budget=budget
         )
         try:
             metadata = json.loads(metadata_bytes)
@@ -86,6 +103,9 @@ class ResendReceivingClient:
         if not raw:
             raise EmailProviderError("empty_email")
         return ReceivedEmail(raw=raw, recipients=tuple(recipients))
+
+    def _metadata_url(self, email_id: str) -> str:
+        return f"https://api.resend.com/emails/receiving/{email_id}?html_format=cid"
 
     def _validate_download(self, url: str) -> None:
         try:

@@ -127,7 +127,12 @@ def test_owner_sees_readiness_and_in_memory_app_cannot_mint_an_address(
 ) -> None:  # noqa: F811
     status = alice.get("/email")
     assert status.status_code == 200, status.text
-    assert status.json() == {"enabled": False, "receiving_address": None}
+    assert status.json() == {
+        "enabled": False,
+        "receiving_address": None,
+        "alias": None,
+        "review_required": False,
+    }
     assert alice.get("/email/deliveries").json() == {"items": []}
     assert alice.get(f"/email/deliveries/{uuid4()}").status_code == 404
     created = alice.post("/email", key=str(uuid4()))
@@ -460,7 +465,7 @@ def test_capped_email_waiting_survives_real_api_serialization(alice, runtime, co
     from dataclasses import asdict, replace
     from datetime import datetime, timedelta, timezone
 
-    from argus.domain.ingestion.email_intake.budget import next_utc_day
+    from argus.domain.ingestion.email_intake.budget import next_business_day
     from argus.domain.ingestion.email_intake.store import _delivery
 
     now = datetime.now(timezone.utc)
@@ -484,10 +489,10 @@ def test_capped_email_waiting_survives_real_api_serialization(alice, runtime, co
     )
     store.defer_budget(store.claim(delivery_id=item.id), code)
     waiting_item = store.get(item.id, route.space_id)
-    assert _delivery(asdict(waiting_item)).available_at == next_utc_day(now)
+    assert _delivery(asdict(waiting_item)).available_at == next_business_day(now)
     expected = {
         "reason": "daily_budget",
-        "retry_at": next_utc_day(now).isoformat().replace("+00:00", "Z"),
+        "retry_at": next_business_day(now).isoformat().replace("+00:00", "Z"),
     }
     for payload in (
         alice.get("/email/deliveries").json()["items"][0],
@@ -504,9 +509,51 @@ def test_capped_email_waiting_survives_real_api_serialization(alice, runtime, co
     due = alice.get(f"/email/deliveries/{item.id}").json()
     assert due["waiting"] is None and due["error_code"] is None
     assert store.get(item.id, route.space_id).error_code == code
-    store._available[item.id] = next_utc_day(now)
+    store._available[item.id] = next_business_day(now)
     for state in ("processing", "partial", "rejected", "captured"):
         store._deliveries[item.id] = replace(waiting_item, state=state)
         assert alice.get(f"/email/deliveries/{item.id}").json()["waiting"] is None
     store._deliveries[item.id] = replace(waiting_item, error_code=None)
     assert alice.get(f"/email/deliveries/{item.id}").json()["waiting"] is None
+
+
+def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runtime):  # noqa: F811
+    body = {"kind": "address", "value": "Caja@Tienda.test", "status": "authorized"}
+    created = alice.post("/email/senders", body)
+    assert created.status_code == 201, created.text
+    replay = alice.post("/email/senders", body)
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["id"] == created.json()["id"]
+    refused = alice.post(
+        "/email/senders",
+        {"kind": "domain", "value": "gmail.com", "status": "authorized"},
+    )
+    assert (refused.status_code, refused.json()["code"]) == (
+        422,
+        "email_sender_domain_refused",
+    )
+    listed = alice.get("/email/senders").json()["items"]
+    assert listed == [
+        {
+            "id": created.json()["id"],
+            "kind": "address",
+            "value": "caja@tienda.test",
+            "status": "authorized",
+        }
+    ]
+    taken = runtime.store.create_route(
+        recipient="ferreterianunez@recibos.example.test",
+        space_id=str(uuid4()),
+        principal_id=str(uuid4()),
+        granted_by=str(uuid4()),
+        grant_id=str(uuid4()),
+        alias="ferreterianunez",
+        alias_normalized="ferreterianunez",
+    )
+    answer = alice.get("/email/availability", alias="ferreterianunez")
+    assert answer.status_code == 200, answer.text
+    payload = answer.json()
+    assert payload["available"] is False
+    assert payload["message"] == "Ese nombre no está disponible. Prueba otro."
+    assert taken.recipient not in answer.text
+    assert "ferreterianunez@" not in answer.text

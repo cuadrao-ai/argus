@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-import secrets
 import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Body, Depends, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
@@ -28,13 +27,21 @@ from argus.api.ingestion import ingestion_hub
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.ingestion.email_intake.addressing import AliasTaken
+from argus.domain.ingestion.email_intake.alias import (
+    ALIAS_UNAVAILABLE,
+    inspect_alias,
+    suggest_alias,
+)
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
+from argus.domain.ingestion.email_intake.routing import FIRST_SCAN_LABEL
 from argus.domain.ingestion.email_intake.service import EmailCapture
 from argus.domain.ingestion.email_intake.signatures import (
     WebhookSignatureError,
     verify_webhook,
 )
 from argus.domain.ingestion.email_intake.store import RecipientTaken
+from argus.domain.ingestion.email_intake.words import domain_is_free
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 
 webhook_router = APIRouter(prefix="/webhooks/resend", tags=["business-email"])
@@ -67,13 +74,14 @@ class ReceivedEvent(BaseModel):
     data: ReceivedData
 
 
-def _problem(request: Request, status: int, code: str, detail: str):
+def _problem(request: Request, status: int, code: str, detail: str, context=None):  # noqa: ANN001
     return problem(
         request,
         status_code=status,
         code=code,
         title=detail,
         detail=detail,
+        context=context,
         headers=NO_STORE,
     )
 
@@ -151,6 +159,8 @@ def _readiness(runtime: EmailCapture, space_id: str) -> dict[str, Any]:
     return {
         "enabled": bool(usable and webhook_enabled() and runtime.provider is not None),
         "receiving_address": route.recipient if usable else None,
+        "alias": route.alias if usable else None,
+        "review_required": bool(route.review_required) if usable else False,
     }
 
 
@@ -178,30 +188,19 @@ def _require_usable(request: Request, runtime: EmailCapture, route) -> None:  # 
         raise _problem(request, 409, error.code, detail) from None
 
 
-def _receiving_address(domain: str) -> str:
-    return f"recibos-{secrets.token_hex(16)}@{domain}"
+class AliasBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    alias: str = Field(min_length=1, max_length=80)
 
 
-@router.post("", status_code=201)
-def create_receiving_address(
-    request: Request,
-    response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_document_write)],
-) -> dict[str, Any]:
-    """One address per Business. The Business owner owns the captured documents;
-    the caller's own live grant is the authority checked before each capture.
-    A replay or a concurrent create returns the one live address."""
+class SenderBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    kind: Literal["address", "domain"]
+    value: str = Field(min_length=3, max_length=254)
+    status: Literal["authorized", "blocked"]
 
-    # The address is the owner's to create or stop; a grantee only sees it.
-    owner_only(request, context)
-    response.headers.update(NO_STORE)
-    runtime = _runtime(request)
-    space_id = context.scope.owner.space_id
-    existing = runtime.store.route_for_space(space_id)
-    if existing is not None:
-        _require_usable(request, runtime, existing)
-        response.status_code = 200
-        return _readiness(runtime, space_id)
+
+def _configured_domain(request: Request) -> str:
     domain = EmailIntakeSettings().receiving_domain.strip().lower()
     pool = getattr(request.app.state, "financial_accounts_pool", None)
     hub = ingestion_hub()
@@ -217,6 +216,65 @@ def create_receiving_address(
             "email_receiving_unconfigured",
             "Email receiving is not configured.",
         )
+    return domain
+
+
+def _alias_report(runtime: EmailCapture, raw: str, *, except_route_id: str | None = None):
+    return inspect_alias(
+        raw,
+        lambda alias: runtime.store.alias_taken(alias, except_route_id=except_route_id),
+    )
+
+
+def _refuse_alias(request: Request, report: dict) -> None:
+    if report["status"] == "invalid":
+        raise _problem(
+            request,
+            422,
+            "email_alias_invalid",
+            "This receipt name is not valid.",
+        )
+    if not report["available"]:
+        logger.bind(route_id=None).warning("email_alias_unavailable")
+        raise _problem(
+            request,
+            422,
+            "email_alias_unavailable",
+            ALIAS_UNAVAILABLE,
+            context={"suggestions": report["suggestions"]},
+        )
+
+
+@router.post("", status_code=201)
+def create_receiving_address(
+    request: Request,
+    response: Response,
+    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    body: Annotated[AliasBody | None, Body()] = None,
+) -> dict[str, Any]:
+    """One address per Business. The Business owner owns the captured documents;
+    the caller's own live grant is the authority checked before each capture.
+    A replay or a concurrent create returns the one live address."""
+
+    # The address is the owner's to create or stop; a grantee only sees it.
+    owner_only(request, context)
+    response.headers.update(NO_STORE)
+    runtime = _runtime(request)
+    space_id = context.scope.owner.space_id
+    existing = runtime.store.route_for_space(space_id)
+    if existing is not None:
+        _require_usable(request, runtime, existing)
+        response.status_code = 200
+        return _readiness(runtime, space_id)
+    domain = _configured_domain(request)
+    if body is None or not body.alias.strip():
+        raise _problem(
+            request, 422, "email_alias_required", "A receipt name is required."
+        )
+    report = _alias_report(runtime, body.alias)
+    _refuse_alias(request, report)
+    pool = request.app.state.financial_accounts_pool
+    hub = ingestion_hub()
     try:
         actor = BusinessActions(pool, hub.sink).resolve_actor(
             TrustedActor(
@@ -229,24 +287,25 @@ def create_receiving_address(
         raise _problem(
             request, 403, error.code, "Your current access cannot receive email."
         ) from None
-    # One initial attempt and at most three retries, each with fresh entropy.
-    for _ in range(4):
-        try:
-            route = runtime.store.create_route(
-                recipient=_receiving_address(domain),
-                space_id=space_id,
-                principal_id=actor.owner_id,
-                granted_by=context.scope.person_id,
-                grant_id=str(actor.grant_id),
-            )
-            break
-        except RecipientTaken:
-            # A rejected insert has no route id; never log its bearer address.
-            logger.bind(route_id=None).warning("email_route_collision")
-    else:
-        logger.bind(route_id=None).error("email_route_collision_exhausted")
+    try:
+        route = runtime.store.create_route(
+            recipient=f"{report['alias']}@{domain}",
+            space_id=space_id,
+            principal_id=actor.owner_id,
+            granted_by=context.scope.person_id,
+            grant_id=str(actor.grant_id),
+            alias=report["alias"],
+            alias_normalized=report["alias"],
+            review_required=report["review_required"],
+        )
+    except (AliasTaken, RecipientTaken):
+        logger.bind(route_id=None).warning("email_alias_unavailable")
         raise _problem(
-            request, 503, "email_route_unavailable", "Email receiving is unavailable."
+            request,
+            422,
+            "email_alias_unavailable",
+            ALIAS_UNAVAILABLE,
+            context={"suggestions": report["suggestions"]},
         ) from None
     if route.granted_by != context.scope.person_id:
         _require_usable(request, runtime, route)
@@ -262,6 +321,178 @@ def stop_receiving(
     owner_only(request, context)
     _runtime(request).store.deactivate_routes(context.scope.owner.space_id)
     return Response(status_code=204, headers=NO_STORE)
+
+
+def _public_alias(report: dict) -> dict[str, Any]:
+    return {
+        "available": report["available"],
+        "review_required": report["review_required"],
+        "suggestions": report["suggestions"],
+        "message": report["message"],
+    }
+
+
+@router.get("/availability")
+def alias_availability(
+    request: Request,
+    response: Response,
+    context: Annotated[BusinessContext, Depends(require_business)],
+    alias: Annotated[str, Query(min_length=1, max_length=80)],
+) -> dict[str, Any]:
+    response.headers.update(NO_STORE)
+    runtime = _runtime(request)
+    current = runtime.store.route_for_space(context.scope.owner.space_id)
+    return _public_alias(
+        _alias_report(
+            runtime, alias, except_route_id=current.id if current is not None else None
+        )
+    )
+
+
+@router.get("/suggestion")
+def alias_suggestion(
+    request: Request,
+    response: Response,
+    context: Annotated[BusinessContext, Depends(require_business)],
+    name: Annotated[str | None, Query(max_length=80)] = None,
+) -> dict[str, Any]:
+    response.headers.update(NO_STORE)
+    runtime = _runtime(request)
+    chosen = (name or runtime.store.space_name(context.scope.owner.space_id) or "").strip()
+    if not chosen:
+        raise _problem(
+            request, 422, "email_alias_name_required", "A business name is required."
+        )
+    suggested = suggest_alias(chosen)
+    return {"alias": suggested, **_public_alias(_alias_report(runtime, suggested))}
+
+
+@router.post("/address")
+def change_receiving_address(
+    request: Request,
+    response: Response,
+    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    body: AliasBody,
+) -> dict[str, Any]:
+    """Replace the live alias. The old alias is reserved and deliveries stay put."""
+
+    owner_only(request, context)
+    response.headers.update(NO_STORE)
+    runtime = _runtime(request)
+    space_id = context.scope.owner.space_id
+    current = runtime.store.route_for_space(space_id)
+    if current is None:
+        raise _problem(
+            request, 409, "email_route_unavailable", "Email receiving is off."
+        )
+    _require_usable(request, runtime, current)
+    domain = _configured_domain(request)
+    report = _alias_report(runtime, body.alias, except_route_id=current.id)
+    _refuse_alias(request, report)
+    try:
+        runtime.store.change_address(
+            current.id,
+            alias=report["alias"],
+            alias_normalized=report["alias"],
+            recipient=f"{report['alias']}@{domain}",
+            review_required=report["review_required"],
+        )
+    except AliasTaken:
+        logger.bind(route_id=current.id).warning("email_alias_unavailable")
+        raise _problem(
+            request,
+            422,
+            "email_alias_unavailable",
+            ALIAS_UNAVAILABLE,
+            context={"suggestions": report["suggestions"]},
+        ) from None
+    return _readiness(runtime, space_id)
+
+
+def _sender_value(kind: str, value: str) -> str | None:
+    cleaned = value.strip().lower()
+    if kind == "domain":
+        if "@" in cleaned or " " in cleaned or "." not in cleaned:
+            return None
+        return cleaned
+    if cleaned.count("@") != 1 or " " in cleaned:
+        return None
+    local, domain = cleaned.split("@", 1)
+    if not local or not domain or "." not in domain:
+        return None
+    return cleaned
+
+
+@router.get("/senders")
+def list_senders(
+    request: Request,
+    response: Response,
+    context: Annotated[BusinessContext, Depends(require_business)],
+) -> dict[str, Any]:
+    response.headers.update(NO_STORE)
+    runtime = _runtime(request)
+    return {
+        "items": [
+            {"id": item.id, "kind": item.kind, "value": item.value, "status": item.status}
+            for item in runtime.store.list_senders(context.scope.owner.space_id)
+        ]
+    }
+
+
+@router.post("/senders", status_code=201)
+def authorize_sender(
+    request: Request,
+    response: Response,
+    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    body: SenderBody,
+) -> dict[str, Any]:
+    owner_only(request, context)
+    response.headers.update(NO_STORE)
+    value = _sender_value(body.kind, body.value)
+    if value is None:
+        raise _problem(request, 422, "email_sender_invalid", "That sender is not valid.")
+    if body.kind == "domain" and domain_is_free(value):
+        raise _problem(
+            request,
+            422,
+            "email_sender_domain_refused",
+            "That domain cannot be authorized as a whole.",
+        )
+    runtime = _runtime(request)
+    space_id = context.scope.owner.space_id
+    existed = any(
+        item.kind == body.kind and item.value == value
+        for item in runtime.store.list_senders(space_id)
+    )
+    rule = runtime.store.upsert_sender(space_id, body.kind, value, body.status)
+    if existed:
+        response.status_code = 200
+    return {"id": rule.id, "kind": rule.kind, "value": rule.value, "status": rule.status}
+
+
+@router.get("/inbox")
+def inbox(
+    request: Request,
+    response: Response,
+    context: Annotated[BusinessContext, Depends(require_business)],
+) -> dict[str, Any]:
+    response.headers.update(NO_STORE)
+    runtime = _runtime(request)
+    space_id = context.scope.owner.space_id
+    relations = runtime.store.membership(space_id)
+    grouped = {"remitentes_nuevos": [], "bandeja": []}
+    for item in runtime.store.list(space_id, limit=200):
+        if item.inbox_group not in grouped:
+            continue
+        view = _group(runtime, item, relations=relations)
+        view["notice"] = FIRST_SCAN_LABEL if item.first_scan else None
+        grouped[item.inbox_group].append(view)
+    return {
+        "groups": [
+            {"id": "remitentes_nuevos", "items": grouped["remitentes_nuevos"]},
+            {"id": "bandeja", "items": grouped["bandeja"]},
+        ]
+    }
 
 
 def _group(
@@ -286,8 +517,9 @@ def _group(
         "principal_id",
         "lease_token",
         "attempts",
+        "cap_exempt",
     ):
-        result.pop(key)
+        result.pop(key, None)
     if not detail:
         result.pop("text_body")
     budget_limited = delivery.error_code in (

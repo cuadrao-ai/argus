@@ -6,7 +6,7 @@ upserted per attachment so a retry resumes only what is still pending."""
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import fields, replace
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 from threading import RLock
@@ -15,29 +15,37 @@ from uuid import uuid4
 
 from loguru import logger
 from psycopg import Cursor
-from psycopg.errors import UniqueViolation
+from psycopg.errors import RaiseException, UniqueViolation
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+from argus.domain.ingestion.email_intake.addressing import (
+    MemoryAddressing,
+    PostgresAddressing,
+)
 from argus.domain.ingestion.email_intake.budget import (
     DailyEmailBudget,
     EmailBudgetWait,
     FetchReservation,
+    business_day,
     log_budget_wait,
-    next_utc_day,
+    next_business_day,
 )
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
 from argus.domain.ingestion.email_intake.models import (
     EmailDelivery,
     EmailDeliveryPart,
     RecipientRoute,
+    delivery_from_row,
+    route_from_row,
 )
 
 MAX_ATTEMPTS = 8
 LEASE = timedelta(seconds=120)
 FINAL_STATES = ("partial", "captured", "rejected")
+BUDGET_CODES = ("email_daily_message_budget", "email_daily_byte_budget")
 
 
 class EmailRelation(TypedDict):
@@ -123,56 +131,68 @@ class EmailStore(Protocol):
 _UPDATABLE = {"original_document_id", "subject", "sender", "sent_at", "text_body"}
 
 
-def _delivery(row: dict) -> EmailDelivery:
-    values = {field.name: row[field.name] for field in fields(EmailDelivery)}
-    for key in (
-        "id",
-        "route_id",
-        "space_id",
-        "principal_id",
-        "original_document_id",
-        "lease_token",
-    ):
-        if values[key] is not None:
-            values[key] = str(values[key])
-    values["recipients"] = tuple(values["recipients"])
-    return EmailDelivery(**values)
+_delivery = delivery_from_row
+_route = route_from_row
 
 
-def _route(row: dict) -> RecipientRoute:
-    return RecipientRoute(
-        **{
-            key: value if key == "active" else str(value)
-            for key, value in row.items()
-            if key in {field.name for field in fields(RecipientRoute)}
-        }
-    )
-
-
-class PostgresEmailStore:
+class PostgresEmailStore(PostgresAddressing):
     def __init__(self, pool: ConnectionPool, budget: DailyEmailBudget | None = None):
         self.pool = pool
         self.budget = budget or EmailIntakeSettings().daily_budget
 
-    def create_route(self, *, recipient, space_id, principal_id, granted_by, grant_id):
+    def create_route(
+        self,
+        *,
+        recipient,
+        space_id,
+        principal_id,
+        granted_by,
+        grant_id,
+        alias=None,
+        alias_normalized=None,
+        review_required=False,
+    ):
         """The Business's live route: the new one, or the one a concurrent create won."""
 
+        from argus.domain.ingestion.email_intake.addressing import AliasTaken
+
+        if self.matching_retired((recipient,)):
+            raise RecipientTaken()
+        if alias_normalized and self.alias_taken(alias_normalized):
+            raise AliasTaken()
         try:
             with (
                 self.pool.connection() as connection,
                 connection.cursor(row_factory=dict_row) as cursor,
             ):
                 row = cursor.execute(
-                    "insert into public.business_email_routes(recipient,space_id,principal_id,granted_by,grant_id) "
-                    "values(%s,%s,%s,%s,%s) returning *",
-                    (recipient, space_id, principal_id, granted_by, grant_id),
+                    "insert into public.business_email_routes("
+                    "recipient,space_id,principal_id,granted_by,grant_id,alias,alias_normalized,review_required) "
+                    "values(%s,%s,%s,%s,%s,%s,%s,%s) returning *",
+                    (
+                        recipient,
+                        space_id,
+                        principal_id,
+                        granted_by,
+                        grant_id,
+                        alias,
+                        alias_normalized,
+                        review_required,
+                    ),
                 ).fetchone()
                 return _route(row)
         except UniqueViolation as error:
-            if error.diag.constraint_name == "business_email_routes_recipient_key":
+            name = error.diag.constraint_name
+            if name == "business_email_routes_recipient_key":
                 raise RecipientTaken() from None
-            if error.diag.constraint_name != "business_email_routes_one_active":
+            if name == "business_email_routes_alias_normalized":
+                raise AliasTaken() from None
+            if name != "business_email_routes_one_active":
                 raise
+        except RaiseException as error:
+            if "email_alias_retired" not in str(error):
+                raise
+            raise RecipientTaken() from None
         existing = self.route_for_space(space_id)
         if existing is None:
             raise LookupError("email_route_unavailable")
@@ -232,6 +252,7 @@ class PostgresEmailStore:
         space_id=None,
         principal_id=None,
         reject_code=None,
+        bounce_text=None,
     ):
         with (
             self.pool.connection() as connection,
@@ -239,8 +260,9 @@ class PostgresEmailStore:
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             row = cursor.execute(
-                "insert into public.business_email_deliveries(provider,external_id,recipients,route_id,space_id,principal_id,state,error_code) "
-                "values(%s,%s,%s,%s,%s,%s,%s,%s) on conflict(provider,external_id) do nothing returning *",
+                "insert into public.business_email_deliveries("
+                "provider,external_id,recipients,route_id,space_id,principal_id,state,error_code,bounce_text) "
+                "values(%s,%s,%s,%s,%s,%s,%s,%s,%s) on conflict(provider,external_id) do nothing returning *",
                 (
                     provider,
                     external_id,
@@ -250,6 +272,7 @@ class PostgresEmailStore:
                     principal_id,
                     "rejected" if reject_code else "received",
                     reject_code,
+                    bounce_text,
                 ),
             ).fetchone()
             if row is None:
@@ -261,33 +284,65 @@ class PostgresEmailStore:
                 )
             if reject_code:
                 logger.bind(route_id=route_id).warning(reject_code)
-            if route_id and not reject_code:
-                now = cursor.execute("select clock_timestamp() as now").fetchone()["now"]
-                usage = self._usage_locked(cursor, route_id, now)
-                code = self.budget.blocked(usage["messages"], usage["bytes_used"], 1)
-                if code:
+            return _delivery(row)
+
+    def gate_unauthorized(self, delivery: EmailDelivery) -> EmailDelivery:
+        """Count one unauthorized message, or hold it until the next business day."""
+
+        with (
+            self.pool.connection() as connection,
+            connection.transaction(),
+            connection.cursor(row_factory=dict_row) as cursor,
+        ):
+            row = cursor.execute(
+                "select * from public.business_email_deliveries where id=%s for update",
+                (delivery.id,),
+            ).fetchone()
+            if row["cap_exempt"] or row["state"] == "rejected" or row["route_id"] is None:
+                return _delivery(row)
+            now = cursor.execute("select clock_timestamp() as now").fetchone()["now"]
+            if row["budget_message_day"] is not None:
+                held = row["error_code"] in BUDGET_CODES and (
+                    row["available_at"] is None or row["available_at"] <= now
+                )
+                if held:
                     row = cursor.execute(
-                        "update public.business_email_deliveries set error_code=%s,available_at=%s where id=%s returning *",
-                        (code, next_utc_day(now), row["id"]),
+                        "update public.business_email_deliveries set error_code=null "
+                        "where id=%s returning *",
+                        (row["id"],),
                     ).fetchone()
-                    log_budget_wait(
-                        route_id, now, code, usage["messages"], usage["bytes_used"]
-                    )
-                else:
-                    cursor.execute(
-                        "update public.business_email_daily_usage set messages=messages+1 where route_id=%s and day=%s",
-                        (route_id, usage["day"]),
-                    )
-                    cursor.execute(
-                        "update public.business_email_deliveries set budget_message_day=%s where id=%s",
-                        (usage["day"], row["id"]),
-                    )
+                return _delivery(row)
+            if row["error_code"] in BUDGET_CODES and row["available_at"] > now:
+                return _delivery(row)
+            usage = self._usage_locked(cursor, str(row["route_id"]), now)
+            code = self.budget.blocked(usage["messages"], usage["bytes_used"], 1)
+            if code:
+                row = cursor.execute(
+                    "update public.business_email_deliveries set state='received', error_code=%s, "
+                    "lease_token=null, lease_until=null, attempts=greatest(attempts-1,0), "
+                    "available_at=%s, updated_at=now() where id=%s returning *",
+                    (code, next_business_day(now), row["id"]),
+                ).fetchone()
+                log_budget_wait(
+                    str(row["route_id"]), now, code, usage["messages"], usage["bytes_used"]
+                )
+            else:
+                cursor.execute(
+                    "update public.business_email_daily_usage set messages=messages+1 "
+                    "where route_id=%s and day=%s",
+                    (row["route_id"], usage["day"]),
+                )
+                row = cursor.execute(
+                    "update public.business_email_deliveries set budget_message_day=%s, error_code=null "
+                    "where id=%s returning *",
+                    (usage["day"], row["id"]),
+                ).fetchone()
             return _delivery(row)
 
     def _usage_locked(
         self, cursor: Cursor, route_id: str, now: datetime
     ) -> dict[str, Any]:
-        day = now.astimezone(timezone.utc).date()
+        day = business_day(now)
         cursor.execute(
             "insert into public.business_email_daily_usage(route_id,day) values(%s,%s) on conflict do nothing",
             (route_id, day),
@@ -310,6 +365,17 @@ class PostgresEmailStore:
             ).fetchone()
             if row is None:
                 raise LeaseLost()
+            if row["cap_exempt"]:
+                now = cursor.execute("select clock_timestamp() as now").fetchone()["now"]
+                reservation = FetchReservation(
+                    str(uuid4()), business_day(now), str(delivery.route_id)
+                )
+                cursor.execute(
+                    "update public.business_email_deliveries set budget_fetch_day=%s,"
+                    "budget_fetch_token=%s,error_code=null where id=%s",
+                    (reservation.day, reservation.token, delivery.id),
+                )
+                return reservation
             now = cursor.execute("select clock_timestamp() as now").fetchone()["now"]
             usage = self._usage_locked(cursor, delivery.route_id, now)
             previous_lease = (
@@ -355,6 +421,12 @@ class PostgresEmailStore:
             ).fetchone()
             if row is None:
                 raise LeaseLost()
+            exempt = connection.execute(
+                "select cap_exempt from public.business_email_deliveries where id=%s",
+                (delivery.id,),
+            ).fetchone()[0]
+            if exempt:
+                return
             connection.execute(
                 "update public.business_email_daily_usage set bytes_used=bytes_used-%s where route_id=%s and day=%s",
                 (SOURCE_MAX_BYTES - actual_bytes, row[0], reservation.day),
@@ -364,14 +436,17 @@ class PostgresEmailStore:
         with self.pool.connection() as connection:
             changed = connection.execute(
                 "update public.business_email_deliveries set state='received',error_code=%s,lease_token=null,lease_until=null,"
-                "attempts=greatest(attempts-1,0),available_at=(date_trunc('day',now() at time zone 'UTC') at time zone 'UTC')+interval '1 day',"
+                "attempts=greatest(attempts-1,0),"
+                "available_at=((date_trunc('day', now() at time zone 'America/Santo_Domingo') "
+                "+ interval '1 day') at time zone 'America/Santo_Domingo'),"
                 "updated_at=now() where id=%s and lease_token=%s and lease_until>now() and state='processing'",
                 (code, delivery.id, delivery.lease_token),
             ).rowcount
             if changed != 1:
                 raise LeaseLost()
             usage = connection.execute(
-                "select messages,bytes_used from public.business_email_daily_usage where route_id=%s and day=(now() at time zone 'UTC')::date",
+                "select messages,bytes_used from public.business_email_daily_usage "
+                "where route_id=%s and day=(now() at time zone 'America/Santo_Domingo')::date",
                 (delivery.route_id,),
             ).fetchone() or (0, 0)
         log_budget_wait(delivery.route_id, datetime.now(timezone.utc), code, *usage)
@@ -381,7 +456,6 @@ class PostgresEmailStore:
             self.pool.connection() as connection,
             connection.cursor(row_factory=dict_row) as cursor,
         ):
-            # A worker that died on its last allowed attempt leaves a retryable row, not a stuck one.
             cursor.execute(
                 "update public.business_email_deliveries set state='partial',lease_token=null,lease_until=null,"
                 "error_code='email_worker_interrupted',updated_at=now() "
@@ -555,7 +629,7 @@ def _synchronized(method: Callable[..., T]) -> Callable[..., T]:
     return run
 
 
-class InMemoryEmailStore:
+class InMemoryEmailStore(MemoryAddressing):
     """The same queue rules in memory, for the offline suite and the local app."""
 
     def __init__(
@@ -574,16 +648,49 @@ class InMemoryEmailStore:
         self._available: dict[str, datetime] = {}
         self._lease_until: dict[str, datetime] = {}
         self._parts: dict[str, dict[str, EmailDeliveryPart]] = {}
+        self._senders: dict[tuple[str, str, str], object] = {}
+        self._retired: dict[str, object] = {}
+        self._retired_aliases: set[str] = set()
+        self._space_names: dict[str, str] = {}
 
     @_synchronized
-    def create_route(self, *, recipient, space_id, principal_id, granted_by, grant_id):
+    def create_route(
+        self,
+        *,
+        recipient,
+        space_id,
+        principal_id,
+        granted_by,
+        grant_id,
+        alias=None,
+        alias_normalized=None,
+        review_required=False,
+    ):
+        from argus.domain.ingestion.email_intake.addressing import AliasTaken
+
         existing = self.route_for_space(space_id)
         if existing is not None:
             return existing
         if any(route.recipient == recipient for route in self._routes.values()):
             raise RecipientTaken()
+        if recipient in self._retired:
+            raise RecipientTaken()
+        if alias_normalized and (
+            alias_normalized in self._retired_aliases
+            or any(route.alias_normalized == alias_normalized for route in self._routes.values())
+        ):
+            raise AliasTaken()
         route = RecipientRoute(
-            str(uuid4()), recipient, space_id, principal_id, granted_by, grant_id, True
+            str(uuid4()),
+            recipient,
+            space_id,
+            principal_id,
+            granted_by,
+            grant_id,
+            True,
+            alias,
+            alias_normalized,
+            review_required,
         )
         self._routes[route.id] = route
         return route
@@ -625,6 +732,7 @@ class InMemoryEmailStore:
         space_id=None,
         principal_id=None,
         reject_code=None,
+        bounce_text=None,
     ):
         for existing in self._deliveries.values():
             if (existing.provider, existing.external_id) == (provider, external_id):
@@ -644,36 +752,71 @@ class InMemoryEmailStore:
             now,
             None,
             0,
+            reject_code,
             None,
             None,
             None,
             None,
-            None,
+            bounce_text=bounce_text,
         )
         self._deliveries[delivery.id] = delivery
         self._available[delivery.id] = now
+        delivery = replace(delivery, available_at=now)
+        self._deliveries[delivery.id] = delivery
         if reject_code:
             logger.bind(route_id=route_id).warning(reject_code)
-            delivery = replace(delivery, error_code=reject_code)
-        elif route_id:
-            day = now.astimezone(timezone.utc).date()
-            usage = self._usage.setdefault((route_id, day), [0, 0])
-            code = self.budget.blocked(*usage, 1)
-            if code:
-                delivery = replace(delivery, error_code=code)
-                self._available[delivery.id] = next_utc_day(now)
-                log_budget_wait(route_id, now, code, *usage)
-            else:
-                usage[0] += 1
-                self._message_budget[delivery.id] = (day, None)
-        delivery = replace(delivery, available_at=self._available[delivery.id])
-        self._deliveries[delivery.id] = delivery
         return delivery
 
     @_synchronized
+    def gate_unauthorized(self, delivery: EmailDelivery) -> EmailDelivery:
+        current = self._deliveries[delivery.id]
+        if current.cap_exempt or current.state == "rejected" or not current.route_id:
+            return replace(current, available_at=self._available[current.id])
+        now = self.clock()
+        metered = self._message_budget.get(current.id)
+        if metered is not None and metered[0] is not None:
+            if (
+                current.error_code in BUDGET_CODES
+                and self._available[current.id] <= now
+            ):
+                current = replace(current, error_code=None)
+                self._deliveries[current.id] = current
+            return replace(current, available_at=self._available[current.id])
+        if current.error_code in BUDGET_CODES and self._available[current.id] > now:
+            return replace(current, available_at=self._available[current.id])
+        day = business_day(now)
+        usage = self._usage.setdefault((current.route_id, day), [0, 0])
+        code = self.budget.blocked(*usage, 1)
+        if code:
+            self._available[current.id] = next_business_day(now)
+            current = replace(
+                current,
+                state="received",
+                error_code=code,
+                lease_token=None,
+                attempts=max(current.attempts - 1, 0),
+                available_at=self._available[current.id],
+                updated_at=now,
+            )
+            self._lease_until.pop(current.id, None)
+            log_budget_wait(current.route_id, now, code, *usage)
+        else:
+            usage[0] += 1
+            self._message_budget[current.id] = (day, None)
+            current = replace(
+                current, error_code=None, available_at=self._available[current.id]
+            )
+        self._deliveries[current.id] = current
+        return current
+
+    @_synchronized
     def reserve_fetch(self, delivery: EmailDelivery) -> FetchReservation:
-        self._held(delivery)
-        day = self.clock().astimezone(timezone.utc).date()
+        current = self._held(delivery)
+        day = business_day(self.clock())
+        if current.cap_exempt:
+            reservation = FetchReservation(str(uuid4()), day, delivery.route_id)
+            self._fetch_budget[delivery.id] = reservation
+            return reservation
         usage = self._usage.setdefault((delivery.route_id, day), [0, 0])
         previous_day, previous_lease = self._message_budget.get(delivery.id, (None, None))
         new_message = int(
@@ -698,10 +841,12 @@ class InMemoryEmailStore:
     ) -> None:
         if not 0 <= actual_bytes <= SOURCE_MAX_BYTES:
             raise ValueError("invalid_email_fetch_bytes")
-        self._held(delivery)
+        current = self._held(delivery)
         if self._fetch_budget.get(delivery.id) != reservation:
             raise LeaseLost()
         self._fetch_budget.pop(delivery.id)
+        if current.cap_exempt:
+            return
         self._usage[(reservation.route_id, reservation.day)][1] -= (
             SOURCE_MAX_BYTES - actual_bytes
         )
@@ -718,8 +863,8 @@ class InMemoryEmailStore:
             updated_at=self.clock(),
         )
         self._lease_until.pop(delivery.id, None)
-        self._available[delivery.id] = next_utc_day(self.clock())
-        day = self.clock().astimezone(timezone.utc).date()
+        self._available[delivery.id] = next_business_day(self.clock())
+        day = business_day(self.clock())
         log_budget_wait(
             delivery.route_id,
             self.clock(),

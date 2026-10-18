@@ -25,6 +25,7 @@ from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
+from argus.domain.ingestion.email_intake.alignment import assess, from_address
 from argus.domain.ingestion.email_intake.budget import (
     EmailBudgetWait,
     FetchBudget,
@@ -37,7 +38,8 @@ from argus.domain.ingestion.email_intake.models import (
     RecipientRoute,
 )
 from argus.domain.ingestion.email_intake.provider import EmailProviderError, ReceivedEmail
-from argus.domain.ingestion.email_intake.store import EmailStore, LeaseLost
+from argus.domain.ingestion.email_intake.routing import bounce_copy, decide
+from argus.domain.ingestion.email_intake.store import BUDGET_CODES, EmailStore, LeaseLost
 from argus.domain.owner_scope import BusinessSpace
 
 ORIGINAL_FILENAME = "forwarded.eml"
@@ -90,6 +92,7 @@ class EmailCapture:
         enabled: Callable[[], bool],
         receiving_enabled: Callable[[], bool] | None = None,
         read_receipt=None,
+        dkim_keys=None,
     ) -> None:
         self.store, self.documents, self.provider, self.enabled = (
             store,
@@ -100,6 +103,7 @@ class EmailCapture:
         self.route_authority = route_authority
         self.read_receipt = read_receipt
         self.receiving_enabled = receiving_enabled or (lambda: self.provider is not None)
+        self.dkim_keys = dkim_keys or (lambda domain, selector: None)
 
     def check_route(self, route: RecipientRoute) -> None:
         """Raise unless the route is live and its grant still allows prepare.
@@ -128,13 +132,26 @@ class EmailCapture:
         """Record the signed event durably. An unroutable message is rejected, never fetched."""
 
         routes = self.store.routes(recipients)
-        if len(routes) != 1:
+        retired = self.store.matching_retired(recipients)
+        if len(retired) == 1 and not routes:
+            old = retired[0]
+            return self.store.enqueue(
+                "resend",
+                external_id,
+                recipients,
+                route_id=old.route_id,
+                space_id=old.space_id,
+                principal_id=old.principal_id,
+                reject_code="email_alias_retired",
+                bounce_text=bounce_copy(),
+            )
+        if len(routes) != 1 or retired:
             return self.store.enqueue(
                 "resend",
                 external_id,
                 recipients,
                 reject_code="email_route_ambiguous"
-                if routes
+                if routes or len(retired) > 1
                 else "email_route_unavailable",
             )
         route = routes[0]
@@ -188,6 +205,61 @@ class EmailCapture:
         self.check_route(route)
         return route
 
+    async def _preview_sender(self, delivery: EmailDelivery) -> str | None:
+        preview = getattr(self.provider, "preview_from", None)
+        if preview is None:
+            return None
+        try:
+            return await preview(delivery.external_id)
+        except Exception:
+            logger.warning(
+                "email_sender_preview_failed",
+                delivery_id=delivery.id,
+            )
+            return None
+
+    async def _admit(self, delivery: EmailDelivery, route: RecipientRoute) -> bool:
+        """Hold or reject before the body fetch. Authorized mail is not counted."""
+
+        standing = "new"
+        if self.store.has_sender_rules(route.space_id):
+            hint = await self._preview_sender(delivery)
+            standing = await asyncio.to_thread(
+                self.store.sender_standing, route.space_id, hint
+            )
+        if standing == "blocked":
+            await asyncio.to_thread(
+                self.store.finish, delivery, "rejected", "email_sender_blocked"
+            )
+            return False
+        if standing == "authorized":
+            await asyncio.to_thread(self.store.mark_cap_exempt, delivery)
+            return True
+        gated = await asyncio.to_thread(self.store.gate_unauthorized, delivery)
+        return gated.error_code not in BUDGET_CODES
+
+    def _apply_route(
+        self, delivery: EmailDelivery, route: RecipientRoute, raw: bytes
+    ) -> bool:
+        sender = from_address(raw)
+        standing = self.store.sender_standing(route.space_id, sender)
+        if standing == "blocked":
+            self.store.finish(delivery, "rejected", "email_sender_blocked")
+            return False
+        auth = assess(raw, self.dkim_keys)
+        first = standing == "authorized" and self.store.claim_first_scan(
+            route.space_id, sender
+        )
+        decision = decide(standing, auth, first_authorized=first)
+        self.store.stamp_route(
+            delivery,
+            inbox_group=decision.group,
+            auth_result=decision.auth,
+            review_note=decision.note,
+            first_scan=decision.first_scan,
+        )
+        return True
+
     async def process(self, delivery: EmailDelivery) -> None:
         try:
             route = await asyncio.to_thread(self._bound_route, delivery)
@@ -201,6 +273,8 @@ class EmailCapture:
             else:
                 if self.provider is None:
                     raise EmailProviderError("email_provider_unavailable", retryable=True)
+                if not await self._admit(delivery, route):
+                    return
                 received = await self.provider.raw_message(
                     delivery.external_id, budget=DeliveryFetchBudget(self.store, delivery)
                 )
@@ -211,6 +285,8 @@ class EmailCapture:
                 raw = received.raw
             # The fetch took time; the grant is read once more before any write.
             await asyncio.to_thread(self.check_route, route)
+            if not await asyncio.to_thread(self._apply_route, delivery, route, raw):
+                return
             await self._capture(delivery, raw, route)
         except EmailBudgetWait as error:
             try:

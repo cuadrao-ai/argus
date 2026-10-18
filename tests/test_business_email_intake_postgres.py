@@ -34,6 +34,10 @@ pytestmark = shared.pytestmark
 class Provider:
     def __init__(self, raw: bytes, recipients: tuple[str, ...]) -> None:
         self.raw, self.recipients, self.calls = raw, recipients, 0
+        self.sender = "proveedor@example.test"
+
+    async def preview_from(self, email_id: str) -> str | None:
+        return self.sender
 
     async def raw_message(self, email_id: str, *, budget=None) -> ReceivedEmail:
         reservation = await budget.reserve() if budget else None
@@ -175,6 +179,8 @@ def test_clients_cannot_read_the_queue(rig):
             "business_email_routes",
             "business_email_deliveries",
             "business_email_parts",
+            "business_email_retired_aliases",
+            "business_email_senders",
         ):
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 with db.transaction():
@@ -266,47 +272,33 @@ def email_logs():
 
 
 @pytest.mark.owner_acts
-def test_new_receipt_address_has_128_random_bits(address_client, rig):
-    import re
-
-    response = address_client.post("/business/email")
+def test_new_receipt_address_uses_the_chosen_alias(address_client, rig):
+    response = address_client.post("/business/email", json={"alias": "ferreterianunez"})
     assert response.status_code == 201, response.text
     address = response.json()["receiving_address"]
-    assert re.fullmatch(r"recibos-[0-9a-f]{32}@recibos\.example\.test", address)
+    domain = address.split("@", 1)[1]
+    assert address == f"ferreterianunez@{domain}"
     assert len(address) <= 254
-    replay = address_client.post("/business/email")
+    replay = address_client.post("/business/email", json={"alias": "ferreterianunez"})
     assert replay.status_code == 200
     assert replay.json()["receiving_address"] == address
 
 
 @pytest.mark.owner_acts
-@pytest.mark.parametrize("collisions", [1, 3, 4])
-def test_recipient_collision_retries_are_bounded(
-    address_client, rig, monkeypatch, email_logs, collisions
+def test_a_taken_alias_is_refused_without_logging_the_address(
+    address_client, rig, email_logs
 ):
-    from argus.api.routers import email_intake as api
-
-    old = rig["route"].recipient
-    taken = old.split("@", 1)[0].removeprefix("recibos-")
-    sizes = []
-
-    def token_hex(size):
-        sizes.append(size)
-        return taken if len(sizes) <= collisions else uuid4().hex
-
-    monkeypatch.setattr(api.secrets, "token_hex", token_hex)
-    response = address_client.post("/business/email")
-    assert sizes == [16] * min(collisions + 1, 4)
-    if collisions == 4:
-        assert response.status_code == 503, response.text
-        assert response.json()["detail"]["code"] == "email_route_unavailable"
-        assert rig["store"].route_for_space(rig["route"].space_id) is None
-        assert any(r["message"] == "email_route_collision_exhausted" for r in email_logs)
-    else:
-        assert response.status_code == 201, response.text
-        assert response.json()["receiving_address"] != old
-    assert sum(r["message"] == "email_route_collision" for r in email_logs) == collisions
-    assert old not in str(email_logs)
+    alias = "colmadorodriguez"
+    created = address_client.post("/business/email", json={"alias": alias})
+    assert created.status_code == 201, created.text
+    rig["store"].deactivate_routes(rig["route"].space_id)
+    again = address_client.post("/business/email", json={"alias": alias})
+    assert again.status_code == 422, again.text
+    body = again.json()["detail"]
+    assert body["code"] == "email_alias_unavailable"
+    assert body["detail"] == "Ese nombre no está disponible. Prueba otro."
+    assert alias not in str(email_logs)
+    assert any(record["message"] == "email_alias_unavailable" for record in email_logs)
 
 
 def test_concurrent_route_creates_keep_one_live_route(rig):
@@ -348,7 +340,10 @@ def test_inactive_short_address_is_rejected_and_logged(
     old = rig["route"]
     assert len(old.recipient.split("@", 1)[0]) < 40
     if rotate:
-        assert address_client.post("/business/email").status_code == 201
+        created = address_client.post(
+            "/business/email", json={"alias": "colmadorodriguez"}
+        )
+        assert created.status_code == 201, created.text
     rejected = rig["runtime"].enqueue_resend(str(uuid4()), (old.recipient,))
     assert (rejected.state, rejected.error_code, rejected.route_id) == (
         "rejected",
@@ -363,15 +358,15 @@ def test_inactive_short_address_is_rejected_and_logged(
         assert (
             db.execute(
                 "select count(*) from public.business_email_routes "
-                "where space_id=%s and active and length(split_part(recipient,'@',1))<40",
-                (old.space_id,),
+                "where space_id=%s and active and recipient=%s",
+                (old.space_id, old.recipient),
             ).fetchone()[0]
             == 0
         )
         assert db.execute(
             "select count(*) from public.business_email_routes "
-            "where space_id=%s and active and length(split_part(recipient,'@',1))=40",
-            (old.space_id,),
+            "where space_id=%s and active and split_part(recipient,'@',1)=%s",
+            (old.space_id, "colmadorodriguez"),
         ).fetchone()[0] == int(rotate)
         assert (
             db.execute(
@@ -380,4 +375,34 @@ def test_inactive_short_address_is_rejected_and_logged(
                 (rejected.id,),
             ).fetchone()[0]
             == 1
+        )
+
+
+@pytest.mark.owner_acts
+def test_alias_change_keeps_the_delivery_and_retires_the_old_recipient(
+    address_client, rig
+):
+    created = address_client.post("/business/email", json={"alias": "ferreterianunez"})
+    assert created.status_code == 201, created.text
+    old = created.json()["receiving_address"]
+    delivery = rig["runtime"].enqueue_resend(str(uuid4()), (old,))
+    changed = address_client.post(
+        "/business/email/address", json={"alias": "colmadorodriguez"}
+    )
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["alias"] == "colmadorodriguez"
+    saved = rig["store"].get(delivery.id, rig["route"].space_id)
+    assert saved.route_id == delivery.route_id
+    assert saved.recipients == (old,)
+    bounced = rig["runtime"].enqueue_resend(str(uuid4()), (old,))
+    assert bounced.state == "rejected"
+    assert bounced.error_code == "email_alias_retired"
+    assert bounced.bounce_text.startswith("Esta dirección ya no recibe recibos.")
+    assert "colmadorodriguez" not in bounced.bounce_text
+    route_id = saved.route_id
+    with rig["pool"].connection() as db, pytest.raises(psycopg.errors.RaiseException):
+        db.execute(
+            "update public.business_email_routes set space_id="
+            "(select id from public.spaces where id<>%s limit 1) where id=%s",
+            (rig["route"].space_id, route_id),
         )

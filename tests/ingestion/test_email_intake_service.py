@@ -53,7 +53,11 @@ def message(*attachments: tuple[str, str, bytes], subject="Factura ferretería")
 class Provider:
     def __init__(self, raw: bytes, recipients: tuple[str, ...]) -> None:
         self.raw, self.recipients, self.calls = raw, recipients, 0
+        self.sender = "proveedor@example.test"
         self.failure: EmailProviderError | None = None
+
+    async def preview_from(self, email_id: str) -> str | None:
+        return self.sender
 
     async def raw_message(self, email_id: str, *, budget=None) -> ReceivedEmail:
         reservation = await budget.reserve() if budget else None
@@ -92,9 +96,12 @@ class Rig:
         return BusinessSpace(self.route.space_id)
 
     def enqueue(self, *recipients: str, external_id: str | None = None):
-        return self.runtime.enqueue_resend(
+        delivery = self.runtime.enqueue_resend(
             external_id or str(uuid4()), recipients or (RECIPIENT,)
         )
+        if delivery.route_id and delivery.state != "rejected":
+            delivery = self.store.gate_unauthorized(delivery)
+        return delivery
 
     def drafts(self):
         return [

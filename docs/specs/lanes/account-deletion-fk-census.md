@@ -473,6 +473,8 @@ The October 12 email receiving migration adds ten foreign keys, all nondeferrabl
 | `business_email_routes` | `granted_by` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is `not null`. | Catalog only. The probes had no rows here. | The route goes with the member who bound it at step 7; receiving stops. |
 | `business_email_routes` | `principal_id` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is `not null`. | Catalog only. The probes had no rows here. | Goes with the Business owner at step 7. |
 | `business_email_routes` | `space_id, principal_id` | `spaces` | CASCADE | NO ACTION | no | Composite owner key, ON UPDATE NO ACTION, not deferrable: the route can never name an owner other than the space's creator. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
+| `business_email_retired_aliases` | `route_id` | `business_email_routes` | CASCADE | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here. | A retired address goes with its route at step 7 and is not reused. |
+| `business_email_senders` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Sender rules go with the Business space at step 7. |
 
 ### Connected sources and documents
 

@@ -26,9 +26,12 @@ def usage(rig):
 
 
 def enqueue(rig, external_id=None):
-    return rig["runtime"].enqueue_resend(
+    delivery = rig["runtime"].enqueue_resend(
         external_id or str(uuid4()), (rig["route"].recipient,)
     )
+    if delivery.route_id and delivery.state != "rejected":
+        delivery = rig["store"].gate_unauthorized(delivery)
+    return delivery
 
 
 def test_concurrent_last_message_slot_keeps_other_delivery_pending(rig):
