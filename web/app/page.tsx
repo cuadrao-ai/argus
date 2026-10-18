@@ -106,7 +106,7 @@ export default function LandingPage() {
           setIsCheckingSession(false);
           return;
         }
-        if (verified === "none" && skipAuthenticatedRedirect()) {
+        if (verified === "none" && skipAuthenticatedRedirect() && !signedInHomeClosed()) {
           setIsCheckingSession(false);
           return;
         }
