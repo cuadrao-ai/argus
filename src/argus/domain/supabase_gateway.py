@@ -39,6 +39,10 @@ from argus.domain.decision_attachment import (
     DECISION_STATE_METADATA_KEY,
 )
 from argus.domain.evidence import CapturedEvidence, attach_decision_to_result_card
+from argus.domain.login_browser_check import (
+    LOGIN_PROVIDER_TIMEOUT_SECONDS,
+    complete_password_login,
+)
 from argus.domain.owner_scope import OwnerScope, postgrest_scoped, scope_of, space_id
 from argus.domain.postgres_history_reader import (
     PostgresHistoryReader,
@@ -497,25 +501,17 @@ class SupabaseGateway(
         ).execute()
         return int(result.data or 0)
 
-    def login(
-        self,
-        email: str,
-        password: str,
-        captcha_token: str,
-    ) -> dict[str, Any]:
-        try:
-            response = self._auth().sign_in_with_password(
+    def login(self, email: str, password: str, captcha_token: str) -> dict[str, Any]:
+        return complete_password_login(
+            lambda: self._auth().sign_in_with_password(
                 {
                     "email": email,
                     "password": password,
                     "options": {"captcha_token": captcha_token},
                 }
-            )
-            if not response.session:
-                raise RuntimeError("Login failed: No session returned.")
-            return response.model_dump(mode="json")
-        except Exception as e:
-            raise RuntimeError(f"Login failed: {e}") from e
+            ),
+            LOGIN_PROVIDER_TIMEOUT_SECONDS,
+        )
 
     def update_user(self, user_id: str, updates: dict[str, Any]) -> User:
         payload = {key: value for key, value in updates.items() if key != "id"}

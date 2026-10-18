@@ -1,7 +1,7 @@
 """The one owner of user-facing reply punctuation at the point it becomes visible.
 
 Argus never shows an em dash in user-facing copy, in any language
-(.agent/rules/coding-standards.md, founder-locked 2026-08-04). Model-written
+(AGENTS.md "Copy", founder-locked 2026-08-04). Model-written
 replies reach the user through two doors, the live SSE frames and the
 persisted assistant message, and both pass through here. A rewrite is
 recorded on the turn so a model that keeps writing em dashes stays visible.

@@ -341,6 +341,10 @@ services:
         value: "false"
       - key: NEXT_PUBLIC_BUSINESS_PILOT_ENABLED
         value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
+        value: "false"
       - key: NEXT_PUBLIC_CUADRAO_API_URL
         value: https://cuadrao-api-staging.onrender.com/api/v1
       - key: NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY
