@@ -2833,7 +2833,7 @@
         "[BORRADOR] Este aviso es un marcador. No está publicado ni revisado por un abogado. El texto definitivo reemplaza estas frases.",
         "[BORRADOR] Cubre Cuadrao Business, la app web del negocio. El dueño del negocio es responsable de sus registros. Cuadrao los trata por encargo suyo. El responsable legal, el domicilio y el contacto de privacidad siguen como {{OPERADOR_LEGAL}}, {{DIRECCION_LEGAL}} y {{CONTACTO_PRIVACIDAD}}.",
         "[BORRADOR] Recopilamos la cuenta de quien entra, los registros del negocio, los recibos originales, lo que la lectura propone y los datos fiscales que aparecen en un recibo, como RNC, NCF o e-CF e ITBIS. Esos datos fiscales quedan sin verificar hasta que una persona autorizada los revise.",
-        "[BORRADOR] Leer un recibo con IA envía la foto, el PDF o el documento a un modelo a través de OpenRouter, solo para proponer comercio, monto, fecha y datos fiscales. El asistente envía el texto del mensaje y el contexto que necesita. Ninguno registra un gasto por sí solo.",
+        "[BORRADOR] Leer un recibo con IA envía la foto, el PDF o el documento a un modelo, solo para proponer comercio, monto, fecha y datos fiscales. El asistente envía el texto del mensaje y el contexto que necesita. Ninguno registra un gasto por sí solo.",
         "[BORRADOR] Sin tu aceptación de este aviso, esas funciones no se activan. Subir un recibo, escribir un gasto o revisar lo guardado no es un permiso para enviar datos a un modelo.",
         "[BORRADOR] Puedes pedir acceso, corrección, eliminación, oposición y portabilidad. Los plazos y la ley aplicable, incluida la Ley 172-13, los confirma el abogado. [A CONFIRMAR]"
       ]
