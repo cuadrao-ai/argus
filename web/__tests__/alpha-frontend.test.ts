@@ -2903,13 +2903,15 @@ describe("Argus Alpha frontend contract", () => {
     expect(logoutHandler).toContain("resetToEmptyChatSurface()");
     expect(logoutHandler).toContain("clearHistory()");
     expect(flow).toContain('result?.revocation === "failed"');
+    expect(flow.indexOf('return "failed"')).toBeLessThan(flow.indexOf("deps.clearLocalState()"));
+    expect(flow).toContain("finishConversion(deps.currentUserId)");
     expect(flow.indexOf("deps.clearLocalState()")).toBeLessThan(
       flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted))"),
     );
-    expect(flow.indexOf("deps.onFailed()")).toBeLessThan(flow.indexOf("deps.clearLocalState()"));
     const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
     const closedHome = page.slice(page.indexOf("const signOutClosedHome"), page.indexOf("const handleAuthSubmit"));
     expect(closedHome).toContain("setSignOutFailed(true)");
+    expect(closedHome).toContain("resetLeavingSession()");
     expect(closedHome.indexOf("setSignOutFailed(false)")).toBeGreaterThan(-1);
     expect(closedHome.indexOf("setSignOutFailed(false)")).toBeLessThan(
       closedHome.indexOf("leaveSession"),

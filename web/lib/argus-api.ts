@@ -726,51 +726,15 @@ export async function synchronizeCurrentBrowserLogout<T>(
   };
 }
 
-type LocalProviderAuth = {
-  signOut: (credentials: { scope: "local" }) => PromiseLike<{ error: unknown | null }>;
-  stopAutoRefresh?: () => PromiseLike<void>;
-};
-
-/**
- * auth-js leaves the stored session in place when `/logout` fails or throws,
- * and a later reload reads that session. Drop it through the client's own
- * remover so this browser cannot sign itself back in.
- */
-async function forgetLocalProviderSession(auth: LocalProviderAuth): Promise<void> {
-  try {
-    await auth.stopAutoRefresh?.();
-  } catch {
-    // The refresh ticker is already stopped.
-  }
-  const remover = auth as LocalProviderAuth & { _removeSession?: () => PromiseLike<void> };
-  if (typeof remover._removeSession !== "function") return;
-  try {
-    await remover._removeSession();
-  } catch {
-    // The stored session is already gone.
-  }
-}
-
-/** One local sign-out. The stored provider session is gone when this resolves. */
-export async function revokeLocalProviderSession(
-  auth: LocalProviderAuth,
-): Promise<{ error: unknown | null }> {
-  try {
-    const outcome = await auth.signOut({ scope: "local" });
-    if (outcome.error) await forgetLocalProviderSession(auth);
-    return { error: outcome.error ?? null };
-  } catch (error) {
-    await forgetLocalProviderSession(auth);
-    return { error };
-  }
-}
-
 export async function logoutFromApi() {
   invalidateBrowserAuth();
   synchronizeBusinessAccount(null);
-  const supabase = getSupabaseClient();
   return synchronizeCurrentBrowserLogout(
-    () => (supabase ? revokeLocalProviderSession(supabase.auth) : Promise.resolve({ error: null })),
+    async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return { error: null };
+      return supabase.auth.signOut({ scope: "local" });
+    },
     clearArgusSessionCookies,
   );
 }

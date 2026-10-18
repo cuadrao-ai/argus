@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { leaveSession, resetLeavingSession, signedOutLanding } from "@/lib/logout-flow";
+import { isLeavingSession, leaveSession, resetLeavingSession, signedOutLanding } from "@/lib/logout-flow";
 
 // A real DOM: the Log out control is clicked once and the flow runs from that click.
 beforeAll(() => {
@@ -69,24 +69,33 @@ describe("logout on the first click", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("a failed revocation still clears the local session, says so, and lands on login", async () => {
+  test("a failed revocation stays signed in and says so", async () => {
     const page = await mount({ businessBuild: true, revocation: "failed" });
     await page.clickOnce();
-    assert.deepEqual(page.log, ["beginConversion", "signOut", "failed", "clear", "navigate:/?auth=login"]);
+    assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
     await page.act(async () => page.root.unmount());
   });
 
-  test("failed API cookie clearing still clears the local session and lands on login", async () => {
+  test("failed API cookie clearing stays signed in and says so", async () => {
     const page = await mount({ businessBuild: true, cookieSync: "failed" });
     await page.clickOnce();
-    assert.deepEqual(page.log, ["beginConversion", "signOut", "failed", "clear", "navigate:/?auth=login"]);
+    assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
     await page.act(async () => page.root.unmount());
   });
 
-  test("a sign-out that throws still clears the local session and lands on login", async () => {
+  test("a sign-out that throws stays signed in and says so", async () => {
     const page = await mount({ businessBuild: true, throws: true });
     await page.clickOnce();
-    assert.deepEqual(page.log, ["beginConversion", "signOut", "failed", "clear", "navigate:/?auth=login"]);
+    assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("a failed sign-out never navigates", async () => {
+    const page = await mount({ businessBuild: true, revocation: "failed" });
+    await page.clickOnce();
+    assert.equal(page.log.includes("clear"), false);
+    assert.equal(page.log.some((entry) => entry.startsWith("navigate")), false);
+    assert.equal(isLeavingSession(), false);
     await page.act(async () => page.root.unmount());
   });
 
@@ -128,7 +137,8 @@ describe("logout on the first click", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    assert.deepEqual(log, ["beginConversion", "signOut", "failed", "clear", "navigate:/?auth=login"]);
+    assert.deepEqual(log, ["beginConversion", "signOut", "finishConversion", "failed"]);
+    assert.equal(log.some((entry) => entry.startsWith("navigate")), false);
     await act(async () => root.unmount());
   });
 });

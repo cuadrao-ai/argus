@@ -162,7 +162,7 @@ test.describe("signed-in home with business-only on", () => {
     expect(visits.biz).toEqual([]);
   });
 
-  test("a rejected sign-out leaves the closed home and shows the error once", async ({ page }) => {
+  test("a rejected sign-out stays on the closed home and shows the error once", async ({ page }) => {
     test.skip(pilot, "pilot is on for this run");
     let logoutPosts = 0;
     await page.route("**/api/v1/auth/logout", async (route) => {
@@ -180,10 +180,9 @@ test.describe("signed-in home with business-only on", () => {
     const notice = page.getByTestId("business-home-closed");
     const signOut = notice.getByRole("button", { name: "Cerrar sesión" });
     await signOut.click();
+    await expect(notice).toBeVisible();
     await expect(page.getByRole("alert").filter({ hasText: logoutError })).toHaveText(logoutError);
-    await expect(notice).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Iniciar sesión", exact: true })).toBeVisible();
-    await expect(page).toHaveURL(/\/\?auth=login(?:&|$)/);
+    await expect(page.getByRole("button", { name: "Iniciar sesión", exact: true })).toHaveCount(0);
     expect(logoutPosts).toBe(1);
   });
 

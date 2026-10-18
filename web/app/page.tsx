@@ -19,7 +19,7 @@ import {
   normalizeApiLanguage,
   signupWithEmail,
 } from "@/lib/argus-api";
-import { leaveSession } from "@/lib/logout-flow";
+import { leaveSession, resetLeavingSession } from "@/lib/logout-flow";
 import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-flags";
 import {
   guestEntryAvailable,
@@ -193,6 +193,8 @@ export default function LandingPage() {
         setSignOutFailed(true);
       },
       businessBuild: businessPilotEnabled,
+    }).finally(() => {
+      resetLeavingSession();
     });
   };
 
@@ -304,6 +306,7 @@ export default function LandingPage() {
               >
                 {t("auth.business_unavailable.sign_out")}
               </button>
+              {signOutFailed ? <p className="mt-3" role="alert">{t("settings.logout_error")}</p> : null}
             </div>
           ) : authMode === "intro" ? (
             <button

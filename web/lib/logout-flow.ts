@@ -2,9 +2,10 @@
  * Leaving a signed-in session in one click. The account boundary is told
  * first, so the provider's SIGNED_OUT event that fires during sign-out is
  * expected and never swaps the surface for the account-changed screen. A
- * failed revocation still clears the local session, lands on the signed-out
- * screen, and says so once. It does not send the request again. Signed out,
- * a Business build opens the login page directly. Any other build opens the
+ * failed revocation stays on this screen, says so once, and leaves the
+ * session in place. A second click during that attempt does not send the
+ * request again. Signed out, a Business build opens the login page directly.
+ * Any other build opens the
  * landing page. A session that ended because the account was deleted goes to
  * the landing page on every build: someone who just deleted their account
  * must not land on a Business login. While this sign-out is in progress, a
@@ -24,11 +25,7 @@ export function resetLeavingSession(): void {
 export type LeaveSessionDeps = {
   boundary: { beginConversion: () => void; finishConversion: (userId: string | null) => void };
   currentUserId: string | null;
-  /**
-   * Resolves null when the session already ended elsewhere and no sign-out is owed.
-   * Otherwise resolves only after this browser's provider session is gone, including
-   * when revocation failed.
-   */
+  /** Resolves null when the session already ended elsewhere and no sign-out is owed. */
   signOut: () => Promise<{ revocation: "complete" | "failed"; cookieSync?: "cleared" | "failed" } | null>;
   clearLocalState: () => void;
   navigate: (href: string) => void;
@@ -52,10 +49,15 @@ async function leaveSessionOnce(deps: LeaveSessionDeps): Promise<"left" | "faile
   } catch {
     failed = true;
   }
-  if (failed) deps.onFailed();
+  if (failed) {
+    leavingSession = false;
+    deps.boundary.finishConversion(deps.currentUserId);
+    deps.onFailed();
+    return "failed";
+  }
   deps.clearLocalState();
   deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted));
-  return failed ? "failed" : "left";
+  return "left";
 }
 
 export function leaveSession(deps: LeaveSessionDeps): Promise<"left" | "failed"> {
