@@ -5,6 +5,16 @@ import {
   isPrivacyNoticeLocale,
 } from "./business-privacy-notice";
 
+type ReadingSwitch<Reading extends { enabled: boolean }> = {
+  receiptReading?: (language: PrivacyNoticeLocale, signal?: AbortSignal) => Promise<Reading>;
+  setReceiptReading?: (
+    reading: Reading,
+    enabled: boolean,
+    language: PrivacyNoticeLocale,
+    signal?: AbortSignal,
+  ) => Promise<Reading>;
+};
+
 /**
  * Client for the Cuadrao Business privacy-notice acceptance.
  *
@@ -85,11 +95,30 @@ export function readPrivacyNoticeAcceptance(userId: string): PrivacyNoticeAccept
   return readStoredAcceptances()[userId] ?? null;
 }
 
-export function rememberPrivacyNoticeAcceptance(record: PrivacyNoticeAcceptance): PrivacyNoticeAcceptance {
+export function rememberPrivacyNoticeAcceptance(
+  record: PrivacyNoticeAcceptance,
+  persist: (value: string) => boolean = (value) => writeSessionStored(BUSINESS_PRIVACY_NOTICE_STORAGE_KEY, value),
+): PrivacyNoticeAcceptance {
   const stored = readStoredAcceptances();
   stored[record.userId] = record;
-  writeSessionStored(BUSINESS_PRIVACY_NOTICE_STORAGE_KEY, JSON.stringify(stored));
+  if (!persist(JSON.stringify(stored))) throw new Error("privacy_notice_not_stored");
   return record;
+}
+
+/**
+ * Decline turns off the owner's stored receipt-reading switch. Upload, email,
+ * and WhatsApp intake all read that one setting, so a web-only flag would
+ * leave the next receipt free to reach a model.
+ */
+export async function revokeEnabledReceiptReading<Reading extends { enabled: boolean }>(
+  source: ReadingSwitch<Reading>,
+  language: PrivacyNoticeLocale,
+): Promise<void> {
+  if (!source.receiptReading || !source.setReceiptReading) return;
+  const reading = await source.receiptReading(language);
+  if (!reading.enabled) return;
+  const next = await source.setReceiptReading(reading, false, language);
+  if (next.enabled) throw new Error("receipt_reading_still_enabled");
 }
 
 /** In-tab stand-in. `acceptedAt` is stamped here, never taken from the caller. */

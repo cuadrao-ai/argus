@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import { BUSINESS_PRIVACY_NOTICE_STORAGE_KEY } from "../../lib/browser-storage";
-import { BUSINESS_PRIVACY_NOTICE_VERSION, MOCK_AUTH_CONSENT_USER_ID } from "../../lib/business-privacy-notice";
+import { BUSINESS_PRIVACY_NOTICE_VERSION, MOCK_AUTH_CONSENT_USER_ID, currentNoticeHashes } from "../../lib/business-privacy-notice";
 
 /**
  * Deterministic whole-app fixture for breakpoint work.
@@ -376,14 +376,15 @@ export async function installBreakpointFixture(
   );
   // Existing journeys are returning people. The consent spec starts from an empty tab.
   if (consent === "accepted") {
+    const textSha256 = (await currentNoticeHashes())["es-419"];
     await page.addInitScript(
-      ({ key, userId, version }) => {
+      ({ key, userId, version, textSha256: hash }) => {
         const record = {
           userId,
           acceptedAt: "2026-10-18T12:00:00.000Z",
           noticeVersion: version,
           locale: "es-419",
-          textSha256: "a".repeat(64),
+          textSha256: hash,
         };
         window.sessionStorage.setItem(key, JSON.stringify({ [userId]: record }));
       },
@@ -391,6 +392,7 @@ export async function installBreakpointFixture(
         key: BUSINESS_PRIVACY_NOTICE_STORAGE_KEY,
         userId: MOCK_AUTH_CONSENT_USER_ID,
         version: BUSINESS_PRIVACY_NOTICE_VERSION,
+        textSha256,
       },
     );
   }

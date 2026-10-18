@@ -2816,6 +2816,8 @@
       "decline_title": "[BORRADOR] Sin este permiso, la IA queda apagada",
       "decline_body": "[BORRADOR] Si no aceptas, la lectura de recibos con IA y el asistente no están disponibles. Puedes seguir subiendo recibos, escribiendo gastos y revisando lo que ya guardaste.",
       "continue_without": "[BORRADOR] Continuar sin IA",
+      "holding": "[BORRADOR] Apagando la lectura de recibos…",
+      "hold_error": "[BORRADOR] No pudimos apagar la lectura de recibos. La IA seguiría disponible, así que seguimos aquí.",
       "back": "[BORRADOR] Volver al aviso",
       "accepted_title": "[BORRADOR] Aceptación registrada en este navegador",
       "accepted_body": "[BORRADOR] Guardamos quién aceptó, cuándo, la versión del aviso, el idioma y una huella del texto mostrado. Esta copia vive solo en esta pestaña hasta que el servidor pueda guardarla.",

@@ -7,16 +7,13 @@ import { normalizeEnabledLanguage } from "@/lib/language-features";
 import {
   BUSINESS_PRIVACY_NOTICE_VERSION,
   canSubmitAcceptance,
+  noticeParagraphs,
   noticePlainText,
   sha256Hex,
   type PrivacyNoticeLocale,
 } from "@/lib/business-privacy-notice";
 import type { BusinessPrivacyNoticeClient } from "@/lib/business-privacy-notice-client";
 import { cardClass, primaryButtonClass, secondaryButtonClass } from "./business-ui";
-
-function paragraphsOf(value: unknown): string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0) ? value : [];
-}
 
 function ConsentFrame({
   title,
@@ -56,7 +53,7 @@ export function BusinessConsentScreen({
 }) {
   const { t, i18n } = useTranslation();
   const locale = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language) as PrivacyNoticeLocale;
-  const paragraphs = paragraphsOf(t("business.privacy_notice.paragraphs", { returnObjects: true }));
+  const paragraphs = noticeParagraphs(locale);
   const title = t("business.consent.title");
   const ready = title.length > 0 && paragraphs.length > 0;
   const checkboxId = useId();
@@ -162,18 +159,41 @@ export function BusinessConsentScreen({
   );
 }
 
-export function BusinessConsentDeclined({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
+export function BusinessConsentDeclined({
+  onBack,
+  onContinue,
+  holding = false,
+  failed = false,
+}: {
+  onBack: () => void;
+  onContinue: () => void;
+  holding?: boolean;
+  failed?: boolean;
+}) {
   const { t } = useTranslation();
+  const errorId = useId();
   return (
     <ConsentFrame title={t("business.consent.decline_title")} testId="business-consent-declined">
       <p className="mt-3 text-[16px] leading-relaxed text-black dark:text-white">
         {t("business.consent.decline_body")}
       </p>
+      {failed ? (
+        <p id={errorId} role="alert" className="mt-3 text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">
+          {t("business.consent.hold_error")}
+        </p>
+      ) : null}
       <div className="mt-6 flex flex-col gap-3">
-        <button type="button" className={primaryButtonClass} data-testid="business-consent-continue-without" onClick={onContinue}>
-          {t("business.consent.continue_without")}
+        <button
+          type="button"
+          className={primaryButtonClass}
+          data-testid="business-consent-continue-without"
+          disabled={holding}
+          aria-describedby={failed ? errorId : undefined}
+          onClick={onContinue}
+        >
+          {holding ? t("business.consent.holding") : t("business.consent.continue_without")}
         </button>
-        <button type="button" className={secondaryButtonClass} onClick={onBack}>
+        <button type="button" className={secondaryButtonClass} disabled={holding} onClick={onBack}>
           {t("business.consent.back")}
         </button>
       </div>

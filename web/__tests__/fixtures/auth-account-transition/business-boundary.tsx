@@ -29,14 +29,15 @@ test("account changes discard the old workspace, and late initial session cannot
   const { createRoot } = await import("react-dom/client");
   const { default: BusinessApp } = await import("@/components/business-app/BusinessApp");
   const { rememberPrivacyNoticeAcceptance } = await import("@/lib/business-privacy-notice-client");
-  const { BUSINESS_PRIVACY_NOTICE_VERSION } = await import("@/lib/business-privacy-notice");
+  const { BUSINESS_PRIVACY_NOTICE_VERSION, currentNoticeHashes } = await import("@/lib/business-privacy-notice");
+  const textSha256 = (await currentNoticeHashes()).en;
   for (const userId of ["old", "new"]) {
     rememberPrivacyNoticeAcceptance({
       userId,
       acceptedAt: "2026-10-18T12:00:00.000Z",
       noticeVersion: BUSINESS_PRIVACY_NOTICE_VERSION,
       locale: "en",
-      textSha256: "ab".repeat(32),
+      textSha256,
     });
   }
   const host = document.createElement("div"); document.body.appendChild(host);
@@ -44,11 +45,13 @@ test("account changes discard the old workspace, and late initial session cannot
   await act(async () => root.render(<BusinessApp />));
   assert.equal(host.querySelector("input"), null);
   await act(async () => listener("SIGNED_IN", { user: { id: "old" } }));
+  await act(async () => { await new Promise((done) => setTimeout(done, 50)); });
   const oldInput = host.querySelector("input")!;
   oldInput.value = "Old private draft";
   await act(async () => listener("TOKEN_REFRESHED", { user: { id: "old" } }));
   assert.equal(host.querySelector("input"), oldInput);
   await act(async () => listener("SIGNED_IN", { user: { id: "new" } }));
+  await act(async () => { await new Promise((done) => setTimeout(done, 50)); });
   const newInput = host.querySelector("input")!;
   assert.notEqual(newInput, oldInput);
   assert.equal(newInput.value, "");

@@ -1,3 +1,6 @@
+import enCatalog from "@/public/locales/en/common.json";
+import esCatalog from "@/public/locales/es-419/common.json";
+
 /**
  * Versioned Cuadrao Business privacy-notice acceptance.
  *
@@ -15,6 +18,8 @@
  * - business.consent.decline_title
  * - business.consent.decline_body
  * - business.consent.continue_without
+ * - business.consent.holding
+ * - business.consent.hold_error
  * - business.consent.back
  * - business.consent.accepted_title
  * - business.consent.accepted_body
@@ -65,6 +70,8 @@ export const BUSINESS_CONSENT_I18N_KEYS = [
   "business.consent.decline_title",
   "business.consent.decline_body",
   "business.consent.continue_without",
+  "business.consent.holding",
+  "business.consent.hold_error",
   "business.consent.back",
   "business.consent.accepted_title",
   "business.consent.accepted_body",
@@ -75,6 +82,17 @@ export const BUSINESS_CONSENT_I18N_KEYS = [
   "business.privacy_notice.title",
   "business.privacy_notice.close",
 ] as const;
+
+type NoticeCatalog = {
+  business?: { privacy_notice?: { paragraphs?: unknown } };
+};
+
+/** The paragraphs of one locale, in the order the notice shows them. */
+export function noticeParagraphs(locale: PrivacyNoticeLocale): string[] {
+  const catalog = (locale === "en" ? enCatalog : esCatalog) as NoticeCatalog;
+  const value = catalog.business?.privacy_notice?.paragraphs;
+  return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0) ? value : [];
+}
 
 /** The notice body, in the order it is shown. The hash covers this text. */
 export function noticePlainText(paragraphs: readonly string[]): string {
@@ -90,14 +108,28 @@ export function isPrivacyNoticeLocale(value: string): value is PrivacyNoticeLoca
   return value === "en" || value === "es-419";
 }
 
-/** A returning person skips the screen only for this user and this notice version. */
+/**
+ * A returning person skips the screen only when this user accepted this
+ * version and the stored hash is the hash of that locale's current paragraphs.
+ * Bump the version when the wording changes; the hash still catches a catalog
+ * edit that forgot the bump.
+ */
 export function acceptanceMatchesCurrentNotice(
   record: PrivacyNoticeAcceptance | null | undefined,
   userId: string,
+  noticeHashes: Readonly<Record<PrivacyNoticeLocale, string>>,
   version: string = BUSINESS_PRIVACY_NOTICE_VERSION,
 ): boolean {
   if (!record || record.userId !== userId || record.noticeVersion !== version) return false;
-  return record.acceptedAt.length > 0 && isPrivacyNoticeLocale(record.locale) && /^[0-9a-f]{64}$/.test(record.textSha256);
+  if (record.acceptedAt.length === 0 || !isPrivacyNoticeLocale(record.locale)) return false;
+  return noticeHashes[record.locale] === record.textSha256 && /^[0-9a-f]{64}$/.test(record.textSha256);
+}
+
+export async function currentNoticeHashes(): Promise<Record<PrivacyNoticeLocale, string>> {
+  return {
+    en: await sha256Hex(noticePlainText(noticeParagraphs("en"))),
+    "es-419": await sha256Hex(noticePlainText(noticeParagraphs("es-419"))),
+  };
 }
 
 export function featureRequiresConsent(feature: string): feature is ConsentRequiredFeature {

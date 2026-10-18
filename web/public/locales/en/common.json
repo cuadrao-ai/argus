@@ -2816,6 +2816,8 @@
       "decline_title": "[DRAFT] Without this permission, AI stays off",
       "decline_body": "[DRAFT] If you do not accept, receipt reading with AI and the assistant stay unavailable. You can still upload receipts, record expenses, and review what is already saved.",
       "continue_without": "[DRAFT] Continue without AI",
+      "holding": "[DRAFT] Turning receipt reading off…",
+      "hold_error": "[DRAFT] Receipt reading could not be turned off. AI would stay available, so we stayed here.",
       "back": "[DRAFT] Back to the notice",
       "accepted_title": "[DRAFT] Acceptance kept in this browser",
       "accepted_body": "[DRAFT] We kept who accepted, when, the notice version, the language, and a fingerprint of the text shown. This copy lives only in this tab until the server can store it.",

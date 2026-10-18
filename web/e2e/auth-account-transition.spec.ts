@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { BUSINESS_PRIVACY_NOTICE_STORAGE_KEY } from "../lib/browser-storage";
-import { BUSINESS_PRIVACY_NOTICE_VERSION } from "../lib/business-privacy-notice";
+import { BUSINESS_PRIVACY_NOTICE_VERSION, currentNoticeHashes } from "../lib/business-privacy-notice";
 const oldId = "11111111-1111-4111-8111-111111111111";
 const newId = "22222222-2222-4222-8222-222222222222";
 function token(id: string) {
@@ -55,6 +55,7 @@ test("a fresh account drops persisted old Business context and waits for its own
   const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
   const session = { access_token: token(newId), refresh_token: "new-refresh", expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: "bearer", user: user(newId) };
   await context.addCookies([{ name: "sb-127-auth-token", value: `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`, url: baseURL! }]);
+  const textSha256 = (await currentNoticeHashes()).en;
   await page.addInitScript(({ oldId, noticeKey, notice }) => {
     window.localStorage.setItem("argus:business-grant:v1", JSON.stringify({ userId: oldId, grantId: "44444444-4444-4444-8444-444444444444" }));
     window.sessionStorage.setItem(noticeKey, JSON.stringify({ [notice.userId]: notice }));
@@ -66,7 +67,7 @@ test("a fresh account drops persisted old Business context and waits for its own
       acceptedAt: "2026-10-18T12:00:00.000Z",
       noticeVersion: BUSINESS_PRIVACY_NOTICE_VERSION,
       locale: "en",
-      textSha256: "a".repeat(64),
+      textSha256,
     },
   });
   let started = false;

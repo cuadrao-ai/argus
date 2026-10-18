@@ -7,12 +7,16 @@ import {
   BUSINESS_PRIVACY_NOTICE_VERSION,
   acceptanceMatchesCurrentNotice,
   canSubmitAcceptance,
+  currentNoticeHashes,
   featureReachable,
   featureRequiresConsent,
   noticePlainText,
+  noticeParagraphs,
   sha256Hex,
   type PrivacyNoticeAcceptance,
+  type PrivacyNoticeLocale,
 } from "../lib/business-privacy-notice";
+import { rememberPrivacyNoticeAcceptance, revokeEnabledReceiptReading } from "../lib/business-privacy-notice-client";
 
 const USER = "owner-jose";
 
@@ -35,16 +39,29 @@ function lookup(catalog: object, key: string): unknown {
 }
 
 describe("business privacy notice version", () => {
-  test("a current acceptance for this person skips the screen", () => {
-    assert.equal(acceptanceMatchesCurrentNotice(acceptance(), USER), true);
+  test("a current acceptance for this person skips the screen", async () => {
+    const hashes = await currentNoticeHashes();
+    const current = acceptance({ locale: "es-419", textSha256: hashes["es-419"] });
+    assert.equal(acceptanceMatchesCurrentNotice(current, USER, hashes), true);
   });
 
-  test("a missing, other-person, or older notice does not skip the screen", () => {
-    assert.equal(acceptanceMatchesCurrentNotice(null, USER), false);
-    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ userId: "someone-else" }), USER), false);
-    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ noticeVersion: "2026-10-01-draft-0" }), USER), false);
-    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ textSha256: "not-a-hash" }), USER), false);
-    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ acceptedAt: "" }), USER), false);
+  test("a missing, other-person, older, or different notice does not skip the screen", async () => {
+    const hashes = await currentNoticeHashes();
+    const current = acceptance({ textSha256: hashes["es-419"] });
+    assert.equal(acceptanceMatchesCurrentNotice(null, USER, hashes), false);
+    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ userId: "someone-else", textSha256: hashes["es-419"] }), USER, hashes), false);
+    assert.equal(acceptanceMatchesCurrentNotice({ ...current, noticeVersion: "2026-10-01-draft-0" }, USER, hashes), false);
+    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ textSha256: "not-a-hash" }), USER, hashes), false);
+    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ textSha256: "ab".repeat(32) }), USER, hashes), false);
+    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ acceptedAt: "", textSha256: hashes["es-419"] }), USER, hashes), false);
+    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ locale: "en", textSha256: hashes["es-419"] }), USER, hashes), false);
+  });
+
+  test("the same version with edited paragraphs does not skip", async () => {
+    const hashes = await currentNoticeHashes();
+    const edited = noticePlainText([...noticeParagraphs("es-419").slice(0, -1), "[BORRADOR] Frase distinta."]);
+    const stale = acceptance({ textSha256: await sha256Hex(edited) });
+    assert.equal(acceptanceMatchesCurrentNotice(stale, USER, hashes), false);
   });
 
   test("the shown notice text is what the stored hash covers", async () => {
@@ -77,6 +94,36 @@ describe("business consent gating", () => {
     assert.equal(canSubmitAcceptance(false, false), false);
     assert.equal(canSubmitAcceptance(true, true), false);
     assert.equal(canSubmitAcceptance(true, false), true);
+  });
+
+  test("a failed tab write is not an acceptance", () => {
+    assert.throws(
+      () => rememberPrivacyNoticeAcceptance(acceptance(), () => false),
+      /privacy_notice_not_stored/,
+    );
+  });
+
+  test("declining turns off receipt reading when the server still has it on", async () => {
+    const calls: boolean[] = [];
+    await revokeEnabledReceiptReading({
+      receiptReading: async () => ({ enabled: true }),
+      setReceiptReading: async (_reading, enabled) => {
+        calls.push(enabled);
+        return { enabled };
+      },
+    }, "es-419");
+    assert.deepEqual(calls, [false]);
+  });
+
+  test("declining stays put when receipt reading cannot be turned off", async () => {
+    await assert.rejects(() => revokeEnabledReceiptReading({
+      receiptReading: async () => ({ enabled: true }),
+      setReceiptReading: async () => ({ enabled: true }),
+    }, "en" satisfies PrivacyNoticeLocale));
+  });
+
+  test("declining does nothing when this source has no receipt-reading switch", async () => {
+    await revokeEnabledReceiptReading({}, "es-419");
   });
 });
 

@@ -51,7 +51,7 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
   // Design preview has no signed-in person and no acceptance to record.
   if (sample || !consentUserId) return workspace;
   return (
-    <BusinessConsentGate key={consentUserId} userId={consentUserId}>
+    <BusinessConsentGate key={consentUserId} userId={consentUserId} source={source}>
       {workspace}
     </BusinessConsentGate>
   );
