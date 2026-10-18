@@ -77,8 +77,8 @@ def test_release_contract_keeps_all_three_services_on_manual_deploys() -> None:
     # autodeploy, so render.yaml carries the quoted string rather than YAML false.
     for surface in ("api", "web", "workflow"):
         assert profile["services"][surface]["auto_deploy_trigger"] == "off"
-    assert render_by_name["argus-api"]["autoDeployTrigger"] == "off"
-    assert render_by_name["argus-app"]["autoDeployTrigger"] == "off"
+    assert render_by_name["cuadrao-api"]["autoDeployTrigger"] == "off"
+    assert render_by_name["cuadrao-web"]["autoDeployTrigger"] == "off"
     assert "argus-backtests" not in render_by_name
     assert "`autoDeployTrigger: off`" in runbook
     assert "argus-api" in runbook
@@ -92,8 +92,9 @@ def test_argus_api_disables_the_default_render_subdomain() -> None:
     runbook = _source("docs/PRIVATE_LAUNCH_RUNBOOK.md")
     waitlist_floor = runbook.split("### Waitlist rollback floor", 1)[1]
 
-    assert render_by_name["argus-api"]["renderSubdomainPolicy"] == "disabled"
-    assert "renderSubdomainPolicy" not in render_by_name["argus-app"]
+    assert render_by_name["cuadrao-api"]["renderSubdomainPolicy"] == "disabled"
+    assert "renderSubdomainPolicy" not in render_by_name["cuadrao-web"]
+    assert render_by_name["cuadrao-api-staging"]["renderSubdomainPolicy"] == "enabled"
     assert "https://argus-ohr5.onrender.com" in waitlist_floor
     assert "HTTP `404`" in waitlist_floor
     assert "Cloudflare Worker" in waitlist_floor
@@ -208,7 +209,7 @@ def test_render_env_sync_audit_compares_the_transition_cors_allowlist(
         tmp_path,
         expect_mode="real-workflow",
         api_env_json=_render_env_payload(
-            "argus-api",
+            "cuadrao-api",
             overrides={
                 "ARGUS_BACKTEST_JOBS_SHADOW_ENABLED": "true",
                 "ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED": "true",
