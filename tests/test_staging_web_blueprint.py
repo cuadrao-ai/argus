@@ -14,7 +14,7 @@ def test_staging_web_has_its_own_manual_integration_and_recovery_config():
     )
     assert stage["branch"] == "codex/private-alpha-next"
     assert stage["rootDir"] == "web"
-    assert stage["autoDeployTrigger"] == "off"
+    assert stage["autoDeployTrigger"] == "checksPass"
     assert stage["buildCommand"] == "bun install --frozen-lockfile && bun run build"
     assert stage["startCommand"] == "bun run start -- -p $PORT"
     assert "envVarGroups" not in stage
