@@ -3252,6 +3252,27 @@
         "marketing/components/business-footer.tsx",
         "marketing/components/personal-early-access.tsx"
       ]
+    },
+    "codex/cleanup-m1-retention-registry": {
+      "description": "M1 additive private retention rule inventory and terminal sweep evidence only. Root granted this branch entry. No deletion jobs, account deletion, receipts, environment or hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "supabase/migrations/20261018030000_retention_registry.sql",
+        "tests/test_client_grants_postgres.py",
+        "tests/test_m1_retention_registry_postgres.py",
+        "tests/sql/m1_retention_registry.sql",
+        "docs/reports/evidence/m1-retention-registry/**"
+      ],
+      "deny": [
+        "src/**",
+        "web/**",
+        "ios/**",
+        "marketing/**",
+        "render.yaml",
+        ".env",
+        "web/.env.local"
+      ]
     }
   }
 }
