@@ -166,7 +166,7 @@ describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the
     const coverage = () => [...page.host.querySelectorAll("p")].map((p) => p.textContent ?? "").find((text) => text.startsWith("Cubre del")) ?? null;
     await page.settle(() => label() !== null);
     assert.equal(label(), "Gastos reales · este mes");
-    await page.click(page.buttons("Mes pasado")[0]);
+    await page.act(async () => page.business().setPeriod("last_month"));
     await page.settle(() => label() === "Gastos reales · mes pasado");
     assert.equal(label(), "Gastos reales · mes pasado");
     await page.act(async () => page.business().setPeriod({ key: "custom", from: "2026-09-01", to: "2026-09-30" }));

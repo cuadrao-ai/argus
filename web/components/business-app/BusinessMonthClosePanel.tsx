@@ -1,19 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { AlertCircle, BadgeCheck, CircleCheck, Clock } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { AlertCircle, BadgeCheck, Check, ChevronLeft, ChevronRight, CircleCheck, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useOverlayLayer } from "@/components/layout/overlayStack";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import {
   canCloseMonth,
+  canStepMonth,
+  currentMonthKey,
   electronicNcf,
   fiscalNumberPresent,
+  formatMonthLabel,
   monthCloseBlockers,
   monthCloseClient,
   monthCloseNetDisplay,
   monthCloseSummary,
+  monthPickerMonths,
   paperNcf,
   rncPresent,
+  shiftMonthKey,
   sortDocuments,
   type MonthCloseBlocker,
   type MonthCloseClient,
@@ -21,10 +28,177 @@ import {
   type MonthCloseSnapshot,
   type MonthCloseStatus,
 } from "@/lib/business-month-close";
-import { formatDay, formatMoney, type Period, type PeriodKey } from "./business-format";
-import BusinessPeriodControl from "./BusinessPeriodControl";
+import { formatDay, formatMoney } from "./business-format";
 import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
+
+const monthArrowClass =
+  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-white/70 dark:hover:bg-white/5";
+
+function MonthSwitcher({
+  month,
+  current,
+  earliest,
+  onMonth,
+  headingId,
+}: {
+  month: string;
+  current: string;
+  earliest: string | null;
+  onMonth: (month: string) => void;
+  headingId: string;
+}) {
+  const { t } = useTranslation();
+  const options = monthPickerMonths(current, earliest);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const [position, setPosition] = useState({ left: 8, top: 48 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const listId = useId();
+  const label = formatMonthLabel(month);
+
+  function close() {
+    setOpen(false);
+    buttonRef.current?.focus();
+  }
+
+  function choose(next: string) {
+    const option = options.find((item) => item.month === next);
+    if (!option?.selectable) return;
+    onMonth(next);
+    close();
+  }
+
+  useOverlayLayer({
+    isOpen: open,
+    overlayId: listId,
+    containerRef: listRef,
+    onKeyDown: (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+        return;
+      }
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActive((index) => Math.min(options.length - 1, index + 1));
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActive((index) => Math.max(0, index - 1));
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        setActive(0);
+      } else if (event.key === "End") {
+        event.preventDefault();
+        setActive(Math.max(0, options.length - 1));
+      } else if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        const option = options[active];
+        if (option) choose(option.month);
+      }
+    },
+    onOutsidePointerDown: (event) => {
+      if (buttonRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    },
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      const width = 256;
+      setPosition({
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+        top: rect.bottom + 4,
+      });
+    }
+    listRef.current?.focus();
+    listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [open]);
+
+  return (
+    <div className="flex items-center" data-testid="month-close-switcher">
+      <button
+        type="button"
+        data-testid="month-close-month-prev"
+        className={monthArrowClass}
+        aria-label={t("business.month_close.previous_month", "Mes anterior")}
+        disabled={!canStepMonth(month, -1, current, earliest)}
+        onClick={() => onMonth(shiftMonthKey(month, -1))}
+      >
+        <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+      </button>
+      <h3 id={headingId} className="min-w-0 font-display font-medium">
+        <button
+          ref={buttonRef}
+          type="button"
+          data-testid="month-close-month"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listId}
+          className="inline-flex min-h-11 items-center rounded-full px-2 font-display text-[26px] font-medium leading-tight tracking-tight text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 dark:text-white"
+          onClick={() => {
+            if (open) {
+              close();
+              return;
+            }
+            setActive(Math.max(0, options.findIndex((option) => option.month === month)));
+            setOpen(true);
+          }}
+        >
+          {label}
+        </button>
+      </h3>
+      <button
+        type="button"
+        data-testid="month-close-month-next"
+        className={monthArrowClass}
+        aria-label={t("business.month_close.next_month", "Mes siguiente")}
+        disabled={!canStepMonth(month, 1, current, earliest)}
+        onClick={() => onMonth(shiftMonthKey(month, 1))}
+      >
+        <ChevronRight className="h-5 w-5" aria-hidden="true" />
+      </button>
+      {open ? createPortal(
+        <ul
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          tabIndex={-1}
+          data-testid="month-close-month-picker"
+          aria-label={t("business.month_close.choose_month", "Elegir mes")}
+          aria-activedescendant={options[active] ? `${listId}-${options[active].month}` : undefined}
+          style={{ left: position.left, top: position.top }}
+          className="fixed z-[100] max-h-80 w-64 overflow-y-auto rounded-[16px] border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
+        >
+          {options.map((option, index) => {
+            const selected = option.month === month;
+            return (
+              <li
+                key={option.month}
+                id={`${listId}-${option.month}`}
+                role="option"
+                aria-selected={selected}
+                aria-disabled={option.selectable ? undefined : true}
+                data-month={option.month}
+                data-active={index === active ? "true" : undefined}
+                onMouseEnter={() => setActive(index)}
+                onClick={() => choose(option.month)}
+                className={`flex min-h-11 items-center justify-between gap-2 rounded-[12px] px-3 font-display text-[15px] font-medium ${option.selectable ? "cursor-pointer text-black dark:text-white" : "cursor-not-allowed text-black/35 dark:text-white/30"} ${index === active ? "bg-black/5 dark:bg-white/5" : ""}`}
+              >
+                <span>{formatMonthLabel(option.month)}</span>
+                {selected ? <Check className="h-4 w-4 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" /> : null}
+              </li>
+            );
+          })}
+        </ul>,
+        document.body,
+      ) : null}
+    </div>
+  );
+}
 
 const CHIP_TONE: Record<MonthCloseStatus, string> = {
   pendiente: "bg-[#f4ead2] text-[#3f3414] dark:bg-[#4a3d1c] dark:text-[#f6e7c1]",
@@ -92,21 +266,23 @@ function SummaryCard({
 
 export function BusinessMonthCloseView({
   client,
-  period,
-  setPeriod,
   scopeKey = "default",
   canMutate = true,
+  now,
 }: {
   client: MonthCloseClient;
-  period: Period;
-  setPeriod: (next: PeriodKey | Period) => void;
   /** Selected Business grant. A change reloads this snapshot and keeps the mock's books apart. */
   scopeKey?: string;
   /** Close and settlement marks follow the grant's approve capability. */
   canMutate?: boolean;
+  /** Clock for the current month. Tests pin it; Inicio uses today. */
+  now?: Date;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
+  const clock = useRef(now ?? new Date());
+  const currentMonth = currentMonthKey(clock.current);
+  const [month, setMonth] = useState(currentMonth);
   const [snapshot, setSnapshot] = useState<MonthCloseSnapshot | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
@@ -122,7 +298,7 @@ export function BusinessMonthCloseView({
     setPhase("loading");
     setSnapshot(null);
     setConfirming(false);
-    client.load({ from: period.from, to: period.to }, scopeKey).then(
+    client.load(month, scopeKey).then(
       (next) => {
         if (generation.current !== request) return;
         setSnapshot(next);
@@ -133,7 +309,7 @@ export function BusinessMonthCloseView({
         setPhase("error");
       },
     );
-  }, [attempt, client, period.from, period.to, scopeKey]);
+  }, [attempt, client, month, scopeKey]);
 
   useEffect(() => {
     if (!toast) return;
@@ -299,12 +475,16 @@ export function BusinessMonthCloseView({
 
   return (
     <section aria-labelledby="month-close-title" data-testid="month-close" data-closed={closed ? "true" : "false"} className="mb-8">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h3 id="month-close-title" className="text-[15px] font-medium text-black dark:text-white">
-            {t("business.month_close.title", "Close the month")}
-          </h3>
-          <p className="mt-1 text-[13px] text-black/55 dark:text-white/55">{t("business.month_close.subtitle", "Income, expenses, and ITBIS for the month.")}</p>
+          <MonthSwitcher
+            month={month}
+            current={currentMonth}
+            earliest={snapshot?.earliest_month ?? null}
+            onMonth={setMonth}
+            headingId="month-close-title"
+          />
+          <p className="mt-1 px-2 text-[13px] text-black/55 dark:text-white/55">{t("business.month_close.subtitle", "Income, expenses, and ITBIS for the month.")}</p>
         </div>
         <div className="flex flex-col items-stretch gap-2 tablet:items-end">
           {closed && snapshot?.closed_at ? (
@@ -334,10 +514,6 @@ export function BusinessMonthCloseView({
             </>
           )}
         </div>
-      </div>
-
-      <div className="mb-5">
-        <BusinessPeriodControl period={period} setPeriod={setPeriod} />
       </div>
 
       {client.mode === "mock" ? (
@@ -448,12 +624,10 @@ export function BusinessMonthCloseView({
 }
 
 export default function BusinessMonthClosePanel() {
-  const { period, setPeriod, chosen } = useBusiness();
+  const { chosen } = useBusiness();
   return (
     <BusinessMonthCloseView
       client={monthCloseClient}
-      period={period}
-      setPeriod={setPeriod}
       scopeKey={chosen?.grant_id ?? "own"}
       canMutate={Boolean(chosen?.capabilities.includes("approve"))}
     />

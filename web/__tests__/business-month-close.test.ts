@@ -1,18 +1,23 @@
 import { describe, expect, test } from "bun:test";
-import { periodRange } from "../components/business-app/business-format";
 import {
   MonthCloseError,
   calendarMonthOf,
   canCloseMonth,
+  canStepMonth,
   closeGate,
   createMockMonthCloseClient,
   fiscalNumberPresent,
+  formatMonthLabel,
   monthCloseBlockers,
   monthCloseNetDisplay,
+  monthCloseRequestPath,
   monthCloseSampleDocuments,
   monthCloseSummary,
+  monthPickerFloor,
+  monthPickerMonths,
   readMonthCloseDocument,
   rncPresent,
+  shiftMonthKey,
   type MonthCloseDocument,
 } from "../lib/business-month-close";
 
@@ -174,7 +179,7 @@ describe("month close blockers and the close gate", () => {
 describe("month close mock client", () => {
   test("a month with RNC and NCF closes while items are still pending", async () => {
     const client = createMockMonthCloseClient({ now });
-    const lastMonth = periodRange("last_month", now);
+    const lastMonth = "2026-09";
     let snapshot = await client.load(lastMonth);
     expect(snapshot.month).toBe("2026-09");
     expect(canCloseMonth(snapshot)).toEqual({ ok: true, month: "2026-09" });
@@ -194,7 +199,7 @@ describe("month close mock client", () => {
 
   test("a mark in one Business does not change another Business", async () => {
     const client = createMockMonthCloseClient({ now });
-    const lastMonth = periodRange("last_month", now);
+    const lastMonth = "2026-09";
     await client.markCobrado("inv-luna", "grant-a");
     const other = await client.load(lastMonth, "grant-b");
     expect(other.documents.find((item) => item.id === "inv-luna")?.status).toBe("pendiente");
@@ -205,7 +210,37 @@ describe("month close mock client", () => {
   test("a failed mark leaves the stored status untouched", async () => {
     const client = createMockMonthCloseClient({ now, failIds: ["inv-taller"] });
     await expect(client.markCobrado("inv-taller")).rejects.toMatchObject({ code: "unavailable" });
-    const snapshot = await client.load(periodRange("this_month", now));
+    const snapshot = await client.load("2026-10");
     expect(snapshot.documents.find((item) => item.id === "inv-taller")?.status).toBe("pendiente");
+  });
+
+  test("load asks for the month, and the path is GET ?month=", async () => {
+    const client = createMockMonthCloseClient({ now });
+    const snapshot = await client.load("2026-09");
+    expect(snapshot.month).toBe("2026-09");
+    expect(snapshot.earliest_month).toBe("2026-09");
+    expect(monthCloseRequestPath("2026-10")).toBe("/business/month-close?month=2026-10");
+    expect(() => monthCloseRequestPath("2026-10-01")).toThrow(MonthCloseError);
+  });
+});
+
+describe("month switcher", () => {
+  test("the label is the Spanish month name and the year", () => {
+    expect(formatMonthLabel("2026-10")).toBe("Octubre 2026");
+    expect(formatMonthLabel("2026-01")).toBe("Enero 2026");
+  });
+
+  test("previous and next step across a year, and next stops on the current month", () => {
+    expect(shiftMonthKey("2026-01", -1)).toBe("2025-12");
+    expect(shiftMonthKey("2025-12", 1)).toBe("2026-01");
+    expect(canStepMonth("2026-10", 1, "2026-10")).toBe(false);
+    expect(canStepMonth("2026-09", 1, "2026-10")).toBe(true);
+    expect(canStepMonth("2026-01", -1, "2026-10")).toBe(true);
+    expect(monthPickerFloor("2026-10", null)).toBe("2024-11");
+    expect(monthPickerFloor("2026-10", "2020-03")).toBe("2020-03");
+    const future = monthPickerMonths("2026-10", "2026-09").filter((option) => option.month > "2026-10");
+    expect(future.length).toBeGreaterThan(0);
+    expect(future.every((option) => !option.selectable)).toBe(true);
+    expect(monthPickerMonths("2026-10", "2026-09").some((option) => option.month === "2026-09" && option.selectable)).toBe(true);
   });
 });

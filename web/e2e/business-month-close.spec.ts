@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { monthCloseSampleDocuments, monthCloseSummary } from "../lib/business-month-close";
+import { currentMonthKey, formatMonthLabel, monthCloseSampleDocuments, monthCloseSummary, shiftMonthKey } from "../lib/business-month-close";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
 function monthKey(date: Date): string {
@@ -97,7 +97,10 @@ test.describe("inicio is the month close", () => {
       await expect(page.getByTestId("month-close-close")).toBeDisabled();
       await expect(page.getByTestId("month-close-blockers")).toContainText("Transporte Díaz");
 
-      await page.getByRole("radio", { name: "Mes pasado" }).click();
+      await expect(page.getByTestId("month-close-month")).toHaveText(formatMonthLabel(currentMonthKey(new Date())));
+      await expect(page.getByTestId("month-close-month-next")).toBeDisabled();
+      await page.getByRole("button", { name: "Mes anterior" }).click();
+      await expect(page.getByTestId("month-close-month")).toHaveText(formatMonthLabel(shiftMonthKey(currentMonthKey(new Date()), -1)));
       await expect(net).toHaveAttribute("data-state", "pending");
       await expect(net).toContainText("documentos pendientes");
       await expect(net).not.toContainText("RD$");

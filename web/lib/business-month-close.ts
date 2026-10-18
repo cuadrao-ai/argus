@@ -7,8 +7,9 @@ import { apiFetch } from "./argus-api-transport";
  *
  * Assumed HTTP contract, under `/api/v1`:
  *
- * - `GET /business/month-close?from=YYYY-MM-DD&to=YYYY-MM-DD`
- *   `to` may be omitted. The server then uses its own today.
+ * - `GET /business/month-close?month=YYYY-MM`
+ *   The selected month is the only window. The response may include
+ *   `earliest_month` (`YYYY-MM`) when it knows the first month with data.
  * - `POST /business/month-close/documents/{id}/cobrado`
  * - `POST /business/month-close/documents/{id}/pagado`
  * - `POST /business/month-close/{month}/close` with `{month}` as `YYYY-MM`
@@ -72,6 +73,8 @@ export type MonthCloseSnapshot = {
   to: string;
   currency: MonthCloseCurrency;
   closed_at: string | null;
+  /** First month with data, when the response includes it. Null when it does not. */
+  earliest_month: string | null;
   documents: MonthCloseDocument[];
 };
 
@@ -119,8 +122,8 @@ export class MonthCloseError extends Error {
 
 export type MonthCloseClient = {
   readonly mode: "mock" | "http";
-  /** `scope` is the selected Business grant. The mock keeps each grant's marks apart. The HTTP client refetches when the view's scope changes; the session already carries the grant. */
-  load(window: MonthCloseWindow, scope?: string): Promise<MonthCloseSnapshot>;
+  /** `scope` is the selected Business grant. The mock keeps each grant's marks apart. The HTTP client refetches when the view's scope changes; the session already carries the grant. `month` is `YYYY-MM` and is the `month` query sent to the server. */
+  load(month: string, scope?: string): Promise<MonthCloseSnapshot>;
   markCobrado(documentId: string, scope?: string): Promise<MonthCloseDocument>;
   markPagado(documentId: string, scope?: string): Promise<MonthCloseDocument>;
   closeMonth(month: string, scope?: string): Promise<MonthCloseSnapshot>;
@@ -249,6 +252,62 @@ export function calendarMonthOf(from: string, to: string | null, today: string):
   return DAY.test(to) && to === end ? key : null;
 }
 
+/** `YYYY-MM` for a local calendar month. */
+export function currentMonthKey(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Move a `YYYY-MM` key by whole months. January minus one is the previous December. */
+export function shiftMonthKey(month: string, offset: number): string {
+  if (!MONTH.test(month)) throw new MonthCloseError("unavailable", "month close month is unknown");
+  return currentMonthKey(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + offset, 1));
+}
+
+/** "Octubre 2026". The month name and the year stay separate so the label is not "octubre de 2026". */
+export function formatMonthLabel(month: string, locale = "es-419"): string {
+  if (!MONTH.test(month)) throw new MonthCloseError("unavailable", "month close month is unknown");
+  const formatted = new Intl.DateTimeFormat(locale, { month: "long" }).format(
+    new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1),
+  );
+  return `${formatted.charAt(0).toLocaleUpperCase(locale)}${formatted.slice(1)} ${month.slice(0, 4)}`;
+}
+
+/** How far back the month list goes when the API does not say where the data starts. */
+export const MONTH_PICKER_LOOKBACK = 24;
+/** Months after the current one stay in the list so they can be seen and not chosen. */
+export const MONTH_PICKER_FUTURE = 12;
+
+/** The first selectable month: the API's earliest month with data, or the last 24 months. */
+export function monthPickerFloor(current: string, earliest: string | null): string {
+  if (earliest && MONTH.test(earliest) && earliest <= current) return earliest;
+  return shiftMonthKey(current, -(MONTH_PICKER_LOOKBACK - 1));
+}
+
+export type MonthChoice = { month: string; selectable: boolean };
+
+/** Months only. Past months through the current one can be chosen. Later months are present and disabled. */
+export function monthPickerMonths(current: string, earliest: string | null = null): MonthChoice[] {
+  const floor = monthPickerFloor(current, earliest);
+  const end = shiftMonthKey(current, MONTH_PICKER_FUTURE);
+  const months: MonthChoice[] = [];
+  for (let cursor = floor; cursor <= end; cursor = shiftMonthKey(cursor, 1)) {
+    months.push({ month: cursor, selectable: cursor <= current });
+  }
+  return months;
+}
+
+/** Whether the previous or next arrow may leave `month`. Forward stops on the current month. */
+export function canStepMonth(month: string, direction: -1 | 1, current: string, earliest: string | null = null): boolean {
+  const next = shiftMonthKey(month, direction);
+  return next <= current && next >= monthPickerFloor(current, earliest);
+}
+
+/** `GET /business/month-close?month=YYYY-MM`. */
+export function monthCloseRequestPath(month: string): string {
+  if (!MONTH.test(month)) throw new MonthCloseError("unavailable", "month close month is unknown");
+  return `/business/month-close?${new URLSearchParams({ month }).toString()}`;
+}
+
 /**
  * Pure close gate. The month-close button and the Exportar 606/607 checklist
  * both call this. Pending collection or payment is not an input.
@@ -327,12 +386,14 @@ export function readMonthCloseSnapshot(value: unknown): MonthCloseSnapshot {
   }
   if (!(value.closed_at === null || typeof value.closed_at === "string")) throw new MonthCloseError("unavailable", "month close timestamp is unknown");
   if (!Array.isArray(value.documents)) throw new MonthCloseError("unavailable", "month close documents are missing");
+  const earliest = typeof value.earliest_month === "string" && MONTH.test(value.earliest_month) ? value.earliest_month : null;
   return {
     month: value.month,
     from: value.from,
     to: value.to,
     currency: "DOP",
     closed_at: value.closed_at,
+    earliest_month: earliest,
     documents: value.documents.map(readMonthCloseDocument),
   };
 }
@@ -384,6 +445,22 @@ function documentsInWindow(documents: readonly MonthCloseDocument[], from: strin
   return documents.filter((document) => document.occurred_on >= from && document.occurred_on <= to);
 }
 
+function earliestMonthOf(documents: readonly MonthCloseDocument[]): string | null {
+  let earliest: string | null = null;
+  for (const document of documents) {
+    const key = document.occurred_on.slice(0, 7);
+    if (!MONTH.test(key)) continue;
+    if (!earliest || key < earliest) earliest = key;
+  }
+  return earliest;
+}
+
+function windowForMonth(month: string): MonthCloseWindow {
+  if (!MONTH.test(month)) throw new MonthCloseError("unavailable", "month close month is unknown");
+  const [year, monthNumber] = month.split("-").map(Number);
+  return { from: `${month}-01`, to: lastDayOfMonth(year, monthNumber) };
+}
+
 function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthCloseWindow, today: string, closedAt: Map<string, string>): MonthCloseSnapshot {
   const to = window.to ?? today;
   const month = calendarMonthOf(window.from, window.to, today);
@@ -393,6 +470,7 @@ function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthClos
     to,
     currency: "DOP",
     closed_at: month ? closedAt.get(month) ?? null : null,
+    earliest_month: earliestMonthOf(documents),
     documents: documentsInWindow(documents, window.from, to),
   };
 }
@@ -436,10 +514,9 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
 
   return {
     mode: "mock",
-    async load(window, scope = "default") {
-      if (!DAY.test(window.from) || (window.to !== null && !DAY.test(window.to))) throw new MonthCloseError("unavailable", "month close window is unknown");
+    async load(month, scope = "default") {
       const current = book(scope);
-      return snapshotFor(current.documents, window, today, current.closedAt);
+      return snapshotFor(current.documents, windowForMonth(month), today, current.closedAt);
     },
     async markCobrado(documentId, scope = "default") {
       return mark(scope, documentId, "invoice", "cobrado");
@@ -476,10 +553,8 @@ async function readHttp<T>(path: string, init?: RequestInit): Promise<T> {
 export function createHttpMonthCloseClient(): MonthCloseClient {
   return {
     mode: "http",
-    async load(window) {
-      const params = new URLSearchParams({ from: window.from });
-      if (window.to) params.set("to", window.to);
-      return readMonthCloseSnapshot(await readHttp(`/business/month-close?${params}`));
+    async load(month) {
+      return readMonthCloseSnapshot(await readHttp(monthCloseRequestPath(month)));
     },
     async markCobrado(documentId) {
       return readMonthCloseDocument(await readHttp(`/business/month-close/documents/${encodeURIComponent(documentId)}/cobrado`, { method: "POST" }));

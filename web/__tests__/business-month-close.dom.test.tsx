@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { periodRange } from "../components/business-app/business-format";
 import { createMockMonthCloseClient, MonthCloseError, type MonthCloseClient } from "../lib/business-month-close";
 
 beforeAll(() => {
@@ -45,7 +44,7 @@ describe("month close optimistic marks", () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <BusinessMonthCloseView client={client} period={periodRange("this_month", now)} setPeriod={() => undefined} />
+          <BusinessMonthCloseView client={client} now={now} />
         </I18nextProvider>,
       );
     });
@@ -86,7 +85,7 @@ describe("month close optimistic marks", () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <BusinessMonthCloseView client={createMockMonthCloseClient({ now })} period={periodRange("last_month", now)} setPeriod={() => undefined} scopeKey="grant-read" canMutate={false} />
+          <BusinessMonthCloseView client={createMockMonthCloseClient({ now })} now={now} scopeKey="grant-read" canMutate={false} />
         </I18nextProvider>,
       );
     });
@@ -97,6 +96,95 @@ describe("month close optimistic marks", () => {
     assert.match(host.querySelector('[data-testid="month-close-reason"]')?.textContent ?? "", /permiso de aprobación/);
     assert.equal(host.querySelector('[data-testid="month-close-mark-cobrado"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-mark-pagado"]'), null);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  test("the month picker sends the chosen month, returns focus, and disables future months", async () => {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("../public/locales/es-419/common.json")).default;
+    const { BusinessMonthCloseView } = await import("../components/business-app/BusinessMonthClosePanel");
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const loads: string[] = [];
+    const inner = createMockMonthCloseClient({ now });
+    const client: MonthCloseClient = {
+      ...inner,
+      async load(month, scope) {
+        loads.push(month);
+        return inner.load(month, scope);
+      },
+    };
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <BusinessMonthCloseView client={client} now={now} />
+        </I18nextProvider>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const trigger = host.querySelector('[data-testid="month-close-month"]');
+    assert.ok(trigger instanceof HTMLButtonElement);
+    assert.equal(trigger.textContent, "Octubre 2026");
+    assert.match(trigger.className, /font-display/);
+    assert.match(trigger.className, /font-medium/);
+    assert.doesNotMatch(trigger.className, /font-bold|font-semibold/);
+    assert.equal(host.querySelector('[data-testid="month-close-month-next"]')?.hasAttribute("disabled"), true);
+    const previous = host.querySelector('[data-testid="month-close-month-prev"]');
+    const next = host.querySelector('[data-testid="month-close-month-next"]');
+    assert.match(previous?.className ?? "", /h-11/);
+    assert.match(previous?.className ?? "", /w-11/);
+    assert.match(next?.className ?? "", /h-11/);
+    assert.match(next?.className ?? "", /w-11/);
+
+    await act(async () => {
+      trigger.click();
+    });
+    const picker = document.querySelector('[data-testid="month-close-month-picker"]');
+    assert.equal(picker?.getAttribute("role"), "listbox");
+    const future = document.querySelector('[data-month="2026-11"]');
+    const current = document.querySelector('[data-month="2026-10"]');
+    assert.equal(future?.getAttribute("aria-disabled"), "true");
+    assert.equal(current?.getAttribute("aria-selected"), "true");
+    await act(async () => {
+      future?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    assert.equal(loads.includes("2026-11"), false);
+    assert.equal(trigger.textContent, "Octubre 2026");
+    assert.ok(document.querySelector('[data-testid="month-close-month-picker"]'));
+
+    trigger.focus();
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    assert.equal(document.querySelector('[data-testid="month-close-month-picker"]'), null);
+    assert.equal(document.activeElement, trigger);
+
+    await act(async () => {
+      trigger.click();
+    });
+    const september = document.querySelector('[data-month="2026-09"]');
+    assert.equal(september?.getAttribute("aria-disabled"), null);
+    await act(async () => {
+      september?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    assert.equal(loads.includes("2026-09"), true);
+    assert.equal(trigger.textContent, "Septiembre 2026");
+    assert.equal(document.querySelector('[data-testid="month-close-month-picker"]'), null);
+    assert.equal(document.activeElement, trigger);
+    assert.equal(host.querySelector('[data-testid="month-close-month-next"]')?.hasAttribute("disabled"), false);
+
     await act(async () => root.unmount());
     host.remove();
   });
