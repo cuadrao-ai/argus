@@ -292,7 +292,7 @@ export default function AuthForm({
           <p className="mt-3 text-[15px] leading-relaxed text-black/60 dark:text-white/60">
             {t(
               "auth.signup.confirmation_description",
-              "Open the link we sent and you'll go straight into Cuadrao.",
+              "Enter the code from the email, or open the confirmation link. Either one finishes creating your account.",
             )}
           </p>
           <form onSubmit={handleConfirmCode} className="mt-5 space-y-3 text-left">

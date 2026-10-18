@@ -91,9 +91,8 @@ describe("staging Auth email hook", () => {
 
   test("renders the approved Spanish copy and shared layout for each action", async () => {
     const cases = [
-      ["signup", "Confirma tu correo en Cuadrao", "Confirma tu correo desde este enlace:"],
+      ["signup", "123456 es tu código de Cuadrao", "Usa este código para confirmar tu cuenta de Cuadrao:"],
       ["magiclink", "123456 es tu código para entrar a Cuadrao", "Entrar a Cuadrao"],
-      ["invite", "Te invitaron a Cuadrao", "Te invitaron a usar Cuadrao."],
       ["reauthentication", "123456 es tu código de verificación de Cuadrao", "123456"],
     ];
     for (const [action, subject, body] of cases) {
@@ -105,11 +104,9 @@ describe("staging Auth email hook", () => {
       assert.ok((sent[0].text).includes(body));
       assert.ok(sent[0].html.includes("Saludos,<br>Cuadrao"));
       assert.ok(!sent[0].html.includes("Salir de la lista"));
-      if (action === "signup") {
-        assert.equal(/\b\d{6,10}\b/.test(sent[0].subject + sent[0].text), false);
-        assert.equal(sent[0].html.includes('class="code"'), false);
-        assert.ok(!sent[0].text.includes("supabase.co"));
-        assert.ok(sent[0].text.includes("type=email"));
+      if (action === "signup" || action === "magiclink") {
+        assert.ok(sent[0].text.includes(`https://skedzwocnmrhfigiwyzi.supabase.co/auth/v1/verify?token=${"a".repeat(64)}&type=${action}&redirect_to=`));
+        assert.ok(!sent[0].text.includes("/auth/confirm"));
       }
     }
   });
@@ -143,13 +140,19 @@ describe("staging Auth email hook", () => {
     const sent: AuthDelivery[] = [];
     assert.equal((await handleAuthEmailHook(request(pkce), config, async (email) => { sent.push(email); })).status, 200);
     assert.ok((sent[0].text).includes(`token_hash=pkce_${"c".repeat(64)}`));
-    for (const action of ["signup", "magiclink", "recovery", "invite", "email_change", "reauthentication"]) {
+    for (const action of ["signup", "magiclink", "recovery", "email_change", "reauthentication"]) {
       const empty = payload(action);
       empty.email_data.redirect_to = "";
       const emails: AuthDelivery[] = [];
       assert.equal((await handleAuthEmailHook(request(empty), config, async (email) => { emails.push(email); })).status, 200);
       assert.equal(emails.length, action === "email_change" ? 2 : 1);
       if (action === "reauthentication") continue;
+      if (action === "signup" || action === "magiclink") {
+        assert.ok((emails[0].text).includes("https://skedzwocnmrhfigiwyzi.supabase.co/auth/v1/verify?"));
+        assert.ok((emails[0].text).includes("redirect_to="));
+        assert.ok(!(emails[0].text).includes("/auth/confirm"));
+        continue;
+      }
       const next = action === "recovery" ? "%2Fauth%2Frecovery" : "%2F";
       assert.ok((emails[0].text).includes(`/auth/confirm?`));
       assert.ok((emails[0].text).includes(`next=${next}`));
@@ -176,7 +179,7 @@ describe("staging Auth email hook", () => {
     for (const candidate of [
       badSignature, stale,
       new Request(mutated.url, { method: "POST", headers: mutated.headers, body: `${mutatedBody} ` }),
-      request(payload("not_an_action")),
+      request(payload("invite")),
       request(unsafeRecipient), request(unsafeRedirect), request(wrongSite), request(missingSecond),
       request({ private: "synthetic".repeat(10000) }),
     ]) {

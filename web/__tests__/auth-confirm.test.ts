@@ -104,12 +104,8 @@ test("the confirm route wires verifyOtp through the server client", () => {
 });
 
 const linked: AuthMail[] = [
-  { action: "signup", recipient: "ada@example.test", tokenHash: hash, redirectTo: `${origin}/` },
-  { action: "magiclink", recipient: "ada@example.test", tokenHash: hash, redirectTo: `${origin}/`, token: "55070219" },
   { action: "recovery", recipient: "ada@example.test", tokenHash: hash, redirectTo: `${origin}/auth/recovery` },
-  { action: "invite", recipient: "ada@example.test", tokenHash: hash, redirectTo: `${origin}/` },
   { action: "email_change", audience: "new_address", recipient: "new@example.test", tokenHash: hash, redirectTo: `${origin}/`, newEmail: "new@example.test" },
-  { action: "reauthentication", recipient: "ada@example.test", token: "55070219" },
 ];
 
 function assertPlainUrls(text: string) {
@@ -120,28 +116,41 @@ function assertPlainUrls(text: string) {
   }
 }
 
-test("rendered auth links stay on the app confirm route with no trailing punctuation", async () => {
+test("recovery and email change stay on the app confirm route with no trailing punctuation", async () => {
   for (const mail of linked) {
     const rendered = await renderAuthMail(mail, origin, 3600, sentAt);
     expect(`${rendered.subject}\n${rendered.html}\n${rendered.text}`).not.toContain("supabase.co");
     expect(rendered.html).not.toContain("/auth/v1/verify");
     assertPlainUrls(rendered.text);
-    if (mail.action !== "reauthentication") {
-      expect(rendered.text).toContain("/auth/confirm?token_hash=");
-      expect(rendered.html).toContain("/auth/confirm?token_hash=");
-    }
+    expect(rendered.text).toContain("/auth/confirm?token_hash=");
+    expect(rendered.html).toContain("/auth/confirm?token_hash=");
   }
 });
 
-test("signup confirmation is link-only with the approved subject", async () => {
-  const rendered = await renderAuthMail(linked[0], origin, 3600, sentAt);
-  expect(rendered.subject).toBe("Confirma tu correo en Cuadrao");
-  expect(rendered.subject).not.toMatch(/\d/);
-  expect(rendered.text).not.toMatch(/\b\d{6,10}\b/);
-  expect(rendered.html).not.toContain('class="code"');
-  expect(rendered.text).not.toContain("código");
-  expect(rendered.text).toContain("type=email");
-  expect(rendered.text).toContain("Confirmar mi cuenta");
+test("signup and magic link keep the code and the provider verify link", async () => {
+  const signup = await renderAuthMail(
+    { action: "signup", recipient: "ada@example.test", tokenHash: hash, redirectTo: `${origin}/`, token: "55070219" },
+    "https://project-ref.supabase.co",
+    3600,
+    sentAt,
+  );
+  expect(signup.subject).toBe("55070219 es tu código de Cuadrao");
+  expect(signup.text).toContain("55070219");
+  expect(signup.html).toContain('class="code"');
+  expect(signup.text.split("\n")).toContain(
+    `https://project-ref.supabase.co/auth/v1/verify?token=${hash}&type=signup&redirect_to=${encodeURIComponent(`${origin}/`)}`,
+  );
+  expect(signup.text).not.toContain("/auth/confirm");
+  const magic = await renderAuthMail(
+    { action: "magiclink", recipient: "ada@example.test", tokenHash: hash, redirectTo: `${origin}/`, token: "55070219" },
+    "https://project-ref.supabase.co",
+    3600,
+    sentAt,
+  );
+  expect(magic.subject).toBe("55070219 es tu código para entrar a Cuadrao");
+  expect(magic.text.split("\n")).toContain(
+    `https://project-ref.supabase.co/auth/v1/verify?token=${hash}&type=magiclink&redirect_to=${encodeURIComponent(`${origin}/`)}`,
+  );
   const parsed = parseAuthMail({
     user: { email: "ada@example.test" },
     email_data: {
@@ -152,79 +161,58 @@ test("signup confirmation is link-only with the approved subject", async () => {
       token_hash: hash,
     },
   }, origin);
-  expect(parsed).toEqual([{ action: "signup", recipient: "ada@example.test", tokenHash: hash, redirectTo: `${origin}/` }]);
+  expect(parsed).toEqual([{ action: "signup", recipient: "ada@example.test", tokenHash: hash, redirectTo: `${origin}/`, token: "55070219" }]);
+  expect(() => parseAuthMail({
+    user: { email: "ada@example.test" },
+    email_data: {
+      email_action_type: "invite",
+      site_url: origin,
+      redirect_to: `${origin}/`,
+      token_hash: hash,
+    },
+  }, origin)).toThrow();
 });
 
-test("dashboard paste uses token_hash placeholders and the approved subjects", async () => {
+test("dashboard paste wires recovery and email change only", async () => {
   const records = await buildDashboardAuthPaste();
+  expect(records.map((record) => record.file)).toEqual(["recovery", "email_change"]);
   const byFile = Object.fromEntries(records.map((record) => [record.file, record]));
-  expect(byFile.confirmation.subjectField).toBe("mailer_subjects_confirmation");
-  expect(byFile.confirmation.bodyField).toBe("mailer_templates_confirmation_content");
-  expect(byFile.confirmation.subject).toBe("Confirma tu correo en Cuadrao");
-  expect(byFile.confirmation.text).toContain("{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/");
-  expect(byFile.confirmation.html).toContain("{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email&amp;next=/");
-  expect(byFile.confirmation.text).not.toContain("{{ .Token }}");
-  expect(byFile.magic_link.subjectField).toBe("mailer_subjects_magic_link");
-  expect(byFile.magic_link.subject).toBe("{{ .Token }} es tu código para entrar a Cuadrao");
-  expect(byFile.magic_link.text).toContain("type=magiclink&next=/");
   expect(byFile.recovery.subjectField).toBe("mailer_subjects_recovery");
   expect(byFile.recovery.bodyField).toBe("mailer_templates_recovery_content");
   expect(byFile.recovery.subject).toBe("Cambio de contraseña en Cuadrao");
-  expect(byFile.recovery.text).toContain("type=recovery&next=/auth/recovery");
-  expect(byFile.invite.subjectField).toBe("mailer_subjects_invite");
-  expect(byFile.invite.bodyField).toBe("mailer_templates_invite_content");
-  expect(byFile.invite.subject).toBe("Te invitaron a Cuadrao");
-  expect(byFile.invite.text).toContain("type=invite&next=/");
+  expect(byFile.recovery.text.split("\n")).toContain("{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/recovery");
+  expect(byFile.recovery.html).toContain("{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next=/auth/recovery");
   expect(byFile.email_change.subjectField).toBe("mailer_subjects_email_change");
   expect(byFile.email_change.bodyField).toBe("mailer_templates_email_change_content");
   expect(byFile.email_change.subject).toBe("Confirma tu nuevo correo");
-  expect(byFile.email_change.text).toContain("type=email_change&next=/");
-  expect(byFile.reauthentication.subjectField).toBe("mailer_subjects_reauthentication");
-  expect(byFile.reauthentication.bodyField).toBe("mailer_templates_reauthentication_content");
-  expect(byFile.reauthentication.subject).toBe("{{ .Token }} es tu código de verificación de Cuadrao");
+  expect(byFile.email_change.text.split("\n")).toContain("{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email_change&next=/");
   for (const record of records) {
     expect(`${record.subject}\n${record.html}\n${record.text}`).not.toContain("supabase.co");
     expect(record.text).not.toContain(hash);
     expect(record.html).not.toContain(hash);
     assertPlainUrls(record.text);
-    if (record.file === "confirmation") {
-      expect(record.subject).not.toMatch(/\d/);
-      expect(record.text).not.toMatch(/\b\d{6,10}\b/);
-      expect(record.html).not.toContain('class="code"');
-    }
   }
 });
 
 test("the layout accepts the confirm template and still rejects other links and codes", () => {
-  const template = "{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/";
+  const template = "{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/recovery";
   const rendered = renderAccountEmail({
-    title: "Confirma tu correo en Cuadrao",
-    paragraphs: ["Confirma tu correo desde este enlace:"],
-    action: { label: "Confirmar mi cuenta", url: template },
-    code: "{{ .Token }}",
+    title: "Cambio de contraseña en Cuadrao",
+    paragraphs: ["Elige una contraseña nueva desde este enlace:"],
+    action: { label: "Elegir una contraseña nueva", url: template },
   });
   expect(rendered.text.split("\n")).toContain(template);
-  expect(rendered.text).toContain("{{ .Token }}");
   expect(rendered.html).toContain(template.replaceAll("&", "&amp;"));
   expect(() => renderAccountEmail({
-    title: "Confirma tu correo en Cuadrao",
+    title: "Cambio de contraseña en Cuadrao",
     paragraphs: [],
-    action: { label: "Confirmar mi cuenta", url: "javascript:alert(1)" },
+    action: { label: "Elegir una contraseña nueva", url: "javascript:alert(1)" },
   })).toThrow();
   expect(() => renderAccountEmail({
-    title: "Confirma tu correo en Cuadrao",
+    title: "Cambio de contraseña en Cuadrao",
     paragraphs: [],
-    code: "not-a-code",
+    code: "{{ .Token }}",
   })).toThrow();
-});
-
-test("the check-your-email screen uses the approved sentence", () => {
-  const es = JSON.parse(readFileSync(new URL("../public/locales/es-419/common.json", import.meta.url), "utf8"));
-  const en = JSON.parse(readFileSync(new URL("../public/locales/en/common.json", import.meta.url), "utf8"));
-  expect(es.auth.signup.confirmation_description).toBe("Abre el enlace que te enviamos y entrarás directo a Cuadrao.");
-  expect(en.auth.signup.confirmation_description).toBe("Open the link we sent and you'll go straight into Cuadrao.");
-  const form = readFileSync(new URL("../components/auth/AuthForm.tsx", import.meta.url), "utf8");
-  expect(form).toContain("Open the link we sent and you'll go straight into Cuadrao.");
 });
 
 test("a recovery page with a session and no code is ready", async () => {

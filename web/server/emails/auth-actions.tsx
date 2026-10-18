@@ -3,7 +3,7 @@ import { z } from "zod";
 import { renderResetPasswordEmail } from "./reset-password";
 import { emailExpiry } from "./expiry";
 import { DISABLED_SECURITY_NOTICES, renderSecurityMail, type SecurityMail } from "./security-notices";
-import { authConfirmHref, confirmLinkNext, otpTypeForAction, type LinkedAuthAction } from "../../lib/auth-confirm";
+import { authConfirmHref, confirmLinkNext } from "../../lib/auth-confirm";
 
 const address = z.email().max(254);
 const tokenHash = z.string().regex(/^(?:pkce_)?[a-f0-9]{32,128}$/);
@@ -11,7 +11,7 @@ const otp = z.string().regex(/^[0-9]{6,10}$/);
 const payloadSchema = z.object({
   user: z.object({ email: address, new_email: address.optional() }),
   email_data: z.object({
-    email_action_type: z.enum(["signup", "magiclink", "recovery", "invite", "email_change", "reauthentication", "password_changed_notification", "email_changed_notification", ...DISABLED_SECURITY_NOTICES]),
+    email_action_type: z.enum(["signup", "magiclink", "recovery", "email_change", "reauthentication", "password_changed_notification", "email_changed_notification", ...DISABLED_SECURITY_NOTICES]),
     site_url: z.string().max(2048),
     redirect_to: z.string().max(2048),
     token_hash: z.string().max(133).optional(),
@@ -23,10 +23,9 @@ const payloadSchema = z.object({
 });
 
 export type AuthMail =
-  | { action: "signup"; recipient: string; tokenHash: string; redirectTo: string }
+  | { action: "signup"; recipient: string; tokenHash: string; redirectTo: string; token: string }
   | { action: "magiclink"; recipient: string; tokenHash: string; redirectTo: string; token: string }
   | { action: "recovery"; recipient: string; tokenHash: string; redirectTo: string }
-  | { action: "invite"; recipient: string; tokenHash: string; redirectTo: string }
   | { action: "email_change"; audience: "old_address" | "new_address"; recipient: string; tokenHash: string; redirectTo: string; newEmail: string }
   | { action: "reauthentication"; recipient: string; token: string }
   | SecurityMail;
@@ -65,25 +64,30 @@ export function parseAuthMail(value: unknown, appOrigin: string): AuthMail[] {
     if (data.redirect_to && data.redirect_to !== `${appOrigin}/auth/recovery`) throw new Error("Invalid recovery redirect");
     return [{ action: data.email_action_type, recipient: user.email, tokenHash: hash, redirectTo: data.redirect_to }];
   }
-  if (data.email_action_type === "signup" || data.email_action_type === "invite") {
-    return [{ action: data.email_action_type, recipient: user.email, tokenHash: hash, redirectTo: data.redirect_to }];
-  }
-  if (data.email_action_type === "magiclink") {
+  if (data.email_action_type === "signup" || data.email_action_type === "magiclink") {
     return [{ action: data.email_action_type, recipient: user.email, tokenHash: hash, redirectTo: data.redirect_to, token: otp.parse(data.token) }];
   }
   throw new Error("Unsupported Auth email");
 }
 
-function confirmUrl(mail: Extract<AuthMail, { action: LinkedAuthAction }>, appOrigin: string) {
+function confirmUrl(mail: Extract<AuthMail, { action: "recovery" | "email_change" }>, linkHost: string) {
   return authConfirmHref(
-    appOrigin,
+    linkHost,
     mail.tokenHash,
-    otpTypeForAction(mail.action),
-    confirmLinkNext(mail.action, mail.redirectTo, appOrigin),
+    mail.action,
+    confirmLinkNext(mail.action, mail.redirectTo, linkHost),
   );
 }
 
-export async function renderAuthMail(mail: AuthMail, appOrigin: string, expirySeconds: number, sentAt = new Date()) {
+function verifyUrl(mail: Extract<AuthMail, { action: "signup" | "magiclink" }>, linkHost: string) {
+  const url = new URL("/auth/v1/verify", linkHost);
+  url.searchParams.set("token", mail.tokenHash);
+  url.searchParams.set("type", mail.action);
+  url.searchParams.set("redirect_to", mail.redirectTo);
+  return url.href;
+}
+
+export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySeconds: number, sentAt = new Date()) {
   if (mail.action === "password_changed_notification" || mail.action === "email_changed_notification") return renderSecurityMail(mail, sentAt);
   const expires = emailExpiry(expirySeconds);
   if (mail.action === "reauthentication") {
@@ -94,41 +98,20 @@ export async function renderAuthMail(mail: AuthMail, appOrigin: string, expirySe
       afterAction: "Si no fuiste tú, no compartas este código y escríbenos.",
     }) };
   }
-  const url = confirmUrl(mail, appOrigin);
-  if (mail.action === "recovery") return renderResetPasswordEmail(url, expirySeconds);
-  if (mail.action === "signup") {
-    return { subject: "Confirma tu correo en Cuadrao", ...renderAccountEmail({
-      title: "Confirma tu correo en Cuadrao",
-      preheader: `Confirma tu cuenta de Cuadrao. El enlace vence en ${expires}.`,
-      intro: ["Hola,"],
-      paragraphs: ["Confirma tu correo desde este enlace:"],
-      action: { label: "Confirmar mi cuenta", url },
-      expiryNote: `El enlace vence en ${expires} y solo se puede usar una vez.`,
-      afterAction: "Si no fuiste tú, ignora este correo.",
-    }) };
-  }
-  if (mail.action === "invite") {
-    return { subject: "Te invitaron a Cuadrao", ...renderAccountEmail({
-      title: "Te invitaron a Cuadrao",
-      preheader: `Te invitaron a usar Cuadrao. El enlace vence en ${expires}.`,
-      intro: ["Hola,"],
-      paragraphs: ["Te invitaron a usar Cuadrao."],
-      action: { label: "Acepta aquí", url },
-      expiryNote: `El enlace vence en ${expires} y solo se puede usar una vez.`,
-      afterAction: "Si no fuiste tú, ignora este correo.",
-    }) };
-  }
-  if (mail.action === "magiclink") {
-    return { subject: `${mail.token} es tu código para entrar a Cuadrao`, ...renderAccountEmail({
-      title: "Tu código para entrar",
-      preheader: `Úsalo para entrar a tu cuenta. Vence en ${expires}.`,
-      intro: ["Hola,", "Usa este código para entrar a Cuadrao:"],
+  if (mail.action === "signup" || mail.action === "magiclink") {
+    const signup = mail.action === "signup";
+    return { subject: `${mail.token} es tu código ${signup ? "de Cuadrao" : "para entrar a Cuadrao"}`, ...renderAccountEmail({
+      title: signup ? "Tu código de Cuadrao" : "Tu código para entrar",
+      preheader: `${signup ? "Úsalo para confirmar tu cuenta." : "Úsalo para entrar a tu cuenta."} Vence en ${expires}.`,
+      intro: ["Hola,", signup ? "Usa este código para confirmar tu cuenta de Cuadrao:" : "Usa este código para entrar a Cuadrao:"],
       code: mail.token, expiryNote: `El código y el enlace vencen en ${expires} y solo se pueden usar una vez.`,
-      paragraphs: ["También puedes entrar desde este enlace:"],
-      action: { label: "Entrar a Cuadrao", url },
+      paragraphs: [signup ? "También puedes confirmarla desde este enlace:" : "También puedes entrar desde este enlace:"],
+      action: { label: signup ? "Confirmar mi cuenta" : "Entrar a Cuadrao", url: verifyUrl(mail, linkHost) },
       afterAction: "Si no fuiste tú, ignora este correo.",
     }) };
   }
+  const url = confirmUrl(mail, linkHost);
+  if (mail.action === "recovery") return renderResetPasswordEmail(url, expirySeconds);
   const old = mail.audience === "old_address";
   return { subject: old ? "Cambio de correo en tu cuenta de Cuadrao" : "Confirma tu nuevo correo", ...renderAccountEmail({
     title: old ? "Cambio de correo en tu cuenta" : "Confirma tu nuevo correo",

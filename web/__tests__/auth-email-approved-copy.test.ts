@@ -9,10 +9,9 @@ import { DISABLED_SECURITY_NOTICES } from "../server/emails/security-notices";
 
 const base = { recipient: "old@example.test", tokenHash: "a".repeat(64), redirectTo: "https://app.example.test/" };
 const signin: AuthMail[] = [
-  { ...base, action: "signup" },
+  { ...base, action: "signup", token: "123456" },
   { ...base, action: "magiclink", token: "123456" },
   { ...base, action: "recovery" },
-  { ...base, action: "invite" },
   { ...base, action: "email_change", audience: "old_address", newEmail: "new@example.test" },
   { ...base, action: "email_change", audience: "new_address", recipient: "new@example.test", newEmail: "new@example.test" },
   { action: "reauthentication", recipient: base.recipient, token: "123456" },
