@@ -13086,6 +13086,13 @@ components:
           anyOf:
           - $ref: '#/components/schemas/DgiiQr'
           - type: 'null'
+        bill_mark:
+          anyOf:
+          - type: string
+            enum:
+            - Factura por pagar
+            - Factura pagada
+          - type: 'null'
         personal:
           type: boolean
           default: false

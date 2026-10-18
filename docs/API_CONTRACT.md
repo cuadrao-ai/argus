@@ -2909,6 +2909,22 @@ well when it is closed.
 }
 ```
 
+A failed or unfinished browser check is a different response. Supabase Auth
+runs the Turnstile siteverify. When it rejects the token, or the provider
+call does not finish within 30 seconds, login returns `400`
+`captcha_unavailable` and does not create a session. The check is not skipped.
+
+```json
+{
+  "type": "https://api.argus.app/problems/captcha-unavailable",
+  "title": "Browser Check Failed",
+  "status": 400,
+  "detail": "The browser check did not complete. Try again.",
+  "code": "captcha_unavailable",
+  "request_id": "uuid"
+}
+```
+
 ## `POST /auth/apple/authorization-code`
 
 Default-off behind `ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED`. The native app
@@ -9587,7 +9603,12 @@ accept path recorded.
   fiscal bill. Replaying that batch refuses the same way, so the retry asks
   the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
-  statement period. Other interrupted hand-offs retry the same way. A terminal
+  statement period. An NCF due notice is that one expense, marked
+  `Factura por pagar` on the dossier as `bill_mark`. When the same record
+  is prepared again as paid, the mark becomes `Factura pagada`. The draft
+  id does not change and a second expense is not opened. A paid purchase
+  that is not a due notice carries `bill_mark: null`. Other interrupted
+  hand-offs retry the same way. A terminal
   refusal is never reported as `no_purchase_found`, which stays for a receipt
   that was read and found no purchase row. The stored `error_code` is not
   rewritten.

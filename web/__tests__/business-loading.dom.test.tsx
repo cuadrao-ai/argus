@@ -33,33 +33,40 @@ describe("Business loading presentation", () => {
     expect(view.host.querySelector('[role="status"]')).toBeNull();
     expect(view.host.querySelector("img")).toBeNull();
     await view.close();
-    await new Promise((resolve) => setTimeout(resolve, 70));
-    expect(document.querySelector('[data-testid="conversation-retrieval-state"]')).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 230));
+    expect(document.querySelector('[data-testid="fullscreen-loading"]')).toBeNull();
   });
 
-  test("a slow load shows the approved line and one polite Spanish announcement", async () => {
+  test("a slow full-page load shows the logo and one hidden Spanish announcement", async () => {
     const view = await mount(<InitialConversationRetrievalState business />);
     expect(view.host.textContent).toBe("");
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 170)); });
-    expect(view.host.querySelector("p")?.textContent).toBe("Cuadrando…");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 320)); });
+    expect(view.host.querySelector("p")).toBeNull();
     const status = view.host.querySelector('[role="status"]');
-    expect(status?.textContent).toBe("Cargando Cuadrao");
+    expect(status?.textContent).toBe("Cargando");
     expect(status?.getAttribute("aria-live")).toBe("polite");
     expect(view.host.querySelectorAll('[role="status"]').length).toBe(1);
     expect(view.host.textContent).not.toContain("Argus");
-    expect(view.host.querySelector("img")?.getAttribute("width")).toBe("28");
-    expect(view.host.querySelector("img")?.className).toContain("motion-reduce:animate-none");
+    expect(view.host.querySelector("img")?.getAttribute("width")).toBe("240");
+    expect(status?.className).toBe("sr-only");
     await view.close();
   });
 
   test("a new loading episode starts with a fresh delay", async () => {
     const first = await mount(<InitialConversationRetrievalState business />);
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 170)); });
-    expect(first.host.querySelector("p")).not.toBeNull();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 320)); });
+    expect(first.host.querySelector("img")).not.toBeNull();
     await first.close();
     const next = await mount(<InitialConversationRetrievalState business />);
     expect(next.host.textContent).toBe("");
     await next.close();
+  });
+
+  test("English full-page loading keeps the existing common label", async () => {
+    const view = await mount(<InitialConversationRetrievalState />, "en");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 320)); });
+    expect(view.host.querySelector('[role="status"]')?.textContent).toBe(en.common.loading);
+    await view.close();
   });
 
   test("cold conversation loading uses the same Spanish presentation", async () => {
