@@ -2906,6 +2906,19 @@ describe("Argus Alpha frontend contract", () => {
     expect(flow.indexOf("deps.clearLocalState()")).toBeLessThan(
       flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted))"),
     );
+    expect(flow.indexOf("deps.onFailed()")).toBeLessThan(flow.indexOf("deps.clearLocalState()"));
+    const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
+    const closedHome = page.slice(page.indexOf("const signOutClosedHome"), page.indexOf("const handleAuthSubmit"));
+    expect(closedHome).toContain("setSignOutFailed(true)");
+    expect(closedHome).not.toContain("onFailed() {}");
+    expect(page).toContain('t("settings.logout_error")');
+    expect(page).toContain('!text-[var(--cuadrao-cream)]');
+    expect(page).toContain("mailto:${BUSINESS_HOME_CLOSED_EMAIL}");
+    const shots = readFileSync(join(root, "e2e/business-signed-in-home.spec.ts"), "utf-8");
+    expect(shots).toContain("E2E_SCREENSHOT_DIR");
+    expect(shots).toContain('"test-results"');
+    expect(shots).not.toContain('const shots = "/opt/cursor/artifacts/screenshots"');
+    expect(shots).toContain("screenshot directory is not a test output path");
   });
 
   test("front door auth states stay interactive during auth entry", () => {

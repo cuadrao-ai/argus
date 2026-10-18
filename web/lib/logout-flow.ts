@@ -2,15 +2,16 @@
  * Leaving a signed-in session in one click. The account boundary is told
  * first, so the provider's SIGNED_OUT event that fires during sign-out is
  * expected and never swaps the surface for the account-changed screen. A
- * failed revocation hands the surface back and says so; nothing is cleared
- * and nothing navigates. Signed out, a Business build opens the login page
- * directly. Any other build opens the landing page. A session that ended
- * because the account was deleted goes to the landing page on every build:
- * someone who just deleted their account must not land on a Business login.
- * While this sign-out is in progress, a null session is ours and must not
- * paint the account-changed alert.
+ * failed revocation still clears the local session, lands on the signed-out
+ * screen, and says so once. It does not send the request again. Signed out,
+ * a Business build opens the login page directly. Any other build opens the
+ * landing page. A session that ended because the account was deleted goes to
+ * the landing page on every build: someone who just deleted their account
+ * must not land on a Business login. While this sign-out is in progress, a
+ * null session is ours and must not paint the account-changed alert.
  */
 let leavingSession = false;
+let inFlight: Promise<"left" | "failed"> | null = null;
 
 export function isLeavingSession(): boolean {
   return leavingSession;
@@ -32,24 +33,27 @@ export function signedOutLanding(businessBuild: boolean, accountDeleted = false)
   return businessBuild && !accountDeleted ? "/?auth=login" : "/";
 }
 
-export async function leaveSession(deps: LeaveSessionDeps): Promise<"left" | "failed"> {
+async function leaveSessionOnce(deps: LeaveSessionDeps): Promise<"left" | "failed"> {
   leavingSession = true;
   deps.boundary.beginConversion();
+  let failed = false;
   try {
     const result = await deps.signOut();
-    if (result?.revocation === "failed" || result?.cookieSync === "failed") {
-      leavingSession = false;
-      deps.boundary.finishConversion(deps.currentUserId);
-      deps.onFailed();
-      return "failed";
-    }
+    failed = result?.revocation === "failed" || result?.cookieSync === "failed";
   } catch {
-    leavingSession = false;
-    deps.boundary.finishConversion(deps.currentUserId);
-    deps.onFailed();
-    return "failed";
+    failed = true;
   }
+  if (failed) deps.onFailed();
   deps.clearLocalState();
   deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted));
-  return "left";
+  return failed ? "failed" : "left";
+}
+
+export function leaveSession(deps: LeaveSessionDeps): Promise<"left" | "failed"> {
+  if (inFlight) return inFlight;
+  const flight = leaveSessionOnce(deps).finally(() => {
+    if (inFlight === flight) inFlight = null;
+  });
+  inFlight = flight;
+  return flight;
 }

@@ -5,9 +5,45 @@ import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
-const shots = "/opt/cursor/artifacts/screenshots";
+function screenshotDir(): string {
+  const configured = process.env.E2E_SCREENSHOT_DIR?.trim();
+  const directory = configured ? configured : "test-results";
+  const folded = directory.replaceAll("\\", "/");
+  const forbidden =
+    folded === "/opt/cursor/artifacts" ||
+    folded.startsWith("/opt/cursor/artifacts/") ||
+    folded === "docs/reports/evidence" ||
+    folded.startsWith("docs/reports/evidence/") ||
+    folded.includes("/docs/reports/evidence/") ||
+    folded.endsWith("/docs/reports/evidence");
+  if (forbidden) throw new Error("screenshot directory is not a test output path");
+  return directory;
+}
+
+const shots = screenshotDir();
 const title = "Cuadrao Business aún no está disponible para tu cuenta.";
 const body = "Si crees que es un error, escríbenos a admin@cuadrao.ai.";
+const logoutError = "No pudimos cerrar la sesión en este navegador. Inténtalo de nuevo.";
+
+function channel(value: number): number {
+  const unit = value / 255;
+  return unit <= 0.04045 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const parse = (color: string) => {
+    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!match) throw new Error(`unreadable color ${color}`);
+    return match.slice(1, 4).map((part) => channel(Number(part)));
+  };
+  const [first, second] = [foreground, background].map((color) => {
+    const [red, green, blue] = parse(color);
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  });
+  const lighter = Math.max(first, second);
+  const darker = Math.min(first, second);
+  return (lighter + 0.05) / (darker + 0.05);
+}
 
 const businessOnly = process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB !== "false";
 const pilot = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED === "true";
@@ -99,6 +135,14 @@ test.describe("signed-in home with business-only on", () => {
     mkdirSync(shots, { recursive: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(notice.getByRole("heading", { name: title })).toBeVisible();
+    const signOut = notice.getByRole("button", { name: "Cerrar sesión" });
+    const colors = await signOut.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { color: style.color, backgroundColor: style.backgroundColor, fontSize: style.fontSize };
+    });
+    const ratio = contrastRatio(colors.color, colors.backgroundColor);
+    console.log(`closed-home sign-out contrast ${ratio.toFixed(3)} ${colors.color} on ${colors.backgroundColor} at ${colors.fontSize}`);
+    expect(ratio, `${colors.color} on ${colors.backgroundColor}`).toBeGreaterThanOrEqual(4.5);
     await page.screenshot({
       path: join(shots, "business-home-closed-390.png"),
       fullPage: true,
@@ -116,6 +160,31 @@ test.describe("signed-in home with business-only on", () => {
     await expect(page).toHaveURL(/\/\?auth=login(?:&|$)/);
     expect(visits.chat).toEqual([]);
     expect(visits.biz).toEqual([]);
+  });
+
+  test("a rejected sign-out leaves the closed home and shows the error once", async ({ page }) => {
+    test.skip(pilot, "pilot is on for this run");
+    let logoutPosts = 0;
+    await page.route("**/api/v1/auth/logout", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        return route.fulfill({ status: 204, body: "" });
+      }
+      logoutPosts += 1;
+      return route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ success: false }),
+      });
+    });
+    await signIn(page);
+    const notice = page.getByTestId("business-home-closed");
+    const signOut = notice.getByRole("button", { name: "Cerrar sesión" });
+    await signOut.click();
+    await expect(page.getByRole("alert").filter({ hasText: logoutError })).toHaveText(logoutError);
+    await expect(notice).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Iniciar sesión", exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/\?auth=login(?:&|$)/);
+    expect(logoutPosts).toBe(1);
   });
 
   test("pilot off keeps /biz and the signed-in root off a 404 and off a loop", async ({ page }) => {

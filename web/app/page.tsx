@@ -87,6 +87,7 @@ export default function LandingPage() {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [verificationFailed, setVerificationFailed] = useState(false);
   const [homeClosed, setHomeClosed] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
   const [profileProbeFailedClosed, setProfileProbeFailedClosed] =
     useState(false);
 
@@ -180,9 +181,16 @@ export default function LandingPage() {
       signOut: () => logoutFromApi(),
       clearLocalState() {},
       navigate: (href) => {
+        setHomeClosed(false);
+        if (href === "/" || href.startsWith("/?auth=login")) {
+          updateAuthMode("login");
+          return;
+        }
         window.location.assign(href);
       },
-      onFailed() {},
+      onFailed() {
+        setSignOutFailed(true);
+      },
       businessBuild: businessPilotEnabled,
     });
   };
@@ -290,7 +298,7 @@ export default function LandingPage() {
               <p className="mt-3 text-[16px] tracking-wide">{businessHomeClosedBody(String(t("auth.business_unavailable.body")))}</p>
               <button
                 type="button"
-                className="font-display mt-6 flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:bg-white dark:text-black dark:focus-visible:ring-white"
+                className="font-display mt-6 flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium !text-[var(--cuadrao-cream)] transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:bg-white dark:focus-visible:ring-white"
                 onClick={signOutClosedHome}
               >
                 {t("auth.business_unavailable.sign_out")}
@@ -308,6 +316,7 @@ export default function LandingPage() {
           ) : (
             <div className="w-full max-w-sm">
               {verificationFailed ? <p role="alert">{t("auth.errors.unauthorized", "We couldn’t verify those account details. Check them and try again.")}</p> : null}
+              {signOutFailed ? <p role="alert">{t("settings.logout_error")}</p> : null}
               {authMode === "request" ? (
                 <RequestAccess
                   onShowSignup={showSignup}
