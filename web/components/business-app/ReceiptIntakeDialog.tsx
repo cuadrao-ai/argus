@@ -8,7 +8,8 @@ import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { LoadingRows, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { Settle } from "./business-skeletons";
 import { receiptFileAccept, receiptFormatLabels } from "./receipt-file";
 import { ReceiptUploadQueue, isUnfinishedUpload, type IntakeTarget, type UploadRejection } from "./receipt-upload-queue";
 import { readClipboardFile, useInputCapabilities } from "./useInputCapabilities";
@@ -37,7 +38,7 @@ function IntakeSurface(props: IntakeProps) {
   ) : (
     <AdaptivePanel title={t("business.intake.title", "Upload receipt")} closeLabel={t("common.close", "Close")} onClose={props.onClose} width="md">
       <div className="px-4 pb-4">
-        <LoadingRows rows={2} />
+        <Settle pending layout="rows" rows={2} />
       </div>
     </AdaptivePanel>
   );
@@ -60,10 +61,9 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
   const many = target === "inbox";
 
-  const [busy, setBusy] = useState(false);
   const choose = (files: readonly File[]) => {
     setClipboardEmpty(false);
-    setBusy(!queue.add(files, limits, target, bridge?.conversationId ?? null));
+    queue.add(files, limits, target, bridge?.conversationId ?? null);
   };
   const chooseRef = useRef(choose);
   useEffect(() => {
@@ -138,7 +138,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
 
         <div
           onDragOver={(event) => {
-            if (!capabilities.dragAndDrop || uploading) return;
+            if (!capabilities.dragAndDrop) return;
             event.preventDefault();
             setDragging(true);
           }}
@@ -159,18 +159,18 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => { replacingRef.current = null; fileInputRef.current?.click(); }}>
+            <button type="button" className={secondaryButtonClass} onClick={() => { replacingRef.current = null; fileInputRef.current?.click(); }}>
               <FileUp className="h-4 w-4" />
               {many ? t("business.intake.choose_multiple", "Choose files") : t("business.intake.choose", "Choose file")}
             </button>
             {capabilities.clipboardRead ? (
-              <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => void pasteFromClipboard()}>
+              <button type="button" className={secondaryButtonClass} onClick={() => void pasteFromClipboard()}>
                 <ClipboardPaste className="h-4 w-4" />
                 {t("business.intake.paste", "Paste")}
               </button>
             ) : null}
             {capabilities.cameraCapture ? (
-              <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => cameraInputRef.current?.click()}>
+              <button type="button" className={secondaryButtonClass} onClick={() => cameraInputRef.current?.click()}>
                 <Camera className="h-4 w-4" />
                 {t("business.intake.camera", "Take photo")}
               </button>
@@ -180,7 +180,6 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             ref={fileInputRef}
             type="file"
             multiple={many}
-            disabled={uploading}
             accept={receiptFileAccept(limits)}
             className="sr-only"
             tabIndex={-1}
@@ -196,7 +195,6 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           <input
             ref={cameraInputRef}
             type="file"
-            disabled={uploading}
             accept={limits.media_types.filter((type) => type.startsWith("image/")).join(",")}
             capture="environment"
             className="sr-only"
@@ -209,11 +207,6 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           />
         </div>
 
-        {busy ? (
-          <p role="status" className="text-[14px] text-black/60 dark:text-white/60">
-            {t("business.intake.busy", "Wait for the current upload to finish before adding files.")}
-          </p>
-        ) : null}
         {clipboardEmpty ? (
           <p role="status" className="text-[14px] text-black/60 dark:text-white/60">
             {t("business.intake.clipboard_empty", "There's no receipt image or PDF to paste. Copy one first, or choose a file.")}

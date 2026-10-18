@@ -2215,6 +2215,56 @@
       "turn_off": "Desactivar lectura",
       "turn_on": "Activar lectura de recibos"
     },
+    "bank": {
+      "empty": {
+        "no_account": "[placeholder] business.bank.empty.no_account",
+        "no_lines": "[placeholder] business.bank.empty.no_lines"
+      },
+      "error": {
+        "layout_not_ready": "[placeholder] business.bank.error.layout_not_ready",
+        "line_already_confirmed": "[placeholder] business.bank.error.line_already_confirmed",
+        "one_account": "[placeholder] business.bank.error.one_account",
+        "pair_declined": "[placeholder] business.bank.error.pair_declined",
+        "unsupported_layout": "[placeholder] business.bank.error.unsupported_layout"
+      },
+      "import": {
+        "account": "[placeholder] business.bank.import.account",
+        "choose_file": "[placeholder] business.bank.import.choose_file",
+        "column_amount": "[placeholder] business.bank.import.column_amount",
+        "column_credit": "[placeholder] business.bank.import.column_credit",
+        "column_date": "[placeholder] business.bank.import.column_date",
+        "column_debit": "[placeholder] business.bank.import.column_debit",
+        "column_description": "[placeholder] business.bank.import.column_description",
+        "column_sign": "[placeholder] business.bank.import.column_sign",
+        "converged": "[placeholder] business.bank.import.converged",
+        "inserted": "[placeholder] business.bank.import.inserted",
+        "mapped_csv": "[placeholder] business.bank.import.mapped_csv",
+        "reader": "[placeholder] business.bank.import.reader",
+        "submit": "[placeholder] business.bank.import.submit",
+        "title": "[placeholder] business.bank.import.title"
+      },
+      "line": {
+        "charge": "[placeholder] business.bank.line.charge",
+        "deposit": "[placeholder] business.bank.line.deposit",
+        "zero": "[placeholder] business.bank.line.zero"
+      },
+      "nav": "[placeholder] business.bank.nav",
+      "suggestion": {
+        "confidence": "[placeholder] business.bank.suggestion.confidence",
+        "confirm": "Confirmar",
+        "confirmed": "[placeholder] business.bank.suggestion.confirmed",
+        "decline": "No es este",
+        "declined": "[placeholder] business.bank.suggestion.declined",
+        "pending": "[placeholder] business.bank.suggestion.pending",
+        "receipt": "Gasto",
+        "venta": "Venta"
+      },
+      "unmatched": {
+        "count": "[placeholder] business.bank.unmatched.count",
+        "empty": "[placeholder] business.bank.unmatched.empty",
+        "title": "[placeholder] business.bank.unmatched.title"
+      }
+    },
     "consent": {
       "title": "[BORRADOR] Antes de usar IA en tu negocio",
       "intro": "[BORRADOR] La lectura de recibos con IA y el asistente envían datos de tu negocio a un proveedor de modelos. Revisa el aviso y confirma que lo aceptas. El texto definitivo lo reemplaza el abogado; esto es un marcador.",
@@ -2627,7 +2677,7 @@
       "keep_open": "Puedes cerrar este panel y volver a tus subidas. Mantén la página abierta hasta que se guarde cada archivo.",
       "open_queue": "Subidas ({{count}})",
       "queue_status": {
-        "queued": "Listo para subir",
+        "queued": "En cola",
         "uploading": "Guardando…",
         "saved": "Guardado en la Bandeja",
         "failed": "No se guardó. Reintenta.",
