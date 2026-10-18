@@ -61,12 +61,12 @@ def test_release_profile_is_non_secret_and_defines_the_fixed_canary() -> None:
     serialized = json.dumps(profile).lower()
 
     assert profile["release_mode"] == "real-workflow"
-    assert set(profile["services"]) == {"api", "web", "workflow"}
+    assert set(profile["services"]) == {"api", "web", "workflow", "marketing"}
     assert profile["services"]["api"]["name"] == "argus-api"
     assert profile["services"]["web"]["name"] == "argus-app"
+    assert profile["services"]["marketing"]["name"] == "cuadrao-web"
     assert profile["services"]["workflow"]["name"] == "argus-backtests"
-    # Founder decision, 2026-09-13 (#614): deploys are manual on all three.
-    for surface in ("api", "web", "workflow"):
+    for surface in ("api", "web", "workflow", "marketing"):
         assert profile["services"][surface]["auto_deploy_trigger"] == "off"
     assert profile["services"]["api"]["env"]["ARGUS_APP_ORIGIN"] == (
         "https://arguschat.ai"

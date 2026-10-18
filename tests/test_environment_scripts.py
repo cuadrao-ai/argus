@@ -17,10 +17,11 @@ def _source(path: str) -> str:
 
 
 def _render_env(service_name: str) -> dict[str, dict[str, str | bool]]:
-    if service_name == "argus-app":
+    surface = {"argus-app": "web", "cuadrao-web": "marketing"}.get(service_name)
+    if surface is not None:
         block = json.loads(_source(".github/private-alpha-release-profile.json"))[
             "services"
-        ]["web"]
+        ][surface]
         env: dict[str, dict[str, str | bool]] = {
             key: {"key": key, "value": str(value)} for key, value in block["env"].items()
         }
@@ -159,7 +160,7 @@ esac
         surface: json.dumps(
             {"autoDeployTrigger": profile["services"][surface]["auto_deploy_trigger"]}
         )
-        for surface in ("api", "web", "workflow")
+        for surface in ("api", "marketing", "workflow")
     }
     env = os.environ.copy()
     env.update(
@@ -174,7 +175,7 @@ esac
             "FAKE_WEB_ENV_JSON": web_env_json,
             "FAKE_WORKFLOW_ENV_JSON": workflow_env_json or _workflow_env_payload(),
             "FAKE_API_SERVICE_JSON": api_service_json or profile_triggers["api"],
-            "FAKE_WEB_SERVICE_JSON": web_service_json or profile_triggers["web"],
+            "FAKE_WEB_SERVICE_JSON": web_service_json or profile_triggers["marketing"],
             "FAKE_WORKFLOW_SERVICE_JSON": workflow_service_json
             or profile_triggers["workflow"],
             "FAKE_CURL_REQUEST_LOG": str(request_log),
@@ -689,7 +690,7 @@ def test_render_env_sync_prints_web_deploy_status_without_mutation() -> None:
     assert "WEB_SERVICE_ID" in source
     assert "print_web_deploy_status()" in source
     assert "/v1/services/${service_id}/deploys?limit=1" in source
-    assert 'print_deploy_status "$WEB_SERVICE_ID" "argus-app"' in source
+    assert 'print_deploy_status "$WEB_SERVICE_ID" "cuadrao-web"' in source
 
     deploy_status_block = source.split(
         "print_web_deploy_status() {",
@@ -873,7 +874,7 @@ def test_render_env_sync_audit_uses_large_render_env_page(
                 "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": "false",
             },
         ),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
@@ -888,7 +889,7 @@ def test_render_env_sync_audit_includes_workflow_env_parity(
         tmp_path,
         expect_mode="real-workflow",
         api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(),
     )
 
@@ -906,24 +907,21 @@ def test_render_env_sync_audit_includes_workflow_env_parity(
     assert "postgres://workflow-db.example/argus" not in result.stdout
 
 
-def test_render_env_sync_audit_accepts_required_turnstile_site_key(
+def test_render_env_sync_audit_accepts_the_marketing_site_profile(
     tmp_path: Path,
 ) -> None:
     result = _run_render_release_audit(
         tmp_path,
         expect_mode="real-workflow",
         api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload(
-            "argus-app",
-            extra={
-                "NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY": "fake-public-site-key",
-            },
-        ),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(),
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "ok argus-app:NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY=<present>" in result.stdout
+    assert "ok cuadrao-web:CUADRAO_INQUIRY_TO=hola@cuadrao.ai" in result.stdout
+    assert "ok cuadrao-web:RESEND_API_KEY=<redacted-present>" in result.stdout
+    assert "drift argus-app:" not in result.stdout
     assert "status=ready" in result.stdout
 
 
@@ -942,7 +940,7 @@ def test_render_env_sync_skips_workflow_env_gate_outside_real_workflow_mode(
                 "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": "false",
             },
         ),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(
             overrides={"ARGUS_MARKET_DATA_PROVIDER_MODE": "synthetic_unit_fixture"},
             omit={
@@ -969,7 +967,7 @@ def test_render_env_sync_audit_workflow_secrets_ready_without_local_secrets(
         tmp_path,
         expect_mode="real-workflow",
         api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(),
         isolate=True,
     )
@@ -999,7 +997,7 @@ def test_render_env_sync_audit_flags_workflow_secret_missing_on_render(
         tmp_path,
         expect_mode="real-workflow",
         api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(
             omit={"ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY"}
         ),
@@ -1021,7 +1019,7 @@ def test_render_env_sync_audit_fails_when_workflow_provider_mode_is_not_live(
         tmp_path,
         expect_mode="real-workflow",
         api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(
             overrides={"ARGUS_MARKET_DATA_PROVIDER_MODE": "synthetic_unit_fixture"},
         ),
@@ -1044,7 +1042,7 @@ def test_render_env_sync_audit_rejects_render_api_key_on_workflow_runtime(
         tmp_path,
         expect_mode="real-workflow",
         api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(
             extra={"RENDER_API_KEY": "fake-render-token"},
         ),
@@ -1068,7 +1066,7 @@ def test_render_env_sync_audit_fails_when_contract_key_is_missing(
             omit={"MARKET_DATA_CACHE_TTL"},
             overrides={"RENDER_API_KEY": ""},
         ),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
     )
 
     assert result.returncode == 1
@@ -1086,17 +1084,17 @@ def test_render_env_sync_audit_rejects_frontend_secrets_and_legacy_keys(
             overrides={"RENDER_API_KEY": ""},
         ),
         web_env_json=_render_env_payload(
-            "argus-app",
+            "cuadrao-web",
             extra={
-                "SUPABASE_SERVICE_ROLE_KEY": "leaked-service-role",
+                "NEXT_PUBLIC_ARGUS_API_URL": "https://app.example.test",
                 "NEXT_PUBLIC_API_URL": "https://legacy.example.test",
             },
         ),
     )
 
     assert result.returncode == 1
-    assert "forbidden argus-app:SUPABASE_SERVICE_ROLE_KEY" in result.stdout
-    assert "forbidden argus-app:NEXT_PUBLIC_API_URL" in result.stdout
+    assert "forbidden cuadrao-web:NEXT_PUBLIC_ARGUS_API_URL" in result.stdout
+    assert "forbidden cuadrao-web:NEXT_PUBLIC_API_URL" in result.stdout
     assert "status=drift" in result.stdout
 
 

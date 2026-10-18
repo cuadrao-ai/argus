@@ -163,7 +163,7 @@ def test_same_commit_check_requires_exact_deploys_and_warmup_matches_profile() -
         assert f'"$SCRIPT_DIR/render-env-sync.sh" {status}' in same_commit
     for reason in (
         "api_deploy_sha_mismatch",
-        "web_deploy_sha_mismatch",
+        "web_deploy_sha_missing",
         "workflow_version_commit_mismatch",
         "workflow_version_id_missing",
     ):

@@ -330,7 +330,7 @@ On `cuadrao-api` (audit label `argus-api`), before the API deploy:
 
 The business-web contract (audit label `argus-app`) still requires `ARGUS_TRUSTED_CLIENT_IP_HEADER=CF-Connecting-IP` before that service's build. No production service carries that contract yet. Do not set the business-web contract on the marketing site.
 
-`argus-backtests` has no new profile keys in this delta. Leave its env on the existing workflow contract. The business-web env lives in the release profile's `argus-app` contract, not in `render.yaml`. The live `cuadrao-web` env was not read, and `render.yaml` declares none for it. Do not invent marketing env.
+`argus-backtests` has no new profile keys in this delta. Leave its env on the existing workflow contract. The business-web env lives in the release profile's `argus-app` contract, not in `render.yaml`. `render.yaml` declares no env for `cuadrao-web`. The audited marketing env is the release profile `marketing` surface, taken from the marketing launch runbook and the keys `marketing/` reads.
 
 These profile `optional` names are secrets. Set one only when Lucas is turning that surface on, and never record the value. Absence is allowed by the audit. `ARGUS_INVITE_CODE_SECRET` is the exception timed above. The others are `ARGUS_INVITE_CODE_SECRET_PREVIOUS`, `ARGUS_INGESTION_SECRET_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_WEBHOOK_URL`, `ARGUS_APPLE_TEAM_ID`, `ARGUS_APPLE_SIGN_IN_KEY_ID`, `ARGUS_APPLE_SIGN_IN_PRIVATE_KEY`, and `ARGUS_APPLE_BUNDLE_ID`.
 
@@ -366,15 +366,15 @@ After the landed gate reports `status=pass` and the env readbacks above match th
 
 1. Do not Blueprint-sync. Never Blueprint-sync until the `render.yaml` service names match the dashboard and someone has reviewed the sync diff. The `cuadrao-api-staging` start command is still unconfirmed and is a must-check before that sync. This checklist does not sync. `renderSubdomainPolicy: disabled` stays on `cuadrao-api` in the file. Disabling the live subdomain is the promotion-day item in [item 4](#render-services-and-promotion-day-items). `argus-backtests` is not in `render.yaml`. Its contract stays the release profile plus `.github/render-env-sync.sh workflow-runtime`. Autodeploy on the production dashboard services stays off.
 2. Set the env in [section 3](#3-render-environment-on-production) on dashboard `cuadrao-api` before that service deploys. Run `.github/render-env-sync.sh api-real-workflow-on` for the API service the script labels `argus-api`, then restart it if the env change did not already restart it. Do not set the business-web contract on dashboard `cuadrao-web`.
-3. Run the audit before the three deploys:
+3. Run the audit before the deploys:
 
 ```bash
 .github/render-env-sync.sh release-config-audit --expect-mode real-workflow
 ```
 
-`status=ready` is not the promotion gate while `ARGUS_PRIVATE_LAUNCH_WEB_SERVICE_ID` is `srv-d7ap6bmslomc73eqp8m0`. That id is dashboard `cuadrao-web`, the marketing site. The audit reads it as `argus-app` and reports the business-web keys missing. Those `argus-app` lines are expected. They are not a stop. Do not copy the business-web contract onto `cuadrao-web` to force `status=ready`. Stop on any `argus-api` or `argus-backtests` drift or `unexpected_live_env` line. The vision-model allow-list stop in section 3 still applies to `argus-api`. Record the expected `argus-app` lines in the sign-off.
+`status=ready` is the promotion gate. `ARGUS_PRIVATE_LAUNCH_WEB_SERVICE_ID` is `srv-d7ap6bmslomc73eqp8m0`, dashboard `cuadrao-web`, the marketing site. The audit checks that service against the release profile `marketing` surface and labels the lines `cuadrao-web`. It does not check that service against the `web` surface. The `argus-app` label stays the business-web contract, and no production service carries it yet. Stop on any `argus-api`, `cuadrao-web`, or `argus-backtests` drift or `unexpected_live_env` line. The vision-model allow-list stop in section 3 still applies to `argus-api`.
 
-4. Deploy dashboard `cuadrao-api`, then `cuadrao-web`, then `argus-backtests`, from the landed SHA. Manual triggers, in that order. `cuadrao-web` is the marketing site. This deploy is not a deploy of `web/`. The release-coherence canary calls `web-deploy-status`, which reads `srv-d7ap6bmslomc73eqp8m0` and fails with `web_deploy_sha_mismatch` unless that service's live commit is the candidate. Leaving marketing on an older SHA fails the canary. Do not finish the three on different commits. The command reference in [Before Tester Sessions](#before-tester-sessions) still names the audit labels `argus-api`, then `argus-app`, then `argus-backtests`. The audit script still labels the marketing service `argus-app`. The `argus-app` env contract is the business-web contract, and no production service carries it yet.
+4. Deploy dashboard `cuadrao-api`, then `argus-backtests`, from the landed SHA. Manual triggers, in that order. Do not deploy `cuadrao-web` here. It serves `marketing/` from branch `main`, autoDeploy is off, and a person deploys it by hand when `main` should ship. This promotion does not deploy `web/`. The release-coherence canary requires the `cuadrao-api` commit and the `argus-backtests` workflow version to match the candidate. It still reads `web-deploy-status` for `srv-d7ap6bmslomc73eqp8m0`, records that commit as `canary_web_deploy_sha`, and does not require the commit to equal the candidate. The command reference in [Before Tester Sessions](#before-tester-sessions) still names the audit labels `argus-api`, then `argus-app`, then `argus-backtests`.
 5. Read deploy status:
 
 ```bash
@@ -384,7 +384,7 @@ ARGUS_RELEASE_SHA="$(git rev-parse HEAD)"
 .github/render-env-sync.sh workflow-version-status
 ```
 
-Each deployed commit is `ARGUS_RELEASE_SHA`. The workflow ready version name matches that commit's prefix.
+The `cuadrao-api` commit and the workflow ready version name match `ARGUS_RELEASE_SHA`. `web-deploy-status` is the marketing site's own commit. Record it on its own line. It does not have to equal `ARGUS_RELEASE_SHA`.
 6. Run the audit again inside warmup, against the deployed SHA:
 
 ```bash
@@ -409,7 +409,7 @@ Warmup dispatches a paid workflow proof. Lucas approves that spend in the window
    - Guest access: set `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=false`, then `ARGUS_GUEST_ACCESS_ENABLED=false`. Leave `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`.
    - `ARGUS_ENABLE_EXECUTION_REALISM=false` is the execution-realism kill switch.
    Sharing flags, the three ceilings, `ARGUS_TRUSTED_CLIENT_IP_HEADER`, and `renderSubdomainPolicy` are not emergency flips.
-3. Revert code, keep migrations. Roll dashboard `cuadrao-api`, `cuadrao-web`, and `argus-backtests` back to the same previous successful deploy. Do not roll a business-web service this promotion did not deploy. A Render rollback restores that deploy's env values as well, so read the env back afterward and re-apply any secret that was rotated since that artifact. Do not reverse, edit, or delete applied SQL. Old code has to tolerate the expanded schema, or Lucas approves a forward fix. The [waitlist rollback floor](#waitlist-rollback-floor) still forbids a code rollback below `061ba50e` while active `requested` rows can exist, until that section's maintenance proof is done.
+3. Revert code, keep migrations. Roll dashboard `cuadrao-api` and `argus-backtests` back to the same previous successful deploy. Leave `cuadrao-web` on its current marketing deploy. Do not roll a business-web service this promotion did not deploy. A Render rollback restores that deploy's env values as well, so read the env back afterward and re-apply any secret that was rotated since that artifact. Do not reverse, edit, or delete applied SQL. Old code has to tolerate the expanded schema, or Lucas approves a forward fix. The [waitlist rollback floor](#waitlist-rollback-floor) still forbids a code rollback below `061ba50e` while active `requested` rows can exist, until that section's maintenance proof is done.
 4. If the hook was enabled despite section 4, disable production Supabase's Send Email Hook first, then set the web flag false. Restoring the previous Auth SMTP sender is part of that readback.
 5. Code rollback does not change `renderSubdomainPolicy`. Production still has the `cuadrao-api` onrender subdomain enabled. Restoring or disabling `https://argus-ohr5.onrender.com` is a separate founder decision on promotion day.
 
@@ -445,7 +445,8 @@ MARKETING_POSTAL_ADDRESS: set and matched approved string / not set
 Auth hook: off
 Hook readback (flag absent or false; Supabase hook not pointed at the app):
 release-config-audit before deploy:
-Deploy SHAs (cuadrao-api, cuadrao-web, argus-backtests):
+Deploy SHAs (cuadrao-api, argus-backtests):
+cuadrao-web SHA (marketing on main, recorded on its own):
 release-config-audit inside warmup:
 Health:
 Smoke and both canaries:
@@ -748,8 +749,9 @@ The canary is a small fixed check that never follows features (founder
 decision, 2026-09-13, #614). The release profile's `canary.required_steps`
 names its four checks:
 
-- `services_same_commit`: `argus-api`, `argus-app`, and `argus-backtests` run
-  the same commit.
+- `services_same_commit`: `argus-api` and `argus-backtests` run the candidate
+  commit. `cuadrao-web` ships marketing from `main` by hand. The check records
+  its commit and does not require that commit to equal the candidate.
 - `signed_in_chat_answer`: the signed-in canary account loads the chat and gets
   one ordinary answer.
 - `backtest_completes`: one backtest completes.

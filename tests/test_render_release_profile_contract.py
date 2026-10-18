@@ -76,7 +76,7 @@ def test_release_contract_keeps_all_three_services_on_manual_deploys() -> None:
 
     # Founder decision, 2026-09-13 (#614): a Blueprint sync must not enable
     # autodeploy, so render.yaml carries the quoted string rather than YAML false.
-    for surface in ("api", "web", "workflow"):
+    for surface in ("api", "web", "workflow", "marketing"):
         assert profile["services"][surface]["auto_deploy_trigger"] == "off"
     assert render_by_name["cuadrao-api"]["autoDeployTrigger"] == "off"
     assert render_by_name["cuadrao-web"]["autoDeployTrigger"] == "off"
@@ -210,7 +210,7 @@ def test_render_env_sync_audit_reports_a_service_that_leaves_manual_deploys(
         tmp_path,
         expect_mode="real-workflow",
         api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(),
         workflow_service_json=json.dumps({"autoDeployTrigger": "checksPass"}),
     )
@@ -233,7 +233,7 @@ def test_render_env_sync_audit_accepts_manual_deploys_on_all_three(
         tmp_path,
         expect_mode="real-workflow",
         api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(),
         api_service_json=manual,
         web_service_json=manual,
@@ -241,7 +241,7 @@ def test_render_env_sync_audit_accepts_manual_deploys_on_all_three(
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
-    for service in ("argus-api", "argus-app", "argus-backtests"):
+    for service in ("argus-api", "cuadrao-web", "argus-backtests"):
         assert f"ok {service}:autoDeployTrigger=off" in result.stdout
     assert "autodeploy_status=ready" in result.stdout
     assert "status=ready" in result.stdout
@@ -263,7 +263,7 @@ def test_render_env_sync_audit_compares_the_transition_cors_allowlist(
                 "ARGUS_CORS_ALLOW_ORIGINS": "https://argus-app-suz5.onrender.com",
             },
         ),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(),
     )
 
