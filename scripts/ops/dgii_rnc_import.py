@@ -166,10 +166,7 @@ def copy_text(rows: tuple[RncRow, ...]) -> str:
 
 def load_script(result: ParseResult, config: LoadConfig) -> str:
     table = _sql_ident(config.load_table)
-    function = _sql_ident(config.swap_function)
     timeout = _statement_timeout(config.statement_timeout)
-    if isinstance(config.min_rows, bool) or not isinstance(config.min_rows, int):
-        raise RncImportError("min_rows must be an integer")
     return (
         f"SET statement_timeout = '{timeout}';\n"
         f"TRUNCATE {table};\n"
@@ -177,8 +174,14 @@ def load_script(result: ParseResult, config: LoadConfig) -> str:
         "FROM STDIN WITH (FORMAT text);\n"
         f"{copy_text(result.rows)}"
         "\\.\n"
-        f"SELECT {function}({config.min_rows});\n"
     )
+
+
+def swap_script(config: LoadConfig) -> str:
+    function = _sql_ident(config.swap_function)
+    timeout = _statement_timeout(config.statement_timeout)
+    min_rows = _require_min_rows(config.min_rows)
+    return f"SET statement_timeout = '{timeout}';\n" f"SELECT {function}({min_rows});\n"
 
 
 def headroom_sql(config: LoadConfig) -> str:
@@ -211,8 +214,15 @@ def swap_row_count(stdout: str) -> int:
 
 
 def require_swap_count(count: int, config: LoadConfig) -> None:
-    if count < config.min_rows:
-        raise RncImportError(f"swap returned {count}, below minimum {config.min_rows}")
+    minimum = _require_min_rows(config.min_rows)
+    if count < minimum:
+        raise RncImportError(f"swap returned {count}, below minimum {minimum}")
+
+
+def _require_min_rows(min_rows: object) -> int:
+    if isinstance(min_rows, bool) or not isinstance(min_rows, int) or min_rows < 1:
+        raise RncImportError("min_rows must be at least 1")
+    return min_rows
 
 
 def require_load_headroom(
@@ -438,7 +448,8 @@ def _apply_load(database_url: str, result: ParseResult, config: LoadConfig) -> N
     print(f"live_relation_bytes={relation_bytes}")
     print(f"headroom_bytes={peak - database_size}")
     print(f"peak_bytes={peak}")
-    count = swap_row_count(_psql(database_url, load_script(result, config)))
+    _psql(database_url, load_script(result, config))
+    count = swap_row_count(_psql(database_url, swap_script(config)))
     print(f"swap_rows={count}")
     require_swap_count(count, config)
     database_after, live_bytes, load_bytes = _psql_integers(

@@ -27,6 +27,7 @@ from scripts.ops.dgii_rnc_import import (
     size_report_sql,
     summary_lines,
     swap_row_count,
+    swap_script,
     validate,
 )
 
@@ -248,7 +249,20 @@ def test_load_script_sets_the_session_timeout_and_calls_swap() -> None:
         "FROM STDIN WITH (FORMAT text);\n"
     ) in sql
     assert "123456789\tACME\t\\N\tACTIVO\t2026-10-18\n" in sql
-    assert sql.endswith("SELECT public.dgii_rnc_swap(700000);\n")
+    assert "dgii_rnc_swap" not in sql
+    assert "dgii_rnc_lookup" not in sql
+    assert sql.endswith("\\.\n")
+    swap = swap_script(LOAD)
+    assert swap == (
+        "SET statement_timeout = '5min';\n" "SELECT public.dgii_rnc_swap(700000);\n"
+    )
+    assert "TRUNCATE" not in swap
+    assert "COPY" not in swap
+    assert "dgii_rnc_lookup" not in swap
+    with pytest.raises(RncImportError, match="min_rows must be at least 1"):
+        swap_script(LoadConfig(min_rows=0))
+    with pytest.raises(RncImportError, match="min_rows must be at least 1"):
+        swap_script(LoadConfig(min_rows=None))
     with pytest.raises(RncImportError):
         load_script(result, LoadConfig(statement_timeout="5min; drop table t"))
 
@@ -271,9 +285,15 @@ def test_timeout_env_changes_the_session_setting(monkeypatch) -> None:
     assert load_script(result, _config_from_env()).startswith(
         "SET statement_timeout = '10min';\n"
     )
+    assert swap_script(_config_from_env()).startswith(
+        "SET statement_timeout = '10min';\n"
+    )
     monkeypatch.setenv("DGII_RNC_STATEMENT_TIMEOUT", "")
     assert load_script(result, _config_from_env()).startswith(
         "SET statement_timeout = '5min';\n"
+    )
+    assert swap_script(_config_from_env()) == (
+        "SET statement_timeout = '5min';\n" "SELECT public.dgii_rnc_swap(700000);\n"
     )
     monkeypatch.setenv("DGII_RNC_STATEMENT_TIMEOUT", "5min; drop table t")
     with pytest.raises(RncImportError):
@@ -424,17 +444,22 @@ def test_apply_load_prints_sizes_around_the_swap(monkeypatch, capsys) -> None:
         assert args[-1] == url
         if input == headroom_sql(LOAD):
             return _Completed(stdout="1000\n0\n")
+        if input == load_script(_one_row(), LOAD):
+            return _Completed(stdout="")
+        if input == swap_script(LOAD):
+            return _Completed(stdout="700000\n")
         if input == size_report_sql(LOAD):
             return _Completed(stdout="100\n200\n300\n")
-        if "TRUNCATE" in input:
-            return _Completed(stdout="700000\n")
         raise AssertionError(input)
 
     monkeypatch.setattr("scripts.ops.dgii_rnc_import.subprocess.run", fake_run)
     _apply_load(url, _one_row(), LOAD)
-    assert calls[0] == headroom_sql(LOAD)
-    assert "TRUNCATE" in calls[1]
-    assert calls[2] == size_report_sql(LOAD)
+    assert calls == [
+        headroom_sql(LOAD),
+        load_script(_one_row(), LOAD),
+        swap_script(LOAD),
+        size_report_sql(LOAD),
+    ]
     assert capsys.readouterr().out == (
         "database_bytes=1000\n"
         "live_relation_bytes=0\n"

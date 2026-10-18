@@ -12,7 +12,7 @@ The job checks out this repository and downloads `DGII_RNC.zip`. It parses the `
 python3 scripts/ops/dgii_rnc_import.py parse rnc.zip
 ```
 
-The gate then decides whether to load. A load copies `rnc`, `name`, `trade_name`, `status`, and `file_date` into `public.dgii_rnc_load`. It then calls `public.dgii_rnc_swap(min_rows int)`, which returns the row count now in `public.dgii_rnc`. The job prints that integer as `swap_rows` and fails if it is below 700000.
+The gate then decides whether to load. A load copies `rnc`, `name`, `trade_name`, `status`, and `file_date` into `public.dgii_rnc_load` and finishes that session. A later session calls `public.dgii_rnc_swap(min_rows integer)`, which returns the integer row count now in `public.dgii_rnc`. `min_rows` is 700000. The job prints that integer as `swap_rows` and fails if it is below 700000. The job does not call `public.dgii_rnc_lookup`.
 
 `trade_name` is column 3. A blank commercial name is NULL. Status is copied as written.
 
@@ -59,12 +59,14 @@ Set the repository variables `DGII_RNC_LOAD_HEADROOM_FLOOR` and `DGII_RNC_SIZE_L
 
 The dry run prints `parsed_bytes`. After the swap, the log prints `database_bytes_after` and `relation_bytes` for `public.dgii_rnc` and `public.dgii_rnc_load`.
 
+Migration `20261018190000_dgii_rnc_registry.sql` sets no function timeout.
+
 ## Set the swap timeout
 
-The load step runs `psql` against `SUPABASE_STAGING_DB_URL`. It does not call the swap through an HTTP API. The session starts with `SET statement_timeout = '5min'`.
+The load step runs `psql` against `SUPABASE_STAGING_DB_URL`. It does not call the swap through an HTTP API. The copy session ends before the swap session starts. Each session starts with `SET statement_timeout = '5min'`.
 
 Set the repository variable `DGII_RNC_STATEMENT_TIMEOUT` to another interval, such as `10min`, when the swap of about 800000 rows needs longer. An empty value keeps 5 minutes. The value must be a number followed by `ms`, `s`, `min`, or `h`.
 
 ## Wait for the migration
 
-Loading waits on migration `20261018190000_dgii_rnc_registry.sql` and a separate staging approval. This runbook does not record a completed load.
+Loading waits on migration `20261018190000_dgii_rnc_registry.sql` and a separate staging approval. `public.dgii_rnc_swap(min_rows integer)` and `public.dgii_rnc_lookup(p_rnc text)` are security definer functions with an empty search path. The lookup is volatile. This runbook does not record a completed load.
