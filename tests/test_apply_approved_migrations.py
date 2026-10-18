@@ -953,6 +953,57 @@ def test_the_staging_invites_bank_matching_registry_record_holds_inside_its_wind
         )
 
 
+_STAGING_APPROVAL_C = (
+    "docs/release-manifests/2026-10-18-staging-dgii-export-month-close-apply.json"
+)
+_STAGING_SHA_C = "789ee2236325f9a2df4a03c49f07a69d49318104"
+_STAGING_VERSIONS_C = ["20261018220000", "20261018230000"]
+
+
+def test_the_staging_dgii_export_month_close_record_holds_inside_its_window() -> None:
+    text = (Path(__file__).resolve().parents[1] / _STAGING_APPROVAL_C).read_text()
+    approval = applier.parse_hosted_approval(
+        text,
+        _STAGING_SHA_C,
+        _STAGING_VERSIONS_C,
+        (),
+        datetime.fromisoformat("2026-10-19T15:00:00-05:00"),
+    )
+    assert approval == applier.HostedApproval(
+        "staging-apply-2026-10-18-c",
+        "skedzwocnmrhfigiwyzi",
+        (
+            "db.skedzwocnmrhfigiwyzi.supabase.co",
+            "aws-0-us-east-1.pooler.supabase.com",
+        ),
+        "postgres",
+        _STAGING_SHA_C,
+        "75ef583cec3d0baf25df6350878f5ad63f514bbe149bd9b1caadad496d629529",
+        datetime.fromisoformat("2026-10-21T14:20:00-05:00"),
+    )
+    for versions in (
+        ["20261018210000", *_STAGING_VERSIONS_C],
+        _STAGING_VERSIONS_C[:1],
+        _STAGING_VERSIONS_C[1:],
+    ):
+        with pytest.raises(applier.ApplyError, match="different list of versions"):
+            applier.parse_hosted_approval(
+                text,
+                _STAGING_SHA_C,
+                versions,
+                (),
+                datetime.fromisoformat("2026-10-19T15:00:00-05:00"),
+            )
+    with pytest.raises(applier.ApplyError, match="not valid now"):
+        applier.parse_hosted_approval(
+            text,
+            _STAGING_SHA_C,
+            _STAGING_VERSIONS_C,
+            (),
+            datetime.fromisoformat("2026-10-21T14:20:00-05:00"),
+        )
+
+
 _STAGING_REF = "skedzwocnmrhfigiwyzi"
 _STAGING_DIRECT = f"db.{_STAGING_REF}.supabase.co"
 _STAGING_POOLER = "aws-0-us-east-1.pooler.supabase.com"
@@ -962,6 +1013,7 @@ _STAGING_NOW = datetime.fromisoformat("2026-10-19T15:00:00-05:00")
 _STAGING_RECORDS = (
     (_STAGING_APPROVAL, _STAGING_SHA, _STAGING_VERSIONS),
     (_STAGING_APPROVAL_B, _STAGING_SHA_B, _STAGING_VERSIONS_B),
+    (_STAGING_APPROVAL_C, _STAGING_SHA_C, _STAGING_VERSIONS_C),
 )
 
 
