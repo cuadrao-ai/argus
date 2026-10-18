@@ -1555,6 +1555,8 @@
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
       "captcha_unavailable": "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
+      "browser_check_failed": "No pudimos verificar tu navegador. Intenta de nuevo.",
+      "browser_check_retry": "Intentar de nuevo",
       "unauthorized": "No pudimos verificar los datos de la cuenta. Revísalos e inténtalo de nuevo.",
       "auth_signup_failed": "No pudimos crear la cuenta. Inténtalo de nuevo.",
       "too_many_requests": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
