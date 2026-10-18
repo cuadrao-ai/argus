@@ -196,6 +196,23 @@ async def test_signed_event_becomes_one_capture_with_original_and_parts_and_no_c
 
 
 @pytest.mark.asyncio
+async def test_replayed_provider_event_does_not_charge_twice_or_open_a_second_draft():
+    world = rig(message(("recibo.png", "image/png", png())))
+    delivery = world.enqueue()
+    assert await world.runtime.next()
+    charged = list(_usage(world))
+    names = sorted(item.filename for item in world.drafts())
+    assert names and charged[0] >= 1 and charged[1] > 0
+    replay = world.enqueue(external_id=delivery.external_id)
+    assert replay.id == delivery.id
+    assert not await world.runtime.next()
+    assert list(_usage(world)) == charged
+    assert sorted(item.filename for item in world.drafts()) == names
+    assert len(world.store._deliveries) == 1
+    assert world.provider.calls == 1
+
+
+@pytest.mark.asyncio
 async def test_unknown_or_ambiguous_recipient_is_rejected_before_any_fetch():
     world = rig()
     unknown = world.enqueue("nobody@recibos.example.test")

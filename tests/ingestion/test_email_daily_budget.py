@@ -162,6 +162,44 @@ async def test_metadata_and_raw_reserve_separately_and_settle_actual_bytes():
 
 
 @pytest.mark.asyncio
+async def test_oversized_download_stops_at_the_cap_and_keeps_that_charge():
+    world = rig()
+    delivery = world.enqueue()
+    pulled = []
+    metadata = {
+        "id": delivery.external_id,
+        "to": [world.route.recipient],
+        "raw": {"download_url": "https://cdn.resend.app/raw"},
+    }
+    metadata_bytes = len(httpx.Response(200, json=metadata).content)
+
+    class Chunks(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            pulled.append(1)
+            yield b"x" * (SOURCE_MAX_BYTES - 1)
+            pulled.append(2)
+            yield b"yy"
+            pulled.append(3)
+            yield b"z" * 64
+
+    def handler(request):
+        if request.url.host == "api.resend.com":
+            return httpx.Response(200, json=metadata)
+        return httpx.Response(200, stream=Chunks(), headers={})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        world.runtime.provider = ResendReceivingClient(
+            client, "synthetic", ("cdn.resend.app",)
+        )
+        assert await world.runtime.next()
+    saved = world.store.get(delivery.id, world.route.space_id)
+    assert (saved.state, saved.error_code) == ("rejected", "provider_response_too_large")
+    assert pulled == [1, 2]
+    assert usage(world) == [1, metadata_bytes + SOURCE_MAX_BYTES]
+    assert world.drafts() == []
+
+
+@pytest.mark.asyncio
 async def test_metadata_consumes_bytes_and_raw_waits_before_request():
     world = rig()
     world.store.budget = DailyEmailBudget(100, SOURCE_MAX_BYTES)
