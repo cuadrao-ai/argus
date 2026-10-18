@@ -9,6 +9,13 @@ name: DGII RNC import
         description: Dry run
         type: boolean
         default: true
+  pull_request:
+    branches: ["codex/private-alpha-next"]
+    paths:
+      - .github/workflows/dgii-rnc-import.yml
+      - scripts/ops/dgii_rnc_import.py
+      - tests/test_dgii_rnc_import.py
+      - docs/runbooks/dgii-rnc-import.md
 
 permissions:
   contents: read
@@ -53,7 +60,7 @@ jobs:
         id: gate
         env:
           ENABLED: ${{ vars.DGII_RNC_LOAD_ENABLED }}
-          DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && (inputs.dry_run == true || inputs.dry_run == 'true')) && 'true' || 'false' }}
+          DRY_RUN: ${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.dry_run == true || inputs.dry_run == 'true'))) && 'true' || 'false' }}
           SECRET_PRESENT: ${{ secrets.SUPABASE_STAGING_DB_URL != '' && 'true' || 'false' }}
         run: |
           set -euo pipefail
