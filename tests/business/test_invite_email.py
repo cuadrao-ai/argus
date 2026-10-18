@@ -178,3 +178,13 @@ def test_postal_address_escapes_once_and_keeps_token_looking_values_literal(pref
     assert "Cuadrao LLC, " + address in mail.text
     assert "Cuadrao LLC, Cuadrao LLC" not in mail.text
     assert "Salir de la lista" not in mail.html + mail.text
+
+
+def test_invite_mail_renders_cuadrao_llc_when_postal_address_is_unset(monkeypatch):
+    monkeypatch.delenv("MARKETING_POSTAL_ADDRESS", raising=False)
+    mail = render()
+    assert ">Cuadrao LLC</p>" in mail.html
+    assert mail.text.rstrip().endswith("Cuadrao LLC")
+    assert "Cuadrao LLC," not in mail.html
+    assert "Cuadrao LLC," not in mail.text
+    assert "Salir de la lista" not in mail.html + mail.text
