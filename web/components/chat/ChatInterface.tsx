@@ -916,7 +916,7 @@ export default function ChatInterface() {
     account,
     conversationId,
     closeTransientSidebar,
-    startNewChat,
+    onNewChat: startNewChat,
     // The one door into Omnisearch, so the drawer closes here rather than at
     // each caller. The palette paints below the drawer.
     onOpenOmnisearch: () => {
