@@ -1,6 +1,7 @@
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
 import { randomId } from "@/lib/random-id";
 import { receiptFileWithType } from "./receipt-file";
+import { nextWaitingUpload, runFifo } from "./receipt-upload-fifo";
 
 /** Where a captured receipt goes next: its review, or the composer. */
 export type IntakeTarget = "inbox" | "composer";
@@ -63,10 +64,9 @@ export class ReceiptUploadQueue {
     this.publish(this.items.map((item) => item.key === next.key ? next : item));
   }
 
-  /** False when a save is running and the files were not taken. A file already
-   *  in this target's list (same name, size and last change) is not added twice. */
+  /** A file already in this target's list (same name, size and last change) is not added twice.
+   *  A file added while a save is running joins the tail instead of being dropped. */
   add(files: readonly File[], limits: ReceiptLimits, target: IntakeTarget, conversationId: string | null = null): boolean {
-    if (this.running) return false;
     const selected = target === "composer" ? files.slice(0, 1) : files;
     if (!selected.length) return true;
     const identity = (file: File) => `${file.name}\u0000${file.size}\u0000${file.lastModified}`;
@@ -84,7 +84,8 @@ export class ReceiptUploadQueue {
       const reason = rejectionFor(file, limits);
       return reason ? { ...base, status: "rejected", reason } : { ...base, status: "queued" };
     });
-    this.publish([...(target === "composer" ? this.items.filter((item) => item.target !== target) : this.items), ...incoming]);
+    const idleComposer = target === "composer" && !this.running;
+    this.publish([...(idleComposer ? this.items.filter((item) => item.target !== target) : this.items), ...incoming]);
     return true;
   }
 
@@ -103,29 +104,34 @@ export class ReceiptUploadQueue {
 
   async save(target: IntakeTarget, consent: boolean, onlyKey?: string) {
     if (this.running) return;
-    const pending = this.items.filter((item) => item.target === target &&
-      (!onlyKey || item.key === onlyKey) && (item.status === "queued" || item.status === "failed"));
-    if (!pending.length) return;
     this.running = true;
+    const presentAtStart = new Set(this.items.map((item) => item.key));
+    const seeded = new Set(this.items.filter((item) => item.target === target &&
+      (!onlyKey || item.key === onlyKey) && (item.status === "queued" || item.status === "failed")).map((item) => item.key));
+    const attempted = new Set<string>();
     try {
-      for (const item of pending) {
-        const chosenConsent = item.status === "failed" ? item.consent : consent;
-        const attempt = { ...item, consent: chosenConsent };
-        this.replace({ ...attempt, status: "uploading" });
-        let receipt: ReceiptSummary;
-        try {
-          receipt = await this.upload(item.file, chosenConsent, item.key);
-        } catch (error: unknown) {
-          if (error instanceof Error && "status" in error && error.status === 415) {
-            this.replace({ ...item, status: "rejected", reason: "unsupported" });
-          } else {
-            this.replace({ ...attempt, status: "failed" });
+      await runFifo(
+        () => nextWaitingUpload(this.items, target, attempted, seeded, presentAtStart),
+        async (item) => {
+          attempted.add(item.key);
+          const chosenConsent = item.status === "failed" ? item.consent : consent;
+          const attempt = { ...item, consent: chosenConsent };
+          this.replace({ ...attempt, status: "uploading" });
+          let receipt: ReceiptSummary;
+          try {
+            receipt = await this.upload(item.file, chosenConsent, item.key);
+          } catch (error: unknown) {
+            if (error instanceof Error && "status" in error && error.status === 415) {
+              this.replace({ ...item, status: "rejected", reason: "unsupported" });
+            } else {
+              this.replace({ ...attempt, status: "failed" });
+            }
+            return;
           }
-          continue;
-        }
-        this.replace({ ...attempt, status: "saved", receipt });
-        this.onSaved(receipt, item);
-      }
+          this.replace({ ...attempt, status: "saved", receipt });
+          this.onSaved(receipt, item);
+        },
+      );
     } finally {
       this.running = false;
       this.publish([...this.items]);

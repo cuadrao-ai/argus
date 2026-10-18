@@ -1,6 +1,6 @@
 """Model-written replies never show an em dash, in any language.
 
-The rule is founder-locked (.agent/rules/coding-standards.md) and used to live
+The rule is founder-locked (AGENTS.md "Copy") and used to live
 in one prompt out of many. One owner applies it at the point a reply becomes
 visible, covers every chat reply, and records when it fired.
 """
