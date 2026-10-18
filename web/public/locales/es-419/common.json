@@ -2478,11 +2478,20 @@
       "duplicate": "Parece un recibo que ya guardaste: mismo comercio, fecha y total. No se guardará como un segundo gasto.",
       "interrupted": "La preparación se detuvo antes de terminar. Tu recibo está guardado. Reintenta o escribe los detalles tú mismo.",
       "no_purchase_found": "Cuadrao leyó este recibo pero no encontró una compra para guardar. Escribe los detalles tú mismo.",
+      "not_a_receipt": "Esto no parece un recibo",
       "other": "Algo salió mal con este recibo. Sigue guardado. Escribe los detalles tú mismo.",
       "outcome_unknown": "No pudimos recuperar el resultado de la lectura con IA. Tu recibo sigue guardado. Reintenta o escribe los detalles tú mismo.",
       "several_purchases": "Cuadrao no pudo asociar este recibo a una sola compra. Escribe los detalles tú mismo para guardar un gasto.",
       "source_unavailable": "El archivo original ya no está disponible. Escribe los detalles tú mismo.",
       "unreadable": "No pudimos leer este recibo. Escribe los detalles tú mismo o envía una foto más clara."
+    },
+    "file_read": {
+      "unreadable_title": "No pudimos leer este archivo",
+      "unreadable_body": "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz, o escribe los datos a mano.",
+      "not_a_receipt_title": "Esto no parece un recibo",
+      "not_a_receipt_body": "Leímos el archivo, pero no encontramos una compra con su total. Los estados de cuenta y los avisos de pago no van aquí. Si es una factura que tú emitiste, márcala como Venta.",
+      "upload_another": "Subir otro archivo",
+      "enter_details": "Escribir datos"
     },
     "expenses": {
       "empty": "No hay gastos guardados en este período.",

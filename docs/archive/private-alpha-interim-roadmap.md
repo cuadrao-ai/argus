@@ -148,7 +148,7 @@ completed on `main` at `217ead12`.
 
 This is the bounded pivot between the latest `main` promotion and the remaining
 P2 compounding loop in
-[`private-alpha-next-roadmap.md`](private-alpha-next-roadmap.md). Existing
+[`private-alpha-next-roadmap.md`](../specs/private-alpha-next-roadmap.md). Existing
 issues #228 through #253 are supporting evidence and possible implementation
 material, not the roadmap itself. #213 remains excluded.
 
@@ -525,9 +525,9 @@ bar remains active**
 
 This pillar protects every later conversational surface.
 The founder-approved end-to-end contract is
-[`2026-07-23-always-progresses-continuity-design.md`](../superpowers/specs/2026-07-23-always-progresses-continuity-design.md).
+[`2026-07-23-always-progresses-continuity-design.md`](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-07-23-always-progresses-continuity-design.md).
 The serialized execution plan is
-[`2026-07-23-always-progresses-continuity.md`](../superpowers/plans/2026-07-23-always-progresses-continuity.md).
+[`2026-07-23-always-progresses-continuity.md`](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/plans/2026-07-23-always-progresses-continuity.md).
 Together they require every accepted operation to advance typed state or reach
 a clear, actionable stopping point across clarification, confirmation, Run,
 result, retry, and reload.
