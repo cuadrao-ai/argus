@@ -11,7 +11,7 @@ export type SecurityMail =
 
 export function renderSecurityMail(mail: SecurityMail, sentAt: Date) {
   const date = new Intl.DateTimeFormat("es-DO", { timeZone: "America/Santo_Domingo", day: "numeric", month: "long", year: "numeric" }).format(sentAt);
-  const time = new Intl.DateTimeFormat("es-DO", { timeZone: "America/Santo_Domingo", hour: "numeric", minute: "2-digit", hour12: true }).format(sentAt);
+  const time = new Intl.DateTimeFormat("es-DO", { timeZone: "America/Santo_Domingo", hour: "numeric", minute: "2-digit", hour12: true }).format(sentAt).replace(/[\u00a0\u202f]/g, " ");
   const when = `el ${date} a las ${time} (hora de RD).`;
   const shared = "Cuadrao nunca te pedirá tu contraseña ni tus códigos.";
   if (mail.action === "password_changed_notification") {
