@@ -9270,6 +9270,44 @@ client A never grants client B. Source, history and dossier projections are
 server-only, resolved through live grants on every read. No portfolio route or
 new top-level review UI is introduced.
 
+#### Venta contract
+
+The default-off Venta contract records an invoice that the Business owner
+already issued against one open Bandeja draft. It does not create a money
+activity or an expense. `CUADRAO_BUSINESS_VENTA_ENABLED` controls
+`/business/ventas` and defaults to false. The routes return 404
+`business_venta_unavailable` while the flag is off.
+
+`POST /business/ventas` requires `Idempotency-Key` and takes `draft_id`,
+`invoice_total`, `itbis_charged`, `customer`, `ncf`, `issued_on`, and
+`collection_status`. Money uses decimal strings. The route returns 201 for a
+new sale and 200 for an exact replay. `PATCH
+/business/ventas/{venta_id}/collection` requires `Idempotency-Key` and changes
+only `collection_status` and `updated_at`. Only the owner can call either
+write.
+
+`GET /business/ventas?from=&to=` returns sales and derived period values.
+An omitted `to` uses the Santo Domingo Business day. The period is inclusive.
+A reversed period returns 422 `period_reversed`. The response includes
+`income`, `itbis_charged`, `itbis_cobrado`, `por_cobrar`, and one `rows` entry
+per sale for the 607 projection.
+
+The database stores gross `invoice_total` and `itbis_charged`. It derives
+income as their difference. `itbis_cobrado` includes only `cobrado` sales.
+`por_cobrar` is the gross total of `por_cobrar` sales. Each 607 row fills
+buyer identity, NCF, comprobante date, invoiced amount, and ITBIS invoiced.
+Every other 607 column is null. The projection does not use zero for an
+unknown filing fact.
+
+The same idempotency key and canonical input replay the stored sale. Changed
+input returns `business_action_conflict`. A second key for the draft returns
+`business_venta_draft_already_recorded`. Reusing an NCF in the Business returns
+`business_venta_ncf_conflict`. Expense or income approval after sale marking
+returns `business_venta_recorded`.
+
+The full frontend and domain contract is
+[`docs/contracts/business-venta.md`](contracts/business-venta.md).
+
 #### Existing pilot behavior
 
 Off unless `ARGUS_BUSINESS_PILOT_ENABLED` and `ARGUS_INGESTION_ENABLED` are

@@ -23,6 +23,7 @@ from .facts import (
     FactInput,
     Funding,
 )
+from .venta import MarkVentaCommand, SetVentaCollectionCommand
 
 
 class ExistingDraft(Contract):
@@ -307,6 +308,8 @@ Command = (
     | RebindAttachmentCommand
     | MarkPersonalCommand
     | DecideFiscalInclusionCommand
+    | MarkVentaCommand
+    | SetVentaCollectionCommand
 )
 
 
@@ -316,6 +319,7 @@ class Applied(Contract):
     version: int | None = Field(default=None, ge=1)
     question_id: UUID | None = None
     activity_id: UUID | None = None
+    sale_id: UUID | None = None
 
 
 class Refused(Contract):

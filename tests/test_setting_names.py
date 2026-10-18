@@ -7,7 +7,11 @@ import base64
 import pytest
 from argus.api.financial_accounts import financial_accounts_enabled
 from argus.api.ingestion import ingestion_enabled
-from argus.domain.business.config import business_chat_enabled, business_pilot_enabled
+from argus.domain.business.config import (
+    business_chat_enabled,
+    business_pilot_enabled,
+    business_venta_enabled,
+)
 from argus.domain.ingestion.documents.config import (
     load_document_extraction_settings,
     load_document_job_settings,
@@ -19,6 +23,7 @@ from argus.settings_names import setting_aliases, setting_names, setting_value
 
 NAMES = (
     "BUSINESS_PILOT_ENABLED",
+    "BUSINESS_VENTA_ENABLED",
     "BUSINESS_CHAT_ENABLED",
     "INGESTION_ENABLED",
     "INGESTION_SECRET_KEY",
@@ -68,6 +73,7 @@ def test_the_shared_reader_prefers_the_cuadrao_name(
         ("INGESTION_ENABLED", ingestion_enabled),
         ("FINANCIAL_ACCOUNTS_ENABLED", financial_accounts_enabled),
         ("BUSINESS_PILOT_ENABLED", business_pilot_enabled),
+        ("BUSINESS_VENTA_ENABLED", business_venta_enabled),
         (
             "DOCUMENT_EXTRACTION_ENABLED",
             lambda: load_document_extraction_settings().enabled,

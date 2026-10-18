@@ -2841,6 +2841,183 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/ventas:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesPeriod'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkVenta'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sale'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '200':
+          description: Exact replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sale'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/ventas/{venta_id}/collection:
+    patch:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: venta_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetVentaCollection'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sale'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/workspace:
     get:
       tags:
@@ -14782,6 +14959,20 @@ components:
       - currency
       - amount
       - count
+    Customer:
+      properties:
+        id_type:
+          type: string
+          enum:
+          - rnc
+          - cedula
+        id_number:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - id_type
+      - id_number
     DebtCreate:
       properties:
         debt_account_id:
@@ -16742,6 +16933,70 @@ components:
       - as_of
       - points
       - order
+    Form607Row:
+      properties:
+        buyer_id:
+          type: string
+        buyer_id_type:
+          type: integer
+          enum:
+          - 1
+          - 2
+        ncf:
+          type: string
+        modified_ncf:
+          type: 'null'
+        income_type:
+          type: 'null'
+        issued_on:
+          type: string
+          format: date
+        withheld_on:
+          type: 'null'
+        invoiced_amount:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+        itbis_invoiced:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+        itbis_withheld:
+          type: 'null'
+        itbis_perceived:
+          type: 'null'
+        rent_withheld:
+          type: 'null'
+        isr_perceived:
+          type: 'null'
+        selective_tax:
+          type: 'null'
+        other_tax:
+          type: 'null'
+        legal_tip:
+          type: 'null'
+        cash:
+          type: 'null'
+        transfer:
+          type: 'null'
+        card:
+          type: 'null'
+        credit_sale:
+          type: 'null'
+        gift:
+          type: 'null'
+        barter:
+          type: 'null'
+        other_payment:
+          type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - buyer_id
+      - buyer_id_type
+      - ncf
+      - issued_on
+      - invoiced_amount
+      - itbis_invoiced
+      description: One 607 line. Unknown filing columns stay null. They are not zeros.
     Fulfillment:
       properties:
         expected_version:
@@ -19118,6 +19373,40 @@ components:
         it is the Business''s) or takes the mark back. Reversible, a new revision
 
         each way.'
+    MarkVenta:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        invoice_total:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+        itbis_charged:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+        customer:
+          $ref: '#/components/schemas/Customer'
+        ncf:
+          type: string
+          pattern: ^(B[0-9]{10}|E[0-9]{12})$
+        issued_on:
+          type: string
+          format: date
+        collection_status:
+          type: string
+          enum:
+          - cobrado
+          - por_cobrar
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      - invoice_total
+      - itbis_charged
+      - customer
+      - ncf
+      - issued_on
+      - collection_status
     MarketSession:
       properties:
         phase:
@@ -23653,6 +23942,99 @@ components:
             format: date
           - type: 'null'
       type: object
+    Sale:
+      properties:
+        id:
+          type: string
+          format: uuid
+        space_id:
+          type: string
+          format: uuid
+        draft_id:
+          type: string
+          format: uuid
+        invoice_total:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+        itbis_charged:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+        customer:
+          $ref: '#/components/schemas/Customer'
+        ncf:
+          type: string
+          pattern: ^(B[0-9]{10}|E[0-9]{12})$
+        issued_on:
+          type: string
+          format: date
+        collection_status:
+          type: string
+          enum:
+          - cobrado
+          - por_cobrar
+        currency:
+          type: string
+          const: DOP
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - space_id
+      - draft_id
+      - invoice_total
+      - itbis_charged
+      - customer
+      - ncf
+      - issued_on
+      - collection_status
+      - currency
+      - created_at
+      - updated_at
+    SalesPeriod:
+      properties:
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+        sales:
+          items:
+            $ref: '#/components/schemas/Sale'
+          type: array
+        income:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+        itbis_charged:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+        itbis_cobrado:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+        por_cobrar:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+        rows:
+          items:
+            $ref: '#/components/schemas/Form607Row'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - start
+      - end
+      - sales
+      - income
+      - itbis_charged
+      - itbis_cobrado
+      - por_cobrar
+      - rows
     Schedule:
       properties:
         cadence:
@@ -24176,6 +24558,17 @@ components:
       required:
       - quota
       - invitations
+    SetVentaCollection:
+      properties:
+        collection_status:
+          type: string
+          enum:
+          - cobrado
+          - por_cobrar
+      additionalProperties: false
+      type: object
+      required:
+      - collection_status
     SettleRemainder:
       properties:
         version:

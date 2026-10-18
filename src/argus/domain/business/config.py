@@ -30,6 +30,20 @@ def business_pilot_enabled() -> bool:
         return False
 
 
+class BusinessVentaSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False, validation_alias=setting_aliases("BUSINESS_VENTA_ENABLED")
+    )
+
+
+def business_venta_enabled() -> bool:
+    try:
+        return BusinessVentaSettings().enabled
+    except ValidationError:
+        return False
+
+
 class BusinessChatSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
     enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(

@@ -45,6 +45,12 @@ def _reviewed_facts(
     kind: Literal["expense", "income"],
 ) -> tuple[ImportEvent, BusinessFacts]:
     event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=version))
+    if tx.rows(
+        "select 1 from public.business_sales"
+        " where space_id=%s and draft_id=%s",
+        (tx.context.actor.space_id, draft_id),
+    ):
+        raise ActionError("invalid_input", "business_venta_recorded")
     view = dossier.dossier(tx, draft_id)
     if view.blockers:
         first = view.blockers[0]
