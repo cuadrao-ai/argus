@@ -1141,7 +1141,7 @@ def _defects(period: Period, names: dict[str, str]) -> list[SeedDocument]:
             direction="outflow",
             counterparty=supplier,
             occurred_on=day,
-            rnc=SUPPLIERS["local"],
+            rnc=SUPPLIERS["ferreteria"],
             ncf=ncf("01", 99),
             ecf=None,
             tag="ncf-duplicado",
@@ -1189,7 +1189,7 @@ def defect_rows() -> dict[str, list[dict]]:
         "tret": None,
     }
     duplicate = {**base_606, "ncf": ncf("01", 99)}
-    duplicate_b = {**duplicate, "id": SUPPLIERS["local"]}
+    duplicate_b = {**duplicate}
     leaked = venta(CEDULA_CLIENTE, 2, ncf("02", 50), 1, "20260903", 1000, pago="efectivo")
     electronic = venta(
         CUSTOMERS["e"], 1, encf("31", 1), 1, "20260903", 1000, pago="efectivo"
@@ -1233,7 +1233,7 @@ def issues_for(rows: list[dict], formato: str, *, periodo: str = "202609") -> li
     """README rejection codes for one detail list. Header count is the list length."""
 
     found: list[str] = []
-    seen: dict[str, int] = {}
+    seen: dict[tuple[str, str], int] = {}
     if not re.fullmatch(r"20\d{4}", periodo) or periodo < "201805":
         found.append("periodo")
     for row in rows:
@@ -1283,7 +1283,8 @@ def issues_for(rows: list[dict], formato: str, *, periodo: str = "202609") -> li
             paid = _payment_sum(row)
             if paid == 0 or paid != expected:
                 found.append("pagos-no-cuadran")
-        seen[comprobante] = seen.get(comprobante, 0) + 1
+        pair = (identity, comprobante)
+        seen[pair] = seen.get(pair, 0) + 1
     if any(count > 1 for count in seen.values()):
         found.append("ncf-duplicado")
     return found
@@ -1550,7 +1551,31 @@ def build_manifest(
         "pairs": pairs,
         "unmatched_lines": unmatched_lines,
         "unmatched_documents": unmatched_documents,
+        "duplicate_guard": duplicate_guard_status(None),
     }
+
+
+def duplicate_guard_status(result: str | None) -> str:
+    """Approval of the second copy of one RNC and NCF."""
+
+    if result is None:
+        return "not run"
+    if result in {"approved", "replayed"}:
+        return "approved (no guard)"
+    return f"refused ({result})"
+
+
+def duplicate_guard_line(result: str | None) -> str:
+    return f"duplicate-guard: {duplicate_guard_status(result)}"
+
+
+def write_duplicate_guard(path: Path, result: str | None) -> str:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["duplicate_guard"] = duplicate_guard_status(result)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    return duplicate_guard_line(result)
 
 
 def csv_text(lines: list[BankLine]) -> str:

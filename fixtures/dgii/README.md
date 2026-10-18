@@ -86,7 +86,7 @@ A dry run of `scripts/qa/business_month_seed.py` needs the dev dependency group 
 7. B13 (606) and B12 (607) use the header RNC.
 8. 607: at least one payment method has a value (except B04), and the sum equals the invoice total.
 9. B04 subtracts from the totals. A credit note whose affected NCF was never reported triggers an alert.
-10. After submission (OFV, ~30 min) the alerts are: RNC inactivo, NCF no habilitado, NCF no existe/eliminado, NCF no autorizado, **NCF ya reportado (duplicate)**, NC sin NCF afectado, B11 issued to a cédula that is registered as a taxpayer, crédito fiscal from an unregistered RNC, and an e-CF whose issuer/receiver doesn't match or that isn't registered as an electronic issuer. **The mock will always fail these** because its RNCs/NCFs don't exist at DGII.
+10. After submission (OFV, ~30 min) the alerts are: RNC inactivo, NCF no habilitado, NCF no existe/eliminado, NCF no autorizado, **NCF ya reportado (duplicate)**, NC sin NCF afectado, B11 issued to a cédula that is registered as a taxpayer, crédito fiscal from an unregistered RNC, and an e-CF whose issuer/receiver doesn't match or that isn't registered as an electronic issuer. A duplicate is the same issuer RNC and the same NCF. The same NCF from two different RNCs is legal. **The mock will always fail these** because its RNCs/NCFs don't exist at DGII.
 11. Check digit: the official algorithm is in `modUtilities.GenDV_Para_Republica_Dominicana`. RNC weights 7-9-8-6-5-4-3-2 mod 11 (r=0→2, r=1→1, else 11−r). Cédula uses Luhn with weights 1-2-1-2…. **Note:** in both tools the DV check is commented out, so DGII validates this server-side, not in Excel. The mock passes it anyway.
 
 ## Uncertain / unverified (do not assume)

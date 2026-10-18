@@ -43,10 +43,14 @@ from dgii_fiscal import (  # noqa: E402
     DRY_RUN_START,
     UNSUPPORTED_DECLARATION_FIELDS,
     build_plan,
+    duplicate_guard_line,
     parse_period,
     plaid_transactions,
+    write_duplicate_guard,
     write_outputs,
 )
+
+DUPLICATE_SECOND = "qa-seed-roto-ncf-duplicado-b.txt"
 
 APPROVED_BOOKS = (
     "approved-books: not cleared; the product has no void, delete, or reversal "
@@ -116,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"bank-lines: {len(plan.lines)}")
     print(f"pairs: {len(plan.manifest['pairs'])}")
     if args.dry_run:
+        print(duplicate_guard_line(None))
         print("intake: not run")
         return 0
     if not args.email.strip():
@@ -129,13 +134,13 @@ def main(argv: list[str] | None = None) -> int:
         print(str(error), file=sys.stderr)
         return 2
     try:
-        return _ingest(args, plan)
+        return _ingest(args, plan, paths["manifest"])
     except StagingRefused as error:
         print(str(error), file=sys.stderr)
         return 2
 
 
-def _ingest(args: argparse.Namespace, plan) -> int:  # noqa: ANN001
+def _ingest(args: argparse.Namespace, plan, manifest_path: Path) -> int:  # noqa: ANN001
     """Import product code only after the staging guard has already refused."""
 
     refuse_unless_staging(os.environ)
@@ -245,6 +250,8 @@ def _ingest(args: argparse.Namespace, plan) -> int:  # noqa: ANN001
                 )
                 prepared += 1
                 result = _approve(actions, sink, context, document, account_id, outcome)
+                if document.filename == DUPLICATE_SECOND:
+                    print(write_duplicate_guard(manifest_path, result))
                 if result == "approved":
                     approved += 1
                 elif result == "unsupported":

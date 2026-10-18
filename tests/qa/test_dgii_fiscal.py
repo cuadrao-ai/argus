@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import importlib
+import json
 import subprocess
 import sys
 from datetime import date
@@ -131,6 +132,45 @@ def test_each_broken_row_names_its_rejection(code: str) -> None:
         assert "retencion-sin-fecha" in fiscal.issues_for([rows[1]], "606")
         return
     assert code in fiscal.issues_for(rows, rows[0]["formato"])
+
+
+def test_a_duplicate_is_the_same_rnc_and_ncf() -> None:
+    pair = fiscal.defect_rows()["ncf-duplicado"]
+    assert pair[0]["id"] == pair[1]["id"] == fiscal.SUPPLIERS["ferreteria"]
+    assert pair[0]["ncf"] == pair[1]["ncf"]
+    assert "ncf-duplicado" in fiscal.issues_for(pair, "606")
+    other_issuer = {**pair[1], "id": fiscal.SUPPLIERS["local"]}
+    assert "ncf-duplicado" not in fiscal.issues_for([pair[0], other_issuer], "606")
+    copies = [
+        document
+        for document in fiscal.documents_for(DRY)
+        if document.filename.startswith("qa-seed-roto-ncf-duplicado-")
+    ]
+    assert [document.rnc for document in copies] == [
+        fiscal.SUPPLIERS["ferreteria"],
+        fiscal.SUPPLIERS["ferreteria"],
+    ]
+    assert copies[0].ncf == copies[1].ncf
+
+
+def test_duplicate_guard_reports_a_refusal_and_an_acceptance(tmp_path: Path) -> None:
+    paths = fiscal.write_outputs(fiscal.build_plan(DRY), tmp_path)
+    manifest = paths["manifest"]
+    assert (
+        json.loads(manifest.read_text(encoding="utf-8"))["duplicate_guard"] == "not run"
+    )
+    refused = fiscal.write_duplicate_guard(manifest, "balance_coverage_required")
+    assert refused == "duplicate-guard: refused (balance_coverage_required)"
+    assert (
+        json.loads(manifest.read_text(encoding="utf-8"))["duplicate_guard"]
+        == "refused (balance_coverage_required)"
+    )
+    accepted = fiscal.write_duplicate_guard(manifest, "approved")
+    assert accepted == "duplicate-guard: approved (no guard)"
+    assert (
+        json.loads(manifest.read_text(encoding="utf-8"))["duplicate_guard"]
+        == "approved (no guard)"
+    )
 
 
 def test_seed_tags_the_same_breaks_and_keeps_the_older_ones() -> None:
@@ -291,10 +331,13 @@ def test_dry_run_writes_the_files_and_does_not_open_a_database(tmp_path: Path) -
     assert "not in the product" in completed.stdout
     assert "declaration-facts:" in completed.stdout
     assert "approved-books: not cleared" in completed.stdout
+    assert "duplicate-guard: not run" in completed.stdout
     assert "intake: not run" in completed.stdout
     folder = tmp_path / "temp" / "qa-seed" / "2026-10-01_2026-10-17"
     assert (folder / "estado-cuenta.csv").is_file()
     assert (folder / "conciliacion.json").is_file()
+    recorded = json.loads((folder / "conciliacion.json").read_text(encoding="utf-8"))
+    assert recorded["duplicate_guard"] == "not run"
     assert fiscal.layout_issues((folder / "practica-606.txt").read_bytes()) == []
     assert fiscal.layout_issues((folder / "practica-607.txt").read_bytes()) == []
 
