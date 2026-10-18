@@ -2994,6 +2994,27 @@ Recording position and spending remain the actual owners. Loan interest and fees
 
 Debt-plan archive preserves canonical payments and claimed occurrence snapshots. The shared occurrence projection marks retained archived intentions `plan_archived`, suppressing only residual forecast movement. Restore derives the same residual from current canonical activity.
 
+## Personal waitlist retention
+
+`public.cuadrao_early_access_signups` remains one row per normalized email.
+`created_at` is the canonical signup clock. `confirmed_at` means confirmation,
+while `notified_at` is a legacy reservation before sending and cannot prove an
+invite went out. No segment, purge timestamp or other column is added.
+
+For personal-consent rows, the bounded purge deletes the whole row after seven
+days without confirmation or after the configured signup window. The PostgreSQL
+setting `cuadrao.waitlist_retention_months` defaults to 12 calendar months and
+accepts integers 1 through 120. Leave and operator requests retain immediate
+whole-row deletion. Legacy rows retain their existing behavior. No digest or
+answers survive personal deletion.
+
+The service-only invite completion RPC deletes one exact confirmed signup by its
+immutable verification ID after provider acceptance of a real launch invite.
+It is idempotent and cannot delete a later signup with a different verification
+ID. It has no current sender. Automatic invite completion remains pending.
+Migration and proof are recorded in the
+[M3 evidence](reports/evidence/waitlist-purge-window-20261017.md).
+
 ## Shared Household planning storage sketch
 
 **Status:** Worker storage contract for the [assigned shared planning lane](specs/argus-execution-board.md#connected-shared-household-planning-lane), October 1, 2026. Schema/cutover source is applied only to NEW disposable Postgres on port 59752. The connected native journey and focused independent review passed; exact publication gates are recorded on PR #773. No existing demo or hosted database is migrated. The [API contract](API_CONTRACT.md#shared-household-planning-contract-sketch) owns the scoped public wire and approved permission/departure rules.

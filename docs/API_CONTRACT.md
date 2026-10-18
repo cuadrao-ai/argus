@@ -9800,6 +9800,24 @@ accept path recorded.
 Another person's receipt id answers 404 `receipt_not_found` on every receipt
 route. 
 
+### Waitlist retention RPCs
+
+The existing service-only `cuadrao_waitlist_purge(p_limit integer default 100)`
+keeps its signature and 100-row cap. It reads the PostgreSQL setting
+`cuadrao.waitlist_retention_months`, an integer from 1 through 120, defaulting to
+12 calendar months. Invalid configuration fails before deletion. Unconfirmed
+personal rows still expire at seven days, and leave still deletes the whole row.
+The form and `/api/waitlist` routes keep their existing contracts.
+
+The service-only `cuadrao_waitlist_invited(p_verification_id text)` deletes the
+entire matching confirmed personal signup after a caller has established provider
+acceptance of the real launch invite. It returns the number deleted, 0 or 1.
+It ignores legacy and unconfirmed rows. A retry with an old verification ID cannot
+delete a fresh signup. `notified_at` is a legacy pre-send claim and never triggers
+this deletion. No current personal launch sender calls this hook. Automatic
+invite-triggered deletion remains pending that future caller and its acceptance
+proof. See [local evidence](reports/evidence/waitlist-purge-window-20261017.md).
+
 ### Waitlist staging scheduler
 
 `POST /functions/v1/waitlist-reminders` is an internal Supabase Edge Function.

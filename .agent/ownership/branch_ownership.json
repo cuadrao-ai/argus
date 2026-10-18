@@ -193,6 +193,26 @@
         "web/.env.*"
       ]
     },
+    "codex/cleanup-m3-waitlist-window": {
+      "description": "M3 waitlist retention window only: configurable calendar-month purge and service-only invite completion hook, local PostgreSQL proof. No form, route, sender, hosted or environment changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/reports/evidence/waitlist-purge-window-20261017.md",
+        "supabase/migrations/20261018050000_waitlist_purge_window.sql",
+        "tests/test_waitlist_purge_window_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "marketing/**",
+        "src/**",
+        "web/**",
+        "ios/**"
+      ]
+    },
     "codex/cuadrao-approval-line-20261013": {
       "description": "The line under the approve control never tells a person who can approve that someone with approval permission must; when the record is not an expense yet the blockers card already names what is missing. Pure approvalLine helper with a unit test; no backend change, no new copy.",
       "base_ref": "origin/codex/private-alpha-next",
