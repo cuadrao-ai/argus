@@ -12,30 +12,30 @@ struct CuadraoVoiceProposalCanvas: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
-                    Text("Plan").font(CuadraoTypography.screen)
-                    Text(spanish ? "Lo conversamos. Aquí lo ves." : "Talk it through. See it here.")
+                    Text(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.1ede420bb0", spanish: CuadraoCopy.isSpanish())).font(CuadraoTypography.screen)
+                    Text(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.6736ae9daf", spanish: spanish))
                         .foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 20) {
-                        Label(spanish ? "Propuesta de ejemplo" : "Example proposal", systemImage: "waveform")
+                        Label(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.0e3c8cf671", spanish: spanish), systemImage: "waveform")
                             .font(.caption).foregroundStyle(.secondary)
-                        Text(spanish ? "Tu fondo de emergencia" : "Your emergency fund")
+                        Text(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.c80d28f5de", spanish: spanish))
                             .font(CuadraoTypography.section)
                         Text("DOP 3,000").font(.title.weight(.medium)).monospacedDigit()
-                        Text(spanish ? "al mes · durante 6 meses" : "per month · for 6 months").foregroundStyle(.secondary)
+                        Text(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.74e9341edb", spanish: spanish)).foregroundStyle(.secondary)
                         Divider()
-                        LabeledContent(spanish ? "Aportes previstos" : "Planned contributions", value: "DOP 18,000")
-                        Text(spanish ? "Es una propuesta, no dinero ahorrado. Tus cuentas no cambian." : "A proposal, not saved money. Your accounts stay unchanged.")
+                        LabeledContent(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.084c901429", spanish: spanish), value: "DOP 18,000")
+                        Text(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.35424d4f8f", spanish: spanish))
                             .font(.footnote).foregroundStyle(.secondary)
                         if state == .reviewed {
-                            Label(spanish ? "Revisada en la vista previa" : "Reviewed in preview", systemImage: "checkmark.circle")
+                            Label(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.bb8e1e388b", spanish: spanish), systemImage: "checkmark.circle")
                                 .foregroundStyle(WelcomePalette.pine)
                         } else {
-                            Button(spanish ? "Revisar propuesta" : "Review proposal") { reviewing = true }
+                            Button(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.eb09d1930a", spanish: spanish)) { reviewing = true }
                                 .font(CuadraoTypography.action).frame(maxWidth: .infinity, minHeight: 48)
                                 .foregroundStyle(WelcomePalette.onAccent)
                                 .background(WelcomePalette.pine, in: Capsule())
                         }
-                        Button(spanish ? "Descartar" : "Dismiss") { state = nil }
+                        Button(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.a44eb70012", spanish: spanish)) { state = nil }
                             .frame(maxWidth: .infinity, minHeight: 44).foregroundStyle(.secondary)
                     }.padding(24).background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 28))
                 }.padding(24).padding(.bottom, 100)
@@ -45,15 +45,15 @@ struct CuadraoVoiceProposalCanvas: View {
                     NavigationStack {
                         Form {
                             Section {
-                                LabeledContent(spanish ? "Meta" : "Goal", value: spanish ? "Fondo de emergencia" : "Emergency fund")
-                                LabeledContent(spanish ? "Aporte mensual" : "Monthly contribution", value: "DOP 3,000")
-                                LabeledContent(spanish ? "Plazo" : "Duration", value: spanish ? "6 meses" : "6 months")
+                                LabeledContent(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.a666a311f9", spanish: spanish), value: CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.9057658f68", spanish: spanish))
+                                LabeledContent(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.db4c3e00e8", spanish: spanish), value: "DOP 3,000")
+                                LabeledContent(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.94676d6f80", spanish: spanish), value: CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.d8bf0f51e4", spanish: spanish))
                             } footer: {
-                                Text(spanish ? "Esta demostración no crea metas ni mueve dinero." : "This demonstration doesn't create goals or move money.")
+                                Text(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.f657683439", spanish: spanish))
                             }
-                            Button(spanish ? "Marcar como revisada" : "Mark reviewed") { state = .reviewed; reviewing = false }
-                        }.navigationTitle(spanish ? "Revisar propuesta" : "Review proposal").navigationBarTitleDisplayMode(.inline)
-                            .toolbar { CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { reviewing = false } }
+                            Button(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.0746cbb70e", spanish: spanish)) { state = .reviewed; reviewing = false }
+                        }.navigationTitle(CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.eb09d1930a", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
+                            .toolbar { CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish)) { reviewing = false } }
                     }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
                 }
         }

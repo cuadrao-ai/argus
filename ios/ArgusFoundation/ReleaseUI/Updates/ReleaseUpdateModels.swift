@@ -61,10 +61,9 @@ enum ReleasePushPermission: String, CaseIterable {
 }
 
 enum ReleaseSafePushCopy {
-    static func title(spanish: Bool) -> String { spanish ? "Una novedad en Cuadrao" : "An update in Cuadrao" }
+    static func title(spanish: Bool) -> String { CuadraoCopy.text("copy.releaseUpdateModels.bb8491d942", spanish: spanish) }
     static func body(spanish: Bool) -> String {
-        spanish ? "Hay algo que merece tu atención. Abre la app para verlo."
-            : "Something needs your attention. Open the app to take a look."
+        CuadraoCopy.text("copy.releaseUpdateModels.5bfaa448c2", spanish: spanish)
     }
 }
 

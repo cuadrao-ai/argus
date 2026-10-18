@@ -94,7 +94,7 @@ struct FoundationShell: View {
             } else {
                 Group {
                     if destination == .home {
-                        Text(verbatim: "argus").font(ArgusStyle.display(29))
+                        Text(CuadraoCopy.text("copy.foundationShell.d6c2cf736d", spanish: CuadraoCopy.isSpanish())).font(ArgusStyle.display(29))
                     } else {
                         Text(destination.title).font(ArgusStyle.display(22, relativeTo: .title2))
                     }

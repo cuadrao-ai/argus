@@ -12,36 +12,34 @@ struct ReleasePersonalInvitationsView: View {
     let onCreate: () -> Void
 
     var body: some View {
-        ReleaseInvitationPage(title: spanish ? "Cuadrao se comparte." : "Cuadrao is for sharing.",
-                              subtitle: spanish ? "Invita a alguien a poner sus finanzas en orden." : "Invite someone to start organizing their money in Cuadrao.") {
+        ReleaseInvitationPage(title: CuadraoCopy.text("copy.releaseInvitationSenders.8460396eb5", spanish: spanish),
+                              subtitle: CuadraoCopy.text("copy.releaseInvitationSenders.3ba0fda620", spanish: spanish)) {
             switch state {
             case .loading:
-                ProgressView(spanish ? "Cargando invitaciones…" : "Loading invitations…")
+                ProgressView(CuadraoCopy.text("copy.releaseInvitationSenders.9278ec16c0", spanish: spanish))
                     .accessibilityIdentifier("release.personalInvites.loading")
             case .unavailable:
-                Text(spanish ? "Las invitaciones no están disponibles ahora. Intenta de nuevo más tarde."
-                     : "Invitations are unavailable right now. Try again later.")
+                Text(CuadraoCopy.text("copy.releaseInvitationSenders.2667e9b067", spanish: spanish))
                     .accessibilityIdentifier("release.personalInvites.unavailable")
             case let .ready(remaining, total, invitation):
                 VStack(alignment: .leading, spacing: 20) {
-                    Text(spanish ? "Te quedan \(remaining) de \(total) invitaciones" : "You have \(remaining) of \(total) invitations left")
+                    Text(CuadraoCopy.text("copy.releaseInvitationSenders.b74d30e6da", spanish: spanish, String(describing: remaining), String(describing: total)))
                         .font(CuadraoTypography.section)
                         .accessibilityIdentifier("release.personalInvites.remaining")
-                    Text(spanish ? "Cada invitación permite que una persona entre a la beta. No la añade a tu Hogar ni comparte tus cuentas."
-                         : "Each invitation lets one person into the beta. It does not add them to your Household or share your accounts.")
+                    Text(CuadraoCopy.text("copy.releaseInvitationSenders.6d44d35608", spanish: spanish))
                         .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
                     if let invitation {
                         ReleaseInvitationShareCard(invitation: invitation, spanish: spanish,
                                                    identifier: "release.personalInvites")
                     }
                     Button(action: onCreate) {
-                        Text(spanish ? "Crear invitación" : "Create invitation")
+                        Text(CuadraoCopy.text("copy.releaseInvitationSenders.abbc0c3edc", spanish: spanish))
                             .frame(maxWidth: .infinity, minHeight: 48).modifier(ReleaseProminentLabel())
                     }
                     .buttonStyle(.borderedProminent).disabled(remaining <= 0)
                     .accessibilityIdentifier("release.personalInvites.create")
                     if remaining <= 0 {
-                        Text(spanish ? "Ya usaste tus invitaciones disponibles." : "You've used your available invitations.")
+                        Text(CuadraoCopy.text("copy.invitationViews.1badc7ec88", spanish: spanish))
                             .font(CuadraoTypography.supporting)
                     }
                 }
@@ -67,30 +65,28 @@ struct ReleaseFounderGroupInvitationView: View {
     @State private var expiry = Date().addingTimeInterval(7 * 86_400)
 
     var body: some View {
-        ReleaseInvitationPage(title: spanish ? "Una invitación,\nvarios lugares." : "One invitation,\nseveral places.",
-                              subtitle: spanish ? "Enlace de grupo para entrar a la beta." : "A group link for beta access.") {
+        ReleaseInvitationPage(title: CuadraoCopy.text("copy.releaseInvitationSenders.aff13faf1f", spanish: spanish),
+                              subtitle: CuadraoCopy.text("copy.releaseInvitationSenders.5c435a993b", spanish: spanish)) {
             if !isFounder {
-                Text(spanish ? "Solo Lucas puede crear enlaces de grupo." : "Only Lucas can create group links.")
+                Text(CuadraoCopy.text("copy.invitationViews.cfc6ca56db", spanish: spanish))
                     .accessibilityIdentifier("release.groupInvite.founderOnly")
             } else {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text(spanish ? "No usa tus invitaciones personales. No añade personas a un Hogar ni comparte cuentas."
-                         : "This does not use your personal invitations. It does not add people to a Household or share accounts.")
+                    Text(CuadraoCopy.text("copy.releaseInvitationSenders.768c6a35cf", spanish: spanish))
                         .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
                     switch state {
                     case .unavailable:
-                        Text(spanish ? "Los enlaces de grupo no están disponibles ahora." : "Group links are unavailable right now.")
+                        Text(CuadraoCopy.text("copy.releaseInvitationSenders.f8962edf61", spanish: spanish))
                             .accessibilityIdentifier("release.groupInvite.unavailable")
                     case .draft, .creating:
                         groupForm
                     case let .ready(cap, used, invitation):
-                        Text(spanish ? "\(used) de \(cap) lugares usados" : "\(used) of \(cap) places used")
+                        Text(CuadraoCopy.text("copy.invitationViews.8a54c66d27", spanish: spanish, String(describing: used), String(describing: cap)))
                             .font(CuadraoTypography.section)
                             .accessibilityIdentifier("release.groupInvite.usage")
                         ReleaseInvitationShareCard(invitation: invitation, spanish: spanish,
                                                    identifier: "release.groupInvite")
-                        Text(spanish ? "Al llenarse o vencer, el enlace lleva a la lista de espera en cuadrao.ai."
-                             : "When full or expired, the link leads to the waitlist at cuadrao.ai.")
+                        Text(CuadraoCopy.text("copy.releaseInvitationSenders.e013aaadbb", spanish: spanish))
                             .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -104,17 +100,17 @@ struct ReleaseFounderGroupInvitationView: View {
 
     private var groupForm: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(spanish ? "Nombre del enlace" : "Link name").font(CuadraoTypography.supporting)
-            TextField(spanish ? "Por ejemplo, cena de lanzamiento" : "For example, launch dinner", text: $label)
+            Text(CuadraoCopy.text("copy.releaseInvitationSenders.7b1869477d", spanish: spanish)).font(CuadraoTypography.supporting)
+            TextField(CuadraoCopy.text("copy.releaseInvitationSenders.1d5bc9d75a", spanish: spanish), text: $label)
                 .padding(16)
                 .background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 16))
                 .accessibilityIdentifier("release.groupInvite.label")
-            Text(spanish ? "Límite de personas" : "Number of places").font(CuadraoTypography.supporting)
-            TextField(spanish ? "Elige un límite" : "Choose a limit", text: $cap)
+            Text(CuadraoCopy.text("copy.releaseInvitationSenders.8508d12bce", spanish: spanish)).font(CuadraoTypography.supporting)
+            TextField(CuadraoCopy.text("copy.releaseInvitationSenders.d1d28eb899", spanish: spanish), text: $cap)
                 .keyboardType(.numberPad).padding(16)
                 .background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 16))
                 .accessibilityIdentifier("release.groupInvite.cap")
-            DatePicker(spanish ? "Vence" : "Expires", selection: $expiry, in: Date()...,
+            DatePicker(CuadraoCopy.text("copy.releaseInvitationSenders.293c8ffcef", spanish: spanish), selection: $expiry, in: Date()...,
                        displayedComponents: [.date, .hourAndMinute])
                 .accessibilityIdentifier("release.groupInvite.expiry")
             Button {
@@ -124,7 +120,7 @@ struct ReleaseFounderGroupInvitationView: View {
             } label: {
                 HStack {
                     if creating { ProgressView() }
-                    Text(creating ? (spanish ? "Creando…" : "Creating…") : (spanish ? "Crear enlace de grupo" : "Create group link"))
+                    Text(creating ? (CuadraoCopy.text("copy.releaseInvitationSenders.6e46294bca", spanish: spanish)) : (CuadraoCopy.text("copy.releaseInvitationSenders.d1e62c3d08", spanish: spanish)))
                 }.frame(maxWidth: .infinity, minHeight: 48).modifier(ReleaseProminentLabel())
             }
             .buttonStyle(.borderedProminent)

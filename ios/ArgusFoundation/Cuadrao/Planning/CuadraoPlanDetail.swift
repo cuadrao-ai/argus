@@ -24,7 +24,7 @@ struct CuadraoPlanDetail: View {
                     } else if plan.kind == .budget && plan.recorded == 0 {
                         VStack(alignment: .leading, spacing: 12) {
                             PlanLandscape(look: plan.look).frame(height: 100)
-                            Text(spanish ? "Tu ritmo aparecerá con tus primeros movimientos." : "Your pace will appear with your first transactions.")
+                            Text(CuadraoCopy.text("copy.cuadraoPlanDetail.82ea69d62d", spanish: spanish))
                                 .font(.subheadline).foregroundStyle(.secondary)
                         }
                     }
@@ -36,7 +36,7 @@ struct CuadraoPlanDetail: View {
                         }
                     }
                     Button { progressEntry = true } label: {
-                        Label(spanish ? "Actualizar progreso" : "Update progress", systemImage: "plus.circle").frame(minHeight: 44)
+                        Label(CuadraoCopy.text("copy.cuadraoPlanDetail.11c4223212", spanish: spanish), systemImage: "plus.circle").frame(minHeight: 44)
                     }.accessibilityIdentifier("plan-record-progress")
                     facts(plan)
                     if plan.spaceID == "household" { household(plan) }
@@ -45,10 +45,10 @@ struct CuadraoPlanDetail: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         CuadraoPlanDetailOptions(spanish: spanish) {
-                            Button(spanish ? "Preguntar a Cuadrao" : "Ask Cuadrao", systemImage: "bubble") { chatFocus = .plan(id: plan.id, title: plan.name) }
+                            Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.b44a9adeb4", spanish: spanish), systemImage: "bubble") { chatFocus = .plan(id: plan.id, title: plan.name) }
                                 .accessibilityIdentifier("plan-open-chat")
-                            Button { editing = .init(plan: plan) } label: { Label(spanish ? "Editar plan" : "Edit plan", systemImage: "pencil") }
-                            Button { archive = true } label: { Label(spanish ? "Archivar" : "Archive", systemImage: "archivebox") }
+                            Button { editing = .init(plan: plan) } label: { Label(CuadraoCopy.text("copy.cuadraoPlanDetail.507c662ea3", spanish: spanish), systemImage: "pencil") }
+                            Button { archive = true } label: { Label(CuadraoCopy.text("copy.connectedCuadraoHome.0960027352", spanish: spanish), systemImage: "archivebox") }
                         }
                     }
                 }
@@ -57,11 +57,11 @@ struct CuadraoPlanDetail: View {
                         var updated = plan; updated.recorded = value; store.save(updated)
                     }), maximum: plan.kind == .debt ? plan.target : CanvasMoney.maximumValue, title: plan.kind.recordedTitle(spanish), currency: plan.currency, spanish: spanish)
                 }
-                .confirmationDialog(spanish ? "¿Dejamos este plan en pausa?" : "Put this plan aside?", isPresented: $archive, titleVisibility: .visible) {
-                    Button(spanish ? "Archivar plan" : "Archive plan") { store.archive(plan.id, true); dismiss() }
-                } message: { Text(spanish ? "Podrás retomarlo desde Archivados. Su progreso se conserva." : "You can restore it from Archived. Its progress stays with it.") }
+                .confirmationDialog(CuadraoCopy.text("copy.cuadraoPlanDetail.3a2244a625", spanish: spanish), isPresented: $archive, titleVisibility: .visible) {
+                    Button(CuadraoCopy.text("copy.cuadraoPlanDetail.d81495f770", spanish: spanish)) { store.archive(plan.id, true); dismiss() }
+                } message: { Text(CuadraoCopy.text("copy.cuadraoPlanDetail.3429a88e41", spanish: spanish)) }
             } else {
-                ContentUnavailableView(spanish ? "Este plan ya no está aquí" : "This plan is no longer here", systemImage: "square.stack")
+                ContentUnavailableView(CuadraoCopy.text("copy.cuadraoPlanDetail.037615818c", spanish: spanish), systemImage: "square.stack")
             }
         }
         .navigationTitle("").navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
@@ -76,9 +76,9 @@ struct CuadraoPlanDetail: View {
         CuadraoPlanDetailHeading(display: .init(
             name: plan.name, space: PlanFormat.space(plan.spaceID, accounts: accounts, spanish: spanish), look: plan.look,
             amount: PlanFormat.amount(plan.kind == .debt ? plan.remaining : plan.recorded, currency: plan.currency),
-            annotation: plan.kind == .debt ? (spanish ? "por pagar" : "left to pay") : plan.kind.recordedTitle(spanish))) {
+            annotation: plan.kind == .debt ? (CuadraoCopy.text("copy.cuadraoPlanDetail.c55558f313", spanish: spanish)) : plan.kind.recordedTitle(spanish))) {
             if plan.remaining == 0 && plan.kind != .budget {
-                Label(spanish ? "Lo hiciste. Un plan menos, más posibilidades." : "You did it. One plan down, more possibilities ahead.", systemImage: "checkmark.seal").font(.subheadline).foregroundStyle(plan.look.color)
+                Label(CuadraoCopy.text("copy.cuadraoPlanDetail.59d3e81cdd", spanish: spanish), systemImage: "checkmark.seal").font(.subheadline).foregroundStyle(plan.look.color)
             }
         }
     }
@@ -88,7 +88,7 @@ struct CuadraoPlanDetail: View {
             LabeledContent(plan.kind.amountTitle(spanish), value: PlanFormat.amount(plan.target, currency: plan.currency))
             LabeledContent(plan.kind.recordedTitle(spanish), value: PlanFormat.amount(plan.recorded, currency: plan.currency))
             if plan.kind == .debt {
-                LabeledContent(spanish ? "Interés anual" : "Annual interest", value: "\(plan.annualRate.formatted())%")
+                LabeledContent(CuadraoCopy.text("copy.cuadraoPlanDetail.71b1540ce2", spanish: spanish), value: "\(plan.annualRate.formatted())%")
             }
             Text(plan.scenario.disclosure(spanish: spanish))
                 .font(.caption).foregroundStyle(.secondary)
@@ -97,14 +97,14 @@ struct CuadraoPlanDetail: View {
     private func household(_ plan: CanvasPlan) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text(spanish ? "Se hace en equipo." : "Better together.").font(CuadraoTypography.section)
+                Text(CuadraoCopy.text("copy.cuadraoPlanDetail.03982777ff", spanish: spanish)).font(CuadraoTypography.section)
                 Spacer()
                 Button { people = true } label: { Image(systemName: "person.2").frame(width: 44, height: 44) }
-                    .accessibilityLabel(spanish ? "Personas del hogar" : "Household members")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoHomeCanvas.132a60da1b", spanish: spanish))
             }
-            Text(plan.kind == .budget ? (spanish ? "Un margen de \(PlanFormat.amount(plan.target, currency: plan.currency)) para lo de ustedes." : "An allowance of \(PlanFormat.amount(plan.target, currency: plan.currency)) for what you share.") : (spanish ? "\(PlanFormat.amount(plan.monthly, currency: plan.currency)) al mes entre ustedes." : "\(PlanFormat.amount(plan.monthly, currency: plan.currency)) a month between you."))
+            Text(plan.kind == .budget ? (CuadraoCopy.text("copy.cuadraoPlanDetail.c435d90826", spanish: spanish, String(describing: PlanFormat.amount(plan.target, currency: plan.currency)))) : (CuadraoCopy.text("copy.cuadraoPlanDetail.2ecacc4cb4", spanish: spanish, String(describing: PlanFormat.amount(plan.monthly, currency: plan.currency)))))
                 .font(.subheadline)
-            Text(plan.kind == .budget ? (spanish ? "El margen es compartido. Las cuentas personales de cada quien siguen siendo privadas." : "The allowance is shared. Each person's personal accounts stay private.") : (spanish ? "Es el aporte previsto del hogar, no dinero recibido. El progreso registrado se muestra arriba." : "This is the household's planned contribution, not money received. Recorded progress is shown above."))
+            Text(plan.kind == .budget ? (CuadraoCopy.text("copy.cuadraoPlanDetail.de34ef500e", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoPlanDetail.d264f56072", spanish: spanish)))
                 .font(.caption).foregroundStyle(.secondary)
         }.padding(22).background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 24))
     }

@@ -5,12 +5,12 @@ enum CanvasExpenseCategory: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     func title(_ es: Bool) -> String {
         switch self {
-        case .food: es ? "Comida" : "Food"
-        case .groceries: es ? "Supermercado" : "Groceries"
-        case .transport: es ? "Transporte" : "Transport"
-        case .home: es ? "Casa" : "Home"
-        case .leisure: es ? "Disfrutar" : "Leisure"
-        case .other: es ? "Otros" : "Other"
+        case .food: CuadraoCopy.text("copy.cuadraoSpendingHistory.d6de10ac20", spanish: es)
+        case .groceries: CuadraoCopy.text("copy.cuadraoSpendingHistory.34164df7c7", spanish: es)
+        case .transport: CuadraoCopy.text("copy.cuadraoSpendingHistory.f74da3b9d7", spanish: es)
+        case .home: CuadraoCopy.text("copy.cuadraoSpendingHistory.a9c4c809b0", spanish: es)
+        case .leisure: CuadraoCopy.text("copy.cuadraoSpendingHistory.53f59c8559", spanish: es)
+        case .other: CuadraoCopy.text("copy.cuadraoSpendingHistory.08ceb8c09d", spanish: es)
         }
     }
 
@@ -84,19 +84,19 @@ enum CanvasSpendingHistory {
                 var amount: Int
                 var title: String
                 if account.sharedWithHousehold && day == 5 {
-                    category = .home; amount = 4800; title = spanish ? "Servicios del hogar" : "Household bills"
+                    category = .home; amount = 4800; title = CuadraoCopy.text("copy.cuadraoSpendingHistory.864e93c736", spanish: spanish)
                 } else if account.sharedWithHousehold && seed % 11 == 0 {
-                    category = .groceries; amount = 1700 + seed % 1400; title = spanish ? "Compra de la semana" : "Weekly groceries"
+                    category = .groceries; amount = 1700 + seed % 1400; title = CuadraoCopy.text("copy.cuadraoSpendingHistory.e240d99c82", spanish: spanish)
                 } else if account.kind == .checking && !account.sharedWithHousehold && day == 2 {
-                    category = .home; amount = 12500; title = spanish ? "Alquiler" : "Rent"
+                    category = .home; amount = 12500; title = CuadraoCopy.text("copy.cuadraoSpendingHistory.b8af68ad12", spanish: spanish)
                 } else if account.kind == .checking && day == 19 && [3, 7, 12].contains(month) {
-                    category = .leisure; amount = 3200 + seed % 5800; title = spanish ? "Escapada" : "Weekend away"
+                    category = .leisure; amount = 3200 + seed % 5800; title = CuadraoCopy.text("copy.cuadraoSpendingHistory.d0610222ac", spanish: spanish)
                 } else if account.kind == .cash && seed % 5 == 0 {
-                    category = .food; amount = 95 + seed % 180; title = spanish ? "Café y algo más" : "Coffee and a bite"
+                    category = .food; amount = 95 + seed % 180; title = CuadraoCopy.text("copy.cuadraoSpendingHistory.ec8fe40d9e", spanish: spanish)
                 } else if account.kind == .checking && seed % 9 == 0 {
-                    category = .food; amount = 600 + seed % 1900 + (calendar.dateComponents([.month], from: days.first!, to: date).month ?? 0) * 75; title = spanish ? "Comida fuera" : "Eating out"
+                    category = .food; amount = 600 + seed % 1900 + (calendar.dateComponents([.month], from: days.first!, to: date).month ?? 0) * 75; title = CuadraoCopy.text("copy.cuadraoSpendingHistory.c758ac6499", spanish: spanish)
                 } else if account.kind == .checking && seed % 13 == 0 {
-                    category = .transport; amount = 180 + seed % 750; title = spanish ? "Transporte" : "Getting around"
+                    category = .transport; amount = 180 + seed % 750; title = CuadraoCopy.text("copy.cuadraoSpendingHistory.65ed951001", spanish: spanish)
                 } else { return nil }
                 return CanvasActivity(accountID: account.id, title: title, amount: Decimal(amount),
                     date: date, income: false, category: category)

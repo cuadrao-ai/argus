@@ -25,8 +25,8 @@ enum GuestPlanPresentation {
 
     static func kindTitle(_ kind: PlanKind, spanish: Bool) -> String {
         switch kind {
-        case .goal: spanish ? "Meta" : "Goal"
-        case .budget: spanish ? "Presupuesto" : "Budget"
+        case .goal: CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.a666a311f9", spanish: spanish)
+        case .budget: CuadraoCopy.text("copy.guestPlanPresentation.179041c8c6", spanish: spanish)
         }
     }
 
@@ -76,33 +76,33 @@ enum GuestPlanPresentation {
     }
 
     static func card(_ plan: BookPlan, in book: DeviceBook, spanish: Bool, locale: Locale, now: Date = .now) -> CuadraoPlanCardDisplay {
-        let space = spanish ? "Este iPhone" : "This iPhone"
+        let space = CuadraoCopy.text("copy.guestAccountSheet.736ea2040f", spanish: spanish)
         switch plan.kind {
         case .goal:
             let progress = book.goalProgress(plan.id)
             return CuadraoPlanCardDisplay(name: plan.name, space: space, look: look(plan.look),
                 amount: amount(progress?.savedMinor ?? 0, currency: plan.currency, digits: plan.digits, locale: locale),
                 annotation: progress.map { percent($0.fraction) }, progress: progress.map { NSDecimalNumber(decimal: $0.fraction).doubleValue },
-                detail: (spanish ? "Meta: " : "Goal: ") + amount(plan.targetMinor, currency: plan.currency, digits: plan.digits, locale: locale),
-                notice: progress?.reached == true ? (spanish ? "Meta alcanzada" : "Goal reached") : nil)
+                detail: (CuadraoCopy.text("copy.guestPlanPresentation.c9b6dd837a", spanish: spanish)) + amount(plan.targetMinor, currency: plan.currency, digits: plan.digits, locale: locale),
+                notice: progress?.reached == true ? (CuadraoCopy.text("copy.guestPlanPresentation.a9ce4da8c3", spanish: spanish)) : nil)
         case .budget:
             let status = book.budgetStatus(plan.id, now: now)
             let limit = amount(plan.targetMinor, currency: plan.currency, digits: plan.digits, locale: locale)
             return CuadraoPlanCardDisplay(name: plan.name, space: space, look: look(plan.look),
                 amount: amount(status?.spentMinor ?? 0, currency: plan.currency, digits: plan.digits, locale: locale),
                 annotation: status.map { percent($0.fraction) }, progress: status.map { NSDecimalNumber(decimal: $0.fraction).doubleValue },
-                detail: spanish ? "de \(limit) este mes" : "of \(limit) this month",
-                notice: status?.isOver == true ? (spanish ? "Superaste el límite" : "Over the limit") : nil)
+                detail: CuadraoCopy.text("copy.cuadraoPlanVisuals.d16b6c2fa4", spanish: spanish, String(describing: limit)),
+                notice: status?.isOver == true ? (CuadraoCopy.text("copy.guestPlanPresentation.3da1e7fc89", spanish: spanish)) : nil)
         }
     }
 
     static func message(_ error: BookRuleError, currency: String, spanish: Bool) -> String {
         switch error {
-        case .planNameEmpty: spanish ? "Añade un nombre." : "Add a name."
-        case .planLimit: spanish ? "Llegaste al máximo de planes en este iPhone." : "You've reached the most plans this iPhone can hold."
-        case .scopeInvalid: spanish ? "Elige solo cuentas de la moneda del plan." : "Choose only accounts in the plan's currency."
-        case .planArchived: spanish ? "Un plan archivado no recibe aportes." : "An archived plan takes no contributions."
-        case .planNotFound, .planKindLocked: spanish ? "No se pudo guardar. Inténtalo de nuevo." : "Couldn't save. Try again."
+        case .planNameEmpty: CuadraoCopy.text("copy.guestPlanPresentation.25ace280cf", spanish: spanish)
+        case .planLimit: CuadraoCopy.text("copy.guestPlanPresentation.08f175d13d", spanish: spanish)
+        case .scopeInvalid: CuadraoCopy.text("copy.guestPlanPresentation.18f383d5eb", spanish: spanish)
+        case .planArchived: CuadraoCopy.text("copy.guestPlanPresentation.a1ac916101", spanish: spanish)
+        case .planNotFound, .planKindLocked: CuadraoCopy.text("copy.guestAccountPresentation.c7aaa1eb33", spanish: spanish)
         default: GuestAccountPresentation.message(error, currency: currency, spanish: spanish)
         }
     }

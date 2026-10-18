@@ -3,11 +3,10 @@ import SwiftUI
 
 /// One wording for a period whose coverage is missing, so no surface reads it as zero.
 enum CuadraoMissingCoverage {
-    static func amount(_ spanish: Bool) -> String { spanish ? "Sin datos" : "No data" }
-    static func title(_ spanish: Bool) -> String { spanish ? "Falta una parte de la historia" : "Part of the story is missing" }
+    static func amount(_ spanish: Bool) -> String { CuadraoCopy.text("copy.cuadraoSpendingChart.064971dc1c", spanish: spanish) }
+    static func title(_ spanish: Bool) -> String { CuadraoCopy.text("copy.cuadraoDesignGallery.a090e20844", spanish: spanish) }
     static func detail(_ spanish: Bool) -> String {
-        spanish ? "El historial de este período está incompleto. No lo contamos como cero."
-            : "This period's history is incomplete. We don't count it as zero."
+        CuadraoCopy.text("copy.cuadraoSpendingChart.2e2c36a717", spanish: spanish)
     }
 }
 
@@ -46,19 +45,19 @@ struct CuadraoSpendingChart: View {
     private func money(_ amount: Decimal) -> String { CanvasMoney.format(amount, currency: currency) }
     private var insight: String {
         guard story.covered else {
-            return spanish ? "Este período tiene un historial incompleto." : "This period has incomplete history."
+            return CuadraoCopy.text("copy.cuadraoSpendingChart.6a945d72e9", spanish: spanish)
         }
 
         if let prior = story.previousTotal {
             let difference = total - prior
-            if difference == 0 { return spanish ? "Has registrado el mismo gasto que en el período anterior." : "Your recorded spending matches the previous period." }
-            let reference = periodOffset == 0 ? (spanish ? "al mismo punto del período anterior" : "at this point in the previous period") : (spanish ? "en el período anterior" : "in the previous period")
-            return spanish ? "Llevas \(currency) \(money(abs(difference))) \(difference > 0 ? "más" : "menos") que \(reference)." : "You've spent \(currency) \(money(abs(difference))) \(difference > 0 ? "more" : "less") than \(reference)."
+            if difference == 0 { return CuadraoCopy.text("copy.cuadraoSpendingChart.02b2264bf1", spanish: spanish) }
+            let reference = periodOffset == 0 ? (CuadraoCopy.text("copy.cuadraoSpendingChart.8aef524835", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoSpendingChart.75aecad63d", spanish: spanish))
+            return CuadraoCopy.text("copy.cuadraoSpendingChart.107f945395", spanish: spanish, String(describing: currency), String(describing: money(abs(difference))), String(describing: ((difference > 0 ? CuadraoCopy.text("copy.cuadraoSpendingChart.14178c1062", spanish: spanish) : CuadraoCopy.text("copy.cuadraoSpendingChart.d08611ffa1", spanish: spanish)))), String(describing: reference))
         }
         guard let largest = categories.max(by: { categoryTotal($0) < categoryTotal($1) }) else {
-            return spanish ? "El gasto registrado en este período es cero." : "Recorded spending is zero this period."
+            return CuadraoCopy.text("copy.cuadraoSpendingChart.2a0b65c993", spanish: spanish)
         }
-        return spanish ? "\(largest.title(true)) se lleva la mayor parte este período." : "\(largest.title(false)) takes the largest share this period."
+        return CuadraoCopy.text("copy.cuadraoSpendingChart.bb160c1c11", spanish: spanish, String(describing: (spanish ? (largest.title(true)) : (largest.title(false)))))
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -66,8 +65,8 @@ struct CuadraoSpendingChart: View {
                 amount: (inspected ?? entries).isEmpty && !story.covered ? CuadraoMissingCoverage.amount(spanish)
                     : money(inspected.map(CanvasSpendingHistory.total) ?? total),
                 caption: selectedSlot.map { range == .year
-                    ? $0.start.formatted(.dateTime.month(.wide).year().locale(Locale(identifier: spanish ? "es_DO" : "en_US")))
-                    : story.periodText($0, spanish: spanish) } ?? (spanish ? "Gastos registrados" : "Recorded spending"),
+                    ? $0.start.formatted(.dateTime.month(.wide).year().locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish))))
+                    : story.periodText($0, spanish: spanish) } ?? (CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.f5d8dd5e1a", spanish: spanish)),
                 insight: story.state == .populated || story.state == .emptyPeriod ? insight : nil)
             if let controls { controls }
             if story.state == .populated {
@@ -93,7 +92,7 @@ struct CuadraoSpendingChart: View {
     }
     private var emptyState: some View {
         CuadraoChartState(title: emptyTitle, detail: emptyDetail,
-            actionTitle: recordsHere && record != nil ? (spanish ? "Registrar un gasto" : "Record an expense") : nil,
+            actionTitle: recordsHere && record != nil ? (CuadraoCopy.text("copy.cuadraoSpendingChart.fcca57c73a", spanish: spanish)) : nil,
             action: recordsHere ? record : nil)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home-spending-chart")
@@ -103,33 +102,33 @@ struct CuadraoSpendingChart: View {
     private var recordsHere: Bool { story.state == .firstUse || (story.state == .emptyPeriod && periodOffset == 0) }
     private var emptyTitle: String {
         switch story.state {
-        case .firstUse: return spanish ? "Tu historia empieza aquí" : "Your story starts here"
+        case .firstUse: return CuadraoCopy.text("copy.cuadraoDesignGallery.4fec8a8355", spanish: spanish)
         case .unavailable: return CuadraoMissingCoverage.title(spanish)
-        case .emptyPeriod: return spanish ? "Sin gastos" : "No spending"
+        case .emptyPeriod: return CuadraoCopy.text("copy.cuadraoDesignGallery.d9ec23ea81", spanish: spanish)
         case .populated: return ""
         }
     }
     private var emptyDetail: String {
         switch story.state {
-        case .firstUse: return spanish ? "Registra tu primer gasto para empezar a ver tu ritmo." : "Record your first expense to start seeing your rhythm."
+        case .firstUse: return CuadraoCopy.text("copy.cuadraoSpendingChart.d92c2b06f9", spanish: spanish)
         case .unavailable: return CuadraoMissingCoverage.detail(spanish)
         case .emptyPeriod:
             return periodOffset == 0
-                ? (spanish ? "Aún no hay gastos registrados en este período." : "No expenses recorded in this period yet.")
-                : (spanish ? "No hay gastos registrados en este período." : "No expenses were recorded in this period.")
+                ? (CuadraoCopy.text("copy.cuadraoDesignGallery.25ab80246f", spanish: spanish))
+                : (CuadraoCopy.text("copy.cuadraoSpendingChart.6a76acb5a3", spanish: spanish))
         case .populated: return ""
         }
     }
     private var chart: some View {
         Chart {
             ForEach(buckets) { bucket in
-                BarMark(x: .value("Period", tick(CanvasSpendingHistory.bucketInterval(containing: bucket.date, range: range))), y: .value("Spending", bucket.value), width: .ratio(0.65))
-                    .foregroundStyle(by: .value("Category", bucket.category.title(spanish)))
+                BarMark(x: .value(CuadraoCopy.text("copy.cuadraoSpendingChart.296b533cc7", spanish: spanish), tick(CanvasSpendingHistory.bucketInterval(containing: bucket.date, range: range))), y: .value(CuadraoCopy.text("copy.cuadraoSpendingChart.8752de5bdb", spanish: spanish), bucket.value), width: .ratio(0.65))
+                    .foregroundStyle(by: .value(CuadraoCopy.text("copy.cuadraoSpendingChart.67c7ee0c0f", spanish: spanish), bucket.category.title(spanish)))
                     .accessibilityLabel(bucket.date.formatted(date: .abbreviated, time: .omitted) + ", " + bucket.category.title(spanish))
                     .accessibilityValue(currency + " " + money(bucket.amount))
             }
             if let selectedSlot {
-                RuleMark(x: .value("Period", tick(selectedSlot))).foregroundStyle(WelcomePalette.ink.opacity(0.25))
+                RuleMark(x: .value(CuadraoCopy.text("copy.cuadraoSpendingChart.296b533cc7", spanish: spanish), tick(selectedSlot))).foregroundStyle(WelcomePalette.ink.opacity(0.25))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4])).accessibilityHidden(true)
             }
         }.chartForegroundStyleScale(domain: CanvasExpenseCategory.allCases.map { $0.title(spanish) }, range: CanvasExpenseCategory.allCases.map(\.color))
@@ -156,7 +155,7 @@ struct CuadraoSpendingChart: View {
             .background(WelcomePalette.surface.opacity(0.5), in: RoundedRectangle(cornerRadius: 22))
             .accessibilityIdentifier("home-spending-chart")
             .accessibilityValue(String(periodOffset))
-            .accessibilityLabel(spanish ? "Gastos por período" : "Spending by period")
+            .accessibilityLabel(CuadraoCopy.text("copy.cuadraoSpendingChart.dcf355d2ae", spanish: spanish))
     }
     private func inspect(_ location: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) {
         guard let frame = proxy.plotFrame else { return }
@@ -167,7 +166,7 @@ struct CuadraoSpendingChart: View {
         Dictionary(grouping: buckets, by: \.date).values.map { $0.reduce(0) { $0 + $1.value } }.max() ?? 0
     }
     private var axisContext: String {
-        let format = Date.FormatStyle.dateTime.locale(Locale(identifier: spanish ? "es_DO" : "en_US"))
+        let format = Date.FormatStyle.dateTime.locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)))
         if range == .year { return interval.start.formatted(format.year()) }
         let start = interval.start.formatted(format.month(.abbreviated).year())
         let end = interval.end.addingTimeInterval(-1).formatted(format.month(.abbreviated).year())
@@ -178,7 +177,7 @@ struct CuadraoSpendingChart: View {
         return stride(from: 0, to: slots.count, by: step).map { tick(slots[$0]) }
     }
     private func tick(_ span: DateInterval) -> String {
-        let format = Date.FormatStyle.dateTime.locale(Locale(identifier: spanish ? "es_DO" : "en_US"))
+        let format = Date.FormatStyle.dateTime.locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)))
         switch range {
         case .week: return span.start.formatted(format.weekday(.narrow)) + "\n" + span.start.formatted(format.day())
         case .month:
@@ -195,7 +194,7 @@ struct CuadraoSpendingChart: View {
             }, selection: Binding(get: { selectedCategory?.rawValue }, set: { selectedCategory = $0.flatMap(CanvasExpenseCategory.init(rawValue:)) }),
                 identifier: "home-spending-segment-")
             HStack(spacing: 8) {
-                Button { selectedCategory = nil } label: { Text(spanish ? "Todo" : "All").frame(minHeight: 44).contentShape(Rectangle()) }
+                Button { selectedCategory = nil } label: { Text(CuadraoCopy.text("copy.cuadraoDistributionContent.64c04b1430", spanish: spanish)).frame(minHeight: 44).contentShape(Rectangle()) }
                     .buttonStyle(.plain)
                     .foregroundStyle(selectedCategory == nil ? WelcomePalette.ink : .secondary)
                     .accessibilityIdentifier("home-spending-all")
@@ -216,7 +215,7 @@ struct CuadraoSpendingChart: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(entry.title).font(CuadraoTypography.supporting)
-                        Text(entry.date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: spanish ? "es_DO" : "en_US")))).font(CuadraoTypography.caption).foregroundStyle(.secondary)
+                        Text(entry.date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish))))).font(CuadraoTypography.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Text(money(entry.amount)).font(CuadraoTypography.rowAmount)

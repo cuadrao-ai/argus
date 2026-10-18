@@ -6,7 +6,7 @@ struct ConnectedHouseholdPlan: View {
     @ObservedObject private var plan: HouseholdPlanModel
     @State private var showingActions = false
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     init(model: HouseholdModel) { self.model = model; plan = model.plan }
 

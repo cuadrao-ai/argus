@@ -70,7 +70,7 @@ final class GuestClaimModel: ObservableObject {
         // Names this claim already put in the account are not "taken" by someone else.
         let ours = Set(mine.accounts.values)
         plan = GuestClaimPlan.make(book: book, existingNicknames: existing.filter { !ours.contains($0.id) }.compactMap(\.nickname),
-                                   guestWord: spanish ? "invitado" : "guest")
+                                   guestWord: CuadraoCopy.text("copy.guestClaimModel.2feae16dad", spanish: spanish))
         refresh()
         phase = remaining.accounts == 0 && remaining.movements == 0 ? (moved.accounts + moved.movements > 0 ? .finished : .nothingToMove) : .preview
     }
@@ -121,76 +121,63 @@ final class GuestClaimModel: ObservableObject {
 struct GuestClaimCopy {
     let spanish: Bool
 
-    var title: String { spanish ? "Pasar tus datos a tu cuenta" : "Move your data to your account" }
+    var title: String { CuadraoCopy.text("copy.guestClaimModel.fa23d40e14", spanish: spanish) }
     var previewIntro: String {
-        spanish ? "Esto es lo que va a pasar. No se mueve nada hasta que toques Pasar."
-            : "This is what will happen. Nothing moves until you tap Move."
+        CuadraoCopy.text("copy.guestClaimModel.ec059d5439", spanish: spanish)
     }
-    func accounts(_ n: Int) -> String { spanish ? (n == 1 ? "1 cuenta" : "\(n) cuentas") : (n == 1 ? "1 account" : "\(n) accounts") }
-    func movements(_ n: Int) -> String { spanish ? (n == 1 ? "1 movimiento" : "\(n) movimientos") : (n == 1 ? "1 transaction" : "\(n) transactions") }
+    func accounts(_ n: Int) -> String { (n == 1 ? CuadraoCopy.text("copy.guestClaimModel.7f1de1bd62", spanish: spanish) : CuadraoCopy.text("copy.guestClaimModel.0cbbaf6808", spanish: spanish, String(describing: n))) }
+    func movements(_ n: Int) -> String { (n == 1 ? CuadraoCopy.text("copy.guestClaimModel.afbd153c48", spanish: spanish) : CuadraoCopy.text("copy.guestClaimModel.2ee0db831a", spanish: spanish, String(describing: n))) }
     func renamed(_ n: Int) -> String {
-        spanish ? (n == 1 ? "1 cuenta ya tiene ese nombre en tu cuenta y llega como «Nombre (invitado)»."
-                          : "\(n) cuentas ya tienen ese nombre en tu cuenta y llegan como «Nombre (invitado)».")
-            : (n == 1 ? "1 account already has that name in your account and arrives as “Name (guest)”."
-                      : "\(n) accounts already have that name in your account and arrive as “Name (guest)”.")
+        (n == 1 ? CuadraoCopy.text("copy.guestClaimModel.9a5ebb7b90", spanish: spanish) : CuadraoCopy.text("copy.guestClaimModel.74877abbc2", spanish: spanish, String(describing: n)))
     }
     func staying(plans: Int) -> String {
-        let receipts = spanish ? "los recibos guardados aquí" : "the receipts saved here"
-        if plans == 0 { return spanish ? "Se quedan en este iPhone: \(receipts)." : "Staying on this iPhone: \(receipts)." }
-        let list = spanish ? (plans == 1 ? "1 meta o presupuesto" : "\(plans) metas y presupuestos") : (plans == 1 ? "1 goal or budget" : "\(plans) goals and budgets")
-        return spanish ? "Se quedan en este iPhone, por ahora: \(list) y \(receipts)."
-            : "Staying on this iPhone for now: \(list) and \(receipts)."
+        let receipts = CuadraoCopy.text("copy.guestClaimModel.db320c4b47", spanish: spanish)
+        if plans == 0 { return CuadraoCopy.text("copy.guestClaimModel.f750983c27", spanish: spanish, String(describing: receipts)) }
+        let list = (plans == 1 ? CuadraoCopy.text("copy.guestClaimModel.11f157d734", spanish: spanish) : CuadraoCopy.text("copy.guestClaimModel.0177dc1211", spanish: spanish, String(describing: plans)))
+        return CuadraoCopy.text("copy.guestClaimModel.34dd3f2fc2", spanish: spanish, String(describing: list), String(describing: receipts))
     }
     var keepsCopy: String {
-        spanish ? "Tu copia en este iPhone sigue aquí hasta que el servidor confirme cada cosa."
-            : "Your copy on this iPhone stays until the server confirms each item."
+        CuadraoCopy.text("copy.guestClaimModel.1e586bba81", spanish: spanish)
     }
-    var move: String { spanish ? "Pasar a mi cuenta" : "Move to my account" }
-    var discard: String { spanish ? "Descartar" : "Discard" }
-    var later: String { spanish ? "Ahora no" : "Not now" }
-    var done: String { spanish ? "Listo" : "Done" }
-    var retry: String { spanish ? "Reintentar" : "Try again" }
-    var discardTitle: String { spanish ? "¿Descartar los datos de invitado?" : "Discard the guest data?" }
+    var move: String { CuadraoCopy.text("copy.guestClaimModel.8a25da6687", spanish: spanish) }
+    var discard: String { CuadraoCopy.text("copy.guestClaimModel.adac3a9868", spanish: spanish) }
+    var later: String { CuadraoCopy.text("copy.guestClaimModel.12e8d67ee6", spanish: spanish) }
+    var done: String { CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish) }
+    var retry: String { CuadraoCopy.text("copy.connectedCuadraoAuth.ada77fc089", spanish: spanish) }
+    var discardTitle: String { CuadraoCopy.text("copy.guestClaimModel.25d1aca8f1", spanish: spanish) }
     var discardMessage: String {
-        spanish ? "Se borran de este iPhone: cuentas, movimientos, metas, presupuestos y recibos. No se puede deshacer."
-            : "These are deleted from this iPhone: accounts, transactions, goals, budgets and receipts. This can't be undone."
+        CuadraoCopy.text("copy.guestClaimModel.61fc603c81", spanish: spanish)
     }
-    var discardFailed: String { spanish ? "No se pudieron borrar. Inténtalo de nuevo." : "They could not be deleted. Try again." }
+    var discardFailed: String { CuadraoCopy.text("copy.guestClaimModel.8552e7b3fa", spanish: spanish) }
     func running(_ done: Int, _ total: Int) -> String {
-        spanish ? "Pasando tus datos: \(done) de \(total)" : "Moving your data: \(done) of \(total)"
+        CuadraoCopy.text("copy.guestClaimModel.f7f309ef76", spanish: spanish, String(describing: done), String(describing: total))
     }
     func finished(_ summary: GuestClaimModel.Summary) -> String {
         let parts = [summary.accounts > 0 ? accounts(summary.accounts) : nil, summary.movements > 0 ? movements(summary.movements) : nil].compactMap { $0 }
-        let list = parts.joined(separator: spanish ? " y " : " and ")
-        return spanish ? "Pasamos \(list)." : "We moved \(list)."
+        let list = parts.joined(separator: CuadraoCopy.text("copy.guestClaimModel.531970a9ba", spanish: spanish))
+        return CuadraoCopy.text("copy.guestClaimModel.09160bf6a4", spanish: spanish, String(describing: list))
     }
     func refused(_ n: Int) -> String {
-        spanish ? (n == 1 ? "1 movimiento no se pudo pasar y sigue en este iPhone."
-                          : "\(n) movimientos no se pudieron pasar y siguen en este iPhone.")
-            : (n == 1 ? "1 transaction could not be moved and stays on this iPhone."
-                      : "\(n) transactions could not be moved and stay on this iPhone.")
+        (n == 1 ? CuadraoCopy.text("copy.guestClaimModel.1c27f0db5f", spanish: spanish) : CuadraoCopy.text("copy.guestClaimModel.2d1ce0cd64", spanish: spanish, String(describing: n)))
     }
     var finishedKeeps: String {
-        spanish ? "Tu copia sigue en este iPhone. Puedes descartarla cuando quieras."
-            : "Your copy is still on this iPhone. You can discard it whenever you like."
+        CuadraoCopy.text("copy.guestClaimModel.efbbce1627", spanish: spanish)
     }
     func stopped(_ reason: GuestClaimStop) -> String {
         switch reason {
-        case .signedOut: return spanish ? "Tu sesión cambió. Inicia sesión y vuelve a intentarlo." : "Your session changed. Sign in and try again."
+        case .signedOut: return CuadraoCopy.text("copy.guestClaimModel.adf31b4054", spanish: spanish)
         case .accountRefused(let name):
             let which = name.map { " «\($0)»" } ?? ""
-            return spanish ? "Tu cuenta no aceptó la cuenta\(which). Lo que ya pasó se queda. Tu copia sigue aquí."
-                : "Your account did not accept the account\(which). What already moved stays. Your copy is still here."
+            return CuadraoCopy.text("copy.guestClaimModel.416df2f65e", spanish: spanish, String(describing: which))
         case .unreachable:
-            return spanish ? "No pudimos terminar. Lo que ya pasó no se repite. Tu copia sigue aquí."
-                : "We could not finish. What already moved is not repeated. Your copy is still here."
+            return CuadraoCopy.text("copy.guestClaimModel.5f2330088e", spanish: spanish)
         }
     }
-    var nothingToMove: String { spanish ? "No hay nada que pasar desde este iPhone." : "There is nothing to move from this iPhone." }
+    var nothingToMove: String { CuadraoCopy.text("copy.guestClaimModel.23a236d04d", spanish: spanish) }
     var unreadable: String {
-        spanish ? "No pudimos leer los datos de este iPhone. No se cambió nada." : "We could not read this iPhone's data. Nothing was changed."
+        CuadraoCopy.text("copy.guestClaimModel.6853986cc3", spanish: spanish)
     }
-    var discarded: String { spanish ? "Descartaste los datos de invitado de este iPhone." : "You discarded the guest data on this iPhone." }
+    var discarded: String { CuadraoCopy.text("copy.guestClaimModel.ff5d8c9362", spanish: spanish) }
 }
 
 extension GuestClaimModel: Identifiable {

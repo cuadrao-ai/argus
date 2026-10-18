@@ -90,8 +90,8 @@ struct GuestMovementSheet: View {
             account: CuadraoTransactionAccount(title: account.map { GuestAccountPresentation.title($0, spanish: spanish) } ?? "",
                                                artwork: account.map { GuestAccountPresentation.artwork($0.kind) }),
             spanish: spanish, reviewing: false,
-            title: editedID == nil ? (spanish ? "Añadir movimiento" : "Add transaction") : (spanish ? "Editar movimiento" : "Edit transaction"),
-            primaryTitle: spanish ? "Guardar" : "Save", primaryEnabled: valid, primaryIdentifier: "guest.movement.save",
+            title: editedID == nil ? (CuadraoCopy.text("copy.canvasAccountPresentation.ef0cf39904", spanish: spanish)) : (CuadraoCopy.text("copy.guestActivity.0430c48829", spanish: spanish)),
+            primaryTitle: CuadraoCopy.text("copy.cuadraoAccountManagement.553ab1bf1a", spanish: spanish), primaryEnabled: valid, primaryIdentifier: "guest.movement.save",
             showsAccountHeader: false, back: {}, primary: save) {
             content
         }
@@ -116,10 +116,10 @@ struct GuestMovementSheet: View {
         kindRow
         if kind == .transfer { transferCards }
         MovementChipFlow {
-            MovementDateChip(caption: spanish ? "Fecha" : "Date", date: $date, range: (tracking ?? .distantPast)...Date(),
+            MovementDateChip(caption: CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: spanish), date: $date, range: (tracking ?? .distantPast)...Date(),
                              identifier: "guest.movement.date")
             if kind == .expense {
-                MovementChoiceChip(caption: spanish ? "Categoría" : "Category", symbol: "tag", selection: $category,
+                MovementChoiceChip(caption: CuadraoCopy.text("copy.connectedCuadraoHome.67c7ee0c0f", spanish: spanish), symbol: "tag", selection: $category,
                                    values: ExpenseCategory.allCases) { GuestMovementPresentation.categoryTitle($0, spanish: spanish) }
                     .accessibilityIdentifier("guest.movement.category")
             }
@@ -130,7 +130,7 @@ struct GuestMovementSheet: View {
             }
         }
         VStack(alignment: .leading, spacing: 8) {
-            TextField(spanish ? "Concepto (opcional)" : "Description (optional)", text: $note, axis: .vertical)
+            TextField(CuadraoCopy.text("copy.connectedTransactionSheet.b6d70b2c10", spanish: spanish), text: $note, axis: .vertical)
                 .focused($noteFocused).lineLimit(1...4).modifier(RegistrationField())
                 .accessibilityIdentifier("guest.movement.note")
             Text("\(note.unicodeScalars.count)/\(Limits.note)").font(.caption)
@@ -144,8 +144,7 @@ struct GuestMovementSheet: View {
 
     @ViewBuilder private var transferCards: some View {
         if destinations.isEmpty {
-            Text(spanish ? "Necesitas otra cuenta en \(account?.currency ?? "") para transferir."
-                 : "You need another \(account?.currency ?? "") account to transfer.")
+            Text(CuadraoCopy.text("copy.guestMovementSheet.2549979176", spanish: spanish, String(describing: account?.currency ?? "")))
                 .font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("guest.movement.noDestination")
         } else {
             MovementTransferCards(

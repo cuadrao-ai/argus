@@ -119,9 +119,9 @@ struct CanvasAccountDetailContent<History: View>: View {
         LazyVStack(alignment: .leading, spacing: 30) {
             CanvasAccountDetailHeader(value: value)
             VStack(spacing: 12) {
-                RegistrationButton(title: spanish ? "Añadir movimiento" : "Add transaction", enabled: recordEnabled, action: record)
+                RegistrationButton(title: CuadraoCopy.text("copy.canvasAccountPresentation.ef0cf39904", spanish: spanish), enabled: recordEnabled, action: record)
                     .accessibilityIdentifier(recordIdentifier)
-                Button(spanish ? "Comprobar balance" : "Check balance", action: check)
+                Button(CuadraoCopy.text("copy.canvasAccountPresentation.96327e1801", spanish: spanish), action: check)
                     .font(.system(size: 13, weight: .medium)).padding(.horizontal, 16).frame(minHeight: 44)
                     .overlay { Capsule().stroke(WelcomePalette.border, lineWidth: 1) }
                     .disabled(!checkEnabled).accessibilityIdentifier(checkIdentifier)

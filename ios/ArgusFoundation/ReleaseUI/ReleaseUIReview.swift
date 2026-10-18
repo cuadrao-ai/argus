@@ -9,7 +9,7 @@ struct ReleaseUIReview: View {
     @State private var tab: CuadraoTab = .profile
     @State private var editing = false
     @State private var path = NavigationPath()
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -23,22 +23,22 @@ struct ReleaseUIReview: View {
                             .accessibilityIdentifier("release.profile.display")
                     }
                 }
-                Section(spanish ? "Cuenta" : "Account") {
+                Section(CuadraoCopy.text("copy.connectedAccountPresentation.f9d32ca2e5", spanish: spanish)) {
                     NavigationLink(value: ReleaseReviewRoute.identity) {
-                        Label(spanish ? "Identidad y datos" : "Identity and data", systemImage: "person.crop.circle")
+                        Label(CuadraoCopy.text("copy.releaseIdentityGallery.ba2eba4b9a", spanish: spanish), systemImage: "person.crop.circle")
                     }.accessibilityIdentifier("release.review.identity")
                     NavigationLink(value: ReleaseReviewRoute.invites) {
-                        Label(spanish ? "Invitaciones" : "Invitations", systemImage: "person.badge.plus")
+                        Label(CuadraoCopy.text("copy.invitationViews.4970c3efc4", spanish: spanish), systemImage: "person.badge.plus")
                     }.accessibilityIdentifier("release.review.invites")
                     NavigationLink(value: ReleaseReviewRoute.updates) {
-                        Label(spanish ? "Novedades" : "Updates", systemImage: "bell")
+                        Label(CuadraoCopy.text("copy.cuadraoHomePresentation.41483aed95", spanish: spanish), systemImage: "bell")
                     }.accessibilityIdentifier("release.review.updates")
                     NavigationLink(value: ReleaseReviewRoute.legal) {
-                        Label(spanish ? "Privacidad y términos" : "Privacy and terms", systemImage: "hand.raised")
+                        Label(CuadraoCopy.text("copy.connectedCuadraoProfile.7081fb1e80", spanish: spanish), systemImage: "hand.raised")
                     }.accessibilityIdentifier("release.review.legal")
                 }
             }
-            .navigationTitle(spanish ? "Revisión de interfaz" : "UI review")
+            .navigationTitle(CuadraoCopy.text("copy.releaseUIReview.2f5585913a", spanish: spanish))
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom) {
                 if path.isEmpty {
@@ -64,7 +64,7 @@ struct ReleaseUIReview: View {
             CuadraoIdentityAvatar(selection: avatar, name: "Alex", size: 64)
             VStack(alignment: .leading, spacing: 5) {
                 Text("Alex").font(.title2.weight(.semibold)).foregroundStyle(.primary)
-                if editable { Text(spanish ? "Editar avatar" : "Edit avatar").font(.subheadline) }
+                if editable { Text(CuadraoCopy.text("copy.releaseUIReview.0f597966d4", spanish: spanish)).font(.subheadline) }
             }
             Spacer()
         }.padding(.vertical, 8)

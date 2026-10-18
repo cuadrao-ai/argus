@@ -13,15 +13,14 @@ enum GuestNotice: String, CaseIterable {
 /// Spanish first; English follows. No em dash.
 struct GuestNoticeCopy {
     let spanish: Bool
-    var modeLine: String { spanish ? "Modo invitado · solo en este iPhone" : "Guest mode · only on this iPhone" }
+    var modeLine: String { CuadraoCopy.text("copy.guestNotices.7f78eddbbd", spanish: spanish) }
     /// The one-time first-open toast. The Perfil identity line stays `modeLine`.
     var firstOpenNote: String {
-        spanish ? "Modo invitado · solo en este iPhone. No se sincroniza ni se une a ninguna cuenta."
-            : "Guest mode · only on this iPhone. It doesn't sync or join any account."
+        CuadraoCopy.text("copy.guestNotices.a01222bf1e", spanish: spanish)
     }
-    var firstSaveTitle: String { spanish ? "Tus gastos solo están en este iPhone" : "Your expenses are only on this iPhone" }
-    var createAccount: String { spanish ? "Crear cuenta" : "Create account" }
-    var notNow: String { spanish ? "Ahora no" : "Not now" }
+    var firstSaveTitle: String { CuadraoCopy.text("copy.guestNotices.cbe7db5ef8", spanish: spanish) }
+    var createAccount: String { CuadraoCopy.text("copy.connectedCuadraoAuth.87ab2b1835", spanish: spanish) }
+    var notNow: String { CuadraoCopy.text("copy.guestClaimModel.12e8d67ee6", spanish: spanish) }
 }
 
 /// Shown once, after the first expense is saved: half height, a grabber, swipe to dismiss. It never blocks the save,

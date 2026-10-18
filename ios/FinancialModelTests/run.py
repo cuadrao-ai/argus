@@ -5,6 +5,10 @@ import shutil
 import subprocess
 import tempfile
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "LocalizationTests"))
+from support import prepare
+
 root = Path(__file__).resolve().parents[2]
 subprocess.run(["python3", str(root / "ios/DesignPreviewTests/run_no_keyboard_accessory.py")], check=True)
 with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
@@ -12,6 +16,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     source = package / "Sources/FinancialModels"
     tests = package / "Tests/FinancialModelTests"
     source.mkdir(parents=True)
+    prepare(root, source, package=True)
     tests.mkdir(parents=True)
     for name in ("AccountsModel.swift", "FinancialLoopModel.swift", "FinancialObservationRead.swift", "FinancialActivityEditor.swift", "AccountEntry.swift"):
         shutil.copy(root / "ios/ArgusFoundation/Accounts" / name, source / name)
@@ -94,12 +99,12 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(Path(__file__).with_name("MovementAccountChoiceTests.swift"), tests / "MovementAccountChoiceTests.swift")
     (package / "Package.swift").write_text('''// swift-tools-version: 6.0
 import PackageDescription
-let package = Package(name: "FinancialModels", platforms: [.macOS(.v14)], dependencies: [
+let package = Package(name: "FinancialModels", defaultLocalization: "es-419", platforms: [.macOS(.v14)], dependencies: [
     .package(path: "''' + str(root / "ios/Packages/ArgusSession") + '''"),
     .package(path: "''' + str(root / "ios/Packages/CuadraoBook") + '''"),
     .package(url: "https://github.com/supabase/supabase-swift.git", exact: "2.55.2")
 ], targets: [
-    .target(name: "FinancialModels", dependencies: [.product(name: "ArgusSession", package: "ArgusSession"), .product(name: "CuadraoBook", package: "CuadraoBook")]),
+    .target(name: "FinancialModels", dependencies: [.product(name: "ArgusSession", package: "ArgusSession"), .product(name: "CuadraoBook", package: "CuadraoBook")], resources: [.process("Resources")]),
     .testTarget(name: "FinancialModelTests", dependencies: ["FinancialModels", .product(name: "ArgusSession", package: "ArgusSession"), .product(name: "Auth", package: "supabase-swift")])
 ])
 ''')

@@ -24,13 +24,13 @@ struct CuadraoHomeDistribution: View {
     private func amount(_ rows: [CanvasAccount]) -> Decimal { rows.reduce(0) { $0 + value($1) } }
     private func fraction(_ amount: Decimal) -> Double { total > 0 ? NSDecimalNumber(decimal: amount / total).doubleValue : 0 }
     private func percent(_ amount: Decimal) -> String {
-        fraction(amount).formatted(.percent.precision(.fractionLength(1)).locale(Locale(identifier: spanish ? "es_DO" : "en_US")))
+        fraction(amount).formatted(.percent.precision(.fractionLength(1)).locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish))))
     }
     private var balanceTitle: String {
-        asOf.map { (spanish ? "Balance neto · " : "Net balance · ")
-            + $0.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: spanish ? "es_DO" : "en_US"))) }
-            ?? (historical ? (spanish ? "Sin balances en este período" : "No balances in this period")
-                : (spanish ? "Balance neto · Hoy" : "Net balance · Today"))
+        asOf.map { (CuadraoCopy.text("copy.cuadraoHomeBalanceChart.b19a96422a", spanish: spanish))
+            + $0.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)))) }
+            ?? (historical ? (CuadraoCopy.text("copy.cuadraoHomeDistribution.4bfec87b7d", spanish: spanish))
+                : (CuadraoCopy.text("copy.cuadraoHomeDistribution.7934df8746", spanish: spanish)))
     }
     private var groups: [CuadraoDistributionGroup] {
         kinds.map { kind in

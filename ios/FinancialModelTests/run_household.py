@@ -6,12 +6,17 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "LocalizationTests"))
+from support import prepare
+
 root = Path(__file__).resolve().parents[2]
 with tempfile.TemporaryDirectory(prefix="argus-household-models-") as temporary:
     package = Path(temporary)
     source = package / "Sources/FinancialModels"
     tests = package / "Tests/FinancialModelTests"
     source.mkdir(parents=True)
+    prepare(root, source, package=True)
     tests.mkdir(parents=True)
     shutil.copy(root / "ios/ArgusFoundation/Household/HouseholdModel.swift", source)
     shutil.copy(root / "ios/ArgusFoundation/Connected/ConnectedSpacesPolicy.swift", source)
@@ -47,13 +52,13 @@ with tempfile.TemporaryDirectory(prefix="argus-household-models-") as temporary:
     (package / "Package.swift").write_text(
         '''// swift-tools-version: 6.0
 import PackageDescription
-let package = Package(name: "FinancialModels", platforms: [.macOS(.v14)], dependencies: [
+let package = Package(name: "FinancialModels", defaultLocalization: "es-419", platforms: [.macOS(.v14)], dependencies: [
     .package(path: "'''
         + str(root / "ios/Packages/ArgusSession")
         + """"),
     .package(url: "https://github.com/supabase/supabase-swift.git", exact: "2.55.2")
 ], targets: [
-    .target(name: "FinancialModels", dependencies: [.product(name: "ArgusSession", package: "ArgusSession")]),
+    .target(name: "FinancialModels", dependencies: [.product(name: "ArgusSession", package: "ArgusSession")], resources: [.process("Resources")]),
     .testTarget(name: "FinancialModelTests", dependencies: ["FinancialModels", .product(name: "ArgusSession", package: "ArgusSession"), .product(name: "Auth", package: "supabase-swift")])
 ])
 """

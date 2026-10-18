@@ -10,14 +10,14 @@ struct CuadraoAddItem: Identifiable {
 extension CuadraoAddAction {
     func title(spanish: Bool) -> String {
         switch self {
-        case .account: spanish ? "Cuenta" : "Account"
-        case .transaction: spanish ? "Transacción" : "Transaction"
-        case .plan: "Plan"
-        case .group: spanish ? "Grupo" : "Group"
-        case .invite: spanish ? "Invitar" : "Invite"
-        case .scanCamera: spanish ? "Escanear con la cámara" : "Scan with camera"
-        case .choosePhoto: spanish ? "Elegir una foto" : "Choose a photo"
-        case .chooseFile: spanish ? "Elegir un archivo" : "Choose a file"
+        case .account: CuadraoCopy.text("copy.connectedAccountPresentation.f9d32ca2e5", spanish: spanish)
+        case .transaction: CuadraoCopy.text("copy.cuadraoAddTray.509ff073f6", spanish: spanish)
+        case .plan: CuadraoCopy.text("destination.plan")
+        case .group: CuadraoCopy.text("copy.cuadraoAddTray.f3b9bb297e", spanish: spanish)
+        case .invite: CuadraoCopy.text("copy.cuadraoAddTray.1abeb85776", spanish: spanish)
+        case .scanCamera: CuadraoCopy.text("copy.cuadraoAddTray.3079b6f448", spanish: spanish)
+        case .choosePhoto: CuadraoCopy.text("copy.cuadraoAddTray.1e4b004482", spanish: spanish)
+        case .chooseFile: CuadraoCopy.text("copy.cuadraoAddTray.9d649f3046", spanish: spanish)
         }
     }
 

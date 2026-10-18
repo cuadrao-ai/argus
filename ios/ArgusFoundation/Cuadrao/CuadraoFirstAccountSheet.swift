@@ -88,11 +88,11 @@ struct CuadraoAccountEntryForm: View {
 
     private var hint: String? {
         if entry.kind?.isAsset == true && entry.sharingCustom && PercentInput.problem(entry.customShare, .wholeShare) != nil {
-            return spanish ? "Introduce tu parte, de 1 a 100%." : "Enter your share, from 1 to 100%."
+            return CuadraoCopy.text("copy.cuadraoFirstAccountSheet.d99eaf19c2", spanish: spanish)
         }
-        if entry.kind == nil { return spanish ? "Elige un tipo de cuenta" : "Choose an account type" }
+        if entry.kind == nil { return CuadraoCopy.text("copy.cuadraoFirstAccountSheet.57ca98595b", spanish: spanish) }
         if !error.isEmpty || (!entry.amount.isEmpty && Decimal(string: entry.amount) == nil) {
-            return spanish ? "Revisa el monto" : "Check the amount"
+            return CuadraoCopy.text("copy.cuadraoFirstAccountSheet.94500b74b1", spanish: spanish)
         }
         return nil
     }
@@ -105,8 +105,8 @@ struct CuadraoAccountEntryForm: View {
                     Text(spaceTitle).font(.subheadline).foregroundStyle(.secondary)
                     typePicker
                     VStack(alignment: .leading, spacing: 10) {
-                        fieldLabel(spanish ? "Nombre" : "Name")
-                        TextField(spanish ? "Ej. Gastos del día" : "e.g. Everyday spending", text: $entry.name)
+                        fieldLabel(CuadraoCopy.text("copy.cuadraoAccountManagement.9d191b79fb", spanish: spanish))
+                        TextField(CuadraoCopy.text("copy.cuadraoFirstAccountSheet.8f5c63b1b7", spanish: spanish), text: $entry.name)
                             .autocorrectionDisabled().focused($nameFocused).submitLabel(.done)
                             .onSubmit { nameFocused = false }
                             .modifier(RegistrationField(focused: nameFocused))
@@ -114,9 +114,9 @@ struct CuadraoAccountEntryForm: View {
                             .onChange(of: entry.name) { _, value in if value.count > 60 { entry.name = String(value.prefix(60)) } }
                     }
                     VStack(alignment: .leading, spacing: 10) {
-                        fieldLabel(entry.kind?.isDebt == true ? (spanish ? "Monto pendiente" : "Amount owed")
-                            : entry.kind?.isAsset == true ? (spanish ? "Valor total estimado" : "Estimated total value")
-                            : (spanish ? "Balance actual" : "Current balance"))
+                        fieldLabel(entry.kind?.isDebt == true ? (CuadraoCopy.text("copy.cuadraoFirstAccountSheet.3bf64e270f", spanish: spanish))
+                            : entry.kind?.isAsset == true ? (CuadraoCopy.text("copy.cuadraoFirstAccountSheet.b93b8ff301", spanish: spanish))
+                            : (CuadraoCopy.text("copy.cuadraoFirstAccountSheet.8e47b1cc18", spanish: spanish)))
                         CuadraoAmountField(raw: $entry.amount, currency: $entry.currency, error: $error,
                             spanish: spanish, allowNegative: entry.kind?.isDebt != true && entry.kind?.isAsset != true,
                             currencySelectable: currencySelectable, identifier: ids.amount, currencyIdentifier: ids.currency)
@@ -127,19 +127,19 @@ struct CuadraoAccountEntryForm: View {
                     if entry.kind?.isAsset == true {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
-                                Text(spanish ? "Tu parte" : "Your share")
+                                Text(CuadraoCopy.text("copy.cuadraoFirstAccountSheet.15732a4703", spanish: spanish))
                                 Spacer()
                                 Menu {
-                                    Button(spanish ? "Todo · 100%" : "All · 100%") { entry.share = 100; entry.sharingCustom = false }
-                                    Button(spanish ? "La mitad · 50%" : "Half · 50%") { entry.share = 50; entry.sharingCustom = false }
-                                    Button(spanish ? "Otra parte" : "Another share") { entry.sharingCustom = true }
+                                    Button(CuadraoCopy.text("copy.cuadraoFirstAccountSheet.21bfe8c3dc", spanish: spanish)) { entry.share = 100; entry.sharingCustom = false }
+                                    Button(CuadraoCopy.text("copy.cuadraoFirstAccountSheet.9438fa2d7e", spanish: spanish)) { entry.share = 50; entry.sharingCustom = false }
+                                    Button(CuadraoCopy.text("copy.cuadraoFirstAccountSheet.1bff0bb3fc", spanish: spanish)) { entry.sharingCustom = true }
                                 } label: {
-                                    Text(entry.sharingCustom ? (spanish ? "Otra parte" : "Another share") : "\(entry.share)%")
+                                    Text(entry.sharingCustom ? (CuadraoCopy.text("copy.cuadraoFirstAccountSheet.1bff0bb3fc", spanish: spanish)) : "\(entry.share)%")
                                         .frame(minHeight: 44)
                                 }.accessibilityIdentifier(ids.share)
                             }
                             if entry.sharingCustom {
-                                PercentField(title: spanish ? "Porcentaje" : "Percentage", text: $entry.customShare, bounds: .wholeShare,
+                                PercentField(title: CuadraoCopy.text("copy.cuadraoFirstAccountSheet.1f4c965f11", spanish: spanish), text: $entry.customShare, bounds: .wholeShare,
                                              spanish: spanish, identifier: ids.share + ".percent")
                             }
                         }
@@ -154,10 +154,10 @@ struct CuadraoAccountEntryForm: View {
             }
             }
             .background(WelcomePalette.background)
-            .navigationTitle(editing ? (spanish ? "Editar cuenta" : "Edit account") : (spanish ? "Añadir cuenta" : "Add account"))
+            .navigationTitle(editing ? (CuadraoCopy.text("copy.cuadraoFirstAccountSheet.4df1187ce2", spanish: spanish)) : (CuadraoCopy.text("copy.connectedCuadraoHome.10d1d9ce3f", spanish: spanish)))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", disabled: busy, identifier: ids.cancel, action: cancel)
+                CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), disabled: busy, identifier: ids.cancel, action: cancel)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
@@ -170,7 +170,7 @@ struct CuadraoAccountEntryForm: View {
                             .frame(maxWidth: .infinity)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                    RegistrationButton(title: primaryTitle ?? (editing ? (spanish ? "Guardar" : "Save") : (spanish ? "Añadir" : "Add")),
+                    RegistrationButton(title: primaryTitle ?? (editing ? (CuadraoCopy.text("copy.cuadraoAccountManagement.553ab1bf1a", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoFirstAccountSheet.aae0895459", spanish: spanish))),
                                        enabled: hint == nil && !busy, action: save)
                         .accessibilityIdentifier(ids.save)
                 }
@@ -186,12 +186,12 @@ struct CuadraoAccountEntryForm: View {
     private func fieldLabel(_ label: String) -> some View {
         HStack(spacing: 8) {
             Text(label)
-            Text(spanish ? "Opcional" : "Optional").foregroundStyle(.secondary)
+            Text(CuadraoCopy.text("copy.cuadraoFirstAccountSheet.714b4a6fb3", spanish: spanish)).foregroundStyle(.secondary)
         }.font(.subheadline)
     }
     private var typePicker: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(spanish ? "Tipo de cuenta" : "Account type").font(.subheadline)
+            Text(CuadraoCopy.text("copy.cuadraoFirstAccountSheet.94ce9d10da", spanish: spanish)).font(.subheadline)
             if let kind = entry.kind, !pickingType {
                 Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { pickingType = true } } label: {
                     HStack(spacing: 14) {
@@ -200,8 +200,8 @@ struct CuadraoAccountEntryForm: View {
                         Spacer()
                         if !kindLocked { Image(systemName: "chevron.down").font(.caption).foregroundStyle(.secondary) }
                     }.padding(18).background(WelcomePalette.sage.opacity(0.65), in: RoundedRectangle(cornerRadius: 16))
-                }.buttonStyle(.plain).disabled(kindLocked).accessibilityLabel(kindLocked ? (spanish ? "Tipo fijo, \(kind.title(spanish))" : "Fixed type, \(kind.title(spanish))")
-                        : (spanish ? "Cambiar tipo, \(kind.title(spanish))" : "Change type, \(kind.title(spanish))"))
+                }.buttonStyle(.plain).disabled(kindLocked).accessibilityLabel(kindLocked ? (CuadraoCopy.text("copy.cuadraoFirstAccountSheet.f2f5a5b366", spanish: spanish, String(describing: kind.title(spanish))))
+                        : (CuadraoCopy.text("copy.cuadraoFirstAccountSheet.2767912ee7", spanish: spanish, String(describing: kind.title(spanish)))))
                     .accessibilityIdentifier(ids.typeChange)
             } else {
                 typeGrid(CanvasAccountKind.allCases.filter { !$0.isAsset })
@@ -210,7 +210,7 @@ struct CuadraoAccountEntryForm: View {
                 } label: {
                     HStack(spacing: 12) {
                         CanvasAccountIcon(kind: .asset, size: 21)
-                        Text(spanish ? "Otros activos" : "Other assets").foregroundStyle(.primary)
+                        Text(CuadraoCopy.text("copy.cuadraoFirstAccountSheet.4350bed6e7", spanish: spanish)).foregroundStyle(.primary)
                     }.padding(.vertical, 10).accessibilityIdentifier(ids.otherAssets)
                 }
             }
@@ -225,7 +225,7 @@ struct CuadraoAccountEntryForm: View {
                         entry.kind = item; pickingType = false
                     }
                     if (item.isDebt || item.isAsset), (Decimal(string: entry.amount) ?? 0) < 0 {
-                        error = spanish ? "Introduce un monto positivo." : "Enter a positive amount."
+                        error = CuadraoCopy.text("copy.cuadraoFirstAccountSheet.9cd9638ceb", spanish: spanish)
                     }
                 } label: {
                     VStack(spacing: 11) {

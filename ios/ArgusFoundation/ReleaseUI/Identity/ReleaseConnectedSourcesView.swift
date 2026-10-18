@@ -12,15 +12,14 @@ public struct ReleaseConnectedSourcesView: View {
         self.sources = sources; self.onDisconnect = onDisconnect; self.onRetry = onRetry
     }
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
-    private func text(_ es: String, _ en: String) -> String { spanish ? es : en }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     public var body: some View {
         List {
             if sources.isEmpty {
                 Section {
-                    Label(text("No tienes fuentes conectadas", "No connected sources"), systemImage: "link")
-                    Text(text("Aquí aparecerán las fuentes que conectes.", "Sources you connect will appear here."))
+                    Label(CuadraoCopy.text("copy.releaseConnectedSourcesView.83c417a8a1", spanish: spanish), systemImage: "link")
+                    Text(CuadraoCopy.text("copy.releaseConnectedSourcesView.236ae02c2d", spanish: spanish))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -33,16 +32,15 @@ public struct ReleaseConnectedSourcesView: View {
             }
         }
         .font(CuadraoTypography.body).tint(WelcomePalette.pine)
-        .navigationTitle(text("Fuentes conectadas", "Connected sources"))
+        .navigationTitle(CuadraoCopy.text("copy.releaseConnectedSourcesView.3985a96bb5", spanish: spanish))
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(text("¿Desconectar esta fuente?", "Disconnect this source?"),
+        .confirmationDialog(CuadraoCopy.text("copy.releaseConnectedSourcesView.245aa7fd2c", spanish: spanish),
                             isPresented: Binding(get: { confirmation != nil }, set: { if !$0 { confirmation = nil } }),
                             titleVisibility: .visible, presenting: confirmation) { source in
-            Button(text("Desconectar", "Disconnect"), role: .destructive) { onDisconnect(source.id) }
-            Button(text("Cancelar", "Cancel"), role: .cancel) { confirmation = nil }
+            Button(CuadraoCopy.text("copy.releaseConnectedSourcesView.65ca190c04", spanish: spanish), role: .destructive) { onDisconnect(source.id) }
+            Button(CuadraoCopy.text("copy.releaseConnectedSourcesView.62a128b722", spanish: spanish), role: .cancel) { confirmation = nil }
         } message: { source in
-            Text(text("Cuadrao dejará de recibir datos de \(source.name). Los registros que ya confirmaste se conservarán.",
-                      "Cuadrao will stop receiving data from \(source.name). Records you already confirmed will stay."))
+            Text(CuadraoCopy.text("copy.releaseConnectedSourcesView.81efeba55a", spanish: spanish, String(describing: source.name)))
         }
         .accessibilityIdentifier("identity.sources.screen")
     }
@@ -50,25 +48,25 @@ public struct ReleaseConnectedSourcesView: View {
     @ViewBuilder private func sourceStatus(_ source: ReleaseConnectedSource) -> some View {
         switch source.state {
         case .connected:
-            Button(text("Desconectar", "Disconnect"), role: .destructive) { confirmation = source }
+            Button(CuadraoCopy.text("copy.releaseConnectedSourcesView.65ca190c04", spanish: spanish), role: .destructive) { confirmation = source }
                 .accessibilityIdentifier("identity.source.disconnect.\(source.id)")
         case .disconnecting:
-            ProgressView(text("Desconectando…", "Disconnecting…"))
+            ProgressView(CuadraoCopy.text("copy.releaseConnectedSourcesView.f002ce31b8", spanish: spanish))
         case .pending:
-            Label(text("Esperando confirmación", "Waiting for confirmation"), systemImage: "clock")
-            Text(text("La fuente todavía no ha confirmado la desconexión.", "This source has not confirmed disconnection yet."))
+            Label(CuadraoCopy.text("copy.releaseConnectedSourcesView.34ffe88c0a", spanish: spanish), systemImage: "clock")
+            Text(CuadraoCopy.text("copy.releaseConnectedSourcesView.e08f505ce9", spanish: spanish))
                 .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
             retry(source)
         case .failed:
-            Label(text("No se pudo desconectar", "Couldn't disconnect"), systemImage: "exclamationmark.circle")
+            Label(CuadraoCopy.text("copy.releaseConnectedSourcesView.5a85afd3f6", spanish: spanish), systemImage: "exclamationmark.circle")
             retry(source)
         case .disconnected:
-            Label(text("Desconectada", "Disconnected"), systemImage: "checkmark.circle")
+            Label(CuadraoCopy.text("copy.releaseConnectedSourcesView.906459808e", spanish: spanish), systemImage: "checkmark.circle")
         }
     }
 
     private func retry(_ source: ReleaseConnectedSource) -> some View {
-        Button(text("Volver a intentar", "Try again")) { onRetry(source.id) }
+        Button(CuadraoCopy.text("copy.releaseConnectedSourcesView.e4bd371375", spanish: spanish)) { onRetry(source.id) }
             .accessibilityIdentifier("identity.source.retry.\(source.id)")
     }
 }

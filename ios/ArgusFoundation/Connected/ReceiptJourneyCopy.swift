@@ -6,94 +6,88 @@ struct ReceiptJourneyCopy {
     let spanish: Bool
 
     // Consent: asked once per account, until reading is turned off in Settings.
-    var consentTitle: String { spanish ? "¿Leemos tus recibos con IA?" : "Read your receipts with AI?" }
+    var consentTitle: String { CuadraoCopy.text("copy.receiptJourneyCopy.5f6fa34cb3", spanish: spanish) }
     var consentDetail: String {
-        spanish ? "Google Gemini lee la foto y prepara el gasto para que lo revises. Nada se guarda hasta que lo confirmes. Puedes apagarlo en Perfil."
-                : "Google Gemini reads the photo and prepares the expense for you to review. Nothing is saved until you confirm. You can turn this off in Profile."
+        CuadraoCopy.text("copy.receiptJourneyCopy.8e96c640cc", spanish: spanish)
     }
     func choiceTitle(_ count: Int) -> String {
-        spanish ? (count == 1 ? "Recibo listo" : "\(count) recibos listos") : (count == 1 ? "Receipt ready" : "\(count) receipts ready")
+        (count == 1 ? CuadraoCopy.text("copy.receiptJourneyCopy.2956914fa6", spanish: spanish) : CuadraoCopy.text("copy.receiptJourneyCopy.528d92bdda", spanish: spanish, String(describing: count)))
     }
-    var read: String { spanish ? "Leer" : "Read" }
-    var consentSaveOnly: String { spanish ? "Solo guardar" : "Save only" }
+    var read: String { CuadraoCopy.text("copy.receiptJourneyCopy.f6e569c91f", spanish: spanish) }
+    var consentSaveOnly: String { CuadraoCopy.text("copy.receiptJourneyCopy.8a305c5e3c", spanish: spanish) }
 
     // Settings: the long explanation lives here and in the first question only.
-    var settingTitle: String { spanish ? "Leer recibos con IA" : "Read receipts with AI" }
+    var settingTitle: String { CuadraoCopy.text("copy.receiptJourneyCopy.51fddd2271", spanish: spanish) }
     var settingFooter: String {
-        spanish ? "Cuando lees un recibo, enviamos la imagen a Google Gemini para sacar el comercio, la fecha, los artículos y el total. No se guarda ningún gasto hasta que lo confirmes. Si lo apagas, te preguntamos antes de leer otro recibo; los recibos guardados no cambian."
-                : "When you read a receipt, we send the image to Google Gemini to pick out the merchant, date, items and total. No expense is saved until you confirm it. If you turn this off, we ask before reading another receipt; saved receipts do not change."
+        CuadraoCopy.text("copy.receiptJourneyCopy.3dc5995bd6", spanish: spanish)
     }
 
     // Pending approval: progress.
-    var sending: String { spanish ? "Enviando recibo…" : "Sending receipt…" }
-    var reading: String { spanish ? "Leyendo tu recibo…" : "Reading your receipt…" }
+    var sending: String { CuadraoCopy.text("copy.receiptJourneyCopy.02737393df", spanish: spanish) }
+    var reading: String { CuadraoCopy.text("copy.receiptJourneyCopy.9f2ed9f6be", spanish: spanish) }
     var readingDetail: String {
-        spanish ? "Puedes cerrar esto. Lo encontrarás en Recibos guardados." : "You can close this. You will find it in Saved receipts."
+        CuadraoCopy.text("copy.receiptJourneyCopy.b1a30a5a78", spanish: spanish)
     }
     var stillReading: String {
-        spanish ? "Ábrelo luego desde Recibos guardados." : "Open it later from Saved receipts."
+        CuadraoCopy.text("copy.receiptJourneyCopy.283209abd4", spanish: spanish)
     }
-    var recording: String { spanish ? "Guardando gasto…" : "Saving expense…" }
+    var recording: String { CuadraoCopy.text("copy.receiptJourneyCopy.4b4e939302", spanish: spanish) }
 
     // Approved review labels (Cuadrao receipt review).
-    var later: String { spanish ? "Después" : "Later" }
-    var done: String { spanish ? "Listo" : "Done" }
-    var cancel: String { spanish ? "Cancelar" : "Cancel" }
-    var confirm: String { spanish ? "Confirmar gasto" : "Confirm expense" }
-    var recorded: String { spanish ? "Gasto guardado" : "Expense saved" }
-    var correct: String { spanish ? "Corregir datos" : "Correct details" }
+    var later: String { CuadraoCopy.text("copy.receiptJourneyCopy.fb09b69c44", spanish: spanish) }
+    var done: String { CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish) }
+    var cancel: String { CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish) }
+    var confirm: String { CuadraoCopy.text("copy.receiptJourneyCopy.88b4c99896", spanish: spanish) }
+    var recorded: String { CuadraoCopy.text("copy.receiptJourneyCopy.fb6e8c6a34", spanish: spanish) }
+    var correct: String { CuadraoCopy.text("copy.receiptJourneyCopy.f72bbcda64", spanish: spanish) }
 
     // Pending approval: review.
-    var reviewTitle: String { spanish ? "Revisa el gasto" : "Review the expense" }
-    var merchant: String { spanish ? "Comercio" : "Merchant" }
-    var date: String { spanish ? "Fecha" : "Date" }
-    var total: String { spanish ? "Total" : "Total" }
-    var category: String { spanish ? "Categoría" : "Category" }
-    var noCategory: String { spanish ? "Sin categoría" : "No category" }
-    var account: String { spanish ? "Cuenta" : "Account" }
-    var chooseAccount: String { spanish ? "Elige la cuenta que pagó" : "Choose the account that paid" }
+    var reviewTitle: String { CuadraoCopy.text("copy.receiptJourneyCopy.ddd896d668", spanish: spanish) }
+    var merchant: String { CuadraoCopy.text("copy.receiptJourneyCopy.e47fa08736", spanish: spanish) }
+    var date: String { CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: spanish) }
+    var total: String { CuadraoCopy.text("copy.receiptJourneyCopy.b0d12f3afd", spanish: spanish) }
+    var category: String { CuadraoCopy.text("copy.connectedCuadraoHome.67c7ee0c0f", spanish: spanish) }
+    var noCategory: String { CuadraoCopy.text("copy.receiptJourneyCopy.225664ae74", spanish: spanish) }
+    var account: String { CuadraoCopy.text("copy.connectedAccountPresentation.f9d32ca2e5", spanish: spanish) }
+    var chooseAccount: String { CuadraoCopy.text("copy.receiptJourneyCopy.2644936461", spanish: spanish) }
     var noAccount: String {
-        spanish ? "No tienes una cuenta abierta en esta moneda para este gasto." : "You have no open account in this currency for this expense."
+        CuadraoCopy.text("copy.receiptJourneyCopy.2abe13d666", spanish: spanish)
     }
-    var items: String { spanish ? "Artículos del recibo" : "Receipt items" }
+    var items: String { CuadraoCopy.text("copy.receiptJourneyCopy.cc033fc1d3", spanish: spanish) }
     var itemsNote: String {
-        spanish ? "Los artículos son detalle del recibo. Se guarda un solo gasto por el total."
-                : "Items are receipt detail. One expense is saved for the total."
+        CuadraoCopy.text("copy.receiptJourneyCopy.af72fbf701", spanish: spanish)
     }
-    var unknown: String { spanish ? "Sin dato" : "Unknown" }
-    var alreadyRecorded: String { spanish ? "Ya anoté este gasto" : "I already recorded this" }
+    var unknown: String { CuadraoCopy.text("copy.receiptJourneyCopy.22aeea771f", spanish: spanish) }
+    var alreadyRecorded: String { CuadraoCopy.text("copy.receiptJourneyCopy.5e98f536b8", spanish: spanish) }
     var alreadyRecordedDetail: String {
-        spanish ? "Encontramos un movimiento con el mismo monto. Puedes añadirle este recibo en vez de crear otro."
-                : "We found a movement with the same amount. You can add this receipt to it instead of creating another."
+        CuadraoCopy.text("copy.receiptJourneyCopy.6751bbc478", spanish: spanish)
     }
-    var linked: String { spanish ? "Recibo añadido al movimiento" : "Receipt added to the movement" }
+    var linked: String { CuadraoCopy.text("copy.receiptJourneyCopy.724c065e73", spanish: spanish) }
     var recordedDetail: String {
-        spanish ? "Está en tu cuenta con su recibo." : "It is in your account with its receipt."
+        CuadraoCopy.text("copy.receiptJourneyCopy.dabc84976a", spanish: spanish)
     }
 
     // Pending approval: failures.
-    var couldNotReadTitle: String { spanish ? "No pudimos leerlo" : "We could not read it" }
-    var nothingToRecordTitle: String { spanish ? "No encontramos un gasto" : "No expense found" }
-    var stillSaved: String { spanish ? "Sigue guardado en Recibos guardados." : "It is still in Saved receipts." }
-    var stillReadingTitle: String { spanish ? "Sigue leyéndose" : "Still reading" }
-    var offlineTitle: String { spanish ? "Sin conexión" : "No connection" }
+    var couldNotReadTitle: String { CuadraoCopy.text("copy.receiptJourneyCopy.4f6e4f2289", spanish: spanish) }
+    var nothingToRecordTitle: String { CuadraoCopy.text("copy.receiptJourneyCopy.8dbbc7ed8e", spanish: spanish) }
+    var stillSaved: String { CuadraoCopy.text("copy.receiptJourneyCopy.f19696359f", spanish: spanish) }
+    var stillReadingTitle: String { CuadraoCopy.text("copy.receiptJourneyCopy.cd5de1072d", spanish: spanish) }
+    var offlineTitle: String { CuadraoCopy.text("copy.receiptJourneyCopy.b2652dac6f", spanish: spanish) }
     var offlineDetail: String {
-        spanish ? "El recibo sigue en este iPhone. Inténtalo cuando vuelva la conexión." : "The receipt is still on this iPhone. Try again when you are back online."
+        CuadraoCopy.text("copy.receiptJourneyCopy.cb0aa10792", spanish: spanish)
     }
-    var couldNotSendTitle: String { spanish ? "No se pudo enviar" : "Could not send" }
-    var readAgain: String { spanish ? "Leer de nuevo" : "Read again" }
-    var couldNotRecord: String { spanish ? "No pudimos guardar el gasto." : "We could not save the expense." }
+    var couldNotSendTitle: String { CuadraoCopy.text("copy.receiptJourneyCopy.69007b1cdc", spanish: spanish) }
+    var readAgain: String { CuadraoCopy.text("copy.receiptJourneyCopy.4a3f9b4af6", spanish: spanish) }
+    var couldNotRecord: String { CuadraoCopy.text("copy.receiptJourneyCopy.f3b44fd27f", spanish: spanish) }
     var balanceCheck: String {
-        spanish ? "Esta cuenta necesita un saldo confirmado antes de este gasto. Revísala y vuelve a intentarlo."
-                : "This account needs a confirmed balance before this expense. Check it and try again."
+        CuadraoCopy.text("copy.receiptJourneyCopy.07bd00b851", spanish: spanish)
     }
     func nextReceipt(_ count: Int) -> String {
-        spanish ? (count == 1 ? "Revisar el siguiente recibo" : "Revisar el siguiente (quedan \(count))")
-                : (count == 1 ? "Review the next receipt" : "Review the next one (\(count) left)")
+        (count == 1 ? CuadraoCopy.text("copy.receiptJourneyCopy.ac639e5b2c", spanish: spanish) : CuadraoCopy.text("copy.receiptJourneyCopy.6962a3aaa7", spanish: spanish, String(describing: count)))
     }
-    var viewReceipt: String { spanish ? "Ver recibo" : "View receipt" }
-    var backToReview: String { spanish ? "Volver a revisar" : "Back to review" }
-    var retry: String { spanish ? "Reintentar" : "Try again" }
+    var viewReceipt: String { CuadraoCopy.text("copy.receiptJourneyCopy.176bc5563c", spanish: spanish) }
+    var backToReview: String { CuadraoCopy.text("copy.receiptJourneyCopy.a098e5adcb", spanish: spanish) }
+    var retry: String { CuadraoCopy.text("copy.connectedCuadraoAuth.ada77fc089", spanish: spanish) }
 
     func recordFailure(_ code: String?) -> String {
         code == "balance_coverage_required" ? balanceCheck : couldNotRecord

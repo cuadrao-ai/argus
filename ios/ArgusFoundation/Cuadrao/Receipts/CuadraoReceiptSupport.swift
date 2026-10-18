@@ -13,18 +13,18 @@ struct ReceiptLineEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField(spanish ? "Artículo" : "Item", text: $line.name).accessibilityIdentifier("receipt-item-name")
-                Stepper((spanish ? "Cantidad: " : "Quantity: ") + String(line.quantity), value: $line.quantity, in: 1...999)
+                TextField(CuadraoCopy.text("copy.cuadraoReceiptSupport.93090396c1", spanish: spanish), text: $line.name).accessibilityIdentifier("receipt-item-name")
+                Stepper((CuadraoCopy.text("copy.cuadraoReceiptSupport.da67a66c4e", spanish: spanish)) + String(line.quantity), value: $line.quantity, in: 1...999)
                     .accessibilityIdentifier("receipt-item-quantity")
                 CanvasMoneyValueInput(value: Binding(get: { Double(line.unitCents) / 100 }, set: { line.unitCents = Int(($0 * 100).rounded()) }),
                                       error: $error, currency: currency, spanish: spanish, identifier: "receipt-item-price",
-                                      title: spanish ? "Precio unitario" : "Unit price", size: .prominent, alignment: .left).frame(minHeight: 54)
+                                      title: CuadraoCopy.text("copy.cuadraoReceiptSupport.3c64122be6", spanish: spanish), size: .prominent, alignment: .left).frame(minHeight: 54)
                 if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.red) }
-                if existing { Button(spanish ? "Quitar artículo" : "Remove item", role: .destructive) { save(nil); dismiss() } }
-            }.cuadraoFormKeyboard().navigationTitle(spanish ? "Artículo" : "Item").navigationBarTitleDisplayMode(.inline)
+                if existing { Button(CuadraoCopy.text("copy.cuadraoReceiptSupport.1cdf09d1e4", spanish: spanish), role: .destructive) { save(nil); dismiss() } }
+            }.cuadraoFormKeyboard().navigationTitle(CuadraoCopy.text("copy.cuadraoReceiptSupport.93090396c1", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { dismiss() }
-                    CuadraoConfirmToolbar(title: spanish ? "Guardar" : "Save",
+                    CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish)) { dismiss() }
+                    CuadraoConfirmToolbar(title: CuadraoCopy.text("copy.cuadraoAccountManagement.553ab1bf1a", spanish: spanish),
                                           disabled: !error.isEmpty || line.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                                           identifier: "receipt-item-save") { save(line); dismiss() }
                 }
@@ -48,12 +48,12 @@ struct ReceiptSourceViewer: View {
                                 ReceiptPDF(url: store.url(source)).frame(height: 560)
                             } else if let data = try? Data(contentsOf: store.url(source)), let image = UIImage(data: data) {
                                 Image(uiImage: image).resizable().scaledToFit().accessibilityLabel(source.name)
-                            } else { Text(spanish ? "No pudimos abrir esta página." : "This page could not be opened.") }
+                            } else { Text(CuadraoCopy.text("copy.cuadraoReceiptSupport.77ee316af8", spanish: spanish)) }
                         }
                     }
                 }.padding(24)
-            }.navigationTitle(spanish ? "Recibo original" : "Original receipt").navigationBarTitleDisplayMode(.inline)
-                .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
+            }.navigationTitle(CuadraoCopy.text("copy.cuadraoReceiptSupport.1e9e78fb18", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
+                .toolbar { CuadraoDoneToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish)) { dismiss() } }
         }
     }
 }
@@ -113,9 +113,9 @@ struct CuadraoOwedRow: View {
         }.foregroundStyle(color)
     }
     private var label: String {
-        if cents == 0 { return spanish ? "Al día" : "Settled" }
-        if own { return cents > 0 ? (spanish ? "Te deben" : "You're owed") : (spanish ? "Debes" : "You owe") }
-        return cents > 0 ? (spanish ? "Por recibir" : "To receive") : (spanish ? "Debe" : "Owes")
+        if cents == 0 { return CuadraoCopy.text("copy.cuadraoReceiptSupport.1717c56ed4", spanish: spanish) }
+        if own { return cents > 0 ? (CuadraoCopy.text("copy.cuadraoReceiptSupport.df4ffa19e5", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoReceiptSupport.10848c8ed8", spanish: spanish)) }
+        return cents > 0 ? (CuadraoCopy.text("copy.cuadraoReceiptSupport.8409ac4d79", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoReceiptSupport.cadec2908f", spanish: spanish))
     }
     private var color: Color { cents > 0 ? WelcomePalette.pine : cents < 0 ? WelcomePalette.owedNegative : .secondary }
 }
@@ -130,8 +130,8 @@ struct ReceiptCard: View {
                 Image(systemName: draft.prepared ? "receipt" : "checkmark.seal").frame(width: 40, height: 44)
                     .foregroundStyle(WelcomePalette.pine)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(draft.merchant.isEmpty ? (spanish ? "Recibo guardado" : "Saved receipt") : draft.merchant).font(CuadraoTypography.supporting)
-                    Text(draft.prepared ? (spanish ? "Por revisar · solo tú" : "Ready to review · only you") : (spanish ? "Confirmado" : "Confirmed")).font(.caption).foregroundStyle(.secondary)
+                    Text(draft.merchant.isEmpty ? (CuadraoCopy.text("copy.cuadraoReceiptSupport.4475c5ae54", spanish: spanish)) : draft.merchant).font(CuadraoTypography.supporting)
+                    Text(draft.prepared ? (CuadraoCopy.text("copy.cuadraoReceiptSupport.3cb7637ea2", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoReceiptSupport.184bee8c07", spanish: spanish))).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 if draft.total > 0, let currency = draft.currency { Text(CanvasMoney.format(Decimal(draft.total) / 100, currency: currency)).font(CuadraoTypography.rowAmount) }
@@ -150,20 +150,20 @@ struct ReceiptSavedList: View {
             Menu {
                 ReceiptSourceActions(spanish: spanish) { workspace.capture(ReceiptOrigin(groupID: groupID, threadID: nil), $0) }
             } label: {
-                Label(spanish ? "Añadir recibo" : "Add receipt", systemImage: "plus")
+                Label(CuadraoCopy.text("copy.cuadraoGroupDetail.9f86838362", spanish: spanish), systemImage: "plus")
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .contentShape(Rectangle())
             }.buttonStyle(.borderless).accessibilityIdentifier("saved-add-receipt")
             if !workspace.receipts.loadFailed && !workspace.receipts.receipts.contains(where: { $0.groupID == groupID }) {
-                ContentUnavailableView(spanish ? "Sin recibos todavía" : "No receipts yet", systemImage: "receipt",
-                    description: Text(spanish ? "Guarda uno ahora y revísalo después." : "Save one now and review it later."))
+                ContentUnavailableView(CuadraoCopy.text("copy.cuadraoReceiptSupport.56e36b0ac2", spanish: spanish), systemImage: "receipt",
+                    description: Text(CuadraoCopy.text("copy.cuadraoReceiptSupport.a066a6ba07", spanish: spanish)))
             }
             ForEach(workspace.receipts.receipts.filter { $0.groupID == groupID }.sorted { $0.updatedAt > $1.updatedAt }) { draft in
                 ReceiptCard(draft: draft, spanish: spanish) { workspace.open(draft.id) }.listRowSeparator(.hidden)
             }
             if workspace.receipts.loadFailed {
-                Text(spanish ? "No pudimos abrir los recibos guardados. Los archivos siguen en este dispositivo." : "Saved receipts could not be opened. The files remain on this device.")
+                Text(CuadraoCopy.text("copy.cuadraoReceiptSupport.3577c92ea8", spanish: spanish))
             }
-        }.listStyle(.plain).navigationTitle(spanish ? "Recibos guardados" : "Saved receipts").navigationBarTitleDisplayMode(.inline)
+        }.listStyle(.plain).navigationTitle(CuadraoCopy.text("copy.savedReceiptCopy.d4f38a690a", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
     }
 }

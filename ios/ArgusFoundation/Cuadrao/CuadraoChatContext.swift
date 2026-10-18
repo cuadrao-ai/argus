@@ -43,9 +43,9 @@ enum CanvasChatFocus: Equatable {
         case .account(_, let title), .activity(_, let title), .plan(_, let title),
              .group(_, let title), .receipt(_, let title): title
         case .chart(let chart):
-            [chart.metric == .activity ? (spanish ? "Actividad" : "Activity") : "Balance",
+            [chart.metric == .activity ? (CuadraoCopy.text("copy.cuadraoChatContext.fea64e51c2", spanish: spanish)) : CuadraoCopy.text("copy.cuadraoChatContext.02e2073456", spanish: spanish),
              chart.spaceTitle, chart.currency, chart.periodTitle,
-             chart.presentation == .distribution ? (spanish ? "Distribución" : "Distribution") : (spanish ? "Evolución" : "Evolution"),
+             chart.presentation == .distribution ? (CuadraoCopy.text("copy.cuadraoChatContext.af34dc6583", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoChatContext.382a06960e", spanish: spanish)),
              chart.selection?.title, chart.inspectedTitle].compactMap { $0 }.joined(separator: " · ")
         }
     }
@@ -123,7 +123,7 @@ struct CanvasChatFocusChip: View {
                 Spacer(minLength: 0)
                 Button(action: remove) { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(spanish ? "Quitar contexto" : "Remove context")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoChatContext.d7fd55178d", spanish: spanish))
                     .accessibilityIdentifier("chat-focus-remove")
             }
         }.foregroundStyle(WelcomePalette.pine).padding(.leading, 12).padding(.trailing, remove == nil ? 12 : 0)
@@ -139,7 +139,7 @@ struct CanvasChartAsk: View {
     @State private var focus: CanvasChatFocus?
     var body: some View {
         Button { focus = .chart(context) } label: {
-            Label(spanish ? "Preguntar a Cuadrao" : "Ask Cuadrao", systemImage: "bubble").frame(minHeight: 44)
+            Label(CuadraoCopy.text("copy.cuadraoAccountCanvas.b44a9adeb4", spanish: spanish), systemImage: "bubble").frame(minHeight: 44)
         }.font(CuadraoTypography.supporting).accessibilityIdentifier("insight-open-chat")
             .contextualCuadrao(focus: $focus, spanish: spanish)
     }

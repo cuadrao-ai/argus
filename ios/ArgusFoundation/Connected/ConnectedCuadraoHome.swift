@@ -20,7 +20,7 @@ struct ConnectedCuadraoHome: View {
     @State private var archivedID: UUID?
     @State private var accountOrder: [UUID] = []
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var activeAccounts: [FinancialAccount] {
         ConnectedAccountOrder.applying(accountOrder, to: accounts.accounts.filter { !$0.archived })
     }
@@ -127,13 +127,13 @@ struct ConnectedCuadraoHome: View {
             if !account.isOptionalAsset {
                 Button(NSLocalizedString("loop.check.title", comment: "")) { loop.check(account) }.accessibilityIdentifier("accounts.more.check")
             }
-            Button(spanish ? "Archivar" : "Archive", role: .destructive) { sheet = .archive(account) }
+            Button(CuadraoCopy.text("copy.connectedCuadraoHome.0960027352", spanish: spanish), role: .destructive) { sheet = .archive(account) }
                 .accessibilityIdentifier("accounts.more.archive")
         }
         .sheet(item: $sheet) { item in modal(item) }
         .overlay(alignment: .bottom) {
             if let archivedID, homePath.isEmpty, accounts.accounts.first(where: { $0.id == archivedID })?.archived == true {
-                CuadraoToast(text: spanish ? "Cuenta archivada" : "Account archived", actionTitle: spanish ? "Deshacer" : "Undo",
+                CuadraoToast(text: CuadraoCopy.text("copy.connectedCuadraoHome.d6e6d390ca", spanish: spanish), actionTitle: CuadraoCopy.text("copy.connectedCuadraoHome.3ec51337bc", spanish: spanish),
                     actionIdentifier: "accounts.archived.undo", action: { restore(archivedID) }, spanish: spanish,
                     token: archivedID, close: { self.archivedID = nil })
             }
@@ -255,13 +255,13 @@ struct ConnectedCuadraoHome: View {
                 HStack(spacing: 0) {
                     Button { sheet = .options } label: {
                         HStack(spacing: 8) {
-                            Text(spanish ? "Cuentas" : "Accounts").font(CuadraoTypography.section)
+                            Text(CuadraoCopy.text("copy.connectedCuadraoHome.8cce5d02a3", spanish: spanish)).font(CuadraoTypography.section)
                             Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
                         }.frame(minHeight: 44).contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityIdentifier("accounts.manage")
                     Spacer()
-                    CuadraoSectionAddButton(title: spanish ? "Añadir cuenta" : "Add account") { accounts.create() }
-                        .accessibilityLabel(spanish ? "Añadir cuenta" : "Add account")
+                    CuadraoSectionAddButton(title: CuadraoCopy.text("copy.connectedCuadraoHome.10d1d9ce3f", spanish: spanish)) { accounts.create() }
+                        .accessibilityLabel(CuadraoCopy.text("copy.connectedCuadraoHome.10d1d9ce3f", spanish: spanish))
                         .accessibilityIdentifier("accounts.add")
                 }
             }
@@ -302,10 +302,10 @@ struct ConnectedCuadraoHome: View {
         guard loop.pendingConfirmation == nil else { return [] }
         switch edge {
         case .leading:
-            return [.init(id: "accounts.swipe.record", title: spanish ? "Añadir movimiento" : "Add movement", symbol: "plus", tint: WelcomePalette.pine) { loop.record(account) }]
+            return [.init(id: "accounts.swipe.record", title: CuadraoCopy.text("copy.connectedCuadraoHome.c02f7af608", spanish: spanish), symbol: "plus", tint: WelcomePalette.pine) { loop.record(account) }]
         case .trailing:
-            return [.init(id: "accounts.swipe.edit", title: spanish ? "Editar" : "Edit", symbol: "pencil", tint: .blue) { accounts.rename(account) },
-                    .init(id: "accounts.swipe.more", title: spanish ? "Más" : "More", symbol: "ellipsis", tint: .gray) { moreAccount = account }]
+            return [.init(id: "accounts.swipe.edit", title: CuadraoCopy.text("copy.connectedCuadraoHome.2ddd4a589f", spanish: spanish), symbol: "pencil", tint: .blue) { accounts.rename(account) },
+                    .init(id: "accounts.swipe.more", title: CuadraoCopy.text("copy.connectedCuadraoHome.b326f2fa6b", spanish: spanish), symbol: "ellipsis", tint: .gray) { moreAccount = account }]
         }
     }
 
@@ -315,10 +315,10 @@ struct ConnectedCuadraoHome: View {
         let id = entry.activityId ?? entry.recordId
         switch edge {
         case .leading:
-            return [.init(id: "home.activity.swipe.edit", title: spanish ? "Editar" : "Edit", symbol: "pencil", tint: .blue) { correct(id, focusCategory: false) }]
+            return [.init(id: "home.activity.swipe.edit", title: CuadraoCopy.text("copy.connectedCuadraoHome.2ddd4a589f", spanish: spanish), symbol: "pencil", tint: .blue) { correct(id, focusCategory: false) }]
         case .trailing:
             guard entry.kind == "expense" else { return [] }
-            return [.init(id: "home.activity.swipe.category", title: spanish ? "Categoría" : "Category", symbol: "tag", tint: .orange) { correct(id, focusCategory: true) }]
+            return [.init(id: "home.activity.swipe.category", title: CuadraoCopy.text("copy.connectedCuadraoHome.67c7ee0c0f", spanish: spanish), symbol: "tag", tint: .orange) { correct(id, focusCategory: true) }]
         }
     }
 
@@ -339,11 +339,11 @@ struct ConnectedCuadraoHome: View {
     private func activity(_ home: FinancialHome) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text(spanish ? "Movimientos" : "Activity")
+                Text(CuadraoCopy.text("copy.accountActivityView.f7d6ac01ad", spanish: spanish))
                     .font(CuadraoTypography.section)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
-                CuadraoSectionAddButton(title: spanish ? "Añadir movimiento" : "Add activity") {
+                CuadraoSectionAddButton(title: CuadraoCopy.text("copy.connectedCuadraoHome.175c809f14", spanish: spanish)) {
                     switch ConnectedAddMovement.target(for: activeAccounts, loaded: accounts.hasLoaded, preferredCurrency: auth.profile?.currency) {
                     case .record(let account): loop.record(account)
                     case .loadAccounts: Task { await accounts.load() }
@@ -397,11 +397,11 @@ private struct ConnectedArchivedAccounts: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if !showAll {
-                        Text(spanish ? "Sus balances e historial se conservan." : "Balances and history are kept.")
+                        Text(CuadraoCopy.text("copy.connectedCuadraoHome.d433d35ac8", spanish: spanish))
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
                     if displayed.isEmpty {
-                        ContentUnavailableView(spanish ? "No hay cuentas archivadas" : "No archived accounts",
+                        ContentUnavailableView(CuadraoCopy.text("copy.connectedCuadraoHome.63cbd4a9dc", spanish: spanish),
                                                systemImage: "archivebox")
                     }
                     ForEach(displayed) { account in
@@ -417,7 +417,7 @@ private struct ConnectedArchivedAccounts: View {
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("accounts.row.\(account.id)")
                             if account.archived {
-                                CanvasActionRow(title: spanish ? "Restaurar" : "Restore", symbol: "arrow.uturn.backward") {
+                                CanvasActionRow(title: CuadraoCopy.text("copy.connectedCuadraoHome.e203d01b16", spanish: spanish), symbol: "arrow.uturn.backward") {
                                     Task { await accounts.archive(account) }
                                 }.foregroundStyle(WelcomePalette.pine)
                             }
@@ -426,7 +426,7 @@ private struct ConnectedArchivedAccounts: View {
                     }
                 }.padding(24)
             }.background(WelcomePalette.background)
-                .navigationTitle(showAll ? (spanish ? "Cuentas" : "Accounts") : (spanish ? "Cuentas archivadas" : "Archived accounts"))
+                .navigationTitle(showAll ? (CuadraoCopy.text("copy.connectedCuadraoHome.8cce5d02a3", spanish: spanish)) : (CuadraoCopy.text("copy.connectedCuadraoHome.4ab8767f26", spanish: spanish)))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {

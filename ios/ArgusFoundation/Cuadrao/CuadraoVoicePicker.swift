@@ -9,9 +9,9 @@ enum CuadraoVoiceOption: String, CaseIterable, Identifiable {
     var name: String { rawValue.capitalized }
     func detail(_ es: Bool) -> String {
         switch self {
-        case .ara: es ? "Cálida y cercana" : "Warm and friendly"
-        case .eve: es ? "Vivaz y expresiva" : "Lively and expressive"
-        case .sal: es ? "Suave y equilibrada" : "Smooth and balanced"
+        case .ara: CuadraoCopy.text("copy.cuadraoVoicePicker.a0ca2caed3", spanish: es)
+        case .eve: CuadraoCopy.text("copy.cuadraoVoicePicker.ffc9eab0c9", spanish: es)
+        case .sal: CuadraoCopy.text("copy.cuadraoVoicePicker.564f4b15d8", spanish: es)
         }
     }
 }
@@ -23,7 +23,7 @@ struct CuadraoVoicePreference: View {
     var body: some View {
         Button { choosing = true } label: {
             HStack {
-                Text(spanish ? "Voz" : "Voice")
+                Text(CuadraoCopy.text("copy.cuadraoVoicePicker.d0a8b9cb41", spanish: spanish))
                 Spacer()
                 Text(selected.name).foregroundStyle(.secondary)
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
@@ -59,13 +59,11 @@ struct CuadraoVoicePicker: View {
                 .accessibilityIdentifier("voice-carousel")
                 pages
                 sampleControl
-                Text(spanish ? "Muestras en inglés. Puedes conversar en español."
-                     : "English samples. You can speak in your preferred language.")
+                Text(CuadraoCopy.text("copy.cuadraoVoicePicker.17319f2ff9", spanish: spanish))
                     .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
                 if sample.failed {
-                    Text(spanish ? "No se pudo reproducir. Toca para volver a intentarlo."
-                         : "Couldn't play this sample. Tap to retry.")
+                    Text(CuadraoCopy.text("copy.cuadraoVoicePicker.bd5310a64e", spanish: spanish))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }.padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 24)
@@ -81,14 +79,14 @@ struct CuadraoVoicePicker: View {
 
     private var header: some View {
         HStack {
-            Text(spanish ? "Elegir voz" : "Choose voice")
+            Text(CuadraoCopy.text("copy.cuadraoVoicePicker.a6bf36ec17", spanish: spanish))
                 .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
             Spacer()
             Button { sample.stop(); dismiss() } label: {
                 Image(systemName: "checkmark").font(.body.weight(.semibold))
                     .frame(width: 44, height: 44)
                     .background(WelcomePalette.surface, in: Circle())
-            }.accessibilityLabel(spanish ? "Listo" : "Done")
+            }.accessibilityLabel(CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish))
                 .accessibilityIdentifier("voice-picker-done")
         }
     }
@@ -114,15 +112,15 @@ struct CuadraoVoicePicker: View {
                 Image(systemName: sample.playing == selected ? "stop.fill" : "play.fill")
                     .font(.system(size: 12, weight: .semibold))
                 Text(sample.playing == selected
-                     ? (spanish ? "Detener muestra" : "Stop preview")
-                     : (spanish ? "Escuchar muestra" : "Play preview"))
+                     ? (CuadraoCopy.text("copy.cuadraoVoicePicker.9ea5a91e8d", spanish: spanish))
+                     : (CuadraoCopy.text("copy.cuadraoVoicePicker.cd3f844181", spanish: spanish)))
                     .font(.subheadline.weight(.medium))
             }.frame(minWidth: 180, minHeight: 44)
                 .background(WelcomePalette.surface, in: Capsule())
         }.buttonStyle(.plain)
             .accessibilityLabel((sample.playing == selected
-                ? (spanish ? "Detener " : "Stop ")
-                : (spanish ? "Escuchar " : "Preview ")) + selected.name)
+                ? (CuadraoCopy.text("copy.cuadraoVoicePicker.b77398b1da", spanish: spanish))
+                : (CuadraoCopy.text("copy.cuadraoVoicePicker.fea399e9df", spanish: spanish))) + selected.name)
             .accessibilityIdentifier("voice-sample")
     }
 

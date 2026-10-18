@@ -97,9 +97,8 @@ struct ConnectedProviderButtons: View {
                 #endif
                 if failed, !auth.busy, auth.state != .authenticated {
                     RegistrationNotice(symbol: "exclamationmark.circle",
-                        title: spanish ? "No pudimos iniciar sesión." : "We couldn’t sign you in.",
-                        detail: spanish ? "Inténtalo de nuevo o continúa con tu correo."
-                            : "Try again, or continue with your email.")
+                        title: CuadraoCopy.text("copy.nativeProviderSignIn.7fe06b0d57", spanish: spanish),
+                        detail: CuadraoCopy.text("copy.nativeProviderSignIn.4574cd68ae", spanish: spanish))
                 }
             }
             .padding(.bottom, 12)

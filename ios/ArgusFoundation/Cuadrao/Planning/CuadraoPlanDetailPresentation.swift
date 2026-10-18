@@ -64,7 +64,7 @@ struct CuadraoPlanDetailFacts<Content: View>: View {
                 content()
             }.font(.subheadline).padding(.top, 16)
         } label: {
-            Text(spanish ? "Los detalles, claros" : "The details, clearly").font(.subheadline.weight(.medium))
+            Text(CuadraoCopy.text("copy.cuadraoPlanDetailPresentation.02d6d9b267", spanish: spanish)).font(.subheadline.weight(.medium))
         }
     }
 }
@@ -77,7 +77,7 @@ struct CuadraoPlanDetailOptions<Content: View>: View {
         Menu(content: content) {
             Image(systemName: "ellipsis").frame(width: 44, height: 44)
         }
-        .accessibilityLabel(spanish ? "Opciones del plan" : "Plan options")
+        .accessibilityLabel(CuadraoCopy.text("copy.cuadraoPlanDetailPresentation.22bf9418ef", spanish: spanish))
         .accessibilityIdentifier("plan-detail-options")
     }
 }

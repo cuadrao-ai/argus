@@ -5,11 +5,11 @@ import Observation
 extension CuadraoTab {
     func title(spanish: Bool) -> String {
         switch self {
-        case .home: spanish ? "Inicio" : "Home"
-        case .plan: "Plan"
-        case .assistant: spanish ? "Asistente" : "Assistant"
-        case .search: spanish ? "Buscar" : "Search"
-        case .profile: spanish ? "Perfil" : "Profile"
+        case .home: CuadraoCopy.text("copy.cuadraoNavigationBar.76dc6dbbfd", spanish: spanish)
+        case .plan: CuadraoCopy.text("destination.plan")
+        case .assistant: CuadraoCopy.text("copy.cuadraoNavigationBar.294f940bb3", spanish: spanish)
+        case .search: CuadraoCopy.text("copy.cuadraoNavigationBar.78ab8df08d", spanish: spanish)
+        case .profile: CuadraoCopy.text("copy.cuadraoNavigationBar.a7a3471705", spanish: spanish)
         }
     }
 
@@ -112,7 +112,7 @@ struct CuadraoNavigationBar: View {
     }
 
     private var addLabel: String {
-        addOpen ? (spanish ? "Cerrar" : "Close") : (spanish ? "Añadir" : "Add")
+        addOpen ? (CuadraoCopy.text("copy.cuadraoAccountsCollection.f296f2cba3", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoFirstAccountSheet.aae0895459", spanish: spanish))
     }
 
     private var addGlyph: some View {

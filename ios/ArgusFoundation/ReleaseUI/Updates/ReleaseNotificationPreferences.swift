@@ -9,42 +9,39 @@ struct ReleaseNotificationPreferences: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text(spanish ? "Lo importante, a tiempo" : "What matters, on time").font(CuadraoTypography.feature)
-                Text(spanish ? "Recibe un aviso cuando una factura venza en 3 días y el día de su vencimiento. Tus novedades siguen en la app aunque no actives notificaciones."
-                    : "Get a reminder 3 days before a bill is due and on its due date. Your updates stay in the app even if you don't enable notifications.")
+                Text(CuadraoCopy.text("copy.releaseNotificationPreferences.b1bbe9526b", spanish: spanish)).font(CuadraoTypography.feature)
+                Text(CuadraoCopy.text("copy.releaseNotificationPreferences.960997d9bb", spanish: spanish))
                     .font(CuadraoTypography.body)
                 VStack(alignment: .leading, spacing: 8) {
-                    Label(spanish ? "Vista previa" : "Preview", systemImage: "bell").font(CuadraoTypography.caption)
+                    Label(CuadraoCopy.text("copy.cuadraoVoiceBar.50a58652a9", spanish: spanish), systemImage: "bell").font(CuadraoTypography.caption)
                     Text(ReleaseSafePushCopy.title(spanish: spanish)).font(.body.weight(.semibold))
                     Text(ReleaseSafePushCopy.body(spanish: spanish)).font(CuadraoTypography.supporting)
                 }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
                     .background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 20))
                     .accessibilityIdentifier("updates-safe-push-preview")
-                Text(spanish ? "Los avisos no muestran montos, saldos, comercios ni nombres de documentos. No enviamos novedades por correo."
-                    : "Notifications don't show amounts, balances, merchants or document names. We don't send updates by email.")
+                Text(CuadraoCopy.text("copy.releaseNotificationPreferences.f7677f4d24", spanish: spanish))
                     .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
                 switch permission {
                 case .unavailable:
-                    Text(spanish ? "Las notificaciones aún no están disponibles." : "Notifications aren't available yet.")
+                    Text(CuadraoCopy.text("copy.releaseNotificationPreferences.af336da3d0", spanish: spanish))
                 case .notDetermined:
-                    Button(spanish ? "Activar notificaciones" : "Enable notifications", action: requestPermission)
+                    Button(CuadraoCopy.text("copy.releaseNotificationPreferences.98eafe0642", spanish: spanish), action: requestPermission)
                         .frame(minHeight: 44).accessibilityIdentifier("updates-enable-push")
                 case .requesting:
-                    ProgressView(spanish ? "Esperando tu decisión…" : "Waiting for your choice…")
+                    ProgressView(CuadraoCopy.text("copy.releaseNotificationPreferences.825e2ddb68", spanish: spanish))
                 case .authorized:
-                    Label(spanish ? "Notificaciones permitidas" : "Notifications allowed", systemImage: "checkmark")
+                    Label(CuadraoCopy.text("copy.releaseNotificationPreferences.618a1dc03a", spanish: spanish), systemImage: "checkmark")
                     settingsButton
                 case .denied:
-                    Text(spanish ? "Las notificaciones están desactivadas. Puedes cambiarlas en Ajustes; tus novedades siguen aquí."
-                        : "Notifications are off. You can change this in Settings; your updates remain here.")
+                    Text(CuadraoCopy.text("copy.releaseNotificationPreferences.bc60ae6852", spanish: spanish))
                     settingsButton
                 }
             }.frame(maxWidth: .infinity, alignment: .leading).padding(24)
         }.background(WelcomePalette.background).foregroundStyle(WelcomePalette.ink)
-            .navigationTitle(spanish ? "Notificaciones" : "Notifications").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(CuadraoCopy.text("copy.releaseNotificationPreferences.e66eecd5cf", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
     }
     private var settingsButton: some View {
-        Button(spanish ? "Abrir Ajustes" : "Open Settings", action: openSettings)
+        Button(CuadraoCopy.text("copy.releaseNotificationPreferences.32576cf48b", spanish: spanish), action: openSettings)
             .frame(minHeight: 44).accessibilityIdentifier("updates-open-settings")
     }
 }

@@ -12,13 +12,13 @@ struct PlanCurrencyChoice: View {
             CuadraoChoiceLabel(title: currency, selectable: false, locked: showLock)
                 .foregroundStyle(.secondary)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(spanish ? "Moneda fija: \(currency)" : "Fixed currency: \(currency)")
+                .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAmountField.579ad15d4c", spanish: spanish, String(describing: currency)))
                 .accessibilityIdentifier(showLock ? "plan-currency-fixed" : "plan-currency-inherited")
         } else {
-            CuadraoChoiceMenu(title: spanish ? "Moneda" : "Currency", selection: $currency,
+            CuadraoChoiceMenu(title: CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish), selection: $currency,
                 values: rules.pickerCodes?() ?? PlanCurrency.supported, valueTitle: { $0 })
                 .buttonStyle(.plain).foregroundStyle(WelcomePalette.pine)
-                .accessibilityLabel(spanish ? "Moneda, \(currency)" : "Currency, \(currency)")
+                .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAmountField.06c028f17d", spanish: spanish, String(describing: currency)))
                 .accessibilityIdentifier(identifier)
         }
     }

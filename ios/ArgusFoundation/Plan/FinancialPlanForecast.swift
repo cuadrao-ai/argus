@@ -10,7 +10,7 @@ struct FinancialPlanForecast<Details: View>: View {
     @ViewBuilder let details: (FinancialForecastCurrency?) -> Details
     @State private var selectedCurrency: String?
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var currency: FinancialForecastCurrency? {
         let code = CurrencyPresentation.selectedCode(available: projection.currencies.map(\.currency),
             explicit: selectedCurrency, primary: primaryCurrency)
@@ -20,7 +20,7 @@ struct FinancialPlanForecast<Details: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            CuadraoPlanForecastSection(period: spanish ? "Tu previsión" : "Your forecast") {
+            CuadraoPlanForecastSection(period: CuadraoCopy.text("copy.financialPlanForecast.dd3f66acc1", spanish: spanish)) {
                 if projection.currencies.count > 1 {
                     Menu {
                         ForEach(projection.currencies) { option in
@@ -46,10 +46,10 @@ struct FinancialPlanForecast<Details: View>: View {
                         .id(projection.selection.accountIds)
                         .id(projection.selection.timeZone)
                         .id(currency.accountIds)
-                    Text(spanish ? "Según tus saldos y compromisos registrados. No estima gastos sin programar." : "Based on your balances and scheduled items. Unplanned spending is not estimated.")
+                    Text(CuadraoCopy.text("copy.financialPlanForecast.f864256f44", spanish: spanish))
                         .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("plan.coverage")
                 } else {
-                    Text(spanish ? "Elige una moneda para ver tu previsión." : "Choose a currency to see your forecast.")
+                    Text(CuadraoCopy.text("copy.financialPlanForecast.0851f51522", spanish: spanish))
                         .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
                         .accessibilityIdentifier("plan.forecast.chooseCurrency")
                 }
@@ -79,11 +79,11 @@ struct FinancialPlanForecast<Details: View>: View {
     private func coldStartDetail(_ start: ConnectedForecastStart) -> String {
         switch start {
         case .noAccounts:
-            spanish ? "Puedes hacer tu primer plan hoy. Tu previsión tomará forma cuando agregues una cuenta." : "Make your first plan today. Your forecast will take shape once you add an account."
+            CuadraoCopy.text("copy.financialPlanForecast.aed83b432e", spanish: spanish)
         case .noAccountsIncluded:
-            spanish ? "Puedes hacer tu primer plan hoy. Elige las cuentas que quieres incluir para ver lo que viene." : "Make your first plan today. Choose the accounts to include to see what's ahead."
+            CuadraoCopy.text("copy.financialPlanForecast.8dc744f1e1", spanish: spanish)
         case .noKnownBalance:
-            spanish ? "Puedes hacer tu primer plan hoy. Tu previsión tomará forma cuando tus cuentas tengan un saldo." : "Make your first plan today. Your forecast will take shape once your accounts have a balance."
+            CuadraoCopy.text("copy.financialPlanForecast.cc14aa9fc3", spanish: spanish)
         }
     }
 
@@ -106,7 +106,7 @@ struct FinancialPlanForecast<Details: View>: View {
                 Text("plan.assumptions").font(CuadraoTypography.caption).foregroundStyle(.secondary)
             }.padding(.top, 16)
         } label: {
-            Text(spanish ? "¿De dónde sale?" : "What's behind this?").font(.subheadline.weight(.medium))
+            Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.d71bd096f1", spanish: spanish)).font(.subheadline.weight(.medium))
                 .accessibilityIdentifier("plan.forecast.details")
         }.padding(.top, 8)
     }
@@ -128,7 +128,7 @@ private struct FinancialPlanScenarioExample: View {
 
     var body: some View {
         CuadraoForecastPlayground(store: example, scope: CanvasSpace.personalID,
-            scopeName: spanish ? "Ejemplo" : "Example", spanish: spanish,
+            scopeName: CuadraoCopy.text("copy.financialPlanForecast.43d5c155ac", spanish: spanish), spanish: spanish,
             bottomSpace: bottomSpace, isolatedExample: true)
     }
 }
@@ -140,7 +140,7 @@ private struct FinancialPlanForecastCurrency: View {
     let end: String
     @State private var selected: Int?
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var series: ConnectedForecastSeries { .reading(currency, end: end) }
     private var selectedPoint: ConnectedForecastSeries.Point? {
         guard let selected, case .series(let points, _) = series, points.indices.contains(selected) else { return nil }
@@ -160,7 +160,7 @@ private struct FinancialPlanForecastCurrency: View {
             if !currency.unknownAccountIds.isEmpty {
                 if currency.accountIds.contains(where: { !currency.unknownAccountIds.contains($0) }) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(locale.language.languageCode?.identifier == "es" ? "Saldo inicial conocido" : "Known starting balance")
+                        Text(CuadraoCopy.text("copy.financialPlanForecast.79b26bb53f", spanish: CuadraoCopy.isSpanish()))
                         Text(amount(currency.knownStartingMinor)).monospacedDigit()
                             .accessibilityIdentifier("plan.knownStarting." + currency.currency)
                     }.font(CuadraoTypography.supporting)
@@ -171,7 +171,7 @@ private struct FinancialPlanForecastCurrency: View {
             if case .series(let points, let scheduled) = series {
                 FinancialForecastChart(currency: currency, points: points, start: start, end: end, selected: $selected)
                 if !scheduled {
-                    Text(spanish ? "Sin pagos ni ingresos programados en este período." : "No scheduled bills or income in this period.")
+                    Text(CuadraoCopy.text("copy.financialPlanForecast.ba54768f5e", spanish: spanish))
                         .font(CuadraoTypography.caption).foregroundStyle(.secondary).accessibilityIdentifier("plan.forecast.flat")
                 }
             } else {
@@ -231,7 +231,7 @@ struct FinancialForecastChart: View {
     }
 
     var body: some View {
-        CuadraoPlanForecastChart(recorded: [], projected: marks, xRange: xRange, yRange: yRange,
+        CuadraoPlanForecastChart(spanish: CuadraoCopy.isSpanish(), recorded: [], projected: marks, xRange: xRange, yRange: yRange,
             ticks: ticks, selected: marks.first { $0.id == selected },
             selection: Binding(get: { marks.first { $0.id == selected }?.position }, set: { position in
                 selected = position.flatMap { value in marks.reversed().min { abs($0.position - value) < abs($1.position - value) }?.id }

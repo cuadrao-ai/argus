@@ -10,7 +10,7 @@ struct CuadraoReceiptReview: View {
     var body: some View {
         if let draft = workspace.receipts.receipt(id) {
             ReceiptEditor(initial: draft, workspace: workspace, spanish: spanish)
-        } else { ContentUnavailableView(spanish ? "Recibo no disponible" : "Receipt unavailable", systemImage: "receipt") }
+        } else { ContentUnavailableView(CuadraoCopy.text("copy.cuadraoReceiptReview.06109900aa", spanish: spanish), systemImage: "receipt") }
     }
 }
 
@@ -42,16 +42,16 @@ private struct ReceiptEditor: View {
         Form {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
-                    Label(draft.prepared ? (es ? "Guardado · por revisar" : "Saved · ready to review") : (es ? "Confirmado" : "Confirmed"), systemImage: draft.prepared ? "checkmark.circle" : "checkmark.seal")
+                    Label(draft.prepared ? (CuadraoCopy.text("copy.cuadraoReceiptReview.7da5c41021", spanish: es)) : (CuadraoCopy.text("copy.cuadraoReceiptReview.184bee8c07", spanish: es)), systemImage: draft.prepared ? "checkmark.circle" : "checkmark.seal")
                         .font(CuadraoTypography.caption).foregroundStyle(.secondary).accessibilityIdentifier("receipt-status")
                     if !workspace.postingCapability.allowsPosting {
-                        Text(es ? "Este recibo se queda en este dispositivo y no crea un gasto." : "This receipt stays on this device and does not create an expense.")
+                        Text(CuadraoCopy.text("copy.cuadraoReceiptReview.3fe028b7e6", spanish: es))
                             .font(CuadraoTypography.caption).foregroundStyle(.secondary).accessibilityIdentifier("receipt-local-draft-notice")
                     }
-                    if draft.example { Text(es ? "Recibo de ejemplo" : "Sample receipt").font(CuadraoTypography.caption).foregroundStyle(WelcomePalette.pine) }
-                    Text(posted?.title ?? (draft.merchant.isEmpty ? (es ? "Tu recibo" : "Your receipt") : draft.merchant)).font(CuadraoTypography.feature)
+                    if draft.example { Text(CuadraoCopy.text("copy.cuadraoReceiptReview.3095a4654a", spanish: es)).font(CuadraoTypography.caption).foregroundStyle(WelcomePalette.pine) }
+                    Text(posted?.title ?? (draft.merchant.isEmpty ? (CuadraoCopy.text("copy.cuadraoReceiptReview.7986a24789", spanish: es)) : draft.merchant)).font(CuadraoTypography.feature)
                     if draft.lines.isEmpty && posted == nil {
-                        Text(es ? "Total por revisar" : "Total to review").font(CuadraoTypography.secondaryAmount)
+                        Text(CuadraoCopy.text("copy.cuadraoReceiptReview.fa3d07b423", spanish: es)).font(CuadraoTypography.secondaryAmount)
                             .accessibilityIdentifier("receipt-total")
                     } else if let currency = draft.currency {
                         HStack(alignment: .firstTextBaseline) {
@@ -60,22 +60,22 @@ private struct ReceiptEditor: View {
                                 .lineLimit(1).minimumScaleFactor(0.65)
                         }.accessibilityIdentifier("receipt-total")
                     }
-                    Text((CanvasExpenseCategory(rawValue: draft.category) ?? .other).title(es) + " · " + draft.date.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: es ? "es-419" : "en_US"))))
+                    Text((CanvasExpenseCategory(rawValue: draft.category) ?? .other).title(es) + " · " + draft.date.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: CuadraoCopy.text("copy.cuadraoReceiptReview.68ab9be0ef", spanish: es)))))
                         .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
                 }.padding(.vertical, 8)
                 Button { showSource = true } label: {
-                    Label(es ? "Ver recibo original" : "View original receipt", systemImage: "doc.text.image").frame(minHeight: 44)
+                    Label(CuadraoCopy.text("copy.cuadraoReceiptReview.802300b119", spanish: es), systemImage: "doc.text.image").frame(minHeight: 44)
                 }.accessibilityIdentifier("receipt-source")
                 if !draft.prepared {
                     Button { askCuadrao() } label: {
-                        Label(es ? "Preguntar a Cuadrao" : "Ask Cuadrao", systemImage: "bubble").frame(minHeight: 44)
+                        Label(CuadraoCopy.text("copy.cuadraoReceiptReview.b44a9adeb4", spanish: es), systemImage: "bubble").frame(minHeight: 44)
                     }.accessibilityIdentifier("receipt-open-chat")
                 }
                 if draft.prepared {
-                    DisclosureGroup(es ? "Corregir datos" : "Correct details", isExpanded: $details) {
-                        TextField(es ? "Comercio" : "Merchant", text: $draft.merchant).accessibilityIdentifier("receipt-merchant")
-                        DatePicker(es ? "Fecha" : "Date", selection: $draft.date, displayedComponents: .date)
-                        Picker(es ? "Categoría" : "Category", selection: $draft.category) {
+                    DisclosureGroup(CuadraoCopy.text("copy.cuadraoReceiptReview.f72bbcda64", spanish: es), isExpanded: $details) {
+                        TextField(CuadraoCopy.text("copy.cuadraoReceiptReview.e47fa08736", spanish: es), text: $draft.merchant).accessibilityIdentifier("receipt-merchant")
+                        DatePicker(CuadraoCopy.text("copy.cuadraoReceiptReview.9e3d3b41ed", spanish: es), selection: $draft.date, displayedComponents: .date)
+                        Picker(CuadraoCopy.text("copy.cuadraoReceiptReview.67c7ee0c0f", spanish: es), selection: $draft.category) {
                             ForEach(CanvasExpenseCategory.allCases) { Text($0.title(es)).tag($0.rawValue) }
                         }
                         if let currency = draft.currency { Label(currency, systemImage: "lock").font(.caption).foregroundStyle(.secondary) }
@@ -89,17 +89,17 @@ private struct ReceiptEditor: View {
                             Button(currency) { chooseCurrency(currency) }
                         }
                     } label: {
-                        Label(es ? "Elegir moneda" : "Choose currency", systemImage: "chevron.up.chevron.down")
+                        Label(CuadraoCopy.text("copy.cuadraoReceiptReview.15994beaf7", spanish: es), systemImage: "chevron.up.chevron.down")
                             .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                     }.accessibilityIdentifier("receipt-currency")
-                    Text(es ? "El recibo ya está guardado. Elige su moneda para revisar los montos; después quedará fija." : "Your receipt is saved. Choose its currency to review amounts; it stays fixed afterward.")
+                    Text(CuadraoCopy.text("copy.cuadraoReceiptReview.81ce59316e", spanish: es))
                         .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                 }
             }
             if let currency = draft.currency {
-                Section(es ? "Artículos" : "Items") {
+                Section(CuadraoCopy.text("copy.cuadraoReceiptReview.e916404c71", spanish: es)) {
                     if draft.lines.isEmpty {
-                        Text(es ? "Añade los artículos del recibo." : "Add the receipt's items.").font(.subheadline).foregroundStyle(.secondary)
+                        Text(CuadraoCopy.text("copy.cuadraoReceiptReview.3c46e49dfa", spanish: es)).font(.subheadline).foregroundStyle(.secondary)
                     }
                     ForEach(draft.lines) { line in
                         Button { if draft.prepared { editingLine = line } } label: {
@@ -115,29 +115,29 @@ private struct ReceiptEditor: View {
                         }.buttonStyle(.plain).accessibilityIdentifier("receipt-line-\(draft.lines.firstIndex(where: { $0.id == line.id }) ?? 0)")
                     }
                     if draft.prepared {
-                        Button(es ? "Añadir artículo" : "Add item", systemImage: "plus") { editingLine = ReceiptLine(name: "", unitCents: 0) }
+                        Button(CuadraoCopy.text("copy.cuadraoReceiptReview.d6957c0370", spanish: es), systemImage: "plus") { editingLine = ReceiptLine(name: "", unitCents: 0) }
                             .disabled(draft.lines.count >= 100).accessibilityIdentifier("receipt-add-item")
                     }
-                    totalRow(es ? "Subtotal" : "Subtotal", draft.subtotal)
-                    DisclosureGroup(es ? "Impuestos y propina" : "Tax and tip", isExpanded: $charges) {
+                    totalRow(CuadraoCopy.text("copy.cuadraoReceiptReview.fe5a09b661", spanish: es), draft.subtotal)
+                    DisclosureGroup(CuadraoCopy.text("copy.cuadraoReceiptReview.a1c35a35d7", spanish: es), isExpanded: $charges) {
                         if draft.prepared {
-                            centInput(es ? "Impuesto del recibo" : "Receipt tax", key: \.taxCents, id: "receipt-tax")
-                            centInput(es ? "Servicio del recibo" : "Receipt service charge", key: \.serviceCents, id: "receipt-service")
-                            centInput(es ? "Propina adicional" : "Extra tip", key: \.addedTipCents, id: "receipt-tip")
+                            centInput(CuadraoCopy.text("copy.cuadraoReceiptReview.546d6e7903", spanish: es), key: \.taxCents, id: "receipt-tax")
+                            centInput(CuadraoCopy.text("copy.cuadraoReceiptReview.9c0b03a055", spanish: es), key: \.serviceCents, id: "receipt-service")
+                            centInput(CuadraoCopy.text("copy.cuadraoReceiptReview.3714a680c2", spanish: es), key: \.addedTipCents, id: "receipt-tip")
                         } else {
-                            totalRow(es ? "Impuesto" : "Tax", draft.taxCents)
-                            totalRow(es ? "Servicio" : "Service", draft.serviceCents)
-                            totalRow(es ? "Propina adicional" : "Extra tip", draft.addedTipCents)
+                            totalRow(CuadraoCopy.text("copy.cuadraoReceiptReview.fbd02a8e49", spanish: es), draft.taxCents)
+                            totalRow(CuadraoCopy.text("copy.cuadraoReceiptReview.5c04d9f4ba", spanish: es), draft.serviceCents)
+                            totalRow(CuadraoCopy.text("copy.cuadraoReceiptReview.3714a680c2", spanish: es), draft.addedTipCents)
                         }
-                        Text(es ? "El impuesto y el servicio ya forman parte del total del recibo. Solo la propina adicional se suma después." : "Tax and service are already part of the receipt total. Only the extra tip is added afterward.").font(.caption).foregroundStyle(.secondary)
+                        Text(CuadraoCopy.text("copy.cuadraoReceiptReview.79a2d49f7f", spanish: es)).font(.caption).foregroundStyle(.secondary)
                     }
-                    totalRow(es ? "Total del recibo" : "Receipt total", draft.receiptTotal)
-                    if draft.addedTipCents > 0 { totalRow(es ? "Con propina adicional" : "Including extra tip", draft.total) }
+                    totalRow(CuadraoCopy.text("copy.cuadraoReceiptReview.c132bd855a", spanish: es), draft.receiptTotal)
+                    if draft.addedTipCents > 0 { totalRow(CuadraoCopy.text("copy.cuadraoReceiptReview.8ee98cc070", spanish: es), draft.total) }
                 }
                 if workspace.postingCapability.allowsPosting {
                     if draft.prepared { destination }
                     else if case .personal(let accountID) = draft.destination, let accountID, let account = workspace.accounts.account(accountID) {
-                        Section(es ? "Guardado en" : "Saved to") {
+                        Section(CuadraoCopy.text("copy.cuadraoReceiptReview.6c69ae1c5d", spanish: es)) {
                             Label(account.displayName(es) + " · " + currency, systemImage: "creditcard")
                         }
                     }
@@ -147,15 +147,15 @@ private struct ReceiptEditor: View {
             Section {
                 if let pin = draft.captureLocation {
                     Map(initialPosition: .region(MKCoordinateRegion(center: .init(latitude: pin.latitude, longitude: pin.longitude), span: .init(latitudeDelta: 0.01, longitudeDelta: 0.01)))) {
-                        Marker(es ? "Ubicación añadida" : "Added location", coordinate: .init(latitude: pin.latitude, longitude: pin.longitude))
+                        Marker(CuadraoCopy.text("copy.cuadraoReceiptReview.6429a77a4f", spanish: es), coordinate: .init(latitude: pin.latitude, longitude: pin.longitude))
                     }.frame(height: 150).clipShape(RoundedRectangle(cornerRadius: 16))
-                    Text((es ? "Ubicación añadida el " : "Location added on ") + pin.recordedAt.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-                    if draft.prepared { Button(es ? "Quitar ubicación" : "Remove location", role: .destructive) { draft.captureLocation = nil } }
+                    Text((CuadraoCopy.text("copy.cuadraoReceiptReview.0272f0dfe9", spanish: es)) + pin.recordedAt.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                    if draft.prepared { Button(CuadraoCopy.text("copy.cuadraoReceiptReview.9312991da9", spanish: es), role: .destructive) { draft.captureLocation = nil } }
                 } else if draft.prepared && location.isAvailable {
-                    Button { location.request() } label: { Label(es ? "Añadir ubicación actual" : "Add current location", systemImage: "location").frame(minHeight: 44) }
-                    Text(es ? "Opcional. No es la dirección del comercio." : "Optional. This is not the merchant's address.").font(.caption).foregroundStyle(.secondary)
+                    Button { location.request() } label: { Label(CuadraoCopy.text("copy.cuadraoReceiptReview.60f6cffd1a", spanish: es), systemImage: "location").frame(minHeight: 44) }
+                    Text(CuadraoCopy.text("copy.cuadraoReceiptReview.8f157f4321", spanish: es)).font(.caption).foregroundStyle(.secondary)
                 }
-                if location.unavailable { Text(es ? "No pudimos obtener tu ubicación. Puedes continuar sin ella." : "Your location is unavailable. You can continue without it.").font(.caption).foregroundStyle(.secondary) }
+                if location.unavailable { Text(CuadraoCopy.text("copy.cuadraoReceiptReview.f02d689e6d", spanish: es)).font(.caption).foregroundStyle(.secondary) }
             }
             if workspace.postingCapability.allowsPosting || !error.isEmpty {
                 Section {
@@ -163,17 +163,17 @@ private struct ReceiptEditor: View {
                     if workspace.postingCapability.allowsPosting {
                         if draft.prepared {
                             Button { confirm() } label: {
-                                Text(es ? "Confirmar gasto" : "Confirm expense").font(CuadraoTypography.action).frame(maxWidth: .infinity, minHeight: 44)
+                                Text(CuadraoCopy.text("copy.cuadraoReceiptReview.88b4c99896", spanish: es)).font(CuadraoTypography.action).frame(maxWidth: .infinity, minHeight: 44)
                             }.disabled(!valid).accessibilityIdentifier("receipt-confirm")
-                            Text(es ? "Hasta confirmar, este recibo no cambia ningún balance." : "Until you confirm, this receipt changes no balances.").font(.caption).foregroundStyle(.secondary)
+                            Text(CuadraoCopy.text("copy.cuadraoReceiptReview.b916587004", spanish: es)).font(.caption).foregroundStyle(.secondary)
                         } else {
-                            Label(es ? "Gasto guardado" : "Expense saved", systemImage: "checkmark.seal.fill").foregroundStyle(WelcomePalette.pine).accessibilityIdentifier("receipt-confirmed")
+                            Label(CuadraoCopy.text("copy.cuadraoReceiptReview.fb6e8c6a34", spanish: es), systemImage: "checkmark.seal.fill").foregroundStyle(WelcomePalette.pine).accessibilityIdentifier("receipt-confirmed")
                         }
                     }
                 }
             }
         }.cuadraoFormKeyboard().scrollContentBackground(.hidden).background(WelcomePalette.background)
-            .navigationTitle(es ? "Revisar recibo" : "Review receipt").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(CuadraoCopy.text("copy.cuadraoReceiptReview.e331bed748", spanish: es)).navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showSource) { ReceiptSourceViewer(draft: draft, store: workspace.receipts, spanish: es) }
             .sheet(item: $editingLine) { line in
                 if let currency = draft.currency {
@@ -191,8 +191,8 @@ private struct ReceiptEditor: View {
                 do { try workspace.receipts.update(value); error = "" } catch { show(error) }
             }
             .onChange(of: location.value) { _, value in if let value, draft.prepared { draft.captureLocation = value } }
-            .confirmationDialog(es ? "¿Descartar este recibo?" : "Discard this receipt?", isPresented: $discard, titleVisibility: .visible) {
-                Button(es ? "Descartar recibo" : "Discard receipt", role: .destructive) {
+            .confirmationDialog(CuadraoCopy.text("copy.cuadraoReceiptReview.c2a46dd89a", spanish: es), isPresented: $discard, titleVisibility: .visible) {
+                Button(CuadraoCopy.text("copy.cuadraoReceiptReview.d3251d7d5f", spanish: es), role: .destructive) {
                     do {
                         try workspace.receipts.discard(draft.id, groups: workspace.groups)
                         workspace.chat.removeReceipt(draft.id)
@@ -204,30 +204,30 @@ private struct ReceiptEditor: View {
                 if draft.prepared {
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
-                            Button(es ? "Preguntar a Cuadrao" : "Ask Cuadrao", systemImage: "bubble") { askCuadrao() }
+                            Button(CuadraoCopy.text("copy.cuadraoReceiptReview.b44a9adeb4", spanish: es), systemImage: "bubble") { askCuadrao() }
                                 .accessibilityIdentifier("receipt-open-chat")
-                            Button(es ? "Descartar recibo" : "Discard receipt", systemImage: "trash", role: .destructive) { discard = true }
+                            Button(CuadraoCopy.text("copy.cuadraoReceiptReview.d3251d7d5f", spanish: es), systemImage: "trash", role: .destructive) { discard = true }
                         } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
-                            .accessibilityLabel(es ? "Opciones del recibo" : "Receipt options")
+                            .accessibilityLabel(CuadraoCopy.text("copy.cuadraoReceiptReview.9739b2c2fe", spanish: es))
                     }
                 }
             }
     }
     private func askCuadrao() {
-        chatFocus = .receipt(id: draft.id, title: draft.merchant.isEmpty ? (es ? "Tu recibo" : "Your receipt") : draft.merchant)
+        chatFocus = .receipt(id: draft.id, title: draft.merchant.isEmpty ? (CuadraoCopy.text("copy.cuadraoReceiptReview.7986a24789", spanish: es)) : draft.merchant)
     }
     private var destination: some View {
-        Section(es ? "Dónde guardarlo" : "Save to") {
-            Picker(es ? "Destino" : "Destination", selection: Binding(get: { draft.groupID?.uuidString ?? "personal" }, set: chooseDestination)) {
-                Text(es ? "Personal" : "Personal").tag("personal")
+        Section(CuadraoCopy.text("copy.cuadraoReceiptReview.2225bac54a", spanish: es)) {
+            Picker(CuadraoCopy.text("copy.cuadraoReceiptReview.145f020a43", spanish: es), selection: Binding(get: { draft.groupID?.uuidString ?? "personal" }, set: chooseDestination)) {
+                Text(CuadraoCopy.text("copy.cuadraoReceiptReview.e49bf008a8", spanish: es)).tag("personal")
                 ForEach(workspace.groups.groups.filter { !$0.archived && $0.kind == .trip && $0.currency == draft.currency }) { Text($0.name).tag($0.id.uuidString) }
             }.accessibilityIdentifier("receipt-destination")
             if case .personal(let accountID) = draft.destination {
-                Picker(es ? "Cuenta" : "Account", selection: Binding(get: { accountID }, set: { draft.destination = .personal(accountID: $0) })) {
-                    Text(es ? "Elige una cuenta" : "Choose an account").tag(UUID?.none)
+                Picker(CuadraoCopy.text("copy.cuadraoReceiptReview.f9d32ca2e5", spanish: es), selection: Binding(get: { accountID }, set: { draft.destination = .personal(accountID: $0) })) {
+                    Text(CuadraoCopy.text("copy.cuadraoReceiptReview.83157a5f5e", spanish: es)).tag(UUID?.none)
                     ForEach(compatibleAccounts) { Text($0.displayName(es)).tag(Optional($0.id)) }
                 }.accessibilityIdentifier("receipt-account")
-                if compatibleAccounts.isEmpty { Text(es ? "No hay cuentas personales de esta moneda." : "There are no personal accounts in this currency.").font(.caption).foregroundStyle(.secondary) }
+                if compatibleAccounts.isEmpty { Text(CuadraoCopy.text("copy.cuadraoReceiptReview.d54a853f63", spanish: es)).font(.caption).foregroundStyle(.secondary) }
             }
             if let currency = draft.currency { Text(currency).font(.caption).foregroundStyle(.secondary) }
         }
@@ -247,14 +247,14 @@ private struct ReceiptEditor: View {
         } else { draft.destination = .personal(accountID: nil) }
     }
     private func splitSection(_ group: PlanGroup) -> some View {
-        Section(es ? "El reparto" : "The split") {
+        Section(CuadraoCopy.text("copy.cuadraoReceiptReview.78780cf3f5", spanish: es)) {
             if draft.prepared {
-                Picker(es ? "Pagó" : "Paid by", selection: $draft.payer) {
+                Picker(CuadraoCopy.text("copy.cuadraoReceiptReview.76f42fdad3", spanish: es), selection: $draft.payer) {
                     ForEach(group.activeMembers) { Text($0.name).tag(Optional($0.id)) }
                 }.accessibilityIdentifier("receipt-payer")
-                Picker(es ? "Repartir" : "Split", selection: $draft.split) {
-                    Text(es ? "Por igual" : "Equally").tag(ReceiptSplit.equal)
-                    Text(es ? "Por consumo" : "By item").tag(ReceiptSplit.items)
+                Picker(CuadraoCopy.text("copy.cuadraoReceiptReview.23401e7418", spanish: es), selection: $draft.split) {
+                    Text(CuadraoCopy.text("copy.cuadraoReceiptReview.12cc303b3a", spanish: es)).tag(ReceiptSplit.equal)
+                    Text(CuadraoCopy.text("copy.cuadraoReceiptReview.736b395352", spanish: es)).tag(ReceiptSplit.items)
                 }.pickerStyle(.segmented).accessibilityIdentifier("receipt-split")
                 ForEach(Array(group.activeMembers.enumerated()), id: \.element.id) { index, member in
                     Button {
@@ -271,7 +271,7 @@ private struct ReceiptEditor: View {
                         }.frame(minHeight: 44).contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityIdentifier("receipt-member-\(index)")
                         .accessibilityLabel(member.name)
-                        .accessibilityValue((draft.participants.contains(member.id) ? (es ? "Incluido" : "Included") : (es ? "Excluido" : "Excluded")) + ", " + money(shares[member.id] ?? 0))
+                        .accessibilityValue((draft.participants.contains(member.id) ? (CuadraoCopy.text("copy.cuadraoReceiptReview.125cdfabe6", spanish: es)) : (CuadraoCopy.text("copy.cuadraoReceiptReview.c8b76cad45", spanish: es))) + ", " + money(shares[member.id] ?? 0))
                         .accessibilityAddTraits(draft.participants.contains(member.id) ? .isSelected : [])
                 }
                 if draft.split == .items {
@@ -284,20 +284,20 @@ private struct ReceiptEditor: View {
                             }
                         }.padding(.vertical, 4)
                     }
-                    Text(draft.unassigned == 0 ? (es ? "Todos los artículos asignados" : "Every item assigned") : (es ? "\(draft.unassigned) artículos por asignar" : "\(draft.unassigned) items left to assign"))
+                    Text(draft.unassigned == 0 ? (CuadraoCopy.text("copy.cuadraoReceiptReview.f097481f5b", spanish: es)) : (CuadraoCopy.text("copy.cuadraoReceiptReview.cc3ad80f59", spanish: es, String(describing: draft.unassigned))))
                         .font(.caption).foregroundStyle(draft.unassigned == 0 ? WelcomePalette.pine : .secondary).accessibilityIdentifier("receipt-unassigned")
-                    Text(es ? "Toca varias personas para compartir un artículo. Los cargos se reparten según lo consumido." : "Tap multiple people to share an item. Charges follow each person's items.").font(.caption).foregroundStyle(.secondary)
+                    Text(CuadraoCopy.text("copy.cuadraoReceiptReview.7c71ed7778", spanish: es)).font(.caption).foregroundStyle(.secondary)
                 }
             } else {
                 if let payer = posted?.payer, let member = group.members.first(where: { $0.id == payer }) {
-                    Text((es ? "Pagó " : "Paid by ") + member.name).font(CuadraoTypography.supporting)
+                    Text((CuadraoCopy.text("copy.cuadraoReceiptReview.49162f30e2", spanish: es)) + member.name).font(CuadraoTypography.supporting)
                 }
                 ForEach(group.members.filter { shares[$0.id] != nil }) { member in
                     HStack { Text(member.name); Spacer(); Text(money(shares[member.id] ?? 0)).font(CuadraoTypography.rowAmount) }
                 }
             }
             if !shares.isEmpty {
-                totalRow(es ? "Tu parte" : "Your share", shares[group.me] ?? 0)
+                totalRow(CuadraoCopy.text("copy.cuadraoReceiptReview.15732a4703", spanish: es), shares[group.me] ?? 0)
                 let payer = posted?.payer ?? draft.payer
                 let net = (payer == group.me ? (posted?.cents ?? draft.total) : 0) - (shares[group.me] ?? 0)
                 if let currency = draft.currency { CuadraoOwedRow(cents: net, currency: currency, spanish: es) }
@@ -322,7 +322,7 @@ private struct ReceiptEditor: View {
                         .background(line.members.contains(member.id) ? WelcomePalette.sage : .clear, in: Capsule()).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityIdentifier("receipt-assign-\(draft.lines.firstIndex(where: { $0.id == line.id }) ?? 0)-\(group.activeMembers.firstIndex(where: { $0.id == member.id }) ?? 0)")
                     .accessibilityLabel("\(line.name), \(member.name)")
-                    .accessibilityValue(line.members.contains(member.id) ? (es ? "Asignado" : "Assigned") : (es ? "Sin asignar" : "Not assigned"))
+                    .accessibilityValue(line.members.contains(member.id) ? (CuadraoCopy.text("copy.cuadraoReceiptReview.6f2cd50a9a", spanish: es)) : (CuadraoCopy.text("copy.cuadraoReceiptReview.45896e9456", spanish: es)))
                     .accessibilityAddTraits(line.members.contains(member.id) ? .isSelected : [])
             }
         }
@@ -341,7 +341,7 @@ private struct ReceiptEditor: View {
         } catch { show(error) }
     }
     private func show(_ failure: Error) {
-        error = (failure as? ReceiptError)?.message(es) ?? (es ? "No se pudo guardar. Tus cambios aún no están confirmados. Inténtalo de nuevo." : "Could not save. Your changes are not confirmed. Try again.")
+        error = (failure as? ReceiptError)?.message(es) ?? (CuadraoCopy.text("copy.cuadraoReceiptReview.9330f3ccfa", spanish: es))
     }
     private func money(_ cents: Int) -> String {
         guard let currency = draft.currency else { return "" }

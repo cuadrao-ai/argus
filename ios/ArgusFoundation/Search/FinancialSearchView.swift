@@ -55,7 +55,7 @@ struct FinancialSearchView: View {
             debts.navigation.map { FinancialPlanHost($0.origin) == .search } == true
     }
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var inputKey: String {
         (model.ownerID ?? "") + "|" + model.origin.query + "|" + model.origin.scope.rawValue
             + "|" + (model.origin.currency ?? "") + "|" + String(describing: unavailableKind)
@@ -175,7 +175,7 @@ struct FinancialSearchView: View {
                 CuadraoSearchEmptyState(query: query, kind: kind, spanish: spanish,
                     filterCount: filterCount, clearFilters: clearFilters,
                     detail: kind.wrappedValue == .all && model.origin.query.isEmpty && filterCount == 0
-                        ? (spanish ? "Busca cuentas, movimientos y planes." : "Search accounts, activity and plans.") : nil,
+                        ? (CuadraoCopy.text("copy.cuadraoSearchPresentation.c65b73f579", spanish: spanish)) : nil,
                     accessibility: .connected)
                     .padding(.top, 36)
             }
@@ -205,16 +205,15 @@ struct FinancialSearchView: View {
 
     @ViewBuilder private var filterControls: some View {
         if unavailableKind == nil {
-            Picker(spanish ? "Moneda" : "Currency", selection: Binding(
+            Picker(CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish), selection: Binding(
                 get: { model.origin.currency }, set: { model.update(currency: .some($0)) })) {
-                    Text(spanish ? "Todas" : "All").tag(nil as String?)
+                    Text(CuadraoCopy.text("copy.cuadraoSearchCanvas.22417a3c9d", spanish: spanish)).tag(nil as String?)
                     ForEach(currencies, id: \.self) { Text($0).tag(Optional($0)) }
                 }.accessibilityIdentifier("search.currency")
             Section {
-                Button(spanish ? "Restablecer filtros" : "Reset filters", action: clearFilters)
+                Button(CuadraoCopy.text("copy.cuadraoSearchCanvas.18b5a4bccd", spanish: spanish), action: clearFilters)
             } footer: {
-                Text(spanish ? "Busca en tus registros personales. La moneda filtra cuentas, movimientos y planes."
-                    : "Search your personal records. Currency filters accounts, activity and plans.")
+                Text(CuadraoCopy.text("copy.financialSearchView.e70d4f14e7", spanish: spanish))
             }
         } else if let unavailableKind {
             Text(unavailableDetail(unavailableKind)).foregroundStyle(.secondary)
@@ -263,9 +262,9 @@ struct FinancialSearchView: View {
     private func clearFilters() { model.update(currency: .some(nil)) }
     private func unavailableDetail(_ kind: CanvasSearchKind) -> String {
         switch kind {
-        case .chats: spanish ? "Tus chats aún no están disponibles en esta búsqueda." : "Your chats are not available in this search yet."
-        case .files: spanish ? "Tus archivos aún no están disponibles en esta búsqueda." : "Your files are not available in this search yet."
-        default: spanish ? "La memoria aún no está disponible en esta búsqueda." : "Memory is not available in this search yet."
+        case .chats: CuadraoCopy.text("copy.financialSearchView.d54e613040", spanish: spanish)
+        case .files: CuadraoCopy.text("copy.financialSearchView.9483d2ae4d", spanish: spanish)
+        default: CuadraoCopy.text("copy.financialSearchView.9ab7aac390", spanish: spanish)
         }
     }
     private func rememberFrames(_ frames: [String: CGRect]) {
@@ -287,7 +286,7 @@ struct FinancialSearchRow: View {
     let hit: FinancialSearchHit
     let accounts: [FinancialAccount]
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         CuadraoSearchResultRow(title: title, detail: detail, spanish: spanish,
@@ -391,7 +390,7 @@ struct ReceiptSearchSection: View {
             }
         Group {
             if !hits.isEmpty {
-                CuadraoSearchHeading(title: spanish ? "Recibos" : "Receipts", count: hits.count)
+                CuadraoSearchHeading(title: CuadraoCopy.text("copy.guestSearch.d2b818b2f8", spanish: spanish), count: hits.count)
                 ForEach(hits) { document in
                     Button { open(document) } label: { row(document) }
                         .buttonStyle(.plain).accessibilityIdentifier("search.receipt." + document.id)
@@ -399,8 +398,8 @@ struct ReceiptSearchSection: View {
                 }
             } else if emptyState {
                 Text(query.trimmingCharacters(in: .whitespaces).isEmpty
-                     ? (spanish ? "Busca tus recibos por comercio, fecha, monto o nombre." : "Search your receipts by merchant, date, amount or name.")
-                     : (spanish ? "No encontramos recibos." : "No receipts found."))
+                     ? (CuadraoCopy.text("copy.financialSearchView.f6cf64322a", spanish: spanish))
+                     : (CuadraoCopy.text("copy.financialSearchView.0ab9f0c6b7", spanish: spanish)))
                     .foregroundStyle(.secondary).padding(.top, 36).accessibilityIdentifier("search.receipts.empty")
             }
         }

@@ -15,8 +15,8 @@ struct GuestMovementRow: View {
     var body: some View {
         let row = GuestMovementPresentation.row(movement, in: book, perspective: perspective, spanish: spanish, locale: locale)
         ConnectedSwipeRow(
-            leading: [ConnectedSwipeAction(id: "guest.movement.swipe.edit", title: spanish ? "Editar" : "Edit", symbol: "pencil", tint: .blue, action: edit)],
-            trailing: [ConnectedSwipeAction(id: "guest.movement.swipe.delete", title: spanish ? "Eliminar" : "Delete", symbol: "trash", tint: .red, action: delete)]
+            leading: [ConnectedSwipeAction(id: "guest.movement.swipe.edit", title: CuadraoCopy.text("copy.connectedCuadraoHome.2ddd4a589f", spanish: spanish), symbol: "pencil", tint: .blue, action: edit)],
+            trailing: [ConnectedSwipeAction(id: "guest.movement.swipe.delete", title: CuadraoCopy.text("copy.savedReceiptCopy.534547cf82", spanish: spanish), symbol: "trash", tint: .red, action: delete)]
         ) {
             Button(action: open) {
                 CuadraoFeedRow(title: row.title, detail: row.detail, amount: row.amount, icon: row.icon)
@@ -43,13 +43,13 @@ struct GuestActivitySection: View {
         if !model.book.activeAccounts.isEmpty {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Text(spanish ? "Movimientos" : "Activity").font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
+                    Text(CuadraoCopy.text("copy.accountActivityView.f7d6ac01ad", spanish: spanish)).font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
                     Spacer()
-                    CuadraoSectionAddButton(title: spanish ? "Añadir movimiento" : "Add activity", action: add)
+                    CuadraoSectionAddButton(title: CuadraoCopy.text("copy.connectedCuadraoHome.175c809f14", spanish: spanish), action: add)
                         .accessibilityIdentifier("home.record")
                 }
                 if recent.isEmpty {
-                    Text(spanish ? "Aún no hay movimientos. Añade el primero con el botón +." : "No activity yet. Add the first with the + button.")
+                    Text(CuadraoCopy.text("copy.guestActivity.7a4e4a85ca", spanish: spanish))
                         .font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("guest.activity.empty")
                 } else {
                     VStack(spacing: 0) {
@@ -92,25 +92,25 @@ struct GuestMovementDetail: View {
                         }
                     }
                     VStack(spacing: 0) {
-                        line(spanish ? "Tipo" : "Type", GuestMovementPresentation.kindTitle(movement.kind, spanish: spanish))
-                        line(movement.kind == .transfer ? (spanish ? "Desde" : "From") : (spanish ? "Cuenta" : "Account"),
+                        line(CuadraoCopy.text("copy.connectedTransactionSheet.36a6ac68b2", spanish: spanish), GuestMovementPresentation.kindTitle(movement.kind, spanish: spanish))
+                        line(movement.kind == .transfer ? (CuadraoCopy.text("copy.cuadraoProfilePage.e0979ec757", spanish: spanish)) : (CuadraoCopy.text("copy.connectedAccountPresentation.f9d32ca2e5", spanish: spanish)),
                              GuestMovementPresentation.accountTitle(movement.accountID, in: book, spanish: spanish))
                         if movement.kind == .transfer {
-                            line(spanish ? "Hacia" : "To", GuestMovementPresentation.accountTitle(movement.counterpartID, in: book, spanish: spanish))
+                            line(CuadraoCopy.text("copy.guestActivity.b93752ca1c", spanish: spanish), GuestMovementPresentation.accountTitle(movement.counterpartID, in: book, spanish: spanish))
                         }
-                        line(spanish ? "Fecha" : "Date", GuestMovementPresentation.date(movement, locale: locale, style: .long))
+                        line(CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: spanish), GuestMovementPresentation.date(movement, locale: locale, style: .long))
                         if let category = movement.category {
-                            line(spanish ? "Categoría" : "Category", GuestMovementPresentation.categoryTitle(category, spanish: spanish))
+                            line(CuadraoCopy.text("copy.connectedCuadraoHome.67c7ee0c0f", spanish: spanish), GuestMovementPresentation.categoryTitle(category, spanish: spanish))
                         }
                     }
                     if let receipts {
                         GuestMovementReceiptActions(store: receipts, movementID: id, spanish: spanish, attach: attachReceipt)
                     }
                     VStack(spacing: 0) {
-                        CanvasActionRow(title: spanish ? "Editar movimiento" : "Edit transaction", symbol: "pencil", action: edit)
+                        CanvasActionRow(title: CuadraoCopy.text("copy.guestActivity.0430c48829", spanish: spanish), symbol: "pencil", action: edit)
                             .accessibilityIdentifier("guest.movement.edit")
                         Divider()
-                        CanvasActionRow(title: spanish ? "Eliminar movimiento" : "Delete transaction", symbol: "trash", action: delete)
+                        CanvasActionRow(title: CuadraoCopy.text("copy.guestActivity.830b76812c", spanish: spanish), symbol: "trash", action: delete)
                             .foregroundStyle(.red).accessibilityIdentifier("guest.movement.delete")
                     }
                 }.padding(24)

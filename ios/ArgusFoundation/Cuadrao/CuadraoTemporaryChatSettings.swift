@@ -10,41 +10,41 @@ struct CuadraoTemporaryChatSettings: View {
         @Bindable var store = store
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 18) {
-                explanation("clock", es ? "Fuera de tu historial" : "Outside your history",
-                    es ? "No aparece en Chats ni en Buscar." : "Does not appear in Chats or Search.")
+                explanation("clock", CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.575a171d05", spanish: es),
+                    CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.cabdb95a90", spanish: es))
                 if CuadraoFirstRelease.shows(.memory) {
-                    explanation("brain", es ? "Sin nuevas memorias" : "No new memories",
-                        es ? "Lo que hables aquí no se añade a tus memorias." : "What you discuss here is not added to your memories.")
+                    explanation("brain", CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.9aa1d74ee4", spanish: es),
+                        CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.b64c68aa55", spanish: es))
                 }
             }
             Divider()
             VStack(alignment: .leading, spacing: 12) {
-                Toggle(es ? "Usar mi contexto" : "Use my context", isOn: $store.useContext)
+                Toggle(CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.01a72d8998", spanish: es), isOn: $store.useContext)
                     .font(CuadraoTypography.action).disabled(store.contextLocked)
                     .accessibilityIdentifier("temporary-context")
                 Text(CuadraoFirstRelease.shows(.memory)
-                    ? (es ? "Tus memorias, preferencias de respuesta y registros financieros a los que tienes acceso." : "Your memories, response preferences and financial records you can access.")
-                    : (es ? "Tus preferencias de respuesta y registros financieros a los que tienes acceso." : "Your response preferences and financial records you can access."))
+                    ? (CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.eb75a8c499", spanish: es))
+                    : (CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.3e56e3da09", spanish: es)))
                     .font(.subheadline).foregroundStyle(.secondary)
                 if store.contextLocked {
-                    Label(es ? "La elección queda fija en este chat. Inicia otro chat temporal para cambiarla." : "This choice is fixed for this chat. Start another temporary chat to change it.", systemImage: "lock")
+                    Label(CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.893a989d40", spanish: es), systemImage: "lock")
                         .font(.footnote).foregroundStyle(.secondary)
                 } else {
                     Text(store.useContext
-                        ? (es ? "Se mantienen tus permisos de privacidad y de acceso." : "Your privacy and access permissions still apply.")
-                        : (es ? "Solo lo que compartas aquí. Se mantienen el idioma y la accesibilidad de tu dispositivo." : "Only what you share here. Your device language and accessibility settings still apply."))
+                        ? (CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.8766e6d2f9", spanish: es))
+                        : (CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.a372752b00", spanish: es)))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
-            DisclosureGroup(es ? "¿Qué pasa cuando salgo?" : "What happens when I leave?") {
+            DisclosureGroup(CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.0c32e3f446", spanish: es)) {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text(es ? "Al terminar este chat o ir a otra sección de Cuadrao, se descarta su contenido. Cambiar de app por un momento no lo termina." : "Ending this chat or moving to another section of Cuadrao discards its content. Briefly switching apps does not end it.")
-                    Text(es ? "Tu chat anterior y su borrador quedan intactos. Este chat temporal no crea registros financieros." : "Your previous chat and its draft stay intact. This temporary chat does not create financial records.")
-                    Text(es ? "Vista previa: no accede a una IA ni a tus datos. La retención y el tratamiento por proveedores aún deben implementarse; no es una garantía de anonimato." : "Preview: no AI or personal data is accessed. Retention and provider handling still need implementation; this is not an anonymity guarantee.")
+                    Text(CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.d4582b83aa", spanish: es))
+                    Text(CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.0c2ff956ee", spanish: es))
+                    Text(CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.e1c60adacf", spanish: es))
                 }.font(.footnote).foregroundStyle(.secondary).padding(.top, 12)
             }.font(.subheadline)
             Button(action: returnToRegular) {
-                Text(es ? "Volver al chat normal" : "Return to regular chat")
+                Text(CuadraoCopy.text("copy.cuadraoTemporaryChatSettings.d5a1a7ba31", spanish: es))
                     .font(CuadraoTypography.action).frame(maxWidth: .infinity, minHeight: 48)
             }.accessibilityIdentifier("temporary-return")
         }

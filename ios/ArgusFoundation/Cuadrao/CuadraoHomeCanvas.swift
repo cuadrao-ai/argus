@@ -57,7 +57,7 @@ struct CuadraoHomeCanvas: View {
                             PlanAvatarStack(members: data.acceptedHouseholdMembers(spanish: spanish))
                                 .frame(minHeight: 44).contentShape(Rectangle())
                         }.buttonStyle(.plain)
-                            .accessibilityLabel(spanish ? "Personas del hogar" : "Household members")
+                            .accessibilityLabel(CuadraoCopy.text("copy.cuadraoHomeCanvas.132a60da1b", spanish: spanish))
                             .accessibilityValue(String(data.acceptedHouseholdMembers(spanish: spanish).count))
                             .accessibilityIdentifier("home-household-members")
                     }
@@ -91,9 +91,9 @@ struct CuadraoHomeCanvas: View {
             do { try receipts.reconcile(groups: groups, accounts: data) }
             catch { receiptRecoveryError = true }
         }
-        .alert(spanish ? "No pudimos recuperar un recibo" : "A receipt could not be recovered", isPresented: $receiptRecoveryError) {
-            Button(spanish ? "Listo" : "OK") {}
-        } message: { Text(spanish ? "Los archivos siguen en este dispositivo. Revisa tus recibos guardados." : "The files remain on this device. Check your saved receipts.") }
+        .alert(CuadraoCopy.text("copy.cuadraoHomeCanvas.e7cc35cd43", spanish: spanish), isPresented: $receiptRecoveryError) {
+            Button(CuadraoCopy.text("copy.cuadraoHomeCanvas.1756cbfe73", spanish: spanish)) {}
+        } message: { Text(CuadraoCopy.text("copy.cuadraoHomeCanvas.22cf8ed4dd", spanish: spanish)) }
         .onChange(of: populated) { _, value in chat.includeExamples = value }
         .onChange(of: selectedTab) { _, tab in
             if tab != .assistant { searchChatOrigin = false }
@@ -104,7 +104,7 @@ struct CuadraoHomeCanvas: View {
         }
         .overlay(alignment: .bottom) {
             if let archivedID {
-                CuadraoToast(text: spanish ? "Cuenta archivada" : "Account archived", actionTitle: spanish ? "Deshacer" : "Undo",
+                CuadraoToast(text: CuadraoCopy.text("copy.connectedCuadraoHome.d6e6d390ca", spanish: spanish), actionTitle: CuadraoCopy.text("copy.connectedCuadraoHome.3ec51337bc", spanish: spanish),
                     actionIdentifier: "accounts.archived.undo", action: { data.archive(archivedID, false); self.archivedID = nil }, spanish: spanish,
                     token: archivedID, close: { self.archivedID = nil })
             }
@@ -129,18 +129,18 @@ struct CuadraoHomeCanvas: View {
             CuadraoHomeGreeting(name: profile.preferredName, spanish: spanish)
                 .contextMenu {
                     #if DEBUG
-                    Button(spanish ? "Revisión de lanzamiento" : "Release UI review") { sheet = .releaseReview }
+                    Button(CuadraoCopy.text("copy.cuadraoHomeCanvas.ab31cbb99d", spanish: spanish)) { sheet = .releaseReview }
                     #endif
-                    Button(spanish ? "Guía visual" : "Visual guide") { sheet = .gallery }
+                    Button(CuadraoCopy.text("copy.cuadraoDesignGallery.b843c5b747", spanish: spanish)) { sheet = .gallery }
                         .accessibilityIdentifier("cuadrao-gallery-open")
-                    Button(spanish ? "Vista previa: primer uso" : "Preview: first use") {
+                    Button(CuadraoCopy.text("copy.cuadraoHomeCanvas.92cf104f62", spanish: spanish)) {
                         populated = false; data.reset(populated: false, spanish: spanish)
                     }
-                    Button(spanish ? "Vista previa: Hogar sin cuentas compartidas" : "Preview: household with no shared accounts") {
+                    Button(CuadraoCopy.text("copy.cuadraoHomeCanvas.8554f0b8fc", spanish: spanish)) {
                         populated = false; data.reset(populated: false, spanish: spanish)
                         data.openHousehold(); data.household = .joined("Alex")
                     }
-                    Button(spanish ? "Vista previa: con actividad" : "Preview: with activity") {
+                    Button(CuadraoCopy.text("copy.cuadraoHomeCanvas.94026d9b99", spanish: spanish)) {
                         populated = true; data.reset(populated: true, spanish: spanish)
                     }
                 }
@@ -155,12 +155,12 @@ struct CuadraoHomeCanvas: View {
                 HStack(spacing: 0) {
                     Button { sheet = .account(.manageAccounts(editing: false)) } label: {
                         HStack(spacing: 8) {
-                            sectionTitle(spanish ? "Cuentas" : "Accounts")
+                            sectionTitle(CuadraoCopy.text("copy.connectedCuadraoHome.8cce5d02a3", spanish: spanish))
                             Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
                         }.frame(minHeight: 44).contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityIdentifier("home-accounts-open")
                     Spacer()
-                    CuadraoSectionAddButton(title: spanish ? "Añadir cuenta" : "Add account") { sheet = .add }
+                    CuadraoSectionAddButton(title: CuadraoCopy.text("copy.connectedCuadraoHome.10d1d9ce3f", spanish: spanish)) { sheet = .add }
                         .accessibilityIdentifier("home-account-add")
                 }
             }
@@ -183,13 +183,13 @@ struct CuadraoHomeCanvas: View {
     private var activity: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                sectionTitle(spanish ? "Movimientos" : "Activity")
+                sectionTitle(CuadraoCopy.text("copy.accountActivityView.f7d6ac01ad", spanish: spanish))
                 Spacer()
-                CuadraoSectionAddButton(title: spanish ? "Añadir movimiento" : "Add activity") {
+                CuadraoSectionAddButton(title: CuadraoCopy.text("copy.connectedCuadraoHome.175c809f14", spanish: spanish)) {
                     if let account = data.active.first { sheet = .account(.record(account.id)) }
                 }.accessibilityIdentifier("home-activity-add")
             }
-            Text(spanish ? "Hoy" : "Today").font(.footnote).foregroundStyle(.secondary)
+            Text(CuadraoCopy.text("copy.cuadraoChatPreview.ebdcdc2bda", spanish: spanish)).font(.footnote).foregroundStyle(.secondary)
             ForEach(data.visibleActivity.prefix(3)) { entry in
                 if let account = data.account(entry.accountID) {
                     NavigationLink(value: HomeRoute.activity(entry.id)) {
@@ -204,7 +204,7 @@ struct CuadraoHomeCanvas: View {
 
     private var upcoming: some View {
         CuadraoUpcomingSection(spanish: spanish, viewPlan: { selectedTab = .plan }) {
-            CuadraoFeedRow(title: "Internet", detail: spanish ? "Mañana · Previsto" : "Tomorrow · Planned", amount: "1,500.00", icon: "wifi")
+            CuadraoFeedRow(title: CuadraoCopy.text("copy.cuadraoHomeCanvas.9c5e5e5e7c", spanish: CuadraoCopy.isSpanish()), detail: CuadraoCopy.text("copy.cuadraoHomeCanvas.afa4962b0f", spanish: spanish), amount: "1,500.00", icon: "wifi")
         }
     }
 
@@ -232,7 +232,7 @@ struct CuadraoHomeCanvas: View {
                 .safeAreaInset(edge: .top, spacing: 0) {
                     if searchChatOrigin {
                         Button { selection.wrappedValue = .search } label: {
-                            Label(spanish ? "Volver a Buscar" : "Back to Search", systemImage: "chevron.left")
+                            Label(CuadraoCopy.text("copy.cuadraoHomeCanvas.dc1f63d9d0", spanish: spanish), systemImage: "chevron.left")
                                 .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         }.padding(.horizontal, 24).background(WelcomePalette.background)
                             .accessibilityIdentifier("cuadrao.search.return")
@@ -249,7 +249,7 @@ struct CuadraoHomeCanvas: View {
         } else {
         NavigationStack {
             ContentUnavailableView(tab.title(spanish: spanish), systemImage: tab.symbol,
-                description: Text(spanish ? "Este espacio se diseña después de Inicio." : "This space will be designed after Home."))
+                description: Text(CuadraoCopy.text("copy.cuadraoHomeCanvas.0af4c52375", spanish: spanish)))
                 .background(WelcomePalette.background)
         }
         .toolbar(.hidden, for: .tabBar)

@@ -16,7 +16,7 @@ struct AccountDetailView: View {
     private var current: FinancialAccount {
         model.accounts.first(where: { $0.id == account.id }) ?? account
     }
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         let account = current
@@ -103,7 +103,7 @@ struct AccountDetailView: View {
         } label: {
             Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle())
         }.buttonStyle(.plain)
-            .accessibilityLabel(spanish ? "Opciones de cuenta" : "Account actions")
+            .accessibilityLabel(CuadraoCopy.text("copy.accountDetailView.f3398370dd", spanish: spanish))
             .accessibilityIdentifier("account-detail-options")
     }
 }

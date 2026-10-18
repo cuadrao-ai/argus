@@ -97,7 +97,7 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
                         HStack {
                             Text(filterSummary).accessibilityIdentifier(accessibility.prefix + ".filter-summary")
                             Spacer()
-                            Button(spanish ? "Quitar filtros" : "Clear filters", action: clearFilters)
+                            Button(CuadraoCopy.text("copy.cuadraoSearchPresentation.e3973e4b7c", spanish: spanish), action: clearFilters)
                                 .frame(minHeight: 44)
                         }.font(.caption).foregroundStyle(.secondary)
                     }
@@ -110,10 +110,10 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
             .sheet(isPresented: $showingFilters) {
                 NavigationStack {
                     Form(content: filters)
-                        .navigationTitle(spanish ? "Filtros" : "Filters")
+                        .navigationTitle(CuadraoCopy.text("copy.cuadraoSearchPresentation.7ace9eae19", spanish: spanish))
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
-                            CuadraoDoneToolbar(title: spanish ? "Listo" : "Done", identifier: accessibility.prefix + ".filters.done") { showingFilters = false }
+                            CuadraoDoneToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish), identifier: accessibility.prefix + ".filters.done") { showingFilters = false }
                         }
                 }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
             }
@@ -122,13 +122,13 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
     private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
-            TextField(spanish ? "Buscar" : "Search", text: $query)
+            TextField(CuadraoCopy.text("copy.cuadraoNavigationBar.78ab8df08d", spanish: spanish), text: $query)
                 .focused(focused).autocorrectionDisabled().textInputAutocapitalization(.never)
                 .submitLabel(.search).onSubmit { recents.remember(query, key: recentsKey); focused.wrappedValue = false }
                 .accessibilityIdentifier(accessibility.prefix + ".query")
             if !query.isEmpty {
                 Button { recents.remember(query, key: recentsKey); query = "" } label: { Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44) }
-                    .foregroundStyle(.secondary).accessibilityLabel(spanish ? "Borrar búsqueda" : "Clear search")
+                    .foregroundStyle(.secondary).accessibilityLabel(CuadraoCopy.text("copy.cuadraoSearchPresentation.beb46c13ec", spanish: spanish))
                     .accessibilityIdentifier(accessibility.clearQuery)
             }
             if showsFilters {
@@ -138,7 +138,7 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
                         if filterCount > 0 { Text(String(filterCount)).font(.caption) }
                     }.frame(minWidth: 44, minHeight: 48)
                 }.accessibilityIdentifier(accessibility.prefix + ".filters")
-                    .accessibilityLabel(spanish ? "Filtros, \(filterCount) activos" : "Filters, \(filterCount) active")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoSearchPresentation.b0b89d58eb", spanish: spanish, String(describing: filterCount)))
             }
         }.overlay(alignment: .bottom) { Rectangle().fill(WelcomePalette.separator).frame(height: 1) }
     }
@@ -165,8 +165,8 @@ struct CuadraoSearchEmptyState: View {
     private var browsing: Bool { query.isEmpty && filterCount == 0 }
     var body: some View {
         CuadraoEmptyView(
-            title: title ?? (browsing ? emptyTitle : (spanish ? "Sin resultados" : "No results")),
-            detail: detail ?? (browsing ? emptyDetail : (spanish ? "Prueba otro nombre o cambia los filtros." : "Try another name or change the filters.")),
+            title: title ?? (browsing ? emptyTitle : (CuadraoCopy.text("copy.cuadraoSearchPresentation.2448aace19", spanish: spanish))),
+            detail: detail ?? (browsing ? emptyDetail : (CuadraoCopy.text("copy.cuadraoSearchPresentation.3a1ec2c8d8", spanish: spanish))),
             actionTitle: action?.title, action: action?.run, identifier: accessibility.prefix + ".empty",
             actionIdentifier: action?.identifier)
     }
@@ -174,48 +174,48 @@ struct CuadraoSearchEmptyState: View {
     /// One action, the most useful first: undo the filters that hide results, then clear the words, then widen the kind.
     private var action: (title: String, run: () -> Void, identifier: String)? {
         if filterCount > 0 {
-            return (spanish ? "Restablecer filtros" : "Reset filters", { clearFilters(); kind = .all }, accessibility.prefix + ".reset")
+            return (CuadraoCopy.text("copy.cuadraoSearchCanvas.18b5a4bccd", spanish: spanish), { clearFilters(); kind = .all }, accessibility.prefix + ".reset")
         }
-        if !query.isEmpty { return (spanish ? "Borrar búsqueda" : "Clear search", { query = "" }, accessibility.clearEmptyQuery) }
-        if kind != .all { return (spanish ? "Buscar en todo" : "Search everything", { kind = .all }, accessibility.prefix + ".everything") }
+        if !query.isEmpty { return (CuadraoCopy.text("copy.cuadraoSearchPresentation.beb46c13ec", spanish: spanish), { query = "" }, accessibility.clearEmptyQuery) }
+        if kind != .all { return (CuadraoCopy.text("copy.cuadraoSearchPresentation.0682933fff", spanish: spanish), { kind = .all }, accessibility.prefix + ".everything") }
         return nil
     }
 
     private var emptyTitle: String {
         switch kind {
-        case .all: spanish ? "Tu información, aquí" : "Your information, here"
-        case .accounts: spanish ? "Sin cuentas todavía" : "No accounts yet"
-        case .activity: spanish ? "Sin movimientos todavía" : "No activity yet"
-        case .plans: spanish ? "Sin planes todavía" : "No plans yet"
-        case .chats: spanish ? "Sin chats todavía" : "No chats yet"
-        case .files: spanish ? "Sin archivos todavía" : "No files yet"
-        case .memory: spanish ? "Sin recuerdos todavía" : "No memories yet"
+        case .all: CuadraoCopy.text("copy.cuadraoSearchPresentation.b4598cad75", spanish: spanish)
+        case .accounts: CuadraoCopy.text("copy.cuadraoSearchPresentation.64573a908e", spanish: spanish)
+        case .activity: CuadraoCopy.text("copy.cuadraoSearchPresentation.00e75bc450", spanish: spanish)
+        case .plans: CuadraoCopy.text("copy.cuadraoSearchPresentation.f164d22475", spanish: spanish)
+        case .chats: CuadraoCopy.text("copy.cuadraoSearchPresentation.455c019e92", spanish: spanish)
+        case .files: CuadraoCopy.text("copy.cuadraoSearchPresentation.5a272703b6", spanish: spanish)
+        case .memory: CuadraoCopy.text("copy.cuadraoSearchPresentation.cc77f67a4f", spanish: spanish)
         }
     }
     private var emptyDetail: String {
         switch kind {
         case .all:
             if CuadraoFirstRelease.hasAssistant {
-                spanish ? "Busca cuentas, movimientos, planes y conversaciones." : "Search accounts, activity, plans and conversations."
+                CuadraoCopy.text("copy.cuadraoSearchPresentation.075db4251c", spanish: spanish)
             } else {
-                spanish ? "Busca cuentas, movimientos y planes." : "Search accounts, activity and plans."
+                CuadraoCopy.text("copy.cuadraoSearchPresentation.c65b73f579", spanish: spanish)
             }
         case .accounts:
             if CuadraoFirstRelease.hasAssistant {
-                spanish ? "Añade una cuenta desde Inicio para encontrarla aquí." : "Add an account from Home to find it here."
+                CuadraoCopy.text("copy.cuadraoSearchPresentation.7a664219f1", spanish: spanish)
             } else {
-                spanish ? "Añade una cuenta con el botón + para encontrarla aquí." : "Add an account with the + button to find it here."
+                CuadraoCopy.text("copy.cuadraoSearchPresentation.91789e4b19", spanish: spanish)
             }
-        case .activity: spanish ? "Los movimientos que registres en tus cuentas aparecerán aquí." : "Activity recorded in your accounts will appear here."
+        case .activity: CuadraoCopy.text("copy.cuadraoSearchPresentation.5ec06a7c61", spanish: spanish)
         case .plans:
             if CuadraoFirstRelease.hasAssistant {
-                spanish ? "Crea una meta, un presupuesto o un plan de deuda en Plan." : "Create a goal, budget or debt plan in Plan."
+                CuadraoCopy.text("copy.cuadraoSearchPresentation.9811151c26", spanish: spanish)
             } else {
-                spanish ? "Crea una meta, un presupuesto o un plan de deuda con el botón +." : "Create a goal, budget or debt plan with the + button."
+                CuadraoCopy.text("copy.cuadraoSearchPresentation.ac2d8b1306", spanish: spanish)
             }
-        case .chats: spanish ? "Tus conversaciones guardadas aparecerán aquí." : "Your saved conversations will appear here."
-        case .files: spanish ? "Los archivos disponibles aparecerán aquí." : "Available files will appear here."
-        case .memory: spanish ? "El contexto que confirmes aparecerá aquí." : "Context you confirm will appear here."
+        case .chats: CuadraoCopy.text("copy.cuadraoSearchPresentation.26de9009be", spanish: spanish)
+        case .files: CuadraoCopy.text("copy.cuadraoSearchPresentation.e24f65cdc6", spanish: spanish)
+        case .memory: CuadraoCopy.text("copy.cuadraoSearchPresentation.9d9301f776", spanish: spanish)
         }
     }
 }

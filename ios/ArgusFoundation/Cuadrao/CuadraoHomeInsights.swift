@@ -65,7 +65,7 @@ struct CuadraoHomeInsights: View {
                     CuadraoAccountCanvas(data: data, accountID: id, spanish: spanish,
                         actions: { accountSheet = $0 }, record: { accountSheet = .record($0) })
                 }
-        }.confirmationDialog(spanish ? "¿En qué cuenta?" : "Which account?", isPresented: $chooseRecordingAccount, titleVisibility: .visible) {
+        }.confirmationDialog(CuadraoCopy.text("copy.cuadraoHomeInsights.483c453a6a", spanish: spanish), isPresented: $chooseRecordingAccount, titleVisibility: .visible) {
             ForEach(accounts) { account in
                 Button(account.displayName(spanish)) { accountSheet = .record(account.id) }
             }

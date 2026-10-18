@@ -39,16 +39,16 @@ enum CanvasChatExample: String, CaseIterable, Identifiable {
     var id: Self { self }
     func title(_ es: Bool) -> String {
         switch self {
-        case .savings: es ? "Ponerle números a una meta" : "Put numbers to a goal"
-        case .certificate: es ? "Entender un certificado" : "Understand a certificate"
-        case .document: es ? "Revisar un documento" : "Review a document"
+        case .savings: CuadraoCopy.text("copy.cuadraoChatPreview.e76fb344b2", spanish: es)
+        case .certificate: CuadraoCopy.text("copy.cuadraoChatPreview.17ba420003", spanish: es)
+        case .document: CuadraoCopy.text("copy.cuadraoChatPreview.98da9978d5", spanish: es)
         }
     }
     func question(_ es: Bool) -> String {
         switch self {
-        case .savings: es ? "Si separo 3,000 pesos al mes, ¿cuánto junto en seis meses?" : "If I set aside 3,000 pesos a month, how much will I have in six months?"
-        case .certificate: es ? "¿Qué debo mirar antes de abrir un certificado de depósito?" : "What should I look at before opening a certificate of deposit?"
-        case .document: es ? "Ayúdame a revisar este documento." : "Help me review this document."
+        case .savings: CuadraoCopy.text("copy.cuadraoChatPreview.3b785a0c24", spanish: es)
+        case .certificate: CuadraoCopy.text("copy.cuadraoChatPreview.88582e4346", spanish: es)
+        case .document: CuadraoCopy.text("copy.cuadraoChatPreview.de23a0e457", spanish: es)
         }
     }
 }
@@ -165,9 +165,9 @@ enum CanvasChatResponseState: String, CaseIterable { case complete, waiting, fai
     func references(_ es: Bool) -> [CanvasSearchReference] {
         visibleThreads.filter { !$0.deleted }.map { thread in
             CanvasSearchReference(id: thread.id, kind: .chats, title: thread.title,
-                detail: thread.archived ? (es ? "Chat archivado · Solo yo" : "Archived chat · Only me")
-                    : (es ? "Conversación · Solo yo" : "Conversation · Only me"),
-                content: thread.turns.last?.question ?? thread.draft, source: es ? "Conversación" : "Conversation")
+                detail: thread.archived ? (CuadraoCopy.text("copy.cuadraoChatPreview.f54ec09c1b", spanish: es))
+                    : (CuadraoCopy.text("copy.cuadraoChatPreview.964e5a1937", spanish: es)),
+                content: thread.turns.last?.question ?? thread.draft, source: CuadraoCopy.text("copy.cuadraoChatPreview.2a2d40e14e", spanish: es))
         }
     }
 }
@@ -175,11 +175,11 @@ enum CanvasChatResponseState: String, CaseIterable { case complete, waiting, fai
 /// Both history and Search render the last message date, never a metadata edit time.
 enum CanvasChatRecency {
     static func label(_ date: Date, spanish: Bool, now: Date = .now, calendar: Calendar = .current) -> String {
-        if calendar.isDate(date, inSameDayAs: now) { return spanish ? "Hoy" : "Today" }
+        if calendar.isDate(date, inSameDayAs: now) { return CuadraoCopy.text("copy.cuadraoChatPreview.ebdcdc2bda", spanish: spanish) }
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
-           calendar.isDate(date, inSameDayAs: yesterday) { return spanish ? "Ayer" : "Yesterday" }
+           calendar.isDate(date, inSameDayAs: yesterday) { return CuadraoCopy.text("copy.cuadraoChatPreview.5123ee24fd", spanish: spanish) }
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: spanish ? "es-419" : "en_US")
+        formatter.locale = Locale(identifier: CuadraoCopy.text("copy.cuadraoChatPreview.68ab9be0ef", spanish: spanish))
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.setLocalizedDateFormatFromTemplate(calendar.component(.year, from: date) == calendar.component(.year, from: now) ? "dMMM" : "dMMMy")

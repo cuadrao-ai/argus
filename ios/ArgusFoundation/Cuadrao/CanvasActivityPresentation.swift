@@ -24,16 +24,16 @@ struct CanvasActivityDetailContent<Details: View>: View {
                 .accessibilityIdentifier("activity-detail-title")
             Text(value.amount).font(CuadraoTypography.amount).monospacedDigit()
                 .accessibilityIdentifier("activity-detail-amount")
-            LabeledContent(spanish ? "Tipo" : "Type", value: value.kind)
+            LabeledContent(CuadraoCopy.text("copy.connectedTransactionSheet.36a6ac68b2", spanish: spanish), value: value.kind)
             if let category = value.category {
-                LabeledContent(spanish ? "Categoría" : "Category") {
+                LabeledContent(CuadraoCopy.text("copy.connectedCuadraoHome.67c7ee0c0f", spanish: spanish)) {
                     HStack {
                         if let artwork = category.artwork { CuadraoExpenseCategoryIcon(category: artwork) }
                         Text(category.title)
                     }
                 }
             }
-            LabeledContent(spanish ? "Fecha" : "Date", value: value.date)
+            LabeledContent(CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: spanish), value: value.date)
             details()
         }
     }

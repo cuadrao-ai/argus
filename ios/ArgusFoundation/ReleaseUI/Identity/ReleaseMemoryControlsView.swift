@@ -11,48 +11,44 @@ public struct ReleaseMemoryControlsView: View {
         self.state = state; self.onSetEnabled = onSetEnabled; self.onReset = onReset
     }
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
-    private func text(_ es: String, _ en: String) -> String { spanish ? es : en }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     public var body: some View {
         List {
             Section {
-                Toggle(text("Usar memoria", "Use memory"), isOn: Binding(get: { state.isEnabled }, set: onSetEnabled))
+                Toggle(CuadraoCopy.text("copy.releaseMemoryControlsView.fe432c633c", spanish: spanish), isOn: Binding(get: { state.isEnabled }, set: onSetEnabled))
                     .disabled(state.isBusy).accessibilityIdentifier("identity.memory.enabled")
-                Text(text("Cuadrao puede recordar lo que tú confirmes para personalizar sus respuestas.",
-                          "Cuadrao can remember what you confirm to personalize its responses."))
+                Text(CuadraoCopy.text("copy.releaseMemoryControlsView.21399ac39f", spanish: spanish))
                     .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
                 if !state.isEnabled && !state.isBusy {
-                    Label(text("Memoria desactivada", "Memory is off"), systemImage: "pause.circle")
+                    Label(CuadraoCopy.text("copy.releaseMemoryControlsView.2d81d3a8b8", spanish: spanish), systemImage: "pause.circle")
                 }
             } footer: {
-                Text(text("Desactivar la memoria conserva lo guardado. Restablecerla borra todos los recuerdos.",
-                          "Turning memory off keeps saved memories. Resetting deletes all memories."))
+                Text(CuadraoCopy.text("copy.releaseMemoryControlsView.105544768c", spanish: spanish))
             }
             Section {
-                if state.isBusy { ProgressView(text("Guardando cambios…", "Saving changes…")) }
+                if state.isBusy { ProgressView(CuadraoCopy.text("copy.releaseMemoryControlsView.61df2b5921", spanish: spanish)) }
                 if case .failed = state {
-                    Label(text("No se pudo completar. Vuelve a intentarlo.", "Couldn't finish. Try again."),
+                    Label(CuadraoCopy.text("copy.releaseMemoryControlsView.30ce7c0d56", spanish: spanish),
                           systemImage: "exclamationmark.circle")
                 }
                 if case .resetComplete = state {
-                    Label(text("Memoria restablecida", "Memory reset"), systemImage: "checkmark.circle")
+                    Label(CuadraoCopy.text("copy.releaseMemoryControlsView.e48acc65ad", spanish: spanish), systemImage: "checkmark.circle")
                         .accessibilityIdentifier("identity.memory.resetComplete")
                 }
-                Button(text("Restablecer memoria", "Reset memory"), role: .destructive) { confirmingReset = true }
+                Button(CuadraoCopy.text("copy.releaseMemoryControlsView.c9b284078e", spanish: spanish), role: .destructive) { confirmingReset = true }
                     .disabled(state.isBusy).accessibilityIdentifier("identity.memory.reset")
             }
         }
         .font(CuadraoTypography.body).tint(WelcomePalette.pine)
-        .navigationTitle(text("Memoria", "Memory"))
+        .navigationTitle(CuadraoCopy.text("copy.releaseMemoryControlsView.7fa6d06e03", spanish: spanish))
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(text("¿Borrar todos los recuerdos?", "Delete all memories?"),
+        .confirmationDialog(CuadraoCopy.text("copy.releaseMemoryControlsView.e2a23146c1", spanish: spanish),
                             isPresented: $confirmingReset, titleVisibility: .visible) {
-            Button(text("Borrar recuerdos", "Delete memories"), role: .destructive, action: onReset)
-            Button(text("Cancelar", "Cancel"), role: .cancel) {}
+            Button(CuadraoCopy.text("copy.releaseMemoryControlsView.82eb4412d9", spanish: spanish), role: .destructive, action: onReset)
+            Button(CuadraoCopy.text("copy.releaseMemoryControlsView.62a128b722", spanish: spanish), role: .cancel) {}
         } message: {
-            Text(text("Esta acción no se puede deshacer. Tus chats y registros financieros se conservan.",
-                      "This cannot be undone. Your chats and financial records will stay."))
+            Text(CuadraoCopy.text("copy.releaseMemoryControlsView.f12ba99660", spanish: spanish))
         }
         .accessibilityIdentifier("identity.memory.screen")
     }

@@ -20,7 +20,7 @@ struct AgeConfirmationGate<Content: View>: View {
         switch model.state {
         case .sharingRequired: String(localized: "age.confirmation.share")
         case .unavailable: String(localized: "age.confirmation.retry")
-        default: "Continuar"
+        default: CuadraoCopy.text("copy.cuadraoDesignGallery.c27a4762b9")
         }
     }
 
