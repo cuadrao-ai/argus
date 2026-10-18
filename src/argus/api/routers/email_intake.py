@@ -43,7 +43,6 @@ from argus.domain.ingestion.email_intake.signatures import (
     verify_webhook,
 )
 from argus.domain.ingestion.email_intake.store import RecipientTaken
-from argus.domain.ingestion.email_intake.words import domain_is_free
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 
 webhook_router = APIRouter(prefix="/webhooks/resend", tags=["business-email"])
@@ -482,7 +481,7 @@ def authorize_sender(
     value = _sender_value(body.kind, body.value)
     if value is None:
         raise _problem(request, 422, "email_sender_invalid", "That sender is not valid.")
-    if body.kind == "domain" and domain_is_free(value):
+    if body.kind == "domain":
         raise _problem(
             request,
             422,

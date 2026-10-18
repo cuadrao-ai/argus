@@ -248,12 +248,98 @@ def test_a_random_code_is_used_only_when_every_name_is_taken():
     assert set(found).isdisjoint(names)
 
 
-def test_provider_verdict_uses_the_server_result_not_a_forged_header():
-    assert provider_verdict({"dmarc": "pass", "dkim": "fail"}) == "aligned"
-    assert provider_verdict({"dmarc": "gray", "dkim": "pass"}) == "aligned"
-    assert provider_verdict({"dmarc": "fail", "dkim": "pass", "spf": "pass"}) == "failed"
-    assert provider_verdict({"dmarc": "gray", "dkim": "gray", "spf": "pass"}) == "unknown"
-    assert provider_verdict(None) == "unknown"
+def _from_bytes(*values: str) -> bytes:
+    lines = [f"From: {value}" for value in values]
+    lines.extend(["To: caja@tienda.test", "Subject: Factura", "", "cuerpo"])
+    return "\r\n".join(lines).encode()
+
+
+def _with_extra_from(extra: bytes) -> bytes:
+    head, body = _from_bytes("caja@tienda.test").split(b"\r\n\r\n", 1)
+    return head + b"\r\n" + extra + b"\r\n\r\n" + body
+
+
+_ONE_FROM = _from_bytes("caja@tienda.test")
+
+
+@pytest.mark.parametrize(
+    ("authentication", "raw", "provider_from", "expected"),
+    [
+        ({"dmarc": "pass", "dkim": "fail", "spf": "fail"}, None, None, "aligned"),
+        ({"dmarc": "fail", "dkim": "pass", "spf": "pass"}, None, None, "failed"),
+        ({"dkim": "pass", "spf": "fail"}, None, None, "aligned"),
+        ({"dkim": "fail", "spf": "pass"}, None, None, "failed"),
+        ({"dmarc": "gray", "dkim": "pass"}, None, None, "aligned"),
+        ({"dmarc": "gray", "dkim": "fail"}, None, None, "failed"),
+        ({"dmarc": "gray", "dkim": "gray", "spf": "pass"}, None, None, "unknown"),
+        ({"dmarc": "processing_failed"}, None, None, "unknown"),
+        ({"dmarc": "processing_failed", "dkim": "pass"}, None, None, "aligned"),
+        ({"dmarc": "processing_failed", "dkim": "fail"}, None, None, "failed"),
+        ({"dmarc": "unknown"}, None, None, "unknown"),
+        ({"dmarc": None, "dkim": None, "spf": "pass"}, None, None, "unknown"),
+        ({}, None, None, "unknown"),
+        (None, None, None, "unknown"),
+        ("pass", None, None, "unknown"),
+        ({"spf": "pass"}, None, None, "unknown"),
+        ({"spf": "fail"}, None, None, "unknown"),
+        ({"dmarc": "pass"}, _ONE_FROM, "caja@tienda.test", "aligned"),
+        ({"dmarc": "pass"}, _ONE_FROM, "Caja <caja@tienda.test>", "aligned"),
+        (
+            {"dmarc": "pass"},
+            _from_bytes("caja@tienda.test", "otro@tienda.test"),
+            "caja@tienda.test",
+            "unknown",
+        ),
+        (
+            {"dmarc": "pass"},
+            _from_bytes("caja@tienda.test, otro@tienda.test"),
+            "caja@tienda.test",
+            "unknown",
+        ),
+        ({"dmarc": "pass"}, _ONE_FROM, "otro@tienda.test", "unknown"),
+        ({"dmarc": "pass"}, _ONE_FROM, None, "unknown"),
+        ({"dmarc": "pass"}, _ONE_FROM, "", "unknown"),
+        ({"dmarc": "pass"}, _ONE_FROM, "   ", "unknown"),
+        ({"dmarc": "fail"}, _ONE_FROM, None, "unknown"),
+        ({"dmarc": "pass"}, _with_extra_from(b"From:"), "caja@tienda.test", "unknown"),
+        (
+            {"dmarc": "pass"},
+            _with_extra_from(b"From : otro@tienda.test"),
+            "caja@tienda.test",
+            "unknown",
+        ),
+        (
+            {"dmarc": "pass"},
+            _with_extra_from(b"From\t: otro@tienda.test"),
+            "caja@tienda.test",
+            "unknown",
+        ),
+    ],
+)
+def test_provider_verdict_rows(authentication, raw, provider_from, expected):
+    assert (
+        provider_verdict(authentication, raw=raw, provider_from=provider_from) == expected
+    )
+
+
+def test_the_in_app_verifier_does_not_decide_the_provider_verdict():
+    private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    signed, public = sign_relaxed(
+        _letter(), private, domain="example.test", selector="mail"
+    )
+
+    def keys(domain: str, selector: str):
+        if domain == "example.test" and selector == "mail":
+            return public
+        return None
+
+    assert assess(signed, keys) == "aligned"
+    assert (
+        provider_verdict(
+            {"spf": "pass"}, raw=signed, provider_from="proveedor@example.test"
+        )
+        == "unknown"
+    )
 
 
 def test_a_token_address_without_an_alias_still_routes():

@@ -61,15 +61,26 @@ def from_domain(raw: bytes) -> str | None:
     return address.rsplit("@", 1)[1]
 
 
-def provider_verdict(authentication: dict | None) -> str:
-    """Map the receiving server's authentication object to one verdict.
+def provider_verdict(
+    authentication: dict | None,
+    *,
+    raw: bytes | None = None,
+    provider_from: str | None = None,
+) -> str:
+    """Map provider authentication and the stored From to one verdict.
 
-    The object is the server's own SPF, DKIM, and DMARC result. A header inside
-    the message is not this object. ``dmarc`` pass is aligned and ``dmarc`` fail
-    is failed. When ``dmarc`` is absent or neither of those, ``dkim`` pass means
-    the signing domain matched From, and ``dkim`` fail does not.
+    ``dmarc`` pass is aligned and ``dmarc`` fail is failed. When ``dmarc`` is
+    neither, ``dkim`` pass is aligned and ``dkim`` fail is failed. Anything else
+    is unknown. SPF is not read. Gray, processing_failed, unknown, null, and
+    missing values are not pass or fail. When ``raw`` is present, more than one
+    From header or address, a preview From that is not the stored From, or a
+    missing preview From is unknown. The in-app verifier is not consulted.
     """
 
+    if raw is not None and (
+        ambiguous_from(raw) or _preview_from_differs(provider_from, raw)
+    ):
+        return "unknown"
     if not isinstance(authentication, dict):
         return "unknown"
     dmarc = authentication.get("dmarc")
@@ -83,6 +94,11 @@ def provider_verdict(authentication: dict | None) -> str:
     if dkim == "fail":
         return "failed"
     return "unknown"
+
+
+def _preview_from_differs(provider_from: str | None, raw: bytes) -> bool:
+    reported = bare_address(provider_from) if isinstance(provider_from, str) else None
+    return reported is None or reported != from_address(raw)
 
 
 def assess(raw: bytes, keys: KeyLookup) -> str:

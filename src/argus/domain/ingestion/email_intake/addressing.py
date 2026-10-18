@@ -10,6 +10,7 @@ from uuid import uuid4
 from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
 
+from argus.domain.ingestion.email_intake.alignment import bare_address
 from argus.domain.ingestion.email_intake.models import RecipientRoute, route_from_row
 
 
@@ -252,39 +253,35 @@ class PostgresAddressing:
             return row is not None
 
     def sender_standing(self, space_id: str, address: str | None) -> str:
-        parsed = _address_value(address)
+        parsed = _address_value(bare_address(address))
         if parsed is None:
             return "new"
-        full, domain = parsed
+        full = parsed[0]
         with (
             self.pool.connection() as connection,
             connection.cursor(row_factory=dict_row) as cursor,
         ):
-            rows = cursor.execute(
-                "select kind, status from public.business_email_senders "
-                "where space_id=%s and ((kind='address' and value=%s) or (kind='domain' and value=%s))",
-                (space_id, full, domain),
-            ).fetchall()
-        by_kind = {row["kind"]: row["status"] for row in rows}
-        return by_kind.get("address") or by_kind.get("domain") or "new"
+            row = cursor.execute(
+                "select status from public.business_email_senders "
+                "where space_id=%s and kind='address' and value=%s",
+                (space_id, full),
+            ).fetchone()
+        return row["status"] if row else "new"
 
     def claim_first_scan(self, space_id: str, address: str | None) -> bool:
-        parsed = _address_value(address)
+        parsed = _address_value(bare_address(address))
         if parsed is None:
             return False
-        full, domain = parsed
+        full = parsed[0]
         with self.pool.connection() as connection, connection.transaction():
             row = connection.execute(
                 "update public.business_email_senders set first_scan_at=now() "
                 "where id = ("
-                "select id from public.business_email_senders where space_id=%s and status='authorized' "
-                "and first_scan_at is null and ("
-                "(kind='address' and value=%s) or (kind='domain' and value=%s and not exists ("
-                "select 1 from public.business_email_senders a where a.space_id=%s "
-                "and a.kind='address' and a.value=%s))) "
-                "order by case kind when 'address' then 0 else 1 end limit 1"
+                "select id from public.business_email_senders where space_id=%s "
+                "and status='authorized' and first_scan_at is null "
+                "and kind='address' and value=%s limit 1"
                 ") returning id",
-                (space_id, full, domain, space_id, full),
+                (space_id, full),
             ).fetchone()
             return row is not None
 
@@ -464,26 +461,21 @@ class MemoryAddressing:
             return any(rule.space_id == space_id for rule in self._senders.values())
 
     def sender_standing(self, space_id: str, address: str | None) -> str:
-        parsed = _address_value(address)
+        parsed = _address_value(bare_address(address))
         if parsed is None:
             return "new"
-        full, domain = parsed
+        full = parsed[0]
         with self._lock:
-            address_rule = self._senders.get((space_id, "address", full))
-            if address_rule is not None:
-                return address_rule.status
-            domain_rule = self._senders.get((space_id, "domain", domain))
-            return domain_rule.status if domain_rule is not None else "new"
+            rule = self._senders.get((space_id, "address", full))
+            return rule.status if rule is not None else "new"
 
     def claim_first_scan(self, space_id: str, address: str | None) -> bool:
-        parsed = _address_value(address)
+        parsed = _address_value(bare_address(address))
         if parsed is None:
             return False
-        full, domain = parsed
+        full = parsed[0]
         with self._lock:
-            rule = self._senders.get((space_id, "address", full)) or self._senders.get(
-                (space_id, "domain", domain)
-            )
+            rule = self._senders.get((space_id, "address", full))
             if rule is None or rule.status != "authorized" or rule.first_scan_at is not None:
                 return False
             self._senders[(space_id, rule.kind, rule.value)] = replace(

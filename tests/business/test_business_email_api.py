@@ -568,6 +568,14 @@ def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runti
         422,
         "email_sender_domain_refused",
     )
+    whole = alice.post(
+        "/email/senders",
+        {"kind": "domain", "value": "tienda.test", "status": "authorized"},
+    )
+    assert (whole.status_code, whole.json()["code"]) == (
+        422,
+        "email_sender_domain_refused",
+    )
     listed = alice.get("/email/senders").json()["items"]
     authorized = [
         event

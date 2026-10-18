@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import io
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from unittest.mock import AsyncMock, Mock
@@ -783,3 +783,135 @@ async def test_aligned_mail_with_a_display_name_can_be_approved():
     assert [str(call) for call in service.calls] == [str(draft_id)]
     assert saved.sender == "caja@tienda.test"
     assert (saved.inbox_group, saved.auth_result) == ("bandeja", "aligned")
+
+
+def test_every_linked_delivery_must_be_authorized_and_aligned():
+    world = rig()
+    space = world.route.space_id
+    draft_id = str(uuid4())
+    good_doc = str(uuid4())
+    bad_doc = str(uuid4())
+    world.store.upsert_sender(space, "address", "caja@tienda.test", "authorized")
+    world.store.link_draft_documents(space, draft_id, [good_doc, bad_doc])
+    good = world.enqueue()
+    bad = world.enqueue()
+    world.store._deliveries[good.id] = replace(
+        world.store.get(good.id, space),
+        original_document_id=good_doc,
+        sender="caja@tienda.test",
+        auth_result="aligned",
+    )
+    world.store._deliveries[bad.id] = replace(
+        world.store.get(bad.id, space),
+        original_document_id=bad_doc,
+        sender="caja@tienda.test",
+        auth_result="aligned",
+    )
+    assert world.store.email_document_standing(space, draft_id) == "authorized"
+    world.store._deliveries[bad.id] = replace(
+        world.store.get(bad.id, space), auth_result="failed"
+    )
+    assert world.store.email_document_standing(space, draft_id) == "new"
+    world.store._deliveries[bad.id] = replace(
+        world.store.get(bad.id, space),
+        auth_result="aligned",
+        sender="otro@tienda.test",
+    )
+    assert world.store.email_document_standing(space, draft_id) == "new"
+
+
+def test_an_exempt_flag_does_not_skip_the_reservation():
+    from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+
+    world = rig()
+    delivery = world.enqueue()
+    held = world.store.claim(delivery_id=delivery.id)
+    flagged = replace(held, cap_exempt=True)
+    world.store._deliveries[held.id] = flagged
+    world.store.reserve_fetch(flagged)
+    assert _usage(world)[1] == SOURCE_MAX_BYTES
+
+
+def test_standing_uses_the_bare_address_and_ignores_a_domain_rule():
+    world = rig()
+    space = world.route.space_id
+    shown = "Proveedor <Proveedor@Example.Test>"
+    world.store.upsert_sender(space, "domain", "example.test", "authorized")
+    assert world.store.sender_standing(space, shown) == "new"
+    assert world.store.claim_first_scan(space, shown) is False
+    world.store.upsert_sender(space, "domain", "example.test", "blocked")
+    assert world.store.sender_standing(space, shown) == "new"
+    world.store.upsert_sender(space, "address", "proveedor@example.test", "authorized")
+    assert world.store.sender_standing(space, shown) == "authorized"
+    assert world.store.sender_standing(space, "otro@example.test") == "new"
+    assert world.store.claim_first_scan(space, "otro@example.test") is False
+    assert world.store.claim_first_scan(space, shown) is True
+
+
+@pytest.mark.asyncio
+async def test_a_forward_on_an_authorized_domain_is_not_exempt():
+    msg = EmailMessage()
+    msg["From"] = "Proveedor <Proveedor@Example.Test>"
+    msg["To"] = RECIPIENT
+    msg["Subject"] = "Fwd: Factura"
+    msg.set_content("Te reenvio la factura.")
+    msg.add_attachment(png(), maintype="image", subtype="png", filename="forwarded.eml")
+    world = rig(msg.as_bytes())
+    world.store.upsert_sender(
+        world.route.space_id, "domain", "example.test", "authorized"
+    )
+    world.provider.sender = "proveedor@example.test"
+    world.provider.provider_from = "proveedor@example.test"
+    world.provider.authentication = {"dmarc": "pass", "spf": "pass"}
+    saved = await _captured(world)
+    assert (saved.inbox_group, saved.auth_result, saved.cap_exempt, saved.approved) == (
+        "remitentes_nuevos",
+        "aligned",
+        False,
+        False,
+    )
+    assert _usage(world)[0] == 1
+
+
+@pytest.mark.asyncio
+async def test_an_authorized_preview_reserves_before_download():
+    from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+
+    world = rig()
+    _authorize(world)
+    world.provider.authentication = {"dmarc": "pass"}
+    world.provider.provider_from = "proveedor@example.test"
+    seen: dict[str, object] = {}
+    original = world.store.reserve_fetch
+
+    def reserve_fetch(delivery):
+        token = original(delivery)
+        current = world.store._deliveries[delivery.id]
+        seen["exempt"] = current.cap_exempt
+        seen["bytes"] = _usage(world)[1]
+        return token
+
+    world.store.reserve_fetch = reserve_fetch
+    saved = await _captured(world)
+    assert seen == {"exempt": False, "bytes": SOURCE_MAX_BYTES}
+    assert saved.cap_exempt is True
+    assert _usage(world) == [0, 0]
+
+
+@pytest.mark.asyncio
+async def test_capture_does_not_call_the_in_app_verifier(monkeypatch):
+    def explode(*_args, **_kwargs):
+        raise AssertionError("in-app verifier")
+
+    monkeypatch.setattr(
+        "argus.domain.ingestion.email_intake.alignment.assess", explode
+    )
+    import argus.domain.ingestion.email_intake.service as intake
+
+    if hasattr(intake, "assess"):
+        monkeypatch.setattr(intake, "assess", explode)
+    world = rig()
+    _aligned(world, "proveedor@example.test")
+    saved = await _captured(world)
+    assert saved.state == "captured"
+    assert saved.auth_result == "aligned"

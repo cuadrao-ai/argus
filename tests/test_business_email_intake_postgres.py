@@ -472,6 +472,19 @@ def _spoof(rig, messages: int, byte_cap: int) -> None:
         asyncio.run(rig["runtime"].next())
 
 
+def test_a_domain_rule_does_not_authorize_on_postgres(rig):
+    space = rig["route"].space_id
+    store = rig["store"]
+    store.upsert_sender(space, "domain", "tienda.test", "authorized")
+    shown = "Caja <Caja@Tienda.Test>"
+    assert store.sender_standing(space, shown) == "new"
+    assert store.claim_first_scan(space, "caja@tienda.test") is False
+    store.upsert_sender(space, "address", "caja@tienda.test", "authorized")
+    assert store.sender_standing(space, shown) == "authorized"
+    assert store.sender_standing(space, "otro@tienda.test") == "new"
+    assert store.claim_first_scan(space, shown) is True
+
+
 def test_a_forged_authorized_sender_is_charged_on_postgres(rig):
     from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
 

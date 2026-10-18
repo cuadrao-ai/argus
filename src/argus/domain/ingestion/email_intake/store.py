@@ -345,7 +345,7 @@ class PostgresEmailStore(PostgresAddressing):
                 "select * from public.business_email_deliveries where id=%s for update",
                 (delivery.id,),
             ).fetchone()
-            if row["cap_exempt"] or row["state"] == "rejected" or row["route_id"] is None:
+            if row["state"] == "rejected" or row["route_id"] is None:
                 return _delivery(row)
             now = cursor.execute("select clock_timestamp() as now").fetchone()["now"]
             if row["budget_message_day"] is not None:
@@ -412,17 +412,6 @@ class PostgresEmailStore(PostgresAddressing):
             ).fetchone()
             if row is None:
                 raise LeaseLost()
-            if row["cap_exempt"]:
-                now = cursor.execute("select clock_timestamp() as now").fetchone()["now"]
-                reservation = FetchReservation(
-                    str(uuid4()), business_day(now), str(delivery.route_id)
-                )
-                cursor.execute(
-                    "update public.business_email_deliveries set budget_fetch_day=%s,"
-                    "budget_fetch_token=%s,error_code=null where id=%s",
-                    (reservation.day, reservation.token, delivery.id),
-                )
-                return reservation
             now = cursor.execute("select clock_timestamp() as now").fetchone()["now"]
             usage = self._usage_locked(cursor, delivery.route_id, now)
             previous_lease = (
@@ -468,12 +457,6 @@ class PostgresEmailStore(PostgresAddressing):
             ).fetchone()
             if row is None:
                 raise LeaseLost()
-            exempt = connection.execute(
-                "select cap_exempt from public.business_email_deliveries where id=%s",
-                (delivery.id,),
-            ).fetchone()[0]
-            if exempt:
-                return
             connection.execute(
                 "update public.business_email_daily_usage set bytes_used=bytes_used-%s where route_id=%s and day=%s",
                 (SOURCE_MAX_BYTES - actual_bytes, row[0], reservation.day),
@@ -893,7 +876,7 @@ class InMemoryEmailStore(MemoryAddressing):
     @_synchronized
     def gate_unauthorized(self, delivery: EmailDelivery) -> EmailDelivery:
         current = self._deliveries[delivery.id]
-        if current.cap_exempt or current.state == "rejected" or not current.route_id:
+        if current.state == "rejected" or not current.route_id:
             return replace(current, available_at=self._available[current.id])
         now = self.clock()
         metered = self._message_budget.get(current.id)
@@ -934,12 +917,8 @@ class InMemoryEmailStore(MemoryAddressing):
 
     @_synchronized
     def reserve_fetch(self, delivery: EmailDelivery) -> FetchReservation:
-        current = self._held(delivery)
+        self._held(delivery)
         day = business_day(self.clock())
-        if current.cap_exempt:
-            reservation = FetchReservation(str(uuid4()), day, delivery.route_id)
-            self._fetch_budget[delivery.id] = reservation
-            return reservation
         usage = self._usage.setdefault((delivery.route_id, day), [0, 0])
         previous_day, previous_lease = self._message_budget.get(delivery.id, (None, None))
         new_message = int(
@@ -964,12 +943,10 @@ class InMemoryEmailStore(MemoryAddressing):
     ) -> None:
         if not 0 <= actual_bytes <= SOURCE_MAX_BYTES:
             raise ValueError("invalid_email_fetch_bytes")
-        current = self._held(delivery)
+        self._held(delivery)
         if self._fetch_budget.get(delivery.id) != reservation:
             raise LeaseLost()
         self._fetch_budget.pop(delivery.id)
-        if current.cap_exempt:
-            return
         self._usage[(reservation.route_id, reservation.day)][1] -= (
             SOURCE_MAX_BYTES - actual_bytes
         )

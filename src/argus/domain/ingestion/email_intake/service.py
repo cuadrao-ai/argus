@@ -25,11 +25,7 @@ from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
-from argus.domain.ingestion.email_intake.alignment import (
-    ambiguous_from,
-    from_address,
-    provider_verdict,
-)
+from argus.domain.ingestion.email_intake.alignment import from_address, provider_verdict
 from argus.domain.ingestion.email_intake.budget import (
     EmailBudgetWait,
     FetchBudget,
@@ -90,12 +86,6 @@ def _from_receipt_domain(sender: str | None) -> bool:
     if not domain or not isinstance(sender, str) or "@" not in sender:
         return False
     return sender.strip().lower().rsplit("@", 1)[1] == domain
-
-
-def _provider_from_differs(provider_from: str | None, raw: bytes) -> bool:
-    if not isinstance(provider_from, str) or not provider_from.strip():
-        return True
-    return provider_from != from_address(raw)
 
 
 def grant_route_authority(pool: ConnectionPool) -> RouteAuthority:
@@ -339,11 +329,11 @@ class EmailCapture:
                 if actual != expected:
                     raise EmailProviderError("email_recipient_mismatch")
                 raw = received.raw
-                auth = provider_verdict(received.authentication)
-                if ambiguous_from(raw) or _provider_from_differs(
-                    received.provider_from, raw
-                ):
-                    auth = "unknown"
+                auth = provider_verdict(
+                    received.authentication,
+                    raw=raw,
+                    provider_from=received.provider_from,
+                )
                 if not await self._keep_after_alignment(delivery, route, raw, auth):
                     return
             await asyncio.to_thread(self.check_route, route)

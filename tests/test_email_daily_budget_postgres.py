@@ -126,6 +126,18 @@ def test_usage_is_private_and_route_deletion_cascades(rig):
     assert usage(rig) is None
 
 
+def test_cap_exempt_still_reserves_the_ceiling(rig):
+    store = rig["store"]
+    held = store.claim(delivery_id=enqueue(rig).id)
+    with rig["pool"].connection() as db:
+        db.execute(
+            "update public.business_email_deliveries set cap_exempt=true where id=%s",
+            (held.id,),
+        )
+    store.reserve_fetch(held)
+    assert usage(rig)[1] == SOURCE_MAX_BYTES
+
+
 def test_metadata_and_raw_share_one_attempt_but_settle_each_fetch(rig):
     store = rig["store"]
     held = store.claim(delivery_id=enqueue(rig).id)

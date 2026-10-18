@@ -372,6 +372,21 @@ def test_approve_refuses_a_forged_sender_on_the_real_draft(prepared):
                 cid,
             ),
         )
+        db.execute(
+            "insert into public.business_email_deliveries("
+            "provider, external_id, recipients, route_id, space_id, principal_id,"
+            " state, original_document_id, sender, auth_result, inbox_group)"
+            " values ('resend', %s, %s, %s, %s, %s, 'captured', %s,"
+            " 'caja@tienda.test', 'aligned', 'bandeja')",
+            (
+                str(uuid4()),
+                Jsonb(["caja@tienda.test"]),
+                route.id,
+                space,
+                str(context.owner_id),
+                cid,
+            ),
+        )
     assert store.email_document_standing(space, str(draft_id)) == "new"
     foreign = uuid4()
     app = FastAPI()
