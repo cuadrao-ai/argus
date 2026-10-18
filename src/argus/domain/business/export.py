@@ -13,6 +13,8 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 import xlsxwriter
 
+from argus.domain.business.dgii_export import build_fiscal_packet
+from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
 from argus.domain.store import utcnow
 
@@ -84,6 +86,9 @@ class ExportSnapshot:
     sources: tuple[ExportSource, ...]
     unresolved: tuple[Mapping[str, Any], ...]
     captured_at: datetime
+    fiscal_records: tuple[FiscalRecord, ...] = ()
+    business_rnc: str | None = None
+    business_name: str = ""
 
 
 def _text(value: Any) -> str:
@@ -297,6 +302,16 @@ def build_archive(
         xlsx_bytes = _xlsx(rows, snapshot.unresolved)
         archive.writestr("records.csv", csv_bytes)
         archive.writestr("records.xlsx", xlsx_bytes)
+        fiscal = build_fiscal_packet(
+            snapshot.fiscal_records,
+            rnc=snapshot.business_rnc,
+            business_name=snapshot.business_name,
+            start=snapshot.period.start,
+            end=snapshot.period.end,
+            captured_on=snapshot.captured_at.date(),
+        )
+        for name, content in fiscal.files.items():
+            archive.writestr(name, content)
         archive.writestr(
             "unresolved.csv",
             _csv(
@@ -314,6 +329,7 @@ def build_archive(
             },
             "captured_at": snapshot.captured_at.isoformat(),
             "records": rows,
+            "dgii": fiscal.manifest,
             "unresolved_drafts": list(snapshot.unresolved),
             "unresolved_scope": "Open or accepting drafts dated in the period, plus all undated drafts; never included as recorded money.",
             "unresolved_in_money_totals": False,
@@ -328,6 +344,10 @@ def build_archive(
             "files": {
                 "records.csv": hashlib.sha256(csv_bytes).hexdigest(),
                 "records.xlsx": hashlib.sha256(xlsx_bytes).hexdigest(),
+                **{
+                    name: hashlib.sha256(content).hexdigest()
+                    for name, content in fiscal.files.items()
+                },
             },
         }
         archive.writestr(
@@ -484,12 +504,20 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 )
                 for a in activities
             )
+            from argus.domain.business.dgii_snapshot import fiscal_snapshot
+
+            fiscal_records, business_rnc, business_name = fiscal_snapshot(
+                cursor, context, activities
+            )
             snapshot = ExportSnapshot(
                 period,
                 activities,
                 sources,
                 tuple(unresolved),
                 utcnow(),
+                fiscal_records,
+                business_rnc,
+                business_name,
             )
 
     store = PostgresDocumentStore(authority.pool, objects)
