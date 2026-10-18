@@ -3,6 +3,12 @@
 The ordered Cuadrao staging-to-production checklist is the launch runbook
 section
 [Cuadrao production promotion](../PRIVATE_LAUNCH_RUNBOOK.md#cuadrao-production-promotion).
+
+- On promotion day, confirm `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `true`
+  on dashboard `cuadrao-api`. The check is the name and on/off only. Never set
+  or change it on production without the founder's explicit approval. See
+  [Dashboard checks (founder, at promotion)](../PRIVATE_LAUNCH_RUNBOOK.md#dashboard-checks-founder-at-promotion).
+
 This file remains the historical preparation checklist for eval identity,
 local rehearsal, and spending records.
 

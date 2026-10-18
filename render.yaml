@@ -295,6 +295,8 @@ services:
         value: "true"
       - key: ARGUS_IN_PLACE_CARD_EDITS_ENABLED
         value: "true"
+      - key: ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED
+        value: "true"
       - key: ARGUS_INVITE_CODE_SECRET
         sync: false
       - key: ARGUS_VISITOR_KEY_SECRET
