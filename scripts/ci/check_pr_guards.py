@@ -1,10 +1,3 @@
-"""Fail a pull request that edits a hotspot file or grows past the line cap.
-
-`hotspot` fails when the diff touches a hotspot path and the event has no
-`landing-next` label. `size` counts added and deleted lines, warns above
-400, and fails above 800 without `size-approved`.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -93,25 +86,15 @@ def is_test_path(path: str) -> bool:
     return fnmatchcase(name, "*.test.*") or fnmatchcase(name, "*.spec.*")
 
 
-def is_lockfile(path: str) -> bool:
-    name = path.rsplit("/", 1)[-1]
-    return name in LOCK_NAMES or name.startswith("bun.lock")
-
-
-def is_fixture(path: str) -> bool:
-    return "fixtures" in path.split("/")
-
-
-def is_generated_name(path: str) -> bool:
-    return fnmatchcase(path.rsplit("/", 1)[-1], "*.generated.*")
-
-
 def is_excluded(path: str) -> bool:
+    name = path.rsplit("/", 1)[-1]
+    parts = path.split("/")
     return (
         is_test_path(path)
-        or is_lockfile(path)
-        or is_fixture(path)
-        or is_generated_name(path)
+        or name in LOCK_NAMES
+        or name.startswith("bun.lock")
+        or "fixtures" in parts
+        or fnmatchcase(name, "*.generated.*")
     )
 
 
@@ -310,7 +293,9 @@ def report_size(root: Path, changes: list[ChangedFile], labels: frozenset[str]) 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description="Fail hotspot edits and oversized pull requests."
+    )
     parser.add_argument("command", choices=("hotspot", "size"))
     parser.add_argument("--root", type=Path, default=None)
     parser.add_argument("--base", default="")
