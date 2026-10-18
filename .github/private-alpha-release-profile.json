@@ -32,6 +32,7 @@
         "ARGUS_BETA_INVITE_GATE_ENABLED": "false",
         "ARGUS_ACCOUNT_DELETION_ENABLED": "false",
         "ARGUS_INGESTION_ENABLED": "false",
+        "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": "false",
         "PLAID_ENV": "sandbox",
         "PLAID_CREDENTIALS_INJECTED": "false",
         "PLAID_COUNTRY_CODES": "US",

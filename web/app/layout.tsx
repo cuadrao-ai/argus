@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { THEME_STORAGE_KEY } from "@/lib/browser-storage";
 import { I18nProvider } from "@/components/I18nProvider";
+import { AuthLinkErrorGate } from "@/components/status/AuthLinkErrorGate";
 import localFont from "next/font/local";
 
 const inter = localFont({
@@ -56,7 +57,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <I18nProvider>
-            {children}
+            <AuthLinkErrorGate>{children}</AuthLinkErrorGate>
           </I18nProvider>
         </ThemeProvider>
       </body>
