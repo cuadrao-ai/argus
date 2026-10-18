@@ -46,7 +46,7 @@ def test_four_uploads_then_a_retry_and_each_budget_holds_its_limit(alice: Owner)
     assert fifth.status_code == 200, fifth.text
     sixth = _post_budget(alice, "/receipts")
     assert sixth.status_code == 429
-    assert sixth.json()["detail"]["code"] == "document_rate_limited"
+    assert sixth.json()["code"] == "document_rate_limited"
     prepares = [
         _post_budget(
             alice,
@@ -60,9 +60,9 @@ def test_four_uploads_then_a_retry_and_each_budget_holds_its_limit(alice: Owner)
         alice, f"/receipts/{receipt_id}/prepare", **{"X-Extraction-Consent": "true"}
     )
     assert blocked.status_code == 429
-    assert blocked.json()["detail"]["code"] == "document_rate_limited"
+    assert blocked.json()["code"] == "document_rate_limited"
     toggles = [_post_budget(alice, "/receipt-reading") for _ in range(4)]
     assert all(item.status_code != 429 for item in toggles)
     limited = _post_budget(alice, "/receipt-reading")
     assert limited.status_code == 429
-    assert limited.json()["detail"]["code"] == "document_rate_limited"
+    assert limited.json()["code"] == "document_rate_limited"
