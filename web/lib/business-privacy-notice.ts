@@ -32,24 +32,16 @@ import esCatalog from "@/public/locales/es-419/common.json";
  * - business.privacy_notice.paragraphs
  */
 
-/** Bump when the notice text the person sees changes. */
 export const BUSINESS_PRIVACY_NOTICE_VERSION = "2026-10-18-draft-2";
 
-/** Signed-in identity while mock auth has no Supabase user. */
 export const MOCK_AUTH_CONSENT_USER_ID = "mock-auth-user";
 
-/**
- * Features that send business data to a model. Manual recording stays available
- * when the notice is declined. Docs: connected-flow spec (the owner can finish
- * the work without AI) and the privacy draft, section 4.
- */
 export const CONSENT_REQUIRED_FEATURES = ["receipt_reading", "assistant"] as const;
 
 export type ConsentRequiredFeature = (typeof CONSENT_REQUIRED_FEATURES)[number];
 
 export type PrivacyNoticeLocale = "en" | "es-419";
 
-/** Who accepted, when, which notice, which locale, and a hash of the text shown. */
 export type PrivacyNoticeAcceptance = {
   userId: string;
   acceptedAt: string;
@@ -87,14 +79,12 @@ type NoticeCatalog = {
   business?: { privacy_notice?: { paragraphs?: unknown } };
 };
 
-/** The paragraphs of one locale, in the order the notice shows them. */
 export function noticeParagraphs(locale: PrivacyNoticeLocale): string[] {
   const catalog = (locale === "en" ? enCatalog : esCatalog) as NoticeCatalog;
   const value = catalog.business?.privacy_notice?.paragraphs;
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0) ? value : [];
 }
 
-/** The notice body, in the order it is shown. The hash covers this text. */
 export function noticePlainText(paragraphs: readonly string[]): string {
   return paragraphs.join("\n\n");
 }
@@ -108,12 +98,6 @@ export function isPrivacyNoticeLocale(value: string): value is PrivacyNoticeLoca
   return value === "en" || value === "es-419";
 }
 
-/**
- * A returning person skips the screen only when this user accepted this
- * version and the stored hash is the hash of that locale's current paragraphs.
- * Bump the version when the wording changes; the hash still catches a catalog
- * edit that forgot the bump.
- */
 export function acceptanceMatchesCurrentNotice(
   record: PrivacyNoticeAcceptance | null | undefined,
   userId: string,
@@ -136,17 +120,14 @@ export function featureRequiresConsent(feature: string): feature is ConsentRequi
   return (CONSENT_REQUIRED_FEATURES as readonly string[]).includes(feature);
 }
 
-/** Manual work stays reachable. Model features wait for the current notice. */
 export function featureReachable(feature: string, accepted: boolean): boolean {
   return accepted || !featureRequiresConsent(feature);
 }
 
-/** Decline stays on this person's own Business. A client grant waits for acceptance. */
 export function canEnterBusiness(accepted: boolean, grantId: string | null): boolean {
   return accepted || grantId === null;
 }
 
-/** Accept stays disabled until the person actively opts in. */
 export function canSubmitAcceptance(optedIn: boolean, saving: boolean): boolean {
   return optedIn && !saving;
 }

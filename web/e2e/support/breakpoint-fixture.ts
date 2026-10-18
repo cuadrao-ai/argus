@@ -352,7 +352,6 @@ export async function installBreakpointFixture(
     theme?: Theme;
     usage?: UsageState;
     emptyChat?: boolean;
-    /** Returning journeys already accepted the current notice. The consent spec starts without one. */
     consent?: "accepted" | "required";
   } = {},
 ): Promise<void> {
@@ -374,7 +373,6 @@ export async function installBreakpointFixture(
     },
     [language, theme],
   );
-  // Existing journeys are returning people. The consent spec starts from an empty tab.
   if (consent === "accepted") {
     const textSha256 = (await currentNoticeHashes())["es-419"];
     await page.addInitScript(

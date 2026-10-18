@@ -37,12 +37,6 @@ function storedNoticeIsPlausible(userId: string): boolean {
   );
 }
 
-/**
- * Shows the notice before model features, and keeps those features unreachable
- * until this person has accepted the current version. Declining explains the
- * consequence, turns off stored receipt reading, and leaves manual recording
- * available.
- */
 export default function BusinessConsentGate({
   userId,
   source,

@@ -16,19 +16,6 @@ type ReadingSwitch<Reading extends { enabled: boolean; can_change?: boolean }> =
   ) => Promise<Reading>;
 };
 
-/**
- * Client for the Cuadrao Business privacy-notice acceptance.
- *
- * No existing endpoint stores this fact. Receipt-reading consent
- * (`POST /business/receipt-reading`) records a different disclosure, locks
- * scope_version to 1, requires a model route, and does not store locale.
- * `business_ai_consents` must not gain a reader. Email consent was dropped.
- * WhatsApp AI consent does not cover the web notice.
- *
- * This stub keeps the acceptance in this tab only. The server contract that
- * should replace it is documented on `BusinessPrivacyNoticeClient`.
- */
-
 export type PrivacyNoticeAcceptInput = {
   userId: string;
   noticeVersion: string;
@@ -36,28 +23,6 @@ export type PrivacyNoticeAcceptInput = {
   textSha256: string;
 };
 
-/**
- * Needed backend contract (not implemented in this lane):
- *
- * `GET /api/v1/business/privacy-notice`
- *   200 `PrivacyNoticeAcceptance` for the authenticated user, or 404 when none.
- *   `user_id` comes from the session. The body never names another person.
- *
- * `POST /api/v1/business/privacy-notice`
- *   Header `Idempotency-Key` (1–80 characters).
- *   Body `{ notice_version, locale: "en" | "es-419", text_sha256 }` where
- *   `text_sha256` is the SHA-256 hex of the notice paragraphs shown, joined by
- *   a blank line, in order.
- *   200 the stored row: `user_id`, `accepted_at` (server clock), `notice_version`,
- *   `locale`, `text_sha256`.
- *   Replay of the same key returns the original row. A different body for the
- *   same key is a conflict.
- *
- * Table `business_privacy_notice_acceptances` (service role writes, owner can
- * read their own row): `user_id`, `notice_version`, `locale`, `text_sha256`
- * (64 hex chars), `accepted_at`. Unique `(user_id, notice_version)`. Immutable
- * after insert. Not a substitute for receipt-reading consent.
- */
 export interface BusinessPrivacyNoticeClient {
   read(userId: string): Promise<PrivacyNoticeAcceptance | null>;
   accept(input: PrivacyNoticeAcceptInput): Promise<PrivacyNoticeAcceptance>;
@@ -111,19 +76,6 @@ function isMissingBusiness(error: unknown): boolean {
   return problem?.status === 404 && problem.code === "business_space_missing";
 }
 
-/**
- * Decline turns off the owner's stored receipt-reading switch. Upload, email,
- * and WhatsApp intake all read that one setting, so a web-only flag would
- * leave the next receipt free to reach a model.
- *
- * A person with no Business yet has nothing to turn off. Decline leaves any
- * selected client first, so the read and the disable are this person's own
- * Business. A client's snapshot is not something a grantee can revoke, and a
- * later upload must not stay inside that client. On the person's own switch,
- * a read that says it is off is not the last word: the disable is submitted
- * and its result is checked. A response that still says this person cannot
- * change the switch is not revoked here.
- */
 export async function revokeEnabledReceiptReading<Reading extends { enabled: boolean; can_change?: boolean }>(
   source: ReadingSwitch<Reading>,
   language: PrivacyNoticeLocale,
@@ -151,7 +103,6 @@ export async function revokeEnabledReceiptReading<Reading extends { enabled: boo
   if (next.enabled) throw new Error("receipt_reading_still_enabled");
 }
 
-/** In-tab stand-in. `acceptedAt` is stamped here, never taken from the caller. */
 export function createStubPrivacyNoticeClient(
   clock: () => string = () => new Date().toISOString(),
 ): BusinessPrivacyNoticeClient {
