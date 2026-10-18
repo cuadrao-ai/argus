@@ -18,6 +18,7 @@ from argus.api.routers.business import router as business_router
 from argus.api.routers.business_drafts import router as business_drafts_router
 from argus.api.routers.business_export import router as business_export_router
 from argus.api.routers.business_manual import router as business_manual_router
+from argus.api.routers.business_month_close import router as business_month_close_router
 from argus.api.routers.email_intake import router as business_email_router
 from argus.api.routers.email_intake import webhook_router as resend_webhook_router
 from argus.api.routers.financial_activities import router as money_router
@@ -193,3 +194,4 @@ router.include_router(resend_webhook_router)
 router.include_router(business_email_router)
 
 router.include_router(business_export_router)
+router.include_router(business_month_close_router)
