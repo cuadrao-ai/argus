@@ -216,7 +216,39 @@ def _purchases(rows: tuple) -> list:
     return [row for row in rows if getattr(row, "evidence", None) == "transaction"]
 
 
-def receipt_dop_checks(batch: ExtractionBatch) -> dict[str, bool]:
+def _plain(value: object) -> object:
+    if isinstance(value, Decimal):
+        return _text(value)
+    if isinstance(value, tuple | list):
+        return [_plain(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _plain(item) for key, item in value.items()}
+    return value
+
+
+def _mark(passed: bool, expected: object, actual: object) -> bool | dict:
+    """A passing check stays true. A failed check keeps the expected value
+    beside the model's actual value."""
+
+    if passed:
+        return True
+    return {"expected": _plain(expected), "actual": _plain(actual)}
+
+
+def _merchant_first(checks: dict) -> dict:
+    merchant = checks.get("merchant")
+    if merchant is None or merchant is True:
+        return checks
+    ordered = {"merchant": merchant}
+    ordered.update((key, value) for key, value in checks.items() if key != "merchant")
+    return ordered
+
+
+def _check_ok(value: object) -> bool:
+    return value is True
+
+
+def receipt_dop_checks(batch: ExtractionBatch) -> dict[str, bool | dict]:
     receipt = batch.receipt
     purchases = _purchases(batch.candidates)
     items = (
@@ -226,53 +258,129 @@ def receipt_dop_checks(batch: ExtractionBatch) -> dict[str, bool]:
             (item.description, _decimal_or_none(item.total)) for item in receipt.items
         )
     )
-    return {
-        "readable": batch.readable is True,
-        "complete": batch.complete is True,
-        "one_purchase_candidate": len(purchases) == 1,
-        "merchant": receipt is not None and receipt.merchant == "Colmado Nube de Papel",
-        "date": receipt is not None and _iso(receipt.occurred_on) == "2026-09-10",
-        "currency": receipt is not None and receipt.currency == "DOP",
-        "total": receipt is not None and _same_money(receipt.total, "250.50"),
-        "missing_fiscal_unknown": receipt is not None
-        and all(
-            getattr(receipt, name) is None for name in ("rnc", "ncf", "ecf", "itbis")
-        ),
-        "unprinted_components_unknown": receipt is not None
-        and all(
-            getattr(receipt, name) is None
-            for name in ("subtotal", "tax", "service", "tip")
-        ),
-        "printed_items_exact": items == RECEIPT_ITEMS,
-        "unprinted_item_units_unknown": receipt is not None
-        and bool(receipt.items)
-        and all(
-            item.quantity is None and item.unit_price is None for item in receipt.items
-        ),
-        "purchase_amount_exact": len(purchases) == 1
-        and _same_money(purchases[0].amount, "250.50"),
-    }
+    merchant = None if receipt is None else receipt.merchant
+    occurred = None if receipt is None else _iso(receipt.occurred_on)
+    fiscal_names = ("rnc", "ncf", "ecf", "itbis")
+    component_names = ("subtotal", "tax", "service", "tip")
+    fiscal = (
+        None
+        if receipt is None
+        else {name: getattr(receipt, name) for name in fiscal_names}
+    )
+    components = (
+        None
+        if receipt is None
+        else {name: getattr(receipt, name) for name in component_names}
+    )
+    units = (
+        []
+        if receipt is None
+        else [
+            {"quantity": item.quantity, "unit_price": item.unit_price}
+            for item in receipt.items
+        ]
+    )
+    amount = purchases[0].amount if len(purchases) == 1 else None
+    return _merchant_first(
+        {
+            "readable": _mark(batch.readable is True, True, batch.readable),
+            "complete": _mark(batch.complete is True, True, batch.complete),
+            "one_purchase_candidate": _mark(len(purchases) == 1, 1, len(purchases)),
+            "merchant": _mark(
+                receipt is not None and merchant == "Colmado Nube de Papel",
+                "Colmado Nube de Papel",
+                merchant,
+            ),
+            "date": _mark(
+                receipt is not None and occurred == "2026-09-10",
+                "2026-09-10",
+                occurred,
+            ),
+            "currency": _mark(
+                receipt is not None and receipt.currency == "DOP",
+                "DOP",
+                None if receipt is None else receipt.currency,
+            ),
+            "total": _mark(
+                receipt is not None and _same_money(receipt.total, "250.50"),
+                "250.50",
+                None if receipt is None else receipt.total,
+            ),
+            "missing_fiscal_unknown": _mark(
+                receipt is not None and all(value is None for value in fiscal.values()),
+                {name: None for name in fiscal_names},
+                fiscal,
+            ),
+            "unprinted_components_unknown": _mark(
+                receipt is not None
+                and all(value is None for value in components.values()),
+                {name: None for name in component_names},
+                components,
+            ),
+            "printed_items_exact": _mark(
+                items == RECEIPT_ITEMS,
+                [("Arroz", "150.00"), ("Leche", "100.50")],
+                [(description, amount) for description, amount in items],
+            ),
+            "unprinted_item_units_unknown": _mark(
+                receipt is not None
+                and bool(receipt.items)
+                and all(
+                    item.quantity is None and item.unit_price is None
+                    for item in receipt.items
+                ),
+                "null quantity and unit price on every printed item",
+                units,
+            ),
+            "purchase_amount_exact": _mark(
+                len(purchases) == 1 and _same_money(amount, "250.50"),
+                "250.50",
+                amount,
+            ),
+        }
+    )
 
 
-def unreadable_checks(batch: ExtractionBatch) -> dict[str, bool]:
+def unreadable_checks(batch: ExtractionBatch) -> dict[str, bool | dict]:
     receipt = batch.receipt
     observations = batch.observations
-    blank = receipt is None or (
-        not receipt.items
-        and all(getattr(receipt, name) is None for name in BLANK_RECEIPT_FIELDS)
-    )
+    invented = {}
+    if receipt is not None:
+        invented = {
+            name: getattr(receipt, name)
+            for name in BLANK_RECEIPT_FIELDS
+            if getattr(receipt, name) is not None
+        }
+        if receipt.items:
+            invented["items"] = len(receipt.items)
+    blank = receipt is None or not invented
+    observation_values = [
+        {
+            "amount": row.amount,
+            "merchant": row.merchant,
+            "currency": row.currency,
+            "occurred_on": _iso(row.occurred_on),
+        }
+        for row in observations
+        if row.amount is not None
+        or row.merchant is not None
+        or row.currency is not None
+        or row.occurred_on is not None
+    ]
     return {
-        "marked_unreadable": batch.readable is False,
-        "zero_candidates": len(batch.candidates) == 0,
-        "no_invented_receipt_values": blank,
-        "no_invented_items": receipt is None or len(receipt.items) == 0,
-        "no_invented_observations": len(observations) == 0,
-        "no_invented_observation_values": all(
-            row.amount is None
-            and row.merchant is None
-            and row.currency is None
-            and row.occurred_on is None
-            for row in observations
+        "marked_unreadable": _mark(batch.readable is False, False, batch.readable),
+        "zero_candidates": _mark(len(batch.candidates) == 0, 0, len(batch.candidates)),
+        "no_invented_receipt_values": _mark(blank, {}, invented),
+        "no_invented_items": _mark(
+            receipt is None or len(receipt.items) == 0,
+            0,
+            0 if receipt is None else len(receipt.items),
+        ),
+        "no_invented_observations": _mark(
+            len(observations) == 0, 0, len(observations)
+        ),
+        "no_invented_observation_values": _mark(
+            not observation_values, [], observation_values
         ),
     }
 
@@ -307,26 +415,28 @@ def _order_actual(batch: ExtractionBatch, money_writes: int) -> dict:
     }
 
 
-def _order_matches(actual: dict, expected: dict) -> dict[str, bool]:
-    checks = {}
+def _order_matches(actual: dict, expected: dict) -> dict[str, bool | dict]:
+    checks: dict[str, bool | dict] = {}
     for key, wanted in expected.items():
         got = actual[key]
         if key in {"estimated_tax", "receipt_total", "receipt_tax"}:
-            checks[key] = _same_money(got, wanted)
+            checks[key] = _mark(_same_money(got, wanted), wanted, got)
         elif key == "issue":
             codes = got if isinstance(got, list) else []
-            checks[key] = wanted in codes and set(codes) <= {
+            checks[key] = _mark(
+                wanted in codes
+                and set(codes) <= {wanted, "no_financial_observations"},
                 wanted,
-                "no_financial_observations",
-            }
+                codes,
+            )
         else:
-            checks[key] = got == wanted
+            checks[key] = _mark(got == wanted, wanted, got)
     return checks
 
 
 def score_checks(
     fixture: Fixture, batch: ExtractionBatch, money_writes: int
-) -> dict[str, bool]:
+) -> dict[str, bool | dict]:
     if fixture.id == "receipt-dop":
         return receipt_dop_checks(batch)
     if fixture.id == "unreadable":
@@ -336,7 +446,7 @@ def score_checks(
         if not isinstance(expected, dict):
             raise MeasurementError("missing_expected")
         return _order_matches(_order_actual(batch, money_writes), expected)
-    return {"recognized": False}
+    return {"recognized": _mark(False, True, False)}
 
 
 def _check_count(fixture: Fixture) -> int:
@@ -592,10 +702,11 @@ def _scorecard(
 ) -> dict:
     comparison = _regression(baseline, cases, baseline_path)
     check_passed = sum(
-        sum(value is True for value in case["checks"].values()) for case in cases
+        sum(_check_ok(value) for value in case["checks"].values()) for case in cases
     )
     check_failed = sum(
-        sum(value is False for value in case["checks"].values()) for case in cases
+        sum(not _check_ok(value) for value in case["checks"].values())
+        for case in cases
     )
     check_unavailable = sum(
         _check_count(fixture)
@@ -609,30 +720,45 @@ def _scorecard(
         and not comparison["regressed"]
         and not comparison["unavailable"]
     )
-    return {
+    provider_error = next(
+        (
+            case["provider_error"]
+            for case in cases
+            if isinstance(case.get("provider_error"), dict)
+        ),
+        None,
+    )
+    scorecard = {
         "scope": "document_extraction",
         "status": "passed" if passed else "failed",
-        "candidate_sha": _git_head(),
-        "surface": _surface(),
-        "totals": {
-            "passed": sum(case["status"] == "passed" for case in cases),
-            "failed": sum(case["status"] == "failed" for case in cases),
-            "unavailable": sum(case["status"] == "unavailable" for case in cases),
-        },
-        "checks": {
-            "passed": check_passed,
-            "failed": check_failed,
-            "unavailable": check_unavailable,
-        },
-        "model": manifest["model"],
-        "profile": profile,
-        "privacy": openrouter_provider_policy(),
-        "known_actual_cost_usd": _text(spent),
-        "money_writes": 0,
-        "stop_reason": stop,
-        "comparison": comparison,
-        "cases": cases,
     }
+    if provider_error is not None:
+        scorecard["provider_error"] = provider_error
+    scorecard.update(
+        {
+            "candidate_sha": _git_head(),
+            "surface": _surface(),
+            "totals": {
+                "passed": sum(case["status"] == "passed" for case in cases),
+                "failed": sum(case["status"] == "failed" for case in cases),
+                "unavailable": sum(case["status"] == "unavailable" for case in cases),
+            },
+            "checks": {
+                "passed": check_passed,
+                "failed": check_failed,
+                "unavailable": check_unavailable,
+            },
+            "model": manifest["model"],
+            "profile": profile,
+            "privacy": openrouter_provider_policy(),
+            "known_actual_cost_usd": _text(spent),
+            "money_writes": 0,
+            "stop_reason": stop,
+            "comparison": comparison,
+            "cases": cases,
+        }
+    )
+    return scorecard
 
 
 async def _invoke(fn: Callable, *args):
@@ -728,7 +854,11 @@ async def run_measurement(
             break
         ledger.record(cost)
         checks = score_checks(fixture, batch, 0)
-        status = "passed" if all(checks.values()) else "failed"
+        status = (
+            "passed"
+            if all(_check_ok(value) for value in checks.values())
+            else "failed"
+        )
         cases.append(_case(fixture, status, checks, cost))
         if cost > reservation.usd or ledger.spent_usd > ledger.cap_usd:
             stop = "request_price_bound_exceeded"

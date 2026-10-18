@@ -2,16 +2,18 @@ import ast
 import hashlib
 import json
 import subprocess
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
 import httpx
-from argus.domain.ingestion.documents.models import ExtractionBatch
+from argus.domain.ingestion.documents.models import ExtractionBatch, ReceiptDetails
 
 from scripts.documents.scoped_measurement import (
     CONTEXT_TOKENS,
     DEFAULT_MANIFEST,
     REPO,
+    Fixture,
     load_fixtures,
     main,
     reservation_from_endpoints,
@@ -317,6 +319,7 @@ def test_provider_failure_is_not_retried(tmp_path, monkeypatch, capsys):
     ]
     assert scorecard["known_actual_cost_usd"] == "0"
     assert scorecard["stop_reason"] == "provider_failed"
+    assert "provider_error" not in scorecard
     assert printed["totals"] == {"failed": 0, "passed": 0, "unavailable": 1}
 
 
@@ -369,6 +372,7 @@ def test_provider_http_error_records_status_message_and_code(
         "message": "Insufficient credits",
         "code": 402,
     }
+    assert scorecard["provider_error"] == scorecard["cases"][0]["provider_error"]
     assert "super-secret-key" not in text
     assert "Authorization" not in text
     assert capsys.readouterr().err == ""
@@ -488,6 +492,69 @@ def test_committed_manifest_matches_fixture_bytes_and_baseline_check_names():
         assert set(checks) == set(case["checks"])
         compared += 1
     assert compared == 2
+
+
+def _named_receipt(merchant: str, occurred_on: date) -> ExtractionBatch:
+    return ExtractionBatch(
+        readable=True,
+        complete=True,
+        candidates=(),
+        receipt=ReceiptDetails(
+            merchant=merchant,
+            occurred_on=occurred_on,
+            currency="DOP",
+            total="250.50",
+        ),
+        metadata={"route_receipts": [{"usage_cost_usd": "0.01"}]},
+    )
+
+
+def test_failed_check_records_the_model_value_beside_the_expected_one(
+    tmp_path, monkeypatch, capsys
+):
+    root, evidence = _layout(tmp_path)
+    entry = _entry(root, "receipt-dop", b"receipt")
+
+    def extract(_fixture, _model):
+        return _named_receipt("Nube de Papel", date(2026, 9, 11))
+
+    def endpoints(_model):
+        return [{"pricing": {"prompt": "0.0000000001", "completion": "0.0000000001"}}]
+
+    code, output = _run(
+        monkeypatch,
+        root,
+        evidence,
+        _manifest(root, [entry]),
+        "merchant.json",
+        extract,
+        endpoints,
+    )
+    scorecard = json.loads(output.read_text(encoding="utf-8"))
+    checks = scorecard["cases"][0]["checks"]
+    assert code == 1
+    assert list(checks)[0] == "merchant"
+    assert checks["merchant"] == {
+        "expected": "Colmado Nube de Papel",
+        "actual": "Nube de Papel",
+    }
+    assert checks["date"] == {"expected": "2026-09-10", "actual": "2026-09-11"}
+    assert checks["currency"] is True
+    fixture = Fixture("receipt-dop", Path("receipt"), "abc", {})
+    other = score_checks(
+        fixture, _named_receipt("Supermercado La Fe", date(2026, 9, 10)), 0
+    )
+    assert list(other)[0] == "merchant"
+    assert other["merchant"] == {
+        "expected": "Colmado Nube de Papel",
+        "actual": "Supermercado La Fe",
+    }
+    exact = score_checks(
+        fixture, _named_receipt("Colmado Nube de Papel", date(2026, 9, 10)), 0
+    )
+    assert exact["merchant"] is True
+    assert list(exact)[0] == "readable"
+    assert capsys.readouterr().err == ""
 
 
 def test_runner_does_not_import_the_six_fixture_budget():
