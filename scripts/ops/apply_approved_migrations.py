@@ -59,6 +59,14 @@ def _plain_host(name: str) -> str:
     return unquote(name).lower().rstrip(".")
 
 
+def _without_surrounding_quotes(value: str) -> str:
+    """Drop one matching pair of quotes around an environment value."""
+
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        return value[1:-1]
+    return value
+
+
 def _is_hosted(name: str) -> bool:
     plain = _plain_host(name)
     return plain.endswith(_HOSTED_SUFFIXES) or plain in {"supabase.co", "supabase.com"}
@@ -567,7 +575,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    url = os.environ.get(args.database_url_env, "")
+    url = _without_surrounding_quotes(os.environ.get(args.database_url_env, ""))
     if not url:
         raise ApplyError(f"{args.database_url_env} is not set")
     lock_timeout = check_lock_timeout(args.lock_timeout)

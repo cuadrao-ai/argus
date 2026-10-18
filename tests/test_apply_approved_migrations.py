@@ -876,7 +876,10 @@ def test_the_staging_security_waitlist_record_holds_inside_its_window() -> None:
     assert approval == applier.HostedApproval(
         "staging-apply-2026-10-18",
         "skedzwocnmrhfigiwyzi",
-        ("db.skedzwocnmrhfigiwyzi.supabase.co",),
+        (
+            "db.skedzwocnmrhfigiwyzi.supabase.co",
+            "aws-0-us-east-1.pooler.supabase.com",
+        ),
         "postgres",
         _STAGING_SHA,
         "b963585771acb2fd0922a3d8cf9d020e60a5dc14786fe4f032f8764d0d49d866",
@@ -918,7 +921,10 @@ def test_the_staging_invites_bank_matching_registry_record_holds_inside_its_wind
     assert approval == applier.HostedApproval(
         "staging-apply-2026-10-18-b",
         "skedzwocnmrhfigiwyzi",
-        ("db.skedzwocnmrhfigiwyzi.supabase.co",),
+        (
+            "db.skedzwocnmrhfigiwyzi.supabase.co",
+            "aws-0-us-east-1.pooler.supabase.com",
+        ),
         "postgres",
         _STAGING_SHA_B,
         "6832fd3b890048119f8e881a108ca02c2b96445731180f208132bb5327b563fc",
