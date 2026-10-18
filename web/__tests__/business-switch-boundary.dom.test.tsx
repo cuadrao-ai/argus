@@ -41,7 +41,7 @@ const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_i
 const A: GrantedSpace = { space_id: "s-a", name: "Colmado Peña", grant_id: "g-a", role: "accountant", capabilities: ["read", "prepare"], access_seen: true };
 const B: GrantedSpace = { space_id: "s-b", name: "Taller Brito", grant_id: "g-b", role: "accountant", capabilities: ["read", "prepare"], access_seen: true };
 
-async function mount() {
+async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
   const React = await import("react");
   const { act, useState } = React;
   const { createRoot } = await import("react-dom/client");
@@ -60,7 +60,7 @@ async function mount() {
   const reads: (string | null)[] = [];
   const source = {
     ...fixture,
-    spaces: async () => [OWN, A, B],
+    spaces: async () => listed,
     // Read the list through receipts so each read names the grant it ran under.
     receiptPage: undefined,
     receipts: async (view: "inbox" | "all") => {
@@ -147,6 +147,21 @@ describe("switching Business inside one signed-in account", () => {
     await page.fire({ user: { id: "user-2" } });
     assert.equal(page.boundary().expired, true);
     assert.equal(page.cleared(), 1);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("one client grant is entered without a second Business to switch to", async () => {
+    const page = await mount([A]);
+    for (let i = 0; i < 40 && page.text("probe-chosen") !== "Colmado Peña"; i += 1) {
+      await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+    }
+    const { getChosenGrant, chosenGrantHeader, GRANT_HEADER } = await import("@/lib/business-grant");
+    assert.equal(getChosenGrant(), "g-a");
+    assert.equal(page.text("probe-chosen"), "Colmado Peña");
+    assert.deepEqual(chosenGrantHeader(), { [GRANT_HEADER]: "g-a" });
+    await page.act(async () => { page.api().openPanel({ kind: "overview" }); });
+    await page.settle();
+    assert.ok(page.text("probe-inbox")?.includes("g-a"), page.text("probe-inbox") ?? "");
     await page.act(async () => page.root.unmount());
   });
 

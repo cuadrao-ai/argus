@@ -29,7 +29,7 @@ import {
   type ReceiptSummary,
   type ReceiptActivityCounts,
 } from "@/lib/business-api";
-import { getChosenGrant, grantNotLive, setChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
+import { getChosenGrant, grantNotLive, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey } from "./business-format";
@@ -221,6 +221,12 @@ function BusinessWorkspaceContent({
         if (grant && !listed.some((space) => space.grant_id === grant && space.role !== "owner")) {
           setChosenGrant(null);
           setLostAccess(true);
+        } else if (!grant) {
+          const sole = soleClientGrantId(listed);
+          if (sole) {
+            setChosenGrant(sole);
+            setRevision((value) => value + 1);
+          }
         }
       },
       () => { if (!cancelled) setSpaces((current) => current ?? []); },

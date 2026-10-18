@@ -214,6 +214,7 @@ import { isGuestSimulationConversionRejection } from "@/lib/guest-conversion-rec
 import { useGuestEntryError } from "@/lib/guest-entry-error";
 import SidebarShell from "@/components/sidebar/SidebarShell";
 import ChatShellMenuTrigger from "@/components/chat/ChatShellMenuTrigger";
+import BusinessPhoneAccount from "@/components/business-app/foundation/BusinessPhoneAccount";
 import GuestSettingsMenu from "@/components/guest/GuestSettingsMenu";
 import { useMobileShell } from "@/components/chat/useMobileShell";
 import { memoryRecallsFromFinalPayload, useMemoryChrome } from "./memory-chrome";
@@ -2396,6 +2397,23 @@ export default function ChatInterface() {
                   isDeleting={isDeletingHeaderChat}
                   onRequestDelete={() => handleRequestHeaderDelete()}
                   memoryChrome={memoryChrome}
+                />
+              ) : null}
+              {businessPhone && !isGuest ? (
+                <BusinessPhoneAccount
+                  onLogout={(options) => { void handleLogout(options); }}
+                  onFeedback={(type) => {
+                    setFeedbackState({
+                      isOpen: true,
+                      type,
+                      context: { surface: "sidebar", conversation_id: conversationId },
+                    });
+                  }}
+                  onHistoryMutated={refreshHistory}
+                  onProfileUpdated={onProfileUpdated}
+                  onOpenSidebarPreference={() => setIsSidebarPreferenceModalOpen(true)}
+                  onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)}
+                  settingsOpenRequest={keyboardShortcuts.settingsOpenRequest}
                 />
               ) : null}
               {workspace?.profileInHeader && !mobileShell.isBelowTablet ? <div ref={setProfileSlot} className="relative" /> : null}

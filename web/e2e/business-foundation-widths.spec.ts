@@ -105,6 +105,7 @@ for (const band of WIDTHS) {
           await expect(page.getByTestId("chat-shell-menu-trigger")).toHaveCount(0);
           await expect(page.getByTestId("business-bottom-tabs")).toBeVisible();
           await expect(page.getByRole("button", { name: "Buscar" })).toBeVisible();
+          await expect(page.getByTestId("business-phone-account").getByRole("button", { name: "Ajustes" })).toBeVisible();
         }
       });
     }

@@ -87,6 +87,20 @@ describe("the Business mark menu", () => {
     await page.act(async () => page.root.unmount());
   });
 
+  test("with only a client Business the menu offers access and does not offer a switch", async () => {
+    const page = await mountSwitcher([CLIENT], null);
+    const control = page.host.querySelector('[data-testid="business-switcher"]')!;
+    assert.equal(control.getAttribute("data-switchable"), "false");
+    assert.equal(page.host.querySelector('[data-testid="business-current-name"]')?.textContent, "Colmado Peña");
+    const button = page.host.querySelector("button[aria-haspopup=menu]") as HTMLButtonElement;
+    await page.act(async () => button.click());
+    await page.settle();
+    const items = [...document.querySelectorAll('[role="menuitem"]')];
+    assert.ok(items.some((item) => item.textContent?.includes("Equipo y accesos")));
+    assert.equal(items.some((item) => item.textContent?.includes("Cambiar de negocio")), false);
+    await page.act(async () => page.root.unmount());
+  });
+
   test("with a client Business the menu opens the list the keyboard drives", async () => {
     const page = await mountSwitcher([OWN, CLIENT, OTHER], CLIENT);
     const button = page.host.querySelector("button[aria-haspopup=menu]") as HTMLButtonElement;
