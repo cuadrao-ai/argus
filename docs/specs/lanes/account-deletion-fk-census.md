@@ -474,6 +474,17 @@ The October 12 email receiving migration adds ten foreign keys, all nondeferrabl
 | `business_email_routes` | `principal_id` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is `not null`. | Catalog only. The probes had no rows here. | Goes with the Business owner at step 7. |
 | `business_email_routes` | `space_id, principal_id` | `spaces` | CASCADE | NO ACTION | no | Composite owner key, ON UPDATE NO ACTION, not deferrable: the route can never name an owner other than the space's creator. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
 
+### Month close
+
+Migration `20261018230000_business_month_close.sql` adds four foreign keys. A settlement annotates one recorded activity and stores no amount. It goes with the Business space and with that activity. Revisions are append-only and follow the settlement. The actor id on a revision clears when that person is deleted, and the revision stays. The revision's key back to the settlement is `DEFERRABLE INITIALLY DEFERRED`: account deletion blanks the actor before the settlement cascade removes the parent, and the check waits until the end of that statement.
+
+| Table | Column(s) | References | On delete | On update | Deferrable | Re-key to a placeholder | Plain delete, live probe | Lane 6 must |
+|---|---|---|---|---|---|---|---|---|
+| `business_document_settlement_revisions` | `actor_id` | `auth.users` | SET NULL | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is nullable, so it can be set to null instead. | Catalog only. The probes had no rows here. | None. The revision stays with the Business. The actor id clears when that person is deleted. |
+| `business_document_settlement_revisions` | `space_id, activity_id` | `business_document_settlements` | CASCADE | NO ACTION | initially deferred | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the settlement. Parent deletion is the cascade the immutability trigger already allows. The check waits until the statement ends so the actor blanking can finish first. |
+| `business_document_settlements` | `activity_id, owner_id` | `financial_activity_groups` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | The annotation goes with the recorded activity at step 7. It stores no amount. |
+| `business_document_settlements` | `space_id, owner_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
+
 ### Connected sources and documents
 
 | Table | Column(s) | References | On delete | On update | Deferrable | Re-key to a placeholder | Plain delete, live probe | Lane 6 must |

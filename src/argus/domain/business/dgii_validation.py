@@ -36,16 +36,22 @@ def ncf_type(value: str) -> str | None:
     return normalized[1:3] if normalized else None
 
 
+def credit_note(value: str | None) -> bool:
+    return ncf_type(value or "") in {"04", "34"}
+
+
+def reportable_607(value: str | None) -> bool:
+    number = normalized_ncf(value)
+    return number is not None and not number.startswith("E")
+
+
 def fact_value(record: FiscalRecord, name: str) -> str | None:
     fact = getattr(record.facts.fiscal, name, None)
     return fact.value if isinstance(fact, Known) else None
 
 
 def is_credit(record: FiscalRecord) -> bool:
-    return ncf_type(fact_value(record, "ecf") or fact_value(record, "ncf") or "") in {
-        "04",
-        "34",
-    }
+    return credit_note(fact_value(record, "ecf") or fact_value(record, "ncf"))
 
 
 def record_issues(
@@ -252,7 +258,7 @@ def record_issues(
         ):
             issue("fiscal_credit_reference_not_applicable", "modified_ncf")
     else:
-        if ncf and ncf.startswith("E"):
+        if ncf and not reportable_607(ncf):
             issue("fiscal_607_ecf_excluded", "ncf")
         if record.kind != "income":
             issue("fiscal_direction_unsupported", "kind")
