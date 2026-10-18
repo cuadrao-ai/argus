@@ -200,7 +200,7 @@ def load_gate_contract(
     except UnicodeDecodeError as exc:
         raise MigrationGateError(f"candidate {_RENDER_PATH} must be valid UTF-8") from exc
     api_block = re.search(
-        r"(?ms)^  - type:.*?^    name: cuadrao-api\s*$.*?(?=^  - type:|\Z)",
+        r"(?ms)^  - type:[^\n]*\n(?:(?!^  - type:).)*?^    name: cuadrao-api\s*$(?:(?!^  - type:).)*",
         render_source,
     )
     if api_block is None:
