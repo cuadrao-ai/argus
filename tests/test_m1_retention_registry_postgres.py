@@ -23,7 +23,7 @@ def test_sweep_window_seed_replay_preserves_evidence_and_other_policies():
         .resolve()
         .parents[1]
         .joinpath(
-            "supabase/migrations/20261018045500_retention_sweeps_24_month_window.sql"
+            "supabase/migrations/20261018210000_retention_sweeps_24_month_window.sql"
         )
     )
     with psycopg.connect(DSN) as connection:
@@ -38,7 +38,7 @@ def test_sweep_window_seed_replay_preserves_evidence_and_other_policies():
             assert "finished_at + interval '24 months'" in sweep_policy[1]
             assert "installs no purge executor or schedule" in sweep_policy[1]
             assert sweep_policy[2] == (
-                "supabase/migrations/20261018045500_retention_sweeps_24_month_window.sql; "
+                "supabase/migrations/20261018210000_retention_sweeps_24_month_window.sql; "
                 "docs/reports/evidence/retention-sweeps-window/implementation.md"
             )
             connection.execute("set local role service_role")

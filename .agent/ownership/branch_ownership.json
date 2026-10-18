@@ -3388,7 +3388,7 @@
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
-        "supabase/migrations/20261018045500_retention_sweeps_24_month_window.sql",
+        "supabase/migrations/20261018210000_retention_sweeps_24_month_window.sql",
         "tests/sql/m1_retention_registry.sql",
         "tests/test_m1_retention_registry_postgres.py",
         "docs/reports/evidence/retention-sweeps-window/implementation.md"
