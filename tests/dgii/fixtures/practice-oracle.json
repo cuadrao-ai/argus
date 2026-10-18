@@ -1,7 +1,7 @@
 {
   "practice_label": "PRÁCTICA",
   "business": {
-    "name": "PRÁCTICA José",
+    "name": "Taller Ensayo",
     "rnc": "199990013"
   },
   "period": "202609",
@@ -11,7 +11,7 @@
   "checksum_source": "https://github.com/arthurdejong/python-stdnum/blob/master/stdnum/do/rnc.py",
   "parties": {
     "business": {
-      "name": "PRÁCTICA José",
+      "name": "Taller Ensayo",
       "rnc": "199990013"
     },
     "goods": {

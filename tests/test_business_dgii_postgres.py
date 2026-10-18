@@ -47,7 +47,7 @@ def actions(shared_actions):
     from argus.domain.business.spaces import PostgresSpaceStore
 
     service, context, grant = shared_actions
-    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, "PRÁCTICA José")
+    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, "Taller Ensayo")
     yield service, context, grant
 
 
@@ -166,19 +166,19 @@ def test_practice_human_capture_revision_approval_and_actual_export(actions):
             hashlib.sha256(
                 archive.read("dgii/DGII_F_606_199990013_202609.TXT")
             ).hexdigest()
-            == "729e044ba0a1de65c2dbb46617c38617f25697e3e5e42dc4ed23f2fd4b3e01a5"
+            == "d3f7d9b81e1ad0939b3d875b1556f0a867414c4b092a2347d24c4371463cd0da"
         )
         assert (
             hashlib.sha256(
                 archive.read("dgii/DGII_F_607_199990013_202609.TXT")
             ).hexdigest()
-            == "73b5366cb83900e54b48eb4573c6bc29fb3115b2421985d67981479ced474d09"
+            == "85e68ce67632085fe6485de008cf8734c0594a5f1947743ec781c9af698dfbaa"
         )
         output = os.getenv("CUADRAO_DGII_FIXTURE_OUTPUT")
         if output:
             root = Path(output)
             root.mkdir(parents=True, exist_ok=True)
-            (root / "PRÁCTICA-José-local-export.zip").write_bytes(blob)
+            (root / "taller-ensayo-local-export.zip").write_bytes(blob)
             for name in archive.namelist():
                 if name.startswith("dgii/"):
                     (root / Path(name).name).write_bytes(archive.read(name))

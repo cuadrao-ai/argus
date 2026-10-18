@@ -111,3 +111,7 @@ def decimal_money(value: str) -> Decimal:
 
 def money_text(value: Decimal) -> str:
     return format(value, ".2f")
+
+
+def amount_or_zero(value: str | None) -> Decimal:
+    return Decimal("0" if value is None else value)

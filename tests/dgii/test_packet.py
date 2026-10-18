@@ -93,7 +93,7 @@ def packet(records=None, **changes):
         practice_records() if records is None else records,
         **{
             "rnc": "199990013",
-            "business_name": "PRÁCTICA José",
+            "business_name": "Taller Ensayo",
             "start": date(2026, 9, 1),
             "end": date(2026, 9, 30),
             "captured_on": date(2026, 10, 18),
@@ -107,7 +107,9 @@ def test_practice_annex_rows_and_economic_reconciliation():
     assert result.manifest["issues"] == []
     assert result.manifest["forms"]["606"]["record_count"] == 3
     assert result.manifest["forms"]["607"]["record_count"] == 1
-    purchase = result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode("ascii").splitlines()
+    purchase = (
+        result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode("ascii").splitlines()
+    )
     assert purchase[0] == "606|199990013|202609|3"
     assert all(len(row.split("|")) == 23 for row in purchase[1:])
     note = purchase[-1].split("|")
@@ -164,15 +166,43 @@ def test_missing_rnc_produces_no_aplica_without_empty_txt():
         assert b"No aplica" in book.read("xl/sharedStrings.xml")
 
 
-@pytest.mark.parametrize("field", ["itbis_cost", "goods_amount", "itbis_proportionality"])
-def test_unknown_required_tax_fact_never_becomes_zero_or_valid_file(field):
+@pytest.mark.parametrize(
+    "field,column", [("itbis_cost", 13), ("itbis_proportionality", 12)]
+)
+def test_blank_optional_amount_stays_empty_and_valid(field, column):
+    records = practice_records()
+    first = replace(
+        records[0],
+        declaration=records[0].declaration.model_copy(update={field: None}),
+    )
+    result = packet((first, *records[1:]))
+    assert result.manifest["forms"]["606"]["status"] == "prepared_candidate"
+    row = result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode().splitlines()[1]
+    assert row.split("|")[column] == ""
+
+
+def test_zero_optional_amount_prints_empty_and_required_itbis_stays_numeric():
+    row = (
+        packet()
+        .files["dgii/DGII_F_606_199990013_202609.TXT"]
+        .decode()
+        .splitlines()[1]
+        .split("|")
+    )
+    assert row[7] == ""
+    assert row[10] == "180.00"
+    assert row[11] == ""
+
+
+def test_missing_itbis_blocks_the_annex_file():
     records = practice_records()
     first = records[0]
-    first = replace(first, declaration=first.declaration.model_copy(update={field: None}))
-    result = packet((first, *records[1:]))
-    assert result.manifest["forms"]["606"]["status"] == "needs_review"
-    assert "dgii/DGII_F_606_199990013_202609.TXT" not in result.files
-    assert any(issue["field"] == field for issue in result.manifest["issues"])
+    fiscal = first.facts.fiscal.model_copy(update={"itbis": Unknown()})
+    blocked = packet(
+        (replace(first, facts=first.facts.model_copy(update={"fiscal": fiscal})),)
+    )
+    assert "dgii/DGII_F_606_199990013_202609.TXT" not in blocked.files
+    assert any(issue["field"] == "itbis" for issue in blocked.manifest["issues"])
 
 
 def test_duplicate_document_does_not_silently_claim_valid_second_expense():
@@ -192,7 +222,12 @@ def test_itbis_advance_is_billed_minus_cost_not_withholding():
         update={"itbis_cost": "20.00", "itbis_withheld": "10.00"}
     )
     result = packet((replace(record, declaration=declaration),))
-    row = result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode().splitlines()[1].split("|")
+    row = (
+        result.files["dgii/DGII_F_606_199990013_202609.TXT"]
+        .decode()
+        .splitlines()[1]
+        .split("|")
+    )
     assert row[14] == "160.00"
 
 
@@ -283,7 +318,10 @@ def test_formatted_legacy_ids_share_identity_without_changing_source_facts():
     legacy = replace(first, facts=first.facts.model_copy(update={"fiscal": fiscal}))
     result = packet((legacy,))
     assert result.manifest["issues"] == []
-    assert "199990021|1|09|B0100000001" in result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode()
+    assert (
+        "199990021|1|09|B0100000001"
+        in result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode()
+    )
     assert legacy.facts.fiscal.rnc.value == "199-99002-1"
     duplicate = replace(first, activity_id=str(UUID(int=77)))
     blocked = packet((legacy, duplicate))
@@ -312,3 +350,80 @@ def test_legacy_tax_precision_is_reported_without_rounding():
         issue["code"] == "fiscal_amount_precision_or_limit"
         for issue in result.manifest["issues"]
     )
+
+
+def period_packet():
+    root = Path(__file__).parent / "fixtures"
+    payload = json.loads((root / "period-202609-records.json").read_text())
+    records = []
+    for index, item in enumerate(payload["records"], 1):
+        value = FiscalReview.model_validate(item["input"])
+        if item["refund_of"] is not None:
+            value = value.model_copy(
+                update={
+                    "declaration": value.declaration.model_copy(
+                        update={"purchase_activity_id": UUID(int=item["refund_of"] + 1)}
+                    )
+                }
+            )
+
+        def known(raw, source_index=index):
+            return Known(
+                value=raw,
+                origin="member_set",
+                source_ids=(UUID(int=source_index + 100),),
+            )
+
+        occurred = date.fromisoformat(item["occurred_on"])
+        facts = BusinessFacts(
+            kind=known(item["kind"]),
+            amount=known(item["gross"]),
+            currency=known("DOP"),
+            occurred_on=known(occurred),
+            fiscal=FiscalFacts(
+                rnc=known(value.fiscal.rnc),
+                ncf=known(value.fiscal.ncf),
+                itbis=known(value.fiscal.itbis),
+            ),
+        )
+        records.append(
+            FiscalRecord(
+                str(UUID(int=index)),
+                1,
+                str(UUID(int=index + 50)),
+                2,
+                occurred,
+                item["gross"],
+                "DOP",
+                item["kind"],
+                facts,
+                value.declaration,
+                (str(UUID(int=index + 100)),),
+            )
+        )
+    return payload, build_fiscal_packet(
+        tuple(records),
+        rnc=payload["filer_rnc"],
+        business_name=payload["business_name"],
+        start=date.fromisoformat(payload["start"]),
+        end=date.fromisoformat(payload["end"]),
+        captured_on=date.fromisoformat(payload["captured_on"]),
+    )
+
+
+def test_seeded_month_annex_matches_reference_bytes():
+    """Detail lines keep the order of the supplied records.
+
+    The annex does not define a row order. The reference files are that entry order.
+    """
+    root = Path(__file__).parent / "fixtures"
+    payload, result = period_packet()
+    assert result.manifest["issues"] == []
+    filer = payload["filer_rnc"]
+    for form in ("606", "607"):
+        generated = result.files[f"dgii/DGII_F_{form}_{filer}_202609.TXT"]
+        assert generated == (root / f"period-202609-{form}.txt").read_bytes()
+    purchase = result.files[f"dgii/DGII_F_606_{filer}_202609.TXT"].decode().splitlines()
+    for number in ("B0100009876", "B0400000310"):
+        fields = next(line.split("|") for line in purchase if f"|{number}|" in line)
+        assert (fields[6], fields[11], fields[17]) == ("", "", "")

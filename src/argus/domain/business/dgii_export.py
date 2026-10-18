@@ -10,9 +10,13 @@ from decimal import Decimal
 
 import xlsxwriter
 
-from argus.domain.business.contracts.dgii import PurchaseDeclaration, money_text
+from argus.domain.business.contracts.dgii import (
+    PurchaseDeclaration,
+    amount_or_zero,
+    money_text,
+)
 from argus.domain.business.contracts.facts import Known
-from argus.domain.business.dgii_columns import COLUMNS
+from argus.domain.business.dgii_columns import COLUMNS, OPTIONAL_AMOUNTS
 from argus.domain.business.dgii_validation import (
     FiscalRecord,
     fact_value,
@@ -46,10 +50,11 @@ def _row(record: FiscalRecord) -> tuple[str, ...]:
     )
     if isinstance(declaration, PurchaseDeclaration):
         values["billed_amount"] = money_text(
-            Decimal(declaration.services_amount) + Decimal(declaration.goods_amount)
+            amount_or_zero(declaration.services_amount)
+            + amount_or_zero(declaration.goods_amount)
         )
         values["itbis_advance"] = money_text(
-            Decimal(values["itbis"]) - Decimal(declaration.itbis_cost)
+            Decimal(values["itbis"]) - amount_or_zero(declaration.itbis_cost)
         )
     result = []
     for name, _ in COLUMNS[declaration.form]:
@@ -66,7 +71,8 @@ def _row(record: FiscalRecord) -> tuple[str, ...]:
             "income_withholding_type",
             "payment_method",
         }:
-            value = money_text(Decimal(value))
+            amount = Decimal(value)
+            value = "" if name in OPTIONAL_AMOUNTS and amount == 0 else money_text(amount)
         result.append("" if value is None else str(value))
     return tuple(result)
 
@@ -151,10 +157,7 @@ def build_fiscal_packet(
     issues = []
     bridge = []
     originals = {record.activity_id: record for record in records}
-    selected = sorted(
-        (record for record in records if start <= record.occurred_on <= end),
-        key=lambda record: (record.occurred_on, is_credit(record), record.activity_id),
-    )
+    selected = [record for record in records if start <= record.occurred_on <= end]
     same_month = (start.year, start.month) == (end.year, end.month)
     closed_month = (
         same_month
