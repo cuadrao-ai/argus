@@ -19,10 +19,9 @@ export default function BusinessLifecycleEntry({ spaceId, action }: { spaceId: s
   const { t } = useTranslation();
   const [entry, setEntry] = useState<Entry>({ kind: "loading" });
   const [state, setState] = useState<BusinessCloseState>({ kind: "idle" });
-  const [dismissed, setDismissed] = useState(false);
   const journal = useRef<{ input: string; key: string } | null>(null);
   const busy = useRef(false);
-  const dismiss = () => { setDismissed(true); const url = new URL(window.location.href); url.searchParams.delete("lifecycle"); url.searchParams.delete("business"); window.history.replaceState(window.history.state, "", url); };
+  const dismiss = () => window.location.assign("/biz");
   useEffect(() => {
     const controller = new AbortController();
     const generation = browserAuthGeneration();
@@ -42,7 +41,6 @@ export default function BusinessLifecycleEntry({ spaceId, action }: { spaceId: s
     }).catch(() => { if (!controller.signal.aborted) setEntry({ kind: "unavailable" }); });
     return () => controller.abort();
   }, [spaceId, action]);
-  if (dismissed) return null;
   if (entry.kind !== "ready") return <AdaptivePanel title={action === "close" ? businessCloseCopyEs.title : businessTransferCopyEs.title} closeLabel={businessCloseCopyEs.cancel} onClose={dismiss} width="md"><p role="status" className="p-5 text-[14px]">{entry.kind === "loading" ? t("common.loading") : t("common.error_occurred")}</p></AdaptivePanel>;
   const { business } = entry;
   const execute = async (confirmation: string, targetGrantId?: string) => {
