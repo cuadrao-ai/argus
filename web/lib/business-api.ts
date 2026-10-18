@@ -32,6 +32,7 @@ export const RECEIPT_ATTENTIONS = [
   "interrupted",
   "outcome_unknown",
   "no_purchase_found",
+  "not_a_receipt",
   "several_purchases",
   "source_unavailable",
   "check_details",
@@ -612,8 +613,8 @@ export type BusinessAccessGrant = {
   created_at: string;
   owner: boolean;
 };
-export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string };
-export type BusinessAccess = { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] };
+export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string; state: "pending" | "expired" };
+export type BusinessAccess = { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[]; invite_delivery?: "not_configured" | "accepted" | "failed" | null };
 
 export async function getBusinessAccess(): Promise<BusinessAccess> {
   return apiFetch("/business/access");
@@ -626,6 +627,10 @@ export async function giveBusinessAccess(email: string): Promise<BusinessAccess>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
+}
+
+export async function resendBusinessAccessInvite(id: string): Promise<BusinessAccess> {
+  return apiFetch(`/business/access/invites/${encodeURIComponent(id)}/resend`, { method: "POST" });
 }
 
 export async function revokeBusinessAccessGrant(id: string): Promise<void> {

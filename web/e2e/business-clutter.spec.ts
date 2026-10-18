@@ -41,6 +41,7 @@ for (const width of [1280, 390]) {
         await expect(page.getByTestId("inicio-por-revisar-count")).toHaveText("1");
         await expect(action).toContainText("por revisar");
         await expect(action).not.toContainText("8 por revisar");
+        await expect(action).not.toContainText("con problema");
         await expect(page.getByTestId("inicio-otras")).toHaveCount(0);
         const cards = page.getByTestId("month-close-cards");
         await expect(cards).toBeVisible();

@@ -93,6 +93,7 @@ from argus.api.documents import (
 from argus.api.email_intake import arrived_by_email, email_receipt_flags
 from argus.api.financial_accounts import domain_problem
 from argus.api.ingestion import ingestion_hub
+from argus.api.routers.business_bank import router as business_bank_router
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
@@ -132,6 +133,7 @@ router = APIRouter(
         }
     },
 )
+router.include_router(business_bank_router)
 _CONFLICTS = frozenset(
     {
         "receipt_not_prepared",
@@ -336,6 +338,7 @@ def _access(found: AccessList) -> dict[str, Any]:
                 "email": invite.email,
                 "created_at": invite.created_at,
                 "expires_at": invite.expires_at,
+                "state": invite.state,
             }
             for invite in found.invites
         ],
@@ -386,7 +389,32 @@ def give_access(
             headers=NO_STORE,
         ) from None
     response.status_code = 201 if created else 200
-    return _access(found)
+    payload = _access(found)
+    if created:
+        invite = next((i for i in found.invites if i.email == body.email.strip().lower()), None)
+        if invite is not None:
+            from argus.api.business_invite_delivery import deliver_invite
+            payload["invite_delivery"] = deliver_invite(request, found, invite, space_id, owner_id)
+    return payload
+
+
+@router.post("/access/invites/{invite_id}/resend", response_model=BusinessAccess)
+def resend_access_invite(
+    invite_id: UUID,
+    request: Request,
+    response: Response,
+    context: Annotated[BusinessContext, Depends(require_business_workspace)],
+) -> dict[str, Any]:
+    owner_only(request, context)
+    space_id, owner_id = context.scope.owner.space_id, context.scope.person_id
+    found = _access_store(request).resend(space_id, owner_id, str(invite_id))
+    if found is None:
+        raise problem(request, status_code=404, code="business_access_not_found",
+                      title="Not Found", detail="This invite is not available.", headers=NO_STORE)
+    response.headers.update(NO_STORE)
+    from argus.api.business_invite_delivery import deliver_invite
+    invite = next(i for i in found.invites if i.id == str(invite_id))
+    return {**_access(found), "invite_delivery": deliver_invite(request, found, invite, space_id, owner_id)}
 
 
 @router.delete("/access/grants/{grant_id}", status_code=204)

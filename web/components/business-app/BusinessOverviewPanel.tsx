@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import StarterActions from "@/components/chat/StarterActions";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { businessReceivingAddress } from "@/lib/business-email";
-import { countPorRevisar, countReviewBucket } from "@/lib/business-review-count";
+import { countPorRevisar, countStillReading, countUnreadable } from "@/lib/business-review-count";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatBusinessName } from "./business-format";
 import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
@@ -52,8 +52,8 @@ export default function BusinessOverviewPanel() {
   const upload = owner ? actions.create?.find((action) => action.id === "upload_receipt") ?? null : null;
   const items = records.inbox;
   const porRevisar = items ? countPorRevisar(items) : null;
-  const reading = items ? countReviewBucket(items, "reading") : 0;
-  const problem = items ? countReviewBucket(items, "unreadable") : 0;
+  const reading = items ? countStillReading(items) : 0;
+  const problem = items ? countUnreadable(items) : 0;
   const primaryClass = `${pillButtonClass} min-w-11 bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`;
 
   return (

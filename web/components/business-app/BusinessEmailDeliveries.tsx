@@ -5,44 +5,15 @@ import { ChevronRight, Mail, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
-import { businessReceivingAddress, emailDeliveriesNeedRefresh } from "@/lib/business-email";
+import { emailDeliveriesNeedRefresh } from "@/lib/business-email";
 import { useBusiness } from "./BusinessWorkspace";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatRelativeTime } from "./business-format";
 import { cardClass, secondaryButtonClass } from "./business-ui";
 
-type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
+export { EmailReceivingAddress } from "./InboxForwardingCard";
 
-export function EmailReceivingAddress({ intake, onActivate }: { intake: BusinessEmailIntake; onActivate: () => Promise<void> }) {
-  const { t } = useTranslation();
-  const address = businessReceivingAddress(intake);
-  const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle");
-  const [activation, setActivation] = useState<"idle" | "working" | "failed">("idle");
-  if (!address) {
-    return (
-      <div className="space-y-2">
-        <p className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.no_address", "This business has no receiving address yet.")}</p>
-        <button type="button" className={secondaryButtonClass} disabled={activation === "working"} onClick={async () => {
-          setActivation("working");
-          try { await onActivate(); setActivation("idle"); } catch { setActivation("failed"); }
-        }}>{t("business.email.activate", "Get a receiving address")}</button>
-        {activation === "failed" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.activate_failed", "Email receiving is not available for this business yet.")}</p> : null}
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-2">
-      <p className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.forward_to", "Forward receipts to this address:")}</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="min-w-0 break-all text-[14px] font-medium text-black dark:text-white">{address}</span>
-        <button type="button" className={secondaryButtonClass} onClick={async () => {
-          try { await navigator.clipboard.writeText(address); setCopy("copied"); } catch { setCopy("failed"); }
-        }}>{t("business.email.copy", "Copy address")}</button>
-      </div>
-      {copy !== "idle" ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{copy === "copied" ? t("business.email.copied", "Address copied.") : t("business.email.copy_failed", "Could not copy. Select the address to copy it.")}</p> : null}
-    </div>
-  );
-}
+type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 
 export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, openReceipt, retryDelivery, inbox = null }: {
   /** The Inbox's receipts, to say when a captured part's receipt is still saved and unread. */
@@ -123,7 +94,7 @@ export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, o
   );
 }
 
-/** Received emails, newest first, and the address that receives them. */
+/** Received emails, newest first. */
 /** `openEmailId`: the delivery to show expanded on arrival, when a receipt sent the person to its first email. */
 export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?: string } = {}) {
   const { t } = useTranslation();
@@ -155,7 +126,6 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
     return () => { current = false; clearTimeout(timer); };
   }, [source, attempt, revision]);
   if (intake.status === "error" && deliveries.status === "error") return null;
-  const ready = intake.status === "ready" ? intake.data : null;
   return (
     <section aria-label={t("business.email.title", "Received emails")} className="mb-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -165,8 +135,6 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
         <button type="button" className={secondaryButtonClass} onClick={() => setAttempt((value) => value + 1)}>{t("business.email.reload", "Refresh")}</button>
       </div>
       <div className={`${cardClass} mt-3 space-y-4`}>
-        {intake.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.address_failed", "Could not load the receiving address.")}</p> : null}
-        {ready ? <EmailReceivingAddress intake={ready} onActivate={async () => { const next = await source.createEmailAddress(); setIntake({ status: "ready", data: next }); }} /> : null}
         {deliveries.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.list_failed", "Could not load received emails.")}</p> : null}
         {stalled ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.poll_stopped", "Some emails are still being read. Use Refresh to see the latest state.")}</p> : null}
         {deliveries.status === "ready" ? (deliveries.data.length ? (

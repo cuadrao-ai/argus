@@ -1,28 +1,43 @@
 /**
- * The one Inicio count: receipts waiting for a person to review.
- * Still-reading and unreadable receipts are other lines. They never add to this number.
+ * The one Bandeja count: receipts a person can review.
+ * Still-reading and unreadable receipts are other lines, never this number.
+ * An email's own document is not a Bandeja row.
  */
 
 export type ReviewCountItem = {
-  status?: string | null;
+  status?: string;
   attention?: string | null;
   activity?: { state?: string | null } | null;
+  read_pending?: boolean;
+  email_original?: boolean;
 };
 
-export type ReviewBucket = "por_revisar" | "reading" | "unreadable";
+function closed(item: ReviewCountItem): boolean {
+  return Boolean(item.email_original) || item.status === "confirmed" || item.status === "dismissed";
+}
 
-/** One row, one line. Reading wins, then a receipt that cannot be read, then one waiting for review. */
-export function reviewBucket(item: ReviewCountItem): ReviewBucket | null {
-  if (item.activity?.state === "reading") return "reading";
-  if (item.attention === "unreadable" || item.status === "needs_attention") return "unreadable";
-  if (item.status === "review_ready") return "por_revisar";
-  return null;
+export function isStillReading(item: ReviewCountItem): boolean {
+  if (closed(item)) return false;
+  return item.activity?.state === "reading" || item.read_pending === true || item.status === "queued" || item.status === "preparing";
+}
+
+export function isUnreadable(item: ReviewCountItem): boolean {
+  if (closed(item) || isStillReading(item)) return false;
+  return item.attention === "unreadable";
+}
+
+export function porRevisar<T extends ReviewCountItem>(items: readonly T[]): T[] {
+  return items.filter((item) => !closed(item) && !isStillReading(item) && !isUnreadable(item));
 }
 
 export function countPorRevisar(items: readonly ReviewCountItem[]): number {
-  return items.reduce((count, item) => count + (reviewBucket(item) === "por_revisar" ? 1 : 0), 0);
+  return porRevisar(items).length;
 }
 
-export function countReviewBucket(items: readonly ReviewCountItem[], bucket: Exclude<ReviewBucket, "por_revisar">): number {
-  return items.reduce((count, item) => count + (reviewBucket(item) === bucket ? 1 : 0), 0);
+export function countStillReading(items: readonly ReviewCountItem[]): number {
+  return items.filter(isStillReading).length;
+}
+
+export function countUnreadable(items: readonly ReviewCountItem[]): number {
+  return items.filter(isUnreadable).length;
 }
