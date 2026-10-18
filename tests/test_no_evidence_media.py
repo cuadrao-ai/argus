@@ -95,15 +95,51 @@ def test_modified_existing_png_passes(tmp_path: Path) -> None:
     assert run_check(repo, base).returncode == 0
 
 
-def test_rename_passes(tmp_path: Path) -> None:
+def rename(repo: Path, source: str, destination: str) -> None:
+    (repo / destination).parent.mkdir(parents=True, exist_ok=True)
+    git(repo, "mv", "--", source, destination)
+    git(repo, "commit", "-q", "-m", "rename")
+
+
+@pytest.mark.parametrize(
+    ("source", "destination"),
+    [
+        ("assets/shot.png", "docs/reports/shot.png"),
+        ("assets/shot.png", "notes/evidence/shot.png"),
+        ("docs/reports/evidence/shot.png", "docs/reports/evidence/moved.png"),
+    ],
+)
+def test_rename_into_gated_media_fails(
+    tmp_path: Path, source: str, destination: str
+) -> None:
     repo, _base = init_repo(tmp_path)
-    source = "docs/reports/evidence/shot.png"
     commit_bytes(repo, source, b"same")
     base = git(repo, "rev-parse", "HEAD")
-    destination = "docs/reports/evidence/moved.png"
-    git(repo, "mv", source, destination)
-    git(repo, "commit", "-q", "-m", "rename")
-    assert run_check(repo, base).returncode == 0
+    rename(repo, source, destination)
+    result = run_check(repo, base)
+    assert result.returncode == 1
+    assert result.stderr.splitlines() == [f"{destination}: {REJECTION}"]
+
+
+@pytest.mark.parametrize(
+    ("source", "destination"),
+    [
+        ("docs/reports/shot.png", "assets/shot.png"),
+        ("assets/shot.png", "web/icons/shot.png"),
+        ("assets/notes.txt", "docs/reports/notes.txt"),
+        ("assets/notes.txt", "notes/evidence/notes.txt"),
+    ],
+)
+def test_rename_that_does_not_introduce_gated_media_passes(
+    tmp_path: Path, source: str, destination: str
+) -> None:
+    repo, _base = init_repo(tmp_path)
+    commit_bytes(repo, source, b"same")
+    base = git(repo, "rev-parse", "HEAD")
+    rename(repo, source, destination)
+    result = run_check(repo, base)
+    assert result.returncode == 0
+    assert result.stderr == ""
 
 
 def test_copy_fails(tmp_path: Path) -> None:
