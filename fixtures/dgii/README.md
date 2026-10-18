@@ -1,16 +1,14 @@
 # Mocks DGII Formato 606 / 607 — PRÁCTICA / DATOS FICTICIOS
 
 Reference target for Cuadrao's export. All identities are fake. They only pass the check digit. **Do not send to DGII.**
-Regenerate with `.venv/bin/python generate.py` (needs openpyxl). The script also validates its own output against the rules below.
+A dry run of `scripts/qa/business_month_seed.py` needs the dev dependency group (`faker`).
 
 | File | What it is |
 |---|---|
 | `606_mock_202609.txt` / `DGII_F_606_139999001_202609.TXT` | 606 TXT, 15 lines (the second name is the one DGII's tool produces) |
 | `607_mock_202609.txt` / `DGII_F_607_139999001_202609.TXT` | 607 TXT, 10 lines |
 | `606_mock_202609.xlsx`, `607_mock_202609.xlsx` | Copies of the official sheet layout (header block rows 4–7, column numbers row 10, titles row 11, detail from row 12). 607 has a second sheet with the consumer-invoice summary that goes into the OFV |
-| `resumen_ITBIS_202609.md` | ITBIS and month result, computed by the script |
-| `preview_606.png`, `preview_607.png` | Render of the xlsx |
-| `sources/` | Official DGII zips, instructivos (PDF + txt) and the VBA macros extracted with olevba (`vba606.txt`, `vba607c.txt`) |
+| `resumen_ITBIS_202609.md` | ITBIS and month result for period 202609 |
 
 **Main source of truth:** the `GenerarArchivo` macro inside DGII's official Excel tools (606 "Versión 2025", zip modified 28/10/2025; 607 "Version 2023.1.1"). The layout below comes straight from that code, not from third-party blogs.
 
@@ -102,7 +100,7 @@ Regenerate with `.venv/bin/python generate.py` (needs openpyxl). The script also
 - The fake RNCs/cédulas pass the DV, so they could match a real taxpayer. They aren't checked against DGII's registry. Use them only in testing.
 
 ## Sources (all downloaded 2026-10-18)
-- Formatos de Envío de Datos page: https://dgii.gov.do/herramientas/formularios/formatoEnvioDatos/Paginas/default.aspx (`sources/formatoEnvioDatos_page.html`)
+- Formatos de Envío de Datos page: https://dgii.gov.do/herramientas/formularios/formatoEnvioDatos/Paginas/default.aspx
 - 606 tool + instructivo (zip 28/10/2025): https://dgii.gov.do/herramientas/formularios/formatoEnvioDatos/Documents/Formato%20de%20compras,%20bienes%20y%20servicios/Formato-de-Envio-606-(NG-07-2018-y-05-2019).zip
 - 607 tool + instructivo: https://dgii.gov.do/herramientas/formularios/formatoEnvioDatos/Documents/Formato%20de%20ventas%20bienes%20y%20servicios/Formato-de-Envio-607-(NG-07-2018-y-05-2019).zip
 - Instructivo 606 (web copy): https://dgii.gov.do/publicacionesOficiales/bibliotecaVirtual/contribuyentes/formatoEnvioDatos/Documents/4-LlenadoyEnvioFormato606.pdf

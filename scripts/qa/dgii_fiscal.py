@@ -29,6 +29,19 @@ CANON_END = date(2026, 9, 30)
 DRY_RUN_START = date(2026, 10, 1)
 DRY_RUN_END = date(2026, 10, 17)
 OUTPUT_ROOT = Path("temp") / "qa-seed"
+# Practice columns that review and approve do not store. Fiscal rnc, ncf, ecf,
+# and itbis still arrive through document extraction.
+UNSUPPORTED_DECLARATION_FIELDS = (
+    "expense_type",
+    "payment_method",
+    "payment_date",
+    "services_amount",
+    "goods_amount",
+    "itbis_withheld",
+    "itbis_withheld_on",
+    "isr_withheld",
+    "isr_withheld_on",
+)
 
 RX_NCF_606 = re.compile(
     r"^(((B|b)((0[1-4])|(1[1-5])|17)[0-9]{8})|((E|e)((3[1-4])|(4[1-5])|47)[0-9]{10}))$"

@@ -5,9 +5,17 @@ path. Bank lines are written to a CSV because Cuadrao has no statement
 import, and, with ``--with-plaid``, the same lines are created in Plaid
 sandbox. Nothing here talks to a project other than staging.
 
+``--email`` must be ``qa-seed@...`` or ``qa-seed+...@...``. The account may
+own no Business, or only the Business this seed created (named ``QA Seed``).
+``--reset`` disconnects seed documents and seed Plaid connections. It cannot
+clear approved expenses and incomes. The product has no void, delete, or
+reversal for those books.
+
+A dry run needs the dev dependency group (``faker``).
+
     python scripts/qa/business_month_seed.py --dry-run
-    python scripts/qa/business_month_seed.py --email owner@example.com --reset
-    python scripts/qa/business_month_seed.py --email owner@example.com --with-plaid
+    python scripts/qa/business_month_seed.py --email qa-seed+october@example.com --reset
+    python scripts/qa/business_month_seed.py --email qa-seed+october@example.com --with-plaid
 """
 
 from __future__ import annotations
@@ -23,17 +31,26 @@ if str(QA_DIR) not in sys.path:
     sys.path.insert(0, str(QA_DIR))
 
 from business_month_guard import (  # noqa: E402
+    SEED_SPACE_NAME,
     StagingRefused,
     refuse_unless_plaid_sandbox,
     refuse_unless_staging,
+    require_qa_owner,
+    require_seed_space,
 )
 from dgii_fiscal import (  # noqa: E402
     DRY_RUN_END,
     DRY_RUN_START,
+    UNSUPPORTED_DECLARATION_FIELDS,
     build_plan,
     parse_period,
     plaid_transactions,
     write_outputs,
+)
+
+APPROVED_BOOKS = (
+    "approved-books: not cleared; the product has no void, delete, or reversal "
+    "for an approved expense or income"
 )
 
 
@@ -42,13 +59,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Seed one staging Business period for QA."
     )
     parser.add_argument(
-        "--email", default="", help="Confirmed owner of the Business space."
+        "--email",
+        default="",
+        help="QA seed owner: qa-seed@ or qa-seed+...@, with no other Business.",
     )
     parser.add_argument("--from", dest="start", default=DRY_RUN_START.isoformat())
     parser.add_argument("--to", dest="end", default=DRY_RUN_END.isoformat())
     parser.add_argument("--seed", type=int, default=202609)
     parser.add_argument(
-        "--reset", action="store_true", help="Remove only rows this seed created."
+        "--reset",
+        action="store_true",
+        help="Disconnect seed documents and seed Plaid connections.",
     )
     parser.add_argument(
         "--with-plaid", action="store_true", help="Mirror the CSV in Plaid sandbox."
@@ -63,6 +84,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.email.strip():
+        try:
+            require_qa_owner(args.email)
+        except StagingRefused as error:
+            print(str(error), file=sys.stderr)
+            return 2
     try:
         period = parse_period(args.start, args.end)
     except ValueError as error:
@@ -80,6 +107,11 @@ def main(argv: list[str] | None = None) -> int:
     print(
         "statement-import: not in the product; the CSV is the bank file QA can import later"
     )
+    print(
+        "declaration-facts: review and approve do not accept "
+        + ", ".join(UNSUPPORTED_DECLARATION_FIELDS)
+    )
+    print(APPROVED_BOOKS)
     print(f"documents: {len(plan.documents)}")
     print(f"bank-lines: {len(plan.lines)}")
     print(f"pairs: {len(plan.manifest['pairs'])}")
@@ -173,8 +205,12 @@ def _ingest(args: argparse.Namespace, plan) -> int:  # noqa: ANN001
             business_preparation_required=True,
         )
         service.business_receipt_consent = BusinessReceiptConsentStore(pool)
-        user_id = _owner_id(pool, args.email)
-        space, _created = PostgresSpaceStore(pool).create(user_id, "QA Seed")
+        email = require_qa_owner(args.email)
+        user_id = _owner_id(pool, email)
+        spaces = PostgresSpaceStore(pool)
+        existing = spaces.open_space(user_id)
+        require_seed_space(None if existing is None else existing.name)
+        space, _created = spaces.create(user_id, SEED_SPACE_NAME)
         scope = BusinessSpace(space.id)
         if args.reset:
             _reset(hub, store, sink, user_id, scope, args.with_plaid)
@@ -391,6 +427,7 @@ def _reset(hub, store, sink, user_id: str, scope, with_plaid: bool) -> None:  # 
         plaid_removed += 1
     print(f"reset-documents: {removed}")
     print(f"reset-plaid: {plaid_removed}")
+    print(APPROVED_BOOKS)
 
 
 def _register_plaid(hub) -> None:  # noqa: ANN001

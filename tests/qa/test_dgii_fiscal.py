@@ -243,6 +243,26 @@ def test_bank_csv_layout_matches_plaid_and_the_manifest() -> None:
     assert "pago-parcial" in reasons
 
 
+def test_review_cannot_store_the_practice_declaration_columns() -> None:
+    from argus.domain.business.contracts.facts import BusinessFactPatch
+    from argus.domain.recording.payments import PAYMENT_KINDS
+
+    assert set(BusinessFactPatch.model_fields) == {
+        "amount",
+        "business_share",
+        "category_id",
+        "counterparty",
+        "currency",
+        "funding",
+        "kind",
+        "occurred_on",
+        "receipt_state",
+    }
+    for name in fiscal.UNSUPPORTED_DECLARATION_FIELDS:
+        assert name not in BusinessFactPatch.model_fields
+    assert PAYMENT_KINDS == {"card_payment", "debt_payment"}
+
+
 def test_dry_run_writes_the_files_and_does_not_open_a_database(tmp_path: Path) -> None:
     env = {
         "PATH": "/usr/bin:/bin",
@@ -269,9 +289,32 @@ def test_dry_run_writes_the_files_and_does_not_open_a_database(tmp_path: Path) -
     assert completed.returncode == 0, completed.stderr
     assert "secret-should-not-print" not in completed.stdout
     assert "not in the product" in completed.stdout
+    assert "declaration-facts:" in completed.stdout
+    assert "approved-books: not cleared" in completed.stdout
     assert "intake: not run" in completed.stdout
     folder = tmp_path / "temp" / "qa-seed" / "2026-10-01_2026-10-17"
     assert (folder / "estado-cuenta.csv").is_file()
     assert (folder / "conciliacion.json").is_file()
     assert fiscal.layout_issues((folder / "practica-606.txt").read_bytes()) == []
     assert fiscal.layout_issues((folder / "practica-607.txt").read_bytes()) == []
+
+
+def test_a_normal_email_is_refused_before_intake(tmp_path: Path) -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(QA / "business_month_seed.py"),
+            "--dry-run",
+            "--email",
+            "owner@example.com",
+        ],
+        cwd=tmp_path,
+        env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 2, completed.stdout
+    assert "QA seed account" in completed.stderr
+    assert "intake: not run" not in completed.stdout
+    assert not (tmp_path / "temp").exists()

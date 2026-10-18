@@ -71,6 +71,58 @@ def test_anything_other_than_staging_is_refused(overrides: dict[str, str]) -> No
     assert PROD not in message
 
 
+def test_a_query_host_or_hostaddr_is_refused() -> None:
+    cases = [
+        (
+            f"postgresql://postgres:{PASSWORD}@db.{STAGING}.supabase.co/postgres"
+            f"?host=db.{PROD}.supabase.co"
+        ),
+        (
+            f"postgresql://postgres:{PASSWORD}@db.{STAGING}.supabase.co/postgres"
+            "?hostaddr=127.0.0.1"
+        ),
+        (
+            f"host=db.{STAGING}.supabase.co,db.{PROD}.supabase.co user=postgres "
+            f"password={PASSWORD} dbname=postgres"
+        ),
+    ]
+    for database_url in cases:
+        with pytest.raises(guard.StagingRefused) as caught:
+            guard.refuse_unless_staging(_env(DATABASE_URL=database_url))
+        message = str(caught.value)
+        assert PASSWORD not in message
+        assert "postgresql" not in message
+        assert PROD not in message
+        assert "127.0.0.1" not in message
+        assert STAGING not in message
+
+
+def test_keyword_form_uses_the_effective_staging_host() -> None:
+    accepted = _env(
+        DATABASE_URL=(
+            f"host=db.{STAGING}.supabase.co user=postgres password={PASSWORD} "
+            "dbname=postgres"
+        )
+    )
+    assert guard.refuse_unless_staging(accepted) == STAGING
+
+
+def test_only_a_qa_seed_account_with_no_other_business_may_write() -> None:
+    assert guard.require_qa_owner("QA-Seed+October@Example.com") == (
+        "qa-seed+october@example.com"
+    )
+    assert guard.require_qa_owner("qa-seed@example.com") == "qa-seed@example.com"
+    guard.require_seed_space(None)
+    guard.require_seed_space(guard.SEED_SPACE_NAME)
+    for email in ("owner@example.com", "qa+october@example.com", "qa-seed"):
+        with pytest.raises(guard.StagingRefused) as caught:
+            guard.require_qa_owner(email)
+        assert "QA seed account" in str(caught.value)
+    with pytest.raises(guard.StagingRefused) as caught:
+        guard.require_seed_space("Mi negocio")
+    assert "already owns a Business" in str(caught.value)
+
+
 def test_there_is_no_override_parameter() -> None:
     assert "override" not in inspect.signature(guard.refuse_unless_staging).parameters
 
