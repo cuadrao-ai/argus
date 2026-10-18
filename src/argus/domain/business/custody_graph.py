@@ -118,6 +118,7 @@ def retained_dependencies(connection: Any, departing_user_id: str) -> tuple[str,
             "business_ai_consents",
             "owner_id=%s or consenting_actor_id=%s or issuer_id=%s or revoked_by=%s",
         ),
+        ("business_close_mail_outbox", "owner_id=%s or recipient_id=%s"),
         ("business_lifecycle_commands", "owner_id=%s"),
         ("business_ownership_transfers", "owner_id=%s or target_id=%s"),
         (
@@ -562,6 +563,10 @@ class PostgresBusinessCustodyGraph:
 
     @staticmethod
     def _remove_transport(db: Any, scope: dict[str, Any], user: str) -> None:
+        db.execute(
+            "delete from public.business_close_mail_outbox where space_id=%s or owner_id=%s or recipient_id=%s",
+            (scope["s"], user, user),
+        )
         db.execute(
             "delete from public.business_transfer_mail_outbox where transfer_id in"
             " (select id from public.business_ownership_transfers where space_id=%s)",

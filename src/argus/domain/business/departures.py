@@ -47,6 +47,10 @@ class PostgresBusinessDepartures:
                 "delete from public.business_transfer_mail_outbox where recipient_id=%s or owner_id=%s or target_id=%s",
                 (user_id, user_id, user_id),
             )
+            db.execute(
+                "delete from public.business_close_mail_outbox where recipient_id=%s or owner_id=%s",
+                (user_id, user_id),
+            )
             spaces = db.execute(
                 "select id::text,created_by::text,current_owner_id::text from public.spaces where kind='business' and created_by<>%s order by id for update",
                 (user_id,),

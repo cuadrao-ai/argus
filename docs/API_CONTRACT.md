@@ -9962,3 +9962,39 @@ original objects and orphan custody copies with durable retry plans. Shared
 object bytes referenced by another surviving scope remain in that scope.
 This backend build keeps global account deletion off and lifecycle readiness
 unavailable. No hosted execution is authorized by this contract.
+
+#### Business lifecycle UI completion, held October 18, 2026
+
+This continuation supersedes the earlier unmounted-router status only. The
+lifecycle and transfer routers are mounted, and their shared
+`require_lifecycle_ready` dependency still unconditionally refuses every route.
+Global account deletion remains disabled. No hosted activation follows from this
+UI wiring.
+
+`GET /business/owned-spaces` returns `{spaces: [{space_id, name, grant_id,
+members: [{grant_id, name}]}]}`. The authenticated current owner and their live
+read grant supply authority. Each eligible member is checked through the same
+transfer target authority used by the request command. No owner query parameter
+or remembered selected Business changes the actor. Closed listing retains the
+existing current-owner, live-user and 30-day contract.
+
+The actual account-deletion dialog reads the existing authorized Business space
+list. Every owner Business gets its exact locked warning and distinct transfer
+and close links. Discovery failure blocks deletion. `/biz?lifecycle=close|transfer
+&business=<id>` opens the named command screen after authorization. These routes
+preserve their Business through sign-in. The existing explicit-date export
+component and API are reused unchanged, with the target's validated grant.
+Lifecycle routes render before workspace creation. After closing, the closed
+list is shown. Normal entry also checks for closed-only ownership before starting
+the workspace, so it cannot silently create a replacement Business. A readiness
+404 preserves the existing live workspace behavior.
+
+Close atomically queues one approved member notification for each live,
+confirmed, registered member and close instant. The canonical generated shared
+layout owns HTML and plain text. A command replay reuses the queue. Delivery
+uses the existing Cuadrao Resend sender, a frozen payload and a stable provider
+key. Automatic retry stops after 23 hours of provider uncertainty. Reopening
+suppresses unsent notices for that close instant. Person departure removes their
+personal notification transport. Business custody detachment removes the scoped
+close transport, and Business purge cascades the queue. No real email was sent
+for this delivery.

@@ -166,6 +166,7 @@ Every uuid column whose name marks a person or a membership, or that has a forei
 | `beta_invite_quota_grants.user_id` | no | `auth.users` CASCADE |
 | `business_action_receipts.actor_id` | no | `auth.users` CASCADE |
 | `business_access_invites.issuer_id` | no | `auth.users` CASCADE |
+| `business_close_mail_outbox.owner_id` | no | Unkeyed personal notification identity; delete before custody detach or person settlement. Never retain as Business history. |
 | `business_client_grants.grantee_id` | no | `auth.users` CASCADE |
 | `business_email_deliveries.principal_id` | yes | `auth.users` CASCADE |
 | `business_email_routes.granted_by` | no | `auth.users` CASCADE |
@@ -422,6 +423,8 @@ The October 10 C0 catalog adds sixteen foreign keys, all nondeferrable `ON DELET
 | `business_access_invites` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
 | `business_action_receipts` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the Business space at step 7. |
 | `business_action_receipts` | `turn_key, space_id, actor_id` | `business_turns` | CASCADE | NO ACTION | deferrable | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with its canonical turn at step 7; human receipts without a turn follow their actor or space. |
+| `business_close_mail_outbox` | `recipient_id` | `auth.users` | CASCADE | NO ACTION | no | Personal notification transport. | Synthetic catalog on the held close UI lane. | Delete before recipient account settlement; Auth cascade is a final safeguard. |
+| `business_close_mail_outbox` | `space_id` | `spaces` | CASCADE | NO ACTION | no | Personal notification transport. | Synthetic catalog on the held close UI lane. | Custody detachment removes it; day-30 Business purge cascades it. |
 | `business_client_grants` | `grantee_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove the named human grant when its grantee is deleted at step 7; do not transfer authority. |
 | `business_client_grants` | `issuer_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove the grant when its issuer is deleted at step 7; do not substitute an issuer. |
 | `business_client_grants` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove all client grants with the Business space at step 7. |

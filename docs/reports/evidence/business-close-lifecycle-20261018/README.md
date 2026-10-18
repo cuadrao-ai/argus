@@ -402,3 +402,13 @@ safety, extend the existing purge sweep, connect the shared close-member email,
 complete current-owner chat storage access, add transfer discovery and durable
 command recovery, mount the approved exit/reopen UI and obtain the required
 receipt runs plus final Priya/Rafael reviews. This lane is not READY.
+
+## UI continuation, October 18, 2026
+
+The [UI completion evidence](ui-completion.md) supersedes earlier unmounted
+UI/router status. Step 5 now connects actual ownership discovery, per-Business
+delete warnings, close/transfer, closed listing/reopen, unchanged export and the
+canonical member-close email queue. The unconditional readiness denial and
+global account-deletion hold remain. Root still owns all three receipt runs,
+independent final Eval and Rafael's final-head permission retest. PR #1222 stays
+draft and merge-held.

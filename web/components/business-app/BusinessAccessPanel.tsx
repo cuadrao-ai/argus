@@ -7,6 +7,8 @@ import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "
 import { useBusiness } from "./BusinessWorkspace";
 import { cardClass, dangerButtonClass, dangerConfirmButtonClass, LoadingRows, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 
+import BusinessLifecycleControls from "./BusinessLifecycleControls";
+
 type Pending = { kind: "grant"; item: BusinessAccessGrant } | { kind: "invite"; item: BusinessAccessInvite };
 
 function formatDay(value: string, locale: string): string {
@@ -191,6 +193,7 @@ export default function BusinessAccessPanel() {
           </form>
         </>
       )}
+      {source.mode === "live" ? <BusinessLifecycleControls /> : null}
     </section>
   );
 }

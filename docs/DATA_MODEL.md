@@ -3820,3 +3820,22 @@ no space FK so graph deletion cannot discard a retry plan. Object plans have
 a run FK with CASCADE. Run and due-date indexes bound sweep discovery. No new
 client policy, Data API endpoint, hosted activation or longer retention grant
 is introduced. The original `spaces.closed_at` owns the thirty-day deadline.
+
+### Business close notification transport, held October 18, 2026
+
+Forward migration `20261018080009_business_close_mail.sql` adds
+`business_close_mail_outbox`. This is server-only personal mail transport, with
+RLS and no `anon` or `authenticated` rights. Only `service_role` receives CRUD.
+It is separate from retained Business history.
+
+Model checklist for the new table and all columns. `id` is the provider
+idempotency identity. `space_id` cascades on Business purge. `closed_at` identifies
+the closure generation and combines with `recipient_id` in the unique event key.
+`owner_id`, `recipient_id`, `recipient_email` and `context` contain personal
+notification data and are removed during departure or scoped custody detachment.
+The recipient Auth FK cascades as a final privacy safeguard. `created_at` orders
+pending work. `first_attempt_at` and `payload` are committed together before SMTP;
+retries retain both and the provider key. `sent_at`, `suppressed_at`,
+`uncertain_at` and `provider_receipt` record delivery, stale-close suppression,
+the 23-hour retry hold and the bounded receipt. All lifecycle control dates and
+owner authority still derive from `spaces` and the existing grants.

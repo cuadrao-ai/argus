@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import assert from "node:assert/strict";
-import { readReturnPath } from "../lib/auth-return-path";
+import { readReturnPath, returnPathFor } from "../lib/auth-return-path";
 import { authLoginPathFromSearch, pathWithSearch } from "../lib/landing-intent";
 
 describe("sign-in return path", () => {
@@ -48,4 +48,10 @@ describe("sign-in return path", () => {
       "/chat?utm_campaign=x",
     );
   });
+});
+
+
+test("lifecycle action preserves its Business through sign-in without a side effect", () => {
+  const params = new URLSearchParams("lifecycle=close&business=39d12d09-bebe-4992-b6dc-cb1a84d52438");
+  expect(returnPathFor("/biz", params)).toBe("/biz?lifecycle=close&business=39d12d09-bebe-4992-b6dc-cb1a84d52438");
 });

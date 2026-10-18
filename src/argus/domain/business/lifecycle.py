@@ -37,13 +37,17 @@ class PostgresBusinessLifecycle:
     def close(
         self, *, owner_id: str, space_id: str, confirmation: str, idempotency_key: str
     ) -> LifecycleResult:
-        return self._command(
+        result = self._command(
             owner_id=owner_id,
             space_id=space_id,
             action="close",
             confirmation=confirmation,
             idempotency_key=idempotency_key,
         )
+        from argus.domain.business.close_mail import deliver_close_mail
+
+        deliver_close_mail(self._pool, space_id)
+        return result
 
     def reopen(
         self, *, owner_id: str, space_id: str, idempotency_key: str
@@ -55,6 +59,39 @@ class PostgresBusinessLifecycle:
             confirmation=None,
             idempotency_key=idempotency_key,
         )
+
+    def owned_spaces(self, owner_id: str) -> tuple[dict, ...]:
+        from argus.domain.business.access import PostgresAccessStore
+        from argus.domain.business.transfer import PostgresBusinessTransfer
+
+        access = PostgresAccessStore(self._pool)
+        result = []
+        for space in access.spaces_for(owner_id):
+            if space.role != "owner":
+                continue
+            grants = access.list(space.space_id, owner_id).grants
+            with self._pool.connection() as db, db.transaction():
+                self._owned_space(db, owner_id, space.space_id)
+                members = []
+                for member in grants:
+                    if member.owner:
+                        continue
+                    try:
+                        PostgresBusinessTransfer._target(
+                            db, space.space_id, member.id, owner_id
+                        )
+                    except BusinessLifecycleError:
+                        continue
+                    members.append({"grant_id": member.id, "name": member.display_name})
+            result.append(
+                {
+                    "space_id": space.space_id,
+                    "name": space.name,
+                    "grant_id": space.grant_id,
+                    "members": members,
+                }
+            )
+        return tuple(result)
 
     def closed_spaces(self, owner_id: str) -> tuple[LifecycleResult, ...]:
         with self._pool.connection() as connection:
@@ -96,6 +133,7 @@ class PostgresBusinessLifecycle:
             if action == "close":
                 if confirmation != name:
                     raise BusinessLifecycleError("business_name_mismatch")
+                newly_closed = closed_at is None
                 closed_at = closed_at or now
             else:
                 if closed_at is not None and now >= closed_at + REOPEN_WINDOW:
@@ -131,6 +169,10 @@ class PostgresBusinessLifecycle:
                     name,
                 ),
             )
+            if action == "close" and newly_closed:
+                from argus.domain.business.close_mail import enqueue_close_mail
+
+                enqueue_close_mail(connection, space_id, owner_id, name, closed_at)
             return LifecycleResult(space_id, name, closed_at)
 
     @staticmethod

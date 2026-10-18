@@ -37,6 +37,17 @@ class Service:
             SPACE, "Taller Luna", CLOSED if action == "close" else None
         )
 
+    def owned_spaces(self, owner_id):
+        self.calls.append(("owned", owner_id))
+        return (
+            {
+                "space_id": SPACE,
+                "name": "Taller Luna",
+                "grant_id": str(uuid4()),
+                "members": [],
+            },
+        )
+
     def closed_spaces(self, owner_id):
         self.calls.append(("list", owner_id))
         return (LifecycleResult(SPACE, "Taller Luna", CLOSED),)
@@ -185,3 +196,26 @@ def test_real_database_route_enforces_owner_and_closed_member_access(
         assert result.status_code == 404
         assert result.json()["detail"]["code"] == "business_record_not_found"
         assert browser.get("/api/v1/business/closed-spaces").json() == {"spaces": []}
+
+
+@pytest.mark.parametrize("path", ["owned-spaces", "closed-spaces"])
+def test_discovery_keeps_readiness_denial_and_authenticated_owner(client, path):
+    browser, service, app = client
+    answer = browser.get(f"/api/v1/business/{path}?owner_id=someone-else")
+    assert answer.status_code == 200
+    assert service.calls[0][1] == ACTOR
+    service.calls.clear()
+    del app.dependency_overrides[transport.require_lifecycle_ready]
+    denied = browser.get(f"/api/v1/business/{path}")
+    assert denied.status_code == 404
+    assert denied.json()["detail"]["code"] == "business_unavailable"
+    assert service.calls == []
+
+
+def test_actual_application_mounts_lifecycle_and_transfer_behind_the_hold():
+    from argus.api.routers.financial_accounts import router
+
+    paths = {route.path for route in router.routes}
+    assert "/api/v1/business/owned-spaces" in paths
+    assert "/api/v1/business/ownership-transfers" in paths
+    assert "/api/v1/business/spaces/{space_id}/close" in paths

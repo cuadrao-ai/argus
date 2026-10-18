@@ -28,3 +28,17 @@ export async function reopenBusinessSpace({ spaceId, idempotencyKey, signal }: B
 export async function getClosedBusinessSpaces(signal?: AbortSignal): Promise<BusinessLifecycleResult[]> {
   return closedBusinesses.parse(await apiFetch<unknown>("/business/closed-spaces", { signal })).spaces;
 }
+
+const ownedBusiness = z.object({
+  space_id: z.uuid(), name: z.string(), grant_id: z.uuid(),
+  members: z.array(z.object({ grant_id: z.uuid(), name: z.string() })),
+});
+export type OwnedBusiness = z.infer<typeof ownedBusiness>;
+
+export async function getOwnedBusinessSpaces(signal?: AbortSignal): Promise<OwnedBusiness[]> {
+  return z.object({ spaces: z.array(ownedBusiness) }).parse(await apiFetch<unknown>("/business/owned-spaces", { signal })).spaces;
+}
+
+export function businessLifecycleHref(spaceId: string, action: "close" | "transfer"): string {
+  return `/biz?lifecycle=${action}&business=${encodeURIComponent(spaceId)}`;
+}

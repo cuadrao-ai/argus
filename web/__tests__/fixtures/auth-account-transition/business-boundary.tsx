@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { ReactNode } from "react";
+import { createContext, type ReactNode } from "react";
+let lifecycleMode: "open" | "off" | "closed" = "open";
 let listener: (event: string, session: { user: { id: string } } | null) => void = () => {};
 let releaseInitial!: (result: unknown) => void;
 mock.module("@/lib/supabase-client", () => ({ getSupabaseClient: () => ({ auth: {
   onAuthStateChange: (next: typeof listener) => { listener = next; return { data: { subscription: { unsubscribe: () => {} } } }; },
   getSession: () => new Promise(resolve => { releaseInitial = resolve; }),
 } }) }));
-mock.module("@/components/business-app/BusinessWorkspace", () => ({ BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children }));
+mock.module("@/lib/business-lifecycle-api", () => ({ getOwnedBusinessSpaces: async () => { if (lifecycleMode === "off") throw { code: "business_unavailable" }; return []; }, getClosedBusinessSpaces: async () => lifecycleMode === "closed" ? [{ space_id: "closed" }] : [] }));
+mock.module("@/components/business-app/BusinessWorkspace", () => ({ BusinessContext: createContext(null), useBusiness: () => { throw new Error("No workspace in identity fixture"); }, BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children }));
+mock.module("@/components/business-app/BusinessLifecycleControls", () => ({ default: () => <p>Closed controls</p> }));
+mock.module("@/components/business-app/BusinessLifecycleEntry", () => ({ default: () => null }));
 mock.module("@/components/chat/ChatInterface", () => ({ default: () => <input aria-label="Account draft" defaultValue="" /> }));
 mock.module("@/components/chat/ConversationShellGuard", () => ({ default: () => null }));
 mock.module("@/components/business-app/ConversationUnavailableNotice", () => ({ default: () => null }));
@@ -40,4 +44,21 @@ test("account changes discard the old workspace, and late initial session cannot
   await act(async () => listener("SIGNED_OUT", null));
   assert.equal(host.querySelector("input"), null);
   await act(async () => root.unmount());
+});
+
+test("readiness denial keeps normal Business mounted; closed-only owner never starts workspace bootstrap", async () => {
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { default: BusinessApp } = await import("@/components/business-app/BusinessApp");
+  const host = document.createElement("div"); document.body.appendChild(host);
+  const root = createRoot(host);
+  lifecycleMode = "off";
+  await act(async () => root.render(<BusinessApp key="off" />));
+  assert.ok(host.querySelector("input"));
+  lifecycleMode = "closed";
+  await act(async () => root.render(<BusinessApp key="closed" />));
+  assert.equal(host.querySelector("input"), null);
+  assert.ok(host.textContent?.includes("Closed controls"));
+  await act(async () => root.unmount()); host.remove();
 });

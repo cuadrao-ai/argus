@@ -35,6 +35,22 @@ class BusinessLifecycleResponse(BaseModel):
     reopen_until: datetime | None
 
 
+class TransferMember(BaseModel):
+    grant_id: str
+    name: str
+
+
+class OwnedBusiness(BaseModel):
+    space_id: str
+    name: str
+    grant_id: str
+    members: list[TransferMember]
+
+
+class OwnedBusinesses(BaseModel):
+    spaces: list[OwnedBusiness]
+
+
 class ClosedBusinesses(BaseModel):
     spaces: list[BusinessLifecycleResponse]
 
@@ -91,6 +107,16 @@ def lifecycle_problem(request: Request, error: BusinessLifecycleError) -> Except
 
 def response(result: LifecycleResult) -> BusinessLifecycleResponse:
     return BusinessLifecycleResponse.model_validate(result)
+
+
+@router.get("/owned-spaces", response_model=OwnedBusinesses)
+def owned_businesses(person: Person, service: Lifecycle) -> OwnedBusinesses:
+    return OwnedBusinesses(
+        spaces=[
+            OwnedBusiness.model_validate(row)
+            for row in service.owned_spaces(person.person_id)
+        ]
+    )
 
 
 @router.get("/closed-spaces", response_model=ClosedBusinesses)

@@ -391,3 +391,42 @@ def test_provider_credentials_are_captured_before_business_custody_clears_them(c
     service._revoker = revoker
     assert service.delete_account(user_id=w["old"]).status == "done"
     assert revoker.calls == [("gmail", cid, b"synthetic sealed token")]
+
+
+@pytest.mark.parametrize("departing", ["owner", "member"])
+def test_closed_member_mail_transport_is_removed_with_the_departing_person(
+    custody, departing
+):
+    w = custody
+    with w["pool"].connection() as db:
+        db.execute(
+            "update auth.users set email_confirmed_at=now() where id=%s",
+            (w["users"]["other"],),
+        )
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,array['read','prepare'])",
+            (w["space"], w["users"]["other"], w["old"]),
+        )
+    close(w)
+    with w["pool"].connection() as db:
+        assert (
+            db.execute(
+                "select count(*) from public.business_close_mail_outbox where space_id=%s",
+                (w["space"],),
+            ).fetchone()[0]
+            == 1
+        )
+    person = w["old"] if departing == "owner" else w["users"]["other"]
+    assert command(w).delete_account(user_id=person).status == "done"
+    with w["pool"].connection() as db:
+        assert not db.execute(
+            "select 1 from public.business_close_mail_outbox where owner_id=%s or recipient_id=%s",
+            (person, person),
+        ).fetchone()
+        assert db.execute(
+            "select closed_at from public.spaces where id=%s", (w["space"],)
+        ).fetchone()[0]
+        assert db.execute(
+            "select 1 from public.financial_document_extractions where connection_id=%s",
+            (w["cid"],),
+        ).fetchone()

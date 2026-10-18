@@ -16,6 +16,7 @@ export default async function BusinessPage({
   if (!businessPilotEnabled) notFound();
   const search = await searchParams;
   const transferId = typeof search.transfer === "string" ? search.transfer : undefined;
+  const lifecycle: { action: "close" | "transfer"; spaceId: string } | undefined = (search.lifecycle === "close" || search.lifecycle === "transfer") && typeof search.business === "string" ? { action: search.lifecycle, spaceId: search.business } : undefined;
   if (process.env.NEXT_PUBLIC_MOCK_AUTH !== "true") {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.getUser();
@@ -27,7 +28,7 @@ export default async function BusinessPage({
   return (
     <main className="min-h-[100dvh] bg-background text-foreground selection:bg-black/10 dark:selection:bg-white/20">
       <DevModeBadge />
-      <BusinessApp transferId={transferId} />
+      <BusinessApp transferId={transferId} lifecycle={lifecycle} manageLifecycle={search.lifecycle === "manage"} />
     </main>
   );
 }

@@ -9,13 +9,18 @@ import ConversationUnavailableNotice from "./ConversationUnavailableNotice";
 import { BusinessWorkspaceProvider } from "./BusinessWorkspace";
 import { liveBusinessDataSource, type BusinessDataSource } from "./business-data";
 import { createFixtureBusinessDataSource, type FixtureOptions } from "./fixture-data";
+import { getClosedBusinessSpaces, getOwnedBusinessSpaces } from "@/lib/business-lifecycle-api";
+import BusinessLifecycleControls from "./BusinessLifecycleControls";
+import BusinessLifecycleEntry from "./BusinessLifecycleEntry";
 import BusinessTransferEntry from "./BusinessTransferEntry";
 
-export default function BusinessApp({ sample, transferId }: { sample?: FixtureOptions; transferId?: string }) {
+export default function BusinessApp({ sample, transferId, lifecycle, manageLifecycle }: { sample?: FixtureOptions; transferId?: string; lifecycle?: { action: "close" | "transfer"; spaceId: string }; manageLifecycle?: boolean }) {
   const { t } = useTranslation();
   const [source] = useState<BusinessDataSource>(() =>
     sample ? createFixtureBusinessDataSource(sample) : liveBusinessDataSource,
   );
+  const [lifecycleHome, setLifecycleHome] = useState<"loading" | "workspace" | "closed" | "unavailable">(source.mode === "fixture" || lifecycle || transferId || manageLifecycle ? "workspace" : "loading");
+  const [lifecycleActor, setLifecycleActor] = useState<string | null | undefined>(undefined);
   const [owner, setOwner] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     if (sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return;
@@ -32,6 +37,17 @@ export default function BusinessApp({ sample, transferId }: { sample?: FixtureOp
     }).catch(() => undefined);
     return () => { active = false; data.subscription.unsubscribe(); };
   }, [sample]);
+  useEffect(() => {
+    if (source.mode === "fixture" || lifecycle || transferId || manageLifecycle || (process.env.NEXT_PUBLIC_MOCK_AUTH !== "true" && !owner)) return;
+    setLifecycleHome("loading");
+    const controller = new AbortController();
+    void Promise.all([getOwnedBusinessSpaces(controller.signal), getClosedBusinessSpaces(controller.signal)]).then(([open, closed]) => {
+      if (!controller.signal.aborted) { setLifecycleActor(owner); setLifecycleHome(!open.length && closed.length ? "closed" : "workspace"); }
+    }).catch((error: unknown) => {
+      if (!controller.signal.aborted) { setLifecycleActor(owner); setLifecycleHome(((error as { code?: string }).code === "business_unavailable" || (error as { status?: number }).status === 404) ? "workspace" : "unavailable"); }
+    });
+    return () => controller.abort();
+  }, [source, lifecycle, transferId, manageLifecycle, owner]);
   if (!sample && process.env.NEXT_PUBLIC_MOCK_AUTH !== "true") {
     if (owner === undefined) return null;
     if (owner === null) return <main className="flex h-[100dvh] flex-col items-center justify-center gap-4 p-6 text-center">
@@ -39,6 +55,11 @@ export default function BusinessApp({ sample, transferId }: { sample?: FixtureOp
       <button type="button" className="min-h-11 rounded-full px-6 py-3" onClick={() => window.location.assign("/?auth=login")}>{t("chat.account_changed_reload")}</button>
     </main>;
   }
+  if (lifecycle) return <BusinessLifecycleEntry key={`${owner}/${lifecycle.action}/${lifecycle.spaceId}`} {...lifecycle} />;
+  if (source.mode === "live" && !transferId && !manageLifecycle && lifecycleActor !== owner) return null;
+  if (manageLifecycle || lifecycleHome === "closed") return <main className="mx-auto max-w-xl p-6"><h1 className="font-display text-xl">{t("business.overview.title", "My business")}</h1><BusinessLifecycleControls key={owner ?? "fixture"} /></main>;
+  if (lifecycleHome === "loading") return null;
+  if (lifecycleHome === "unavailable") return <p role="alert" className="p-6">{t("common.error_occurred")}</p>;
   return (
     <BusinessWorkspaceProvider key={owner ?? "fixture"} source={source}>
       <ConversationShellGuard />
