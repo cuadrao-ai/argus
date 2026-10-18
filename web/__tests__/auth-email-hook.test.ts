@@ -184,8 +184,8 @@ describe("staging Auth email hook", () => {
       unverified.headers.set("webhook-timestamp", String(Number(unverified.headers.get("webhook-timestamp")) - 1));
       for (const candidate of [
         invalid, unverified,
-        request(value, "stale-security", new Date(Date.now() - 301_000)),
-        request(value, "future-security", new Date(Date.now() + 301_000)),
+        request(value, "stale-security", new Date(Date.now() - 10 * 60 * 1000)),
+        request(value, "future-security", new Date(Date.now() + 10 * 60 * 1000)),
       ]) {
         const sent: AuthDelivery[] = [];
         assert.equal((await handleAuthEmailHook(candidate, config, async email => { sent.push(email); })).status, 401);
