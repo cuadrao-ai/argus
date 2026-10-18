@@ -47,9 +47,13 @@ create table public.business_document_settlement_revisions (
     previous_settled_on date,
     previous_payment_method text,
     created_at timestamptz not null default clock_timestamp(),
+    -- Deferred so account deletion can blank actor_id before the settlement
+    -- cascade removes this parent. An immediate check fires after the
+    -- activity is already gone and rejects the blanking.
     foreign key (space_id, activity_id)
         references public.business_document_settlements (space_id, activity_id)
-        on delete cascade,
+        on delete cascade
+        deferrable initially deferred,
     check (
         previous_payment_method is null
         or previous_payment_method in (
@@ -70,9 +74,54 @@ create table public.business_document_settlement_revisions (
 create index business_document_settlement_revisions_activity_idx
     on public.business_document_settlement_revisions (space_id, activity_id, created_at);
 
+-- Account deletion nulls actor_id through the foreign key. That is an update
+-- fired from inside the delete, and it is the only update this history allows.
+-- A direct edit or delete is still refused. A direct delete of the settlement
+-- is refused the same way; the space and activity cascades stay allowed.
+create function argus_private.business_settlement_revision_immutable()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if pg_trigger_depth() > 1 then
+        if tg_op = 'DELETE' then
+            return old;
+        end if;
+        if old.actor_id is not null
+            and new.actor_id is null
+            and (to_jsonb(new) - 'actor_id') = (to_jsonb(old) - 'actor_id') then
+            return new;
+        end if;
+    end if;
+    raise exception 'business_evidence_immutable' using errcode = '23514';
+end;
+$$;
+
+create function argus_private.business_settlement_delete_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if tg_op = 'DELETE' and pg_trigger_depth() > 1 then
+        return old;
+    end if;
+    raise exception 'business_evidence_immutable' using errcode = '23514';
+end;
+$$;
+
 create trigger business_document_settlement_revision_immutable
     before update or delete on public.business_document_settlement_revisions
-    for each row execute function argus_private.business_immutable_evidence();
+    for each row execute function argus_private.business_settlement_revision_immutable();
+
+create trigger business_document_settlement_delete_guard
+    before delete on public.business_document_settlements
+    for each row execute function argus_private.business_settlement_delete_guard();
+
+revoke all on function argus_private.business_settlement_revision_immutable(),
+    argus_private.business_settlement_delete_guard()
+    from public, anon, authenticated;
 
 alter table public.business_document_settlements enable row level security;
 alter table public.business_document_settlement_revisions enable row level security;

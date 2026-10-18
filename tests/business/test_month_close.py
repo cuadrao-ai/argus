@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager, nullcontext
 from datetime import date
 from uuid import uuid4
 
 import pytest
 from argus.api.business_month_close_schemas import MonthClose
-from argus.domain.business.authority import ActionError
+from argus.domain.business.authority import ActionContext, ActionError
+from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     BusinessResolution,
@@ -31,6 +33,8 @@ from argus.domain.business.month_close import (
     summarize,
     to_minor,
 )
+from argus.domain.business.month_close_store import settle_document
+from psycopg.errors import UniqueViolation
 
 DAY = date(2026, 10, 5)
 
@@ -322,3 +326,130 @@ def test_a_draft_projects_onto_the_activity_and_a_transfer_stays_out():
     assert documents[0].total_minor == 11800
     assert documents[0].itbis_minor == 1800
     assert read_fiscal({"business": {"schema_version": 1}}, "DOP").rnc is None
+
+
+class _Lock:
+    def __init__(self, row):
+        self.row = row
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def execute(self, _query, _params):
+        return None
+
+    def fetchone(self):
+        return self.row
+
+
+class _Connection:
+    def __init__(self, row, *, insert_conflicts: bool):
+        self.row = row
+        self.insert_conflicts = insert_conflicts
+
+    def cursor(self, row_factory=None):
+        return _Lock(self.row)
+
+    def execute(self, query, _params=None):
+        if self.insert_conflicts and query.lstrip().startswith(
+            "insert into public.business_document_settlements"
+        ):
+            raise UniqueViolation("business_document_settlements_pkey")
+
+    def transaction(self):
+        return nullcontext()
+
+
+def _race_world():
+    space_id = uuid4()
+    actor_id = uuid4()
+    owner_id = uuid4()
+    activity_id = uuid4()
+    context = ActionContext(
+        actor=TrustedActor(
+            actor_id=actor_id, actor_kind="member", space_id=space_id
+        ),
+        grant_id=uuid4(),
+        owner_id=str(owner_id),
+        space_name="Race",
+    )
+    pending = document(
+        activity_id=str(activity_id),
+        space_id=str(space_id),
+        status="pendiente",
+        settled_on=None,
+        payment_method=None,
+    )
+    return context, activity_id, pending
+
+
+def _patch_store(monkeypatch, connections, pending):
+    from argus.domain.business import month_close_store as store
+
+    class Auth:
+        def __init__(self, context):
+            self.context = context
+
+        def require(self, _capability):
+            return None
+
+    calls = {"n": 0}
+
+    @contextmanager
+    def session(_authority, context, _capability):
+        connection = connections[calls["n"]]
+        calls["n"] += 1
+        yield connection, Auth(context)
+
+    def collect(_authority, _connection, auth_context):
+        activity = {
+            "activity_id": pending.activity_id,
+            "kind": "income",
+        }
+        return [pending], {pending.activity_id: activity}
+
+    monkeypatch.setattr(store, "_session", session)
+    monkeypatch.setattr(store, "_collect", collect)
+
+
+def test_a_concurrent_first_settle_returns_the_winner_row(monkeypatch):
+    context, activity_id, pending = _race_world()
+    command = Settlement("cobrado", DAY, "transferencia")
+    winner = {
+        "status": command.status,
+        "settled_on": command.settled_on,
+        "payment_method": command.payment_method,
+    }
+    _patch_store(
+        monkeypatch,
+        [
+            _Connection(None, insert_conflicts=True),
+            _Connection(winner, insert_conflicts=False),
+        ],
+        pending,
+    )
+    result = settle_document(None, context, str(activity_id), command)
+    assert result["changed"] is False
+    assert result["status"] == "cobrado"
+    assert result["settled_on"] == DAY
+    assert result["payment_method"] == "transferencia"
+
+
+def test_a_settlement_conflict_that_survives_the_retry_is_409(monkeypatch):
+    context, activity_id, pending = _race_world()
+    command = Settlement("cobrado", DAY, "transferencia")
+    _patch_store(
+        monkeypatch,
+        [
+            _Connection(None, insert_conflicts=True),
+            _Connection(None, insert_conflicts=True),
+        ],
+        pending,
+    )
+    with pytest.raises(ActionError) as refused:
+        settle_document(None, context, str(activity_id), command)
+    assert refused.value.result.outcome == "idempotency_conflict"
+    assert refused.value.code == "business_document_settlement_conflict"

@@ -2197,6 +2197,13 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '409':
+          description: '`business_document_settlement_conflict`: another first settlement
+            of this document landed, and a fresh retry still collided.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
