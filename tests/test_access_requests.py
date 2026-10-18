@@ -376,7 +376,7 @@ def test_public_access_request_requires_language(
 def test_access_request_environment_contract_is_value_free() -> None:
     render = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
     api = next(
-        service for service in render["services"] if service["name"] == "cuadrao-api"
+        service for service in render["services"] if service["name"] == "argus-api"
     )
     api_env = {entry["key"]: entry for entry in api["envVars"]}
 

@@ -1416,7 +1416,7 @@ def _candidate_repo(tmp_path: Path, *, project_ref: str) -> tuple[Path, str]:
     render_path.write_text(
         "services:\n"
         "  - type: web\n"
-        "    name: cuadrao-api\n"
+        "    name: argus-api\n"
         "    envVars:\n"
         "      - key: SUPABASE_URL\n"
         f"        value: https://{project_ref}.supabase.co\n",

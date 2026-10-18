@@ -87,15 +87,24 @@ access. Lucas approves the window. James (Release) applies approved migrations
 with the reviewed applier. Nobody edits the production database by hand, in the
 Supabase SQL editor, or with `supabase db push`.
 
-The comparison below was taken from the repository, not from a live Render or
-Supabase read. Dashboard service names are `cuadrao-api` and `cuadrao-web`.
-`cuadrao-web` intentionally serves the marketing site at `cuadrao.ai` and
-`www.cuadrao.ai`. The release profile and `render-env-sync.sh` still label the
-API and the business web contract `argus-api` and `argus-app`. Those labels are
-audit names, not a second pair of Render services.
+The inventory below was taken from the repository, not from a live env read.
+A separate read-only pass on 2026-10-18 compared Render dashboard service
+settings with `render.yaml` at integration head `651870a54` (`render.yaml`
+last changed in `b96be6a0`) and with `scripts/ops/staging_env_manifest.json`.
+That pass did not read env values, did not probe HTTP, and did not change
+staging or production. The gaps are
+[Known drift to reconcile before/at promotion](#known-drift-to-reconcile-beforeat-promotion).
+Auth settings and env names the connectors cannot read are
+[Dashboard checks (founder, at promotion)](#dashboard-checks-founder-at-promotion).
 
-Never Blueprint-sync until the `render.yaml` service names match the dashboard
-and someone has reviewed the sync diff. This checklist does not sync anything.
+`render.yaml` names the production services `argus-api` and `argus-app`. The
+dashboard names them `cuadrao-api` and `cuadrao-web`. The release profile and
+`render-env-sync.sh` use the same `argus-api` and `argus-app` labels. Those
+labels are audit names. A Blueprint sync matches services by name, so syncing
+this file would not update the dashboard services. Never Blueprint-sync until
+the yaml names match the dashboard and someone has reviewed the sync diff.
+This checklist does not sync anything, and it does not change `render.yaml`.
+The production web `rootDir` mismatch is a blocker until Lucas decides it.
 
 - Integration tip: `origin/codex/private-alpha-next` at `651870a54be4e5506dbb38f3902fef1a97eef8df`
 - `origin/main` at `78e6f3f88ea6694711cc34c91973449a1446a0c2`
@@ -113,6 +122,91 @@ Command detail that already exists stays in [Before Tester Sessions](#before-tes
 [Smoke Test](#smoke-test). Fill the candidate record from
 [TEMPLATE.md](release-manifests/TEMPLATE.md).
 
+### Known drift to reconcile before/at promotion
+
+Reconcile these before a Blueprint sync and before treating `render.yaml` as
+the production service definition. Source: the 2026-10-18 read-only dashboard
+pass (workspace `cuadrao`, `tea-d5rdkfk9c44c73e7a1ig`). No secret values. This
+checklist does not edit `render.yaml` to close any of them.
+
+1. **`cuadrao-api-staging` is missing from `render.yaml`.** Dashboard service
+   `srv-db4mrrvlk1mc73d733j0`, Python, plan `0.5c-512mb`, branch
+   `codex/private-alpha-next`, autoDeploy `checksPass`, onrender subdomain
+   enabled (`cuadrao-api-staging.onrender.com`). A sync will not manage it.
+   Its onrender subdomain must stay enabled: `cuadrao-web-staging` calls it
+   through `NEXT_PUBLIC_CUADRAO_API_URL`, which `render.yaml` sets to
+   `https://cuadrao-api-staging.onrender.com/api/v1`. Do not disable that host
+   to match the production `renderSubdomainPolicy: disabled` line. The
+   dashboard build command is `poetry install`. The production API block in
+   `render.yaml` uses `poetry install --only main --no-interaction`. Do not
+   copy the production command onto staging without a reviewed diff. The
+   staging start command was not recorded in that pass.
+
+   Env names `scripts/ops/staging_env_manifest.json` intends for this service.
+   A value is shown only where that manifest records a non-secret literal.
+   Secrets, `keep_current`, and generated entries have no repo value; do not
+   invent one.
+
+   - `APP_ENV`, `ARGUS_CHECKPOINTER_MODE`, `ARGUS_DEV_MEMORY_FALLBACK`, `ARGUS_MOCK_AUTH`, `ARGUS_PERSISTENCE_MODE`
+   - `ARGUS_PROD_OPENROUTER_API_KEY`, `ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY` (secrets)
+   - `CUADRAO_APP_ORIGIN`
+   - `CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED` = `true`, `CUADRAO_BUSINESS_EMAIL_DOMAIN`, `CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED` = `true`
+   - `CUADRAO_BUSINESS_PILOT_ENABLED` = `true`, `CUADRAO_DOCUMENT_EXTRACTION_ENABLED` = `true`, `CUADRAO_FINANCIAL_ACCOUNTS_ENABLED` = `true`, `CUADRAO_INGESTION_ENABLED` = `true`
+   - `CUADRAO_VISION_MODEL` (keep current; the model id is not in the repo)
+   - `CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER`, `CUADRAO_WHATSAPP_INTAKE_ENABLED` = `true`, `CUADRAO_WHATSAPP_NUMBER_ID`, `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` = `true`
+   - `DATABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (secrets); `SUPABASE_URL` (keep current)
+   - `CUADRAO_WHATSAPP_VERIFY_TOKEN`, `CUADRAO_WHATSAPP_SENDER_KEY` (generated); `CUADRAO_WHATSAPP_APP_SECRET`, `CUADRAO_WHATSAPP_ACCESS_TOKEN` (secrets)
+   - `CUADRAO_RESEND_WEBHOOK_SECRET`, `RESEND_BUSINESS_API_KEY` (secrets)
+   - `ARGUS_HOUSEHOLDS_ENABLED` = `true`, `ARGUS_BETA_INVITES_ENABLED` = `true`, `ARGUS_IN_PLACE_CARD_EDITS_ENABLED` = `true`
+   - `ARGUS_INVITE_CODE_SECRET`, `ARGUS_VISITOR_KEY_SECRET`, `CUADRAO_INGESTION_SECRET_KEY` (generated)
+   - `ARGUS_INVITE_FOUNDER_USER_ID` (optional secret)
+   - `ARGUS_CORS_ALLOW_ORIGINS` = `https://cuadrao-web-staging.onrender.com`
+
+   Manifest `remove` (confirm they are gone from the dashboard): `ARGUS_BUSINESS_PILOT_ENABLED`, `ARGUS_DOCUMENT_EXTRACTION_ENABLED`, `ARGUS_INGESTION_ENABLED`, `ARGUS_VISION_MODEL`, `ARGUS_FINANCIAL_ACCOUNTS_ENABLED`. Hold, not an env to set: `CUADRAO-DEV-KEY-PILOT`. Do not copy the staging-true flags onto production.
+
+2. **`cuadrao-web-staging` autoDeploy is on in the dashboard and off in `render.yaml`.** Dashboard trigger is `checksPass` (service `srv-db5ihr7lot8c73f3b3h0`, plan `0.5c-512mb`, Virginia). `render.yaml` says `autoDeployTrigger: "off"` and does not set plan or region. Also confirm, without treating them as a sync: `NEXT_PUBLIC_APP_ENV` = `staging` and `NEXT_PUBLIC_MOCK_AUTH` = `false` are in `render.yaml` and are not managed by the staging manifest. The manifest lists `NEXT_PUBLIC_ARGUS_API_URL`, `NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY`, and `CUADRAO_RESEND_WEBHOOK_SECRET` under `remove`; they are absent from this service's yaml block, and they may still be on the dashboard. `CUADRAO_AUTH_EMAIL_HOOK_SECRET` and `CUADRAO_AUTH_EMAIL_RESEND_API_KEY` are `sync: false` in yaml and `hold` in the manifest (inject only for a reviewed activation).
+
+3. **`cuadrao-marketing-staging` tracks `main`, not integration.** Dashboard branch is `main`, autoDeploy off, plan free, service `srv-db8sr6ei0phs738t5eng`. `render.yaml` sets `branch: codex/private-alpha-next`. Root dir and commands reach the same tree by a different shape: yaml has `rootDir: marketing`; the dashboard has an empty rootDir and commands that start with `cd marketing &&`. Leave the yaml branch as written until Lucas decides which side moves.
+
+4. **The production API onrender subdomain is still enabled.** `argus-api` in `render.yaml` sets `renderSubdomainPolicy: disabled` (PR #695, issue #686). Dashboard `cuadrao-api` (`srv-d78tanmuk2gs73e17nn0`, `argus-ohr5.onrender.com`) still has it enabled. #695 never reached production. `release-config-audit` does not read this setting. Applying `disabled` is a promotion-day item. After it is applied, prove `serviceDetails.renderSubdomainPolicy=disabled` on `cuadrao-api`, or `GET https://argus-ohr5.onrender.com/health` returning HTTP `404`. The staging API subdomain in item 1 stays enabled.
+
+5. **Production service names are a sync gate.** Dashboard: `cuadrao-api` and `cuadrao-web`. `render.yaml`: `argus-api` and `argus-app`. A Blueprint sync matches by name, so syncing today's file would not update those dashboard services. Never Blueprint-sync until the yaml names match the dashboard and a person has reviewed the sync diff.
+
+6. **Production web root directory is a major blocker.** Dashboard `cuadrao-web` (`srv-d7ap6bmslomc73eqp8m0`) has `rootDir: marketing` and build `bun install --frozen-lockfile && bun run build --webpack`. `render.yaml` `argus-app` has `rootDir: web` and build `npm install -g bun && bun install --frozen-lockfile && bun run build`. The live service builds the marketing site. The blueprint describes the business app. This needs an explicit founder decision before promotion treats either tree as the production web deploy. Do not change `render.yaml` to paper over it, and do not deploy `web/` onto `cuadrao-web` from this checklist. The business app (`web/`) has no production web service of its own. Creating one, if that is the decision, needs a third custom domain and a Render plan change. The live start command was not recorded in the read-only pass. The marketing launch runbook records a different build for a service it calls `cuadrao-marketing`: `npm install -g bun@1.3.14 && bun install --frozen-lockfile && bun run build`, start `npm run start -- -p $PORT`.
+
+7. **Auth email hook flag.** `render.yaml` sets `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` to `"false"` on `cuadrao-web-staging`. The staging manifest also says `false`. Staging auth emails still send. `web/server/emails/auth-hook.ts` returns 404 whenever that flag is not the string `true`, and 503 when the hook secret, project ref, app origin, OTP expiry, or `RENDER_SERVICE_ID` do not match the staging constants. If Supabase's Send Email hook pointed at `/api/auth/send-email` while the flag was off, auth emails would fail. Emails that do send mean one of these:
+
+   - **A.** The dashboard has `CUADRAO_AUTH_EMAIL_HOOK_ENABLED=true` and the hook secret set. That is drift from yaml and the manifest. Mail would come from `Cuadrao <hola@mail.cuadrao.ai>`.
+   - **B.** Supabase's Send Email hook is off, and Supabase's own mailer or custom SMTP sends the mail. Then yaml is correct. The sender is Supabase's default or the custom SMTP sender.
+
+   Render request logs could not settle it. That service exposes `app` and `build` logs only, and one log query returned a Loki 504. The tell is the From address on a recent staging auth email. Confirm that From address from a fresh-account test email, outside this PR. Do not copy a sender into this checklist, and do not turn the production hook on to match either option.
+
+All five services allow `0.0.0.0/0`, none are in maintenance mode, and none have PR previews. Those are [later, not blocking](#later-not-blocking).
+
+### Dashboard checks (founder, at promotion)
+
+The Render connector cannot read env vars. `get_service` and `list_services` return service settings only. The Supabase connector cannot read the Auth settings below. Lucas confirms them by eye on promotion day. Record names and non-secret flags only. Do not paste secrets, the postal address, or tokens into the manifest.
+
+Supabase Auth, staging project `skedzwocnmrhfigiwyzi`:
+
+- Site URL
+- Redirect URL allowlist
+- Captcha (Turnstile) secret: set or unset
+- Send Email hook: on or off, and the URL if on
+- Custom SMTP: on or off, and the sender
+
+Supabase Auth, production project `lgdhvepyrzbnscqssgqq`, same five settings. [Auth Email Deliverability](#auth-email-deliverability) expects site URL `https://arguschat.ai` and sender `noreply@get-argus.com` through Resend. The Send Email hook stays off for this window. Confirm that by eye. Do not inherit a staging hook URL onto production.
+
+Render env tab, staging, names and non-secret flags:
+
+- `cuadrao-web-staging`: `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` (yaml and the manifest say `false`); whether `CUADRAO_AUTH_EMAIL_HOOK_SECRET` and `CUADRAO_AUTH_EMAIL_RESEND_API_KEY` are set or unset; whether `NEXT_PUBLIC_ARGUS_API_URL`, `NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY`, and `CUADRAO_RESEND_WEBHOOK_SECRET` are absent; `NEXT_PUBLIC_APP_ENV` and `NEXT_PUBLIC_MOCK_AUTH` (yaml says `staging` and `false`).
+- `cuadrao-api-staging`: the full env name list against drift item 1, including whether the `remove` names are gone. `renderSubdomainPolicy` stays enabled.
+
+Render env tab, production, names and non-secret flags:
+
+- `cuadrao-api` (yaml name `argus-api`): the [section 3](#3-render-environment-on-production) profile keys and their non-secret values; `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED`; `CUADRAO_VISION_MODEL` present or absent (do not set it until the allow-list change); `SUPABASE_ANON_KEY` present (`sync: false`; do not record the value); `renderSubdomainPolicy` still enabled until the promotion-day apply; the staging-true `CUADRAO_*` names in section 3 absent.
+- `cuadrao-web` (yaml name `argus-app`, live `rootDir: marketing`): `MARKETING_POSTAL_ADDRESS` present or absent (do not record the string). Do not expect the business-web env from `argus-app` (`NEXT_PUBLIC_ARGUS_API_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED`, `ARGUS_TRUSTED_CLIENT_IP_HEADER`) on this service until Lucas decides drift item 6.
+
 ### 1. Preflight
 
 1. Fetch `origin/codex/private-alpha-next` and `origin/main`. Record the integration tip SHA, the main SHA, and the time. The promotion candidate is that integration tip only after Lucas names the window. A later tip is a new candidate.
@@ -124,7 +218,7 @@ Command detail that already exists stays in [Before Tester Sessions](#before-tes
 
 ### 2. Supabase, before the code deploy
 
-Run the gate in the previous step before any production apply and again after the apply. The gate never applies SQL. Its `missing` list, in version order, is the apply list. Its `unexpected`, `name-drift`, and `content-drift` lists are stops. The checked-in production project ref the gate verifies is `lgdhvepyrzbnscqssgqq`, from `cuadrao-api`'s `SUPABASE_URL` in `render.yaml`.
+Run the gate in the previous step before any production apply and again after the apply. The gate never applies SQL. Its `missing` list, in version order, is the apply list. Its `unexpected`, `name-drift`, and `content-drift` lists are stops. The checked-in production project ref the gate verifies is `lgdhvepyrzbnscqssgqq`, from `argus-api`'s `SUPABASE_URL` in `render.yaml`. The live dashboard service for that project is `cuadrao-api`.
 
 The last ledger snapshot written in this repo is the read-only note in [the marketing launch runbook](runbooks/cuadrao-marketing-launch.md) from 2026-10-07: production head `20260914120000`, with historical ledger rows that do not match `main`. That note is not a current ledger. Do not apply from it. The live gate report replaces it.
 
@@ -132,7 +226,7 @@ Repository delta at the SHAs above: 63 migration files are on integration and ab
 
 If the landed gate reports production's latest applied version at or above `20261017010000`, stop. Those two waitlist versions are already on `main`, and the 63 versions below sort before them. `scripts/ops/apply_approved_migrations.py` records a strict prefix above the ledger head and refuses a skipped version, so those 63 cannot be inserted under an already-applied higher version. That case is [open question 4](#open-questions-for-the-founder).
 
-Apply only the gate's missing versions, in version order, before deploying `cuadrao-api` or `argus-backtests`. There is no production business-web service to deploy. James runs the hosted path in [Applying an approved migration list](#applying-an-approved-migration-list): a committed approval record under `docs/release-manifests/`, `--hosted-approval`, `--ssl-root-cert`, a dry-run plan that matches the gate's missing list, then `--execute` with `--hosted-confirm`. Lucas is `approved_by` on that record. The record is valid for at most three days. One file, one transaction, lock timeout default `5s`. After a stop, versions the tool printed as committed stay applied.
+Apply only the gate's missing versions, in version order, before deploying the production API (dashboard `cuadrao-api`, `argus-api` in `render.yaml`) or `argus-backtests`. Do not deploy `web/` onto `cuadrao-web` while drift item 6 is open. James runs the hosted path in [Applying an approved migration list](#applying-an-approved-migration-list): a committed approval record under `docs/release-manifests/`, `--hosted-approval`, `--ssl-root-cert`, a dry-run plan that matches the gate's missing list, then `--execute` with `--hosted-confirm`. Lucas is `approved_by` on that record. The record is valid for at most three days. One file, one transaction, lock timeout default `5s`. After a stop, versions the tool printed as committed stay applied.
 
 Live requirement from the classifier:
 
@@ -140,7 +234,7 @@ Live requirement from the classifier:
 - `contract-replacing`: an expand/contract plan or a maintenance window.
 - `destructive`: a maintenance window, a backup and readback plan, and Lucas's approval for that file.
 
-`20261003150100_invite_code_digests_private` is destructive. Set `ARGUS_INVITE_CODE_SECRET` on `cuadrao-api` before the API deploy that follows it, using `openssl rand -base64 48` as in the [household hosted gate](#household-and-beta-invite-hosted-gate). Keep `ARGUS_HOUSEHOLDS_ENABLED`, `ARGUS_BETA_INVITES_ENABLED`, and `ARGUS_BETA_INVITE_GATE_ENABLED` false until that secret is installed and readiness has passed. Do not put the secret in the manifest.
+`20261003150100_invite_code_digests_private` is destructive. Set `ARGUS_INVITE_CODE_SECRET` on dashboard `cuadrao-api` before the API deploy that follows it, using `openssl rand -base64 48` as in the [household hosted gate](#household-and-beta-invite-hosted-gate). Keep `ARGUS_HOUSEHOLDS_ENABLED`, `ARGUS_BETA_INVITES_ENABLED`, and `ARGUS_BETA_INVITE_GATE_ENABLED` false until that secret is installed and readiness has passed. Do not put the secret in the manifest.
 
 These three files are on `main`. Apply one only when the landed gate lists it as missing, and apply it in version order with the 63:
 
@@ -232,7 +326,7 @@ Do not copy `cuadrao-api-staging` or `cuadrao-web-staging` onto production. The 
 
 `release-config-audit` fails a live key that is outside the candidate profile's allowed set (`env`, `required_present`, and `optional`) with `unexpected_live_env`. It also fails a missing or different value for every key in the profile `env` map. Set the keys below to the integration profile values before the audit, unless Lucas changes the profile in a reviewed commit and the landed SHA is gated again. This checklist does not change the profile.
 
-`render.yaml` marks `SUPABASE_ANON_KEY` on `cuadrao-api` as `sync: false`. `main`'s blueprint inlines a value on the old `argus-api` name. Do not sync. On promotion day, after a reviewed diff, read back that the name is still present. Do not record the value. `NEXT_PUBLIC_SUPABASE_ANON_KEY` belongs to the business app, which has no production web service, so it is not declared on `cuadrao-web`.
+`render.yaml` marks `SUPABASE_ANON_KEY` on `argus-api` as `sync: false`. `main`'s blueprint inlines a value on that same name. Do not sync. On promotion day, after a reviewed diff, read back that the name is still present on dashboard `cuadrao-api`. Do not record the value. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is declared on `argus-app` as `sync: false`. Dashboard `cuadrao-web` is not that blueprint service until Lucas decides drift item 6. Do not copy the business-web anon key onto the marketing site.
 
 #### Founder choice: evidence-receipt sharing
 
@@ -241,15 +335,15 @@ Do not copy `cuadrao-api-staging` or `cuadrao-web-staging` onto production. The 
 | `cuadrao-api` | `argus-api` | `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` on `main`, `false` on integration | `false` |
 | none yet | `argus-app` | `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` on `main`'s business-web block | `false` |
 
-`cuadrao-web` is the marketing site and does not carry the business-web flag. Live production was not read for this checklist. Lucas chooses the business-web value before a business web service exists. The candidate audit expects the candidate profile, which says `false`. Choosing `true` means a reviewed profile change, a new landed SHA, and a new gate before the audit. The web value is baked at build time, so the choice is made before that future build. Record the choice in the manifest. Do not set the business-web flag on `cuadrao-web`.
+Dashboard `cuadrao-web` builds `marketing/`. The business-web flag lives on `argus-app` in `render.yaml`. Live production was not read for this checklist. Lucas chooses the business-web value before a business web service exists, and chooses what `cuadrao-web` is in drift item 6. The candidate audit expects the candidate profile, which says `false`. Choosing `true` means a reviewed profile change, a new landed SHA, and a new gate before the audit. The web value is baked at build time, so the choice is made before that future build. Record the choice in the manifest. Do not set the business-web flag on the marketing site.
 
 #### Service setting from PR #695
 
-`cuadrao-api` in `render.yaml` keeps `renderSubdomainPolicy: disabled` (PR #695, issue #686). Production still has that onrender subdomain enabled. Applying `disabled` is a promotion-day item, not something this checklist syncs. `release-config-audit` does not read this setting. After the founder applies it, prove it before calling the hostname done: a control-plane readback of `serviceDetails.renderSubdomainPolicy=disabled` on `cuadrao-api`, or `GET https://argus-ohr5.onrender.com/health` returning HTTP `404`. That proof is separate from the #694 check below. `cuadrao-api-staging` keeps `renderSubdomainPolicy: enabled`.
+`argus-api` in `render.yaml` sets `renderSubdomainPolicy: disabled` (PR #695, issue #686). Dashboard `cuadrao-api` still has that onrender subdomain enabled. #695 never reached production. Applying `disabled` is a promotion-day item, not something this checklist syncs. See drift item 4. `release-config-audit` does not read this setting. After the founder applies it, prove it before calling the hostname done: a control-plane readback of `serviceDetails.renderSubdomainPolicy=disabled` on `cuadrao-api`, or `GET https://argus-ohr5.onrender.com/health` returning HTTP `404`. That proof is separate from the #694 check below. `cuadrao-api-staging` is not in `render.yaml`, and its onrender subdomain stays enabled.
 
 #### Keys the integration profile adds
 
-Set these on the dashboard service before that service's deploy. Code defaults for the three ceilings match these numbers (`src/argus/domain/usage_limits.py`); the profile still requires the names to be present. The trusted-header default in code is `CF-Connecting-IP` when the name is absent; the profile requires it set on the API and on the business-web contract. The business app (`web/`) has no production web service yet. Creating one needs a third custom domain, which means a Render plan change. That is a promotion-day founder item. Do not copy the business-web contract onto `cuadrao-web`.
+Set these on the dashboard service before that service's deploy. Code defaults for the three ceilings match these numbers (`src/argus/domain/usage_limits.py`); the profile still requires the names to be present. The trusted-header default in code is `CF-Connecting-IP` when the name is absent; the profile requires it set on the API and on the business-web contract. Whether `web/` gets a production service is drift item 6. Creating a separate business web service, if that is the decision, needs a third custom domain and a Render plan change. Do not copy the business-web contract onto dashboard `cuadrao-web` while that decision is open.
 
 On `cuadrao-api` (audit label `argus-api`), before the API deploy:
 
@@ -271,9 +365,9 @@ On `cuadrao-api` (audit label `argus-api`), before the API deploy:
 | `PLAID_CREDENTIALS_INJECTED` | `false` |
 | `PLAID_COUNTRY_CODES` | `US` |
 
-The business-web contract (audit label `argus-app`) still requires `ARGUS_TRUSTED_CLIENT_IP_HEADER=CF-Connecting-IP` before that service's build. There is no production service to set it on until the founder creates one.
+The business-web contract (audit label `argus-app`) still requires `ARGUS_TRUSTED_CLIENT_IP_HEADER=CF-Connecting-IP` before that service's build. Whether a production service exists for `web/` is drift item 6. Do not set the business-web contract on the marketing site.
 
-`argus-backtests` has no new profile keys in this delta. Leave its env on the existing workflow contract. `cuadrao-web` env is not declared in `render.yaml`: the live marketing env was not read. Do not invent it, and do not sync that service's env until the live names are transcribed and reviewed.
+`argus-backtests` has no new profile keys in this delta. Leave its env on the existing workflow contract. `argus-app` in `render.yaml` declares the business-web env. The live `cuadrao-web` env was not read. Do not invent marketing env, and do not sync that service until Lucas decides drift item 6 and the live names are transcribed.
 
 These profile `optional` names are secrets. Set one only when Lucas is turning that surface on, and never record the value. Absence is allowed by the audit. `ARGUS_INVITE_CODE_SECRET` is the exception timed above. The others are `ARGUS_INVITE_CODE_SECRET_PREVIOUS`, `ARGUS_INGESTION_SECRET_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_WEBHOOK_URL`, `ARGUS_APPLE_TEAM_ID`, `ARGUS_APPLE_SIGN_IN_KEY_ID`, `ARGUS_APPLE_SIGN_IN_PRIVATE_KEY`, and `ARGUS_APPLE_BUNDLE_ID`.
 
@@ -289,7 +383,7 @@ Neither name is in the `argus-api` allowed set. Setting either one makes `releas
 
 This is a hard gate. The Supabase Send Email Hook stays off until `MARKETING_POSTAL_ADDRESS` is set on every production process that sends mail required to carry a postal address, and a readback confirms the value is present, non-empty, and equal to the string Lucas approved. Do not write the string into git, chat, logs, or the manifest.
 
-The waitlist sender refuses to start without it (`marketing/lib/waitlist/runtime.ts`, `supabase/functions/waitlist-reminders/handler.ts`). Auth and account templates refuse a postal address in the body (`Postal addresses are only for waitlist mail`). The address is still required before the hook is turned on. Production marketing is `cuadrao-web`, which already serves `cuadrao.ai` and `www.cuadrao.ai`. That is intentional. The approved string, and whether the live service already holds the name, were not read. That remains [open question 1](#open-questions-for-the-founder). The name is not a `cuadrao-api`, business-web, or `argus-backtests` profile key, so it is not set on those services, and it is not invented onto `cuadrao-web` in `render.yaml`.
+The waitlist sender refuses to start without it (`marketing/lib/waitlist/runtime.ts`, `supabase/functions/waitlist-reminders/handler.ts`). Auth and account templates refuse a postal address in the body (`Postal addresses are only for waitlist mail`). The address is still required before the hook is turned on. Dashboard `cuadrao-web` builds `marketing/`. Whether that remains the production web deploy is drift item 6. The approved string, and whether the live service already holds the name, were not read. That remains [open question 1](#open-questions-for-the-founder). The name is not an `argus-api`, business-web, or `argus-backtests` profile key, so it is not set on those services, and it is not invented into `render.yaml`.
 
 ### 4. Auth email hook
 
@@ -299,7 +393,7 @@ Preconditions, all required before anyone enables the hook:
 2. Sender and SMTP. Today's production Auth mail is the [Auth Email Deliverability](#auth-email-deliverability) path: Supabase Auth sends as `noreply@get-argus.com` through Resend. SPF, DKIM, and DMARC stay as that section states them: root SPF `v=spf1 include:_spf.mx.cloudflare.net ~all` for inbound `support@get-argus.com`, Resend MAIL FROM at `send.get-argus.com` with `v=spf1 include:amazonses.com ~all`, DKIM at `resend._domainkey.get-argus.com`, and DMARC at `_dmarc.get-argus.com` starting at `p=none`. Site URL `https://arguschat.ai`, with the two recovery redirects that section names.
 3. The hook's own sender, if it is ever enabled, is a different identity: `Cuadrao <hola@mail.cuadrao.ai>` with Reply-To `hola@cuadrao.ai` (`web/server/emails/auth-hook.ts`). DNS and Resend verification for `mail.cuadrao.ai` are [open question 5](#open-questions-for-the-founder). Do not assume the `get-argus.com` records cover that sender.
 4. Read back, without pasting secrets: `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` is absent or `false`; production Supabase's Send Email Hook is not pointed at the app; `mailer` settings were not changed by this promotion. Absence of the flag is what the handler treats as off (`=== "true"`). The name is not in the business-web allowed set, so putting it on a service the audit calls `argus-app` fails the audit until a reviewed profile change allows it.
-5. The From address is an open item. It will be confirmed from a fresh-account test email, outside this PR. Do not copy a sender into this checklist.
+5. Staging already sends auth mail while yaml says the flag is `false`. Drift item 7 is the open question: option A (dashboard flag true, sender `Cuadrao <hola@mail.cuadrao.ai>`) or option B (Supabase hook off, Supabase or custom SMTP sends). The tell is the From address on a fresh-account test email, confirmed outside this PR. Do not copy a sender into this checklist.
 
 Enablement stays an open item on this tree. `handleAuthEmailHook` returns 503 unless project ref, Supabase URL, app origin, expiry, and `RENDER_SERVICE_ID` all equal the staging constants in `STAGING_AUTH_EMAIL`: project `skedzwocnmrhfigiwyzi`, origin `https://cuadrao-web-staging.onrender.com`, expiry `3600`, and Render service `srv-db5ihr7lot8c73f3b3h0`. Pointing production Supabase (`lgdhvepyrzbnscqssgqq`, origin `https://arguschat.ai`) at `POST /api/auth/send-email` would replace Auth delivery and then fail it. Leave the hook off through the deploy. A later enablement needs a reviewed code change that accepts the production binding, plus the postal-address gate, plus the deliverability readback, plus the From address from that test email. That work is [open question 5](#open-questions-for-the-founder).
 
@@ -307,8 +401,8 @@ Enablement stays an open item on this tree. `handleAuthEmailHook` returns 503 un
 
 After the landed gate reports `status=pass` and the env readbacks above match the founder choices:
 
-1. Do not Blueprint-sync. The hard gate is: never sync until the `render.yaml` service names match the dashboard and someone has reviewed the sync diff. The names in this file are `cuadrao-api` and `cuadrao-web`. Reviewing that diff is a promotion-day step, and this checklist does not perform the sync. `renderSubdomainPolicy: disabled` on `cuadrao-api` stays in the file and is not applied here, because production still has the subdomain enabled. `argus-backtests` is not in `render.yaml`. Its contract stays the release profile plus `.github/render-env-sync.sh workflow-runtime`. Autodeploy on `cuadrao-api`, `cuadrao-web`, and `argus-backtests` stays `off`. `cuadrao-web-staging` and `cuadrao-api-staging` are `checksPass` in the blueprint, matching the staging dashboard for the web service and the requested staging API setting. `cuadrao-marketing-staging` tracks `main`, matching the dashboard. The previous blueprint said `codex/private-alpha-next` for that service; that branch drift is corrected in the file and is not a sync.
-2. Set the env in [section 3](#3-render-environment-on-production) on `cuadrao-api` before that service deploys. Run `.github/render-env-sync.sh api-real-workflow-on` for the API service the script still labels `argus-api`, then restart it if the env change did not already restart it. Do not set the business-web contract on `cuadrao-web`.
+1. Do not Blueprint-sync. Never sync until `render.yaml` names match the dashboard (`cuadrao-api` and `cuadrao-web`, not `argus-api` and `argus-app`) and someone has reviewed the sync diff. Syncing this file would miss the live services, because a sync matches by name. Drift item 6 is a separate stop: do not sync `argus-app` onto `cuadrao-web`. `renderSubdomainPolicy: disabled` stays on `argus-api` in the file and is not applied here. Production still has the subdomain enabled. `argus-backtests` is not in `render.yaml`. Its contract stays the release profile plus `.github/render-env-sync.sh workflow-runtime`. Autodeploy on the production dashboard services stays off. The staging drifts in items 1 through 3 are not corrected in this file: `cuadrao-api-staging` is absent, `cuadrao-web-staging` is `autoDeployTrigger: "off"` here and `checksPass` on the dashboard, and `cuadrao-marketing-staging` tracks `codex/private-alpha-next` here and `main` on the dashboard.
+2. Set the env in [section 3](#3-render-environment-on-production) on dashboard `cuadrao-api` before that service deploys. Run `.github/render-env-sync.sh api-real-workflow-on` for the API service the script labels `argus-api`, then restart it if the env change did not already restart it. Do not set the business-web contract on dashboard `cuadrao-web`.
 3. Run the audit before the three deploys:
 
 ```bash
@@ -317,7 +411,7 @@ After the landed gate reports `status=pass` and the env readbacks above match th
 
 `status=ready` is required. A drift or `unexpected_live_env` line stops the deploy. The vision-model allow-list stop in section 3 applies here.
 
-4. Deploy `cuadrao-api`, then `argus-backtests`, from the landed SHA. Manual triggers, in that order. There is no production deploy of the business app: `web/` has no production web service. `cuadrao-web` is the marketing site. Do not deploy it from this promotion until the build and start strings in `render.yaml` are confirmed against the dashboard ([open question 7](#open-questions-for-the-founder)). Do not finish the API and the workflow on different commits. The command reference in [Before Tester Sessions](#before-tester-sessions) still names the audit labels `argus-api`, then `argus-app`, then `argus-backtests`. The `argus-app` step has no dashboard service until the founder creates the business web service.
+4. Deploy dashboard `cuadrao-api`, then `argus-backtests`, from the landed SHA. Manual triggers, in that order. Do not deploy `cuadrao-web` from this promotion until Lucas decides drift item 6 ([open question 7](#open-questions-for-the-founder)). Do not finish the API and the workflow on different commits. The command reference in [Before Tester Sessions](#before-tester-sessions) still names the audit labels `argus-api`, then `argus-app`, then `argus-backtests`. The `argus-app` step is the business app in `render.yaml`. The dashboard has no service by that name.
 5. Read deploy status:
 
 ```bash
@@ -352,7 +446,7 @@ Warmup dispatches a paid workflow proof. Lucas approves that spend in the window
    - Guest access: set `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=false`, then `ARGUS_GUEST_ACCESS_ENABLED=false`. Leave `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`.
    - `ARGUS_ENABLE_EXECUTION_REALISM=false` is the execution-realism kill switch.
    Sharing flags, the three ceilings, `ARGUS_TRUSTED_CLIENT_IP_HEADER`, and `renderSubdomainPolicy` are not emergency flips.
-3. Revert code, keep migrations. Roll `cuadrao-api` and `argus-backtests` back to the same previous successful deploy. Roll `cuadrao-web` back only if this promotion deployed it. There is no business-web service to roll back. A Render rollback restores that deploy's env values as well, so read the env back afterward and re-apply any secret that was rotated since that artifact. Do not reverse, edit, or delete applied SQL. Old code has to tolerate the expanded schema, or Lucas approves a forward fix. The [waitlist rollback floor](#waitlist-rollback-floor) still forbids a code rollback below `061ba50e` while active `requested` rows can exist, until that section's maintenance proof is done.
+3. Revert code, keep migrations. Roll dashboard `cuadrao-api` and `argus-backtests` back to the same previous successful deploy. Roll `cuadrao-web` back only if this promotion deployed it. Do not roll a business-web service this promotion did not deploy. A Render rollback restores that deploy's env values as well, so read the env back afterward and re-apply any secret that was rotated since that artifact. Do not reverse, edit, or delete applied SQL. Old code has to tolerate the expanded schema, or Lucas approves a forward fix. The [waitlist rollback floor](#waitlist-rollback-floor) still forbids a code rollback below `061ba50e` while active `requested` rows can exist, until that section's maintenance proof is done.
 4. If the hook was enabled despite section 4, disable production Supabase's Send Email Hook first, then set the web flag false. Restoring the previous Auth SMTP sender is part of that readback.
 5. Code rollback does not change `renderSubdomainPolicy`. Production still has the `cuadrao-api` onrender subdomain enabled. Restoring or disabling `https://argus-ohr5.onrender.com` is a separate founder decision on promotion day.
 
@@ -375,7 +469,10 @@ Applied by: James (Release)
 Grant and RLS readback: match / mismatch
 Post-apply gate: status=pass / fail
 Sharing choice: true / false
-renderSubdomainPolicy on argus-api: disabled readback / 404 readback
+Prod web rootDir decision (drift item 6):
+renderSubdomainPolicy on cuadrao-api: still enabled / disabled readback / 404 readback
+Staging auth From (drift item 7, A or B, outside this PR):
+Dashboard checks (Auth site URL, redirects, captcha, hook, SMTP; Render env names):
 ARGUS_TRUSTED_CLIENT_IP_HEADER on argus-api and argus-app:
 Ceilings (guest turn / registered turn / registered research):
 CUADRAO_VISION_MODEL set on argus-api: yes / blocked, model id:
@@ -401,14 +498,14 @@ Operator time:
 
 ### Open questions for the founder
 
-1. Which production process holds `MARKETING_POSTAL_ADDRESS`, and what is the approved string? Production marketing is `cuadrao-web`. The live env was not read, and `render.yaml` does not invent the value. Test fixtures are not the approved string. The waitlist Edge Function refuses any non-staging project URL.
+1. Which production process holds `MARKETING_POSTAL_ADDRESS`, and what is the approved string? Dashboard `cuadrao-web` builds `marketing/`, and whether that stays the production web deploy is drift item 6. The live env was not read, and `render.yaml` does not invent the value. Test fixtures are not the approved string. The waitlist Edge Function refuses any non-staging project URL.
 2. Which model id is `CUADRAO_VISION_MODEL` on production? The staging manifest keeps the live value and does not record it.
 3. When does a reviewed change add `CUADRAO_VISION_MODEL` to the `argus-api` release-profile allow-list so the required variable and a green `release-config-audit` can both be true? The same question applies to `CUADRAO_DOCUMENT_EXTRACTION_ENABLED` if this window is supposed to prove extraction with a live call.
 4. What is the production ledger head now? If it is already at or above `20261017010000`, the 63 integration-only versions are not a legal prefix for the applier. The 2026-10-07 snapshot said the head was `20260914120000` and that the ledger did not match `main`.
-5. Production Auth mail stays on `noreply@get-argus.com` until a reviewed change teaches the hook the production project, origin, and Render service id. The From address will be confirmed from a fresh-account test email, outside this PR. Who verifies `mail.cuadrao.ai`, and is that in this window? The business-web Render service does not exist yet, so it has no service id in the repo.
+5. Production Auth mail stays on `noreply@get-argus.com` until a reviewed change teaches the hook the production project, origin, and Render service id. Staging mail while the yaml flag is `false` is drift item 7: option A or option B. The From address will be confirmed from a fresh-account test email, outside this PR. Who verifies `mail.cuadrao.ai`, and is that in this window? A production service id for `web/` depends on the drift item 6 decision.
 6. Issue #694's `GET /internal/client-ip` is not in this tree. Does this window build it, run the forged-header check, and remove it, or does the check stay blocked?
-7. What are the exact live `cuadrao-web` build and start commands? `render.yaml` uses the marketing-staging strings already in that file (`bun install --frozen-lockfile && bun run build --webpack` and `bun run start -- -p $PORT`) because they are the only checked-in `--webpack` build. The marketing launch runbook records a different pair for a service it calls `cuadrao-marketing`: `npm install -g bun@1.3.14 && bun install --frozen-lockfile && bun run build` and `npm run start -- -p $PORT`. Confirm the dashboard strings before any sync. The live env names on `cuadrao-web` were not read either.
-8. `cuadrao-api-staging` build and start in `render.yaml` are copied from the production API block in that file. They were not read from the live staging service. Confirm them before any sync.
+7. What does Lucas decide for the production web service? Keep dashboard `cuadrao-web` on `marketing/` with build `bun install --frozen-lockfile && bun run build --webpack`, point that service at `web/`, or add a separate business web service (a third custom domain and a Render plan change)? The live start command was not recorded. `render.yaml` `argus-app` still has `rootDir: web` and `npm install -g bun && bun install --frozen-lockfile && bun run build`. The marketing launch runbook records a different pair for a service it calls `cuadrao-marketing`. The live env names on `cuadrao-web` were not read. This checklist does not change `render.yaml`.
+8. `cuadrao-api-staging` is not in `render.yaml`. The dashboard build is `poetry install`. The start command was not recorded. Confirm it before any future blueprint entry. The onrender subdomain stays enabled.
 
 ## Before Tester Sessions
 
