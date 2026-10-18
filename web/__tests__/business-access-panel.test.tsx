@@ -33,7 +33,7 @@ describe("Business access list", () => {
     assert.ok(html.includes("Dueño"));
     assert.ok(html.includes("Tu propio acceso no se puede quitar."));
     assert.ok(html.includes("Marta · marta@example.test"));
-    assert.ok(html.includes("Ve y prepara"));
+    assert.ok(html.includes("Miembro"));
     assert.ok(html.includes("Invitaciones pendientes"));
     assert.ok(html.includes("nuevo@example.test"));
     assert.ok(html.includes("Cancelar invitación"));
@@ -44,7 +44,7 @@ describe("Business access list", () => {
   test("English follows the same rule and no invites renders no pending section", async () => {
     const html = await render("en", { grants: ACCESS.grants, invites: [] });
     assert.ok(html.includes("Owner"));
-    assert.ok(html.includes("Reads and prepares"));
+    assert.ok(html.includes("Member"));
     assert.ok(html.includes("Remove access"));
     assert.ok(!html.includes("Pending invites"));
     assert.ok(!html.includes("approve"));

@@ -2717,12 +2717,8 @@ describe("Argus Alpha frontend contract", () => {
     expect(es).toContain("prompts puede enviarse");
   });
 
-  test("profile menu delete all conversations is recoverable and outcome-aware", () => {
+  test("profile menu does not offer delete all conversations", () => {
     const api = readFileSync(join(root, "lib/argus-api.ts"), "utf-8");
-    const chat = readFileSync(
-      join(root, "components/chat/ChatInterface.tsx"),
-      "utf-8",
-    );
     const sidebar = readFileSync(
       join(root, "components/sidebar/ChatSidebar.tsx"),
       "utf-8",
@@ -2740,31 +2736,15 @@ describe("Argus Alpha frontend contract", () => {
       "utf-8",
     );
 
-    expect(api).toContain("export async function deleteAllConversations");
-    expect(api).toContain("deleted_count: number");
-    expect(profileMenu).toContain("onDeleteAllConversations?: () => void");
-    expect(profileMenu).toContain("onDeleteAllConversations?.()");
-    expect(profileMenu).toContain("hover:bg-[#d66d75]/10");
-    expect(profileMenu).not.toContain(
-      "cursor-not-allowed items-center gap-2.5 px-3.5 py-2 text-[13px] text-[#d66d75]/40",
-    );
-    expect(sidebar).toContain("deleteAllConversations");
-    expect(sidebar).toContain("isDeleteAllDialogOpen");
-    expect(sidebar).toContain("settings.data.delete_all_confirm.title");
-    expect(sidebar).toContain("response.deleted_count");
-    expect(sidebar).toContain("onAllConversationsDeleted?.()");
-    expect(sidebar).toContain("settings.data.delete_all_success");
-    expect(sidebar).toContain("settings.data.delete_all_empty");
-    expect(sidebar).toContain("settings.data.delete_all_error");
-    expect(chat).toContain("handleAllConversationsDeleted");
-    expect(chat).toContain("resetToEmptyChatSurface();");
-    expect(chat).toContain("onToast={showToast}");
-    expect(en).toContain("delete_all_success_one");
-    expect(en).toContain("Moved {{count}} conversation to Recently Deleted.");
-    expect(es).toContain("delete_all_success_one");
-    expect(es).toContain(
-      "Se movió {{count}} conversación a Borrados recientemente.",
-    );
+    expect(api).not.toContain("deleteAllConversations");
+    expect(profileMenu).not.toContain("onDeleteAllConversations");
+    expect(profileMenu).not.toContain("delete_all_conversations");
+    expect(profileMenu).toContain("settings.profile.delete_account");
+    expect(sidebar).not.toContain("deleteAllConversations");
+    expect(sidebar).not.toContain("delete_all_confirm");
+    expect(en).not.toContain("delete_all_");
+    expect(es).not.toContain("delete_all_");
+    expect(es).toContain("Eliminar cuenta");
   });
 
   test("interactive controls expose pointer cursor affordance globally", () => {
@@ -2966,12 +2946,14 @@ describe("Argus Alpha frontend contract", () => {
     expect(flags).toContain(
       'process.env.NEXT_PUBLIC_OMNISEARCH_ENABLED !== "false"',
     );
+    expect(chat).toContain("businessSearchEntryEnabled(workspace?.id)");
     expect(chat).toMatch(
-      /omnisearchEnabled &&\s*\(!isGuest \|\| canUseOmnisearch\) &&\s*searchOverlayOpen/,
+      /searchEntryEnabled &&\s*\(!isGuest \|\| canUseOmnisearch\) &&\s*searchOverlayOpen/,
     );
     expect(sidebar).not.toContain("strategiesEnabled");
     expect(sidebar).toContain("omnisearchEnabled");
-    expect(sidebar).toContain("{omnisearchEnabled && (");
+    expect(sidebar).toContain("businessSearchEntryEnabled(workspace?.id)");
+    expect(sidebar).toContain("{searchVisible && (");
     expect(sidebar).not.toContain('onNavigate("strategies")');
     expect(sidebar).toContain("common.recents");
   });

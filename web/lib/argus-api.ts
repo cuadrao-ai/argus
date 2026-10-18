@@ -906,17 +906,6 @@ export async function deleteConversation(conversationId: string) {
   });
 }
 
-export async function deleteAllConversations(surface?: ConversationSurface) {
-  return apiFetch<{ success: boolean; deleted_count: number }>(
-    `/conversations${surfaceQuery(surface)}`,
-    {
-      method: "DELETE",
-    },
-  );
-}
-
-// ─── History and search ───────────────────────────────────────────────────────
-
 export { listHistory, searchGlobal } from "./conversation-surface-api";
 
 export async function createEvidenceDecision(
