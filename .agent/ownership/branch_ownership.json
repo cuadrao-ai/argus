@@ -2792,6 +2792,37 @@
         "web/.env.*"
       ]
     },
+    "codex/security-extensions-waitlist-20261018": {
+      "description": "Partial Rafael security follow-up. Revoke client execution of the automatic RLS helper, require a dedicated scheduler header secret, and make waitlist GET links read-only. Strict standalone net grants acceptance remains platform-blocked. No receipt logic or hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/reports/evidence/security-waitlist-20261018/**",
+        "docs/specs/cuadrao-personal-waitlist.md",
+        "marketing/__tests__/waitlist-actions.test.ts",
+        "marketing/__tests__/waitlist-scheduler.test.ts",
+        "marketing/app/api/waitlist/confirm/route.ts",
+        "marketing/app/api/waitlist/leave/route.ts",
+        "marketing/e2e/personal-waitlist.spec.ts",
+        "marketing/lib/waitlist/result.ts",
+        "supabase/config.toml",
+        "supabase/functions/waitlist-reminders/README.md",
+        "supabase/functions/waitlist-reminders/handler.ts",
+        "supabase/migrations/20261018030016_security_extensions_waitlist.sql",
+        "supabase/tests/net-client-grants.sql",
+        "supabase/tests/waitlist-scheduler.sql",
+        "tests/test_client_grants_postgres.py",
+        "tests/test_rls_auto_enable_postgres.py",
+        "tests/test_waitlist_scheduler_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "ios/**",
+        "src/**",
+        "web/**"
+      ]
+    },
     "codex/session-recovery": {
       "description": "Browser auth renewal across access expiry and restart, with isolated Supabase refresh and bounded staging recovery configuration.",
       "base_ref": "origin/codex/private-alpha-next",

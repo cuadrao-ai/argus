@@ -2,8 +2,15 @@ import { jsonResponse, logEvent } from "@/lib/forms/http";
 import { waitlistDeps } from "@/lib/waitlist/runtime";
 import { confirmWaitlist } from "@/lib/waitlist/service";
 import { waitlistResult } from "@/lib/waitlist/result";
+import { WAITLIST_EMAILS } from "@/lib/waitlist/email-content";
 
-export async function GET(request: Request) {
+export function GET(request: Request) {
+  const url = new URL(request.url);
+  const action = `/api/waitlist/confirm?${new URLSearchParams({ token: url.searchParams.get("token") ?? "" })}`;
+  return waitlistResult(WAITLIST_EMAILS.confirmation.subject, WAITLIST_EMAILS.confirmation.paragraphs[0], 200, { url: action, label: WAITLIST_EMAILS.confirmation.button });
+}
+
+export async function POST(request: Request) {
   const deps = waitlistDeps();
   if (!deps) return jsonResponse(503, { error: "unavailable" });
   try {
