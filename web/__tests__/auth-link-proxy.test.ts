@@ -33,6 +33,7 @@ describe("auth link proxy", () => {
   test("matches auth routes as well as the dev playground", () => {
     const source = readFileSync(join(import.meta.dir, "../proxy.ts"), "utf-8");
     expect(source).toContain('"/dev/result-card/:path*"');
-    expect(source).toContain('"/auth/:path*"');
+    expect(source).toContain("authLinkErrorRedirect");
+    expect(source).toContain("decideBusinessOnlyWeb");
   });
 });
