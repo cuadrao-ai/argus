@@ -163,12 +163,16 @@ def test_practice_human_capture_revision_approval_and_actual_export(actions):
         assert manifest["dgii"]["totals_dop"]["itbis_facturado"] == "450.00"
         assert len(manifest["records"]) == 6
         assert (
-            hashlib.sha256(archive.read("dgii/606-202609.txt")).hexdigest()
-            == "44255a8ee3689241d56c0125a37addb075d96f59ff5eaeacd321b6bbf6b7c569"
+            hashlib.sha256(
+                archive.read("dgii/DGII_F_606_199990013_202609.TXT")
+            ).hexdigest()
+            == "729e044ba0a1de65c2dbb46617c38617f25697e3e5e42dc4ed23f2fd4b3e01a5"
         )
         assert (
-            hashlib.sha256(archive.read("dgii/607-202609.txt")).hexdigest()
-            == "fbee5848fca5df116c11fb179ec083affc4e24cf8ee5b93d4a08c26e5b4c635a"
+            hashlib.sha256(
+                archive.read("dgii/DGII_F_607_199990013_202609.TXT")
+            ).hexdigest()
+            == "73b5366cb83900e54b48eb4573c6bc29fb3115b2421985d67981479ced474d09"
         )
         output = os.getenv("CUADRAO_DGII_FIXTURE_OUTPUT")
         if output:
@@ -421,3 +425,48 @@ def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, u
             )
         denied = client.get("/business/fiscal-profile")
         assert denied.status_code == 404 and denied.headers["cache-control"] == "no-store"
+
+
+def test_cedula_filer_persists_and_exports_both_formats(actions):
+    service, context, _ = actions
+    account = cash_account(service, context)
+    filer = "00100000001"
+    profile = set_profile(
+        service.authority,
+        context,
+        FiscalProfileChange(rnc=filer, previous_rnc=None),
+        "cedula-profile",
+    )
+    assert profile["rnc"] == filer
+    from psycopg.errors import CheckViolation
+
+    with service.authority.pool.connection() as db:
+        with pytest.raises(CheckViolation):
+            with db.transaction():
+                db.execute(
+                    "update public.spaces set business_rnc=%s where id=%s",
+                    ("00000000000", context.actor.space_id),
+                )
+    assert read_profile(service.authority, context)["rnc"] == filer
+    for index in (0, 4):
+        assert (
+            approve(service, context, reviewed(service, context, account, index)).outcome
+            == "applied"
+        )
+    with ZipFile(
+        io.BytesIO(
+            export_package(
+                service.authority,
+                context,
+                ExportPeriod(date(2026, 9, 1), date(2026, 9, 30)),
+                InMemorySourceObjects(),
+            )
+        )
+    ) as archive:
+        manifest = json.loads(archive.read("manifest.json"))["dgii"]
+        for form in ("606", "607"):
+            assert manifest["forms"][form]["status"] == "prepared_candidate"
+            assert (
+                archive.read(f"dgii/DGII_F_{form}_{filer}_202609.TXT").split(b"\r\n")[0]
+                == f"{form}|{filer}|202609|1".encode()
+            )

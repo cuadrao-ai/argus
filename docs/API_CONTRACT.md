@@ -9188,7 +9188,10 @@ An uncertain financial effect is `outcome_unknown`, not success or safe retry.
 `GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named read grant; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission.
 
 **DGII period export.** The same authorized ZIP additionally contains
-`dgii/606-607.xlsx` and `dgii/summary.json`. A Business without a configured RNC
+`dgii/606-607.xlsx` and `dgii/summary.json`. TXT names are
+`dgii/DGII_F_606_<filer>_<AAAAMM>.TXT` and the corresponding `607` name.
+The filer may be a nine-digit RNC or eleven-digit cédula, preserved as text.
+Disabled perception fields remain empty in both formats. A Business without a configured RNC
 has `No aplica` for both formats and receives no empty TXT files. Applicable
 TXT candidates require one complete, closed calendar month and complete reviewed
 fiscal facts. Other date ranges retain the general export and report fiscal
@@ -9217,7 +9220,7 @@ or hyphens and NCF letter case normalize for identity without changing sources.
 grant. Optional `draft_id` supplies the existing canonical Business anchor.
 `PATCH /business/fiscal-profile` requires the actual owner, approve permission,
 `Idempotency-Key`, and `{rnc, previous_rnc}`. It records an immutable human action;
-a stale prior RNC is 409. This first slice supports a nine-digit Business RNC.
+a stale prior RNC is 409. The filer identity supports a nine-digit RNC or eleven-digit cédula.
 `GET /business/fiscal-profile/fields` supplies the form controls from the same
 typed declaration and annex column definitions used by the exporter.
 

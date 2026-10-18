@@ -53,7 +53,7 @@ def _row(record: FiscalRecord) -> tuple[str, ...]:
         )
     result = []
     for name, _ in COLUMNS[declaration.form]:
-        value = values[name]
+        value = None if name in {"itbis_perceived", "income_perceived"} else values[name]
         if isinstance(value, date):
             value = value.strftime("%Y%m%d")
         elif value is not None and name not in {
@@ -213,7 +213,7 @@ def build_fiscal_packet(
         bridge.append(item)
         if record.currency != "DOP":
             item["reason"] = "fiscal_conversion_required"
-            issues.extend(record_issues(record, originals))
+            issues.extend(record_issues(record, originals, period_end=end))
             continue
         if record.kind == "expense":
             totals["purchase_invoice_gross"] += gross
@@ -247,7 +247,7 @@ def build_fiscal_packet(
                 disposition="excluded", reason="b02_purchase_not_reportable_in_606"
             )
             continue
-        errors = record_issues(record, originals)
+        errors = record_issues(record, originals, period_end=end)
         if occurrences[identity(record)] > 1:
             errors.append(
                 {
@@ -342,7 +342,9 @@ def build_fiscal_packet(
             "official_validation": "NOT RUN",
         }
         if status == "prepared_candidate":
-            files[f"dgii/{form}-{period}.txt"] = _txt(form, rnc, period, rows[form])
+            files[f"dgii/DGII_F_{form}_{rnc}_{period}.TXT"] = _txt(
+                form, rnc, period, rows[form]
+            )
     manifest = {
         "schema_version": 1,
         "business_name": business_name,

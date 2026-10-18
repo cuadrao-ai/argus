@@ -4,7 +4,7 @@ set statement_timeout = '60s';
 alter table public.spaces
     add column business_rnc text,
     add constraint business_rnc_shape check (
-        business_rnc is null or (kind = 'business' and business_rnc ~ '^[0-9]{9}$' and business_rnc <> '000000000')
+        business_rnc is null or (kind = 'business' and business_rnc ~ '^([0-9]{9}|[0-9]{11})$' and business_rnc !~ '^0+$')
     );
 
 alter table public.business_draft_revisions

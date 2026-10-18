@@ -16931,12 +16931,12 @@ components:
         rnc:
           anyOf:
           - type: string
-            pattern: ^[0-9]{9}$
+            pattern: ^(?:[0-9]{9}|[0-9]{11})$
           - type: 'null'
         previous_rnc:
           anyOf:
           - type: string
-            pattern: ^[0-9]{9}$
+            pattern: ^(?:[0-9]{9}|[0-9]{11})$
           - type: 'null'
       additionalProperties: false
       type: object

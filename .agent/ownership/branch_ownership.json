@@ -3286,6 +3286,8 @@
         "tests/dgii/fixtures/practice-inputs.json",
         "tests/dgii/fixtures/practice-oracle.json",
         "tests/dgii/test_packet.py",
+        "tests/dgii/test_followup.py",
+        "tests/test_business_accountant_path_routes_postgres.py",
         "tests/test_business_dgii_postgres.py",
         "web/__tests__/business-dgii.dom.test.tsx",
         "web/__tests__/business-export-download.dom.test.tsx",

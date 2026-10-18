@@ -13,13 +13,13 @@ from argus.domain.business.transactions import transaction
 class FiscalProfileInput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    rnc: str | None = Field(pattern=r"^[0-9]{9}$")
-    previous_rnc: str | None = Field(pattern=r"^[0-9]{9}$")
+    rnc: str | None = Field(pattern=r"^(?:[0-9]{9}|[0-9]{11})$")
+    previous_rnc: str | None = Field(pattern=r"^(?:[0-9]{9}|[0-9]{11})$")
 
     @field_validator("rnc", "previous_rnc")
     @classmethod
     def nonzero_rnc(cls, value):
-        if value == "000000000":
+        if value is not None and not any(character != "0" for character in value):
             raise ValueError("RNC must have a nonzero digit")
         return value
 

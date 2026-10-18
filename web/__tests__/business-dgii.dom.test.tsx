@@ -104,3 +104,29 @@ test("an absent Business RNC shows No aplica and a read-only accountant cannot e
     assert.equal(host.querySelectorAll("input, button").length, 0);
   } finally { await act(async () => root.unmount()); host.remove(); await release(); }
 });
+
+test("the owner can save an eleven-digit filer cedula without losing leading zeros", async () => {
+  const release = registerDom();
+  const writes: unknown[] = [];
+  globalThis.fetch = async (_url, init) => {
+    if (!init?.body) return Response.json({ rnc: null, can_edit: true });
+    writes.push(JSON.parse(String(init.body)));
+    return Response.json({ rnc: "00100000001", can_edit: true });
+  };
+  const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+  try {
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessFiscalProfile /></I18nextProvider>));
+    const input = host.querySelector("input"); const button = host.querySelector("button");
+    assert.ok(input && button); assert.equal(input.maxLength, 11);
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      assert.ok(setter); setter.call(input, "00100000001");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    assert.equal(button.disabled, false);
+    await act(async () => button.click());
+    assert.deepEqual(writes, [{ rnc: "00100000001", previous_rnc: null }]);
+    assert.match(host.textContent ?? "", /00100000001/);
+  } finally { await act(async () => root.unmount()); host.remove(); await release(); }
+});

@@ -107,7 +107,7 @@ def test_practice_annex_rows_and_economic_reconciliation():
     assert result.manifest["issues"] == []
     assert result.manifest["forms"]["606"]["record_count"] == 3
     assert result.manifest["forms"]["607"]["record_count"] == 1
-    purchase = result.files["dgii/606-202609.txt"].decode("ascii").splitlines()
+    purchase = result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode("ascii").splitlines()
     assert purchase[0] == "606|199990013|202609|3"
     assert all(len(row.split("|")) == 23 for row in purchase[1:])
     note = purchase[-1].split("|")
@@ -158,7 +158,7 @@ def test_practice_annex_rows_and_economic_reconciliation():
 def test_missing_rnc_produces_no_aplica_without_empty_txt():
     result = packet(rnc=None, start=date(2026, 10, 1), end=date(2026, 10, 17))
     assert all(form["label"] == "No aplica" for form in result.manifest["forms"].values())
-    assert not any(name.endswith(".txt") for name in result.files)
+    assert not any(name.lower().endswith(".txt") for name in result.files)
     assert result.manifest["period_status"] == "DRY RUN"
     with ZipFile(io.BytesIO(result.files["dgii/606-607.xlsx"])) as book:
         assert b"No aplica" in book.read("xl/sharedStrings.xml")
@@ -171,7 +171,7 @@ def test_unknown_required_tax_fact_never_becomes_zero_or_valid_file(field):
     first = replace(first, declaration=first.declaration.model_copy(update={field: None}))
     result = packet((first, *records[1:]))
     assert result.manifest["forms"]["606"]["status"] == "needs_review"
-    assert "dgii/606-202609.txt" not in result.files
+    assert "dgii/DGII_F_606_199990013_202609.TXT" not in result.files
     assert any(issue["field"] == field for issue in result.manifest["issues"])
 
 
@@ -183,7 +183,7 @@ def test_duplicate_document_does_not_silently_claim_valid_second_expense():
         issue["code"] == "fiscal_duplicate_document"
         for issue in result.manifest["issues"]
     )
-    assert "dgii/606-202609.txt" not in result.files
+    assert "dgii/DGII_F_606_199990013_202609.TXT" not in result.files
 
 
 def test_itbis_advance_is_billed_minus_cost_not_withholding():
@@ -192,7 +192,7 @@ def test_itbis_advance_is_billed_minus_cost_not_withholding():
         update={"itbis_cost": "20.00", "itbis_withheld": "10.00"}
     )
     result = packet((replace(record, declaration=declaration),))
-    row = result.files["dgii/606-202609.txt"].decode().splitlines()[1].split("|")
+    row = result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode().splitlines()[1].split("|")
     assert row[14] == "160.00"
 
 
@@ -258,7 +258,7 @@ def test_year_boundary_requires_one_month_and_current_month_stays_dry_run():
 def test_partial_month_keeps_review_evidence_but_never_emits_monthly_txt():
     result = packet(end=date(2026, 9, 17))
     assert result.manifest["period_status"] == "DRY RUN"
-    assert not any(name.endswith(".txt") for name in result.files)
+    assert not any(name.lower().endswith(".txt") for name in result.files)
     assert result.manifest["reconciliation"]
 
 
@@ -266,7 +266,7 @@ def test_small_consumption_sale_is_summary_only_instead_of_no_operations():
     result = packet((practice_records()[-1],))
     assert result.manifest["forms"]["607"]["status"] == "summary_only"
     assert result.manifest["consumption_summary"]["count"] == 1
-    assert "dgii/607-202609.txt" not in result.files
+    assert "dgii/DGII_F_607_199990013_202609.TXT" not in result.files
     empty = packet(())
     assert empty.manifest["forms"]["607"]["status"] == "no_operations"
 
@@ -283,7 +283,7 @@ def test_formatted_legacy_ids_share_identity_without_changing_source_facts():
     legacy = replace(first, facts=first.facts.model_copy(update={"fiscal": fiscal}))
     result = packet((legacy,))
     assert result.manifest["issues"] == []
-    assert "199990021|1|09|B0100000001" in result.files["dgii/606-202609.txt"].decode()
+    assert "199990021|1|09|B0100000001" in result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode()
     assert legacy.facts.fiscal.rnc.value == "199-99002-1"
     duplicate = replace(first, activity_id=str(UUID(int=77)))
     blocked = packet((legacy, duplicate))
@@ -307,7 +307,7 @@ def test_legacy_tax_precision_is_reported_without_rounding():
     result = packet(
         (replace(first, facts=first.facts.model_copy(update={"fiscal": fiscal})),)
     )
-    assert "dgii/606-202609.txt" not in result.files
+    assert "dgii/DGII_F_606_199990013_202609.TXT" not in result.files
     assert any(
         issue["code"] == "fiscal_amount_precision_or_limit"
         for issue in result.manifest["issues"]

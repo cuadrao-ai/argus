@@ -47,7 +47,12 @@ def is_credit(record: FiscalRecord) -> bool:
     }
 
 
-def record_issues(record: FiscalRecord, originals: dict[str, FiscalRecord]) -> list[dict]:
+def record_issues(
+    record: FiscalRecord,
+    originals: dict[str, FiscalRecord],
+    *,
+    period_end: date | None = None,
+) -> list[dict]:
     issues = []
 
     def issue(code: str, field: str) -> None:
@@ -63,13 +68,29 @@ def record_issues(record: FiscalRecord, originals: dict[str, FiscalRecord]) -> l
         issue("fiscal_approval_evidence_missing", "approved_revision")
     ncf = normalized_ncf(fact_value(record, "ecf") or fact_value(record, "ncf"))
     kind = ncf_type(ncf or "")
-    if kind is None:
-        issue("fiscal_ncf_unsupported", "ncf")
-    elif kind not in (
-        {"01", "04", "31", "34"}
+    supported = (
+        {
+            "B01",
+            "B03",
+            "B04",
+            "B11",
+            "B13",
+            "B14",
+            "B15",
+            "B17",
+            "E31",
+            "E33",
+            "E34",
+            "E41",
+            "E43",
+            "E44",
+            "E45",
+            "E47",
+        }
         if isinstance(declaration, PurchaseDeclaration)
-        else {"01", "02"}
-    ):
+        else {"B01", "B02", "B04", "B14", "B15", "B16"}
+    )
+    if ncf is None or ncf[:3] not in supported:
         issue("fiscal_ncf_unsupported", "ncf")
     if (
         not isinstance(record.facts.occurred_on, Known)
@@ -92,12 +113,33 @@ def record_issues(record: FiscalRecord, originals: dict[str, FiscalRecord]) -> l
         "income_withholding_type",
         "purchase_activity_id",
         "actual_refund",
+        "itbis_perceived",
+        "income_perceived",
     }
-    consumption = (
-        isinstance(declaration, SalesDeclaration)
-        and kind == "02"
-        and Decimal(record.amount) < 250000
+    original_sale = (
+        next(
+            (
+                item
+                for item in originals.values()
+                if item.kind == "income"
+                and not is_credit(item)
+                and normalized_ncf(fact_value(item, "ncf"))
+                == normalized_ncf(declaration.modified_ncf)
+            ),
+            None,
+        )
+        if isinstance(declaration, SalesDeclaration) and is_credit(record)
+        else None
     )
+    consumption = isinstance(declaration, SalesDeclaration) and (
+        kind == "02"
+        and Decimal(record.amount) < 250000
+        or original_sale is not None
+        and ncf_type(fact_value(original_sale, "ncf") or "") == "02"
+        and Decimal(original_sale.amount) < 250000
+    )
+    if isinstance(declaration, SalesDeclaration) and is_credit(record):
+        optional.update(PAYMENT_BUCKETS)
     for name in type(declaration).model_fields:
         if name in optional or name == "form" or consumption and name == "id_type":
             continue
@@ -124,6 +166,9 @@ def record_issues(record: FiscalRecord, originals: dict[str, FiscalRecord]) -> l
         ):
             issue("fiscal_identity_required", "rnc")
     values = declaration.model_dump()
+    for name in ("itbis_perceived", "income_perceived"):
+        if values[name] is not None and Decimal(values[name]) != 0:
+            issue("fiscal_perception_regime_unsupported", name)
     for name, value in values.items():
         if isinstance(value, str) and any(c in value for c in "|\r\n\x00"):
             issue("fiscal_unsafe_field", name)
@@ -138,6 +183,12 @@ def record_issues(record: FiscalRecord, originals: dict[str, FiscalRecord]) -> l
             and Decimal(declaration.itbis_cost) > Decimal(tax)
         ):
             issue("fiscal_itbis_cost_exceeds_tax", "itbis_cost")
+        if (
+            period_end is not None
+            and declaration.paid_on is not None
+            and declaration.paid_on > period_end
+        ):
+            issue("fiscal_payment_date_after_period", "paid_on")
         if declaration.paid_on is None and (
             declaration.income_withholding_type
             or any(
@@ -175,6 +226,11 @@ def record_issues(record: FiscalRecord, originals: dict[str, FiscalRecord]) -> l
                 issue("fiscal_credit_original_unsupported", "modified_ncf")
             if declaration.payment_method != "06":
                 issue("fiscal_credit_payment_code_required", "payment_method")
+        elif kind in {"03", "33"}:
+            if normalized_ncf(declaration.modified_ncf) is None:
+                issue("fiscal_credit_reference_conflict", "modified_ncf")
+            if declaration.actual_refund or declaration.purchase_activity_id:
+                issue("fiscal_credit_reference_not_applicable", "purchase_activity_id")
         elif (
             declaration.modified_ncf is not None
             or declaration.actual_refund
@@ -184,8 +240,34 @@ def record_issues(record: FiscalRecord, originals: dict[str, FiscalRecord]) -> l
     else:
         if ncf and ncf.startswith("E"):
             issue("fiscal_607_ecf_excluded", "ncf")
-        if record.kind != "income" or is_credit(record):
+        if record.kind != "income":
             issue("fiscal_direction_unsupported", "kind")
+        if is_credit(record):
+            modified = normalized_ncf(declaration.modified_ncf)
+            original = original_sale
+            if modified is None:
+                issue("fiscal_credit_reference_conflict", "modified_ncf")
+            elif original is None:
+                issue("fiscal_credit_original_reporting_required", "modified_ncf")
+            elif (
+                fact_value(original, "rnc")
+                if declaration.id_type == "3"
+                else normalized_taxpayer_id(fact_value(original, "rnc"))
+            ) != identity:
+                issue("fiscal_credit_reference_conflict", "modified_ncf")
+            elif not 0 <= (record.occurred_on - original.occurred_on).days <= 30:
+                issue("fiscal_credit_tax_treatment_required", "occurred_on")
+            elif (record.occurred_on.year, record.occurred_on.month) != (
+                original.occurred_on.year,
+                original.occurred_on.month,
+            ):
+                issue("fiscal_credit_original_reporting_required", "modified_ncf")
+        if (
+            declaration.billed_amount is not None
+            and tax is not None
+            and Decimal(declaration.billed_amount) < Decimal(tax)
+        ):
+            issue("fiscal_itbis_exceeds_billed_amount", "billed_amount")
         if declaration.withheld_on is None and any(
             Decimal(values[name] or "0") > 0
             for name in (
@@ -194,9 +276,12 @@ def record_issues(record: FiscalRecord, originals: dict[str, FiscalRecord]) -> l
             )
         ):
             issue("fiscal_withholding_date_required", "withheld_on")
-        if all(values[name] is not None for name in PAYMENT_BUCKETS) and sum(
-            Decimal(values[name]) for name in PAYMENT_BUCKETS
-        ) != Decimal(record.amount):
+        if (
+            not is_credit(record)
+            and all(values[name] is not None for name in PAYMENT_BUCKETS)
+            and sum(Decimal(values[name]) for name in PAYMENT_BUCKETS)
+            != Decimal(record.amount)
+        ):
             issue("fiscal_payment_total_conflict", "cash")
     if not issues:
         base = (
@@ -212,6 +297,8 @@ def record_issues(record: FiscalRecord, originals: dict[str, FiscalRecord]) -> l
                 for name in ("selective_tax", "other_taxes", "legal_tip")
             )
         )
+        if isinstance(declaration, PurchaseDeclaration) and base <= 0:
+            issue("fiscal_billed_amount_must_be_positive", "billed_amount")
         if gross != Decimal(record.amount):
             issue("fiscal_invoice_total_conflict", "amount")
         if base >= Decimal("1000000000"):
