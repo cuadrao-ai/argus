@@ -9,6 +9,9 @@ import { Check, Download, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, type BusinessDossier, type BusinessFactField, type BusinessFactPatch } from "@/lib/business-dossier";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
+import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
+import BusinessFiscalProfile from "./BusinessFiscalProfile";
+import { approveFiscalRecord } from "@/lib/business-dgii";
 import { businessExportPeriodValid, fetchBusinessExport, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
@@ -128,9 +131,11 @@ export function ReceiptPeriodExport({ scope, start, end, available }: { scope: {
   return <section className={cardClass} aria-label={t("business.export.title", "Export Business records")}>
     <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.export.title", "Export Business records")}</h3>
     <p className="mt-2 text-[13px] text-black/65 dark:text-white/65">{t("business.export.scope", "{{name}} · CSV, Excel and retained originals in one ZIP.", { name: formatBusinessName(scope.name, t("business.overview.title", "My business")) })}</p>
+    {available ? <BusinessFiscalProfile draftId={scope.draftId} /> : null}
     <form className="mt-4 space-y-3" onSubmit={(event) => { event.preventDefault(); void download(); }}>
       <div className="grid grid-cols-2 gap-3">{[{ field: "start", value: from, setValue: setFrom }, { field: "end", value: to, setValue: setTo }].map(({ field, value, setValue }) => <label key={field} className="block text-[13px] text-black/65 dark:text-white/65">{t(`business.export.${field}`, field === "start" ? "From" : "Through")}<input type="date" required value={value} disabled={busy} onChange={(event) => setValue(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-black/15 bg-transparent px-2 text-black dark:border-white/20 dark:text-white" /></label>)}</div>
       <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.export.period_hint", "Choose 1–366 days, including both dates. Pending records are separate from recorded money; the manifest reports missing originals.")}</p>
+      <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.dgii.period_hint", "El 606 y el 607 requieren un mes completo y cerrado. El Excel muestra los datos fiscales pendientes y el resumen de consumo por separado.")}</p>
       {problem ? <p role="alert" className="text-[13px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
       <button type="submit" disabled={busy || !available || !businessExportPeriodValid(from, to)} className={secondaryButtonClass}><Download className="h-4 w-4" aria-hidden="true" />{busy ? t("business.export.downloading", "Downloading…") : t("business.export.download", "Download CSV, Excel and originals")}</button>
       {!available ? <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.export.preview", "Downloads are available in the connected Business view.")}</p> : null}
@@ -159,6 +164,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const [capturePending, setCapturePending] = useState(false);
   const [settling, setSettling] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+  const [fiscalBusy, setFiscalBusy] = useState(false);
+  const [fiscalDirty, setFiscalDirty] = useState(false);
   const inFlight = useRef(false);
   const reviewRequest = useRef<{ version: number; facts: BusinessFactPatch; key: string } | null>(null);
   const approvalKey = useRef<{ version: number; key: string } | null>(null);
@@ -207,7 +214,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   };
 
   const write = async (action: "save" | "approve", facts?: BusinessFactPatch): Promise<BusinessDossier | null> => {
-    if (!dossier || inFlight.current || operation.kind !== "idle" || action === "save" && !facts) return null;
+    if (!dossier || inFlight.current || fiscalBusy || action === "approve" && fiscalDirty || operation.kind !== "idle" || action === "save" && !facts) return null;
     inFlight.current = true;
     setOperation({ kind: action === "save" ? "saving" : "approving" });
     setProblem(null);
@@ -221,7 +228,10 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       }
       else {
         if (approvalKey.current?.version !== dossier.version) approvalKey.current = { version: dossier.version, key: randomId() };
-        next = await source.approveDraft(draftId, dossier.version, approvalKey.current.key);
+        const kind = dossier.facts.kind.value;
+        next = source.mode === "live" && (kind === "income" || kind === "refund")
+          ? await approveFiscalRecord(draftId, dossier.version, kind === "income" ? "record_income" : "record_refund", approvalKey.current.key)
+          : await source.approveDraft(draftId, dossier.version, approvalKey.current.key);
       }
       setDossier(next);
       if (action === "save" && facts) {
@@ -246,7 +256,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
         setUnavailable(true);
       } else if (status && status >= 400 && status < 500) {
         setOperation({ kind: "idle" });
-        setProblem(t(`business.dossier.blocker.${code}`, t("business.dossier.refused", "This action could not be completed. Check the current record before trying again.")));
+        setProblem(t(`business.dgii.error.${code}`, t(`business.dossier.blocker.${code}`, t("business.dossier.refused", "This action could not be completed. Check the current record before trying again."))));
       } else {
         setOperation({ kind: "uncertain", action, version: dossier.version });
         setProblem(t("business.dossier.outcome_unknown", "The action's outcome isn't known yet. Check the saved status before taking another action."));
@@ -296,22 +306,22 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const currency = dossier.facts.currency.state === "known" ? dossier.facts.currency.value : null;
   const approval = dossier.approval_result?.status === "recorded" ? dossier.approval_result : null;
   const recorded = approval !== null;
-  const expense = dossier.facts.kind.state === "known" && dossier.facts.kind.value === "expense";
-  const mutable = !capturePending && !captureOpen && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
+  const supportedKind = dossier.facts.kind.state === "known" && ["expense", "income", "refund"].includes(dossier.facts.kind.value);
+  const mutable = !capturePending && !captureOpen && !fiscalBusy && !fiscalDirty && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
   const canPrepare = dossier.capabilities.includes("prepare");
   const canApprove = dossier.capabilities.includes("approve");
   const line = approvalLine(canApprove, canPrepare);
   const title = dossier.facts.counterparty.state === "known" ? dossier.facts.counterparty.value : t("business.dossier.title", "Review record");
   const attachments = dossier.sources.filter((item) => item.kind === "attachment");
   const busy = operation.kind === "saving" || operation.kind === "approving";
-  const approvable = mutable && dossier.approval_available && !dirty;
+  const approvable = mutable && dossier.approval_available && !dirty && !fiscalDirty;
   const confirmations = extractedConfirmationPatch(dossier, edits);
   const confirmationCount = Object.keys(confirmations).length;
 
   const canMove = mutable && !dirty && !editing.length && !advancing && !settling;
   return (<ContentFade><>
     <ReceiptShortcutRegistration actions={{
-      ...(canApprove && expense && approvable ? { approve: () => { void write("approve"); }, ...(receipt ? { approve_next: () => { void approveAndNext(); } } : {}) } : {}),
+      ...(canApprove && supportedKind && approvable ? { approve: () => { void write("approve"); }, ...(receipt ? { approve_next: () => { void approveAndNext(); } } : {}) } : {}),
       ...(canMove && receipt ? receiptNavigationActions(receipt.id, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {}),
       ...(canPrepare && mutable ? { edit: () => {
         const focused = document.activeElement?.closest<HTMLElement>("[data-fact]")?.dataset.fact;
@@ -333,8 +343,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       summary={<><p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{amount === null ? t("business.dossier.amount_unknown", "Amount unknown") : currency === null ? `${amount} · ${t("business.dossier.currency_unknown", "Currency unknown")}` : formatMoney(amount, currency, i18n.resolvedLanguage ?? "en")}</p><span className="text-[12px] text-black/50 dark:text-white/50">{t("business.dossier.revision", "Revision {{version}}", { version: factsRevision(dossier) })}</span></>}
       footer={!approval && canApprove ? <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} disabled={!expense || !approvable} onClick={() => void write("approve")}>{operation.kind === "approving" && !advancing ? t("business.dossier.approving", "Approving…") : (spanishReview ? "Aprobar" : t("business.dossier.approve", "Approve expense"))}</button>
-          {receipt ? <button type="button" className={secondaryButtonClass} disabled={!expense || !approvable} onClick={() => void approveAndNext()}>{operation.kind === "approving" && advancing ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve_next", "Approve and next")}</button> : null}
+          <button type="button" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} disabled={!supportedKind || !approvable} onClick={() => void write("approve")}>{operation.kind === "approving" && !advancing ? t("business.dossier.approving", "Approving…") : dossier.facts.kind.value === "income" ? t("business.dgii.approve_income", "Aprobar ingreso") : dossier.facts.kind.value === "refund" ? t("business.dgii.approve_refund", "Aprobar reembolso") : (spanishReview ? "Aprobar" : t("business.dossier.approve", "Approve expense"))}</button>
+          {receipt ? <button type="button" className={secondaryButtonClass} disabled={!supportedKind || !approvable} onClick={() => void approveAndNext()}>{operation.kind === "approving" && advancing ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve_next", "Approve and next")}</button> : null}
         </div>
         {!approvable ? <p className="text-[12px] text-black/65 dark:text-white/70">{dirty ? t("business.dossier.edit_note", "Saving updates the review details. Approval is a separate action.") : dossier.blockers.length ? t(`business.dossier.blocker.${dossier.blockers[0].code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval.")) : t("business.dossier.blocker_fallback", "This record needs further review before approval.")}</p> : null}
       </div> : undefined}
@@ -358,12 +368,13 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           </div>
           {operation.kind === "uncertain" && operation.action === "save" ? <div className={cardClass}><h3 className="mb-5 text-[14px] font-medium text-black dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
           {canPrepare && mutable && !editing.length && !dirty ? <button type="button" className={secondaryButtonClass} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
-          <ReceiptMarksCard dossier={dossier} busy={busy} onChanged={setDossier} />
+          <ReceiptMarksCard dossier={dossier} busy={busy || fiscalBusy || fiscalDirty} onChanged={setDossier} />
+          {source.mode === "live" ? <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} disabled={busy || dirty || capturePending || captureOpen} onBusy={setFiscalBusy} onDirty={setFiscalDirty} onChanged={(value) => { setDossier(value); reload(); }} /> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
           <ReceiptApprovalGuidance dossier={dossier} />
           {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
           <div className={cardClass}>
-            {approval ? <><div role="status"><p className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: approval.approved_revision })}</p><p className="mt-1 pl-6 text-[13px] text-black/65 dark:text-white/65">{t("business.expenses.recorded_on", "Recorded on {{when}}", { when: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" }).format(new Date(approval.approved_at)) })}</p></div><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: approval.actor.display_name, issuer: approval.actor.issuer_display_name })}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p></> : <>
+            {approval ? <><div role="status"><p className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{(dossier.facts.kind.value === "income" ? t("business.dgii.recorded_income", "Se registró un ingreso después de aprobar la revisión {{version}}.", { version: approval.approved_revision }) : dossier.facts.kind.value === "refund" ? t("business.dgii.recorded_refund", "Se registró un reembolso después de aprobar la revisión {{version}}.", { version: approval.approved_revision }) : t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: approval.approved_revision }))}</p><p className="mt-1 pl-6 text-[13px] text-black/65 dark:text-white/65">{t("business.expenses.recorded_on", "Recorded on {{when}}", { when: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" }).format(new Date(approval.approved_at)) })}</p></div><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: approval.actor.display_name, issuer: approval.actor.issuer_display_name })}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p></> : <>
               {line ? <p className="text-[13px] leading-relaxed text-black/65 dark:text-white/65">{t("business.dossier.prepare_only", "Your permission allows preparing this record. A person with approval permission must approve it.")}</p> : null}
               {dossier.approval_result?.status === "failed" ? <p role="alert" className="mt-3 text-[13px] text-black/70 dark:text-white/70">{t("business.dossier.approval_failed", "Approval did not finish. Check the current record before another action.")}</p> : null}
             </>}

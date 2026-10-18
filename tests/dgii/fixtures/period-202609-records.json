@@ -1,0 +1,884 @@
+{
+  "filer_rnc": "139999001",
+  "business_name": "Taller Ensayo",
+  "start": "2026-09-01",
+  "end": "2026-09-30",
+  "captured_on": "2026-10-18",
+  "records": [
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-03",
+      "gross": "3900.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "138888002",
+          "ncf": "B0100001201",
+          "itbis": "540.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": "300.00",
+          "other_taxes": "60.00",
+          "legal_tip": null,
+          "category": "02",
+          "paid_on": "2026-09-05",
+          "services_amount": "3000.00",
+          "goods_amount": null,
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "02",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-01",
+      "gross": "29500.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "138887006",
+          "ncf": "B0100000455",
+          "itbis": "4500.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "03",
+          "paid_on": "2026-09-01",
+          "services_amount": "25000.00",
+          "goods_amount": null,
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "02",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-04",
+      "gross": "56640.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "138886001",
+          "ncf": "B0100009876",
+          "itbis": "8640.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "09",
+          "paid_on": null,
+          "services_amount": null,
+          "goods_amount": "48000.00",
+          "itbis_withheld": "0.00",
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": "0.00",
+          "income_perceived": null,
+          "payment_method": "04",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-10",
+      "gross": "23600.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "00199999012",
+          "ncf": "B0100000031",
+          "itbis": "3600.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "2",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "02",
+          "paid_on": "2026-09-15",
+          "services_amount": "20000.00",
+          "goods_amount": null,
+          "itbis_withheld": "3600.00",
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": "02",
+          "income_withheld": "2000.00",
+          "income_perceived": null,
+          "payment_method": "02",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-12",
+      "gross": "9280.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "138885003",
+          "ncf": "B0100007001",
+          "itbis": "0.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": "1280.00",
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "11",
+          "paid_on": "2026-09-12",
+          "services_amount": "8000.00",
+          "goods_amount": null,
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "02",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-14",
+      "gross": "4480.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "138884007",
+          "ncf": "B0100022110",
+          "itbis": "630.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": "350.00",
+          "category": "05",
+          "paid_on": "2026-09-14",
+          "services_amount": null,
+          "goods_amount": "3500.00",
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "03",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-15",
+      "gross": "7080.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "138883002",
+          "ncf": "B0100000640",
+          "itbis": "1080.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "01",
+          "paid_on": "2026-09-15",
+          "services_amount": "6000.00",
+          "goods_amount": null,
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "03",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-17",
+      "gross": "13570.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "138882004",
+          "ncf": "B0100003302",
+          "itbis": "2070.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "04",
+          "paid_on": "2026-09-17",
+          "services_amount": "4500.00",
+          "goods_amount": "7000.00",
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "07",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-30",
+      "gross": "850.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "138881008",
+          "ncf": "B0100088001",
+          "itbis": "0.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "07",
+          "paid_on": "2026-09-30",
+          "services_amount": "850.00",
+          "goods_amount": null,
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "02",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-18",
+      "gross": "76700.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "138880001",
+          "ncf": "E310000001234",
+          "itbis": "11700.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "10",
+          "paid_on": "2026-09-18",
+          "services_amount": null,
+          "goods_amount": "65000.00",
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "03",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-19",
+      "gross": "1200.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "139999001",
+          "ncf": "B1300000012",
+          "itbis": "0.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "02",
+          "paid_on": "2026-09-19",
+          "services_amount": null,
+          "goods_amount": "1200.00",
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "01",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-20",
+      "gross": "5000.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "00199999020",
+          "ncf": "B1100000045",
+          "itbis": "0.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "2",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "02",
+          "paid_on": "2026-09-20",
+          "services_amount": "5000.00",
+          "goods_amount": null,
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "01",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-22",
+      "gross": "1500.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "438878008",
+          "ncf": "B1500000501",
+          "itbis": "0.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "06",
+          "paid_on": "2026-09-22",
+          "services_amount": "1500.00",
+          "goods_amount": null,
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "02",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "expense",
+      "occurred_on": "2026-09-24",
+      "gross": "2360.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "138879003",
+          "ncf": "B0100007712",
+          "itbis": "360.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "08",
+          "paid_on": "2026-09-24",
+          "services_amount": null,
+          "goods_amount": "2000.00",
+          "itbis_withheld": null,
+          "itbis_proportionality": null,
+          "itbis_cost": "360.00",
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": null,
+          "income_perceived": null,
+          "payment_method": "01",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "refund",
+      "occurred_on": "2026-09-26",
+      "gross": "5664.00",
+      "refund_of": 2,
+      "input": {
+        "fiscal": {
+          "rnc": "138886001",
+          "ncf": "B0400000310",
+          "itbis": "864.00"
+        },
+        "declaration": {
+          "form": "606",
+          "id_type": "1",
+          "modified_ncf": "B0100009876",
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "category": "09",
+          "paid_on": null,
+          "services_amount": null,
+          "goods_amount": "4800.00",
+          "itbis_withheld": "0.00",
+          "itbis_proportionality": null,
+          "itbis_cost": null,
+          "itbis_perceived": null,
+          "income_withholding_type": null,
+          "income_withheld": "0.00",
+          "income_perceived": null,
+          "payment_method": "06",
+          "actual_refund": true,
+          "purchase_activity_id": null
+        }
+      }
+    },
+    {
+      "kind": "income",
+      "occurred_on": "2026-09-02",
+      "gross": "59000.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "137777003",
+          "ncf": "B0100000001",
+          "itbis": "9000.00"
+        },
+        "declaration": {
+          "form": "607",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "income_type": "1",
+          "withheld_on": null,
+          "billed_amount": "50000.00",
+          "itbis_withheld_by_third_parties": null,
+          "itbis_perceived": null,
+          "income_withheld_by_third_parties": null,
+          "income_perceived": null,
+          "cash": null,
+          "bank": "59000.00",
+          "card": null,
+          "credit": null,
+          "gift": null,
+          "barter": null,
+          "other_payment": null
+        }
+      }
+    },
+    {
+      "kind": "income",
+      "occurred_on": "2026-09-05",
+      "gross": "141600.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "137776007",
+          "ncf": "B0100000002",
+          "itbis": "21600.00"
+        },
+        "declaration": {
+          "form": "607",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "income_type": "1",
+          "withheld_on": "2026-09-30",
+          "billed_amount": "120000.00",
+          "itbis_withheld_by_third_parties": "6480.00",
+          "itbis_perceived": null,
+          "income_withheld_by_third_parties": null,
+          "income_perceived": null,
+          "cash": null,
+          "bank": "141600.00",
+          "card": null,
+          "credit": null,
+          "gift": null,
+          "barter": null,
+          "other_payment": null
+        }
+      }
+    },
+    {
+      "kind": "income",
+      "occurred_on": "2026-09-08",
+      "gross": "21240.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "137775002",
+          "ncf": "B0100000003",
+          "itbis": "3240.00"
+        },
+        "declaration": {
+          "form": "607",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "income_type": "1",
+          "withheld_on": null,
+          "billed_amount": "18000.00",
+          "itbis_withheld_by_third_parties": null,
+          "itbis_perceived": null,
+          "income_withheld_by_third_parties": null,
+          "income_perceived": null,
+          "cash": null,
+          "bank": null,
+          "card": "21240.00",
+          "credit": null,
+          "gift": null,
+          "barter": null,
+          "other_payment": null
+        }
+      }
+    },
+    {
+      "kind": "income",
+      "occurred_on": "2026-09-11",
+      "gross": "88500.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "137774004",
+          "ncf": "B0100000004",
+          "itbis": "13500.00"
+        },
+        "declaration": {
+          "form": "607",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "income_type": "1",
+          "withheld_on": null,
+          "billed_amount": "75000.00",
+          "itbis_withheld_by_third_parties": null,
+          "itbis_perceived": null,
+          "income_withheld_by_third_parties": null,
+          "income_perceived": null,
+          "cash": null,
+          "bank": null,
+          "card": null,
+          "credit": "88500.00",
+          "gift": null,
+          "barter": null,
+          "other_payment": null
+        }
+      }
+    },
+    {
+      "kind": "income",
+      "occurred_on": "2026-09-14",
+      "gross": "236000.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "438878008",
+          "ncf": "B1500000001",
+          "itbis": "36000.00"
+        },
+        "declaration": {
+          "form": "607",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "income_type": "1",
+          "withheld_on": "2026-09-29",
+          "billed_amount": "200000.00",
+          "itbis_withheld_by_third_parties": null,
+          "itbis_perceived": null,
+          "income_withheld_by_third_parties": "10000.00",
+          "income_perceived": null,
+          "cash": null,
+          "bank": null,
+          "card": null,
+          "credit": "236000.00",
+          "gift": null,
+          "barter": null,
+          "other_payment": null
+        }
+      }
+    },
+    {
+      "kind": "income",
+      "occurred_on": "2026-09-16",
+      "gross": "60000.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "137773008",
+          "ncf": "B1400000001",
+          "itbis": "0.00"
+        },
+        "declaration": {
+          "form": "607",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "income_type": "1",
+          "withheld_on": null,
+          "billed_amount": "60000.00",
+          "itbis_withheld_by_third_parties": null,
+          "itbis_perceived": null,
+          "income_withheld_by_third_parties": null,
+          "income_perceived": null,
+          "cash": null,
+          "bank": "60000.00",
+          "card": null,
+          "credit": null,
+          "gift": null,
+          "barter": null,
+          "other_payment": null
+        }
+      }
+    },
+    {
+      "kind": "income",
+      "occurred_on": "2026-09-18",
+      "gross": "354000.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "00199999038",
+          "ncf": "B0200000001",
+          "itbis": "54000.00"
+        },
+        "declaration": {
+          "form": "607",
+          "id_type": "2",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "income_type": "1",
+          "withheld_on": null,
+          "billed_amount": "300000.00",
+          "itbis_withheld_by_third_parties": null,
+          "itbis_perceived": null,
+          "income_withheld_by_third_parties": null,
+          "income_perceived": null,
+          "cash": null,
+          "bank": "354000.00",
+          "card": null,
+          "credit": null,
+          "gift": null,
+          "barter": null,
+          "other_payment": null
+        }
+      }
+    },
+    {
+      "kind": "income",
+      "occurred_on": "2026-09-20",
+      "gross": "17700.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "137772001",
+          "ncf": "B0100000005",
+          "itbis": "2700.00"
+        },
+        "declaration": {
+          "form": "607",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "income_type": "4",
+          "withheld_on": null,
+          "billed_amount": "15000.00",
+          "itbis_withheld_by_third_parties": null,
+          "itbis_perceived": null,
+          "income_withheld_by_third_parties": null,
+          "income_perceived": null,
+          "cash": null,
+          "bank": "17700.00",
+          "card": null,
+          "credit": null,
+          "gift": null,
+          "barter": null,
+          "other_payment": null
+        }
+      }
+    },
+    {
+      "kind": "income",
+      "occurred_on": "2026-09-25",
+      "gross": "9440.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "137771005",
+          "ncf": "B0100000006",
+          "itbis": "1440.00"
+        },
+        "declaration": {
+          "form": "607",
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "income_type": "5",
+          "withheld_on": null,
+          "billed_amount": "8000.00",
+          "itbis_withheld_by_third_parties": null,
+          "itbis_perceived": null,
+          "income_withheld_by_third_parties": null,
+          "income_perceived": null,
+          "cash": "9440.00",
+          "bank": null,
+          "card": null,
+          "credit": null,
+          "gift": null,
+          "barter": null,
+          "other_payment": null
+        }
+      }
+    },
+    {
+      "kind": "income",
+      "occurred_on": "2026-09-28",
+      "gross": "5900.00",
+      "refund_of": null,
+      "input": {
+        "fiscal": {
+          "rnc": "137777003",
+          "ncf": "B0400000001",
+          "itbis": "900.00"
+        },
+        "declaration": {
+          "form": "607",
+          "id_type": "1",
+          "modified_ncf": "B0100000001",
+          "selective_tax": null,
+          "other_taxes": null,
+          "legal_tip": null,
+          "income_type": "1",
+          "withheld_on": null,
+          "billed_amount": "5000.00",
+          "itbis_withheld_by_third_parties": null,
+          "itbis_perceived": null,
+          "income_withheld_by_third_parties": null,
+          "income_perceived": null,
+          "cash": null,
+          "bank": null,
+          "card": null,
+          "credit": null,
+          "gift": null,
+          "barter": null,
+          "other_payment": null
+        }
+      }
+    }
+  ]
+}

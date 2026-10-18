@@ -46,10 +46,10 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
   return (
     <div ref={controls} className="space-y-3" data-testid={`edit-${field}`}>
       {field === "kind" ? <label className="block text-[13px] text-black/65 dark:text-white/65">{label("kind")}<select className={inputClass} value={kind.value ?? ""} disabled={disabled} onChange={(event) => {
-        if (event.target.value === "expense") set("kind", { state: "known", value: "expense" });
+        if (event.target.value === "expense" || event.target.value === "income" || event.target.value === "refund") set("kind", { state: "known", value: event.target.value });
         else if (!event.target.value) set("kind", { state: "unknown", value: null });
         else if (facts.kind.state === "known" && event.target.value === facts.kind.value) set("kind", { state: "known", value: facts.kind.value });
-      }}><option value="">{choose}</option><option value="expense">{t("business.dossier.kind.expense", "Expense")}</option>{facts.kind.state === "known" && facts.kind.value !== "expense" ? <option value={facts.kind.value}>{t(`business.dossier.kind.${facts.kind.value}`, facts.kind.value)}</option> : null}</select></label> : null}
+      }}><option value="">{choose}</option>{(["expense", "income", "refund"] as const).map((kind) => <option key={kind} value={kind}>{t(`business.dossier.kind.${kind}`, kind)}</option>)}{facts.kind.state === "known" && !["expense", "income", "refund"].includes(facts.kind.value) ? <option value={facts.kind.value}>{t(`business.dossier.kind.${facts.kind.value}`, facts.kind.value)}</option> : null}</select></label> : null}
       {field === "counterparty" ? <label className="block text-[13px] text-black/65 dark:text-white/65">{label("counterparty")}<input className={inputClass} value={scalar("counterparty")} disabled={disabled} onChange={(event) => setScalar("counterparty", event.target.value)} autoComplete="off" /></label> : null}
       {field === "occurred_on" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("occurred_on")}</span><input type="text" inputMode="numeric" placeholder="dd/mm/aaaa" className={inputClass} value={dateText} disabled={disabled} onChange={(event) => {
         const value = event.target.value;
