@@ -3252,6 +3252,29 @@
         "marketing/components/business-footer.tsx",
         "marketing/components/personal-early-access.tsx"
       ]
+    },
+    "codex/email-layout-templates": {
+      "description": "Shared email layout, environment image origin, disabled template slots and generated Business close template only. No send activation.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "marketing/lib/email/**",
+        "marketing/.env.example",
+        "web/.env.local.example",
+        "web/server/emails/account-layout.generated.ts",
+        "web/__tests__/email-template-slots.test.ts",
+        "web/__tests__/business-closed-email-template.test.ts",
+        "scripts/emails/sync-business-closed.ts",
+        "scripts/ops/staging_env_manifest.json",
+        "src/argus/domain/business/business_closed_email.generated.json",
+        "docs/reports/evidence/email-layout-templates/README.md"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "src/argus/domain/resend_email.py",
+        "supabase/**"
+      ]
     }
   }
 }
