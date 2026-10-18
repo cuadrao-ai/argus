@@ -95,3 +95,69 @@ Revert the code and its tests together before rollout if rejected. No migration 
 hosted change needs rollback. If future batches have already been stored, preserve
 the new receipt fields and issue contract during rollback so old code does not
 reject retained evidence or recover unsupported raw purchase rows.
+
+## October 18 offline pickup
+
+The published source `fee6cfc58c88e484da442e6af994dd4903355dbf` was clean.
+Fresh integration is `651870a54be4e5506dbb38f3902fef1a97eef8df`. The one-way
+reconciliation merge is `0dccc587b1ebe1ffb76a5f9e3a2c5f57c09f4309`. There was
+no rebase. The original integration base remains
+`f3899f4aa0d84060e0afaf270f7a983a9f8aa89c`.
+
+Integration added iOS scan and accessibility work and account deletion changes.
+It did not change the extraction, Business preparation or directly affected test
+owners. The API and data document merges concern unrelated sections. Earlier
+deterministic evidence is retained. No live receipt acceptance is claimed.
+
+The free regression command above passed again on the reconciled code with
+1,440 passes and 23 optional skips. The unchanged required mocked command and
+the prompt freeze produced 281 passes and one expected failure. Of the passes,
+276 are mocked eval checks and five are fingerprint checks. The failing
+fingerprint identifies exactly `documents/extractor.py` and
+`documents/models.py`. It remains a required hold. Whitespace and modularity
+checks passed on the reconciled tree. No runtime code changed during pickup.
+
+Backend topology is canonical-linked and frontend topology is missing. The
+coordinator authorized synthetic backend processes with provider keys blank,
+without changing environment files. No frontend service ran. No disposable
+Postgres test ran during pickup, so there is no new actual Postgres proof.
+
+## Pending three-call measurement
+
+The [pending manifest](pending-measurement-manifest.json) names three synthetic
+fixtures, their exact paths, hashes and assertions. The two baseline cases are
+`receipt-dop` and `unreadable`, exactly as recorded in the existing
+[document scorecard](../cuadrao-receipt-extraction-20261011/live-measurement.json).
+Every baseline check must remain true. The new order confirmation has a Payment
+heading, no proof of completed payment, and printed estimated tax. Its expected
+result has unknown payment, no purchase or paid date, null final tax, and the
+separate printed estimate. Its source text and rendered image are committed.
+No private document is part of this manifest.
+
+The proposed model is the same `google/gemini-3.8-flash`. The proposed allocation
+is three serial requests, zero retries, 12,000 maximum output tokens per request,
+and the canonical 90-second timeout. No paid judge is proposed because the
+assertions concern exact typed facts. These requests are not authorized or run.
+
+Execution is BLOCKED before a spending request. The existing
+`scripts/documents/budget.py` rejects all endpoints in the public pricing
+metadata fetched on October 18 with `no_bounded_endpoint`. Current metadata
+contains nonzero image, audio, audio-cache and internal-reasoning price entries
+outside the guard's accepted categories. The guard was not changed. The existing
+benchmark runner also requires exactly six fixtures and reserves the model's
+whole context window. It has no validated input-token limit for these three
+actual fixtures. A small file or an earlier usage count is not such a limit.
+
+The manifest therefore records no approved dollar cap or input-token bound.
+Before any paid approval, a separately scoped runner plan must establish the
+actual fixture input bound, accepted price semantics, strict provider and
+privacy settings, duplicate-safe reservations, and the three-call limit without
+weakening the existing guard. No alternative provider path was attempted.
+
+After authorized measurement, commit its scorecard, compare every baseline
+case, update only the document scope's fingerprint, and rerun the freeze check.
+Keep other scopes and legacy evidence unchanged. Fresh Priya exact-head Eval
+must include Business `prepare_attachment` before any receipt-fix squash.
+The PR stays draft. Any Apple-source acceptance still needs approval to read
+that source, a safe bounded runner, model proof and the authorized hosted
+customer path after landing. These offline checks prove none of those steps.
