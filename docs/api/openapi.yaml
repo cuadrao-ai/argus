@@ -17322,6 +17322,9 @@ components:
       - state
     GuestAccountSignupRequest:
       properties:
+        age_confirmed_at:
+          type: string
+          format: date-time
         email:
           type: string
           maxLength: 320
@@ -17351,6 +17354,7 @@ components:
       additionalProperties: false
       type: object
       required:
+      - age_confirmed_at
       - email
       - password
       - captcha_token
@@ -17384,6 +17388,11 @@ components:
       - feedback_limit
     GuestBootstrapRequest:
       properties:
+        age_confirmed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
         captcha_token:
           type: string
           maxLength: 4096
@@ -24611,6 +24620,9 @@ components:
       - replayed
     SignupRequest:
       properties:
+        age_confirmed_at:
+          type: string
+          format: date-time
         email:
           type: string
         password:
@@ -24635,6 +24647,7 @@ components:
           - type: 'null'
       type: object
       required:
+      - age_confirmed_at
       - email
       - password
       - captcha_token

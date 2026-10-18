@@ -1,0 +1,94 @@
+# Age confirmation delivery record
+
+This branch adds the approved 18+ checkbox before web guest entry or password
+signup. It stores one client attestation instant, never a birthday or raw Apple
+age range. The shared API field is `age_confirmed_at`. The iOS writer agreed to
+that field before implementation.
+
+The PR is held. Iris approved the exact English and Spanish privacy disclosure
+for the age-confirmation storage concept. Independent exact-head review,
+three passing receipt-gate runs, and root merge authority remain required.
+There is no hosted, production, TestFlight, real signup or provider proof here.
+
+## Technical contract
+
+- The checkbox says `Confirmo que tengo 18 años o más.` on both web locales.
+- New `POST /api/v1/auth/guest`, `POST /api/v1/auth/signup`, and
+  `POST /api/v1/auth/guest/signup` require a timestamp with an explicit timezone.
+  Existing verified guest reuse remains compatible without another attestation.
+- The API rejects non-string, naive, malformed and more-than-five-minutes-future
+  values. It normalizes valid offsets to UTC. The browser retains the first
+  instant through conversion and retry. No second boolean can disagree with it.
+- Existing admission, CAPTCHA, email confirmation and guest handoff behavior
+  remain. The browser gate includes campaign-triggered anonymous bootstrap.
+- Supabase Auth metadata carries the unverified timestamp for interrupted first
+  profile creation. Profile creation validates it again. An existing profile is
+  never backfilled from editable metadata. Signup initializes a legacy null value
+  only from the validated request, with a conditional first write. Authorization
+  never reads this field.
+- The first stored profile value is immutable. Backend initialization is allowed;
+  direct authenticated initialization and future or infinite values are refused.
+
+## New column checklist
+
+| Question | Answer |
+| --- | --- |
+| Need | Retain the explicit 18+ attestation through account creation and recovery. |
+| Grain and history | One nullable instant per profile. Existing profiles stay null until an explicit request attests. No new history table. |
+| Constraints | `timestamptz`, backend-only initialization, first value immutable, finite, bounded future skew. |
+| Retention | Profile deletion follows existing Auth cascade. Browser confirmation remains until local storage is cleared; page memory supports blocked storage. |
+| Raw input | No birthday, numeric age or Apple range. Only the checkbox instant. |
+| Idempotency | Duplicate profile creation rereads the existing row. Existing metadata does not replace the first value. |
+| Query cost | Existing profile primary-key access. No new index or background task. |
+
+## Evidence
+
+- Backend route, gateway, guest conversion, OpenAPI and fingerprint regression
+  selection passed 199 tests. No prompt or field-description fingerprint changed.
+- The full web unit suite passed all 2699 tests after the approved privacy copy.
+- Focused web auth and guest selection passed 145 tests.
+- Chromium fixture browser probes passed three tests. They prove zero guest POSTs
+  before confirmation, campaign bootstrap after confirmation, retained browser
+  timestamp after reload, required signup confirmation, exact submitted timestamp
+  the sessionless check-email state and the approved privacy disclosure. All API calls were intercepted. These
+  probes do not prove real Supabase signup or hosted readiness.
+- Inspected screenshots live in [age-confirmation evidence](evidence/age-confirmation/).
+- The isolated Next production build passed. It used process-only fixture
+  settings and a separate build directory. No environment file changed.
+- Local real Postgres tests passed four cases for immutability, direct-client
+  refusal, future/infinite refusal and deletion. Migration
+  `20261018090000_profile_age_confirmation.sql` applied only to the owned
+  `age_confirmation_testdb`.
+- That local database was cloned from `business_close_testdb`. It contains the
+  shared 145-migration baseline plus that lane's unmerged Business migrations.
+  It proves the focused constraints, not a pristine age-branch schema reset.
+  Exact-head CI must independently reset the complete candidate migration set.
+
+## Reconciliation and review
+
+Original integration base and latest fetched integration are both
+`651870a54be4e5506dbb38f3902fef1a97eef8df`. No integration merge was needed at this
+checkpoint. Modularity budgets pass on this same would-be merged tree. The
+existing signup method moved to `supabase_signup.py` to keep the gateway within
+its budget without raising the limit.
+
+Frozen auth diagnostic PR #1176 remains untouched at
+`4a4a3346c01375a7fb822326ef00520559d65ec0`. This branch retains existing handoff
+cookie diagnostics and generic auth failure handling. Root must inspect the
+combined tree before any promotion with that PR.
+
+Independent Eval and terminal CI are pending. This is a technical WIP checkpoint,
+not READY. The owner is `age_web_api`, using the assigned GPT-6.1-sol high model.
+No nested helper was started. Model and provider calls were not used.
+
+## Detection and cleanup
+
+The main risk is old clients missing a now-required signup field. API `422`
+validation and the `age_confirmation_required` guest code expose that failure.
+Existing sessions and login remain available. Rollback reverts the code while
+leaving the nullable column in place, then removes the forward migration only
+before any shared application. No staging migration was applied.
+
+The local browser server and owned disposable database are retained while the
+review checkpoint is open. The root coordinator owns final cleanup.
+No other simulator, database, checkout, environment or service was changed.

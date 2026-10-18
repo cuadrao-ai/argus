@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -98,7 +98,7 @@ def test_guest_flag_off_creates_no_anonymous_auth_user(
     ):
         response = client.post(
             "/api/v1/auth/guest",
-            json={"captcha_token": "captcha-proof", "language": "en"},
+            json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "captcha-proof", "language": "en"},
         )
 
     assert response.status_code == 403
@@ -160,6 +160,7 @@ def test_claimed_guest_workspace_is_recoverable_only_on_signup_retry(
         signup_retry = client.post(
             "/api/v1/auth/guest/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "retry@example.com",
                 "password": "strong-password",
                 "captcha_token": "captcha-proof",
@@ -185,7 +186,7 @@ def test_guest_bootstrap_creates_real_anonymous_identity_profile_and_workspace(
     ):
         response = client.post(
             "/api/v1/auth/guest",
-            json={"captcha_token": "captcha-proof", "language": "en"},
+            json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "captcha-proof", "language": "en"},
             headers={"origin": "http://localhost:3000"},
         )
 
@@ -195,6 +196,7 @@ def test_guest_bootstrap_creates_real_anonymous_identity_profile_and_workspace(
     assert response.cookies.get("sb-auth-token") == "guest-access-token"
     assert response.cookies.get("sb-refresh-token") == "guest-refresh-token"
     gateway.sign_in_anonymously.assert_called_once_with(
+        age_confirmed_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         captcha_token="captcha-proof",
         language="en",
     )
@@ -219,7 +221,7 @@ def test_guest_bootstrap_rolls_back_new_auth_user_on_workspace_failure(
     ):
         response = client.post(
             "/api/v1/auth/guest",
-            json={"captcha_token": "captcha-proof", "language": "en"},
+            json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "captcha-proof", "language": "en"},
             headers={"origin": "http://localhost:3000"},
         )
 
@@ -244,7 +246,7 @@ def test_valid_guest_cookie_reuses_identity_across_reload(
         client.cookies.set("sb-auth-token", "existing-guest-token")
         response = client.post(
             "/api/v1/auth/guest",
-            json={"captcha_token": "captcha-proof", "language": "en"},
+            json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "captcha-proof", "language": "en"},
         )
 
     assert response.status_code == 200
@@ -300,7 +302,7 @@ def test_expired_verified_guest_session_mints_a_fresh_anonymous_identity(
     ):
         response = client.post(
             "/api/v1/auth/guest",
-            json={"captcha_token": "captcha-proof", "language": "en"},
+            json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "captcha-proof", "language": "en"},
         )
 
     assert response.status_code == 200
@@ -330,7 +332,7 @@ def test_guest_bootstrap_preserves_unrelated_forbidden_session_failure(
     ):
         response = client.post(
             "/api/v1/auth/guest",
-            json={"captcha_token": "captcha-proof", "language": "en"},
+            json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "captcha-proof", "language": "en"},
         )
 
     assert response.status_code == 403
@@ -358,7 +360,7 @@ def test_guest_bootstrap_never_replaces_a_registered_session(
     ):
         response = client.post(
             "/api/v1/auth/guest",
-            json={"captcha_token": "captcha-proof", "language": "en"},
+            json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "captcha-proof", "language": "en"},
         )
 
     assert response.status_code == 409
@@ -423,7 +425,7 @@ def test_guest_ip_limit_runs_before_anonymous_auth_creation(
             responses.append(
                 client.post(
                     "/api/v1/auth/guest",
-                    json={"captcha_token": "captcha-proof", "language": "en"},
+                    json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "captcha-proof", "language": "en"},
                     headers={"CF-Connecting-IP": "203.0.113.41"},
                 )
             )
@@ -444,7 +446,7 @@ def test_guest_captcha_token_is_bounded_before_provider_call(
     ):
         response = client.post(
             "/api/v1/auth/guest",
-            json={"captcha_token": "x" * 4097, "language": "en"},
+            json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "x" * 4097, "language": "en"},
         )
 
     assert response.status_code == 422
@@ -465,6 +467,7 @@ def test_public_account_mode_allows_unlisted_signup_without_role_elevation(
         response = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "ordinary@example.com",
                 "password": "password-strong",
                 "captcha_token": "captcha-proof",
@@ -490,6 +493,7 @@ def test_public_account_mode_still_blocks_explicitly_disabled_identity(
         response = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "disabled@example.com",
                 "password": "password-strong",
                 "captcha_token": "captcha-proof",

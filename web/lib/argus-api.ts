@@ -1,3 +1,4 @@
+import { requireAgeConfirmation } from "./age-confirmation";
 import { browserAuthGeneration, browserLogoutGeneration, invalidateBrowserAuth, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { synchronizeBusinessAccount } from "./business-grant";
 import { rememberReceiptFollowupClaim } from './receipt-followup-storage';
@@ -666,11 +667,12 @@ export async function signupWithEmail(payload: {
   display_name?: string | null;
   username?: string | null;
 }) {
+  const age_confirmed_at = requireAgeConfirmation();
   const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
   const response = await unauthenticatedApiFetch<AuthResponsePayload>("/auth/signup", {
     method: "POST",
-    body: JSON.stringify({ ...payload, captcha_token: captchaToken, ...attributionBody() }),
+    body: JSON.stringify({ ...payload, age_confirmed_at, captcha_token: captchaToken, ...attributionBody() }),
   });
   requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);

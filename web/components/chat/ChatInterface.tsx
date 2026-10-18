@@ -2408,6 +2408,7 @@ export default function ChatInterface() {
             {showEmptyChatSurface ? (
               <EmptyChatSurface
                 isGuest={isGuest}
+                requiresAgeConfirmation={guestBootstrapRequired}
                 expiresAt={account?.guest?.expires_at}
                 guestSubmissionPending={guestSubmissionPending || Boolean(readReceiptFollowup())}
                 guestSubmissionError={guestEntry.guestSubmissionError}

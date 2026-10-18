@@ -251,8 +251,16 @@ Represents the application-facing user profile. Supabase Auth owns identity and 
 - `is_admin`: `boolean` (Default: `false`)
 - `onboarding`: `jsonb` (legacy/inert; the applied migration defaults new rows
   to the historical shape below)
+- `age_confirmed_at`: nullable `timestamptz`, first explicit 18+ attestation instant; no backfill for existing profiles
 - `created_at`: `timestamptz`
 - `updated_at`: `timestamptz`
+
+The new age field stores one unverified attestation per profile. Signup metadata
+allows first-profile recovery, but never grants access or verifies age. The first
+stored value is immutable; only the backend may initialize it. Existing RLS and
+account-deletion retention apply, including cascade deletion of the profile.
+There is no birth date, raw age range, history table or extra index. Replayed
+initial writes preserve the first instant. Future and non-finite values fail.
 
 ### Legacy Onboarding Shape (inert compatibility state)
 

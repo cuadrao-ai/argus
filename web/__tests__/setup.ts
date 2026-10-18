@@ -50,4 +50,5 @@ afterEach(() => {
   };
   reset("../components/layout/overlayStack", "resetOverlayStack");
   reset("../lib/overlay-history", "resetOverlayEntries");
+  reset("../lib/age-confirmation", "resetAgeConfirmationForTests");
 });

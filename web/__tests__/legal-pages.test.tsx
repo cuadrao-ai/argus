@@ -39,6 +39,7 @@ const REPO_ROOT = join(import.meta.dir, "..", "..");
 // The phrase each concept must actually say to the reader, per locale. A
 // concept mapped to a label proves nothing unless the label is in the copy.
 const STORAGE_CONCEPT_PHRASES: Record<StorageConcept, Record<Locale, string>> = {
+  age_confirmation: { en: "when you confirmed you are 18 or older", "es-419": "cuándo confirmaste que tienes 18 años o más" },
   language: { en: "language", "es-419": "idioma" },
   appearance: { en: "appearance", "es-419": "apariencia" },
   layout: { en: "layout", "es-419": "diseño" },

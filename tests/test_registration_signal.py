@@ -67,6 +67,7 @@ def test_signup_emits_product_event_for_public_registration(
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "beta@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",

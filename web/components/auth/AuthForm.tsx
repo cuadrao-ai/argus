@@ -1,6 +1,9 @@
 "use client";
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import AgeConfirmation from "./AgeConfirmation";
+import { requireAgeConfirmation } from "@/lib/age-confirmation";
+import { useAgeConfirmation } from "@/lib/use-age-confirmation";
 import { Eye, EyeClosed } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
@@ -45,6 +48,10 @@ const GENERIC_AUTH_ERROR: AuthErrorTranslation = {
 const AUTH_ERROR_MESSAGE_BY_CODE: Readonly<
   Record<string, AuthErrorTranslation>
 > = {
+  age_confirmation_required: {
+    key: "auth.age_confirmation",
+    fallback: "Confirmo que tengo 18 años o más.",
+  },
   captcha_unavailable: {
     key: "auth.errors.captcha_unavailable",
     fallback:
@@ -184,6 +191,7 @@ export default function AuthForm({
   const confirmationHeadingRef = useRef<HTMLHeadingElement>(null);
   const isSignup = mode === "signup";
   const acceptance = acceptanceLinks();
+  const ageConfirmedAt = useAgeConfirmation();
 
   useEffect(() => {
     setNeedsEmailConfirmation(false);
@@ -200,6 +208,7 @@ export default function AuthForm({
     setAuthError(null);
     setIsSubmitting(true);
     try {
+      if (isSignup) requireAgeConfirmation();
       const result = await onSubmit({
         mode,
         displayName: displayName.trim(),
@@ -328,6 +337,8 @@ export default function AuthForm({
               </a>
             )}
 
+            {isSignup && <AgeConfirmation />}
+
             {authError && (
               <p role="alert" className={blockingErrorBannerClass}>
                 {authError}
@@ -336,7 +347,7 @@ export default function AuthForm({
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (isSignup && !ageConfirmedAt)}
               className="font-display flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black disabled:opacity-50 dark:bg-white dark:text-black dark:focus-visible:ring-white"
             >
               {isSubmitting ? (

@@ -1,3 +1,4 @@
+import { requireAgeConfirmation } from "./age-confirmation";
 import {
   normalizeApiLanguage,
   persistBrowserSession,
@@ -61,6 +62,7 @@ const browserGuestBootstrapper = createGuestSessionBootstrapper<
   GuestSessionInput,
   GuestBootstrapResponse
 >(async ({ language, captchaToken: browserCaptchaToken }) => {
+  requireAgeConfirmation();
   const signal = guestBootstrapAbort?.signal;
   const captchaToken = await acquireGuestCaptchaToken(
     browserCaptchaToken,
@@ -112,6 +114,7 @@ export async function bootstrapGuest(payload: {
   signal?: AbortSignal;
 }) {
   const { signal, captcha_token, language } = payload;
+  const age_confirmed_at = requireAgeConfirmation();
   if (signal?.aborted || !persistGuestBootstrap) {
     throw guestBootstrapAbortError();
   }
@@ -119,7 +122,7 @@ export async function bootstrapGuest(payload: {
     "/auth/guest",
     {
       method: "POST",
-      body: JSON.stringify({ captcha_token, language, ...attributionBody() }),
+      body: JSON.stringify({ captcha_token, language, age_confirmed_at, ...attributionBody() }),
       signal,
     },
   );

@@ -237,12 +237,22 @@ def guest_bootstrap(
             )
         )
 
+    if body.age_confirmed_at is None:
+        raise problem(
+            request,
+            status_code=422,
+            code="age_confirmation_required",
+            title="Age Confirmation Required",
+            detail="Confirmo que tengo 18 años o más.",
+        )
+
     _enforce_guest_attempt_limit(request)
     auth_user_id: str | None = None
     try:
         result = api_state.supabase_gateway.sign_in_anonymously(
             captcha_token=body.captcha_token,
             language=body.language,
+            age_confirmed_at=body.age_confirmed_at,
         )
         auth_user = result.get("user")
         if not isinstance(auth_user, dict) or auth_user.get("is_anonymous") is not True:
@@ -670,6 +680,7 @@ def signup_guest_account(
                     display_name=body.display_name,
                     username=body.username,
                     language=body.language,
+                    age_confirmed_at=body.age_confirmed_at,
                     guest_signup_handoff={
                         "handoff_id": handoff_id,
                         "proof": str(handoff["proof"]),
@@ -694,6 +705,9 @@ def signup_guest_account(
 
             profile = api_state.supabase_gateway.get_or_create_profile_for_auth_user(
                 auth_user
+            )
+            api_state.supabase_gateway.record_age_confirmation(
+                profile.id, body.age_confirmed_at
             )
             result["user"] = profile.model_dump(mode="json")
             _emit_account_registration_completed_event(
@@ -775,6 +789,7 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
                 display_name=body.display_name,
                 username=body.username,
                 language=body.language,
+                age_confirmed_at=body.age_confirmed_at,
             )
             auth_user = result.get("user")
             if not isinstance(auth_user, dict):
@@ -785,6 +800,9 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
             if identities != []:
                 profile = api_state.supabase_gateway.get_or_create_profile_for_auth_user(
                     auth_user
+                )
+                api_state.supabase_gateway.record_age_confirmation(
+                    profile.id, body.age_confirmed_at
                 )
                 _emit_account_registration_completed_event(
                     profile,

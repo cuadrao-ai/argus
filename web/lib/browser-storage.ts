@@ -14,6 +14,7 @@
 
 /** The concepts the "Preferences you set" disclosure names to the reader. */
 export type StorageConcept =
+  | "age_confirmation"
   | "language"
   | "appearance"
   | "layout"
@@ -31,6 +32,7 @@ export const THEME_STORAGE_KEY = "argus-theme";
 export const LANGUAGE_STORAGE_KEY = "i18nextLng";
 
 export const STORAGE_REGISTRY = {
+  "cuadrao-age-confirmed-at": "age_confirmation",
   [LANGUAGE_STORAGE_KEY]: "language",
   [THEME_STORAGE_KEY]: "appearance",
   "argus:sidebar_mode": "layout",

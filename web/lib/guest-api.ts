@@ -1,3 +1,4 @@
+import { requireAgeConfirmation } from "./age-confirmation";
 import {
   apiFetch,
   persistBrowserSession,
@@ -46,6 +47,7 @@ export async function registerGuestAccount(payload: {
   source_conversation_id: string;
   pending_action?: GuestPendingActionSummary | null;
 }) {
+  const age_confirmed_at = requireAgeConfirmation();
   await createGuestHandoff({
     handoff_kind: "new_account_signup",
     destination_email: payload.email,
@@ -56,6 +58,7 @@ export async function registerGuestAccount(payload: {
   const response = await apiFetch<AuthResponsePayload>("/auth/guest/signup", {
     method: "POST",
     body: JSON.stringify({
+      age_confirmed_at,
       email: payload.email,
       password: payload.password,
       captcha_token: captchaToken,

@@ -1,5 +1,7 @@
 "use client";
 
+import AgeConfirmation from "@/components/auth/AgeConfirmation";
+import { useAgeConfirmation } from "@/lib/use-age-confirmation";
 import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -23,6 +25,7 @@ import { useLandingStarterPrefill } from "./useLandingStarterPrefill";
 
 type EmptyChatSurfaceProps = {
   isGuest: boolean;
+  requiresAgeConfirmation?: boolean;
   expiresAt?: string | null;
   guestSubmissionPending: boolean;
   guestSubmissionError: GuestEntryErrorKind | null;
@@ -49,6 +52,7 @@ type EmptyChatSurfaceProps = {
 
 export default function EmptyChatSurface({
   isGuest,
+  requiresAgeConfirmation = false,
   expiresAt,
   guestSubmissionPending,
   guestSubmissionError,
@@ -64,6 +68,7 @@ export default function EmptyChatSurface({
   workspace,
 }: EmptyChatSurfaceProps) {
   const { t } = useTranslation();
+  const ageConfirmedAt = useAgeConfirmation();
   const { isBelowTablet } = useResponsiveLayout();
   const landingDraftText = useLandingStarterPrefill(canConsumeLandingStarter && !workspace);
   const draftText = workspace ? workspace.composer.draftText : landingDraftText;
@@ -71,7 +76,8 @@ export default function EmptyChatSurface({
     isStreamingResponse ||
     isHydratingConversation ||
     guestSubmissionPending ||
-    guestSubmissionError === CAPTCHA_UNAVAILABLE_CODE;
+    guestSubmissionError === CAPTCHA_UNAVAILABLE_CODE ||
+    (requiresAgeConfirmation && !ageConfirmedAt);
 
   const showGreeting = researchRailEnabled;
   const showRegisteredDisclaimer = researchRailEnabled && !isGuest;
@@ -103,6 +109,7 @@ export default function EmptyChatSurface({
             : "order-3 w-full max-w-2xl tablet:order-2"
         }
       >
+        {requiresAgeConfirmation && <AgeConfirmation />}
         {composerNotice}
         <ChatInput
           key={workspace?.composer.draftKey ?? `new-conversation-${landingStarterSurfaceEpoch()}`}

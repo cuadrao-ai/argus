@@ -1,3 +1,4 @@
+import { confirmAge } from "@/lib/age-confirmation";
 import { afterEach, expect, mock, test } from "bun:test";
 import { invalidateBrowserAuth } from "@/lib/browser-auth-generation";
 let persistCalls = 0;
@@ -6,6 +7,7 @@ mock.module("@/lib/guest-captcha", () => ({ acquirePasswordAuthCaptchaToken: asy
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
 test("logout invalidates delayed login and signup responses before they can restore a session", async () => {
+  confirmAge();
   const { loginWithEmail, signupWithEmail } = await import("@/lib/argus-api");
   for (const login of [() => loginWithEmail({ email: "fixture@example.test", password: "fixture" }), () => signupWithEmail({ email: "fixture@example.test", password: "fixture", language: "en" })]) {
     let release!: (response: Response) => void;
