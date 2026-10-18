@@ -37,3 +37,8 @@ web/tests/vrt/**/*-snapshots/*.png filter=lfs diff=lfs merge=lfs -text
 *.eot binary
 *.lockb binary
 tests/document_extraction_fixtures/*.pdf binary
+
+# Practice 606/607 files keep CRLF and no final newline. Normalizing them
+# would change the bytes the layout check compares.
+fixtures/dgii/*.txt -text -eol
+fixtures/dgii/*.TXT -text -eol
