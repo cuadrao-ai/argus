@@ -44,7 +44,9 @@ def test_an_unknown_email_becomes_one_pending_invite_the_owner_can_revoke(
     assert [i["email"] for i in invites] == ["contadora@example.test"]
     replay = alice.post("/access", {"email": "contadora@example.test"})
     assert replay.status_code == 200
-    assert replay.json() == first.json()
+    assert replay.json()["invites"] == first.json()["invites"]
+    assert replay.json()["invite_delivery"] is None
+    assert first.json()["invite_delivery"] == "not_configured"
     assert alice.post("/access", {"email": "not-an-address"}).status_code == 422
     gone = alice.client.delete(
         f"/api/v1/business/access/invites/{invites[0]['id']}", headers=alice.auth
@@ -184,7 +186,7 @@ def test_re_inviting_an_expired_email_makes_a_fresh_live_invite(
     # Expired: the owner sees no invite; re-inviting makes a fresh live one with a new window.
     pending = next(i for i in store._invites if i["id"] == invite["id"])
     pending["expires_at"] = store._now() - timedelta(days=1)
-    assert alice.get("/access").json()["invites"] == []
+    assert alice.get("/access").json()["invites"][0]["state"] == "expired"
     again = alice.post("/access", {"email": "contadora@example.test"})
     assert again.status_code == 201, again.text
     [fresh] = again.json()["invites"]

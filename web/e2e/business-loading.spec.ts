@@ -20,9 +20,9 @@ for (const width of [1280, 390]) {
     await page.goto("/dev/business-preview");
     if (baseline) await expect(page.locator('[role="status"]')).toBeVisible();
     else {
-      await expect(page.getByTestId("conversation-retrieval-state")).toContainText("Cuadrando…");
-      await expect(page.getByTestId("conversation-retrieval-announcement")).toHaveText("Cargando Cuadrao");
-      await expect(page.getByTestId("conversation-retrieval-announcement")).toHaveAttribute("aria-live", "polite");
+      await expect(page.getByTestId("fullscreen-loading")).toBeVisible();
+      await expect(page.getByTestId("fullscreen-loading").getByRole("status")).toHaveText("Cargando");
+      await expect(page.getByTestId("fullscreen-loading").getByRole("status")).toHaveAttribute("aria-live", "polite");
     }
     const capture = async (name: string) => {
       if (evidence) await page.screenshot({ path: `${evidence}/${baseline ? "before" : "after"}-${name}-${width}.png`, fullPage: true });
@@ -31,7 +31,7 @@ for (const width of [1280, 390]) {
     await capture("initial");
     if (!baseline) {
       await page.emulateMedia({ reducedMotion: "reduce" });
-      expect(await page.getByTestId("conversation-retrieval-state").locator("img").first().evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+      expect(await page.getByTestId("fullscreen-loading-sheen").evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
       await capture("initial-reduced-motion");
     }
     release();
@@ -39,7 +39,9 @@ for (const width of [1280, 390]) {
     await expect(skeleton).toBeVisible();
     if (!baseline) {
       await expect(skeleton).toHaveAttribute("data-layout", "overview");
+      await expect(skeleton.locator(".sr-only")).toHaveText("Cargando");
       expect(await skeleton.locator('[aria-hidden="true"]').evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+      expect(await skeleton.getByTestId("business-skeleton-shimmer").first().evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
       const geometry = await skeleton.locator('[aria-hidden="true"] > div').evaluate((grid) => ({
         cards: grid.children.length,
         columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
@@ -56,15 +58,19 @@ for (const width of [1280, 390]) {
     }
     await page.goto("/dev/business-preview?receipt=rcpt-ferreteria");
     await expect(skeleton).toBeVisible();
+    let skeletonPreview = "";
     if (!baseline) {
       await expect(skeleton).toHaveAttribute("data-layout", "detail");
-      const geometry = await skeleton.locator('[aria-hidden="true"] > .grid').evaluate((grid) => ({
-        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
-        previewHeight: grid.children[0].getBoundingClientRect().height,
-      }));
-      expect(geometry).toEqual({ columns: width === 390 ? 1 : 2, previewHeight: width === 390 ? 112 : 320 });
+      const columns = await skeleton.locator('[aria-hidden="true"] > .grid').evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length);
+      expect(columns).toBe(width === 390 ? 1 : 2);
+      skeletonPreview = await skeleton.getByTestId("business-skeleton-preview").evaluate((element) => getComputedStyle(element).minHeight);
     }
     await capture("receipt");
     await expect(page.getByTestId("business-record-review")).toBeVisible();
+    if (!baseline) {
+      const loadedPreview = await page.getByTestId("receipt-original-source").locator('[class*="min-h-[200px]"]').evaluate((element) => getComputedStyle(element).minHeight);
+      expect(loadedPreview).toBe(skeletonPreview);
+      expect(skeletonPreview).toBe(width === 390 ? "200px" : "280px");
+    }
   });
 }

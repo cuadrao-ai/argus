@@ -15,7 +15,6 @@ type UseChatSurfaceLifecycleInput = {
   closeTransientSidebar: () => void;
   refreshHistory: () => void;
   onConversationRemoved?: (conversationId: string) => void;
-  onAllConversationsDeleted?: () => void;
 };
 
 export function useChatSurfaceLifecycle({
@@ -25,7 +24,6 @@ export function useChatSurfaceLifecycle({
   closeTransientSidebar,
   refreshHistory,
   onConversationRemoved,
-  onAllConversationsDeleted,
 }: UseChatSurfaceLifecycleInput) {
   const startNewChat = useCallback(async () => {
     resetLandingStarterRuntime();
@@ -65,23 +63,9 @@ export function useChatSurfaceLifecycle({
     ],
   );
 
-  const handleAllConversationsDeleted = useCallback(() => {
-    onAllConversationsDeleted?.();
-    setHistoryItems([]);
-    refreshHistory();
-    if (conversationId !== null) resetToEmptyChatSurface();
-  }, [
-    conversationId,
-    onAllConversationsDeleted,
-    refreshHistory,
-    resetToEmptyChatSurface,
-    setHistoryItems,
-  ]);
-
   return {
     startNewChat,
     adoptGuestConversation: resetToEmptyChatSurface,
     handleConversationRemoved,
-    handleAllConversationsDeleted,
   };
 }

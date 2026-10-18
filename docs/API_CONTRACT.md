@@ -2909,6 +2909,22 @@ well when it is closed.
 }
 ```
 
+A failed or unfinished browser check is a different response. Supabase Auth
+runs the Turnstile siteverify. When it rejects the token, or the provider
+call does not finish within 30 seconds, login returns `400`
+`captcha_unavailable` and does not create a session. The check is not skipped.
+
+```json
+{
+  "type": "https://api.argus.app/problems/captcha-unavailable",
+  "title": "Browser Check Failed",
+  "status": 400,
+  "detail": "The browser check did not complete. Try again.",
+  "code": "captcha_unavailable",
+  "request_id": "uuid"
+}
+```
+
 ## `POST /auth/apple/authorization-code`
 
 Default-off behind `ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED`. The native app
@@ -9054,6 +9070,10 @@ The Bandeja's counts have two meanings and two names. `unread_count` is new acti
 
 The web discovers arrivals every 15 seconds while Inbox is visible and polls every 5 seconds while reading is known. Hidden and unmounted views stop polling. Requests are scoped to the selected Business. One row marker shows a reading ring or an unread dot. The sidebar badge and collapsed icon share the server projection.
 
+### Business bank matching (default-off)
+
+Statement import, suggested matches, and the sin comprobante count for one Business space. The route shapes, statuses, errors, and UI string keys live in `docs/contracts/business-bank-matching.md`. The switch is off unless the Business pilot is on and `CUADRAO_BUSINESS_BANK_MATCHING_ENABLED` is true. While off, the routes answer 404.
+
 ### Business pilot (default-off)
 
 #### Hosted Business contract foundation (October 10, 2026)
@@ -9430,19 +9450,37 @@ person starts their space, every route below except POST `/space` answers 404
     export with its mark.
   - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
     capabilities, created_at, owner}], invites: [{id, email, created_at,
-    expires_at}]}`: live grants, the owner first, and pending invites.
+    expires_at, state}]}`: live grants, the owner first, and unaccepted, unrevoked
+    invites. `state` is `pending` or `expired`, computed by the server.
   - POST `/api/v1/business/access` takes `{email}`. A confirmed account with
     that email (case-insensitive) gets a read and prepare grant, never
-    approve; any other email gets a pending invite that lasts 14 days and
+    approve; any other email gets a pending invite that lasts 7 days and
     becomes the same grant the first time that confirmed email signs in (on
     GET `/me`, or on GET `/business/spaces`, whichever the client reads
     first). The reply is the access list in both cases, 201 when something
     new was created and 200 on a replay, so an unknown email reveals nothing.
     422 `invalid_email` without one address. An expired pending invite is
     re-issued in place by a new POST with the same email: the same invite id,
-    a fresh 14-day `expires_at` and its own ledger receipt (201); a live one is
+    a fresh 7-day `expires_at` and its own ledger receipt (201); a live one is
     left as it is (200), and a revoked or accepted one no longer holds the
     slot, so a new invite is born beside it.
+  - POST `/api/v1/business/access/invites/{id}/resend` is owner-only and
+    resets an unaccepted, unrevoked invite to seven days from this request.
+    Missing or foreign invites answer 404 `business_access_not_found`. No list,
+    sign-in or background process renews or sends an invite. Expired invites
+    grant no access. Accepted memberships are unchanged. Create and explicit
+    resend use the shared Cuadrao account email, never a Supabase invitation
+    token. Its button opens ordinary sign-in/sign-up. Email delivery is
+    `not_configured` until `CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED=true` and the
+    existing `CUADRAO_APP_ORIGIN` (legacy `ARGUS_APP_ORIGIN`) are configured.
+    The renderer also requires the existing `MARKETING_POSTAL_ADDRESS`; missing
+    or invalid address configuration fails delivery and preserves the invite for
+    explicit resend. Account mail has no unsubscribe link.
+    This build leaves activation off. The sender is
+    `Cuadrao <no-responder@mail.cuadrao.ai>` with Reply-To `hola@cuadrao.ai`.
+    A configured send reports `accepted` or `failed` in `invite_delivery`;
+    `accepted` means provider acceptance, not receipt. Failure leaves the invite
+    saved and the owner can explicitly resend. Ordinary replays never send.
   - DELETE `/api/v1/business/access/grants/{id}` revokes a grant at once; 409
     `owner_grant_required` for the owner's own grant; 404
     `business_access_not_found` otherwise. DELETE
@@ -9568,10 +9606,22 @@ accept path recorded.
   metadata records `document_currency`.
 - A read that was saved but never became a record (the hosted hand-off refused
   or failed after the extractor answered) is `needs_attention` with attention
-  `interrupted`, `preparable: true` and the real cause in `error_code`; "Try
-  again with AI" replays the saved read without a new provider call and runs
-  the hand-off again. It is never reported as `no_purchase_found`, which stays
-  for a read that found nothing.
+  `interrupted`, `preparable: true` and the real cause in `error_code`, except
+  two terminal refusals derived from the saved batch. An unreadable read
+  (`readable` false, or issue `unreadable_document`) is attention `unreadable`
+  and `preparable: false`. A notice or statement with no purchase, and any
+  read that has no receipt object, is attention `not_a_receipt` and
+  `preparable: false`. A readable fiscal bill (an NCF and a plain total on
+  `batch.receipt`) that was refused stays `interrupted` and `preparable: true`.
+  "Try again with AI" replays the saved read without a new provider call and
+  runs the hand-off again, except for an incomplete receipt that is not a
+  fiscal bill. Replaying that batch refuses the same way, so the retry asks
+  the provider for a new read. On a replay a fiscal bill becomes one expense
+  from the receipt total, even when every observation is a due notice or a
+  statement period. Other interrupted hand-offs retry the same way. A terminal
+  refusal is never reported as `no_purchase_found`, which stays for a receipt
+  that was read and found no purchase row. The stored `error_code` is not
+  rewritten.
 - A read that shows several purchases, or one it cannot settle, still becomes
   one open draft on the hosted bridge: the facts every read purchase shares are
   known, the amount stays unknown for a person to set, and each read purchase
@@ -9705,7 +9755,8 @@ accept path recorded.
   `unreadable` (the file cannot be read), `ai_unavailable`, `interrupted`,
   `outcome_unknown` (an attempt may have reached the provider; only the
   owner's consented retry starts another), `no_purchase_found`,
-  `several_purchases` (several or ambiguous purchases), `source_unavailable`,
+  `not_a_receipt` (a statement, a payment notice, or a file with no receipt
+  object), `several_purchases` (several or ambiguous purchases), `source_unavailable`,
   `check_details` (a purchase is ready but the read was incomplete) or
   `other`. `error_code` stays the precise cause. Nothing is retried
   automatically because of it.
@@ -9803,9 +9854,18 @@ route.
 ### Waitlist staging scheduler
 
 `POST /functions/v1/waitlist-reminders` is an internal Supabase Edge Function.
-It requires the staging service-role bearer credential and the exact staging
-project URL. It sends at most two due reminders using the existing reservation
-RPC and shared email renderer. It returns counts; failures return HTTP 503.
+It requires `X-Cuadrao-Waitlist-Scheduler-Key` with the dedicated secret from
+Edge `CUADRAO_WAITLIST_SCHEDULER_KEY` and Vault `cuadrao_waitlist_scheduler_key`.
+Vault `cuadrao_waitlist_project_url` and Edge `SUPABASE_URL` must equal
+`https://skedzwocnmrhfigiwyzi.supabase.co`. Edge `SUPABASE_SERVICE_ROLE_KEY`
+is used only for database access. A missing database or scheduler key, reuse of
+the database key as the scheduler key, or a wrong Edge project URL returns HTTP 503.
+A missing or incorrect scheduler header returns HTTP 401. These checks run
+before database or provider calls. Authorization bearer credentials do not
+authenticate this endpoint. The [scheduler deployment guide](../supabase/functions/waitlist-reminders/README.md)
+owns secret setup and scheduled-run verification.
+It sends at most two due reminders using the existing reservation RPC and
+shared email renderer. It returns counts; failures return HTTP 503.
 It never purges records. A separate SQL cron job calls the existing retention
 RPC. Both schedules run every five minutes, with retention offset by two minutes.
 Signup still sends confirmation immediately; welcome follows confirmation.

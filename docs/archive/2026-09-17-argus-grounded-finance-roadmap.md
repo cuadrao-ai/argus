@@ -34,7 +34,7 @@ from a competitor. This one comes from the twenty transcripts.
 ### What those twenty people actually did
 
 Recorded in
-[`2026-08-12-personal-money-questions-and-teaching-the-methodology.md`](../superpowers/specs/2026-08-12-personal-money-questions-and-teaching-the-methodology.md),
+[`2026-08-12-personal-money-questions-and-teaching-the-methodology.md`](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-08-12-personal-money-questions-and-teaching-the-methodology.md),
 founder-authored the same day.
 
 - A user gave Argus a salary, stated expenses, and a priced goal, which is the
