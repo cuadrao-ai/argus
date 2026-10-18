@@ -6,7 +6,7 @@ The scheduled workflow downloads the public RNC zip, parses it, and loads the ro
 
 `.github/workflows/dgii-rnc-import.yml` runs at 07:00 UTC every day. You can also start it with `workflow_dispatch`.
 
-The job checks out this repository and downloads `DGII_RNC.zip`. It parses the `DGII_RNC.TXT` entry.
+The job checks out this repository and downloads `DGII_RNC.zip`. It parses the `DGII_RNC.TXT` entry. `file_date` is that entry's modification date, read as the America/Santo_Domingo calendar date.
 
 ```bash
 python3 scripts/ops/dgii_rnc_import.py parse rnc.zip

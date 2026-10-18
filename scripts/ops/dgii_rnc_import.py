@@ -1,5 +1,3 @@
-"""Parse a DGII RNC zip and load the kept rows into staging."""
-
 from __future__ import annotations
 
 import argparse
@@ -9,11 +7,9 @@ import subprocess
 import sys
 import zipfile
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
-SANTO_DOMINGO = ZoneInfo("America/Santo_Domingo")
 _IDENT_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789_.")
 
 
@@ -184,19 +180,8 @@ def _registry_entry(archive: zipfile.ZipFile) -> zipfile.ZipInfo:
 
 
 def _file_date(info: zipfile.ZipInfo) -> date:
-    year, month, day, hour, minute, second = info.date_time
-    # The zip tuple is already Santo Domingo local time. Attaching the zone
-    # keeps that calendar date. Converting from UTC would move midnight back a day.
-    local = datetime(
-        year,
-        month,
-        day,
-        hour,
-        minute,
-        second,
-        tzinfo=SANTO_DOMINGO,
-    )
-    return local.date()
+    year, month, day = info.date_time[:3]
+    return date(year, month, day)
 
 
 def _parse_registry(text: str, *, file_date: date, entry_name: str) -> ParseResult:
@@ -234,10 +219,7 @@ def _parse_registry(text: str, *, file_date: date, entry_name: str) -> ParseResu
 
 
 def _physical_lines(text: str) -> list[str]:
-    # splitlines() treats some Latin-1 controls, including U+0085, as breaks.
-    # The registry is CRLF. A final LF without CR is not a record break.
-    if text.endswith("\n") and not text.endswith("\r\n"):
-        text = text[:-1]
+    # splitlines() also breaks on U+0085, which Latin-1 must keep inside a name.
     if text == "":
         return []
     return text.split("\r\n")
