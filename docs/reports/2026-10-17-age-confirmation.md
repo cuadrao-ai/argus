@@ -46,7 +46,7 @@ There is no hosted, production, TestFlight, real signup or provider proof here.
 - The full web unit suite passed all 2699 tests after the approved privacy copy.
 - Focused web auth and guest selection passed 145 tests.
 - Chromium fixture probes at an earlier head covered a guest browser gate. That gate and its stored confirmation are removed. Signup still requires the checkbox and submits the instant on the account request.
-- The guest-before and guest-after screenshots are removed with the guest browser gate. The screenshots that remain are [signup-confirmed.png](evidence/age-confirmation/signup-confirmed.png) and [privacy.png](evidence/age-confirmation/privacy.png).
+- The guest, signup, and privacy screenshots are not stored in the repository.
 - The isolated Next production build passed. It used process-only fixture
   settings and a separate build directory. No environment file changed.
 - Local real Postgres tests passed four cases for immutability, direct-client
