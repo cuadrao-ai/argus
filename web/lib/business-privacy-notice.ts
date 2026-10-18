@@ -141,6 +141,11 @@ export function featureReachable(feature: string, accepted: boolean): boolean {
   return accepted || !featureRequiresConsent(feature);
 }
 
+/** Decline stays on this person's own Business. A client grant waits for acceptance. */
+export function canEnterBusiness(accepted: boolean, grantId: string | null): boolean {
+  return accepted || grantId === null;
+}
+
 /** Accept stays disabled until the person actively opts in. */
 export function canSubmitAcceptance(optedIn: boolean, saving: boolean): boolean {
   return optedIn && !saving;

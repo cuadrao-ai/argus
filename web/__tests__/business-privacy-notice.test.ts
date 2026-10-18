@@ -6,6 +6,7 @@ import {
   BUSINESS_CONSENT_I18N_KEYS,
   BUSINESS_PRIVACY_NOTICE_VERSION,
   acceptanceMatchesCurrentNotice,
+  canEnterBusiness,
   canSubmitAcceptance,
   currentNoticeHashes,
   featureReachable,
@@ -82,6 +83,12 @@ describe("business consent gating", () => {
       assert.equal(featureReachable(feature, false), false);
       assert.equal(featureReachable(feature, true), true);
     }
+  });
+
+  test("a declined notice cannot re-enter a client Business", () => {
+    assert.equal(canEnterBusiness(false, null), true);
+    assert.equal(canEnterBusiness(false, "44444444-4444-4444-8444-444444444444"), false);
+    assert.equal(canEnterBusiness(true, "44444444-4444-4444-8444-444444444444"), true);
   });
 
   test("manual recording stays reachable when the notice is declined", () => {
