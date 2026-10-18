@@ -605,10 +605,11 @@ export default function ChatInterface() {
   const businessPhone = Boolean(businessShell && mobileShell.isBelowTablet);
   const businessTabletStrip = Boolean(businessShell && !mobileShell.isBelowTablet && mobileShell.isBelowDesktop);
   const sidebarCollapsed = businessTabletStrip ? true : !(mobileShell.isBelowTablet ? true : isSidebarOpen);
+  const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const openSearch = useCallback(() => {
-    if (omnisearchEnabled) setSearchOverlayOpen(true);
-  }, []);
-  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed, openSearch, resetToEmptyChatSurface, closeTransientSidebar });
+    if (searchEntryEnabled) setSearchOverlayOpen(true);
+  }, [searchEntryEnabled]);
+  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed, openSearch: searchEntryEnabled ? openSearch : undefined, resetToEmptyChatSurface, closeTransientSidebar });
 
   function rememberCurrentConversationScroll(): void {
     const currentConversationId = readyTranscriptConversationIdRef.current;
@@ -2136,8 +2137,6 @@ export default function ChatInterface() {
     guestSubmissionPending ||
     hasConversationLoadFailure;
 
-  const searchEntryEnabled =
-    omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const keyboardShortcuts = useChatKeyboardShortcuts({
     enabled: !mobileShell.isBelowTablet,
     requestSearch: searchEntryEnabled ? () => setSearchOverlayOpen(true) : undefined,
