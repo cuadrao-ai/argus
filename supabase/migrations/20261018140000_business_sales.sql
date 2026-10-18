@@ -107,6 +107,9 @@ values (
     'docs/contracts/business-venta.md'
 );
 
+-- Union of the tip allow-list, the period-export actions (approve_refund,
+-- set_business_rnc), and the sale actions. The period-export migration lands
+-- first and this rewrite must keep its names.
 alter table public.business_action_receipts
     drop constraint business_action_receipts_unplanned_command,
     drop constraint business_action_receipts_human_only_actions,
@@ -118,11 +121,13 @@ alter table public.business_action_receipts
             'rebind_attachment', 'settle_remainder',
             'access_seen', 'email_ai_consent_declined', 'mark_personal', 'decide_606',
             'receipt_upload', 'receipt_review', 'receipt_confirm',
+            'approve_refund', 'set_business_rnc',
             'mark_venta', 'set_venta_collection')) is true
     ),
     add constraint business_action_receipts_human_only_actions check (
         command->>'action' not in ('access_seen', 'email_ai_consent_declined', 'mark_personal', 'decide_606',
             'receipt_upload', 'receipt_review', 'receipt_confirm',
+            'approve_refund', 'set_business_rnc',
             'mark_venta', 'set_venta_collection')
         or (actor->>'actor_kind' = 'member' and turn_key is null and action_index is null) is true
     );

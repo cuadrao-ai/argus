@@ -1,16 +1,29 @@
 from __future__ import annotations
 
 import json
-from datetime import date
-from uuid import UUID
+from datetime import date, datetime, timezone
+from types import UnionType
+from typing import Annotated, Literal, Union, get_args, get_origin
+from uuid import UUID, uuid4
 
 import pytest
-from argus.domain.business.contracts.actions import ApproveExpense, Refused
+from argus.domain.business.access import AccessAction
+from argus.domain.business.authority import ActionContext
+from argus.domain.business.contracts.actions import (
+    ApproveExpense,
+    BusinessAction,
+    Command,
+    PrepareAttachmentCommand,
+    RebindAttachmentCommand,
+    Refused,
+)
 from argus.domain.business.contracts.venta import (
     Customer,
     MarkVenta,
+    MarkVentaCommand,
     SaleWrite,
     SetVentaCollection,
+    SetVentaCollectionCommand,
 )
 from argus.domain.business.sales import (
     load_sales_period,
@@ -19,8 +32,11 @@ from argus.domain.business.sales import (
 )
 from argus.domain.business.transactions import transaction
 from faker import Faker
+from psycopg import Connection
+from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
+from tests.test_business_spaces_migration_postgres import connection as source_connection
 
 fake = Faker()
 actions = shared.actions
@@ -216,3 +232,164 @@ def test_policy_uses_scalar_uid_and_selects_only_live_members(actions, users) ->
 
     assert visible_as(users["owner"]) == 1
     assert visible_as(users["other"]) == 0
+
+
+def _union_members(annotation: object) -> tuple[object, ...]:
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        return _union_members(get_args(annotation)[0])
+    if origin in (Union, UnionType):
+        found: list[object] = []
+        for arg in get_args(annotation):
+            found.extend(_union_members(arg))
+        return tuple(found)
+    return (annotation,)
+
+
+def _literal_strings(annotation: object) -> tuple[str, ...]:
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        return _literal_strings(get_args(annotation)[0])
+    if origin is Literal:
+        return tuple(arg for arg in get_args(annotation) if isinstance(arg, str))
+    return ()
+
+
+def _action_of(model: type) -> str:
+    values = _literal_strings(model.model_fields["action"].annotation)
+    if len(values) != 1:
+        raise AssertionError(model)
+    return values[0]
+
+
+def _domain_receipt_actions() -> dict[str, str]:
+    """Every command and access action, classified as turn or turnless."""
+
+    turn_models = set(_union_members(BusinessAction))
+    catalog: dict[str, str] = {}
+    for model in _union_members(Command):
+        catalog[_action_of(model)] = "turn" if model in turn_models else "turnless"
+    for action in _literal_strings(AccessAction):
+        catalog.setdefault(action, "turnless")
+    return catalog
+
+
+def _actor(context: ActionContext, kind: str) -> dict[str, str]:
+    return {
+        "actor_id": str(context.actor.actor_id),
+        "actor_kind": kind,
+        "display_name": "Member",
+        "grant_id": str(context.grant_id),
+        "issuer_id": str(context.owner_id),
+        "issuer_display_name": "Owner",
+    }
+
+
+def _prepare_attachment_command(
+    connection: Connection, context: ActionContext, actor: dict[str, str]
+) -> dict[str, object]:
+    source = source_connection(
+        connection, str(context.owner_id), str(context.actor.space_id)
+    )
+    binding = {
+        "schema_version": 1,
+        "binding_id": str(uuid4()),
+        "space_id": str(context.actor.space_id),
+        "owner_id": str(context.owner_id),
+        "connection_id": source,
+        "source_sha256": "a" * 64,
+        "actor": actor,
+        "target": None,
+        "consent": True,
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+    }
+    connection.execute(
+        "insert into public.financial_document_extractions"
+        " (connection_id, user_id, draft, source_bytes, preparation_binding, batch)"
+        " values (%s, %s, %s, %s, %s, %s)",
+        (
+            source,
+            str(context.owner_id),
+            Jsonb({"sha256": "a" * 64, "consent": True, "source_available": True}),
+            b"synthetic receipt",
+            Jsonb(binding),
+            Jsonb({}),
+        ),
+    )
+    return {
+        "action": _action_of(PrepareAttachmentCommand),
+        "binding": binding,
+        "batch_sha256": "b" * 64,
+    }
+
+
+def _insert_allowed_receipt(
+    connection: Connection,
+    context: ActionContext,
+    action: str,
+    kind: str,
+    index: int,
+) -> None:
+    prepare = action == _action_of(PrepareAttachmentCommand)
+    actor = _actor(context, "extractor" if prepare else "member")
+    command: dict[str, object] = {"action": action}
+    if action == _action_of(RebindAttachmentCommand):
+        command["binding"] = {"space_id": str(context.actor.space_id)}
+    if prepare:
+        command = _prepare_attachment_command(connection, context, actor)
+    turn_key = None
+    action_index = None
+    if kind == "turn":
+        turn_key = f"allow-{index}-{uuid4().hex}"
+        action_index = 0
+        connection.execute(
+            "insert into public.business_turns"
+            " (turn_key, space_id, sender_hash, actor_id, model_state, plan, plan_actor)"
+            " values (%s, %s, %s, %s, 'completed', %s, %s)",
+            (
+                turn_key,
+                context.actor.space_id,
+                uuid4().hex + uuid4().hex,
+                context.actor.actor_id,
+                Jsonb({"schema_version": 1, "actions": [command]}),
+                Jsonb(actor),
+            ),
+        )
+    connection.execute(
+        "insert into public.business_action_receipts"
+        " (space_id, actor_id, idempotency_key, input_hash, command,"
+        " turn_key, action_index, actor)"
+        " values (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (
+            context.actor.space_id,
+            actor["actor_id"],
+            f"allow-{index}-{action}",
+            uuid4().hex + uuid4().hex,
+            Jsonb(command),
+            turn_key,
+            action_index,
+            Jsonb(actor),
+        ),
+    )
+
+
+class TestReceiptAllowList:
+    def test_constraint_accepts_dgii_venta_and_domain_actions(self, actions) -> None:  # noqa: ANN001
+        catalog = _domain_receipt_actions()
+        turn_models = _union_members(BusinessAction)
+        assert turn_models
+        assert all(catalog[_action_of(model)] == "turn" for model in turn_models)
+        for action in _literal_strings(AccessAction):
+            assert catalog[action] == "turnless"
+        for model in (MarkVentaCommand, SetVentaCollectionCommand):
+            assert catalog[_action_of(model)] == "turnless"
+        for action in ("approve_refund", "set_business_rnc"):
+            catalog[action] = "turnless"
+
+        service, context, _grant = actions
+        with service.authority.pool.connection() as connection:
+            for index, (action, kind) in enumerate(catalog.items()):
+                try:
+                    _insert_allowed_receipt(connection, context, action, kind, index)
+                except Exception as error:
+                    raise AssertionError(f"{action} ({kind})") from error
