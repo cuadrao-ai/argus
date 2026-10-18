@@ -172,6 +172,8 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.cost_ledger_entries",
         "public.cuadrao_early_access_signups",
         "public.decision_notes",
+        "public.dgii_rnc",
+        "public.dgii_rnc_load",
         "public.evidence_artifacts",
         "public.feedback",
         "public.financial_account_idempotency",
