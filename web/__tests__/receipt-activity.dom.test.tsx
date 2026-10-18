@@ -119,6 +119,16 @@ test("a receipt row has exactly one marker and the badge uses server count", asy
   assert.equal(inboxCount({ receiptActivity: { ...counts, unread_count: 7, pending_review_count: 9 } }), 9);
 });
 
+test("a venta row shows the Venta badge and a receipt row does not", async () => {
+  const detail = await receipt();
+  const render = (row: ReceiptDetail) => renderToStaticMarkup(<I18nextProvider i18n={i18n}><ReceiptRow receipt={row} onOpen={() => {}} /></I18nextProvider>);
+  const sale = render({ ...detail, document_type: "venta" });
+  assert.ok(sale.includes('data-testid="inbox-venta"'));
+  assert.ok(sale.includes("Venta"));
+  const purchase = render({ ...detail, document_type: "recibo" });
+  assert.ok(!purchase.includes("inbox-venta"));
+});
+
 test("opening or old hydration does not mark seen; focused visible hydrated content does", async () => {
   const detail = await receipt();
   let marked = 0;

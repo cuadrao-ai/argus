@@ -247,6 +247,7 @@ class Receipt:
             "read_pending": self.busy,
             "preparable": self.preparable,
             "enterable": self.enterable,
+            "document_type": self.draft.document_type,
             "expense_id": self.review.expense_id,
             **review_fields(self.review),
         }

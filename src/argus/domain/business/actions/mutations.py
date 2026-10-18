@@ -28,6 +28,7 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
     ReadPurchase,
 )
+from argus.domain.business.document_type import require_venta_kind
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
@@ -79,6 +80,7 @@ def save_revision(
     read_total: str | None = None,
     ecf_checks: EcfVerification | None = None,
     dgii_qr: DgiiQr | None = None,
+    document_type: str | None = None,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -105,6 +107,9 @@ def save_revision(
         ecf_checks=ecf_checks,
         dgii_qr=dgii_qr,
         remainder_settled=bool(previous.get("remainder_settled", False)),
+        document_type=document_type
+        if document_type is not None
+        else previous.get("document_type", "recibo"),
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
@@ -155,6 +160,9 @@ def revise(
         after = patched_facts(before, patch, source_ids, origin=origin)
     except ValidationError:
         raise ActionError("invalid_input", "business_fact_provenance_invalid") from None
+    require_venta_kind(
+        (event.resolution.get("business") or {}).get("document_type"), after
+    )
     if answer_id is not None:
         answer_question(tx, event.id, answer_id, patch, source_ids[-1])
     elif actor.actor_kind == "member":
@@ -391,7 +399,16 @@ def prepare_attachment(
             for name, incoming in facts["fiscal"].items():
                 merged["fiscal"][name] = _retain_or_fill(merged["fiscal"][name], incoming)
         facts = merged
+    if draft.document_type == "venta":
+        facts["kind"] = {
+            "state": "known",
+            "value": "income",
+            "origin": "owner_stated",
+            "verified": False,
+            "source_ids": [str(source_id)],
+        }
     after = BusinessFacts.model_validate(facts)
+    require_venta_kind(draft.document_type, after)
     return save_revision(
         tx,
         event,
@@ -404,6 +421,7 @@ def prepare_attachment(
         read_total,
         batch.ecf_checks,
         batch.dgii_qr,
+        document_type=draft.document_type,
     )
 
 

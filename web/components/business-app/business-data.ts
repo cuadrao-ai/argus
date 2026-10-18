@@ -46,7 +46,7 @@ export type BusinessDataSource = Readonly<{
   receipt: (id: string, signal?: AbortSignal) => Promise<ReceiptDetail>;
   dossier: (id: string) => Promise<BusinessDossier>;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
-  approveDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
+  approveDraft: (id: string, version: number, key: string, action?: "record_expense" | "record_income") => Promise<BusinessDossier>;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner marks the receipt as personal or takes the mark back. */
   markPersonal: (id: string, version: number, personal: boolean, key: string) => Promise<BusinessDossier>;
@@ -59,7 +59,7 @@ export type BusinessDataSource = Readonly<{
   search: (query: string) => Promise<BusinessSearchResult>;
   captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
   captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapture[]>;
-  uploadReceipt: (file: File, consentToPrepare: boolean, key: string) => Promise<ReceiptSummary>;
+  uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta") => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;
   saveReview: (

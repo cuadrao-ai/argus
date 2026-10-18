@@ -9475,7 +9475,14 @@ accept path recorded.
   receipt's identity is its bytes, so a retry returns the same receipt. It
   ignores `X-Extraction-Consent`. It answers a `ReceiptSummary` that is
   `queued` while the owner's receipt-reading setting is on and `saved`
-  while it is off.
+  while it is off. Optional `X-Document-Type` is `recibo` or `venta`. Absent
+  means `recibo`, a purchase. `venta` is an invoice the business has already
+  issued: the same capture, prepared as income, so month close and the 607
+  selection can read it. The type is stored on the first save of those bytes.
+  Naming the other type later is `409` `document_type_conflict`. Any other
+  value is `422` `document_type_invalid`. `ReceiptSummary.document_type`
+  reports the stored type. The field meanings are in the
+  [month-close contract](contracts/business-month-close.md).
 - Business email receiving (default off; `CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`,
   `CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED`, `CUADRAO_BUSINESS_EMAIL_DOMAIN`,
   `RESEND_BUSINESS_API_KEY`, `CUADRAO_RESEND_WEBHOOK_SECRET`; the older

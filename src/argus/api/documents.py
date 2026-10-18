@@ -335,6 +335,7 @@ def document_problem(request: Request, error: Exception) -> HTTPException:
             "document_version_conflict",
             "document_entered_by_owner",
             "document_already_prepared",
+            "document_type_conflict",
         }:
             status = 409
         if error.code == "document_disconnected":

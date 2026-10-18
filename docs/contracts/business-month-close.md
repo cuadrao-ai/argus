@@ -102,6 +102,26 @@ A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currenc
 
 An invoice is a recorded income activity. A receipt is a recorded expense activity. The printed total on that activity already includes ITBIS when ITBIS is known. Before-ITBIS is that total minus the stored ITBIS. Unknown ITBIS is treated as zero for the subtraction and does not by itself open the month. That assumption is an open question.
 
+## Venta
+
+A Venta is an invoice the business has already issued. In the Bandeja the person uploads or captures it the same way as a receipt and names the document type at that moment. The type is `venta`. A purchase stays `recibo`. The same bytes keep the type from the first save. A later upload of those bytes that names the other type is `409` `document_type_conflict`. An absent type header means `recibo`. Any other value is `422` `document_type_invalid`.
+
+The read is the same read a receipt gets. The reader prompt stays as it is. The capture type gives the printed fields their meaning on a Venta:
+
+| Printed field | Meaning on a Venta |
+| --- | --- |
+| RNC | The client's RNC or cédula |
+| NCF or e-CF | The fiscal number the business already issued |
+| ITBIS | ITBIS charged |
+
+A Venta is prepared as an income activity, which this contract calls an invoice. It counts in income before ITBIS, in ITBIS charged, and in the 607 selection. While its status is `pendiente` it appears in Por cobrar. `cobrado` removes it from that list and leaves the amount in the month it was issued. A missing client RNC or a missing fiscal number keeps the month open.
+
+Recording a Venta uses the income approval, into a business account. The Bandeja shows the type. Approval of a Venta sends `record_income`.
+
+Creating an invoice, issuing an NCF, and running a numbering sequence are outside this contract.
+
+The RNC field holds one number. It does not record whether that number is an RNC, a cédula, or a passport. A passport with no nonzero digit cannot be stored there. That identification type is an open question for a future 607 file. The printed name stays the counterparty the read found.
+
 Personal expenses stay out of the month unless the accountant has answered yes to including them. Sales marked personal stay out. Transfers and other activity kinds stay out.
 
 Pending documents are the receivables and payables. They do not flip `closed` to false. The month still closes when every document in it has an RNC and a fiscal number. Paying one later does not move its amount into another month.
@@ -148,6 +168,8 @@ Invoice statuses are `pendiente` and `cobrado`. Receipt statuses are `pendiente`
 **Immutable raw input.** Applying a settlement does not write the activity amount, the ITBIS, the RNC, or the NCF.
 
 **Idempotency.** The stored status, date, and method are compared with the request. Equality is a no-op.
+
+**Venta.** The Bandeja type lives on the capture draft and is copied onto the business resolution when that draft is prepared. Both are existing JSON documents. This change adds no column, no table, and no migration. A later revision keeps the type. A Venta's kind is income. Changing that kind is refused. The month-close query below is unchanged: a recorded Venta is an income activity in that read.
 
 **Query.** Activities come from the same scoped read the export uses (`current_activities` on the Business scope). Draft facts are this read.
 

@@ -21,7 +21,7 @@ export type ReceiptUpload = UploadFile & (
   | { status: "rejected"; reason: UploadRejection }
 );
 
-type Upload = (file: File, consent: boolean, key: string) => Promise<ReceiptSummary>;
+type Upload = (file: File, consent: boolean, key: string, documentType?: "recibo" | "venta") => Promise<ReceiptSummary>;
 export const isUnfinishedUpload = (item: ReceiptUpload) =>
   item.status === "queued" || item.status === "uploading" || item.status === "failed";
 
@@ -101,7 +101,7 @@ export class ReceiptUploadQueue {
     if (!this.running) this.publish(this.items.filter((item) => item.target !== target));
   }
 
-  async save(target: IntakeTarget, consent: boolean, onlyKey?: string) {
+  async save(target: IntakeTarget, consent: boolean, onlyKey?: string, documentType: "recibo" | "venta" = "recibo") {
     if (this.running) return;
     const pending = this.items.filter((item) => item.target === target &&
       (!onlyKey || item.key === onlyKey) && (item.status === "queued" || item.status === "failed"));
@@ -114,7 +114,7 @@ export class ReceiptUploadQueue {
         this.replace({ ...attempt, status: "uploading" });
         let receipt: ReceiptSummary;
         try {
-          receipt = await this.upload(item.file, chosenConsent, item.key);
+          receipt = await this.upload(item.file, chosenConsent, item.key, documentType);
         } catch (error: unknown) {
           if (error instanceof Error && "status" in error && error.status === 415) {
             this.replace({ ...item, status: "rejected", reason: "unsupported" });

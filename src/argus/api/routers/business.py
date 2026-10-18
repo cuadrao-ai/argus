@@ -96,6 +96,7 @@ from argus.api.ingestion import ingestion_hub
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
+from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.service import BusinessError
 from argus.domain.business.spaces import Space, default_space_name
 from argus.domain.business.transactions import GrantImportStore
@@ -513,6 +514,7 @@ async def upload_receipt(
     request: Request,
     background_tasks: BackgroundTasks,
     filename: str | None = Header(default=None, alias="X-Document-Filename"),
+    document_type: str | None = Header(default=None, alias="X-Document-Type"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     context: BusinessContext = Depends(require_business_document_write),  # noqa: B008
 ) -> dict[str, Any]:
@@ -520,6 +522,17 @@ async def upload_receipt(
     The owner's stored receipt-reading setting decides whether it is read."""
 
     _required_idempotency_key(request, idempotency_key)
+    try:
+        chosen_type = parse_document_type(document_type)
+    except ValueError:
+        raise problem(
+            request,
+            status_code=422,
+            code="document_type_invalid",
+            title="Invalid document type",
+            detail="The document type is recibo or venta.",
+            headers=NO_STORE,
+        ) from None
     media_type, content = await read_document_upload(request)
     try:
         receipt = await context.service.upload(
@@ -529,6 +542,7 @@ async def upload_receipt(
             media_type=media_type,
             consent=False,
             on_capture=upload_recorder(context, request),
+            document_type=chosen_type,
         )
         if receipt.status == "queued":
             await dispatch_preparation(

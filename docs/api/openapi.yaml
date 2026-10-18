@@ -2155,6 +2155,13 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
+      - name: X-Document-Type
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
       - name: Idempotency-Key
         in: header
         required: false
@@ -22689,6 +22696,12 @@ components:
         email_original:
           type: boolean
           default: false
+        document_type:
+          type: string
+          enum:
+          - recibo
+          - venta
+          default: recibo
         expense_id:
           anyOf:
           - type: string
@@ -23324,6 +23337,12 @@ components:
         email_original:
           type: boolean
           default: false
+        document_type:
+          type: string
+          enum:
+          - recibo
+          - venta
+          default: recibo
         expense_id:
           anyOf:
           - type: string

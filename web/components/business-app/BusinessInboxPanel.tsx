@@ -111,6 +111,7 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: Rece
         </span>
         <span className="min-w-0 flex-1">
           <span className={`block ${needsAttention ? "break-words" : "truncate"} text-[15px] font-medium text-black dark:text-white`}>
+            {receipt.document_type === "venta" ? <span className="mr-2 rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium text-black/70 dark:bg-white/10 dark:text-white/70" data-testid="inbox-venta">{t("business.inbox.venta", "Venta")}</span> : null}
             {receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt")}
           </span>
           <span className={`mt-0.5 flex gap-1.5 ${needsAttention ? "items-start whitespace-normal break-words text-black/70 dark:text-white/75" : "items-center truncate text-black/50 dark:text-white/50"} text-[13px]`}>
@@ -221,7 +222,7 @@ function EmptyInbox() {
         {i18n.resolvedLanguage === "es-419" ? "Todo aprobado. Pa'que cuadre." : t("business.inbox.all_reviewed", "All reviewed")}
       </p> : null}
       <p className={`${approved ? "mt-1 " : ""}text-[14px] text-black/65 dark:text-white/70`}>
-        {t("business.inbox.empty_body", "Upload a receipt or send one by WhatsApp. It will wait here for your review.")}
+        {t("business.inbox.empty_body", "Upload a receipt or an issued invoice, or send a receipt by WhatsApp. It will wait here for your review.")}
       </p>
     </div>
   );
@@ -241,7 +242,7 @@ export default function BusinessInboxPanel() {
       <ReceiptReadingControl hideWhenEnabled />
       <PanelHeading
         title={t("business.inbox.title", "Inbox")}
-        subtitle={t("business.inbox.subtitle", "Receipts waiting for you to review. Nothing here is an expense until you confirm it.")}
+        subtitle={t("business.inbox.subtitle", "Receipts and issued invoices waiting for you to review. Nothing here is recorded until you confirm it.")}
         action={
           upload ? (
             <button type="button" data-testid="business-primary-upload" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>

@@ -165,6 +165,17 @@ test("closing forgets saved and rejected rows and keeps unfinished ones", async 
   expect(queue.unfinished).toBe(false);
 });
 
+test("a venta upload tells the server the document type", async () => {
+  const seen: Array<"recibo" | "venta" | undefined> = [];
+  const queue = new ReceiptUploadQueue(async (_file, _consent, _key, documentType) => {
+    seen.push(documentType);
+    return savedReceipt("venta");
+  }, () => undefined);
+  queue.add([file("factura.pdf", "application/pdf")], limits, "inbox");
+  await queue.save("inbox", false, undefined, "venta");
+  expect(seen).toEqual(["venta"]);
+});
+
 test("a server type rejection asks for another file rather than resending it", async () => {
   let calls = 0;
   const queue = new ReceiptUploadQueue(async () => {

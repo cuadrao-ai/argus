@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from argus.api.schemas import Language
 from argus.domain.business.contracts.dossier import RecordContext
+from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipts import Attention
 from argus.domain.business.spaces import MAX_NAME_LENGTH
 from argus.domain.ingestion.receipt_review import ReceiptStatus
@@ -175,6 +176,7 @@ class ReceiptSummary(_Wire):
     # The whole message of an email whose attachment is already a receipt. It
     # cannot be prepared or approved; its attachment is the receipt.
     email_original: bool = False
+    document_type: DocumentType = "recibo"
     expense_id: str | None
     merchant: str | None
     occurred_on: str | None

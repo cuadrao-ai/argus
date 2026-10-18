@@ -54,6 +54,10 @@ def _reviewed_facts(
         )
     if not isinstance(view.facts.kind, Known) or view.facts.kind.value != kind:
         raise ActionError("invalid_input", "activity_kind_unsupported")
+    if (event.resolution.get("business") or {}).get(
+        "document_type"
+    ) == "venta" and kind != "income":
+        raise ActionError("invalid_input", "activity_kind_unsupported")
     validate_facts(tx, view.facts)
     return event, view.facts
 
