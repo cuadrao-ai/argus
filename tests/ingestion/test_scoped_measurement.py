@@ -5,6 +5,7 @@ import subprocess
 from decimal import Decimal
 from pathlib import Path
 
+import httpx
 from argus.domain.ingestion.documents.models import ExtractionBatch
 
 from scripts.documents.scoped_measurement import (
@@ -317,6 +318,60 @@ def test_provider_failure_is_not_retried(tmp_path, monkeypatch, capsys):
     assert scorecard["known_actual_cost_usd"] == "0"
     assert scorecard["stop_reason"] == "provider_failed"
     assert printed["totals"] == {"failed": 0, "passed": 0, "unavailable": 1}
+
+
+def test_provider_http_error_records_status_message_and_code(
+    tmp_path, monkeypatch, capsys
+):
+    root, evidence = _layout(tmp_path)
+    entry = _entry(root, "one", b"one")
+    received = []
+
+    def extract(fixture, _model):
+        received.append(fixture.id)
+        request = httpx.Request(
+            "POST",
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": "Bearer super-secret-key"},
+        )
+        response = httpx.Response(
+            402,
+            json={
+                "error": {
+                    "message": "Insufficient credits",
+                    "code": 402,
+                }
+            },
+            request=request,
+        )
+        raise httpx.HTTPStatusError("payment", request=request, response=response)
+
+    def endpoints(_model):
+        return [{"pricing": {"prompt": "0.0000000001", "completion": "0.0000000001"}}]
+
+    code, output = _run(
+        monkeypatch,
+        root,
+        evidence,
+        _manifest(root, [entry]),
+        "http.json",
+        extract,
+        endpoints,
+        key="super-secret-key",
+    )
+    scorecard = json.loads(output.read_text(encoding="utf-8"))
+    text = output.read_text(encoding="utf-8")
+    assert code == 1
+    assert received == ["one"]
+    assert scorecard["stop_reason"] == "provider_failed"
+    assert scorecard["cases"][0]["provider_error"] == {
+        "http_status": 402,
+        "message": "Insufficient credits",
+        "code": 402,
+    }
+    assert "super-secret-key" not in text
+    assert "Authorization" not in text
+    assert capsys.readouterr().err == ""
 
 
 def test_missing_key_fails_closed_before_a_request(tmp_path, monkeypatch, capsys):
