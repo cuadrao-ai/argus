@@ -102,6 +102,8 @@ export function BusinessMonthCloseView({
   const [confirming, setConfirming] = useState(false);
   const [busyClose, setBusyClose] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(() => new Set());
+  const inFlight = useRef(new Set<string>());
   const generation = useRef(0);
 
   useEffect(() => {
@@ -142,22 +144,42 @@ export function BusinessMonthCloseView({
     })[status];
 
   async function mark(document: MonthCloseDocument) {
-    if (!snapshot || snapshot.closed_at || document.status !== "pendiente") return;
+    if (!snapshot || snapshot.closed_at || document.status !== "pendiente" || inFlight.current.has(document.id)) return;
     const started = generation.current;
-    const previous = snapshot;
+    const documentId = document.id;
+    inFlight.current.add(documentId);
+    const previousStatus = document.status;
     const nextStatus: MonthCloseStatus = document.kind === "invoice" ? "cobrado" : "pagado";
-    setSnapshot({
-      ...snapshot,
-      documents: snapshot.documents.map((item) => (item.id === document.id ? { ...item, status: nextStatus } : item)),
-    });
+    setPendingIds((current) => new Set(current).add(documentId));
+    setSnapshot((current) =>
+      current
+        ? { ...current, documents: current.documents.map((item) => (item.id === documentId ? { ...item, status: nextStatus } : item)) }
+        : current,
+    );
     try {
-      const saved = document.kind === "invoice" ? await client.markCobrado(document.id) : await client.markPagado(document.id);
+      const saved = document.kind === "invoice" ? await client.markCobrado(documentId) : await client.markPagado(documentId);
       if (started !== generation.current) return;
       setSnapshot((current) => (current ? { ...current, documents: current.documents.map((item) => (item.id === saved.id ? saved : item)) } : current));
     } catch {
       if (started !== generation.current) return;
-      setSnapshot(previous);
+      setSnapshot((current) =>
+        current
+          ? {
+              ...current,
+              documents: current.documents.map((item) =>
+                item.id === documentId && item.status === nextStatus ? { ...item, status: previousStatus } : item,
+              ),
+            }
+          : current,
+      );
       setToast(t("business.month_close.mark_failed", "We couldn't save that change. The status is back to what it was."));
+    } finally {
+      inFlight.current.delete(documentId);
+      setPendingIds((current) => {
+        const next = new Set(current);
+        next.delete(documentId);
+        return next;
+      });
     }
   }
 
@@ -303,6 +325,7 @@ export function BusinessMonthCloseView({
                   type="button"
                   role="radio"
                   aria-checked={selected}
+                  tabIndex={selected ? 0 : -1}
                   data-value={value}
                   data-testid={`month-close-filter-${value}`}
                   onClick={() => setFilter(value)}
@@ -331,6 +354,7 @@ export function BusinessMonthCloseView({
                 type="button"
                 role="radio"
                 aria-checked={sort === value}
+                tabIndex={sort === value ? 0 : -1}
                 data-value={value}
                 onClick={() => setSort(value)}
                 className={`min-h-11 rounded-full px-3.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 ${sort === value ? "bg-black text-white dark:bg-white dark:text-black" : "text-black/60 dark:text-white/60"}`}
@@ -392,6 +416,7 @@ export function BusinessMonthCloseView({
                             type="button"
                             data-testid={document.kind === "invoice" ? "month-close-mark-cobrado" : "month-close-mark-pagado"}
                             className={`${secondaryButtonClass} px-3.5`}
+                            disabled={pendingIds.has(document.id)}
                             aria-label={document.kind === "invoice"
                               ? t("business.month_close.mark_cobrado_named", "Mark {{name}} collected", { name: document.counterparty })
                               : t("business.month_close.mark_pagado_named", "Mark {{name}} paid", { name: document.counterparty })}
