@@ -26,9 +26,8 @@ const payload = (action = "recovery") => ({
     token_hash: "a".repeat(64), token_hash_new: "b".repeat(64),
   },
 });
-function request(value: unknown, id = "test-webhook-id") {
+function request(value: unknown, id = "test-webhook-id", timestamp = new Date()) {
   const body = JSON.stringify(value);
-  const timestamp = new Date();
   return new Request("https://cuadrao-web-staging.onrender.com/api/auth/send-email", {
     method: "POST", headers: {
       "content-type": "application/json",
@@ -175,6 +174,43 @@ describe("staging Auth email hook", () => {
       assert.ok(!(await response.text()).includes("synthetic"));
     }
   });
+
+  test("rejects invalid, unverified, stale and future delivery timestamps before sending security notices", async () => {
+    for (const action of ["password_changed_notification", "email_changed_notification"]) {
+      const value = { user: { email: "new@example.test" }, email_data: { email_action_type: action, old_email: "old@example.test", site_url: config.appOrigin, redirect_to: "" } };
+      const invalid = request(value);
+      invalid.headers.set("webhook-timestamp", "invalid");
+      const unverified = request(value);
+      unverified.headers.set("webhook-timestamp", String(Number(unverified.headers.get("webhook-timestamp")) - 1));
+      for (const candidate of [
+        invalid, unverified,
+        request(value, "stale-security", new Date(Date.now() - 301_000)),
+        request(value, "future-security", new Date(Date.now() + 301_000)),
+      ]) {
+        const sent: AuthDelivery[] = [];
+        assert.equal((await handleAuthEmailHook(candidate, config, async email => { sent.push(email); })).status, 401);
+        assert.equal(sent.length, 0);
+      }
+    }
+  });
+});
+
+
+test("signed security notices send only to their documented recipients and disabled five send nothing", async () => {
+  for (const action of ["password_changed_notification", "email_changed_notification", ...DISABLED_SECURITY_NOTICES]) {
+    const value = {user: {email: "new@example.test"}, email_data: {email_action_type: action, site_url: config.appOrigin, redirect_to: "", old_email: "old@example.test"}};
+    const sent: AuthDelivery[] = [];
+    const response = await handleAuthEmailHook(request(value), config, async mail => {sent.push(mail);});
+    assert.equal(response.status, 200);
+    if (DISABLED_SECURITY_NOTICES.some(disabled => disabled === action)) {
+      assert.equal(sent.length, 0);
+    } else {
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].recipient, action === "email_changed_notification" ? "old@example.test" : "new@example.test");
+      assert.ok(!sent[0].html.includes('class="button"'));
+      assert.ok(!sent[0].text.includes("/auth/"));
+    }
+  }
 });
 
 

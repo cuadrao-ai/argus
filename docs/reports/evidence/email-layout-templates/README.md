@@ -158,3 +158,54 @@ Official contracts checked for this change are the
 [Supabase Send Email Hook](https://supabase.com/docs/guides/auth/auth-hooks/send-email-hook),
 [Supabase Email Templates](https://supabase.com/docs/guides/auth/auth-email-templates)
 and the [Auth notification payload source](https://github.com/supabase/auth/blob/master/internal/api/mail.go).
+
+### Security notice retry correction
+
+The [independent Eval finding](https://github.com/lagarcess/argus/pull/1226#issuecomment-6245666450)
+at `95bd30349577e1325edc9b85a83e0e237fb6dcb6` reproduced a changed provider
+payload under the same idempotency key. The actual handler and Resend adapter
+were called with identical signed synthetic deliveries at 12:00:59 and 12:01:01
+UTC. For both enabled security notices, a strict fake provider accepted the
+first request and lost its response. Before this correction each case returned
+hook `503`, then provider `409` and hook `503`, with one accepted delivery and
+one payload conflict. Rejection before acceptance returned `503`, then `200`.
+
+After signature and freshness verification, the handler now passes the verified
+signed delivery timestamp to the renderer as its send-attempt time. It is not
+an account-event timestamp. Both actions now return `503`, then `200`, with
+one accepted provider key, zero conflicts and byte-identical provider JSON,
+including HTML and plain text. The rejection-before-acceptance cases also
+retain identical payloads and return `503`, then `200`. The regression uses the
+same strict fake-provider mechanism as the independent reproducer. The original
+probe was rerun with only its expected retry status and conflict count changed
+to the corrected values. All four probe cases passed.
+
+Committed tests cover both enabled actions and all four failure/action pairs.
+They failed before the handler correction. Invalid timestamp text, a modified
+unsigned timestamp, validly signed stale timestamps and validly signed future
+timestamps still return `401` with zero deliveries for both actions. The
+Standard Webhooks verification and its existing timestamp parsing are unchanged.
+
+This fixes a replay of one identical signed delivery within signature tolerance.
+Distinct upstream Supabase attempts can have different delivery IDs and
+timestamps. This correction does not establish duplicate suppression across
+those attempts or automatic retry of a hook `503`. No new persistent store,
+provider key, copy, environment file, migration or hosted setting was added.
+
+Focused verification passed 60 web tests across nine files with 22 unchanged
+snapshots and eight marketing waitlist tests across two files. This includes
+the approved copy, recipient mapping, both secure-change confirmations, masked
+new address, disabled actions, expiry, footer, legal string and light/dark AA
+checks. Both generator freshness checks, changed-module TypeScript, changed-file
+ESLint, branch ownership, modularity and whitespace checks passed. Refreshed
+integration remains `651870a54be4e5506dbb38f3902fef1a97eef8df`, already an
+ancestor of this lane. No reconciliation merge is needed, and its merged tree
+is this lane's tree.
+
+The universal brand checker still exits `1` with 14 violations in the live
+legacy `src/argus/domain/access_approval_email.py`. It remains OPEN/BLOCKED by
+the admission dependency and Lucas's product decision. It is not wired to CI;
+no allowlist or waiver was added. Fresh independent Eval and terminal CI at the
+new final head remain root-owned pending gates, together with all three receipt
+passes, hosted settings readback, actual inbox-client proof and hosted one-use
+proof. Merge and activation remain held.

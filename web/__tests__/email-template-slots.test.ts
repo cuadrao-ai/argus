@@ -23,8 +23,8 @@ test("asset origins are configurable and reject paths, credentials and unsafe sc
   }
 });
 
-test("all five remaining empty slots refuse delivery and share the preview layout", () => {
-  expect(Object.keys(EMAIL_TEMPLATE_SLOTS)).toHaveLength(5);
+test("all nine empty slots refuse delivery and share the preview layout", () => {
+  expect(Object.keys(EMAIL_TEMPLATE_SLOTS)).toHaveLength(9);
   for (const slot of Object.keys(EMAIL_TEMPLATE_SLOTS) as Array<keyof typeof EMAIL_TEMPLATE_SLOTS>) {
     expect(EMAIL_TEMPLATE_SLOTS[slot].status).toBe('awaiting_copy');
     expect(() => renderTemplateSlot(slot)).toThrow('awaiting approved copy');
