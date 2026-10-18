@@ -3678,3 +3678,49 @@ by `tests/test_ingestion_reconcile_postgres.py`. On disconnect, unreviewed
 observations (and events left empty) are deleted; observations of accepted
 events are reduced to provenance (source, connection, external id, dates,
 status) and kept with the record.
+
+## Public RNC registry
+
+`public.dgii_rnc` holds the latest published registry of RNC and cédula
+identifiers. `public.dgii_rnc_load` is the staging table a later loader fills.
+Neither table keeps history. Each daily file replaces the registry.
+
+| Column | `dgii_rnc` | `dgii_rnc_load` |
+| --- | --- | --- |
+| `rnc` | primary key, 9 or 11 digits | not null, same check, no primary key |
+| `name` | not null, trimmed length greater than 0 | same |
+| `trade_name` | nullable commercial name | same |
+| `status` | not null raw publisher text | same |
+| `file_date` | not null source-file date | same |
+
+`trade_name` is the publisher's nombre comercial. About 56 percent of rows have
+one. Null means the file had no commercial name. A blank or whitespace-only
+value fails `check (trade_name is null or length(btrim(trade_name)) > 0)`, so
+the loader stores null. `status` stays the raw estado value, including new
+values, with no check. Lookup derives `verification`: `verificado` when the
+trimmed upper-case status is `ACTIVO`, otherwise `no_activo`.
+
+`public.dgii_rnc_swap(min_rows int) returns int` copies `rnc`, `name`,
+`trade_name`, `status` and `file_date` from the load table into the registry.
+A null or non-positive minimum raises before the swap takes a lock. The swap
+then locks the load table exclusively, checks the row count, and rejects
+duplicate `rnc` values. A delete on the load table waits for that lock, so the
+published rows are the rows that passed the checks. The swap locks the
+registry, truncates it, and inserts in the same transaction. A raised error
+rolls that transaction back and leaves the previous registry in place.
+`public.dgii_rnc_lookup(p_rnc text)` is volatile and returns
+`table(rnc text, name text, trade_name text, status text, file_date date, verification text)`.
+A lookup that waits on a swap reads the rows published by that swap. It strips
+non-digits from the input and returns no row when nothing matches.
+
+Row level security is enabled with no policies. `anon`, `authenticated` and
+`public` have no privileges. `service_role` may select the registry, load and
+clear the staging table, and execute both functions. Cédula rows are personal
+identifiers published in the source file. Access stays service-role only.
+
+A full file is about 800,000 rows. `trade_name` adds about 10 to 15 MB at that
+scale. One local swap of 800,000 synthetic rows, with a commercial name on 56
+percent of them, added 14,778,368 bytes to the registry. Re-running the swap
+with the same load contents produces the same registry. Proven by
+`tests/test_dgii_rnc_postgres.py`. Migration
+`supabase/migrations/20261018190000_dgii_rnc_registry.sql`.

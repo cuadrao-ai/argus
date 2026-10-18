@@ -184,6 +184,8 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.cost_ledger_entries",
         "public.cuadrao_early_access_signups",
         "public.decision_notes",
+        "public.dgii_rnc",
+        "public.dgii_rnc_load",
         "public.evidence_artifacts",
         "public.feedback",
         "public.financial_account_idempotency",
@@ -443,6 +445,44 @@ def test_revoked_rls_helper_still_enables_new_public_table_rls(catalog) -> None:
 
 def test_migration_owner_default_privileges_give_clients_nothing(catalog) -> None:
     assert _default_privileges(catalog) == CLIENT_DEFAULT_PRIVILEGES
+
+
+def test_service_role_can_call_dgii_rnc_lookup(catalog) -> None:
+    catalog.execute(
+        """
+        select prosecdef
+        from pg_proc
+        join pg_namespace on pg_namespace.oid = pg_proc.pronamespace
+        where nspname = 'public' and proname = 'dgii_rnc_lookup'
+        """
+    )
+    assert catalog.fetchone() == (False,)
+    catalog.execute(
+        """
+        select role_name,
+               has_function_privilege(role_name, 'public.dgii_rnc_lookup(text)', 'execute')
+        from unnest(array['anon', 'authenticated', 'service_role']) as role_name
+        """
+    )
+    assert dict(catalog.fetchall()) == {
+        "anon": False,
+        "authenticated": False,
+        "service_role": True,
+    }
+    try:
+        with catalog.connection.transaction(force_rollback=True):
+            catalog.execute(
+                """
+                insert into public.dgii_rnc (rnc, name, trade_name, status, file_date)
+                values ('101234567', 'Casa Norte', null, 'ACTIVO', '2026-10-18')
+                """
+            )
+            catalog.execute("set role service_role")
+            catalog.execute("select rnc from public.dgii_rnc_lookup('1-01-23456-7')")
+            assert catalog.fetchone() == ("101234567",)
+            catalog.execute("reset role")
+    finally:
+        catalog.execute("reset role")
 
 
 def test_business_space_is_never_client_visible(catalog) -> None:
