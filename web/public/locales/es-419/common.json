@@ -1506,10 +1506,15 @@
       "new_account": "¿Nuevo en Cuadrao?",
       "password_requirement": "Mínimo 8 caracteres.",
       "confirmation_title": "Revisa tu correo",
-      "confirmation_description": "Escribe el código del correo, o abre el enlace de confirmación. Cualquiera de los dos termina de crear tu cuenta.",
+      "confirmation_description": "Escribe el código que te enviamos a {{correo}}.",
       "confirmation_code_label": "Código de confirmación",
       "confirmation_submit": "Confirmar",
       "confirmation_loading": "Confirmando..."
+    },
+    "confirm": {
+      "error_title": "Este enlace no funcionó",
+      "error_body": "Falta, venció o ya se usó. Pide uno nuevo e inténtalo otra vez.",
+      "back_to_sign_in": "Volver a iniciar sesión"
     },
     "legal": {
       "continuing_prefix": "Al continuar, aceptas nuestros"
