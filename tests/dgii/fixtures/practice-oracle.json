@@ -1,0 +1,337 @@
+{
+  "practice_label": "PRÁCTICA",
+  "business": {
+    "name": "PRÁCTICA José",
+    "rnc": "199990013"
+  },
+  "period": "202609",
+  "stage_only": true,
+  "tax_filing_forbidden": true,
+  "identifier_policy": "Generated checksum-valid nine-digit identifiers. Synthetic and registration unverified. No registry lookup and no borrowed registered identifier. Coincidence with a registered identifier is unverified.",
+  "checksum_source": "https://github.com/arthurdejong/python-stdnum/blob/master/stdnum/do/rnc.py",
+  "parties": {
+    "business": {
+      "name": "PRÁCTICA José",
+      "rnc": "199990013"
+    },
+    "goods": {
+      "name": "PRÁCTICA Maderas de ensayo",
+      "rnc": "199990021"
+    },
+    "service": {
+      "name": "PRÁCTICA Reparaciones de ensayo",
+      "rnc": "199990031"
+    },
+    "consumption": {
+      "name": "PRÁCTICA Tienda de ensayo",
+      "rnc": "199990048"
+    },
+    "customer": {
+      "name": "PRÁCTICA Cliente de ensayo",
+      "rnc": "199990056"
+    }
+  },
+  "records": [
+    {
+      "id": "P01",
+      "direction": "purchase",
+      "supplier": "goods",
+      "customer": "business",
+      "ncf": "B0100000001",
+      "date": "2026-09-03",
+      "detail": "Madera para muebles de ensayo",
+      "goods": "1000.00",
+      "services": "0.00",
+      "itbis": "180.00",
+      "payment": "cash",
+      "fiscal606": true,
+      "payment606": "01",
+      "expense606": "09",
+      "practice_label": "PRÁCTICA",
+      "currency": "DOP",
+      "net": "1000.00",
+      "gross": "1180.00",
+      "other_tax_amounts": {
+        "itbis_retained": "0.00",
+        "itbis_proportionality": "0.00",
+        "itbis_cost": "0.00",
+        "itbis_perceived": "0.00",
+        "isr_retained": "0.00",
+        "isr_perceived": "0.00",
+        "selective_consumption_tax": "0.00",
+        "other_taxes": "0.00",
+        "legal_tip": "0.00"
+      },
+      "itbis_advance": "180.00",
+      "payment_date": "2026-09-03",
+      "pdf": "P01-PRACTICA.pdf"
+    },
+    {
+      "id": "P02",
+      "direction": "purchase",
+      "supplier": "service",
+      "customer": "business",
+      "ncf": "B0100000001",
+      "date": "2026-09-05",
+      "detail": "Reparación de una herramienta de ensayo",
+      "goods": "0.00",
+      "services": "500.00",
+      "itbis": "90.00",
+      "payment": "bank_transfer",
+      "fiscal606": true,
+      "payment606": "02",
+      "expense606": "02",
+      "practice_label": "PRÁCTICA",
+      "currency": "DOP",
+      "net": "500.00",
+      "gross": "590.00",
+      "other_tax_amounts": {
+        "itbis_retained": "0.00",
+        "itbis_proportionality": "0.00",
+        "itbis_cost": "0.00",
+        "itbis_perceived": "0.00",
+        "isr_retained": "0.00",
+        "isr_perceived": "0.00",
+        "selective_consumption_tax": "0.00",
+        "other_taxes": "0.00",
+        "legal_tip": "0.00"
+      },
+      "itbis_advance": "90.00",
+      "payment_date": "2026-09-05",
+      "pdf": "P02-PRACTICA.pdf"
+    },
+    {
+      "id": "P03",
+      "direction": "purchase",
+      "supplier": "consumption",
+      "customer": "business",
+      "ncf": "B0200000001",
+      "date": "2026-09-08",
+      "detail": "Material de consumo sin crédito fiscal",
+      "goods": "200.00",
+      "services": "0.00",
+      "itbis": "36.00",
+      "payment": "cash",
+      "fiscal606": false,
+      "exclusion": "B02 compra de consumo. Gasto bruto sin crédito fiscal.",
+      "practice_label": "PRÁCTICA",
+      "currency": "DOP",
+      "net": "200.00",
+      "gross": "236.00",
+      "other_tax_amounts": {
+        "itbis_retained": "0.00",
+        "itbis_proportionality": "0.00",
+        "itbis_cost": "0.00",
+        "itbis_perceived": "0.00",
+        "isr_retained": "0.00",
+        "isr_perceived": "0.00",
+        "selective_consumption_tax": "0.00",
+        "other_taxes": "0.00",
+        "legal_tip": "0.00"
+      },
+      "itbis_advance": "0.00",
+      "payment_date": "2026-09-08",
+      "pdf": "P03-PRACTICA.pdf"
+    },
+    {
+      "id": "P04",
+      "direction": "purchase_credit_note",
+      "supplier": "goods",
+      "customer": "business",
+      "ncf": "B0400000001",
+      "modified_ncf": "B0100000001",
+      "original_id": "P01",
+      "date": "2026-09-12",
+      "detail": "Devolución parcial de madera. REEMBOLSO REAL EN EFECTIVO de DOP 118.00.",
+      "goods": "100.00",
+      "services": "0.00",
+      "itbis": "18.00",
+      "payment": "cash_refund",
+      "fiscal606": true,
+      "payment606": "06",
+      "expense606": "09",
+      "practice_label": "PRÁCTICA",
+      "currency": "DOP",
+      "net": "100.00",
+      "gross": "118.00",
+      "other_tax_amounts": {
+        "itbis_retained": "0.00",
+        "itbis_proportionality": "0.00",
+        "itbis_cost": "0.00",
+        "itbis_perceived": "0.00",
+        "isr_retained": "0.00",
+        "isr_perceived": "0.00",
+        "selective_consumption_tax": "0.00",
+        "other_taxes": "0.00",
+        "legal_tip": "0.00"
+      },
+      "itbis_advance": "18.00",
+      "payment_date": "2026-09-12",
+      "pdf": "P04-PRACTICA.pdf"
+    },
+    {
+      "id": "S01",
+      "direction": "sale",
+      "supplier": "business",
+      "customer": "customer",
+      "ncf": "B0100000001",
+      "date": "2026-09-16",
+      "detail": "Mueble de ensayo vendido a cliente PRÁCTICA",
+      "goods": "2000.00",
+      "services": "0.00",
+      "itbis": "360.00",
+      "payment": "bank_transfer",
+      "fiscal607_detail": true,
+      "income607": "01",
+      "practice_label": "PRÁCTICA",
+      "currency": "DOP",
+      "net": "2000.00",
+      "gross": "2360.00",
+      "other_tax_amounts": {
+        "itbis_retained": "0.00",
+        "itbis_proportionality": "0.00",
+        "itbis_cost": "0.00",
+        "itbis_perceived": "0.00",
+        "isr_retained": "0.00",
+        "isr_perceived": "0.00",
+        "selective_consumption_tax": "0.00",
+        "other_taxes": "0.00",
+        "legal_tip": "0.00"
+      },
+      "itbis_advance": "0.00",
+      "payment_date": "2026-09-16",
+      "pdf": "S01-PRACTICA.pdf"
+    },
+    {
+      "id": "S02",
+      "direction": "sale",
+      "supplier": "business",
+      "customer": "consumer",
+      "ncf": "B0200000001",
+      "date": "2026-09-18",
+      "detail": "Pieza de ensayo vendida a consumidor final PRÁCTICA",
+      "goods": "500.00",
+      "services": "0.00",
+      "itbis": "90.00",
+      "payment": "cash",
+      "fiscal607_detail": false,
+      "consumption607_summary": true,
+      "income607": "01",
+      "practice_label": "PRÁCTICA",
+      "currency": "DOP",
+      "net": "500.00",
+      "gross": "590.00",
+      "other_tax_amounts": {
+        "itbis_retained": "0.00",
+        "itbis_proportionality": "0.00",
+        "itbis_cost": "0.00",
+        "itbis_perceived": "0.00",
+        "isr_retained": "0.00",
+        "isr_perceived": "0.00",
+        "selective_consumption_tax": "0.00",
+        "other_taxes": "0.00",
+        "legal_tip": "0.00"
+      },
+      "itbis_advance": "0.00",
+      "payment_date": "2026-09-18",
+      "pdf": "S02-PRACTICA.pdf"
+    }
+  ],
+  "duplicate": {
+    "file": "P01-duplicate-PRACTICA.pdf",
+    "same_bytes_as": "P01-PRACTICA.pdf",
+    "expected_new_receipts": 0,
+    "expected_additional_spend": "0.00"
+  },
+  "human_approval": "Synthetic expected oracle assumes an authorized accountant reviews each record. No app approval or hosted action has occurred.",
+  "source_contract": "../annex-contract.md; annex owner confirmation delivered to fixture helper on 2026-10-18",
+  "rule_sources": [
+    "https://ayuda.dgii.gov.do/conversations/discusiones/tratamiento-de-factura/64f620e78ae5d06a0aa600b8",
+    "https://ayuda.dgii.gov.do/conversations/discusiones/como-registro-una-nota-de-credito-en-el-606/62a296064c24491a89ea17e4"
+  ],
+  "oracle": {
+    "606": {
+      "detail_count": 3,
+      "unsigned_txt_rows": {
+        "goods": "1100.00",
+        "services": "500.00",
+        "base": "1600.00",
+        "itbis": "288.00",
+        "gross": "1888.00"
+      },
+      "credit_note_positive_magnitude": {
+        "base": "100.00",
+        "itbis": "18.00",
+        "gross": "118.00"
+      },
+      "credit_adjusted_economic_totals": {
+        "goods": "900.00",
+        "services": "500.00",
+        "base": "1400.00",
+        "itbis": "252.00",
+        "gross": "1652.00"
+      },
+      "excluded_B02_purchase": {
+        "base": "200.00",
+        "itbis_not_credited": "36.00",
+        "gross_spend": "236.00"
+      }
+    },
+    "607": {
+      "detail_count": 1,
+      "detail": {
+        "base": "2000.00",
+        "itbis": "360.00",
+        "gross": "2360.00",
+        "bank_transfer": "2360.00"
+      },
+      "consumption_summary": {
+        "count": 1,
+        "base": "500.00",
+        "itbis": "90.00",
+        "gross": "590.00",
+        "cash": "590.00"
+      },
+      "all_sales": {
+        "base": "2500.00",
+        "itbis": "450.00",
+        "gross": "2950.00"
+      }
+    },
+    "cash_and_bank": {
+      "purchase_payments_before_refund": "2006.00",
+      "purchase_cash_outflow_before_refund": "1416.00",
+      "purchase_bank_outflow": "590.00",
+      "actual_cash_refund": "118.00",
+      "net_purchase_cash_outflow": "1298.00",
+      "net_gross_spend_including_B02": "1888.00",
+      "sales_cash_inflow": "590.00",
+      "sales_bank_inflow": "2360.00",
+      "net_cash_change": "-708.00",
+      "net_bank_change": "1770.00",
+      "net_total_change": "1062.00"
+    },
+    "itbis_advance_unsigned_txt_rows": "288.00",
+    "itbis_advance_credit_adjusted": "252.00",
+    "official_prevalidator": {
+      "606": "NOT RUN",
+      "607": "NOT RUN",
+      "reason": "No existing compatible Windows runtime or documented validator CLI was verified."
+    }
+  },
+  "files": {
+    "P01-PRACTICA.pdf": "202e0e6b00e873ae045fbd030bb3a5d2d162eaa9b7044af3b804c743c3605160",
+    "P01-PRACTICA.txt": "435da72dfefc3dfd73e5287a7c0e60680382443c54fbc06390190ce0ad9acf01",
+    "P01-duplicate-PRACTICA.pdf": "202e0e6b00e873ae045fbd030bb3a5d2d162eaa9b7044af3b804c743c3605160",
+    "P02-PRACTICA.pdf": "3d04e2fe57d5efdb1cb07baaeb65314ed744e9b7b9cd891c589d106bf6015df3",
+    "P02-PRACTICA.txt": "61675eb11847bbeeb9292ab2310d432ecfd52de609b982de89a350670e658af2",
+    "P03-PRACTICA.pdf": "1202d46deb6139dca6a5a5a86b9243302c70add9ede365a0cfd225c044b57d25",
+    "P03-PRACTICA.txt": "47973939858bc25b48545478e6b1603a29db6d8517fb07a83adb2a0120fe214b",
+    "P04-PRACTICA.pdf": "47d3bd55e73ec3a714f9ac789f98f22c148ac4823d7ea0ce2a58625413920b4e",
+    "P04-PRACTICA.txt": "1b8d660eafe52dab5c5ed4c607a2576e8d1ed87518d6b02f5ca51cd84e66aaee",
+    "S01-PRACTICA.pdf": "5d3111ec260095d5c57f620318d5d62afc39e42fec43cd0d3e2a49f245faa36e",
+    "S01-PRACTICA.txt": "a0eb6152a79d790f99dfe3402f23d4c2e9110d2823d59744d8322e435f290a5a",
+    "S02-PRACTICA.pdf": "9f9e5fb720a254f903b22c681e242367c14112f6c0917e5f04dfc263d5679a42",
+    "S02-PRACTICA.txt": "c3fcdd6f95c7d04d5c7f27fbe1205536f78597071da256cdb160eaca39196504"
+  }
+}

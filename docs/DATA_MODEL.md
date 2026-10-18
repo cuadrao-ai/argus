@@ -3508,6 +3508,26 @@ unverified default DOP; an append preserves facts and open questions. Neither
 path writes money, manufactures a turn, grants consent or amends accepted records.
 Existing source lifecycle, receipt immutability and client privileges are unchanged.
 
+Migration `20261018060000_business_dgii_period_export.sql` adds only nullable
+columns to the existing owners. `spaces.business_rnc` holds the owner's explicit
+nine-digit Business identity. Existing server-only RLS and client revocations
+also protect this column. `business_draft_revisions.before_dgii` and `after_dgii`
+retain immutable typed declaration snapshots alongside the existing facts,
+actual actor, grant, source IDs and version. Current additional tax fields live
+only in `financial_import_events.resolution.business.dgii`; canonical fiscal
+identity and ITBIS remain in `BusinessFacts.fiscal`.
+
+The existing human `ReviewCommand` carries the tax input. It updates the current
+open resolution and appends one source-linked revision atomically. Every later
+revision preserves the declaration. Owner approval binds the reviewed revision;
+the export reads that revision's facts and declaration, then checks current money
+amount, date and currency. Accepted-record tax edits remain refused. No second
+tax ledger or fiscal approval bypass is added. New human-only action receipt
+types `approve_refund` and `set_business_rnc` retain the existing immutable actor,
+command hash and idempotency rules. The migration uses five-second lock and
+60-second statement timeouts. It creates no table, role, policy, client grant or
+environment setting.
+
 All new tables have RLS enabled and no client policies, with anon/authenticated
 grants revoked. Only the server projects authorized dossiers and original
 sources. The existing import event and observation SELECT policies now permit
