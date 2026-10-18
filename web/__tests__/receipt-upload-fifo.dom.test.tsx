@@ -80,8 +80,11 @@ function drop(files: File[]) {
   assert.ok(zone, "the drop zone is on the page");
   const transfer = new DataTransfer();
   for (const item of files) transfer.items.add(item);
-  zone.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: transfer }));
-  zone.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  for (const type of ["dragover", "drop"] as const) {
+    const event = new DragEvent(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", { value: transfer });
+    zone.dispatchEvent(event);
+  }
 }
 
 test("a file added by picker or drop while another uploads shows En cola and is kept across a rerender", async () => {
@@ -114,8 +117,11 @@ test("a file added by picker or drop while another uploads shows En cola and is 
     assert.match(again, /c\.txt/);
     assert.match(again, /En cola/);
     releaseA(savedReceipt("a.txt"));
-    await act(async () => { await Promise.resolve(); });
+    for (let turn = 0; order.length < 3 && turn < 20; turn += 1) {
+      await act(async () => { await Promise.resolve(); });
+    }
     assert.deepEqual(order, ["a.txt", "b.txt", "c.txt"]);
+    assert.deepEqual(queue.snapshot().map((item) => item.status), ["saved", "saved", "saved"]);
   } finally {
     await page.unmount();
   }
