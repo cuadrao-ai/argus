@@ -517,6 +517,42 @@ def test_capped_email_waiting_survives_real_api_serialization(alice, runtime, co
     assert alice.get(f"/email/deliveries/{item.id}").json()["waiting"] is None
 
 
+def test_new_senders_are_listed_before_the_tray(alice, runtime):  # noqa: F811
+    from dataclasses import replace
+
+    store = runtime.store
+    route = _route_for(store, alice, "ferreterianunez@recibos.example.test")
+    space_id = alice.scope().owner.space_id
+    tray = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=space_id,
+        principal_id=route.principal_id,
+    )
+    fresh = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=space_id,
+        principal_id=route.principal_id,
+    )
+    store._deliveries[tray.id] = replace(
+        store.get(tray.id, space_id), state="captured", inbox_group="bandeja"
+    )
+    store._deliveries[fresh.id] = replace(
+        store.get(fresh.id, space_id), state="captured", inbox_group="remitentes_nuevos"
+    )
+    response = alice.get("/email/inbox")
+    assert response.status_code == 200, response.text
+    groups = response.json()["groups"]
+    assert [group["id"] for group in groups] == ["remitentes_nuevos", "bandeja"]
+    assert [item["id"] for item in groups[0]["items"]] == [fresh.id]
+    assert [item["id"] for item in groups[1]["items"]] == [tray.id]
+
+
 def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runtime):  # noqa: F811
     body = {"kind": "address", "value": "Caja@Tienda.test", "status": "authorized"}
     created = alice.post("/email/senders", body)

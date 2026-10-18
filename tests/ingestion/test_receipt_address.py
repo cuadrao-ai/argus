@@ -150,6 +150,42 @@ def test_free_mail_domains_and_their_subdomains_cannot_be_whole_rules():
     assert not domain_is_free("tienda.test")
 
 
+def test_the_dominican_slang_placeholder_blocks_nothing_until_iris_fills_it(monkeypatch):
+    import argus.domain.ingestion.email_intake.alias as alias_module
+    import argus.domain.ingestion.email_intake.words as words
+
+    assert words.IRIS_DOMINICAN_SLANG_PLACEHOLDER == ()
+    assert frozenset(words.IRIS_DOMINICAN_SLANG_PLACEHOLDER) <= words.ANYWHERE_WORDS
+    filled = frozenset({"vaina"}) | words.ANYWHERE_WORDS
+    monkeypatch.setattr(words, "ANYWHERE_WORDS", filled)
+    monkeypatch.setattr(alias_module, "ANYWHERE_WORDS", filled)
+    assert judge_normalized("vaina", taken=False) == "refused"
+    assert judge_normalized("ferreterianunez", taken=False) == "available"
+
+
+def test_one_address_filling_its_cap_leaves_the_next_address_open():
+    world = rig()
+    world.store.budget = DailyEmailBudget(1, 100 * SOURCE_MAX_BYTES)
+    assert world.enqueue().error_code is None
+    held = world.enqueue()
+    assert held.error_code == "email_daily_message_budget"
+    other = "tallerpena@recibos.example.test"
+    second = world.store.create_route(
+        recipient=other,
+        space_id=str(uuid4()),
+        principal_id=str(uuid4()),
+        granted_by=str(uuid4()),
+        grant_id=str(uuid4()),
+        alias="tallerpena",
+        alias_normalized="tallerpena",
+    )
+    admitted = world.store.gate_unauthorized(
+        world.runtime.enqueue_resend(str(uuid4()), (other,))
+    )
+    assert admitted.route_id == second.id
+    assert admitted.error_code is None
+
+
 def test_routing_never_approves_and_keeps_unverified_mail_in_the_tray():
     new = decide("new", "unknown", first_authorized=False)
     assert (new.group, new.approved, new.skip) == ("remitentes_nuevos", False, False)
