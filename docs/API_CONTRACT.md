@@ -9810,9 +9810,18 @@ route.
 ### Waitlist staging scheduler
 
 `POST /functions/v1/waitlist-reminders` is an internal Supabase Edge Function.
-It requires the staging service-role bearer credential and the exact staging
-project URL. It sends at most two due reminders using the existing reservation
-RPC and shared email renderer. It returns counts; failures return HTTP 503.
+It requires `X-Cuadrao-Waitlist-Scheduler-Key` with the dedicated secret from
+Edge `CUADRAO_WAITLIST_SCHEDULER_KEY` and Vault `cuadrao_waitlist_scheduler_key`.
+Vault `cuadrao_waitlist_project_url` and Edge `SUPABASE_URL` must equal
+`https://skedzwocnmrhfigiwyzi.supabase.co`. Edge `SUPABASE_SERVICE_ROLE_KEY`
+is used only for database access. A missing database or scheduler key, reuse of
+the database key as the scheduler key, or a wrong Edge project URL returns HTTP 503.
+A missing or incorrect scheduler header returns HTTP 401. These checks run
+before database or provider calls. Authorization bearer credentials do not
+authenticate this endpoint. The [scheduler deployment guide](../supabase/functions/waitlist-reminders/README.md)
+owns secret setup and scheduled-run verification.
+It sends at most two due reminders using the existing reservation RPC and
+shared email renderer. It returns counts; failures return HTTP 503.
 It never purges records. A separate SQL cron job calls the existing retention
 RPC. Both schedules run every five minutes, with retention offset by two minutes.
 Signup still sends confirmation immediately; welcome follows confirmation.
