@@ -76,6 +76,9 @@ class PostgresSpaceStore:
 
     def create(self, person_id: str, name: str) -> tuple[Space, bool]:
         with self._pool.connection() as connection, connection.transaction():
+            connection.execute(
+                "select id from auth.users where id=%s for no key update", (person_id,)
+            )
             created = connection.execute(
                 "insert into public.spaces (kind, name, created_by, current_owner_id)"
                 " values ('business', %s, %s, %s)"

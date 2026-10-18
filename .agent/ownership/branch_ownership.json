@@ -3264,6 +3264,7 @@
         "src/argus/api/business_drafts.py",
         "src/argus/api/routers/business.py",
         "src/argus/api/routers/business_lifecycle.py",
+        "src/argus/api/routers/business_transfer.py",
         "src/argus/domain/account_deletion/service.py",
         "src/argus/domain/business/access.py",
         "src/argus/domain/business/actions/service.py",
@@ -3286,11 +3287,16 @@
         "tests/test_business_lifecycle_postgres.py",
         "tests/test_business_lifecycle_routes.py",
         "tests/test_business_transfer_postgres.py",
+        "tests/test_business_transfer_routes.py",
         "tests/test_financial_accounts_postgres.py",
         "web/__tests__/business-close-dialog.dom.test.tsx",
         "web/__tests__/business-lifecycle-api.test.ts",
+        "web/__tests__/business-transfer-api.test.ts",
+        "web/__tests__/business-transfer-dialog.dom.test.tsx",
         "web/components/business-app/BusinessCloseDialog.tsx",
-        "web/lib/business-lifecycle-api.ts"
+        "web/components/business-app/BusinessTransferDialog.tsx",
+        "web/lib/business-lifecycle-api.ts",
+        "web/lib/business-transfer-api.ts"
       ],
       "deny": [
         ".env",

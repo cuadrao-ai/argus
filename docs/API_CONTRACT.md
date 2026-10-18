@@ -9906,3 +9906,15 @@ transition is distinct from a person pressing a consent-revocation control.
 An open current Business owner is refused by account-deletion admission before
 any deletion run or external lock is created. The working exit UI and full closed
 Business retention remain unmounted and incomplete.
+
+#### Unavailable ownership-transfer HTTP contract, WIP October 18, 2026
+
+The new unmounted transfer router shares the lifecycle readiness denial.
+It defines `POST /business/spaces/{space_id}/ownership-transfers` with an
+`Idempotency-Key`, `target_grant_id` and exact-name `confirmation`.
+`POST /business/ownership-transfers/{transfer_id}/accept`, `/decline` and
+`/withdraw` derive the acting person from authentication. The first two are
+recipient actions. Withdrawal is an owner action. Their transfer ID supplies
+terminal replay identity. All response fields are server facts, with private
+no-store responses and the same known domain refusals. Defining this transport
+adds no application route until the full retention gate is complete.

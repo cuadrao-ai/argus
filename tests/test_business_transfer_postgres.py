@@ -520,3 +520,22 @@ def test_transfer_invalidates_ai_consent_without_fabricating_a_human_revocation(
             ).fetchone()[0]
             == pending.id
         )
+
+
+def test_business_creation_waits_for_person_identity_lock(world):
+    from concurrent.futures import TimeoutError
+
+    pool, _, people, _, _ = world
+    with ThreadPoolExecutor(max_workers=1) as workers:
+        with pool.connection() as db, db.transaction():
+            db.execute(
+                "select id from auth.users where id=%s for no key update",
+                (people["other"],),
+            )
+            pending = workers.submit(
+                PostgresSpaceStore(pool).create, people["other"], "New Business"
+            )
+            with pytest.raises(TimeoutError):
+                pending.result(timeout=0.15)
+        created, fresh = pending.result(timeout=3)
+    assert fresh and PostgresSpaceStore(pool).open_space(people["other"]).id == created.id

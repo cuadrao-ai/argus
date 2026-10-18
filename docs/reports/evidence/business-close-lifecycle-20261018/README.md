@@ -362,3 +362,43 @@ focused Business runtime semantic tests. Twenty-one Bun cases pass, including
 Ruff, whitespace and modularity checks pass. These are provider-free local,
 synthetic Postgres/transport results. Hosted behavior, full retention, purge,
 mounted application flow and independent final-head acceptance remain pending.
+
+## Transfer dialog and HTTP checkpoint
+
+The transfer router remains unmounted and shares the unconditional lifecycle
+readiness denial. Its request endpoint preserves the explicit request key and
+actual existing target grant. Accept, decline and withdrawal use the stored
+transfer ID and authenticated person. Responses expose only transfer ID,
+Business ID and server-owned state. Eleven route tests pass, including actual
+local Postgres acceptance with stable custody and wrong-recipient refusal.
+
+The standalone dialog uses only the exact approved Spanish copy above. Its
+request, pending, recipient and declined views are a typed union. Cancelar
+only dismisses. Retirar solicitud withdraws. Request requires a selected member
+and exact Business name. Submission blocks repeat actions. Frontend transport
+parses server state with Zod and refuses mismatched command/Business responses.
+The dialog and request helpers are not mounted in the application. Pending
+transfer discovery/listing and the durable application command journal remain
+unfinished. DOM proof does not establish a usable web acceptance flow.
+
+A held-identity-lock test reproduced Business creation proceeding while the
+same person's ownership/deletion command held that lock. `PostgresSpaceStore`
+now takes the same person lock before creating. This prevents a concurrent
+new Business from bypassing transfer's one-open-owner decision. The failing-first
+behavior test passes with the fix. No new migration or graph-writer file changed.
+
+The final focused run passed 280 Python tests, zero skips, in 6.67 seconds on
+Python 3.10.20. Thirty Bun tests pass across dialog, lifecycle/transfer transport
+and existing export download behavior. Focused production TypeScript, ESLint,
+Ruff, whitespace and modularity pass. New transfer UI browser render evidence
+is still pending assembly; no screenshot or mounted flow claim is made.
+
+Root instructed this writer to push a clean checkpoint and park for the separate
+graph and shared email-template dependencies. No standalone Python email HTML
+layout was created, no shared email file changed and no transfer email path was
+added. Global account deletion and readiness stay off. The next owner must still
+assemble graph preservation and privacy completion, verify late-write/prefix/Auth
+safety, extend the existing purge sweep, connect the shared close-member email,
+complete current-owner chat storage access, add transfer discovery and durable
+command recovery, mount the approved exit/reopen UI and obtain the required
+receipt runs plus final Priya/Rafael reviews. This lane is not READY.
