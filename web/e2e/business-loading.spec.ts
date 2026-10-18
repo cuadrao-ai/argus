@@ -20,9 +20,9 @@ for (const width of [1280, 390]) {
     await page.goto("/dev/business-preview");
     if (baseline) await expect(page.locator('[role="status"]')).toBeVisible();
     else {
-      await expect(page.getByTestId("conversation-retrieval-state")).toContainText("Cuadrando…");
-      await expect(page.getByTestId("conversation-retrieval-announcement")).toHaveText("Cargando Cuadrao");
-      await expect(page.getByTestId("conversation-retrieval-announcement")).toHaveAttribute("aria-live", "polite");
+      await expect(page.getByTestId("fullscreen-loading")).toBeVisible();
+      await expect(page.getByTestId("fullscreen-loading").getByRole("status")).toHaveText("Cargando");
+      await expect(page.getByTestId("fullscreen-loading").getByRole("status")).toHaveAttribute("aria-live", "polite");
     }
     const capture = async (name: string) => {
       if (evidence) await page.screenshot({ path: `${evidence}/${baseline ? "before" : "after"}-${name}-${width}.png`, fullPage: true });
@@ -31,7 +31,7 @@ for (const width of [1280, 390]) {
     await capture("initial");
     if (!baseline) {
       await page.emulateMedia({ reducedMotion: "reduce" });
-      expect(await page.getByTestId("conversation-retrieval-state").locator("img").first().evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+      expect(await page.getByTestId("fullscreen-loading-sheen").evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
       await capture("initial-reduced-motion");
     }
     release();

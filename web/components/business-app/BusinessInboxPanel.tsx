@@ -11,7 +11,7 @@ import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
 import { bandejaReceipts } from "./bandeja-order";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, PanelHeading, pillButtonClass, secondaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel } from "./business-ui";
+import { cardClass, PanelHeading, pillButtonClass, secondaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel, useTerminalRead } from "./business-ui";
 import { Settle } from "./business-skeletons";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
@@ -78,10 +78,11 @@ export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }:
   );
 }
 
-export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: ReceiptSummary; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void; onRetry?: () => Promise<void> }) {
+export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { receipt: ReceiptSummary; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void; onRetry?: () => Promise<void>; onUpload?: () => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const attentionLabel = useAttentionLabel();
+  const terminal = useTerminalRead()(receipt.attention, receipt.error_code);
   const Icon = receipt.media_type === "application/pdf" ? FileText : ImageIcon;
   const needsAttention = receipt.status === "needs_attention";
   const [retry, setRetry] = useState<"idle" | "retrying" | "failed">("idle");
@@ -120,7 +121,12 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: Rece
             ) : receipt.channel === "email" ? (
               <Mail className="h-3.5 w-3.5 shrink-0" data-testid="inbox-channel-email" aria-label={t("business.dossier.email", "Email")} />
             ) : null}
-            {receipt.attention
+            {terminal ? (
+              <span className="block">
+                <span className="block font-medium">{terminal.title}</span>
+                <span className="mt-0.5 block">{terminal.body}</span>
+              </span>
+            ) : receipt.attention
               ? attentionLabel(receipt.attention)
               : savedUnread(receipt)
                 ? receipt.activity?.state === "saved_unread"
@@ -159,12 +165,13 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry }: { receipt: Rece
           )}
         />
       ) : null}
-      {needsAttention && (receipt.enterable || (receipt.preparable && onRetry)) ? (
+      {needsAttention && (receipt.enterable || (receipt.preparable && onRetry && !terminal) || (terminal?.upload && onUpload)) ? (
         <div className="w-full min-w-0 px-3 pb-3">
-          {receipt.preparable && onRetry ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}</p> : null}
+          {receipt.preparable && onRetry && !terminal ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}</p> : null}
           <div className="flex flex-wrap gap-2">
-            {receipt.preparable && onRetry ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={() => void tryAgain()}>{t("common.retry", "Retry")}</button> : null}
-            {receipt.enterable ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={onOpen}>{locale === "es-419" ? "Escribir datos" : t("business.actions.record_expense", "Record expense")}</button> : null}
+            {receipt.preparable && onRetry && !terminal ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={() => void tryAgain()}>{t("common.retry", "Retry")}</button> : null}
+            {terminal?.upload && onUpload ? <button type="button" className={secondaryButtonClass} onClick={onUpload}>{terminal.uploadLabel}</button> : null}
+            {receipt.enterable ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={onOpen}>{terminal ? terminal.enterLabel : locale === "es-419" ? "Escribir datos" : t("business.actions.record_expense", "Record expense")}</button> : null}
           </div>
           {retry === "failed" ? <p role="alert" className="mt-2 break-words text-[13px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again.")}</p> : null}
         </div>
@@ -274,6 +281,7 @@ export default function BusinessInboxPanel() {
                       onRetry={async () => {
                         try { await source.prepareReceipt(receipt.id); } finally { reload(); }
                       }}
+                      onUpload={upload ? () => upload.run() : undefined}
                     />
                   ))}
                 </ul>
