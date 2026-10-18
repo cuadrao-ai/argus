@@ -150,6 +150,41 @@ describe("one receipt review page", () => {
     await page.act(async () => page.root.unmount());
   });
 
+  test("enter details is offered on every terminal read only when the viewer can prepare", async () => {
+    for (const [attention, errorCode, withPrepare, labels] of [
+      ["unreadable", "unreadable_document", true, ["Subir otro archivo", "Escribir datos"]],
+      ["unreadable", "unreadable_document", false, ["Subir otro archivo"]],
+      ["not_a_receipt", "not_a_receipt", true, ["Escribir datos"]],
+      ["not_a_receipt", "not_a_receipt", false, []],
+    ] as const) {
+      const page = await mount((fixture) => ({
+        receipt: async (id, signal) => {
+          const found = await fixture.receipt(id, signal);
+          assert.ok(found.record_context);
+          return {
+            ...found,
+            attention,
+            error_code: errorCode,
+            preparable: false,
+            enterable: true,
+            record_context: {
+              ...found.record_context,
+              capabilities: withPrepare ? ["read", "prepare"] : ["read"],
+            },
+          };
+        },
+      }));
+      await page.open(
+        { kind: "receipt", receiptId: "rcpt-blurry" },
+        () => page.host.querySelector('[data-testid="receipt-attention"]') !== null
+          && (attention !== "unreadable" || page.host.textContent?.includes("Subir otro archivo") === true),
+      );
+      const shown = [...page.host.querySelector('[data-testid="receipt-attention"]')!.querySelectorAll("button")].map((button) => button.textContent);
+      assert.deepEqual(shown, [...labels], `${attention} prepare=${withPrepare}`);
+      await page.act(async () => page.root.unmount());
+    }
+  });
+
   test("an unreadable file and a notice name their next step and offer no sale and no AI retry", async () => {
     const page = await mount((fixture) => ({
       receipt: async (id, signal) => {

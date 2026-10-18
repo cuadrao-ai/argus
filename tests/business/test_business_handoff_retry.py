@@ -12,7 +12,12 @@ import pytest
 from argus.domain.business.authority import ActionError
 from argus.domain.business.receipts import compose
 from argus.domain.ingestion.documents.extractor import batch_from_result
-from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
+from argus.domain.ingestion.documents.models import (
+    DocumentDraft,
+    ExtractionBatch,
+    ExtractionResult,
+    ReceiptDetails,
+)
 from argus.domain.owner_scope import BusinessSpace
 
 from tests.business.receipt_stub import DETAILS, PURCHASE
@@ -172,6 +177,98 @@ def test_an_error_the_read_itself_produced_keeps_its_own_blocker():
     receipt = compose(draft, batch, [], "web")
     assert receipt.error_code == "receipt_purchase_ambiguous"
     assert receipt.preparable is False and receipt.enterable is True
+
+
+def _saved_read(kind: str) -> ExtractionBatch:
+    """One saved read of each refusal shape the hand-off can meet again."""
+
+    receipt = ReceiptDetails(total="250.50", currency="DOP", merchant="Colmado La Esquina")
+    if kind == "incomplete":
+        return ExtractionBatch(complete=False, readable=True, candidates=(), receipt=receipt)
+    if kind == "unreadable":
+        return ExtractionBatch(complete=True, readable=False, candidates=(), receipt=receipt)
+    if kind == "no_receipt":
+        return ExtractionBatch(complete=True, readable=True, candidates=())
+    if kind == "ncf_bill":
+        return ExtractionBatch(
+            complete=False,
+            readable=True,
+            candidates=(),
+            receipt=ReceiptDetails(total="1500.00", currency="DOP", ncf="B0100000001"),
+        )
+    raise AssertionError(kind)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("kind", "attention", "preparable", "extracts_again"),
+    [
+        ("incomplete", "interrupted", True, True),
+        ("unreadable", "unreadable", False, False),
+        ("no_receipt", "not_a_receipt", False, False),
+        ("ncf_bill", "interrupted", True, False),
+    ],
+)
+async def test_a_retry_rereads_only_a_saved_read_that_cannot_finish(
+    document_bridge,  # noqa: F811
+    kind: str,
+    attention: str,
+    preparable: bool,
+    extracts_again: bool,
+):
+    """A second prepare asks the provider only when replaying the saved batch
+    would refuse the same way and a new read could differ. An unreadable file
+    and a file with no receipt stay closed. A fiscal bill replays and finishes."""
+
+    service, bridge, extractor, _ = document_bridge
+    saved = _saved_read(kind)
+    extractor.extract.return_value = saved
+    if kind == "ncf_bill":
+        bridge.prepare_attachment.side_effect = [
+            ActionError("invalid_input", "receipt_requires_review"),
+            None,
+        ]
+    else:
+        bridge.prepare_attachment.side_effect = ActionError(
+            "invalid_input", "receipt_requires_review"
+        )
+    scope = BusinessSpace(str(uuid4()))
+    owner = str(uuid4())
+    reading_on(service, scope, owner)
+    uploaded = await service.upload(
+        user_id=owner,
+        content=b"%PDF-fixture",
+        filename="receipt.pdf",
+        media_type="application/pdf",
+        consent=True,
+        scope=scope,
+    )
+    with pytest.raises(ActionError):
+        await service.resume(
+            user_id=owner, connection_id=uploaded.connection_id, scope=scope
+        )
+    draft = service.get(user_id=owner, connection_id=uploaded.connection_id, scope=scope)
+    batch = service.store.get(user_id=owner, connection_id=uploaded.connection_id)
+    shown = compose(draft, batch, [], "web")
+    assert (shown.attention, shown.preparable) == (attention, preparable)
+    if extracts_again:
+        with pytest.raises(ActionError):
+            await service.resume(
+                user_id=owner, connection_id=uploaded.connection_id, scope=scope
+            )
+        assert extractor.extract.await_count == 2
+    else:
+        if kind == "ncf_bill":
+            outcome = await service.resume(
+                user_id=owner, connection_id=uploaded.connection_id, scope=scope
+            )
+            assert outcome.replayed is True
+        else:
+            with pytest.raises(ActionError):
+                await service.resume(
+                    user_id=owner, connection_id=uploaded.connection_id, scope=scope
+                )
+        assert extractor.extract.await_count == 1
 
 
 @pytest.mark.asyncio
