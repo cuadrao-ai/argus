@@ -7,7 +7,8 @@ import type { BusinessExpense } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatDay, formatMoney } from "./business-format";
 import { expensePanel } from "./business-expense-target";
-import { cardClass, LoadingRows, PanelHeading, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
+import { cardClass, PanelHeading, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
+import { Settle } from "./business-skeletons";
 import BusinessPeriodControl from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
 import { ReceiptPeriodExport } from "./ReceiptDossierReview";
@@ -87,7 +88,7 @@ export default function BusinessExpensesPanel() {
           {t("business.expenses.error", "We couldn't load your expenses. Try again.")}
         </p>
       ) : items === null ? (
-        <LoadingRows />
+        <Settle pending layout="rows" />
       ) : items.length === 0 ? (
         <div className={`${cardClass} text-center text-[14px] text-black/55 dark:text-white/55`}>
           {t("business.expenses.empty", "No expenses saved in this period.")}

@@ -9077,6 +9077,10 @@ The Bandeja's counts have two meanings and two names. `unread_count` is new acti
 
 The web discovers arrivals every 15 seconds while Inbox is visible and polls every 5 seconds while reading is known. Hidden and unmounted views stop polling. Requests are scoped to the selected Business. One row marker shows a reading ring or an unread dot. The sidebar badge and collapsed icon share the server projection.
 
+### Business bank matching (default-off)
+
+Statement import, suggested matches, and the sin comprobante count for one Business space. The route shapes, statuses, errors, and UI string keys live in `docs/contracts/business-bank-matching.md`. The switch is off unless the Business pilot is on and `CUADRAO_BUSINESS_BANK_MATCHING_ENABLED` is true. While off, the routes answer 404.
+
 ### Business pilot (default-off)
 
 #### Hosted Business contract foundation (October 10, 2026)
