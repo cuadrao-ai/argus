@@ -659,6 +659,50 @@ export async function getStarterPrompts() {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
+export const PASSWORD_AUTH_REQUEST_TIMEOUT_MS = 45_000;
+
+function stalledBrowserCheck(): Error & { code: string } {
+  return Object.assign(new Error("The browser check did not finish."), {
+    code: "captcha_unavailable",
+  });
+}
+
+function isStalledPasswordRequest(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+async function postPasswordAuth<T>(
+  path: string,
+  body: unknown,
+  timeoutMs = PASSWORD_AUTH_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(stalledBrowserCheck());
+    }, timeoutMs);
+  });
+  const request = unauthenticatedApiFetch<T>(path, {
+    method: "POST",
+    body: JSON.stringify(body),
+    signal: controller.signal,
+  }).then(
+    (value) => value,
+    (error: unknown) => {
+      throw isStalledPasswordRequest(error) ? stalledBrowserCheck() : error;
+    },
+  );
+  // The deadline can win first. A later abort must not reject unhandled.
+  void request.catch(() => undefined);
+  try {
+    return await Promise.race([request, deadline]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 export async function signupWithEmail(payload: {
   email: string;
   password: string;
@@ -668,27 +712,29 @@ export async function signupWithEmail(payload: {
 }) {
   const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
-  const response = await unauthenticatedApiFetch<AuthResponsePayload>("/auth/signup", {
-    method: "POST",
-    body: JSON.stringify({ ...payload, captcha_token: captchaToken, ...attributionBody() }),
+  const response = await postPasswordAuth<AuthResponsePayload>("/auth/signup", {
+    ...payload,
+    captcha_token: captchaToken,
+    ...attributionBody(),
   });
   requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);
   return { response, needsEmailConfirmation: !response.session };
 }
 
-export async function loginWithEmail(payload: {
-  email: string;
-  password: string;
-}) {
+export async function loginWithEmail(
+  payload: {
+    email: string;
+    password: string;
+  },
+  options?: { requestTimeoutMs?: number },
+) {
   const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
-  const response = await unauthenticatedApiFetch<AuthResponsePayload>(
+  const response = await postPasswordAuth<AuthResponsePayload>(
     "/auth/login",
-    {
-      method: "POST",
-      body: JSON.stringify({ ...payload, captcha_token: captchaToken }),
-    },
+    { ...payload, captcha_token: captchaToken },
+    options?.requestTimeoutMs,
   );
   requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);

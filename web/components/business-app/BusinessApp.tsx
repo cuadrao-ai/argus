@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { isLeavingSession } from "@/lib/logout-flow";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ConversationShellGuard from "@/components/chat/ConversationShellGuard";
@@ -32,7 +33,7 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
     return () => { active = false; data.subscription.unsubscribe(); };
   }, [sample]);
   if (!sample && process.env.NEXT_PUBLIC_MOCK_AUTH !== "true") {
-    if (owner === undefined) return null;
+    if (owner === undefined || (owner === null && isLeavingSession())) return null;
     if (owner === null) return <main className="flex h-[100dvh] flex-col items-center justify-center gap-4 p-6 text-center">
       <p role="alert">{t("chat.account_changed")}</p>
       <button type="button" className="min-h-11 rounded-full px-6 py-3" onClick={() => window.location.assign("/?auth=login")}>{t("chat.account_changed_reload")}</button>

@@ -45,6 +45,7 @@ from argus.api.schemas import (
     guest_safe_user,
 )
 from argus.domain.supabase_guest_accounts import EmailAlreadyRegisteredError
+from argus.domain.supabase_gateway import CaptchaVerificationError
 from argus.domain.username_signup import (
     serialized_guest_signup,
     serialized_username_signup,
@@ -78,6 +79,16 @@ def _login_auth_problem(request: Request) -> HTTPException:
         code="unauthorized",
         title="Unauthorized",
         detail="Invalid email or password.",
+    )
+
+
+def _browser_check_problem(request: Request) -> HTTPException:
+    return problem(
+        request,
+        status_code=400,
+        code="captcha_unavailable",
+        title="Browser Check Failed",
+        detail="The browser check did not complete. Try again.",
     )
 
 
@@ -856,6 +867,8 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
             password=body.password,
             captcha_token=body.captcha_token,
         )
+    except CaptchaVerificationError:
+        raise _browser_check_problem(request) from None
     except Exception:
         raise _login_auth_problem(request) from None
     handoff_id = request.cookies.get(_GUEST_HANDOFF_ID_COOKIE, "").strip()

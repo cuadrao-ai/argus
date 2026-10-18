@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import http.cookiejar
 import os
+import threading
 import time
 from collections.abc import Callable
 from contextlib import suppress
@@ -120,6 +121,45 @@ def _row_one(result: Any) -> dict[str, Any] | None:
     if isinstance(data, list):
         return data[0] if data else None
     return data
+
+
+LOGIN_PROVIDER_TIMEOUT_SECONDS = 30.0
+
+
+class CaptchaVerificationError(Exception):
+    pass
+
+
+def _provider_verification_failed(exc: BaseException) -> bool:
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if getattr(current, "code", None) == "captcha_failed":
+            return True
+        if isinstance(current, httpx.TimeoutException):
+            return True
+        current = current.__cause__
+    return False
+
+
+def _await_provider(call: Callable[[], Any], timeout_seconds: float) -> Any:
+    outcome: dict[str, Any] = {}
+
+    def run() -> None:
+        try:
+            outcome["value"] = call()
+        except Exception as exc:
+            outcome["error"] = exc
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    worker.join(timeout_seconds)
+    if worker.is_alive():
+        raise CaptchaVerificationError("The browser check did not finish.")
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome.get("value")
 
 
 def _normalize_email(email: str) -> str:
@@ -504,17 +544,26 @@ class SupabaseGateway(
         captcha_token: str,
     ) -> dict[str, Any]:
         try:
-            response = self._auth().sign_in_with_password(
-                {
-                    "email": email,
-                    "password": password,
-                    "options": {"captcha_token": captcha_token},
-                }
+            response = _await_provider(
+                lambda: self._auth().sign_in_with_password(
+                    {
+                        "email": email,
+                        "password": password,
+                        "options": {"captcha_token": captcha_token},
+                    }
+                ),
+                LOGIN_PROVIDER_TIMEOUT_SECONDS,
             )
             if not response.session:
                 raise RuntimeError("Login failed: No session returned.")
             return response.model_dump(mode="json")
+        except CaptchaVerificationError:
+            raise
         except Exception as e:
+            if _provider_verification_failed(e):
+                raise CaptchaVerificationError(
+                    "The browser check did not complete."
+                ) from e
             raise RuntimeError(f"Login failed: {e}") from e
 
     def update_user(self, user_id: str, updates: dict[str, Any]) -> User:

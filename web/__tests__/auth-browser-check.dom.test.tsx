@@ -49,11 +49,17 @@ describe("password sign-in browser check", () => {
 
     const email = host.querySelector('input[type="email"]') as HTMLInputElement;
     const password = host.querySelector('input[type="password"]') as HTMLInputElement;
+    const setControl = (input: HTMLInputElement, value: string) => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    };
     await act(async () => {
-      email.value = "mama@example.com";
-      email.dispatchEvent(new Event("input", { bubbles: true }));
-      password.value = "password123";
-      password.dispatchEvent(new Event("input", { bubbles: true }));
+      setControl(email, "mama@example.com");
+      setControl(password, "password123");
     });
     const form = host.querySelector("form")!;
     await act(async () => {
@@ -69,7 +75,7 @@ describe("password sign-in browser check", () => {
     assert.equal(retry.textContent, "Intentar de nuevo");
     assert.equal(retry.disabled, false);
     await act(async () => {
-      retry.click();
+      form.requestSubmit(retry);
       await Promise.resolve();
     });
     assert.deepEqual(submissions, ["submit", "submit"]);

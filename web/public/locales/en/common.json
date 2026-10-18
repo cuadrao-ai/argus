@@ -1552,6 +1552,8 @@
     "errors": {
       "generic": "Something went wrong. Please try again.",
       "captcha_unavailable": "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
+      "browser_check_failed": "We couldn’t verify your browser. Try again.",
+      "browser_check_retry": "Try again",
       "unauthorized": "We couldn’t verify those account details. Check them and try again.",
       "auth_signup_failed": "We couldn’t create the account. Please try again.",
       "too_many_requests": "Too many attempts. Wait a moment and try again.",

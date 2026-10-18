@@ -2909,6 +2909,22 @@ well when it is closed.
 }
 ```
 
+A failed or unfinished browser check is a different response. Supabase Auth
+runs the Turnstile siteverify. When it rejects the token, or the provider
+call does not finish within 30 seconds, login returns `400`
+`captcha_unavailable` and does not create a session. The check is not skipped.
+
+```json
+{
+  "type": "https://api.argus.app/problems/captcha-unavailable",
+  "title": "Browser Check Failed",
+  "status": 400,
+  "detail": "The browser check did not complete. Try again.",
+  "code": "captcha_unavailable",
+  "request_id": "uuid"
+}
+```
+
 ## `POST /auth/apple/authorization-code`
 
 Default-off behind `ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED`. The native app

@@ -102,7 +102,7 @@ describe("auth error localization", () => {
       "No pudimos verificar esta solicitud. Actualiza la página e inténtalo de nuevo.",
     );
     expect(resolve(codedError("captcha_unavailable"), translator(en))).toBe(
-      "We couldn't verify your browser. Try again.",
+      "We couldn’t verify your browser. Try again.",
     );
     expect(
       resolve(codedError("captcha_unavailable"), translator(es419)),
