@@ -13,7 +13,8 @@ import { useBusiness } from "./BusinessWorkspace";
 import { bandejaReceipts } from "./bandeja-order";
 import { countPorRevisar, countStillReading, countUnreadable, porRevisar } from "@/lib/business-review-count";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, LoadingRows, PanelHeading, pillButtonClass, secondaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel, useTerminalRead } from "./business-ui";
+import { cardClass, PanelHeading, pillButtonClass, secondaryButtonClass, RecordMarks, StatusPill, UndoToast, useAttentionLabel, useTerminalRead } from "./business-ui";
+import { Settle } from "./business-skeletons";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
@@ -284,30 +285,32 @@ export default function BusinessInboxPanel() {
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.inbox.error", "We couldn't load your inbox. Try again.")}
         </p>
-      ) : items === null || notes === null ? (
-        <LoadingRows />
-      ) : items.length === 0 && notes.length === 0 && !records.notesError ? (
-        <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} />
       ) : (
-        <>
-          <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
-          {items.length ? (
-            <ul data-testid="business-inbox-receipts" className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
-              {items.map((receipt) => (
-                <ReceiptRow
-                  key={receipt.id}
-                  receipt={receipt}
-                  onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
-                  onMark={personal.mark}
-                  onRetry={async () => {
-                    try { await source.prepareReceipt(receipt.id); } finally { reload(); }
-                  }}
-                  onUpload={upload ? () => upload.run() : undefined}
-                />
-              ))}
-            </ul>
-          ) : null}
-        </>
+        <Settle pending={items === null || notes === null} layout="inbox">
+          {items === null || notes === null ? null : items.length === 0 && notes.length === 0 && !records.notesError ? (
+            <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} />
+          ) : (
+            <>
+              <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
+              {items.length ? (
+                <ul data-testid="business-inbox-receipts" className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
+                  {items.map((receipt) => (
+                    <ReceiptRow
+                      key={receipt.id}
+                      receipt={receipt}
+                      onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
+                      onMark={personal.mark}
+                      onRetry={async () => {
+                        try { await source.prepareReceipt(receipt.id); } finally { reload(); }
+                      }}
+                      onUpload={upload ? () => upload.run() : undefined}
+                    />
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          )}
+        </Settle>
       )}
       <InboxForwardingCard />
       <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />

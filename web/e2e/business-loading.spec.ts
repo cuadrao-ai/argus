@@ -50,15 +50,19 @@ for (const width of [1280, 390]) {
     }
     await page.goto("/dev/business-preview?receipt=rcpt-ferreteria");
     await expect(skeleton).toBeVisible();
+    let skeletonPreview = "";
     if (!baseline) {
       await expect(skeleton).toHaveAttribute("data-layout", "detail");
-      const geometry = await skeleton.locator('[aria-hidden="true"] > .grid').evaluate((grid) => ({
-        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
-        previewHeight: grid.children[0].getBoundingClientRect().height,
-      }));
-      expect(geometry).toEqual({ columns: width === 390 ? 1 : 2, previewHeight: width === 390 ? 112 : 320 });
+      const columns = await skeleton.locator('[aria-hidden="true"] > .grid').evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length);
+      expect(columns).toBe(width === 390 ? 1 : 2);
+      skeletonPreview = await skeleton.getByTestId("business-skeleton-preview").evaluate((element) => getComputedStyle(element).minHeight);
     }
     await capture("receipt");
     await expect(page.getByTestId("business-record-review")).toBeVisible();
+    if (!baseline) {
+      const loadedPreview = await page.getByTestId("receipt-original-source").locator('[class*="min-h-[200px]"]').evaluate((element) => getComputedStyle(element).minHeight);
+      expect(loadedPreview).toBe(skeletonPreview);
+      expect(skeletonPreview).toBe(width === 390 ? "200px" : "280px");
+    }
   });
 }
