@@ -169,7 +169,7 @@ private struct GuestPreferences: View {
             Section {
                 CuadraoAppearanceChoices(spanish: spanish, selection: $appearance)
             } header: { Text(spanish ? "Apariencia" : "Appearance") }
-              footer: { Text(spanish ? "Sistema sigue la apariencia de tu iPhone." : "System follows your iPhone’s appearance.") }
+              footer: { Text(spanish ? "Sistema sigue la apariencia de tu iPhone." : "System follows your iPhone's appearance.") }
                 .listRowBackground(CanvasSettingsStyle.surface)
             Section {
                 LabeledContent(spanish ? "Idioma" : "Language") { Text(spanish ? "Español" : "English").foregroundStyle(.secondary) }

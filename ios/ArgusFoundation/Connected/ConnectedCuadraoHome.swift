@@ -135,7 +135,7 @@ struct ConnectedCuadraoHome: View {
             if let archivedID, homePath.isEmpty, accounts.accounts.first(where: { $0.id == archivedID })?.archived == true {
                 CuadraoToast(text: spanish ? "Cuenta archivada" : "Account archived", actionTitle: spanish ? "Deshacer" : "Undo",
                     actionIdentifier: "accounts.archived.undo", action: { restore(archivedID) }, spanish: spanish,
-                    closeIdentifier: "accounts.archived.close", token: archivedID, close: { self.archivedID = nil })
+                    token: archivedID, close: { self.archivedID = nil })
             }
         }
         .onChange(of: accounts.identity?.revision) { _, _ in archivedID = nil }

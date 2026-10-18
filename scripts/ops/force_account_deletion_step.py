@@ -118,7 +118,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     print(json.dumps(report), flush=True)
     try:
-        outcome = service.delete_account(user_id=args.user_id)
+        outcome = service.delete_account(user_id=args.user_id, origin="force")
     except AccountDeletionIncomplete as exc:
         print(
             json.dumps(

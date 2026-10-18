@@ -114,6 +114,19 @@ extension FinancialLoopUITests {
         }
     }
 
+    func testSignUpRemainsReachableAtLargeTextSizes() throws {
+        for size in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryXXXL", "UICTContentSizeCategoryAccessibilityXXXL"] {
+            launchLegal(testURLs: false, arguments: ["-UIPreferredContentSizeCategoryName", size])
+            openSignUp()
+            let title = app.staticTexts["Crea tu cuenta."]
+            XCTAssertTrue(title.exists)
+            capture("registro-texto-" + size)
+            let email = app.buttons["cuadrao.signup.email"]
+            tapVisible(email)
+            XCTAssertTrue(app.textFields["auth.email"].waitForExistence(timeout: 5))
+        }
+    }
+
     /// Needs the isolated synthetic identity; the first run records the Profile screenshots.
     func testConnectedProfileShowsTheUnavailableLineUntilThePagesArePublished() throws {
         try signIn()

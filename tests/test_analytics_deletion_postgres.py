@@ -166,16 +166,16 @@ def test_apple_admission_and_receipt_survive_analytics_retry(
     assert apple.service.repository.get(user_id=user) is None
     assert _locked(user) == (True, True) and admin.deleted == []
     apple_calls = len(apple.fake.calls)
+    submission_calls = 2 if lost_response else 1
+    assert len(submissions) == submission_calls
 
     claim = service._claim(user, subject_hash(user))
     with pytest.raises(AccountDeletionIncomplete, match="in_progress"):
         service.delete_account(user_id=user)
-    assert len(submissions) == 1 and len(apple.fake.calls) == apple_calls
+    assert len(submissions) == submission_calls and len(apple.fake.calls) == apple_calls
     service._release(claim["id"], claim["claim"])
 
     if lost_response:
-        with pytest.raises(AccountDeletionIncomplete):
-            service.delete_account(user_id=user)
         assert submissions[0] == submissions[1]
         assert _run(run_id)[4]["analytics_evidence"]["request_id"] == request_id
 
