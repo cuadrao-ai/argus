@@ -1,9 +1,16 @@
-"""Stored amount-due reads replay into a review draft, or stay refused.
+"""A readable priced read becomes an unverified review draft.
 
-The five shapes mirror the October reads: two zero totals stayed refused,
-a 0.50 and a 32.03 notice should become unverified review drafts, and a
-32.08 receipt that already passed stays as it was. No model is called on
-replay. Merchants, ids, and files here are synthetic.
+Currency choice: an amount's own currency wins, and an observation's
+account currency counts as its own. When the amount names none, the one
+currency named anywhere else on the same read is used, and only when every
+named currency agrees. No currency, or currencies that disagree, leaves
+that amount unpriced. A credit that is only a negative figure is not a
+positive amount, so the read stays not a receipt. Direction is not a gate.
+
+The prefilled amount is the greatest positive priced amount. Several priced
+amounts stay on the draft as read purchases, which is the existing review
+state, and the amount stays unverified. Nothing here approves the draft.
+Merchants, ids, and files are synthetic. No model is called on replay.
 """
 
 from __future__ import annotations
@@ -101,7 +108,16 @@ def _assert_refused(checked, monkeypatch, draft, batch) -> None:  # noqa: ANN001
     assert (shown.attention, shown.preparable) == ("not_a_receipt", False)
 
 
-def _assert_unverified_draft(checked, monkeypatch, draft, batch, amount: str) -> None:  # noqa: ANN001, F811
+def _assert_unverified_draft(  # noqa: ANN001
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+    draft,
+    batch,
+    amount: str,
+    *,
+    flagged: bool = False,
+    currency: str = "USD",
+) -> None:
     shown = compose(_refused(draft), batch, [], "web")
     assert shown.attention != "not_a_receipt"
     assert shown.preparable is True
@@ -112,28 +128,46 @@ def _assert_unverified_draft(checked, monkeypatch, draft, batch, amount: str) ->
     assert amount_fact.state == "known"
     assert amount_fact.verified is False
     assert Decimal(amount_fact.value) == Decimal(amount)
-    assert resolution.facts.currency.value == "USD"
+    assert resolution.facts.currency.value == currency
     assert resolution.facts.currency.verified is False
     assert resolution.facts.kind.value == "expense"
     assert resolution.facts.counterparty.value == MERCHANT
+    if flagged:
+        assert len(resolution.read_purchases) > 1
+        assert Decimal(amount_fact.value) == max(
+            Decimal(purchase.amount) for purchase in resolution.read_purchases
+        )
+    else:
+        assert resolution.read_purchases == ()
 
 
-def test_replay_of_the_five_stored_reads(checked, monkeypatch) -> None:  # noqa: ANN001, F811
-    """(a) zeros stay refused, (b) 0.50 and (c) 32.03 become unverified
-    drafts, (d) the 32.08 receipt that already passed is unchanged."""
-
+def _draft(checked):  # noqa: ANN001, F811
     _, _, _, row = checked
-    draft = DocumentDraft.model_validate(row["draft"])
+    return DocumentDraft.model_validate(row["draft"])
 
-    def due(amount: str, *, currency: str | None = "USD", copies: int = 1) -> ExtractionBatch:
-        rows = [
-            _row(amount, currency=currency, evidence="due_notice", row=index)
-            for index in range(1, copies + 1)
-        ]
-        return _stored(draft, rows, receipt=None)
 
-    _assert_refused(checked, monkeypatch, draft, due("0"))
-    _assert_refused(checked, monkeypatch, draft, due("0.00"))
+def test_replay_of_the_stored_reads(checked, monkeypatch) -> None:  # noqa: ANN001, F811
+    """Zeros stay refused. A 0.50 amount due and a 32.03 notice become
+    unverified drafts. The 32.08 receipt that already passed is unchanged."""
+
+    draft = _draft(checked)
+
+    def due(amount: str, *, currency: str | None = "USD") -> ExtractionBatch:
+        return _stored(
+            draft,
+            [_row(amount, currency=currency, evidence="due_notice", row=1)],
+            receipt=None,
+        )
+
+    zeros = _stored(
+        draft,
+        [
+            _row("0", currency="USD", evidence="due_notice", row=1),
+            _row("0.00", currency="USD", evidence="statement_period", row=2),
+        ],
+        receipt=None,
+    )
+    _assert_refused(checked, monkeypatch, draft, zeros)
     _assert_unverified_draft(checked, monkeypatch, draft, due("0.50"), "0.50")
     _assert_unverified_draft(checked, monkeypatch, draft, due("32.03"), "32.03")
 
@@ -157,32 +191,223 @@ def test_replay_of_the_five_stored_reads(checked, monkeypatch) -> None:  # noqa:
     assert resolution.read_purchases == ()
 
 
-@pytest.mark.parametrize(
-    ("amount", "currency", "copies"),
-    [
-        ("12.00", None, 1),
-        ("12.00", "USD", 2),
-        ("-3.25", "USD", 1),
-    ],
-)
-def test_amount_due_without_one_positive_currency_row_stays_refused(
+def test_several_amount_rows_prefill_the_largest_and_stay_in_review(
     checked,  # noqa: F811
     monkeypatch,  # noqa: ANN001
-    amount: str,
-    currency: str | None,
-    copies: int,
 ) -> None:
-    _, _, _, row = checked
-    draft = DocumentDraft.model_validate(row["draft"])
+    draft = _draft(checked)
     batch = _stored(
         draft,
         [
-            _row(amount, currency=currency, evidence="due_notice", row=index)
-            for index in range(1, copies + 1)
+            _row("4.00", currency="USD", evidence="due_notice", row=1),
+            _row("32.03", currency="USD", evidence="payment_notice", row=2),
+            _row("10.50", currency="USD", evidence="statement_period", row=3),
         ],
         receipt=None,
     )
+    _assert_unverified_draft(
+        checked, monkeypatch, draft, batch, "32.03", flagged=True
+    )
+
+
+def test_a_total_with_no_amount_row_is_an_unverified_draft(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    draft = _draft(checked)
+    batch = _stored(
+        draft,
+        [],
+        receipt={
+            "merchant": MERCHANT,
+            "occurred_on": "2026-10-18",
+            "currency": "USD",
+            "total": "64.20",
+        },
+    )
+    _assert_unverified_draft(checked, monkeypatch, draft, batch, "64.20")
+
+
+def test_subtotal_tax_and_total_prefill_the_largest_and_stay_in_review(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    draft = _draft(checked)
+    batch = _stored(
+        draft,
+        [],
+        receipt={
+            "merchant": MERCHANT,
+            "occurred_on": "2026-10-18",
+            "currency": "USD",
+            "subtotal": "30.00",
+            "tax": "2.03",
+            "total": "32.03",
+        },
+    )
+    _assert_unverified_draft(
+        checked, monkeypatch, draft, batch, "32.03", flagged=True
+    )
+
+
+def test_a_fiscal_amount_with_no_total_is_an_unverified_draft(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    draft = _draft(checked)
+    batch = _stored(
+        draft,
+        [],
+        receipt={
+            "merchant": MERCHANT,
+            "occurred_on": "2026-10-18",
+            "currency": "USD",
+            "itbis": "18.40",
+        },
+    )
+    _assert_unverified_draft(checked, monkeypatch, draft, batch, "18.40")
+
+
+def test_a_line_count_does_not_outrank_the_money(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    draft = _draft(checked)
+    batch = _stored(
+        draft,
+        [],
+        receipt={
+            "merchant": MERCHANT,
+            "occurred_on": "2026-10-18",
+            "currency": "USD",
+            "items": [
+                {
+                    "id": "1",
+                    "description": "Seats",
+                    "quantity": "100",
+                    "unit_price": "0.32",
+                    "total": "32.00",
+                }
+            ],
+            "total": "32.03",
+        },
+    )
+    _assert_unverified_draft(
+        checked, monkeypatch, draft, batch, "32.03", flagged=True
+    )
+
+
+def test_a_positive_inflow_is_still_a_review_draft(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    draft = _draft(checked)
+    row = _row("15.00", currency="USD", evidence="unclassified", row=1)
+    row["direction"] = "inflow"
+    batch = _stored(draft, [row], receipt=None)
+    _assert_unverified_draft(checked, monkeypatch, draft, batch, "15.00")
+
+
+def test_a_positive_amount_with_no_currency_stays_refused(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    draft = _draft(checked)
+    batch = _stored(
+        draft,
+        [_row("19.00", currency=None, evidence="due_notice", row=1)],
+        receipt=None,
+    )
     _assert_refused(checked, monkeypatch, draft, batch)
+
+
+def test_a_bare_amount_uses_the_one_currency_named_on_the_read(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """The row names no currency. The receipt names USD and no other
+    currency appears, so the amount is priced in USD."""
+
+    draft = _draft(checked)
+    batch = _stored(
+        draft,
+        [_row("19.00", currency=None, evidence="due_notice", row=1)],
+        receipt={"merchant": MERCHANT, "currency": "USD"},
+    )
+    _assert_unverified_draft(checked, monkeypatch, draft, batch, "19.00")
+
+
+def test_a_bare_amount_uses_the_account_currency_on_its_own_row(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    draft = _draft(checked)
+    row = _row("19.00", currency=None, evidence="due_notice", row=1)
+    row["account"] = {"currency": "USD"}
+    batch = _stored(draft, [row], receipt=None)
+    _assert_unverified_draft(checked, monkeypatch, draft, batch, "19.00")
+
+
+def test_disagreeing_currencies_do_not_price_a_bare_amount(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    draft = _draft(checked)
+    batch = _stored(
+        draft,
+        [
+            _row("19.00", currency=None, evidence="due_notice", row=1),
+            _row("0", currency="EUR", evidence="balance", row=2),
+        ],
+        receipt={"merchant": MERCHANT, "currency": "USD"},
+    )
+    _assert_refused(checked, monkeypatch, draft, batch)
+
+
+@pytest.mark.parametrize(
+    "receipt",
+    [
+        None,
+        {
+            "merchant": MERCHANT,
+            "occurred_on": "2026-10-18",
+            "currency": "USD",
+            "total": "-20.00",
+        },
+    ],
+)
+def test_a_negative_or_credit_only_read_stays_refused(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+    receipt,  # noqa: ANN001
+) -> None:
+    draft = _draft(checked)
+    batch = _stored(
+        draft,
+        [_row("-3.25", currency="USD", evidence="due_notice", row=1)],
+        receipt=receipt,
+    )
+    _assert_refused(checked, monkeypatch, draft, batch)
+
+
+def test_an_unreadable_read_stays_unreadable(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    draft = _draft(checked)
+    batch = _stored(
+        draft,
+        [_row("32.03", currency="USD", evidence="due_notice", row=1)],
+        receipt=None,
+        readable=False,
+    )
+    with pytest.raises(ActionError, match="unreadable_document"):
+        _prepare(checked, monkeypatch, batch, draft)
+    held = draft.model_copy(
+        update={"status": "needs_attention", "error_code": "unreadable_document"}
+    )
+    shown = compose(held, batch, [], "web")
+    assert (shown.attention, shown.preparable) == ("unreadable", False)
 
 
 @pytest.mark.asyncio
