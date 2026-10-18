@@ -1101,7 +1101,7 @@
       "upgrade_pro": "Prueba Pro gratis"
     },
     "app": {
-      "title": "App",
+      "title": "Preferencias",
       "language": "Idioma de la app",
       "close_language_modal": "Cerrar selector de idioma",
       "sidebar": "Barra lateral",
@@ -1189,16 +1189,6 @@
       "deleted_item_note": "Se puede restaurar actualmente.",
       "no_deleted_items": "No hay elementos borrados recientemente",
       "chat_item": "Chat",
-      "delete_all_conversations": "Eliminar todas las conversaciones",
-      "delete_all_confirm": {
-        "title": "¿Eliminar todas las conversaciones?",
-        "description": "Esto mueve todas las conversaciones activas y archivadas a Borrados recientemente. Puedes restaurarlas antes de que se eliminen permanentemente.",
-        "confirm": "Eliminar todas las conversaciones"
-      },
-      "delete_all_success_one": "Se movió {{count}} conversación a Borrados recientemente.",
-      "delete_all_success_other": "Se movieron {{count}} conversaciones a Borrados recientemente.",
-      "delete_all_empty": "No hay conversaciones para eliminar.",
-      "delete_all_error": "No se pudieron eliminar las conversaciones. Inténtalo de nuevo.",
       "security": "Seguridad",
       "usage": "Uso",
       "usage_panel": {
@@ -1233,8 +1223,8 @@
     },
     "help": {
       "title": "Ayuda y legal",
-      "terms": "Términos de uso",
-      "privacy": "Política de privacidad"
+      "terms": "Términos",
+      "privacy": "Privacidad"
     },
     "about": {
       "title": "Acerca de",
@@ -1555,6 +1545,8 @@
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
       "captcha_unavailable": "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
+      "browser_check_failed": "No pudimos verificar tu navegador. Intenta de nuevo.",
+      "browser_check_retry": "Intentar de nuevo",
       "unauthorized": "No pudimos verificar los datos de la cuenta. Revísalos e inténtalo de nuevo.",
       "auth_signup_failed": "No pudimos crear la cuenta. Inténtalo de nuevo.",
       "too_many_requests": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
@@ -2847,7 +2839,7 @@
     "title": "Acceso",
     "subtitle": "Quién puede ver y preparar los registros de tu negocio. Solo tú apruebas.",
     "owner": "Dueño",
-    "member": "Ve y prepara",
+    "member": "Miembro",
     "since": "Desde {{date}}",
     "pending_title": "Invitaciones pendientes",
     "pending_until": "Vence {{date}}",
