@@ -21,7 +21,6 @@ import { useBusiness } from "./BusinessWorkspace";
 import { formatBusinessName, formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
 import {
   cardClass,
-  LoadingRows,
   primaryButtonClass,
   secondaryButtonClass,
   StatusPill,
@@ -29,6 +28,7 @@ import {
   useCategoryLabel,
   useTerminalRead,
 } from "./business-ui";
+import { ContentFade, Settle } from "./business-skeletons";
 
 type Draft = Record<keyof ReceiptReviewFields, string>;
 
@@ -123,12 +123,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       </p>
     );
   }
-  if (!detail || !draft) return <LoadingRows rows={4} layout="detail" />;
+  if (!detail || !draft) return <Settle pending layout="detail" />;
   const terminal = terminalRead(detail.attention, detail.error_code);
   const uploadAnother = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />) => (
-    <ReceiptReviewFrame
+    <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
       back={confirmed ? "expenses" : "inbox"}
       eyebrow={detail.record_context ? formatBusinessName(detail.record_context.space_name, t("business.overview.title", "My business")) : null}
@@ -138,7 +138,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       source={source}
     >
       {children}
-    </ReceiptReviewFrame>
+    </ReceiptReviewFrame></ContentFade>
   );
   if (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading") return frame(<><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);

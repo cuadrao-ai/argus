@@ -32,7 +32,9 @@ struct ArgusFoundationApp: App {
 
     @ViewBuilder private var appContent: some View {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--apple-session-harness") {
+        if ProcessInfo.processInfo.arguments.contains("--age-confirmation-harness") {
+            AgeConfirmationHarness()
+        } else if ProcessInfo.processInfo.arguments.contains("--apple-session-harness") {
             AppleSessionHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--cuadrao-release-ui") {
             ReleaseUIReview()

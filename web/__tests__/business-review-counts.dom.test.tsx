@@ -87,24 +87,29 @@ describe("the Bandeja and the Resumen on one saved state", () => {
   test("the Resumen card, the sidebar badge and the Bandeja rows agree; attention is its own count", async () => {
     const page = await mount();
     assert.equal(page.rows(), 5, "five receipts listed; the email itself is not a row");
-    assert.equal(page.text('[data-testid="overview-inbox-count"]'), "5");
-    assert.equal(page.text('[data-testid="business-inbox-count"]'), "5");
-    assert.match(page.text('[data-testid="overview-attention"]') ?? "", /3 con problema/);
-    // The starter chip under the Resumen names the same number.
-    assert.ok([...page.host.querySelectorAll('[data-testid="resumen"] button')].some((button) => button.textContent === "Revisar 5 recibos"));
+    assert.equal(page.text('[data-testid="overview-inbox-count"]'), "4");
+    assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
+    assert.equal(page.text('[data-testid="bandeja-por-revisar"]'), "4 por revisar");
+    assert.equal(page.text('[data-testid="bandeja-aside"]'), "1 no se pudo leer.");
+    assert.equal(page.host.querySelector('[data-testid="overview-attention"]'), null);
+    assert.equal(page.host.textContent?.includes("necesita tu atención"), false);
+    assert.equal(/Revisar \d+ recibos/.test(page.host.textContent ?? ""), false);
+    assert.equal(page.host.textContent?.includes("DOP"), false);
+    assert.match(page.text('[data-testid="business-inbox-receipts"]') ?? "", /RD\$/);
     await page.act(async () => page.root.unmount());
   });
 
-  test("a saved note joins the count once, after the same reload that lists it", async () => {
+  test("a saved note is listed and stays out of the por revisar number", async () => {
     const page = await mount();
     await page.act(async () => {
       await page.source.captureNote({ text: "Pagué 850 en la ferretería" }, "note-1113");
       page.api().reload();
     });
-    await page.settle(() => page.text('[data-testid="overview-inbox-count"]') === "6");
+    await page.settle(() => page.host.querySelectorAll('[data-testid="business-inbox-notes"] li').length === 1);
     assert.equal(page.host.querySelectorAll('[data-testid="business-inbox-notes"] li').length, 1);
     assert.equal(page.rows(), 6);
-    assert.equal(page.text('[data-testid="business-inbox-count"]'), "6");
+    assert.equal(page.text('[data-testid="overview-inbox-count"]'), "4", "a note is not a receipt waiting for review");
+    assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
     await page.act(async () => page.root.unmount());
   });
 
@@ -119,24 +124,23 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       await page.source.approveDraft(record.draft_id, record.version, "approve-1113");
       page.api().reload();
     });
-    await page.settle(() => page.text('[data-testid="overview-inbox-count"]') === "4");
-    assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
+    await page.settle(() => page.text('[data-testid="overview-inbox-count"]') === "3");
+    assert.equal(page.text('[data-testid="business-inbox-count"]'), "3");
     assert.equal(page.rows(), 4);
     assert.deepEqual(real(), ["RD$ 5,550.002 gastos", "US$ 24.001 gasto"]);
     // A second reload reads the same saved state: nothing stale, nothing doubled.
     await page.act(async () => page.api().reload());
     await page.settle(() => false);
-    assert.equal(page.text('[data-testid="overview-inbox-count"]'), "4");
+    assert.equal(page.text('[data-testid="overview-inbox-count"]'), "3");
     assert.deepEqual(real(), ["RD$ 5,550.002 gastos", "US$ 24.001 gasto"]);
     await page.act(async () => page.root.unmount());
   });
 
-  test("an unknown count is never shown as 0", async () => {
+  test("a missing activity object does not invent a second count", async () => {
     const page = await mount({ activity: () => null });
-    assert.equal(page.host.querySelector('[data-testid="overview-inbox-count"]'), null);
-    assert.equal(page.host.querySelector('[data-testid="business-inbox-count"]'), null);
+    assert.equal(page.text('[data-testid="overview-inbox-count"]'), "4", "the list is the count when the server omits its activity object");
     assert.equal(page.host.querySelector('[data-testid="overview-attention"]'), null);
-    assert.ok(page.host.querySelector('[data-testid="overview-inbox"]'), "the card stays, without a number");
+    assert.equal(page.text('[data-testid="bandeja-por-revisar"]'), "4 por revisar");
     await page.act(async () => page.root.unmount());
   });
 });

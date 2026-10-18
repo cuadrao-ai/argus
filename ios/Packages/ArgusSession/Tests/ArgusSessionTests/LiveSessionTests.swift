@@ -71,7 +71,7 @@ final class LiveSessionTests: XCTestCase, @unchecked Sendable {
                 throw SessionFailure.invalidResponse
             }
         }
-        let result = try await client.signup(email: "ios-\(UUID().uuidString.lowercased())@example.test", password: "Local-fixture-\(UUID().uuidString)", captchaToken: LocalSessionFixture.captcha, language: "es-419")
+        let result = try await client.signup(email: "ios-\(UUID().uuidString.lowercased())@example.test", password: "Local-fixture-\(UUID().uuidString)", captchaToken: LocalSessionFixture.captcha, language: "es-419", ageConfirmation: AgeConfirmation.recorded())
         XCTAssertEqual(result, .confirmationRequired)
         let snapshot = await client.snapshot()
         XCTAssertEqual(snapshot.phase, .signedOut)
