@@ -12,20 +12,26 @@ describe("Auth email compatibility and delivery", () => {
   test("every account action uses the shared layout and all code emails put the code first in the subject", async () => {
     const linked = { recipient: "owner@example.test", tokenHash: "a".repeat(64), redirectTo: "https://cuadrao-web-staging.onrender.com/" };
     const cases: AuthMail[] = [
-      { ...linked, action: "signup", token: "55070219" },
+      { ...linked, action: "signup" },
       { ...linked, action: "magiclink", token: "55070219" },
+      { ...linked, action: "invite" },
       { ...linked, action: "email_change", audience: "old_address", newEmail: "new@example.test" },
       { action: "reauthentication", recipient: linked.recipient, token: "55070219" },
     ];
     for (const mail of cases) {
-      const rendered = await renderAuthMail(mail, "https://skedzwocnmrhfigiwyzi.supabase.co", 3600);
-      assert.equal(rendered.subject.includes("55070219"), ["signup", "magiclink", "reauthentication"].includes(mail.action));
-      assert.equal(rendered.text.includes("55070219"), ["signup", "magiclink", "reauthentication"].includes(mail.action));
+      const rendered = await renderAuthMail(mail, "https://cuadrao-web-staging.onrender.com", 3600);
+      const carriesCode = mail.action === "magiclink" || mail.action === "reauthentication";
+      assert.equal(rendered.subject.includes("55070219"), carriesCode);
+      assert.equal(rendered.text.includes("55070219"), carriesCode);
       assert.ok(rendered.html.includes('alt="Cuadrao"'));
       assert.ok(rendered.html.includes("Saludos,<br>Cuadrao"));
       assert.ok(!rendered.html.includes("Salir de la lista"));
       if (mail.action !== "reauthentication") {
-        assert.ok(rendered.text.includes(`type=${mail.action}&redirect_to=`));
+        const type = mail.action === "signup" ? "email" : mail.action;
+        assert.ok(rendered.text.includes(`/auth/confirm?token_hash=`));
+        assert.ok(rendered.text.includes(`type=${type}`));
+        assert.ok(!rendered.text.includes("supabase.co"));
+        assert.ok(!rendered.text.includes("redirect_to="));
       }
     }
   });

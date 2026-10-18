@@ -36,7 +36,10 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => (
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 })[character]!);
 
+const confirmTemplate = /^\{\{ \.SiteURL \}\}\/auth\/confirm\?token_hash=\{\{ \.TokenHash \}\}&type=[a-z_]+&next=\/[A-Za-z0-9\-._~/?]*$/;
+
 function safeUrl(value: string): string {
+  if (confirmTemplate.test(value)) return escapeHtml(value);
   const url = new URL(value);
   if (url.protocol !== "https:" || url.username || url.password || /[\r\n]/.test(value)) {
     throw new Error("Email links must use HTTPS without credentials");
@@ -46,7 +49,7 @@ function safeUrl(value: string): string {
 
 export function renderAccountEmail(content: AccountEmail, options: EmailLayoutOptions = {}): { html: string; text: string } {
   const assets = emailAssets(options);
-  if (content.code !== undefined && (!/^\d{6,10}$/.test(content.code) || content.unsubscribeUrl)) {
+  if (content.code !== undefined && (!/^(?:\d{6,10}|\{\{ \.Token \}\})$/.test(content.code) || content.unsubscribeUrl)) {
     throw new Error("Invalid account email code");
   }
   const postalAddress = content.postalAddress?.trim() || options.postalAddress?.trim() || process.env.MARKETING_POSTAL_ADDRESS?.trim();

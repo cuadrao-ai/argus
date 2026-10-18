@@ -90,7 +90,7 @@ describe("signup confirmation code", () => {
     expect(document.activeElement).not.toBe(code);
     expect(code?.getAttribute("autocomplete")).toBe("one-time-code");
     expect(code?.getAttribute("inputmode")).toBe("numeric");
-    expect(state?.textContent).toContain("enlace");
+    expect(state?.textContent).toContain("Abre el enlace que te enviamos y entrarás directo a Cuadrao.");
     expect(page.host.textContent).toContain("Código de confirmación");
 
     await setNativeValue(code as HTMLInputElement, "123 456");
