@@ -377,14 +377,11 @@ jobs:
         run: |
           cd web
           bun test \
-            __tests__/guest-artifact-hints.test.tsx \
             __tests__/guest-browser-harness.test.ts \
             __tests__/guest-capability-gates.test.ts \
             __tests__/guest-conversion.test.ts \
             __tests__/guest-modal-viewport-fit.test.ts \
             __tests__/guest-session.test.ts \
-            __tests__/guest-shell.test.tsx \
-            __tests__/guest-starter-actions.test.tsx \
             __tests__/usage-allowance.test.ts
 
   ci:

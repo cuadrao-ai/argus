@@ -9,7 +9,6 @@ import AuthForm, {
 } from "@/components/auth/AuthForm";
 import RequestAccess from "@/components/auth/RequestAccess";
 import { SettingsMenu } from "@/components/SettingsMenu";
-import GuestEntry from "@/components/guest/GuestEntry";
 import { useTranslation } from "react-i18next";
 import { DevModeBadge } from "@/components/ui/DevModeBadge";
 import {
@@ -199,10 +198,6 @@ export default function LandingPage() {
         <FullscreenLoading />
       </>
     );
-  }
-
-  if (entrySurface === "guest") {
-    return <GuestEntry />;
   }
 
   return (

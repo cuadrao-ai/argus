@@ -493,24 +493,10 @@ describe("landing starter prefill wiring", () => {
       join(root, "components/chat/ChatInterface.tsx"),
       "utf-8",
     );
-    const guest = readFileSync(
-      join(root, "components/guest/useGuestExperience.ts"),
-      "utf-8",
-    );
     expect(init).toContain("setInitialRoutingSettled(true)");
     expect(init).toContain("return initialRoutingSettled");
     expect(chat).toContain("canConsumeLandingStarter={initialRoutingSettled}");
-    expect(guest).toContain("if (isGuestBootstrapAbortError(error)) return;");
-    expect(guest).not.toContain("if (!isGuestBootstrapAbortError(error)) throw error");
-    const signInStart = guest.indexOf("onRequestSignIn: () => {");
-    const signInBlock = guest.slice(
-      signInStart,
-      guest.indexOf("omnisearchShortcutEnabled,", signInStart),
-    );
-    expect(signInBlock).toContain("prepareLandingStarterAuthHandoff()");
-    expect(signInBlock.indexOf("prepareLandingStarterAuthHandoff()")).toBeLessThan(
-      signInBlock.indexOf("cancelPendingGuestBootstrap()"),
-    );
+    expect(chat).not.toContain("admitSend");
   });
 
   test("public receipt landings capture the live path before a follow-up forks", () => {

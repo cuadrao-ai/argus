@@ -28,6 +28,19 @@ test.describe("business-only web", () => {
     });
   });
 
+  test("business sign-up still renders", async ({ page }) => {
+    await page.goto("/?auth=signup");
+    await expect(page).toHaveURL(/\/\?auth=signup$/);
+    await expect(
+      page.getByRole("button", { name: "Sign up", exact: true }),
+    ).toBeVisible();
+    mkdirSync(evidenceDir, { recursive: true });
+    await page.screenshot({
+      path: join(evidenceDir, "signup.png"),
+      fullPage: true,
+    });
+  });
+
   test("auth callback, account security, privacy, and terms stay put", async ({
     page,
   }) => {
