@@ -1,4 +1,3 @@
-import hashlib
 import io
 import json
 import os
@@ -30,6 +29,7 @@ from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from argus.domain.recording.repository import NewAccount
 
 from tests import test_business_actions_postgres as shared
+from tests.dgii.test_packet import packet
 
 users = shared.users
 shared_actions = shared.actions
@@ -133,6 +133,11 @@ def approve(service, context, draft):
 
 
 def test_practice_human_capture_revision_approval_and_actual_export(actions):
+    """Detail lines match the practice packet.
+
+    Activity ids do not define annex order, so the comparison ignores line order.
+    The seeded-month test locks supplied-record order.
+    """
     service, context, _ = actions
     account = cash_account(service, context)
     set_profile(
@@ -162,18 +167,13 @@ def test_practice_human_capture_revision_approval_and_actual_export(actions):
         assert manifest["dgii"]["totals_dop"]["itbis_por_adelantar"] == "252.00"
         assert manifest["dgii"]["totals_dop"]["itbis_facturado"] == "450.00"
         assert len(manifest["records"]) == 6
-        assert (
-            hashlib.sha256(
-                archive.read("dgii/DGII_F_606_199990013_202609.TXT")
-            ).hexdigest()
-            == "d3f7d9b81e1ad0939b3d875b1556f0a867414c4b092a2347d24c4371463cd0da"
-        )
-        assert (
-            hashlib.sha256(
-                archive.read("dgii/DGII_F_607_199990013_202609.TXT")
-            ).hexdigest()
-            == "85e68ce67632085fe6485de008cf8734c0594a5f1947743ec781c9af698dfbaa"
-        )
+        reference = packet()
+        for form in ("606", "607"):
+            name = f"dgii/DGII_F_{form}_199990013_202609.TXT"
+            actual = archive.read(name).split(b"\r\n")
+            expected = reference.files[name].split(b"\r\n")
+            assert actual[0] == expected[0]
+            assert sorted(actual[1:]) == sorted(expected[1:])
         output = os.getenv("CUADRAO_DGII_FIXTURE_OUTPUT")
         if output:
             root = Path(output)
