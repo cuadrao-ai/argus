@@ -2199,6 +2199,22 @@
         "web/.env.local"
       ]
     },
+    "codex/email-dependency-cleanup": {
+      "description": "Remove unused React Email dependencies while preserving the hand-written shared email layout. User email lane item 1.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/package.json",
+        "web/bun.lock"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "marketing/**",
+        "src/**",
+        "supabase/**"
+      ]
+    },
     "codex/lane08-rls-drift-forward": {
       "description": "Adopt the existing staging rls_auto_enable function and ensure_rls event trigger through one forward migration. Preserve observed behavior and grants. No hosted writes or advisor hardening.",
       "base_ref": "origin/codex/private-alpha-next",
