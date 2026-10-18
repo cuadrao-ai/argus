@@ -92,6 +92,23 @@ than copying RGB literals into screens. Colors below describe roles, not a new s
 | `onAccent` | Readable content on accent surfaces |
 | `separator`, `border` | Quiet boundaries |
 
+### Locked colours — October 18, 2026
+
+The founder locked these values in the QA room on October 18, 2026. They are canon
+for native and web, not proposals. Code tokens still carry the earlier `#fafbf8`
+until an engineering change lands.
+
+| Role | Value | Use |
+| --- | --- | --- |
+| App background (light) | `#F7F5EE` cream, replacing `#fafbf8` | Page background on every screen |
+| Input border | `#7d8a84` | Input and secondary-control outlines |
+| Status: Aprobado | `#2f5a49` on `#e3ebe1` | Approved records |
+| Status: Pendiente | `#735c14` on `#f2e8c9` | Records waiting on a step |
+| Status: Necesita atención | `#9e2f39` on `#f6dfe0` | Records that need the owner's action |
+
+The first colour of each status pair is the text and dot, the second the fill.
+Show a status as its word, colour and dot together, never colour alone.
+
 Category colors come from `CuadraoExpenseCategoryStyle`. Keep them stable in charts,
 rows and drill-down. Pair color with names or symbols. A spending increase is not
 an error or a moral judgment. Destructive actions retain their existing semantic
@@ -173,7 +190,7 @@ re-colour or re-set them in a font.
   (asset catalog), never inline two of them in one document. `cuadrao-lockup-light.svg` / `cuadrao-lockup-dark.svg` (welcome),
   `icon.svg` (app icon and favicon, tiled), `cuadrao-mark-light.svg` (mark alone on
   light), `cuadrao-mark-dark.svg` (mark alone on `#172b26` only).
-- **Colours.** Light surface `#fafbf8`: wordmark `#172b26`; mark front `#2f5a49` to
+- **Colours.** Light surface `#F7F5EE`: wordmark `#172b26`; mark front `#2f5a49` to
   `#1d4236`, back `#cfdccf` to `#bccdbf`, overlap `#a6e06a` to `#6fbf46`. Dark surface
   `#172b26`: wordmark `#fafbf8`; mark front `#fffcf2` to `#e3dcc2`, back `#8fa38f` to
   `#5b7566` at 55% opacity, overlap `#b6e87a` to `#7fcb4f`. Gradients run top-left to
@@ -947,8 +964,9 @@ guest book's door is open ([October 9 decision](../../../docs/specs/argus-decisi
 - The lockup is the only brand element: no repeated header lockup, no tagline.
   Marketing's lockup SVG, at most 268 pt wide, narrowing on small screens instead of
   clipping, centred in the space above the buttons (about 40% down a 874 pt screen).
-- Background is the website's paper `#fafbf8` on light and `#172b26` on dark. This
-  applies to the welcome screen only; other screens keep their palette backgrounds.
+- Background is the app's cream `#F7F5EE` on light, as on every screen, and
+  `#172b26` on dark. The dark value applies to the welcome screen only; other
+  screens keep their dark palette backgrounds.
 - Actions keep their native treatment: `Crear cuenta` / `Create account` as the
   filled primary and `Iniciar sesión` / `Sign in` as the outlined secondary, 56 pt
   high, 16 pt corners, 28 pt side margins, 12 pt apart, native body semibold type that

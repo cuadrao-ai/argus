@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useBusiness } from "./BusinessWorkspace";
+import { useAccessBanner } from "./useAccessBanner";
 import BusinessSectionActions from "./BusinessSectionActions";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
@@ -22,8 +22,8 @@ import { formatBusinessName } from "./business-format";
  */
 export function BusinessContextCue() {
   const { t } = useTranslation();
-  const { chosen, markAccessSeen, lostAccess } = useBusiness();
-  const [busy, setBusy] = useState(false);
+  const { chosen, lostAccess } = useBusiness();
+  const access = useAccessBanner();
   const client = chosen && chosen.role !== "owner" ? chosen : null;
   const clientName = formatBusinessName(client?.name, t("business.overview.title", "My business"));
   return (
@@ -38,10 +38,10 @@ export function BusinessContextCue() {
           {t("business.switcher.client_cue", "Client: {{name}}", { name: clientName })}
         </p>
       ) : null}
-      {client && !client.access_seen ? (
+      {access.visible ? (
         <div role="status" data-testid="business-access-line" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[14px] border border-[var(--cuadrao-green)]/30 bg-[var(--cuadrao-cream)] px-3.5 py-2.5 text-[13px] text-black/80 dark:bg-white/[0.06] dark:text-white/85">
           <span>{t("business.switcher.access_line", "You now have access to {{name}} · View and prepare", { name: clientName })}</span>
-          <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await markAccessSeen(); } catch { /* shown again next time */ } finally { setBusy(false); } }} className="inline-flex min-h-9 items-center rounded-full bg-[var(--cuadrao-green)] px-3 text-[12px] font-medium text-[var(--cuadrao-cream)] transition-opacity hover:opacity-85 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40">
+          <button type="button" disabled={access.busy} onClick={() => void access.dismiss()} className="inline-flex min-h-9 items-center rounded-full bg-[var(--cuadrao-green)] px-3 text-[12px] font-medium text-[var(--cuadrao-cream)] transition-opacity hover:opacity-85 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40">
             {t("business.switcher.got_it", "Got it")}
           </button>
         </div>

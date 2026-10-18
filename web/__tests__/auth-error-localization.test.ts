@@ -103,12 +103,12 @@ describe("auth error localization", () => {
       "No pudimos verificar esta solicitud. Actualiza la página e inténtalo de nuevo.",
     );
     expect(resolve(codedError("captcha_unavailable"), translator(en))).toBe(
-      "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
+      "We couldn’t verify your browser. Try again.",
     );
     expect(
       resolve(codedError("captcha_unavailable"), translator(es419)),
     ).toBe(
-      "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
+      "No pudimos verificar tu navegador. Intenta de nuevo.",
     );
     expect(resolve(codedError("captcha_unavailable"), translator(en))).not.toBe(
       "captcha_unavailable",

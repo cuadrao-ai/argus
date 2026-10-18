@@ -1,3 +1,10 @@
+"age.confirmation.checkbox" = "Confirmo que tengo 18 años o más.";
+"age.confirmation.retry" = "Intentar de nuevo";
+"age.confirmation.share" = "Compartir rango de edad";
+"age.confirmation.sharingRequired" = "Para continuar, comparte tu rango de edad con Cuadrao.";
+"age.confirmation.terms" = "Ver términos";
+"age.confirmation.unavailable" = "No pudimos confirmar tu rango de edad. Inténtalo de nuevo.";
+"age.confirmation.under18" = "Cuadrao es para personas de 18 años o más, así que por ahora no puedes usar la app.";
 "destination.home" = "Home";
 "destination.accounts" = "Accounts";
 "destination.argus" = "Argus";

@@ -53,9 +53,8 @@ const AUTH_ERROR_MESSAGE_BY_CODE: Readonly<
   Record<string, AuthErrorTranslation>
 > = {
   captcha_unavailable: {
-    key: "auth.errors.captcha_unavailable",
-    fallback:
-      "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
+    key: "auth.errors.browser_check_failed",
+    fallback: "We couldn’t verify your browser. Try again.",
   },
   unauthorized: {
     key: "auth.errors.unauthorized",
@@ -192,6 +191,7 @@ export default function AuthForm({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authErrorKind, setAuthErrorKind] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState("");
@@ -216,6 +216,7 @@ export default function AuthForm({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setAuthError(null);
+    setAuthErrorKind(null);
     setIsSubmitting(true);
     try {
       const result = await onSubmit({
@@ -228,6 +229,7 @@ export default function AuthForm({
         Boolean(result && result.status === "email_confirmation_required"),
       );
     } catch (error) {
+      setAuthErrorKind(authErrorCode(error));
       setAuthError(
         localizedAuthErrorMessage(error, (key, fallback) =>
           String(t(key, fallback)),
@@ -428,6 +430,8 @@ export default function AuthForm({
                     ? t("auth.signup.loading", "Creating account...")
                     : t("auth.login.loading", "Signing in...")}
                 </>
+              ) : authErrorKind === "captcha_unavailable" ? (
+                t("auth.errors.browser_check_retry", "Try again")
               ) : isSignup ? (
                 t("auth.signup.submit", "Sign up")
               ) : (

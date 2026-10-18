@@ -593,7 +593,7 @@ The [native design guide](../../.agent/designs/cuadrao/DESIGN.md#account-and-mov
 owns the revised account gestures and movement shortcuts.
 
 Implement these behaviors from Cuadrao's own requirements, contracts and tests.
-Midday is a research reference, not a source-rewrite assignment; rewording copied
+Outside products are research references, not source-rewrite assignments; rewording copied
 code is not independent implementation. Any proposed source reuse requires its
 own license review. Existing #818/#822/#823/#824 track the work. Pattern
 suggestions follow usable recurring setup; forecasting-library selection needs

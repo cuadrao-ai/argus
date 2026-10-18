@@ -18,9 +18,10 @@ integrations remain outside this client.
 
 1. Install Xcode with an iOS Simulator runtime through **Xcode > Settings >
    Components**. Select that Xcode in **Settings > Locations > Command Line Tools**.
-   This project requires Xcode 16 or newer (synchronized source groups) and targets
-   iOS 17 or newer. Acceptance used Xcode 27.0 / iOS 27.0; the deployment floor is
-   not a claim that every older runtime was tested.
+   This project targets iOS 17 or newer and requires an iOS 26.4 or newer build
+   SDK for the guarded Declared Age Range regulatory symbols. CI uses Xcode 26.6;
+   local age-gate acceptance uses Xcode 27.1 / iOS 27.0 Simulator. The deployment
+   floor is not a claim that every older runtime was tested.
 2. Open `ArgusFoundation.xcodeproj`, select the shared **ArgusFoundation** scheme,
    select an iPhone simulator and press Run. No account or development team needed.
 3. For command-line verification from repository root:
