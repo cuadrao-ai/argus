@@ -763,6 +763,15 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
     )
     assert _job_needs(jobs["ownership-gate"]) == []
     assert jobs["ownership-gate"]["if"] == _DRAFT_OR_PUSH
+    ownership_steps = jobs["ownership-gate"]["steps"]
+    evidence_step = next(
+        step for step in ownership_steps if step.get("name") == "Reject new evidence media"
+    )
+    assert evidence_step["run"] == "python scripts/ci/check_no_evidence_media.py"
+    assert evidence_step["env"]["PR_BASE_SHA"] == (
+        "${{ github.event.pull_request.base.sha }}"
+    )
+    assert "if" not in evidence_step
 
     heavy_if = (
         f"({_DRAFT_OR_PUSH}) && "

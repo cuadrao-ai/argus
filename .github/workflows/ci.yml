@@ -61,6 +61,11 @@ jobs:
       - name: Reject credential literals in tracked configuration
         run: python scripts/check_config_credentials.py
 
+      - name: Reject new evidence media
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python scripts/ci/check_no_evidence_media.py
+
       - name: Run branch ownership gate
         run: python .agent/scripts/ownership/verify_branch_ownership.py
 
