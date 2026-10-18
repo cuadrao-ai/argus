@@ -182,155 +182,75 @@ grant select, insert, update on public.business_bank_accounts,
     public.business_bank_imports, public.business_bank_lines,
     public.business_bank_suggestions to authenticated, service_role;
 
+-- authenticated cannot select business_client_grants. The policy calls this
+-- definer, which reads the grant as the function owner.
+create function argus_private.business_bank_has_capability(
+    target_space uuid,
+    capability text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select exists (
+        select 1
+        from public.business_client_grants g
+        where g.space_id = target_space
+            and g.grantee_id = (select auth.uid())
+            and g.revoked_at is null
+            and (g.expires_at is null or g.expires_at > pg_catalog.now())
+            and capability = any (g.capabilities)
+    );
+$$;
+
+revoke all on function argus_private.business_bank_has_capability(uuid, text)
+    from public, anon;
+grant execute on function argus_private.business_bank_has_capability(uuid, text)
+    to authenticated;
+
 create policy business_bank_accounts_select on public.business_bank_accounts
     for select to authenticated
-    using (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_accounts.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'read' = any (g.capabilities)
-        )
-    );
+    using (argus_private.business_bank_has_capability(space_id, 'read'));
 
 create policy business_bank_accounts_insert on public.business_bank_accounts
     for insert to authenticated
-    with check (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_accounts.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'prepare' = any (g.capabilities)
-        )
-    );
+    with check (argus_private.business_bank_has_capability(space_id, 'prepare'));
 
 create policy business_bank_accounts_update on public.business_bank_accounts
     for update to authenticated
-    using (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_accounts.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'prepare' = any (g.capabilities)
-        )
-    )
-    with check (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_accounts.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'prepare' = any (g.capabilities)
-        )
-    );
+    using (argus_private.business_bank_has_capability(space_id, 'prepare'))
+    with check (argus_private.business_bank_has_capability(space_id, 'prepare'));
 
 create policy business_bank_imports_select on public.business_bank_imports
     for select to authenticated
-    using (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_imports.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'read' = any (g.capabilities)
-        )
-    );
+    using (argus_private.business_bank_has_capability(space_id, 'read'));
 
 create policy business_bank_imports_insert on public.business_bank_imports
     for insert to authenticated
-    with check (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_imports.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'prepare' = any (g.capabilities)
-        )
-    );
+    with check (argus_private.business_bank_has_capability(space_id, 'prepare'));
 
 create policy business_bank_lines_select on public.business_bank_lines
     for select to authenticated
-    using (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_lines.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'read' = any (g.capabilities)
-        )
-    );
+    using (argus_private.business_bank_has_capability(space_id, 'read'));
 
 create policy business_bank_lines_insert on public.business_bank_lines
     for insert to authenticated
-    with check (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_lines.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'prepare' = any (g.capabilities)
-        )
-    );
+    with check (argus_private.business_bank_has_capability(space_id, 'prepare'));
 
 create policy business_bank_suggestions_select on public.business_bank_suggestions
     for select to authenticated
-    using (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_suggestions.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'read' = any (g.capabilities)
-        )
-    );
+    using (argus_private.business_bank_has_capability(space_id, 'read'));
 
 create policy business_bank_suggestions_insert on public.business_bank_suggestions
     for insert to authenticated
-    with check (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_suggestions.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'prepare' = any (g.capabilities)
-        )
-    );
+    with check (argus_private.business_bank_has_capability(space_id, 'prepare'));
 
 create policy business_bank_suggestions_update on public.business_bank_suggestions
     for update to authenticated
-    using (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_suggestions.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'prepare' = any (g.capabilities)
-        )
-    )
-    with check (
-        exists (
-            select 1 from public.business_client_grants g
-            where g.space_id = business_bank_suggestions.space_id
-                and g.grantee_id = (select auth.uid())
-                and g.revoked_at is null
-                and (g.expires_at is null or g.expires_at > now())
-                and 'prepare' = any (g.capabilities)
-        )
-    );
+    using (argus_private.business_bank_has_capability(space_id, 'prepare'))
+    with check (argus_private.business_bank_has_capability(space_id, 'prepare'));
 
 revoke all on function argus_private.business_bank_lines_immutable(),
     argus_private.business_bank_suggestions_guard()

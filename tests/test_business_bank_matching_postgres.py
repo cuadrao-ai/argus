@@ -88,7 +88,7 @@ def test_lines_are_immutable_and_identity_is_unique(db, users) -> None:  # noqa:
     import_id = _import(db, space_id, binding, owner)
     _line(db, space_id, binding, import_id, "b" * 64)
     with (
-        pytest.raises(psycopg.errors.RaiseException, match="immutable"),
+        pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState, match="immutable"),
         db.transaction(),
     ):
         db.execute("update public.business_bank_lines set description = 'changed'")
@@ -139,7 +139,12 @@ def test_a_grant_can_read_and_authenticated_cannot_delete(db, users) -> None:  #
     policy = db.execute(
         "select qual from pg_policies where policyname = 'business_bank_lines_select'"
     ).fetchone()[0]
-    assert "auth.uid()" in policy
+    assert "business_bank_has_capability" in policy
+    definition = db.execute(
+        "select pg_get_functiondef("
+        "'argus_private.business_bank_has_capability(uuid, text)'::regprocedure)"
+    ).fetchone()[0]
+    assert "auth.uid()" in definition
     _grant(db, space_id, owner, ["read", "prepare"])
     with db.transaction(), db.cursor() as cursor:
         _as(cursor, owner)
