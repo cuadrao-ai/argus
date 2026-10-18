@@ -65,6 +65,8 @@ Migration `20261018190000_dgii_rnc_registry.sql` sets no function timeout.
 
 The load step runs `psql` against `SUPABASE_STAGING_DB_URL`, the database owner. It does not call the swap through an HTTP API, and it does not `SET ROLE authenticated`. The copy session ends before the swap session starts. Each session starts with `SET statement_timeout = '5min'`.
 
+Loading waits on migration slot `20261018190000`.
+
 Set the repository variable `DGII_RNC_STATEMENT_TIMEOUT` to another interval, such as `10min`, when the swap of about 800000 rows needs longer. An empty value keeps 5 minutes. The value must be a number followed by `ms`, `s`, `min`, or `h`.
 
 ## Wait for the migration

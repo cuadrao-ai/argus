@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import array
 import io
 import os
 import re
 import subprocess
 import sys
+import tempfile
 import zipfile
 from dataclasses import dataclass, replace
 from datetime import date
@@ -16,6 +18,8 @@ _TIMEOUT = re.compile(r"^[0-9]+(ms|s|min|h)$")
 _SIZE = re.compile(r"^[0-9]+(B|KB|MB|GB)$")
 _SIZE_UNIT = {"B": 1, "KB": 1024, "MB": 1024 * 1024, "GB": 1024**3}
 _KEPT_LENGTHS = frozenset({9, 11})
+_ELEVEN_KEY_BASE = 10**10
+_COPY_CHUNK = 1 << 20
 
 
 class RncImportError(Exception):
@@ -48,6 +52,12 @@ class ParseResult:
     dropped_count: int = 0
     dropped_sample: tuple[DroppedRecord, ...] = ()
     duplicate_count: int = 0
+    row_count: int | None = None
+    parsed_bytes: int | None = None
+    trade_name_filled: int | None = None
+    status_counts: tuple[tuple[str, int], ...] | None = None
+    length_counts: tuple[tuple[int, int], ...] | None = None
+    spill_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -77,7 +87,12 @@ def load_action(*, enabled: str, dry_run: str, secret_present: str) -> str:
     return "load"
 
 
-def parse_zip(source: bytes | str | Path, config: LoadConfig = LOAD) -> ParseResult:
+def parse_zip(
+    source: bytes | str | Path,
+    config: LoadConfig = LOAD,
+    *,
+    keep_rows: bool = True,
+) -> ParseResult:
     handle: io.BytesIO | str | Path
     if isinstance(source, bytes):
         handle = io.BytesIO(source)
@@ -85,13 +100,17 @@ def parse_zip(source: bytes | str | Path, config: LoadConfig = LOAD) -> ParseRes
         handle = source
     with zipfile.ZipFile(handle) as archive:
         info = _registry_entry(archive)
-        text = archive.read(info).decode("iso-8859-1")
-    return _parse_registry(
-        text,
-        file_date=_file_date(info),
-        entry_name=info.filename,
-        sample_limit=config.drop_sample_limit,
-    )
+        result = _scan_registry(
+            _physical_lines(_text_chunks(archive, info)),
+            file_date=_file_date(info),
+            entry_name=info.filename,
+            sample_limit=config.drop_sample_limit,
+            keep_rows=keep_rows,
+        )
+    if keep_rows:
+        _discard_spill(result.spill_path)
+        return replace(result, spill_path=None)
+    return result
 
 
 def validate(result: ParseResult, config: LoadConfig) -> None:
@@ -108,20 +127,21 @@ def validate(result: ParseResult, config: LoadConfig) -> None:
         if row.rnc in seen:
             raise RncImportError(f"duplicate rnc {row.rnc}")
         seen.add(row.rnc)
-    if len(result.rows) < config.min_rows:
-        raise RncImportError(f"rows {len(result.rows)} below minimum {config.min_rows}")
+    count = _kept_count(result)
+    if count < config.min_rows:
+        raise RncImportError(f"rows {count} below minimum {config.min_rows}")
 
 
 def summary_lines(result: ParseResult) -> list[str]:
     lines = [
-        f"rows={len(result.rows)}",
+        f"rows={_kept_count(result)}",
         f"file_date={result.file_date.isoformat()}",
         f"entry={result.entry_name}",
         f"anomalies={result.anomaly_count}",
         f"dropped={result.dropped_count}",
         f"duplicates={result.duplicate_count}",
-        f"parsed_bytes={parsed_byte_estimate(result.rows)}",
-        f"trade_name_filled={sum(row.trade_name is not None for row in result.rows)}",
+        f"parsed_bytes={_parsed_bytes(result)}",
+        f"trade_name_filled={_trade_name_filled(result)}",
     ]
     for drop in result.dropped_sample:
         name = drop.name.replace("\r", " ").replace("\n", " ")
@@ -129,16 +149,10 @@ def summary_lines(result: ParseResult) -> list[str]:
             f"dropped_sample raw={drop.raw} rnc={drop.rnc} "
             f"reason={drop.reason} name={name}"
         )
-    status_counts: dict[str, int] = {}
-    length_counts: dict[int, int] = {}
-    for row in result.rows:
-        status_counts[row.status] = status_counts.get(row.status, 0) + 1
-        length = len(row.rnc)
-        length_counts[length] = length_counts.get(length, 0) + 1
-    for status in sorted(status_counts):
-        lines.append(f"status {status}={status_counts[status]}")
-    for length in sorted(length_counts):
-        lines.append(f"rnc_length {length}={length_counts[length]}")
+    for status, count in _status_counts(result):
+        lines.append(f"status {status}={count}")
+    for length, count in _length_counts(result):
+        lines.append(f"rnc_length {length}={count}")
     return lines
 
 
@@ -149,32 +163,11 @@ def parsed_byte_estimate(rows: tuple[RncRow, ...]) -> int:
 def copy_text(rows: tuple[RncRow, ...]) -> str:
     if not rows:
         return ""
-    lines = [
-        "\t".join(
-            (
-                _escape_copy(row.rnc),
-                _escape_copy(row.name),
-                "\\N" if row.trade_name is None else _escape_copy(row.trade_name),
-                _escape_copy(row.status),
-                row.file_date.isoformat(),
-            )
-        )
-        for row in rows
-    ]
-    return "\n".join(lines) + "\n"
+    return "".join(_copy_line(row) for row in rows)
 
 
 def load_script(result: ParseResult, config: LoadConfig) -> str:
-    table = _sql_ident(config.load_table)
-    timeout = _statement_timeout(config.statement_timeout)
-    return (
-        f"SET statement_timeout = '{timeout}';\n"
-        f"TRUNCATE {table};\n"
-        f"COPY {table} (rnc, name, trade_name, status, file_date) "
-        "FROM STDIN WITH (FORMAT text);\n"
-        f"{copy_text(result.rows)}"
-        "\\.\n"
-    )
+    return _copy_header(config) + copy_text(result.rows) + "\\.\n"
 
 
 def swap_script(config: LoadConfig) -> str:
@@ -272,18 +265,21 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         config = _config_from_env()
-        result = parse_zip(args.zip_path, config)
-        validate(result, config)
-        if args.command == "parse":
-            for line in summary_lines(result):
-                print(line)
+        result = parse_zip(args.zip_path, config, keep_rows=False)
+        try:
+            validate(result, config)
+            if args.command == "parse":
+                for line in summary_lines(result):
+                    print(line)
+                return 0
+            database_url = os.environ.get("SUPABASE_STAGING_DB_URL", "")
+            if database_url == "":
+                print("load skipped: SUPABASE_STAGING_DB_URL is absent")
+                return 0
+            _apply_load(database_url, result, config)
             return 0
-        database_url = os.environ.get("SUPABASE_STAGING_DB_URL", "")
-        if database_url == "":
-            print("load skipped: SUPABASE_STAGING_DB_URL is absent")
-            return 0
-        _apply_load(database_url, result, config)
-        return 0
+        finally:
+            _discard_spill(result.spill_path)
     except RncImportError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -339,57 +335,207 @@ def _file_date(info: zipfile.ZipInfo) -> date:
     return date(year, month, day)
 
 
-def _parse_registry(
-    text: str,
+def _text_chunks(archive: zipfile.ZipFile, info: zipfile.ZipInfo):
+    with archive.open(info, "r") as raw:
+        while True:
+            block = raw.read(_COPY_CHUNK)
+            if not block:
+                break
+            yield block.decode("latin-1")
+
+
+def _physical_lines(chunks):
+    # splitlines() also breaks on U+0085, which Latin-1 must keep inside a name.
+    pending = ""
+    for chunk in chunks:
+        if pending:
+            chunk = pending + chunk
+            pending = ""
+        parts = chunk.split("\r\n")
+        pending = parts.pop()
+        yield from parts
+    if pending:
+        yield pending
+
+
+def _scan_registry(
+    lines,
     *,
     file_date: date,
     entry_name: str,
     sample_limit: int,
+    keep_rows: bool,
 ) -> ParseResult:
-    accepted: list[RncRow] = []
+    index = _RncIndex()
+    spill = tempfile.NamedTemporaryFile(prefix="dgii-rnc-copy-", delete=False)
+    offsets = array.array("I")
+    lengths = array.array("I")
+    status_ids = array.array("H")
+    trade_flags = array.array("B")
+    widths = array.array("B")
+    kept: list[RncRow] | None = [] if keep_rows else None
+    status_names: list[str] = []
+    status_lookup: dict[str, int] = {}
+    status_counts: dict[str, int] = {}
+    length_counts = {9: 0, 11: 0}
     anomalies = 0
     dropped_count = 0
     sample: list[DroppedRecord] = []
+    duplicates = 0
+    parsed_bytes = 0
+    trade_filled = 0
     buffer: str | None = None
-    for line in _physical_lines(text):
-        if buffer is None:
-            if line.strip() == "":
+    spill_path = spill.name
+    closed = False
+
+    def close_spill() -> None:
+        nonlocal closed
+        if not closed:
+            spill.close()
+            closed = True
+
+    try:
+        for line in lines:
+            if buffer is None:
+                if line.strip() == "":
+                    continue
+                buffer = line
+            else:
+                buffer = f"{buffer} {line}"
+            pipes = buffer.count("|")
+            if pipes < 10:
                 continue
-            buffer = line
-        else:
-            buffer = f"{buffer} {line}"
-        pipes = buffer.count("|")
-        if pipes == 10:
+            if pipes > 10:
+                anomalies += 1
+                buffer = None
+                continue
             outcome = _row_from_record(buffer, file_date)
+            buffer = None
             if isinstance(outcome, DroppedRecord):
                 dropped_count += 1
                 if len(sample) < sample_limit:
                     sample.append(outcome)
+                continue
+            payload = _copy_line(outcome).encode("utf-8")
+            width = len(outcome.rnc)
+            filled = 0 if outcome.trade_name is None else 1
+            status_id = status_lookup.get(outcome.status)
+            if status_id is None:
+                status_id = len(status_names)
+                status_names.append(outcome.status)
+                status_lookup[outcome.status] = status_id
+                status_counts[outcome.status] = 0
+            key = _rnc_key(outcome.rnc)
+            seq = index.find(key)
+            offset = spill.tell()
+            spill.write(payload)
+            nbytes = len(payload)
+            if seq is None:
+                index.put_new(key, len(offsets))
+                offsets.append(offset)
+                lengths.append(nbytes)
+                status_ids.append(status_id)
+                trade_flags.append(filled)
+                widths.append(width)
+                if kept is not None:
+                    kept.append(outcome)
             else:
-                accepted.append(outcome)
-            buffer = None
-        elif pipes > 10:
+                duplicates += 1
+                parsed_bytes -= lengths[seq]
+                trade_filled -= trade_flags[seq]
+                status_counts[status_names[status_ids[seq]]] -= 1
+                length_counts[widths[seq]] -= 1
+                offsets[seq] = offset
+                lengths[seq] = nbytes
+                status_ids[seq] = status_id
+                trade_flags[seq] = filled
+                widths[seq] = width
+                if kept is not None:
+                    kept[seq] = outcome
+            parsed_bytes += nbytes
+            trade_filled += filled
+            status_counts[outcome.status] += 1
+            length_counts[width] += 1
+        if buffer is not None:
             anomalies += 1
-            buffer = None
-    if buffer is not None:
-        anomalies += 1
-    rows, duplicate_count = _dedupe_last(accepted)
-    return ParseResult(
-        rows=rows,
-        file_date=file_date,
-        entry_name=entry_name,
-        anomaly_count=anomalies,
-        dropped_count=dropped_count,
-        dropped_sample=tuple(sample),
-        duplicate_count=duplicate_count,
-    )
+        close_spill()
+        if duplicates:
+            compacted = _compact_spill(spill_path, offsets, lengths)
+            _discard_spill(spill_path)
+            spill_path = compacted
+        return ParseResult(
+            rows=tuple(kept) if kept is not None else (),
+            file_date=file_date,
+            entry_name=entry_name,
+            anomaly_count=anomalies,
+            dropped_count=dropped_count,
+            dropped_sample=tuple(sample),
+            duplicate_count=duplicates,
+            row_count=len(offsets),
+            parsed_bytes=parsed_bytes,
+            trade_name_filled=trade_filled,
+            status_counts=tuple(
+                (name, status_counts[name])
+                for name in sorted(status_counts)
+                if status_counts[name]
+            ),
+            length_counts=tuple(
+                (length, length_counts[length])
+                for length in sorted(length_counts)
+                if length_counts[length]
+            ),
+            spill_path=spill_path,
+        )
+    except Exception:
+        close_spill()
+        _discard_spill(spill_path)
+        raise
 
 
-def _physical_lines(text: str) -> list[str]:
-    # splitlines() also breaks on U+0085, which Latin-1 must keep inside a name.
-    if text == "":
-        return []
-    return text.split("\r\n")
+class _RncIndex:
+    def __init__(self) -> None:
+        self._cap = 1024
+        self._mask = self._cap - 1
+        self._keys = array.array("Q", [0]) * self._cap
+        self._seqs = array.array("I", [0]) * self._cap
+        self._count = 0
+
+    def find(self, key: int) -> int | None:
+        mask = self._mask
+        slot = _mix(key) & mask
+        keys = self._keys
+        seqs = self._seqs
+        while True:
+            found = keys[slot]
+            if found == 0:
+                return None
+            if found == key:
+                return seqs[slot] - 1
+            slot = (slot + 1) & mask
+
+    def put_new(self, key: int, seq: int, *, growing: bool = False) -> None:
+        if not growing and (self._count + 1) * 5 > self._cap * 4:
+            self._grow()
+        mask = self._mask
+        slot = _mix(key) & mask
+        keys = self._keys
+        while keys[slot] != 0:
+            slot = (slot + 1) & mask
+        keys[slot] = key
+        self._seqs[slot] = seq + 1
+        self._count += 1
+
+    def _grow(self) -> None:
+        old_keys = self._keys
+        old_seqs = self._seqs
+        self._cap *= 2
+        self._mask = self._cap - 1
+        self._keys = array.array("Q", [0]) * self._cap
+        self._seqs = array.array("I", [0]) * self._cap
+        self._count = 0
+        for index, key in enumerate(old_keys):
+            if key:
+                self.put_new(key, old_seqs[index] - 1, growing=True)
 
 
 def _row_from_record(record: str, file_date: date) -> RncRow | DroppedRecord:
@@ -411,19 +557,98 @@ def _row_from_record(record: str, file_date: date) -> RncRow | DroppedRecord:
     )
 
 
-def _dedupe_last(rows: list[RncRow]) -> tuple[tuple[RncRow, ...], int]:
-    index: dict[str, int] = {}
-    kept: list[RncRow] = []
-    duplicates = 0
-    for row in rows:
-        slot = index.get(row.rnc)
-        if slot is None:
-            index[row.rnc] = len(kept)
-            kept.append(row)
-            continue
-        duplicates += 1
-        kept[slot] = row
-    return tuple(kept), duplicates
+def _copy_line(row: RncRow) -> str:
+    trade = "\\N" if row.trade_name is None else _escape_copy(row.trade_name)
+    return (
+        f"{_escape_copy(row.rnc)}\t{_escape_copy(row.name)}\t{trade}\t"
+        f"{_escape_copy(row.status)}\t{row.file_date.isoformat()}\n"
+    )
+
+
+def _copy_header(config: LoadConfig) -> str:
+    table = _sql_ident(config.load_table)
+    timeout = _statement_timeout(config.statement_timeout)
+    return (
+        f"SET statement_timeout = '{timeout}';\n"
+        f"TRUNCATE {table};\n"
+        f"COPY {table} (rnc, name, trade_name, status, file_date) "
+        "FROM STDIN WITH (FORMAT text);\n"
+    )
+
+
+def _rnc_key(digits: str) -> int:
+    value = int(digits) + 1
+    if len(digits) == 9:
+        return value
+    return value + _ELEVEN_KEY_BASE
+
+
+def _mix(key: int) -> int:
+    z = (key + 0x9E3779B97F4A7C15) & 0xFFFFFFFFFFFFFFFF
+    z = ((z ^ (z >> 30)) * 0xBF58476D1CE4E5B9) & 0xFFFFFFFFFFFFFFFF
+    z = ((z ^ (z >> 27)) * 0x94D049BB133111EB) & 0xFFFFFFFFFFFFFFFF
+    return z ^ (z >> 31)
+
+
+def _compact_spill(source: str, offsets: array.array, lengths: array.array) -> str:
+    compacted = tempfile.NamedTemporaryFile(prefix="dgii-rnc-copy-", delete=False)
+    try:
+        with open(source, "rb") as raw:
+            for seq in range(len(offsets)):
+                raw.seek(offsets[seq])
+                compacted.write(raw.read(lengths[seq]))
+        compacted.close()
+    except Exception:
+        compacted.close()
+        _discard_spill(compacted.name)
+        raise
+    return compacted.name
+
+
+def _discard_spill(path: str | None) -> None:
+    if path is None:
+        return
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        return
+
+
+def _kept_count(result: ParseResult) -> int:
+    if result.row_count is None:
+        return len(result.rows)
+    return result.row_count
+
+
+def _parsed_bytes(result: ParseResult) -> int:
+    if result.parsed_bytes is None:
+        return parsed_byte_estimate(result.rows)
+    return result.parsed_bytes
+
+
+def _trade_name_filled(result: ParseResult) -> int:
+    if result.trade_name_filled is None:
+        return sum(row.trade_name is not None for row in result.rows)
+    return result.trade_name_filled
+
+
+def _status_counts(result: ParseResult) -> tuple[tuple[str, int], ...]:
+    if result.status_counts is not None:
+        return result.status_counts
+    counts: dict[str, int] = {}
+    for row in result.rows:
+        counts[row.status] = counts.get(row.status, 0) + 1
+    return tuple((status, counts[status]) for status in sorted(counts))
+
+
+def _length_counts(result: ParseResult) -> tuple[tuple[int, int], ...]:
+    if result.length_counts is not None:
+        return result.length_counts
+    counts: dict[int, int] = {}
+    for row in result.rows:
+        length = len(row.rnc)
+        counts[length] = counts.get(length, 0) + 1
+    return tuple((length, counts[length]) for length in sorted(counts))
 
 
 def _escape_copy(value: str) -> str:
@@ -448,7 +673,10 @@ def _apply_load(database_url: str, result: ParseResult, config: LoadConfig) -> N
     print(f"live_relation_bytes={relation_bytes}")
     print(f"headroom_bytes={peak - database_size}")
     print(f"peak_bytes={peak}")
-    _psql(database_url, load_script(result, config))
+    if result.spill_path is None:
+        _psql(database_url, load_script(result, config))
+    else:
+        _psql_copy(database_url, _copy_header(config), result.spill_path)
     count = swap_row_count(_psql(database_url, swap_script(config)))
     print(f"swap_rows={count}")
     require_swap_count(count, config)
@@ -486,6 +714,59 @@ def _psql(database_url: str, script: str) -> str:
         detail = _redact(completed.stderr, database_url).strip()
         raise RncImportError(detail or "psql failed")
     return _redact(completed.stdout, database_url)
+
+
+def _write_copy(stdin, header: bytes, payload_path: str, stop=None) -> None:
+    stdin.write(header)
+    with open(payload_path, "rb") as source:
+        while stop is None or not stop():
+            chunk = source.read(_COPY_CHUNK)
+            if not chunk:
+                break
+            stdin.write(chunk)
+    if stop is None or not stop():
+        stdin.write(b"\\.\n")
+
+
+def _psql_copy(database_url: str, header: str, payload_path: str) -> str:
+    try:
+        completed = subprocess.Popen(
+            [
+                "psql",
+                "-v",
+                "ON_ERROR_STOP=1",
+                "-X",
+                "-q",
+                "-t",
+                "-A",
+                database_url,
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except FileNotFoundError:
+        raise RncImportError("psql is not installed") from None
+    assert completed.stdin is not None
+    try:
+        _write_copy(
+            completed.stdin,
+            header.encode("ascii"),
+            payload_path,
+            stop=lambda: completed.poll() is not None,
+        )
+    except BrokenPipeError:
+        pass
+    finally:
+        try:
+            completed.stdin.close()
+        except BrokenPipeError:
+            pass
+    stdout, stderr = completed.communicate()
+    if completed.returncode != 0:
+        detail = _redact(stderr.decode("utf-8", "replace"), database_url).strip()
+        raise RncImportError(detail or "psql failed")
+    return _redact(stdout.decode("utf-8", "replace"), database_url)
 
 
 def _psql_integers(database_url: str, script: str, expected: int) -> tuple[int, ...]:

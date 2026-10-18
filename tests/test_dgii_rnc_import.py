@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import io
+import os
+import subprocess
+import sys
 import zipfile
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -15,6 +19,8 @@ from scripts.ops.dgii_rnc_import import (
     RncRow,
     _apply_load,
     _config_from_env,
+    _copy_header,
+    _write_copy,
     copy_text,
     headroom_sql,
     load_action,
@@ -591,3 +597,112 @@ def test_gate_cli_prints_the_decision(capsys) -> None:
         == 0
     )
     assert capsys.readouterr().out == "load\n"
+
+
+def test_leading_zeros_keep_nine_and_eleven_apart() -> None:
+    result = parsed(
+        "\r\n".join(
+            [
+                record("000000001", "NINE"),
+                record("00000000001", "ELEVEN"),
+                record("000000001", "NINE2"),
+            ]
+        )
+    )
+    assert [(row.rnc, row.name) for row in result.rows] == [
+        ("000000001", "NINE2"),
+        ("00000000001", "ELEVEN"),
+    ]
+    assert result.duplicate_count == 1
+
+
+def test_unretained_parse_reports_the_same_summary() -> None:
+    payload = "\r\n".join(
+        [
+            record("12345678", "A", "ACTIVO"),
+            record("123456789", "B", "SUSPENDIDO"),
+            record("123456789", "B2", "ACTIVO"),
+            record("40212345678", "C", "ACTIVO"),
+            record("NOPE", "D", "ACTIVO"),
+        ]
+    )
+    result = parse_zip(
+        zip_bytes((payload + "\r\n").encode("latin-1")),
+        keep_rows=False,
+    )
+    assert result.spill_path is not None
+    try:
+        assert result.rows == ()
+        assert summary_lines(result) == [
+            "rows=2",
+            "file_date=2026-10-18",
+            "entry=DGII_RNC.TXT",
+            "anomalies=0",
+            "dropped=2",
+            "duplicates=1",
+            "parsed_bytes=69",
+            "trade_name_filled=0",
+            "dropped_sample raw=12345678 rnc=12345678 reason=rnc_length name=A",
+            "dropped_sample raw=NOPE rnc= reason=rnc_length name=D",
+            "status ACTIVO=2",
+            "rnc_length 9=1",
+            "rnc_length 11=1",
+        ]
+        assert Path(result.spill_path).read_text(encoding="utf-8") == (
+            "123456789\tB2\t\\N\tACTIVO\t2026-10-18\n"
+            "40212345678\tC\t\\N\tACTIVO\t2026-10-18\n"
+        )
+    finally:
+        os.unlink(result.spill_path)
+
+
+def test_copy_stream_writes_header_rows_and_terminator(tmp_path: Path) -> None:
+    payload = tmp_path / "copy.txt"
+    body = b"123456789\tACME\t\\N\tACTIVO\t2026-10-18\n" * 30_000
+    payload.write_bytes(body)
+    sink = io.BytesIO()
+    _write_copy(sink, _copy_header(LOAD).encode("ascii"), payload)
+    assert sink.getvalue() == (
+        b"SET statement_timeout = '5min';\n"
+        b"TRUNCATE public.dgii_rnc_load;\n"
+        b"COPY public.dgii_rnc_load (rnc, name, trade_name, status, file_date) "
+        b"FROM STDIN WITH (FORMAT text);\n"
+        + body
+        + b"\\.\n"
+    )
+
+
+def test_parse_of_a_large_registry_stays_under_80_mib(tmp_path: Path) -> None:
+    path = tmp_path / "rnc.zip"
+    count = 150_000
+    payload = "".join(
+        f"{i:09d}|NAME|TRADE|4|5|6|7|8|9|ACTIVO|11\r\n" for i in range(count)
+    )
+    path.write_bytes(zip_bytes(payload.encode("latin-1")))
+    script = (
+        "import re, runpy, sys\n"
+        "sys.argv = ['dgii_rnc_import', 'parse', sys.argv[1]]\n"
+        "try:\n"
+        "    runpy.run_path('scripts/ops/dgii_rnc_import.py', run_name='__main__')\n"
+        "except SystemExit:\n"
+        "    pass\n"
+        "status = open('/proc/self/status', encoding='ascii').read()\n"
+        "print(re.search(r'VmHWM:\\s+(\\d+)', status).group(1))\n"
+    )
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("COVERAGE_")
+    }
+    completed = subprocess.run(
+        [sys.executable, "-S", "-c", script, str(path)],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+    assert completed.returncode == 0
+    assert completed.stderr == f"rows {count} below minimum 700000\n"
+    rss_kb = int(completed.stdout.strip())
+    assert rss_kb < 80 * 1024
