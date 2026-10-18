@@ -9,6 +9,8 @@ import {
   captureLandingIntent,
   businessShellPath,
   currentChatPath,
+  businessShellEntry,
+  homeTarget,
   postAuthPath,
   signedInHomePath,
   hasCampaignAttribution,
@@ -656,5 +658,27 @@ describe("landing intent merge and redirects", () => {
         "/chat",
       ),
     ).toBe("/?from_path=%2Fchat&auth=login");
+  });
+
+  test("business-only never targets chat, signed in or signed out", () => {
+    const chatPath = "/chat";
+    const rows = [
+      [true, false, false, { href: chatPath }],
+      [true, true, false, { href: "/biz" }],
+      [true, true, true, { href: "/biz" }],
+      [true, false, true, { closed: true }],
+      [false, false, false, { href: chatPath }],
+      [false, true, false, { href: "/?auth=login" }],
+      [false, true, true, { href: "/?auth=login" }],
+      [false, false, true, { href: "/?auth=login" }],
+    ] as const;
+    for (const [signedIn, pilot, businessOnly, expected] of rows) {
+      const target = homeTarget({ signedIn, pilot, businessOnly, chatPath });
+      expect(target).toEqual(expected);
+      if (businessOnly) {
+        expect("href" in target ? target.href : "/?auth=login").not.toMatch(/^\/chat/);
+      }
+    }
+    expect(businessShellEntry({ pilot: false, businessOnly: true })).toEqual({ closed: true });
   });
 });

@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  businessShellEntry,
+  homeTarget,
   postAuthPath,
   resolveSignedInHome,
   signedInHomeClosed,
@@ -48,5 +50,36 @@ describe("signed-in home", () => {
     expect(signedInHomeClosed(true, true)).toBe(false);
     expect(signedInHomeClosed(false, false)).toBe(false);
     delete (globalThis as { window?: unknown }).window;
+  });
+
+  test("four flag combinations, signed in and signed out, never name chat when business-only is on", () => {
+    const chatPath = "/chat";
+    const cases = [
+      { signedIn: true, pilot: false, businessOnly: false, expected: { href: chatPath } },
+      { signedIn: true, pilot: true, businessOnly: false, expected: { href: "/biz" } },
+      { signedIn: true, pilot: true, businessOnly: true, expected: { href: "/biz" } },
+      { signedIn: true, pilot: false, businessOnly: true, expected: { closed: true } },
+      { signedIn: false, pilot: false, businessOnly: false, expected: { href: chatPath } },
+      { signedIn: false, pilot: true, businessOnly: false, expected: { href: "/?auth=login" } },
+      { signedIn: false, pilot: true, businessOnly: true, expected: { href: "/?auth=login" } },
+      { signedIn: false, pilot: false, businessOnly: true, expected: { href: "/?auth=login" } },
+    ] as const;
+    for (const row of cases) {
+      const target = homeTarget({
+        signedIn: row.signedIn,
+        pilot: row.pilot,
+        businessOnly: row.businessOnly,
+        chatPath,
+      });
+      expect(target).toEqual(row.expected);
+      if (row.businessOnly) {
+        const href = "href" in target ? target.href : "/?auth=login";
+        expect(href.startsWith("/chat")).toBe(false);
+      }
+    }
+    expect(businessShellEntry({ pilot: false, businessOnly: true })).toEqual({ closed: true });
+    expect(businessShellEntry({ pilot: true, businessOnly: true })).toEqual({ href: "/biz" });
+    expect(businessShellEntry({ pilot: true, businessOnly: false })).toEqual({ href: "/biz" });
+    expect(businessShellEntry({ pilot: false, businessOnly: false })).toEqual({ missing: true });
   });
 });

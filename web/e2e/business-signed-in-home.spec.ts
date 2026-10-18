@@ -118,6 +118,38 @@ test.describe("signed-in home with business-only on", () => {
     expect(visits.biz).toEqual([]);
   });
 
+  test("pilot off keeps /biz and the signed-in root off a 404 and off a loop", async ({ page }) => {
+    test.skip(pilot, "pilot is on for this run");
+    await page.route("**/api/v1/me", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ account_kind: "registered", id: "owner-1" }),
+      });
+    });
+    await page.addInitScript(() => {
+      window.localStorage.setItem("i18nextLng", "es-419");
+    });
+    const documents: string[] = [];
+    page.on("response", (response) => {
+      if (response.request().resourceType() !== "document") return;
+      documents.push(`${response.status()} ${new URL(response.url()).pathname}`);
+    });
+    const root = await page.goto("/");
+    expect(root?.status(), documents.join(" | ")).toBe(200);
+    await expect(page.getByTestId("business-home-closed")).toBeVisible();
+    await expect(page).toHaveURL(/\/\?auth=login(?:&|$)/);
+    const followed = await page.goto("/biz");
+    expect(followed?.status(), documents.join(" | ")).toBe(200);
+    await expect(page.getByTestId("business-home-closed")).toBeVisible();
+    await expect(page).toHaveURL(/\/\?auth=login(?:&|$)/);
+    await expect(page).not.toHaveURL(/\/chat(?:\?|$)/);
+    await expect(page).not.toHaveURL(/\/biz(?:\?|$)/);
+    expect(documents.filter((entry) => entry.startsWith("404"))).toEqual([]);
+    expect(documents.filter((entry) => entry.includes("/chat"))).toEqual([]);
+    expect(documents.length).toBeLessThan(8);
+  });
+
   test("pilot on lands on the business workspace", async ({ page }) => {
     test.skip(!pilot, "pilot is off for this run");
     await installBusinessShell(page);
