@@ -7,7 +7,12 @@ struct AgeConfirmationGate<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     init(model: AgeConfirmationModel? = nil, @ViewBuilder content: @escaping () -> Content) {
-        _model = StateObject(wrappedValue: model ?? AgeConfirmationModel(checker: AppleAgeRangeChecker()))
+        #if DEBUG
+        let fixture = AgeConfirmationHarness.legalEntryModel()
+        #else
+        let fixture: AgeConfirmationModel? = nil
+        #endif
+        _model = StateObject(wrappedValue: model ?? fixture ?? AgeConfirmationModel(checker: AppleAgeRangeChecker()))
         self.content = content
     }
 

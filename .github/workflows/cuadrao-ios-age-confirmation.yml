@@ -15,9 +15,9 @@ permissions:
   contents: read
 jobs:
   ios-age-confirmation:
-    runs-on: macos-26
+    runs-on: xcode-27
     env:
-      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - name: Verify SDK availability
@@ -38,14 +38,21 @@ jobs:
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath ios/.build/DerivedData
           CODE_SIGNING_ALLOWED=NO IPHONEOS_DEPLOYMENT_TARGET=17.0
-      - name: Test age gate UI with synthetic Apple responses
+      - name: Test age gate and legal UI with synthetic Apple responses
         run: |
-          device=$(xcrun simctl create 'Cuadrao Age Gate CI' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro)
+          device=$(xcrun simctl create 'Cuadrao Age Gate CI' com.apple.CoreSimulator.SimDeviceType.iPhone-17)
           trap 'xcrun simctl delete "$device"' EXIT
           SIMULATOR_ID="$device" ios/scripts/verify.sh test -collect-test-diagnostics never -only-testing:ArgusFoundationUITests/AgeConfirmationUITests \
+            -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testGuestProfileHidesTheLegalLinksUntilThePagesArePublished \
+            -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testGuestProfileShowsTheLegalLinksFromTheOwnerAndOpensThem \
+            -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpHidesTheLegalLinksUntilThePagesArePublished \
+            -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpShowsTheLegalLinksFromTheOwner \
+            -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpDocumentLinksOpenTheOwnerDestinations \
+            -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpHidesAcceptanceWhenOnlyOneDocumentExists \
+            -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpRemainsReachableAtLargeTextSizes \
             ARGUS_AUTH_ENABLED=true ARGUS_API_URL=http://127.0.0.1:59999 \
             ARGUS_SUPABASE_URL=http://127.0.0.1:59999 ARGUS_WEB_URL=http://127.0.0.1:59999 \
-            ARGUS_CAPTCHA_URL=http://127.0.0.1:59999 ARGUS_SUPABASE_ANON_KEY=sb_publishable_synthetic
+            ARGUS_CAPTCHA_URL=http://127.0.0.1:59999 ARGUS_SUPABASE_ANON_KEY=synthetic-anon-key
       - uses: actions/upload-artifact@v4
         if: always()
         with:

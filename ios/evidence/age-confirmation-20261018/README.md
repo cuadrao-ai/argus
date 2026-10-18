@@ -6,6 +6,9 @@ before publication and had not advanced. Root owns merges. This PR is held for
 three passing receipt-gate runs and independent exact-head Eval before squash.
 It must land with the web/API timestamp contract before outside TestFlight.
 
+[Independent Eval fixes and current 12-case UI evidence](review-fixes/README.md)
+record the later review correction. Earlier evidence below retains its source.
+
 ## Local evidence
 
 - `swift test --package-path ios/Packages/ArgusSession`: 194 tests, four live
@@ -75,9 +78,11 @@ profile storage; local native tests cannot prove that hosted persistence.
 The root coordinator checks three passing receipt-gate runs, independently
 reviews the exact final PR head, and checks both PRs together before squash.
 CI must finish on the final candidate. The iOS workflow compiles Release for
-an iOS 17 deployment target and runs the synthetic UI suite using Xcode 26.6.
-[GitHub's official image list](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-Readme.md)
-verifies `/Applications/Xcode_26.6.app`, iOS 26.5 SDK, and iPhone 17 Pro runtimes.
+an iOS 17 deployment target and runs the synthetic UI suite using Xcode 27.1.
+[GitHub's official Xcode 27 image list](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
+verifies `/Applications/Xcode_27.1.app`, iOS 27.1 SDK, and iOS 27.0 iPhone 17 runtime.
+The October 18 review fix replaces the earlier macOS 26/Xcode 26.6 pin because
+existing native swipe and reorder controls require SDK 27. Deployment remains 17.0.
 
 Apple runtime guards remain 26.2 for requesting a range and 26.4 for regulatory
 features. The build SDK check requires 26.4 or later because an availability

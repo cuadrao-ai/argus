@@ -243,5 +243,14 @@ Apple API and availability sources checked October 17, 2026:
 and the installed iOS 27.1 SDK Swift interface. The request API exists from iOS
 26.0 but this lane intentionally uses the approved 26.2 runtime guard. The
 regulatory symbols require the 26.4 build SDK even with an availability guard.
-[GitHub's macOS 26 image](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-Readme.md)
-lists `/Applications/Xcode_26.6.app`, its iOS 26.5 SDK, and iPhone 17 Pro runtime.
+[GitHub's Xcode 27 image](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
+lists `/Applications/Xcode_27.1.app`, its iOS 27.1 SDK, and an iOS 27.0 iPhone 17 runtime.
+The existing native swipe and reorder UI requires SDK 27 symbols. CI uses
+`xcode-27` and pins Xcode 27.1 while retaining the iOS 17 deployment target.
+[GitHub announced this runner as generally available on October 15](https://github.blog/changelog/2026-10-15-xcode-27-runner-image-generally-available/).
+
+Legal entry UI tests add `--age-legal-entry` to the Debug age harness. It mounts
+the real welcome, signup and guest views with a signed-out model that has no
+session controller. Each launch resets the canonical age key on the isolated test simulator. The tests complete
+the real checkbox and a synthetic required adult check before legal assertions.
+They preserve the real signup controls and never send an auth request.
