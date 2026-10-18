@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import FullscreenLoading from "@/components/FullscreenLoading";
 import { CuadraoLockup } from "@/components/CuadraoLockup";
 import { useRouter } from "next/navigation";
 import AuthForm, {
@@ -195,9 +196,7 @@ export default function LandingPage() {
     return (
       <>
         <DevModeBadge />
-        <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <FullscreenLoading />
       </>
     );
   }
