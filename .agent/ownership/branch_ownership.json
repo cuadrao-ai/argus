@@ -2797,6 +2797,7 @@
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
         "docs/reports/evidence/security-waitlist-20261018/**",
         "docs/specs/cuadrao-personal-waitlist.md",
         "marketing/__tests__/waitlist-actions.test.ts",
