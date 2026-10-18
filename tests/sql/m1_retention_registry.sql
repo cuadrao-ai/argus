@@ -9,8 +9,9 @@ declare
     actual bigint;
 begin
     select count(*) into actual from argus_private.retention_policies;
-    if actual <> 4 then raise exception 'Expected exactly four existing purge rules'; end if;
+    if actual <> 5 then raise exception 'Expected exactly five retention rules'; end if;
     if exists (select 1 from argus_private.retention_policies where table_name not in (
+        'public.business_sales',
         'public.guest_workspaces', 'public.visitor_usage_counters',
         'public.guest_funnel_milestones', 'public.cuadrao_early_access_signups'
     )) then raise exception 'An unapproved retention rule was seeded'; end if;

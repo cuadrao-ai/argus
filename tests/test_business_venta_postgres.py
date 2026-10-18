@@ -28,6 +28,17 @@ users = shared.users
 pytestmark = shared.pytestmark
 
 
+@pytest.fixture(autouse=True)
+def _release_recorded_sales(actions):  # noqa: ANN001
+    service, context, _ = actions
+    yield
+    with service.authority.pool.connection() as connection:
+        connection.execute(
+            "delete from public.business_sales where space_id = %s",
+            (context.actor.space_id,),
+        )
+
+
 def _request(draft_id: UUID, *, ncf: str | None = None) -> MarkVenta:
     return MarkVenta(
         draft_id=draft_id,
@@ -59,7 +70,9 @@ def test_mark_replay_and_changed_body_keep_one_sale(actions) -> None:  # noqa: A
     replay = mark_venta(service.authority, context, request, "mark")
     assert isinstance(replay, SaleWrite)
     assert replay.created is False and replay.sale == first.sale
-    changed = request.model_copy(update={"invoice_total": "1200.00"})
+    changed = MarkVenta.model_validate(
+        {**request.model_dump(mode="json"), "invoice_total": "1200.00"}
+    )
     conflict = mark_venta(service.authority, context, changed, "mark")
     assert isinstance(conflict, Refused)
     assert (conflict.outcome, conflict.code) == (
@@ -98,8 +111,7 @@ def test_a_second_draft_cannot_reuse_the_ncf(actions) -> None:  # noqa: ANN001
     assert (
         _count(
             service,
-            "select count(*) from public.business_sales"
-            " where space_id=%s and ncf=%s",
+            "select count(*) from public.business_sales" " where space_id=%s and ncf=%s",
             (context.actor.space_id, ncf),
         )
         == 1
@@ -162,9 +174,7 @@ def test_recorded_venta_refuses_expense_approval(actions) -> None:  # noqa: ANN0
 
 
 @pytest.mark.owner_acts
-def test_policy_uses_scalar_uid_and_selects_only_live_members(
-    actions, users
-) -> None:  # noqa: ANN001
+def test_policy_uses_scalar_uid_and_selects_only_live_members(actions, users) -> None:  # noqa: ANN001
     service, context, _ = actions
     marked = mark_venta(
         service.authority,

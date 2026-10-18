@@ -57,6 +57,7 @@ CLIENT_SCHEMA_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
 
 CLIENT_RELATION_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
     "public.backtest_jobs": {"authenticated": frozenset({"SELECT"})},
+    "public.business_sales": {"authenticated": frozenset({"SELECT"})},
     "public.chat_turn_lifecycles": {"authenticated": frozenset({"SELECT"})},
     "public.conversation_read_states": {"authenticated": frozenset({"SELECT"})},
     "public.financial_accounts": {"authenticated": frozenset({"SELECT"})},
@@ -241,6 +242,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
 # members are excluded.
 CLIENT_EXECUTABLE_FUNCTIONS: dict[str, frozenset[str]] = {
     "public.argus_search_symbol_casefold(text)": frozenset({"anon", "authenticated"}),
+    "public.business_sale_visible(uuid, uuid)": frozenset({"authenticated"}),
     "public.is_active_household_member(uuid, uuid)": frozenset({"authenticated"}),
     # The historical staging adoption retains this existing helper grant.
     "public.set_updated_at()": frozenset({"anon", "authenticated"}),

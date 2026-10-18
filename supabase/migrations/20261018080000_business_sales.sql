@@ -56,32 +56,48 @@ revoke all on public.business_sales from public, anon, authenticated;
 grant select, insert, update on public.business_sales to service_role;
 grant select on public.business_sales to authenticated;
 
+create or replace function public.business_sale_visible(
+    p_space_id uuid,
+    p_user_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select exists (
+        select 1
+          from public.spaces s
+         where s.id = p_space_id
+           and s.kind = 'business'
+           and s.closed_at is null
+           and (
+                s.created_by = p_user_id
+                or exists (
+                    select 1
+                      from public.business_client_grants g
+                     where g.space_id = s.id
+                       and g.grantee_id = p_user_id
+                       and g.revoked_at is null
+                       and (
+                           g.expires_at is null
+                           or g.expires_at > clock_timestamp()
+                       )
+                )
+           )
+    );
+$$;
+
+revoke all on function public.business_sale_visible(uuid, uuid) from public, anon;
+grant execute on function public.business_sale_visible(uuid, uuid) to authenticated;
+
 create policy business_sales_authenticated_select
     on public.business_sales
     for select
     to authenticated
     using (
-        exists (
-            select 1
-              from public.spaces s
-             where s.id = business_sales.space_id
-               and s.kind = 'business'
-               and s.closed_at is null
-               and (
-                    s.created_by = (select auth.uid())
-                    or exists (
-                        select 1
-                          from public.business_client_grants g
-                         where g.space_id = s.id
-                           and g.grantee_id = (select auth.uid())
-                           and g.revoked_at is null
-                           and (
-                               g.expires_at is null
-                               or g.expires_at > clock_timestamp()
-                           )
-                    )
-               )
-        )
+        public.business_sale_visible(space_id, (select auth.uid()))
     );
 
 insert into argus_private.retention_policies (table_name, rule, basis)
