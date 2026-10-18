@@ -245,6 +245,8 @@ services:
         sync: false
       - key: CUADRAO_APP_ORIGIN
         sync: false
+      - key: CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED
+        value: "false"
       - key: CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED
         value: "true"
       - key: CUADRAO_BUSINESS_EMAIL_DOMAIN
