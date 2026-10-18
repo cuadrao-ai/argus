@@ -100,12 +100,8 @@ const PROOF = {
   conversionPrompt: /KEEP GOING WITH ARGUS|Request access|Solicitar acceso|SIGUE|Start a new conversation|nueva conversación/i,
   settingsRoot: /Data Controls|Controles de datos/i,
   usage: /left today|available this hour|hoy|esta hora/i,
-  /* One per settings destination, each a row only that panel renders. */
   settingsProfile: /Avatar color|Color de avatar/i,
-  settingsData: /Delete all conversations|Eliminar todas las conversaciones/i,
-  /* Not the Sidebar row: that one only exists from the tablet stop up, so it
-     cannot prove this panel at 390. Appearance is the row that is always here
-     and that the Profile panel does not also render. */
+  settingsData: /Recently deleted|Borrados recientemente/i,
   settingsPreferences: /Appearance|Apariencia/i,
   settingsHelpLegal: /Keyboard shortcuts|Atajos de teclado/i,
   /* At 390 the panel drops the keyboard shortcuts row, and its remaining rows

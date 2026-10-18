@@ -89,7 +89,7 @@ test.describe("Business pilot walkthrough", () => {
     await panel(page).getByRole("button", { name: /need your attention/ }).click();
     await expect(heading(page, "Inbox")).toBeVisible();
     await panel(page).getByRole("button", { name: /IMG_2209/ }).click();
-    await expect(panel(page)).toContainText("We couldn't read this receipt");
+    await expect(panel(page)).toContainText("We couldn't read this file");
   });
 
   test("5 record an expense by hand with a guarded amount", async ({ page }) => {

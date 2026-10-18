@@ -4,6 +4,11 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Eye, EyeClosed } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
+import {
+  EmailOtpRejectedError,
+  normalizeEmailOtp,
+  verifyEmailOtp,
+} from "@/lib/email-otp";
 import { blockingErrorBannerClass } from "@/lib/failure-treatment";
 
 export type AuthFormMode = "login" | "signup";
@@ -28,6 +33,8 @@ type AuthFormProps = {
   onSubmit: (
     submission: AuthFormSubmission,
   ) => Promise<AuthFormSubmissionResult | void>;
+  onConfirmEmailCode?: (input: { email: string; code: string }) => Promise<void>;
+  onEmailConfirmed?: () => void | Promise<void>;
 };
 
 type AuthErrorTranslation = Readonly<{
@@ -46,9 +53,8 @@ const AUTH_ERROR_MESSAGE_BY_CODE: Readonly<
   Record<string, AuthErrorTranslation>
 > = {
   captcha_unavailable: {
-    key: "auth.errors.captcha_unavailable",
-    fallback:
-      "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
+    key: "auth.errors.browser_check_failed",
+    fallback: "We couldn’t verify your browser. Try again.",
   },
   unauthorized: {
     key: "auth.errors.unauthorized",
@@ -145,6 +151,10 @@ const AUTH_ERROR_MESSAGE_BY_CODE: Readonly<
     fallback:
       "We couldn’t claim the temporary conversation right now. Please try again.",
   },
+  otp_rejected: {
+    key: "auth.errors.otp_rejected",
+    fallback: "That code was not accepted. Check the email and try again.",
+  },
 };
 
 function authErrorCode(error: unknown): string {
@@ -172,6 +182,8 @@ export default function AuthForm({
   embedded = false,
   onModeChange,
   onSubmit,
+  onConfirmEmailCode,
+  onEmailConfirmed,
 }: AuthFormProps) {
   const { t } = useTranslation();
   const [displayName, setDisplayName] = useState("");
@@ -179,14 +191,20 @@ export default function AuthForm({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authErrorKind, setAuthErrorKind] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+  const [confirmationCode, setConfirmationCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
   const confirmationHeadingRef = useRef<HTMLHeadingElement>(null);
   const isSignup = mode === "signup";
   const acceptance = acceptanceLinks();
 
   useEffect(() => {
     setNeedsEmailConfirmation(false);
+    setConfirmationCode("");
+    setCodeError(null);
   }, [mode]);
 
   useEffect(() => {
@@ -198,6 +216,7 @@ export default function AuthForm({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setAuthError(null);
+    setAuthErrorKind(null);
     setIsSubmitting(true);
     try {
       const result = await onSubmit({
@@ -210,6 +229,7 @@ export default function AuthForm({
         Boolean(result && result.status === "email_confirmation_required"),
       );
     } catch (error) {
+      setAuthErrorKind(authErrorCode(error));
       setAuthError(
         localizedAuthErrorMessage(error, (key, fallback) =>
           String(t(key, fallback)),
@@ -217,6 +237,34 @@ export default function AuthForm({
       );
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCodeError(null);
+    setIsConfirming(true);
+    try {
+      const token = normalizeEmailOtp(confirmationCode);
+      if (!token) throw new EmailOtpRejectedError();
+      if (onConfirmEmailCode) {
+        await onConfirmEmailCode({ email: email.trim(), code: token });
+      } else {
+        await verifyEmailOtp({
+          email: email.trim(),
+          token,
+          type: "signup",
+        });
+      }
+      await onEmailConfirmed?.();
+    } catch (error) {
+      setCodeError(
+        localizedAuthErrorMessage(error, (key, fallback) =>
+          String(t(key, fallback)),
+        ),
+      );
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -246,9 +294,41 @@ export default function AuthForm({
           <p className="mt-3 text-[15px] leading-relaxed text-black/60 dark:text-white/60">
             {t(
               "auth.signup.confirmation_description",
-              "Use the confirmation link we sent to finish creating your account. Then return here to sign in.",
+              "Enter the code from the email, or open the confirmation link. Either one finishes creating your account.",
             )}
           </p>
+          <form onSubmit={handleConfirmCode} className="mt-5 space-y-3 text-left">
+            <label
+              htmlFor="auth-confirmation-code"
+              className="block px-1 text-[13px] tracking-[0.16px] text-black/55 dark:text-white/55"
+            >
+              {t("auth.signup.confirmation_code_label", "Confirmation code")}
+            </label>
+            <input
+              id="auth-confirmation-code"
+              data-testid="auth-confirmation-code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={confirmationCode}
+              onChange={(event) => setConfirmationCode(event.target.value)}
+              required
+              className="w-full rounded-[20px] border border-black/15 bg-transparent px-5 py-[14px] text-[16px] tracking-[0.16px] text-black transition-colors placeholder:text-black/40 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:border-white/20 dark:text-white dark:placeholder:text-white/40 dark:focus-visible:ring-white"
+            />
+            {codeError ? (
+              <p role="alert" className={blockingErrorBannerClass}>
+                {codeError}
+              </p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={isConfirming}
+              className="font-display flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black disabled:opacity-50 dark:bg-white dark:text-black dark:focus-visible:ring-white"
+            >
+              {isConfirming
+                ? t("auth.signup.confirmation_loading", "Confirming...")
+                : t("auth.signup.confirmation_submit", "Confirm")}
+            </button>
+          </form>
         </div>
       ) : (
         <>
@@ -350,6 +430,8 @@ export default function AuthForm({
                     ? t("auth.signup.loading", "Creating account...")
                     : t("auth.login.loading", "Signing in...")}
                 </>
+              ) : authErrorKind === "captcha_unavailable" ? (
+                t("auth.errors.browser_check_retry", "Try again")
               ) : isSignup ? (
                 t("auth.signup.submit", "Sign up")
               ) : (
