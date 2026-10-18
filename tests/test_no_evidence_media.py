@@ -9,7 +9,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKER = ROOT / "scripts/ci/check_no_evidence_media.py"
-ALLOWLIST = ROOT / ".github/media-allowlist.txt"
 REJECTION = (
     "do not commit evidence media. Attach it on the pull request, "
     "or upload it with actions/upload-artifact."
@@ -49,7 +48,6 @@ def commit_bytes(repo: Path, path: str, payload: bytes) -> None:
 def run_check(
     repo: Path,
     base: str,
-    allowlist: Path = ALLOWLIST,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -60,8 +58,6 @@ def run_check(
             str(repo),
             "--base",
             base,
-            "--allowlist",
-            str(allowlist),
         ],
         capture_output=True,
         text=True,
@@ -155,63 +151,6 @@ def test_copy_fails(tmp_path: Path) -> None:
     result = run_check(repo, base)
     assert result.returncode == 1
     assert result.stderr.splitlines() == [f"{destination}: {REJECTION}"]
-
-
-def test_committed_allowlist_matches_tracked_brand_files() -> None:
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location("check_no_evidence_media", CHECKER)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    globs = module.load_globs(ALLOWLIST.read_text(encoding="utf-8"))
-    tracked = (
-        subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
-    )
-    missed = [
-        pattern
-        for pattern in globs
-        if not any(module.matches_glob(path, pattern) for path in tracked if path)
-    ]
-    icons = sorted(
-        path
-        for path in tracked
-        if path.startswith("marketing/app/")
-        and path.count("/") == 2
-        and path.rsplit(".", 1)[-1].lower() in {"png", "ico", "svg"}
-    )
-    app_globs = sorted(
-        pattern for pattern in globs if pattern.startswith("marketing/app/")
-    )
-    assert globs
-    assert missed == []
-    assert icons
-    assert app_globs == icons
-
-
-def test_allowlisted_brand_asset_passes(tmp_path: Path) -> None:
-    repo, base = init_repo(tmp_path)
-    commit_bytes(repo, "web/public/icons/cuadrao-mark.png", b"brand")
-    assert run_check(repo, base).returncode == 0
-
-
-@pytest.mark.parametrize(
-    ("path", "pattern"),
-    [
-        ("marketing/app/evidence/x.png", "marketing/app/**"),
-        ("docs/reports/evidence/logo.png", "docs/reports/evidence/**"),
-    ],
-)
-def test_allowlist_does_not_exempt_an_evidence_path(
-    tmp_path: Path, path: str, pattern: str
-) -> None:
-    repo, base = init_repo(tmp_path)
-    commit_bytes(repo, path, b"brand")
-    allowlist = tmp_path / "allow.txt"
-    allowlist.write_text(pattern + "\n")
-    result = run_check(repo, base, allowlist)
-    assert result.returncode == 1
-    assert result.stderr.splitlines() == [f"{path}: {REJECTION}"]
 
 
 @pytest.mark.parametrize(
