@@ -372,9 +372,9 @@ After the landed gate reports `status=pass` and the env readbacks above match th
 .github/render-env-sync.sh release-config-audit --expect-mode real-workflow
 ```
 
-`status=ready` is required. A drift or `unexpected_live_env` line stops the deploy. The vision-model allow-list stop in section 3 applies here.
+`status=ready` is not the promotion gate while `ARGUS_PRIVATE_LAUNCH_WEB_SERVICE_ID` is `srv-d7ap6bmslomc73eqp8m0`. That id is dashboard `cuadrao-web`, the marketing site. The audit reads it as `argus-app` and reports the business-web keys missing. Those `argus-app` lines are expected. They are not a stop. Do not copy the business-web contract onto `cuadrao-web` to force `status=ready`. Stop on any `argus-api` or `argus-backtests` drift or `unexpected_live_env` line. The vision-model allow-list stop in section 3 still applies to `argus-api`. Record the expected `argus-app` lines in the sign-off.
 
-4. Deploy dashboard `cuadrao-api`, then `argus-backtests`, from the landed SHA. Manual triggers, in that order. The `cuadrao-web` start command was confirmed on 2026-10-18. Deploying that marketing service is separate from this API and workflow deploy, and it is not a deploy of `web/`. Do not finish the API and the workflow on different commits. The command reference in [Before Tester Sessions](#before-tester-sessions) still names the audit labels `argus-api`, then `argus-app`, then `argus-backtests`. The audit script still labels the API `argus-api`. The `argus-app` step is the business-web audit contract, and no production service carries it yet.
+4. Deploy dashboard `cuadrao-api`, then `cuadrao-web`, then `argus-backtests`, from the landed SHA. Manual triggers, in that order. `cuadrao-web` is the marketing site. This deploy is not a deploy of `web/`. The release-coherence canary calls `web-deploy-status`, which reads `srv-d7ap6bmslomc73eqp8m0` and fails with `web_deploy_sha_mismatch` unless that service's live commit is the candidate. Leaving marketing on an older SHA fails the canary. Do not finish the three on different commits. The command reference in [Before Tester Sessions](#before-tester-sessions) still names the audit labels `argus-api`, then `argus-app`, then `argus-backtests`. The audit script still labels the marketing service `argus-app`. The `argus-app` env contract is the business-web contract, and no production service carries it yet.
 5. Read deploy status:
 
 ```bash
@@ -409,7 +409,7 @@ Warmup dispatches a paid workflow proof. Lucas approves that spend in the window
    - Guest access: set `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=false`, then `ARGUS_GUEST_ACCESS_ENABLED=false`. Leave `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`.
    - `ARGUS_ENABLE_EXECUTION_REALISM=false` is the execution-realism kill switch.
    Sharing flags, the three ceilings, `ARGUS_TRUSTED_CLIENT_IP_HEADER`, and `renderSubdomainPolicy` are not emergency flips.
-3. Revert code, keep migrations. Roll dashboard `cuadrao-api` and `argus-backtests` back to the same previous successful deploy. Roll `cuadrao-web` back only if this promotion deployed it. Do not roll a business-web service this promotion did not deploy. A Render rollback restores that deploy's env values as well, so read the env back afterward and re-apply any secret that was rotated since that artifact. Do not reverse, edit, or delete applied SQL. Old code has to tolerate the expanded schema, or Lucas approves a forward fix. The [waitlist rollback floor](#waitlist-rollback-floor) still forbids a code rollback below `061ba50e` while active `requested` rows can exist, until that section's maintenance proof is done.
+3. Revert code, keep migrations. Roll dashboard `cuadrao-api`, `cuadrao-web`, and `argus-backtests` back to the same previous successful deploy. Do not roll a business-web service this promotion did not deploy. A Render rollback restores that deploy's env values as well, so read the env back afterward and re-apply any secret that was rotated since that artifact. Do not reverse, edit, or delete applied SQL. Old code has to tolerate the expanded schema, or Lucas approves a forward fix. The [waitlist rollback floor](#waitlist-rollback-floor) still forbids a code rollback below `061ba50e` while active `requested` rows can exist, until that section's maintenance proof is done.
 4. If the hook was enabled despite section 4, disable production Supabase's Send Email Hook first, then set the web flag false. Restoring the previous Auth SMTP sender is part of that readback.
 5. Code rollback does not change `renderSubdomainPolicy`. Production still has the `cuadrao-api` onrender subdomain enabled. Restoring or disabling `https://argus-ohr5.onrender.com` is a separate founder decision on promotion day.
 
@@ -445,7 +445,7 @@ MARKETING_POSTAL_ADDRESS: set and matched approved string / not set
 Auth hook: off
 Hook readback (flag absent or false; Supabase hook not pointed at the app):
 release-config-audit before deploy:
-Deploy SHAs (cuadrao-api, cuadrao-web if deployed, argus-backtests):
+Deploy SHAs (cuadrao-api, cuadrao-web, argus-backtests):
 release-config-audit inside warmup:
 Health:
 Smoke and both canaries:
