@@ -133,6 +133,8 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "argus_private.account_deletion_runs",
         "argus_private.account_placeholders",
         "argus_private.invite_code_digests",
+        "argus_private.retention_policies",
+        "argus_private.retention_sweeps",
         "public.apple_sign_in_credentials",
         "public.argus_memory_vectors",
         "public.backtest_runs",
@@ -240,9 +242,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
 CLIENT_EXECUTABLE_FUNCTIONS: dict[str, frozenset[str]] = {
     "public.argus_search_symbol_casefold(text)": frozenset({"anon", "authenticated"}),
     "public.is_active_household_member(uuid, uuid)": frozenset({"authenticated"}),
-    # Migration 20261016154607 adopts these existing staging grants unchanged.
-    # The separate M0 hardening migration owns their revocation.
-    "public.rls_auto_enable()": frozenset({"anon", "authenticated"}),
+    # The historical staging adoption retains this existing helper grant.
     "public.set_updated_at()": frozenset({"anon", "authenticated"}),
 }
 
@@ -406,6 +406,24 @@ def test_client_column_privileges_match_the_allow_list(catalog) -> None:
 
 def test_client_executable_functions_match_the_allow_list(catalog) -> None:
     assert _executable_functions(catalog) == CLIENT_EXECUTABLE_FUNCTIONS
+
+
+@pytest.mark.parametrize("role", CLIENT_ROLES)
+def test_rls_event_trigger_is_not_client_executable(catalog, role) -> None:
+    catalog.execute(
+        "select has_function_privilege(%s, 'public.rls_auto_enable()', 'EXECUTE')",
+        (role,),
+    )
+    assert catalog.fetchone() == (False,)
+
+
+def test_revoked_rls_helper_still_enables_new_public_table_rls(catalog) -> None:
+    with catalog.connection.transaction(force_rollback=True):
+        catalog.execute("create table public.security_rls_probe (id integer)")
+        catalog.execute(
+            "select relrowsecurity from pg_class where oid='public.security_rls_probe'::regclass"
+        )
+        assert catalog.fetchone() == (True,)
 
 
 def test_migration_owner_default_privileges_give_clients_nothing(catalog) -> None:
