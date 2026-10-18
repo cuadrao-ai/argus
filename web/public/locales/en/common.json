@@ -308,29 +308,6 @@
       "announce_needs_input": "{{title}} needs your input.",
       "announce_new_activity": "{{title}} is ready."
     },
-    "starter_actions": {
-      "tsla": {
-        "label": "Test Apple vs SPY",
-        "value": "Compare Apple with SPY over the last 12 months."
-      },
-      "btc": {
-        "label": "Test Bitcoin (BTC) hold",
-        "value": "What if I bought Bitcoin this year so far?"
-      },
-      "dca": {
-        "label": "Test weekly Nvidia buys",
-        "value": "What if I bought $250 of Nvidia every week over the last 12 months?"
-      }
-    },
-    "landing_starters": {
-      "backtest": "What if I had bought an S&P 500 fund over the last 12 months?",
-      "savings": "If I set aside $200 every month, what would that add up to in a year?"
-    },
-    "example_queries": {
-      "q1": "How does Netflix make money?",
-      "q2": "Compare Costco against Walmart and Target",
-      "q3": "What if I had bought Coca-Cola every month for five years?"
-    },
     "research_job": {
       "queued": {
         "title": "Research queued",
@@ -1635,78 +1612,15 @@
     "privacy": "Privacy Policy"
   },
   "guest": {
-    "entry": {
-      "loading": "Opening Cuadrao",
-      "sending": "Sending...",
-      "error": "Cuadrao couldn't open a temporary chat. Try again.",
-      "reload": "Reload"
-    },
-    "expired": {
-      "title": "This temporary chat has expired",
-      "detail": "Its messages and results can’t be recovered.",
-      "start_new": "Start a new temporary chat",
-      "sign_in": "Sign in",
-      "create_account": "Create account",
-      "restart_error": "Cuadrao could not start a new temporary chat. Try again."
-    },
-    "conversion": {
-      "eyebrow": "Keep going with Cuadrao",
-      "sign_in_title": "Sign in",
-      "create_title": "Create your account",
-      "simulation_limit": "Sign in to run another simulation.",
-      "simulation_limit_reset": "This temporary chat has reached today’s simulation limit. It resets on {{date}}. Create an account to continue now.",
-      "simulation_limit_request_access": "This temporary chat has reached today’s simulation limit. It resets on {{date}}. Request access or sign in to continue.",
-      "simulation_workspace_limit_reset": "This temporary chat has reached its simulation limit. It expires on {{date}}. Create an account to continue now.",
-      "simulation_workspace_limit_request_access": "This temporary chat has reached its simulation limit. It expires on {{date}}. Request access or sign in to continue.",
-      "save_decision": "Sign in to save this decision.",
-      "new_conversation": "Sign in to keep this conversation and start another.",
-      "new_conversation_create": "Create an account to keep this conversation and start another.",
-      "keep_history": "Sign in to keep this conversation and start another.",
-      "discovery_searches": "Sign in for more grounded searches with sources.",
-      "share_result": "Create an account or sign in to share this answer and keep control of its link."
-    },
-    "new_conversation": {
-      "title": "Start a new conversation?",
-      "description": "Start over replaces this temporary conversation. Sign in to keep it and start another.",
-      "public_description": "Start over replaces this temporary conversation. Create an account to keep it and start another.",
-      "start_over": "Start over",
-      "sign_in": "Sign in to keep it",
-      "create_account": "Create account",
-      "error": "The temporary chat was left unchanged."
-    },
-    "history": {
-      "expires_at": "Available until {{date}}",
-      "keep_history": "Sign in to keep your history"
-    },
     "shell": {
-      "value_title": "Test an investing idea against history.",
-      "input_placeholder": "Ask about any company or idea",
-      "input_placeholder_prerail": "What do you want to test?",
       "sign_in": "Sign in",
       "settings": "Guest settings",
       "language": "Language",
       "feedback": "Feedback",
-      "temporary_until": "Temporary chat · available until {{date}}",
-      "before_message": {
-        "prefix": "By messaging Argus, you agree to ",
-        "terms": "Terms",
-        "middle": " and acknowledge ",
-        "privacy": "Privacy"
-      },
-      "after_message": {
-        "safety": "Argus can make mistakes. For education only. Not financial advice.",
-        "terms": "Terms",
-        "privacy": "Privacy"
-      },
       "new_chat_unavailable": "Sign in to keep this conversation and start another.",
       "search_unavailable": "Search isn't available for temporary chats yet.",
       "decision_unavailable": "Sign in to save this decision.",
       "sign_in_unavailable": "Sign in is not available in this preview. Your temporary chat stays here."
-    },
-    "hints": {
-      "confirmation": "Review the assumptions, then run the test.",
-      "result": "Change the chart range or ask a follow-up.",
-      "dismiss": "Dismiss hint"
     }
   },
   "receipt": {
