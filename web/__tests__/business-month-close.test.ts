@@ -192,6 +192,16 @@ describe("month close mock client", () => {
     await expect(client.closeMonth("2026-10")).rejects.toMatchObject({ code: "blockers" });
   });
 
+  test("a mark in one Business does not change another Business", async () => {
+    const client = createMockMonthCloseClient({ now });
+    const lastMonth = periodRange("last_month", now);
+    await client.markCobrado("inv-luna", "grant-a");
+    const other = await client.load(lastMonth, "grant-b");
+    expect(other.documents.find((item) => item.id === "inv-luna")?.status).toBe("pendiente");
+    const same = await client.load(lastMonth, "grant-a");
+    expect(same.documents.find((item) => item.id === "inv-luna")?.status).toBe("cobrado");
+  });
+
   test("a failed mark leaves the stored status untouched", async () => {
     const client = createMockMonthCloseClient({ now, failIds: ["inv-taller"] });
     await expect(client.markCobrado("inv-taller")).rejects.toMatchObject({ code: "unavailable" });

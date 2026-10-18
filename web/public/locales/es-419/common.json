@@ -2660,6 +2660,7 @@
       "closed": "Mes cerrado",
       "closed_on": "Cerrado el {{date}}.",
       "reason_blockers": "Falta el RNC o el NCF de algún documento.",
+      "reason_permission": "Marcar cobros, marcar pagos y cerrar el mes requiere permiso de aprobación.",
       "reason_not_month": "Elige un mes de calendario para cerrarlo.",
       "blocker_pending_invoice": "{{name}} sigue sin cobrar",
       "blocker_pending_receipt": "{{name}} sigue sin pagar",

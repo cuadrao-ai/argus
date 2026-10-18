@@ -70,4 +70,34 @@ describe("month close optimistic marks", () => {
     await act(async () => root.unmount());
     host.remove();
   });
+
+  test("without approval permission the month cannot be marked or closed", async () => {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("../public/locales/es-419/common.json")).default;
+    const { BusinessMonthCloseView } = await import("../components/business-app/BusinessMonthClosePanel");
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <BusinessMonthCloseView client={createMockMonthCloseClient({ now })} period={periodRange("last_month", now)} setPeriod={() => undefined} scopeKey="grant-read" canMutate={false} />
+        </I18nextProvider>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    assert.equal(host.querySelector('[data-testid="month-close-close"]')?.hasAttribute("disabled"), true);
+    assert.match(host.querySelector('[data-testid="month-close-reason"]')?.textContent ?? "", /permiso de aprobación/);
+    assert.equal(host.querySelector('[data-testid="month-close-mark-cobrado"]'), null);
+    assert.equal(host.querySelector('[data-testid="month-close-mark-pagado"]'), null);
+    await act(async () => root.unmount());
+    host.remove();
+  });
 });

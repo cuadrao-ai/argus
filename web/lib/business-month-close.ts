@@ -119,10 +119,11 @@ export class MonthCloseError extends Error {
 
 export type MonthCloseClient = {
   readonly mode: "mock" | "http";
-  load(window: MonthCloseWindow): Promise<MonthCloseSnapshot>;
-  markCobrado(documentId: string): Promise<MonthCloseDocument>;
-  markPagado(documentId: string): Promise<MonthCloseDocument>;
-  closeMonth(month: string): Promise<MonthCloseSnapshot>;
+  /** `scope` is the selected Business grant. The mock keeps each grant's marks apart. The HTTP client refetches when the view's scope changes; the session already carries the grant. */
+  load(window: MonthCloseWindow, scope?: string): Promise<MonthCloseSnapshot>;
+  markCobrado(documentId: string, scope?: string): Promise<MonthCloseDocument>;
+  markPagado(documentId: string, scope?: string): Promise<MonthCloseDocument>;
+  closeMonth(month: string, scope?: string): Promise<MonthCloseSnapshot>;
 };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -406,47 +407,57 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
   const now = options.now ?? new Date();
   const today = localDay(now);
   const failIds = new Set(options.failIds ?? []);
-  let documents = monthCloseSampleDocuments(now);
-  const closedAt = new Map<string, string>();
+  const books = new Map<string, { documents: MonthCloseDocument[]; closedAt: Map<string, string> }>();
 
-  function requireOpen(document: MonthCloseDocument): void {
-    const month = document.occurred_on.slice(0, 7);
-    if (closedAt.has(month)) throw new MonthCloseError("closed", "month is closed");
+  function book(scope = "default") {
+    const existing = books.get(scope);
+    if (existing) return existing;
+    const created = { documents: monthCloseSampleDocuments(now), closedAt: new Map<string, string>() };
+    books.set(scope, created);
+    return created;
   }
 
-  function mark(documentId: string, kind: MonthCloseKind, status: MonthCloseStatus): MonthCloseDocument {
-    const document = documents.find((item) => item.id === documentId);
+  function requireOpen(scope: string, document: MonthCloseDocument): void {
+    const month = document.occurred_on.slice(0, 7);
+    if (book(scope).closedAt.has(month)) throw new MonthCloseError("closed", "month is closed");
+  }
+
+  function mark(scope: string, documentId: string, kind: MonthCloseKind, status: MonthCloseStatus): MonthCloseDocument {
+    const current = book(scope);
+    const document = current.documents.find((item) => item.id === documentId);
     if (!document) throw new MonthCloseError("not_found", "document not found");
     if (failIds.has(documentId)) throw new MonthCloseError("unavailable", "mark failed");
     if (document.kind !== kind) throw new MonthCloseError("invalid_status", "status does not fit the document");
-    requireOpen(document);
+    requireOpen(scope, document);
     const next = { ...document, status };
-    documents = documents.map((item) => (item.id === documentId ? next : item));
+    current.documents = current.documents.map((item) => (item.id === documentId ? next : item));
     return next;
   }
 
   return {
     mode: "mock",
-    async load(window) {
+    async load(window, scope = "default") {
       if (!DAY.test(window.from) || (window.to !== null && !DAY.test(window.to))) throw new MonthCloseError("unavailable", "month close window is unknown");
-      return snapshotFor(documents, window, today, closedAt);
+      const current = book(scope);
+      return snapshotFor(current.documents, window, today, current.closedAt);
     },
-    async markCobrado(documentId) {
-      return mark(documentId, "invoice", "cobrado");
+    async markCobrado(documentId, scope = "default") {
+      return mark(scope, documentId, "invoice", "cobrado");
     },
-    async markPagado(documentId) {
-      return mark(documentId, "receipt", "pagado");
+    async markPagado(documentId, scope = "default") {
+      return mark(scope, documentId, "receipt", "pagado");
     },
-    async closeMonth(month) {
+    async closeMonth(month, scope = "default") {
       if (!MONTH.test(month)) throw new MonthCloseError("unavailable", "month close month is unknown");
+      const current = book(scope);
       const [year, monthNumber] = month.split("-").map(Number);
       const from = `${month}-01`;
       const to = lastDayOfMonth(year, monthNumber);
-      const included = documentsInWindow(documents, from, to);
-      const gate = canCloseMonth({ month, closed_at: closedAt.get(month) ?? null, documents: included });
+      const included = documentsInWindow(current.documents, from, to);
+      const gate = canCloseMonth({ month, closed_at: current.closedAt.get(month) ?? null, documents: included });
       if (!gate.ok && gate.reason === "blockers") throw new MonthCloseError("blockers", "month still has blockers");
-      if (!closedAt.has(month)) closedAt.set(month, new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0).toISOString());
-      return snapshotFor(documents, { from, to }, today, closedAt);
+      if (!current.closedAt.has(month)) current.closedAt.set(month, new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0).toISOString());
+      return snapshotFor(current.documents, { from, to }, today, current.closedAt);
     },
   };
 }

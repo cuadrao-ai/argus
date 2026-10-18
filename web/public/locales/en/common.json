@@ -2558,6 +2558,7 @@
       "closed": "Month closed",
       "closed_on": "Closed on {{date}}.",
       "reason_blockers": "A document is missing its RNC or NCF.",
+      "reason_permission": "Marking collection, marking payment, and closing the month requires approval permission.",
       "reason_not_month": "Choose a calendar month to close it.",
       "blocker_pending_invoice": "{{name}} is still uncollected",
       "blocker_pending_receipt": "{{name}} is still unpaid",

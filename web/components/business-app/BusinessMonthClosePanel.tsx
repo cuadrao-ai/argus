@@ -94,10 +94,16 @@ export function BusinessMonthCloseView({
   client,
   period,
   setPeriod,
+  scopeKey = "default",
+  canMutate = true,
 }: {
   client: MonthCloseClient;
   period: Period;
   setPeriod: (next: PeriodKey | Period) => void;
+  /** Selected Business grant. A change reloads this snapshot and keeps the mock's books apart. */
+  scopeKey?: string;
+  /** Close and settlement marks follow the grant's approve capability. */
+  canMutate?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
@@ -116,7 +122,7 @@ export function BusinessMonthCloseView({
     setPhase("loading");
     setSnapshot(null);
     setConfirming(false);
-    client.load({ from: period.from, to: period.to }).then(
+    client.load({ from: period.from, to: period.to }, scopeKey).then(
       (next) => {
         if (generation.current !== request) return;
         setSnapshot(next);
@@ -127,7 +133,7 @@ export function BusinessMonthCloseView({
         setPhase("error");
       },
     );
-  }, [attempt, client, period.from, period.to]);
+  }, [attempt, client, period.from, period.to, scopeKey]);
 
   useEffect(() => {
     if (!toast) return;
@@ -148,7 +154,7 @@ export function BusinessMonthCloseView({
     })[status];
 
   async function mark(document: MonthCloseDocument) {
-    if (!snapshot || snapshot.closed_at || document.status !== "pendiente" || inFlight.current.has(document.id)) return;
+    if (!canMutate || !snapshot || snapshot.closed_at || document.status !== "pendiente" || inFlight.current.has(document.id)) return;
     const started = generation.current;
     const documentId = document.id;
     inFlight.current.add(documentId);
@@ -161,7 +167,7 @@ export function BusinessMonthCloseView({
         : current,
     );
     try {
-      const saved = document.kind === "invoice" ? await client.markCobrado(documentId) : await client.markPagado(documentId);
+      const saved = document.kind === "invoice" ? await client.markCobrado(documentId, scopeKey) : await client.markPagado(documentId, scopeKey);
       if (started !== generation.current) return;
       setSnapshot((current) => (current ? { ...current, documents: current.documents.map((item) => (item.id === saved.id ? saved : item)) } : current));
     } catch {
@@ -188,10 +194,10 @@ export function BusinessMonthCloseView({
   }
 
   async function confirmClose() {
-    if (!snapshot?.month || busyClose) return;
+    if (!canMutate || !snapshot?.month || busyClose) return;
     setBusyClose(true);
     try {
-      const next = await client.closeMonth(snapshot.month);
+      const next = await client.closeMonth(snapshot.month, scopeKey);
       setSnapshot(next);
       setConfirming(false);
     } catch {
@@ -207,7 +213,9 @@ export function BusinessMonthCloseView({
     row?.focus();
   }
 
-  const reason = !snapshot || gate.ok
+  const reason = !canMutate
+    ? t("business.month_close.reason_permission", "Marking collection, marking payment, and closing the month requires approval permission.")
+    : !snapshot || gate.ok
     ? ""
     : gate.reason === "not_calendar_month"
       ? t("business.month_close.reason_not_month", "Choose a calendar month to close it.")
@@ -226,7 +234,7 @@ export function BusinessMonthCloseView({
   const lockedRows = closed ? sortDocuments(documents, "newest") : [];
 
   function renderRow(document: MonthCloseDocument) {
-    const pending = document.status === "pendiente" && !closed;
+    const pending = canMutate && document.status === "pendiente" && !closed;
     return (
       <li
         key={document.id}
@@ -312,7 +320,7 @@ export function BusinessMonthCloseView({
                 type="button"
                 data-testid="month-close-close"
                 className={`${pillButtonClass} ${gate.ok ? "bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : ""}`}
-                disabled={!gate.ok}
+                disabled={!canMutate || !gate.ok}
                 aria-describedby={reason ? "month-close-reason" : undefined}
                 onClick={() => setConfirming(true)}
               >
@@ -440,6 +448,14 @@ export function BusinessMonthCloseView({
 }
 
 export default function BusinessMonthClosePanel() {
-  const { period, setPeriod } = useBusiness();
-  return <BusinessMonthCloseView client={monthCloseClient} period={period} setPeriod={setPeriod} />;
+  const { period, setPeriod, chosen } = useBusiness();
+  return (
+    <BusinessMonthCloseView
+      client={monthCloseClient}
+      period={period}
+      setPeriod={setPeriod}
+      scopeKey={chosen?.grant_id ?? "own"}
+      canMutate={Boolean(chosen?.capabilities.includes("approve"))}
+    />
+  );
 }
