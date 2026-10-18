@@ -1,14 +1,27 @@
 import Foundation
 
-/// The one owner of the privacy, terms and data-deletion page URLs. They stay empty until the Cuadrao pages are
-/// published (Lucas, 2026-10-15), and a screen shows a legal link only for a URL that is set. Fill `published`
-/// when the pages go live; nothing else changes.
+/// All legal surfaces read this owner. Configuration remains disabled until app-policy approval.
 struct CuadraoLegalURLs: Equatable {
     var privacy: URL?
     var terms: URL?
     var dataDeletion: URL?
 
-    static let published = CuadraoLegalURLs()
+    static let published = configured(info: Bundle.main.infoDictionary ?? [:])
+
+    static func configured(info: [String: Any]) -> CuadraoLegalURLs {
+        let enabled = info["ARGUS_CUADRAO_LEGAL_LINKS_ENABLED"]
+        guard (enabled as? Bool == true) || (enabled as? String)?.lowercased() == "true" else {
+            return CuadraoLegalURLs()
+        }
+        func page(_ key: String) -> URL? {
+            guard let value = info[key] as? String, let url = URL(string: value),
+                  url.scheme == "https", let host = url.host, !host.isEmpty,
+                  url.user == nil, url.password == nil, url.fragment == nil else { return nil }
+            return url
+        }
+        return CuadraoLegalURLs(privacy: page("ARGUS_CUADRAO_PRIVACY_URL"),
+                               terms: page("ARGUS_CUADRAO_TERMS_URL"))
+    }
 
     /// Debug builds only: fills the owner with test pages so a UI test can see the links appear.
     static let testArgument = "--cuadrao-legal-test-urls"
@@ -17,6 +30,12 @@ struct CuadraoLegalURLs: Equatable {
 
     static func current(arguments: [String]) -> CuadraoLegalURLs {
         #if DEBUG
+        if arguments.contains("--cuadrao-legal-test-terms-only") {
+            return CuadraoLegalURLs(terms: URL(string: "https://legal.example.test/terminos"))
+        }
+        if arguments.contains("--cuadrao-legal-test-privacy-only") {
+            return CuadraoLegalURLs(privacy: URL(string: "https://legal.example.test/privacidad"))
+        }
         if arguments.contains(testArgument) {
             return CuadraoLegalURLs(privacy: URL(string: "https://legal.example.test/privacidad"),
                                     terms: URL(string: "https://legal.example.test/terminos"),

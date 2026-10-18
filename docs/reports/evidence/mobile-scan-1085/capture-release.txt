@@ -1,0 +1,2 @@
+Scan capture checks passed. Scan, cancellation, error, photo, file, PDF and duplicate completion.
+Release has no scan stub entry or trace file writer.

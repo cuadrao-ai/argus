@@ -1,5 +1,6 @@
 "use client";
 
+import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 
@@ -16,7 +17,7 @@ import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptFactEditor from "./ReceiptFactEditor";
-import { extractedConfirmationPatch } from "./receipt-fact-rows";
+import { recordFactRows, extractedConfirmationPatch } from "./receipt-fact-rows";
 import ReceiptReviewQuestions from "./ReceiptReviewQuestions";
 import ReceiptHistory from "./ReceiptHistory";
 import ReceiptMarksCard from "./ReceiptMarksCard";
@@ -95,16 +96,16 @@ export function saveBlobDownload(blob: Blob, filename: string, revokeAfterMs = 3
   try { link.click(); } finally { link.remove(); globalThis.setTimeout(() => URL.revokeObjectURL(url), revokeAfterMs); }
 }
 
-/** Exports belong to a period surface, not to one record; this stays for that surface and is not mounted on the record page. */
-export function ReceiptPeriodExport({ dossier, start, end, available }: { dossier: BusinessDossier; start: string; end: string; available: boolean }) {
+/** The period view supplies its selected Business; a record may supply an explicit draft anchor. */
+export function ReceiptPeriodExport({ scope, start, end, available }: { scope: { draftId?: string; grantId?: string | null; name: string; capabilities: BusinessDossier["capabilities"] }; start: string; end: string; available: boolean }) {
   const { t } = useTranslation();
   const [from, setFrom] = useState(start);
   const [to, setTo] = useState(end);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const request = useRef<AbortController | null>(null);
-  const canRead = dossier.capabilities.includes("read");
-  useEffect(() => () => request.current?.abort(), [dossier.draft_id, canRead, available]);
+  const canRead = scope.capabilities.includes("read");
+  useEffect(() => () => request.current?.abort(), [scope.draftId, scope.grantId, canRead, available]);
   if (!canRead) return null;
   const download = async () => {
     if (request.current || !available || !businessExportPeriodValid(from, to)) return;
@@ -112,7 +113,7 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
     if (!controller) return;
     setProblem(null);
     try {
-      const blob = await fetchBusinessExport(dossier.draft_id, from, to, controller.signal);
+      const blob = await fetchBusinessExport(scope.draftId, from, to, controller.signal, scope.grantId);
       controller.signal.throwIfAborted();
       saveBlobDownload(blob, `business-export-${from}-${to}.zip`);
     } catch (error) {
@@ -125,7 +126,7 @@ export function ReceiptPeriodExport({ dossier, start, end, available }: { dossie
   };
   return <section className={cardClass} aria-label={t("business.export.title", "Export Business records")}>
     <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.export.title", "Export Business records")}</h3>
-    <p className="mt-2 text-[13px] text-black/65 dark:text-white/65">{t("business.export.scope", "{{name}} · CSV, Excel and retained originals in one ZIP.", { name: formatBusinessName(dossier.space_name, t("business.overview.title", "My business")) })}</p>
+    <p className="mt-2 text-[13px] text-black/65 dark:text-white/65">{t("business.export.scope", "{{name}} · CSV, Excel and retained originals in one ZIP.", { name: formatBusinessName(scope.name, t("business.overview.title", "My business")) })}</p>
     <form className="mt-4 space-y-3" onSubmit={(event) => { event.preventDefault(); void download(); }}>
       <div className="grid grid-cols-2 gap-3">{[{ field: "start", value: from, setValue: setFrom }, { field: "end", value: to, setValue: setTo }].map(({ field, value, setValue }) => <label key={field} className="block text-[13px] text-black/65 dark:text-white/65">{t(`business.export.${field}`, field === "start" ? "From" : "Through")}<input type="date" required value={value} disabled={busy} onChange={(event) => setValue(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-black/15 bg-transparent px-2 text-black dark:border-white/20 dark:text-white" /></label>)}</div>
       <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.export.period_hint", "Choose 1–366 days, including both dates. Pending records are separate from recorded money; the manifest reports missing originals.")}</p>
@@ -306,7 +307,21 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const confirmations = extractedConfirmationPatch(dossier, edits);
   const confirmationCount = Object.keys(confirmations).length;
 
+  const canMove = mutable && !dirty && !editing.length && !advancing && !settling;
   return (<>
+    <ReceiptShortcutRegistration actions={{
+      ...(canApprove && expense && approvable ? { approve: () => { void write("approve"); }, ...(receipt ? { approve_next: () => { void approveAndNext(); } } : {}) } : {}),
+      ...(canMove && receipt ? receiptNavigationActions(receipt.id, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {}),
+      ...(canPrepare && mutable ? { edit: () => {
+        const focused = document.activeElement?.closest<HTMLElement>("[data-fact]")?.dataset.fact;
+        const rows = recordFactRows(dossier);
+        const field = rows.find((row) => row.key === focused)?.key ?? rows[0]?.key;
+        if (!field) return;
+        const control = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-testid="edit-${field}"] input, [data-testid="edit-${field}"] select`);
+        if (control) control.focus();
+        else setEditing((current) => current.includes(field) ? current : [...current, field]);
+      } } : {}),
+    }} />
     {captureRecovery}
     <ReceiptReviewFrame
       recordId={receipt?.id ?? draftId}

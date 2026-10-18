@@ -1,0 +1,17 @@
+48a004d5a0abb786ec70df9b642358b4ddee3a3a1433d60ce90f41c60d269716
+ios/ArgusFoundation/Connected/ConnectedCuadraoHome.swift
+ios/ArgusFoundation/Connected/ConnectedCuadraoProfile.swift
+ios/ArgusFoundation/Cuadrao/CuadraoCreateAccount.swift
+ios/ArgusFoundation/Cuadrao/CuadraoHomeCanvas.swift
+ios/ArgusFoundation/Cuadrao/CuadraoLegalURLs.swift
+ios/ArgusFoundation/Cuadrao/CuadraoProfileAvatar.swift
+ios/ArgusFoundation/Cuadrao/CuadraoProfileCanvas.swift
+ios/ArgusFoundation/Cuadrao/CuadraoProfilePage.swift
+ios/ArgusFoundation/Cuadrao/CuadraoToast.swift
+ios/ArgusFoundation/Guest/GuestPlans.swift
+ios/ArgusFoundation/Guest/GuestProfile.swift
+ios/ArgusFoundation/ReleaseUI/Profile/CuadraoProfileIdentity.swift
+ios/ArgusFoundationUITests/CuadraoLegalLinksUITests.swift
+ios/ArgusFoundationUITests/GuestNoticesUITests.swift
+ios/ArgusFoundationUITests/GuestPlansUITests.swift
+ios/DesignPreviewTests/run_cuadrao_legal_urls.py

@@ -371,3 +371,36 @@ export function quickJumpIndexForEvent(
   const match = /^Digit([1-9])$/.exec(event.code);
   return modifierMatches && match ? Number(match[1]) - 1 : null;
 }
+
+
+export type WorkspaceKeyboardShortcut = Readonly<{
+  id: string;
+  label: string;
+  code: string;
+  keyLabel: string;
+  shift?: boolean;
+  jumpIndex?: number;
+  run?: () => boolean;
+}>;
+
+export function matchesWorkspaceShortcut(shortcut: WorkspaceKeyboardShortcut, event: KeyboardShortcutEvent, command: boolean): boolean {
+  if (event.repeat) return false;
+  if (shortcut.jumpIndex !== undefined) return quickJumpIndexForEvent(event, command) === shortcut.jumpIndex;
+  const primary = command ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+  return primary && !event.altKey && event.shiftKey === Boolean(shortcut.shift) && event.code === shortcut.code;
+}
+
+export function workspaceShortcutKeys(shortcut: WorkspaceKeyboardShortcut, command: boolean): readonly string[] {
+  if (shortcut.jumpIndex !== undefined) return command ? ["⌘", "⌥", String(shortcut.jumpIndex + 1)] : ["Ctrl", "Shift", String(shortcut.jumpIndex + 1)];
+  return [command ? "⌘" : "Ctrl", ...(shortcut.shift ? [command ? "⇧" : "Shift"] : []), shortcut.keyLabel];
+}
+
+export function workspaceKeyboardTargetBlocked(event: KeyboardEvent): boolean {
+  const target = event.target as HTMLElement | null;
+  return event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 || Boolean(target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'));
+}
+
+export function workspaceShortcutMatchesQuery(shortcut: WorkspaceKeyboardShortcut, command: boolean, query: string): boolean {
+  const normalize = (value: string) => value.toLocaleLowerCase().replace(/⌘|command|cmd/g, "meta").replace(/⌥|option/g, "alt").replace(/⇧/g, "shift").replace(/control/g, "ctrl").replace(/[+\s]/g, "");
+  return normalize(`${shortcut.label} ${workspaceShortcutKeys(shortcut, command).join(" ")} ${shortcut.code}`).includes(normalize(query));
+}

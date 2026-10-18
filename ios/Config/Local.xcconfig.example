@@ -2,6 +2,10 @@
 ARGUS_LOCAL_BUNDLE_IDENTIFIER = local.argus.foundation
 // Default off. See ../AUTH_SETUP.md before enabling.
 ARGUS_AUTH_ENABLED = false
+// Legal links remain hidden pending approval of app-policy URLs.
+ARGUS_CUADRAO_LEGAL_LINKS_ENABLED = false
+ARGUS_CUADRAO_TERMS_URL = https:/$()/cuadrao.ai/terminos
+ARGUS_CUADRAO_PRIVACY_URL = https:/$()/cuadrao.ai/privacidad
 // Root origins, no /api/v1 suffix. xcconfig requires :/$()/ for URL slashes.
 ARGUS_API_URL =
 ARGUS_SUPABASE_URL =

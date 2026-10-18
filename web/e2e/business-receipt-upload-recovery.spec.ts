@@ -29,9 +29,7 @@ async function openIntake(page: Page) {
   });
   await page.goto("/biz");
   await expect(page.getByTestId("workspace-panel-region")).toBeVisible();
-  const compact = page.getByTestId("business-create-compact");
-  await (await compact.isVisible() ? compact : page.getByTestId("business-create")).click();
-  await page.getByRole("menuitem", { name: "Subir recibo", exact: true }).click();
+  await page.getByTestId("workspace-panel-region").getByRole("button", { name: "Subir recibo", exact: true }).click();
   return { dialog: page.getByRole("dialog", { name: "Subir recibos", exact: true }), attempts, state };
 }
 

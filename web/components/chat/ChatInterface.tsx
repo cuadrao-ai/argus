@@ -291,7 +291,7 @@ export default function ChatInterface() {
   const workspace = useChatWorkspace();
   const [shellView, setCurrentView] = useState<View>(() => workspace?.initialView ?? "chat");
   const currentView = visibleShellView(workspace, shellView);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(workspace?.id === "business");
   const mobileShell = useMobileShell();
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
   const [showChatOptions, setShowChatOptions] = useState(false);
@@ -330,7 +330,7 @@ export default function ChatInterface() {
   const { toast, showToast, hideToast } = useChatToast();
   const [isRecentsExpanded, setIsRecentsExpanded] = useState(true);
   const [feedbackState, setFeedbackState] = useState<ChatFeedbackDialogState>({ isOpen: false, type: "general" });
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>("collapsed");
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(workspace?.id === "business" ? "expanded" : "collapsed");
   const [isSidebarPreferenceModalOpen, setIsSidebarPreferenceModalOpen] =
     useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -971,7 +971,7 @@ export default function ChatInterface() {
     // time: naming only the drawer left the same bug behind every other modal.
     // Withheld below the mobile threshold on the same rule as the rest of the
     // layer, so there is one answer to whether this width has shortcuts.
-    omnisearchShortcutEnabled: omnisearchEnabled && !mobileShell.isBelowTablet,
+    omnisearchShortcutEnabled: omnisearchEnabled && !mobileShell.isBelowTablet && !workspace?.keyboardShortcuts,
   });
   const {
     isGuest,
@@ -2137,6 +2137,7 @@ export default function ChatInterface() {
 
   const keyboardShortcuts = useChatKeyboardShortcuts({
     enabled: !mobileShell.isBelowTablet,
+    requestSearch: omnisearchEnabled ? () => setSearchOverlayOpen(true) : undefined,
     isChatView: currentView === "chat",
     canManageConversation,
     conversationId,
@@ -2578,6 +2579,7 @@ export default function ChatInterface() {
         rating={feedbackState.rating}
         context={feedbackState.context}
       />
+      {workspace?.bottomNavigation?.(shellBridge)}
       {receiptFollowup}<GuestExperienceSurfaces experience={guestExperience} />
       {evidenceReceiptSharingEnabled && guestExperience.receiptSharing.target && <ShareReceiptPanel key={guestExperience.receiptSharing.target.conversationId} {...guestExperience.receiptSharing.target} onClose={guestExperience.receiptSharing.close} />}
       {isSidebarPreferenceModalOpen && (

@@ -547,7 +547,7 @@ def test_business_disclosure_derives_actual_interpretation_and_reply_payloads(mo
         assert route[role] == [openrouter_payload_route(payload)]
     assert route["interpretation"][0]["model"] == selected
     assert route["interpretation"][0]["provider"] == (
-        None if selected.startswith("anthropic/") else {"require_parameters": True}
+        openrouter.openrouter_provider_policy()
     )
 
 
@@ -566,7 +566,7 @@ async def test_actual_post_keeps_nested_diagnostic_then_access_guards(
     )
 
     events = []
-    payload = {"model": "test/model", "provider": {"allow_fallbacks": False}}
+    payload = {"model": "test/model", "provider": openrouter.openrouter_provider_policy()}
     routes = [openrouter_payload_route(payload)]
 
     def observer(task, actual):
@@ -713,8 +713,8 @@ async def test_candidate_fallback_cannot_dispatch_after_access_or_route_denial(
     posts = []
     live = {"value": True}
     routes = [
-        {"model": "test/primary", "provider": {"require_parameters": True}},
-        {"model": "test/fallback", "provider": {"require_parameters": True}},
+        {"model": "test/primary", "provider": openrouter.openrouter_provider_policy()},
+        {"model": "test/fallback", "provider": openrouter.openrouter_provider_policy()},
     ]
 
     def access(task, payload):
@@ -1019,7 +1019,7 @@ async def test_nested_final_guard_cannot_change_intercepted_post_after_access(
 
     payload = {
         "model": "approved",
-        "provider": {"order": ["disclosed"], "allow_fallbacks": False},
+        "provider": {**openrouter.openrouter_provider_policy(), "order": ["disclosed"]},
     }
     routes = [openrouter_payload_route(payload)]
     posts = []
@@ -1080,7 +1080,7 @@ async def test_final_validator_captured_alias_cannot_change_intercepted_http_aft
     captured = []
     dispatched = []
     events = []
-    payload = {"model": "approved", "provider": {"order": ["disclosed"]}}
+    payload = {"model": "approved", "provider": {**openrouter.openrouter_provider_policy(), "order": ["disclosed"]}}
 
     def access(task, actual):
         events.append("access")
@@ -1116,7 +1116,7 @@ async def test_final_validator_captured_alias_cannot_change_intercepted_http_aft
                 ),
             )
     assert events == ["validator", "access"]
-    assert dispatched == [{"model": "approved", "provider": {"order": ["disclosed"]}}]
+    assert dispatched == [{"model": "approved", "provider": {**openrouter.openrouter_provider_policy(), "order": ["disclosed"]}}]
     assert dispatched[0] is not captured[0]
 
 

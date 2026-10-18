@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   canManageFocusedConversation,
   canOpenKeyboardShortcuts,
 } from "./chatKeyboardShortcutPolicy";
 import { hasOpenOverlay } from "@/components/layout/overlayStack";
-import { useChatAvailable } from "@/components/chat/ChatWorkspace";
-import { KEYBOARD_SHORTCUTS, matchesKeyboardShortcut } from "@/lib/keyboard-shortcuts";
+import { useChatWorkspace, useChatAvailable } from "@/components/chat/ChatWorkspace";
+import { KEYBOARD_SHORTCUTS, matchesKeyboardShortcut, matchesWorkspaceShortcut, workspaceKeyboardTargetBlocked } from "@/lib/keyboard-shortcuts";
 import { nextSidebarRecentsState } from "@/lib/sidebar-shortcuts";
 
 type UseChatKeyboardShortcutsOptions = {
@@ -27,6 +27,7 @@ type UseChatKeyboardShortcutsOptions = {
    * belongs to the whole layer rather than to the two dead entries.
    */
   enabled: boolean;
+  requestSearch?: () => void;
   isChatView: boolean;
   canManageConversation: boolean;
   conversationId: string | null;
@@ -53,6 +54,9 @@ export function useChatKeyboardShortcuts(
 ) {
   const { enabled } = options;
   const chatAvailable = useChatAvailable();
+  const workspace = useChatWorkspace();
+  const workspaceRef = useRef(workspace);
+  useLayoutEffect(() => { workspaceRef.current = workspace; }, [workspace]);
   const optionsRef = useRef(options);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [isRecentsQuickPeekOpen, setIsRecentsQuickPeekOpen] = useState(false);
@@ -74,6 +78,20 @@ export function useChatKeyboardShortcuts(
     if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const current = optionsRef.current;
+      const shortcuts = workspaceRef.current?.keyboardShortcuts;
+      if (shortcuts) {
+        if (workspaceKeyboardTargetBlocked(event) || hasOpenOverlay() || current.modalOpen || current.searchOverlayOpen || current.deleteConfirmationOpen || keyboardShortcutsOpen) return;
+        const command = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+        const shortcut = shortcuts.find((item) => matchesWorkspaceShortcut(item, event, command));
+        if (!shortcut) return;
+        if (shortcut.id === "keyboard_shortcuts") setKeyboardShortcutsOpen(true);
+        else if (shortcut.id === "sidebar") current.setSidebarOpen(!current.sidebarOpen);
+        else if (shortcut.id === "settings" && !current.isGuest) setSettingsOpenRequest((value) => value + 1);
+        else if (shortcut.id === "search" && current.requestSearch) current.requestSearch();
+        else if (!shortcut.run?.()) return;
+        event.preventDefault();
+        return;
+      }
       if (
         !matchesKeyboardShortcut("keyboard_shortcuts", event) ||
         !canOpenKeyboardShortcuts({
@@ -98,6 +116,7 @@ export function useChatKeyboardShortcuts(
     if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const current = optionsRef.current;
+      if (workspaceRef.current?.keyboardShortcuts) return;
       if (
         keyboardShortcutsOpen ||
         current.searchOverlayOpen ||

@@ -9,7 +9,7 @@ export type BusinessPage = (typeof PAGES)[number];
 // A null slug keeps an untranslated page out of that locale.
 const SLUGS: Record<BusinessLocale, Record<BusinessPage, string | null>> = {
   es: { home: "", personal: "personal", contact: "contacto", privacy: "privacidad", terms: "terminos", deletion: "eliminar-datos" },
-  en: { home: "", personal: "personal", contact: "contact", privacy: "privacy", terms: null, deletion: null },
+  en: { home: "", personal: "personal", contact: "contact", privacy: "privacy", terms: "terms", deletion: "delete-data" },
 };
 
 const HTML_LANG: Record<BusinessLocale, string> = { es: "es-DO", en: "en" };

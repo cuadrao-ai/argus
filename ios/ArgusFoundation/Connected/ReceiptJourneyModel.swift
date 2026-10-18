@@ -213,6 +213,7 @@ final class ReceiptJourneyModel: ObservableObject {
         held = files
         preview = ReceiptPreview(files)
         phase = .consent
+        ScanTrace.mark("consent asked")
     }
 
     /// Yes sends every file with consent and follows the first reading; the rest wait their turn. No saves them
