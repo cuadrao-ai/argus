@@ -1511,7 +1511,10 @@
       "new_account": "New to Cuadrao?",
       "password_requirement": "At least 8 characters.",
       "confirmation_title": "Check your email",
-      "confirmation_description": "Use the confirmation link we sent to finish creating your account. Then return here to sign in."
+      "confirmation_description": "Enter the code from the email, or open the confirmation link. Either one finishes creating your account.",
+      "confirmation_code_label": "Confirmation code",
+      "confirmation_submit": "Confirm",
+      "confirmation_loading": "Confirming..."
     },
     "legal": {
       "continuing_prefix": "By continuing, you agree to our"
@@ -1573,7 +1576,8 @@
       "guest_handoff_source_not_anonymous": "This conversation no longer belongs to a temporary account.",
       "guest_handoff_unsafe_product_graph": "We couldn’t transfer this conversation safely. Your original conversation is unchanged.",
       "guest_handoff_workspace_unavailable": "This temporary conversation is no longer available.",
-      "guest_handoff_claim_unavailable": "We couldn’t claim the temporary conversation right now. Please try again."
+      "guest_handoff_claim_unavailable": "We couldn’t claim the temporary conversation right now. Please try again.",
+      "otp_rejected": "That code was not accepted. Check the email and try again."
     }
   },
   "account_security": {
