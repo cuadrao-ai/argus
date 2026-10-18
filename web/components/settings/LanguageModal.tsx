@@ -9,8 +9,10 @@ import type { ApiUser } from "@/lib/argus-api";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
   ENABLED_LANGUAGES,
+  languageToShow,
   normalizeEnabledLanguage,
 } from "@/lib/language-features";
+import { businessPilotEnabled } from "@/lib/private-alpha-flags";
 import { saveProfileLanguage } from "@/lib/profile-writes";
 
 type LanguageModalProps = {
@@ -66,7 +68,8 @@ export default function LanguageModal({
 
   const handleSelect = async (code: string) => {
     if (!onProfileSaved) {
-      await i18n.changeLanguage(normalizeEnabledLanguage(code));
+      const shown = languageToShow(businessPilotEnabled, normalizeEnabledLanguage(code));
+      if (shown) await i18n.changeLanguage(shown);
       onClose();
       return;
     }

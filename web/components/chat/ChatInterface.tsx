@@ -54,6 +54,7 @@ import {
 } from "@/lib/argus-api";
 import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-deletion-api";
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
+import { commitShellLanguage } from "@/lib/language-features";
 import { businessPilotEnabled, businessSearchEntryEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
 import { leaveSession } from "@/lib/logout-flow";
 import {
@@ -259,10 +260,7 @@ export default function ChatInterface() {
     if (nextAccount === null) return null;
     authenticatedUserIdRef.current = nextAccount.user.id;
     setAccount(nextAccount);
-    const resolvedLanguage = nextAccount.user.language ?? i18n.language;
-    if (resolvedLanguage && resolvedLanguage !== i18n.language) {
-      await i18n.changeLanguage(resolvedLanguage);
-    }
+    await commitShellLanguage(i18n, businessPilotEnabled, nextAccount.user.language);
     setProfileState("established");
     return nextAccount;
   }, [i18n]);

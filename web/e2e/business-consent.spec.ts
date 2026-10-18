@@ -33,25 +33,15 @@ for (const language of ["es-419", "en"] as const) {
     test(`privacy notice consent ${language} at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await setup(page, language);
-      const copy = language === "es-419"
-        ? {
-            title: "[BORRADOR] Antes de usar IA en tu negocio",
-            privacy: "[BORRADOR] Leer el aviso de privacidad",
-            notice: "[BORRADOR] Aviso de privacidad de Cuadrao Business",
-            declineTitle: "[BORRADOR] Sin este permiso, la IA queda apagada",
-            held: "siguen apagados",
-            accept: "[BORRADOR] Aceptar y continuar",
-            accepted: "[BORRADOR] Aceptación registrada en este navegador",
-          }
-        : {
-            title: "[DRAFT] Before AI is used for your business",
-            privacy: "[DRAFT] Read the privacy notice",
-            notice: "[DRAFT] Cuadrao Business privacy notice",
-            declineTitle: "[DRAFT] Without this permission, AI stays off",
-            held: "stay off",
-            accept: "[DRAFT] Accept and continue",
-            accepted: "[DRAFT] Acceptance kept in this browser",
-          };
+      const copy = {
+        title: "[BORRADOR] Antes de usar IA en tu negocio",
+        privacy: "[BORRADOR] Leer el aviso de privacidad",
+        notice: "[BORRADOR] Aviso de privacidad de Cuadrao Business",
+        declineTitle: "[BORRADOR] Sin este permiso, la IA queda apagada",
+        held: "siguen apagados",
+        accept: "[BORRADOR] Aceptar y continuar",
+        accepted: "[BORRADOR] Aceptación registrada en este navegador",
+      };
       const shot = (name: string) => capture(page, `${name}-${language}-${width === 1280 ? "desktop" : "mobile"}`);
 
       await page.goto("/biz");
