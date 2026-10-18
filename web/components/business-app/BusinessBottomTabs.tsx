@@ -1,12 +1,12 @@
 "use client";
 
-import { Bell, Inbox, LayoutGrid, ReceiptText } from "lucide-react";
+import { Bell, House, Inbox, ReceiptText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import { useBusiness } from "./BusinessWorkspace";
 import { BUSINESS_SECTIONS } from "./business-keyboard-shortcuts";
 import { inboxCount } from "./inbox-count";
-const ICONS = [LayoutGrid, Inbox, ReceiptText, Bell];
+const ICONS = [House, Inbox, ReceiptText, Bell];
 
 export default function BusinessBottomTabs({ shell }: { shell: ChatShellBridge }) {
   const { t } = useTranslation();

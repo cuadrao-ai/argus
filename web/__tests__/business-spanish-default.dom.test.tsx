@@ -109,18 +109,16 @@ describe("Business stays in Spanish for an en-US browser", () => {
       );
     });
     const text = () => document.body.textContent ?? "";
-    const ready = () => ["Abrir la bandeja", "Subir recibos", "Registrar gasto", "Pagado desde"].every((item) => text().includes(item));
+    const ready = () => ["por revisar", "Ingresos", "Subir recibos", "Registrar gasto", "Pagado desde"].every((item) => text().includes(item));
     for (let i = 0; i < 80 && !ready(); i += 1) {
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     }
     const visible = text();
     for (const spanishText of [
       "Mi negocio",
-      "Abrir la bandeja",
-      "Gastos reales",
-      "Todavía no hay gastos guardados en este período.",
-      "Con valor fiscal",
-      "Ninguno con valor fiscal en este período.",
+      "por revisar",
+      "Ingresos",
+      "Datos de muestra",
       "Subir recibos",
       "Registrar gasto",
       "Comercio",
