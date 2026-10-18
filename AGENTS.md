@@ -113,7 +113,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 
 - Conventional commits: `type(scope): summary (#issue)`. One job per PR, no stacks.
 - Merge `codex/private-alpha-next` in before the last push. Never rebase a published branch.
-- Visual evidence goes under `docs/reports/evidence/<pr>/` or on the PR, at the exact head.
+- Attach visual evidence on the pull request, or upload it with actions/upload-artifact. Do not commit it. Capture it at the exact head.
 - Never merge your own PR. Report the PR link, head SHA, tests added and the proof.
 - Review against the named parent branch; never assume `main` is the comparison base.
 - Findings give file and line, severity, impact and the smallest safe fix.

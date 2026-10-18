@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import * as guestCaptcha from "../lib/guest-captcha";
@@ -493,5 +493,50 @@ describe("shared CAPTCHA acquisition UX", () => {
       "generic",
     );
     expect(genericRetry.current).toEqual({ text: "keep me" });
+  });
+  test("captcha copy stays on the signed-in page after the guest chat surfaces are gone", () => {
+    const emptyChat = readFileSync(
+      join(root, "components/chat/EmptyChatSurface.tsx"),
+      "utf-8",
+    );
+    const chat = readFileSync(
+      join(root, "components/chat/ChatInterface.tsx"),
+      "utf-8",
+    );
+    const en = JSON.parse(
+      readFileSync(join(root, "public/locales/en/common.json"), "utf-8"),
+    );
+    const es = JSON.parse(
+      readFileSync(join(root, "public/locales/es-419/common.json"), "utf-8"),
+    );
+
+    expect(existsSync(join(root, "components/guest/useGuestExperience.ts"))).toBe(false);
+    expect(existsSync(join(root, "components/guest/ExpiredGuestSession.tsx"))).toBe(false);
+    expect(emptyChat).not.toContain("guestSubmissionError");
+    expect(emptyChat).not.toContain("guest.entry.reload");
+    expect(chat).not.toContain("useGuestEntryError");
+    expect(chat).not.toContain("onSignIn={requestGuestSignIn}");
+
+    expect(en.auth.errors.captcha_unavailable).toBe(
+      "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
+    );
+    expect(es.auth.errors.captcha_unavailable).toBe(
+      "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
+    );
+    expect(en.auth.errors.captcha_unavailable).not.toBe("captcha_unavailable");
+    expect(es.auth.errors.captcha_unavailable).not.toBe("captcha_unavailable");
+    expect(en.auth.errors.captcha_unavailable.toLowerCase()).not.toContain(
+      "try again",
+    );
+
+    const captchaE2e = readFileSync(
+      join(root, "e2e/guest-auth-captcha-ux.spec.ts"),
+      "utf-8",
+    );
+    expect(captchaE2e).toContain("en.auth.errors.browser_check_failed");
+    expect(captchaE2e).toContain("en.auth.errors.browser_check_retry");
+    expect(captchaE2e).not.toContain(
+      "We couldn’t complete the security check. Please try again.",
+    );
   });
 });

@@ -51,7 +51,7 @@ The implemented page covers all 25 rows below. “Demonstrated” means a workin
 | Gmail | Founder decision open. Excluded from promised integrations. |
 | POS connectors and payment links | Discovery and provider gates open. No working claim. |
 | External API and MCP | Later and permission-dependent. Outside pilot offer. |
-| Projects and time tracking | Optional future scope in Plan 233. Midday screenshots do not approve it. |
+| Projects and time tracking | Optional future scope in Plan 233. Reference screenshots do not approve it. |
 | Tax filing, bank execution and cards | Gated or outside this pass. No execution claim. |
 | Automatic Dominican bank feeds | Coverage unavailable. Manual records remain useful; no bank logos or implied sync. |
 | Plaid | Consumer direction with production review required. Does not establish Business or Dominican coverage. |

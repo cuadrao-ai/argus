@@ -89,7 +89,7 @@ describe("chat archive/delete lifecycle source contract", () => {
     expect(chat).toContain('"message_send"');
     expect(chat).toContain('"retry"');
     expect(lifecycle).toContain("onConversationRemoved");
-    expect(lifecycle).toContain("onAllConversationsDeleted");
+    expect(lifecycle).not.toContain("onAllConversationsDeleted");
     expect(chat).toContain('"conversation_delete"');
     expect(polling).toContain("onDurableCompletion");
     expect(chat).toContain('"durable_job_completion"');
@@ -129,7 +129,7 @@ describe("chat archive/delete lifecycle source contract", () => {
     );
     const removedStart = lifecycle.indexOf("const handleConversationRemoved");
     const removedEnd = lifecycle.indexOf(
-      "const handleAllConversationsDeleted",
+      "return {",
       removedStart,
     );
     const removedBlock = lifecycle.slice(removedStart, removedEnd);

@@ -47,3 +47,21 @@ def business_chat_enabled() -> bool:
         return BusinessChatSettings().enabled
     except ValidationError:
         return False
+
+
+class BusinessBankMatchingSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False, validation_alias=setting_aliases("BUSINESS_BANK_MATCHING_ENABLED")
+    )
+
+
+def business_bank_matching_enabled() -> bool:
+    """Nested inside the pilot. Off hides the statement import routes."""
+
+    if not business_pilot_enabled():
+        return False
+    try:
+        return BusinessBankMatchingSettings().enabled
+    except ValidationError:
+        return False
