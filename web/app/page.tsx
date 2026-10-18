@@ -182,6 +182,14 @@ export default function LandingPage() {
     router.refresh();
   };
 
+  const finishConfirmedSignup = async () => {
+    if (chosenLanguage) {
+      await saveProfileLanguage(i18n, chosenLanguage, { onSaved: () => undefined }).catch(() => false);
+    }
+    router.replace(postAuthPath());
+    router.refresh();
+  };
+
   const isSignup = authMode === "signup";
   const acceptance = acceptanceLinks();
   const entrySurface = resolveLandingEntrySurface({
@@ -242,6 +250,7 @@ export default function LandingPage() {
                   brand="cuadrao"
                   onModeChange={(mode) => updateAuthMode(mode)}
                   onSubmit={handleAuthSubmit}
+                  onEmailConfirmed={finishConfirmedSignup}
                 />
               )}
             </div>
