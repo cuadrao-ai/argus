@@ -3353,6 +3353,7 @@
         "src/argus/domain/business/close_mail.py",
         "supabase/migrations/20261018080009_business_close_mail.sql",
         "tests/test_business_close_mail_postgres.py",
+        "web/__tests__/business-lifecycle-cancel.dom.test.tsx",
         "web/__tests__/business-lifecycle-entry.dom.test.tsx",
         "web/__tests__/fixtures/auth-account-transition/business-boundary.tsx",
         "web/components/business-app/BusinessAccessPanel.tsx",
