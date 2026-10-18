@@ -572,7 +572,12 @@ class DocumentsService:
                 queued_only=True,
                 scope=scope,
             )
-        except Exception:
+        except Exception as error:
+            logger.warning(
+                "document_prepare_failed failure_mode={} connection_id={}",
+                type(error).__name__,
+                connection_id,
+            )
             return
 
     async def resume(
