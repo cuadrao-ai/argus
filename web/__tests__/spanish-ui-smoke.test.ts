@@ -312,6 +312,6 @@ describe("Spanish UI Smoke Harness", () => {
 
     expect(providerSource).toContain("document.documentElement.lang");
     expect(providerSource).toContain("languageChanged");
-    expect(providerSource).toContain("normalizeEnabledLanguage");
+    expect(providerSource).toContain("documentLanguage");
   });
 });

@@ -10,7 +10,10 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 60_000,
-  use: { baseURL: `http://localhost:${port}` },
+  use: {
+    baseURL: `http://localhost:${port}`,
+    ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}),
+  },
   webServer: {
     command: `node node_modules/next/dist/bin/next dev --webpack --port ${port}`,
     cwd: path.resolve(__dirname, ".."),
