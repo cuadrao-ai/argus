@@ -1,5 +1,13 @@
 # Cuadrao marketing website lane: handoff
 
+## Queued security follow-ups after PR #1223
+
+[PR #1223](https://github.com/lagarcess/argus/pull/1223) remains pinned at `03d6ca64acfa76250ac5d58637f4a31cc3cc1dda`. Original item 1 is undelivered and tracked by [#1227](https://github.com/lagarcess/argus/issues/1227). The receipt gates remain held.
+
+Only after #1223 lands, prepare a separate small PR for confirmation-page state on load. Confirmation GET must read token state without mutation. A used or expired token must immediately show its approved used or expired screen. A valid token must show the existing heading, "Confirma que quieres recibir noticias de Cuadrao en este correo.", and "Confirmar". Keep all mutations and email sends behind POST. Preserve approved copy and test used, expired, and valid tokens, including GET state preservation and explicit POST behavior. This is a queued dependency, not implemented work or an open code PR.
+
+The [promotion checklist](../runbooks/cuadrao-marketing-launch.md#waitlist-scheduler-credential-order) owns secret setup before old-key rotation. Neither this queue nor a passing local check authorizes hosted settings, production actions, merge, or release.
+
 Current continuation: [Polish round, October 11, 2026](#polish-round-october-11-2026), which supersedes the freeze below for the items it lists. [Claude handoff and freeze](#claude-handoff-and-freeze-october-11-2026) still governs everything it covers that the polish round does not change. This checkpoint supersedes historical next-step and approval instructions below.
 
 Lane parent: [#880](https://github.com/lagarcess/argus/issues/880) (children #887 to #892). Written 2026-10-09 when the lane was paused so the founder can reserve Claude usage for the Consumer lane. Everything a successor needs is in the Git repository and the linked GitHub records. No private notes, session scratchpad or conversation is required.

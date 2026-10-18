@@ -42,7 +42,7 @@ test("digit warning is inline and the approved success sentence uses an explicit
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
 });
 
-test("real handler sends confirmation, confirms once, and one-click leave removes the row", async ({ page, request }, info) => {
+test("scanner GETs preserve signup state and approved POST buttons confirm and remove", async ({ page, request }, info) => {
   await page.goto("/personal");
   await page.locator("#personal-email").fill("flow@example.test");
   await page.getByRole("button", { name: "Avísame cuando pueda probarla" }).click();
@@ -52,6 +52,14 @@ test("real handler sends confirmation, confirms once, and one-click leave remove
   const confirmation = first.emails[0].text.match(/https:\/\/cuadrao\.example\.test\/api\/waitlist\/confirm\?token=\S+/)![0];
   const confirmationPath = new URL(confirmation).pathname + new URL(confirmation).search;
   await page.goto(confirmationPath);
+  await expect(page.locator("main > p")).toHaveText("Confirma que quieres recibir noticias de Cuadrao en este correo.");
+  await expect(page.getByRole("button", { name: "Confirmar", exact: true })).toBeVisible();
+  expect((await mockState(request)).signups[0].confirmed_at).toBeNull();
+  expect((await mockState(request)).emails).toHaveLength(1);
+  await page.screenshot({ path: info.outputPath("waitlist-confirm-button.png"), fullPage: true });
+  const confirmationPost = page.waitForRequest((result) => result.url().includes(confirmationPath) && result.method() === "POST");
+  await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+  await confirmationPost;
   await expect(page.getByRole("heading", { name: "Ya estás en la lista." })).toBeVisible();
   await page.screenshot({ path: info.outputPath("waitlist-confirmed.png"), fullPage: true });
   expect((await mockState(request)).emails).toHaveLength(2);
@@ -59,12 +67,20 @@ test("real handler sends confirmation, confirms once, and one-click leave remove
   expect((await mockState(request)).emails).toHaveLength(2);
   const leave = first.emails[0].text.match(/https:\/\/cuadrao\.example\.test\/api\/waitlist\/leave\?token=\S+/)![0];
   const leavePath = new URL(leave).pathname + new URL(leave).search;
-  expect((await request.post(leavePath, { form: { "List-Unsubscribe": "One-Click" } })).status()).toBe(200);
-  expect((await mockState(request)).signups).toHaveLength(0);
   await page.goto(leavePath);
+  await expect(page.getByRole("button", { name: "Salir de la lista", exact: true })).toBeVisible();
+  expect((await mockState(request)).signups).toHaveLength(1);
+  expect((await mockState(request)).emails).toHaveLength(2);
+  await page.screenshot({ path: info.outputPath("waitlist-leave-button.png"), fullPage: true });
+  const leavePost = page.waitForRequest((result) => result.url().includes(leavePath) && result.method() === "POST");
+  await page.getByRole("button", { name: "Salir de la lista", exact: true }).click();
+  await leavePost;
+  expect((await mockState(request)).signups).toHaveLength(0);
   await expect(page.getByRole("heading", { name: "Ya saliste de la lista." })).toBeVisible();
   await expect(page.getByText("Borramos tu correo y tus respuestas.")).toBeVisible();
   await page.screenshot({ path: info.outputPath("waitlist-left.png"), fullPage: true });
+  expect((await request.post(leavePath, { form: { "List-Unsubscribe": "One-Click" } })).status()).toBe(200);
+  expect((await mockState(request)).signups).toHaveLength(0);
 });
 
 test("the legacy public signup URL cannot bypass CAPTCHA", async ({ request }) => {

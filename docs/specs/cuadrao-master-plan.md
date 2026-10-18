@@ -159,7 +159,7 @@ These run beside the main streams. Each item names an owner where one is known. 
 
 **Docs pass** (Maya; combines §A6 and §B8 where they agree)
 - [ ] Archive the Argus-era specs both halves list: `docs/specs/private-alpha-next-*` (roadmap, decision memo, p2.1 audit, refine-to-version, chat header title, conversational-edit contract), `docs/specs/wave-1/`, `graded-interpretation-routing.md`, `evidence-aware-idea-loop.md`, `conversation-sharing.md`, and the pointer stubs `argus-active-roadmap.md`, `argus-grounded-finance-roadmap.md`, `argus-pivot-strategy.md`, `argus-answers-that-stay-true-roadmap.md`. Check inbound links first. Proposed as a separate docs-cleanup PR.
-- [ ] Archive `docs/superpowers/` (agent working notes, 146 files) in the same cleanup PR, after checking inbound links.
+- [x] Remove the agent working notes in `docs/superpowers/` after checking inbound links. Done in the legacy agent-docs cleanup; one spec stays because a held design guide links it.
 - [ ] Pending F5: archive anything only about the Argus web, guest or chat (Iris's rule, conflict row 22). Not part of #815.
 - [ ] Hold until the guest flow and web chat retire: `docs/GUEST_PUBLIC_LAUNCH_SAFETY.md`, `docs/QA_CONVERSATIONAL_TRANSCRIPTS.md`, `docs/BREAKPOINTS.md`, `.agent/designs/argus/DESIGN.md`. Update domain references in `GUEST_PUBLIC_LAUNCH_SAFETY.md` during the domain move (conflict row 18).
 - [ ] Rewrite for Cuadrao after the canon locks: `DOCUMENTATION_AUTHORITY.md`, `PRODUCT.md`, MVEE "Financial spaces" and §1.6 (canon rows 1-5, 9).
@@ -369,7 +369,7 @@ There's no fixed order. Higher pillars unlock more of the ones below them. **No 
 - **New:** a business spec (or a business MVEE section), Yelena's ownership model, and this master plan.
 - **Shrink:** `argus-execution-board.md` is 3,107 lines. Keep the Oct 4 section current and move the dated pre-Oct sections to `docs/archive/`.
 - **Archive candidates in `docs/specs/`:** `private-alpha-next-*` (roadmap, decision memo, p2.1 audit, refine-to-version, chat header title, conversational-edit contract), `wave-1/`, `graded-interpretation-routing.md`, `evidence-aware-idea-loop.md`, `conversation-sharing.md`, and the pointer stubs (`argus-active-roadmap`, `argus-grounded-finance-roadmap`, `argus-pivot-strategy`, `argus-answers-that-stay-true-roadmap`).
-- **Agent working notes:** `docs/superpowers/` and `.superpowers/sdd/`.
+- **Agent working notes:** `docs/superpowers/` and the old subagent task reports (both removed in the legacy agent-docs cleanup, except one held spec).
 - **Update during the domain move:** `PRIVATE_LAUNCH_RUNBOOK.md`, `docs/release-manifests/` (Argus web history).
 - **Archive with the guest flow (pending F5):** `GUEST_PUBLIC_LAUNCH_SAFETY.md` and anything else only about the Argus web, guest or chat. Everything else follows Yelena's list (§B8).
 

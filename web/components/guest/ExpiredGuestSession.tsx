@@ -127,6 +127,9 @@ export default function ExpiredGuestSession({
                 // A signed-in person goes where sign-in goes: a listed return page, else the signed-in home.
                 window.location.assign(postAuthPath(businessBuild));
               }}
+              onEmailConfirmed={() => {
+                window.location.assign(postAuthPath(businessBuild));
+              }}
             />
             <button
               type="button"

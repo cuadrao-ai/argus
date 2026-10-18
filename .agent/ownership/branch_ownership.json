@@ -1,6 +1,26 @@
 {
   "default_base_ref": "codex/alpha-functional",
   "branches": {
+    "codex/cleanup-m2-definer-paths": {
+      "description": "M2 only. Preserve 21 definer bodies, signatures and grants while setting empty search paths. Root granted this unique ownership entry. No staging apply.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "supabase/migrations/20261018040000_harden_definer_search_paths.sql",
+        "supabase/tests/m2-definer-search-paths.sql",
+        "tests/test_backtest_job_write_invariant.py",
+        "scripts/qa/verify_m2_definer_search_paths.py",
+        "docs/reports/evidence/cleanup-m2-definer-paths/**"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "src/**",
+        "web/**",
+        "ios/**",
+        "marketing/**"
+      ]
+    },
     "claude/business-approved-version": {
       "description": "Lane a: a recorded Business approval names the facts revision that was approved (approved_revision) and when (approved_at), not the latest revision a later mark added; the receipt review renders both. Aprobar y siguiente stops at the last row and returns to the Bandeja (no wrap-around), the empty Bandeja reads Todo revisado, and focus moves to the next receipt's heading (#1154). No migration, model-facing text or Field descriptions.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -2179,6 +2199,22 @@
         "web/.env.local"
       ]
     },
+    "codex/email-dependency-cleanup": {
+      "description": "Remove unused React Email dependencies while preserving the hand-written shared email layout. User email lane item 1.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/package.json",
+        "web/bun.lock"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "marketing/**",
+        "src/**",
+        "supabase/**"
+      ]
+    },
     "codex/lane08-rls-drift-forward": {
       "description": "Adopt the existing staging rls_auto_enable function and ensure_rls event trigger through one forward migration. Preserve observed behavior and grants. No hosted writes or advisor hardening.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -2792,6 +2828,38 @@
         "web/.env.*"
       ]
     },
+    "codex/security-extensions-waitlist-20261018": {
+      "description": "Partial Rafael security follow-up. Revoke client execution of the automatic RLS helper, require a dedicated scheduler header secret, and make waitlist GET links read-only. Strict standalone net grants acceptance remains platform-blocked. No receipt logic or hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/reports/evidence/security-waitlist-20261018/**",
+        "docs/specs/cuadrao-personal-waitlist.md",
+        "marketing/__tests__/waitlist-actions.test.ts",
+        "marketing/__tests__/waitlist-scheduler.test.ts",
+        "marketing/app/api/waitlist/confirm/route.ts",
+        "marketing/app/api/waitlist/leave/route.ts",
+        "marketing/e2e/personal-waitlist.spec.ts",
+        "marketing/lib/waitlist/result.ts",
+        "supabase/config.toml",
+        "supabase/functions/waitlist-reminders/README.md",
+        "supabase/functions/waitlist-reminders/handler.ts",
+        "supabase/migrations/20261018030016_security_extensions_waitlist.sql",
+        "supabase/tests/net-client-grants.sql",
+        "supabase/tests/waitlist-scheduler.sql",
+        "tests/test_client_grants_postgres.py",
+        "tests/test_rls_auto_enable_postgres.py",
+        "tests/test_waitlist_scheduler_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "ios/**",
+        "src/**",
+        "web/**"
+      ]
+    },
     "codex/session-recovery": {
       "description": "Browser auth renewal across access expiry and restart, with isolated Supabase refresh and bounded staging recovery configuration.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -3031,6 +3099,30 @@
         "marketing/**"
       ]
     },
+    "codex/web-fullscreen-loading-bar": {
+      "description": "Full-screen startup loading only: delayed Cuadrao lockup and indeterminate bar with reduced motion and hidden status. In-app waits remain unchanged.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "web/components/FullscreenLoading.tsx",
+        "web/components/FullscreenLoading.module.css",
+        "web/components/chat/ConversationRetrievalState.tsx",
+        "web/app/page.tsx",
+        "web/__tests__/business-loading.dom.test.tsx",
+        "web/e2e/business-loading.spec.ts",
+        "web/e2e/fullscreen-loading.spec.ts",
+        "web/e2e/fullscreen-loading.playwright.config.ts",
+        "docs/reports/evidence/fullscreen-loading/**"
+      ],
+      "deny": [
+        "marketing/**",
+        "ios/**",
+        "src/**",
+        "supabase/**",
+        ".env*",
+        "web/.env*"
+      ]
+    },
     "codex/shared-account-email-layout": {
       "description": "Shared staging account and waitlist email presentation, with code-safe signup rendering and generated package copies. No hosted changes.",
       "base_ref": "origin/codex/private-alpha-next",
@@ -3251,6 +3343,27 @@
         "marketing/lib/**",
         "marketing/components/business-footer.tsx",
         "marketing/components/personal-early-access.tsx"
+      ]
+    },
+    "codex/cleanup-m1-retention-registry": {
+      "description": "M1 additive private retention rule inventory and terminal sweep evidence only. Root granted this branch entry. No deletion jobs, account deletion, receipts, environment or hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "supabase/migrations/20261018030000_retention_registry.sql",
+        "tests/test_client_grants_postgres.py",
+        "tests/test_m1_retention_registry_postgres.py",
+        "tests/sql/m1_retention_registry.sql",
+        "docs/reports/evidence/m1-retention-registry/**"
+      ],
+      "deny": [
+        "src/**",
+        "web/**",
+        "ios/**",
+        "marketing/**",
+        "render.yaml",
+        ".env",
+        "web/.env.local"
       ]
     }
   }

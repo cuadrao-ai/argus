@@ -34,6 +34,7 @@ const mappedCodes = [
   "guest_handoff_unsafe_product_graph",
   "guest_handoff_workspace_unavailable",
   "guest_handoff_claim_unavailable",
+  "otp_rejected",
 ] as const;
 
 function translator(catalog: LocaleTree): AuthErrorTranslator {
@@ -111,6 +112,12 @@ describe("auth error localization", () => {
     );
     expect(resolve(codedError("captcha_unavailable"), translator(en))).not.toBe(
       "captcha_unavailable",
+    );
+    expect(resolve(codedError("otp_rejected"), translator(en))).toBe(
+      "That code was not accepted. Check the email and try again.",
+    );
+    expect(resolve(codedError("otp_rejected"), translator(es419))).toBe(
+      "Ese código no fue aceptado. Revisa el correo e inténtalo de nuevo.",
     );
   });
 
