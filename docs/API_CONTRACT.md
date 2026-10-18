@@ -9947,3 +9947,18 @@ controls change ownership. The screen wiring is conditional on the existing
 Business pilot and transfer readiness. The transfer router remains unmounted
 and its readiness dependency still denies access in this WIP branch. No email
 or hosted activation is established by synthetic provider/browser proof.
+
+#### Business retention during account deletion, backend WIP October 18, 2026
+
+The existing claimed account-deletion run prepares verified custody copies and
+moves every retained Business graph before personal source rows or prefixes are
+erased. A departing member loses access and personal notification transport;
+saved Business actions keep a scoped anonymous actor. The service checks retained
+dependencies before Storage and Auth deletion. Auth absence must be verified,
+then in-flight Business identity maps are cleared before global settlement.
+The original close time remains the day-30 deadline. Ownerless Businesses cannot
+reopen. The existing deletion sweep also purges expired closed Business graphs,
+original objects and orphan custody copies with durable retry plans. Shared
+object bytes referenced by another surviving scope remain in that scope.
+This backend build keeps global account deletion off and lifecycle readiness
+unavailable. No hosted execution is authorized by this contract.

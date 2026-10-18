@@ -169,6 +169,9 @@ def custody(prepared, users, request):
             (space,),
         )
         db.execute("delete from public.spaces where id=%s", (space,))
+        db.execute(
+            "delete from argus_private.account_deletion_runs where user_id=%s", (old,)
+        )
         for pid in ids:
             db.execute("delete from auth.users where id=%s", (pid,))
             db.execute(

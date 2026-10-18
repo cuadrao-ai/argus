@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from hashlib import sha256
 from uuid import uuid4
@@ -38,7 +39,14 @@ class PostgresBusinessCustodyCopies:
     ) -> None:
         self.pool, self.objects, self.auth = pool, objects, auth
 
-    def prepare(self, *, space_id: str, departing_user_id: str) -> CustodyReservation:
+    def prepare(
+        self,
+        *,
+        space_id: str,
+        departing_user_id: str,
+        heartbeat: Callable[[], None] = lambda: None,
+    ) -> CustodyReservation:
+        heartbeat()
         reservation = self._reserve(space_id, departing_user_id)
         if not self.auth.user_exists(reservation.custodian_id):
             self.auth.create_placeholder(
@@ -51,10 +59,12 @@ class PostgresBusinessCustodyCopies:
                 (space_id,),
             )
         for item in self._manifest(reservation, departing_user_id):
+            heartbeat()
             original = self.objects.get(item.source)
             self._verify(original, item)
             self.objects.put(item.destination, original, item.media_type)
             self._verify(self.objects.get(item.destination), item)
+            heartbeat()
             with self.pool.connection() as db:
                 db.execute(
                     "update argus_private.business_custody_objects set verified_at=clock_timestamp() where space_id=%s and source_path=%s and destination_path=%s and sha256=%s and size_bytes=%s",

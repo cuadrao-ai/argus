@@ -53,8 +53,16 @@ def test_auth_user_trigger_conditions_need_no_private_schema() -> None:
         "bind_guest_signup_handoff",
         "finalize_linked_guest_identity",
         "refuse_placeholder_email",
+        "business_auth_retention_guard",
     }
     for name, definition in rows:
+        if name == "business_auth_retention_guard":
+            assert "BEFORE DELETE" in definition and " WHEN " not in definition
+            with psycopg.connect(DSN) as c:
+                assert c.execute(
+                    "select prosecdef from pg_proc where oid='argus_private.business_auth_retention_guard()'::regprocedure"
+                ).fetchone() == (True,)
+            continue
         condition = definition.split(" WHEN ", 1)[1].split(" EXECUTE ", 1)[0]
         assert "argus_private" not in condition, name
         assert "cuadrao.invalid" in condition, name

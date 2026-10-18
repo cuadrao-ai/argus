@@ -3788,3 +3788,35 @@ keeps its original owner attribution. Existing table RLS and grants are preserve
 This column is server-only, adds no client authority, and follows Business
 lifetime deletion. Its original owner identity still needs the pending deletion
 anonymization writer.
+
+### Business member departure aliases and day-30 purge, backend WIP October 18, 2026
+
+Forward migration `20261018080007_business_account_deletion_orchestration.sql`
+adds private `business_departure_aliases`. Its composite `space_id,actor_id`
+key identifies a Business-scoped historical actor with no Auth account or grant.
+`departing_user_id,deletion_run_id,claim_id,started_at` fence the exact identity
+rewrite to the live claimed account-deletion run. Verified Auth absence clears
+`departing_user_id,claim_id` and sets `identity_cleaned_at`. The anonymous actor
+survives until its Business is purged. The existing custody graph guard and
+transfer-outbox Auth deletion guard stay composed. No service or client role
+can write the alias table or invoke the privileged identity writer.
+
+Forward migration `20261018080008_business_closed_purge.sql` adds private
+`business_purge_runs` and `business_purge_objects`. `id,space_id,closed_at`
+identify one purge and its original deadline. `status,claim_id,claimed_until`
+serialize the existing sweep across retries. `placeholder_id` names only the
+reserved synthetic custodian that still needs Storage/Auth cleanup, and is
+cleared on completion. `started_at,completed_at` form the non-personal deletion
+receipt. The object plan's `run_id,path,deleted_at` tracks exact original,
+rebuilt and orphan-copy cleanup before graph cascades. Shared live references
+prevent removing another scope's bytes. Completed settlement deletes all path
+rows, so the receipt retains neither object prefixes nor a real account ID.
+
+The model checklist applies to both migrations and every listed column. All
+new tables live in `argus_private`, enable RLS and deny public, anon,
+authenticated and service-role access. The postgres deletion writer alone owns
+them. Alias lifetime follows the Business through CASCADE. Purge receipts have
+no space FK so graph deletion cannot discard a retry plan. Object plans have
+a run FK with CASCADE. Run and due-date indexes bound sweep discovery. No new
+client policy, Data API endpoint, hosted activation or longer retention grant
+is introduced. The original `spaces.closed_at` owns the thirty-day deadline.

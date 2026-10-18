@@ -16,6 +16,9 @@ Order, matching ``docs/specs/lanes/account-deletion-fk-census.md``:
    in (a household, or an activity group shared outside any plan), then
    create each placeholder through the Admin API. Ids are registered before
    the create, so the auth triggers already skip them.
+   Business custody moves first through verified object copies and the claimed
+   graph writer. Provider credentials are captured before its secrets are cleared.
+   Departing members lose transport and access while scoped aliases preserve history.
 3. One database transaction: steps 1.1 to 1.3 per household, archives passed
    on, sources captured for revocation and removed (2), invite ids forgotten
    (4), future responsibilities returned, each unit moved to its placeholder
@@ -45,8 +48,11 @@ Order, matching ``docs/specs/lanes/account-deletion-fk-census.md``:
 5. Right before the auth delete, every RESTRICT key to auth.users is read from
    the catalog; a late write that still holds the person is scrubbed once more.
    The auth user is deleted through the Admin API (7); unused placeholders are
-   deleted; the run drops the user id, both hashes, the placeholder map and the
+   deleted. Verified Auth absence settles Business identity maps before the run
+   drops the user id, both hashes, the placeholder map and the
    revocation rows, keeping only counts, and ends ``done``.
+   The same operator sweep purges expired closed Businesses and their originals
+   from durable retry plans at the original thirty-day deadline.
 """
 
 from __future__ import annotations
@@ -81,6 +87,8 @@ from argus.domain.apple_sign_in.credentials import (
 from argus.domain.apple_sign_in.credentials_postgres import (
     PostgresAppleCredentialRepository,
 )
+from argus.domain.business.account_deletion import BusinessAccountDeletion
+from argus.domain.business.purge import PostgresBusinessPurge
 from argus.domain.household import deletion as household_deletion
 from argus.domain.ingestion.documents.objects import SourceObjects, owner_prefix
 from argus.domain.ingestion.secrets import SecretBox
@@ -212,6 +220,10 @@ class AccountDeletionService:
         # no PostHog events at all (not_applicable, decision 1B).
         self._allow_fake_analytics = allow_fake_analytics
         self._sources = source_objects
+        self._business = BusinessAccountDeletion(households, auth_admin, source_objects)
+        self._business_purge = PostgresBusinessPurge(
+            households, source_objects, auth_admin
+        )
         self._clock = clock
 
     # -- entry point -------------------------------------------------------------
@@ -318,11 +330,20 @@ class AccountDeletionService:
         # Idempotent: every attempt re-applies the ban, so a refresh token
         # issued before the run can't outlive it.
         self._auth.lock_user(user_id)
+        with self._households.connection() as connection, connection.transaction():
+            self._lock_live_claim(connection, run)
+            self._capture_provider_credentials(connection, user_id, subject)
+        self._business.retain(
+            user_id=user_id,
+            run_id=run["id"],
+            claim_id=run["claim"],
+            renew=lambda: self._renew(run["id"], run["claim"]),
+        )
         if run["status"] == "started":
             for attempt in range(_ATTEMPTS):
                 self._reserve_placeholders(user_id, subject)
                 try:
-                    self._delete_data(user_id, subject)
+                    self._delete_data(user_id, subject, run)
                     break
                 except _UnitsChanged:
                     if attempt == _ATTEMPTS - 1:
@@ -407,6 +428,8 @@ class AccountDeletionService:
                     " where user_id = %s",
                     (self._clock(), uid),
                 )
+        for key, value in self._business_purge.sweep(limit=limit).items():
+            result[key] += value
         return result
 
     # -- operator only -------------------------------------------------------------
@@ -724,10 +747,11 @@ class AccountDeletionService:
 
     # -- 3. the data transaction -------------------------------------------------
 
-    def _delete_data(self, user_id: str, subject: str) -> None:
+    def _delete_data(self, user_id: str, subject: str, run: dict[str, Any]) -> None:
         now = self._clock()
         with self._households.connection() as connection:
             with connection.transaction():
+                self._lock_live_claim(connection, run)
                 connection.execute(
                     "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
                     (f"account_deletion:{user_id}",),
@@ -771,6 +795,29 @@ class AccountDeletionService:
                     (now, json.dumps(counts), subject),
                 )
 
+    @staticmethod
+    def _capture_provider_credentials(connection: Any, user_id: str, subject: str) -> int:
+        connection.execute(
+            """insert into argus_private.account_deletion_revocations
+                 (subject_hash, provider, source_ref, external_ref, secret_ciphertext,
+                  secret_key_fingerprint)
+               select %s, source, id, external_ref, secret_ciphertext,
+                      secret_key_fingerprint
+                 from public.financial_source_connections
+                where user_id = %s and source in ('plaid', 'gmail')
+                  and secret_ciphertext is not null
+               on conflict (subject_hash, provider, source_ref) do update
+                 set secret_ciphertext = excluded.secret_ciphertext,
+                     secret_key_fingerprint = excluded.secret_key_fingerprint,
+                     external_ref = excluded.external_ref
+               returning 1""",
+            (subject, user_id),
+        )
+        return connection.execute(
+            "select count(*) from argus_private.account_deletion_revocations where subject_hash=%s",
+            (subject,),
+        ).fetchone()[0]
+
     def _delete_in_transaction(
         self,
         connection: Any,
@@ -786,22 +833,7 @@ class AccountDeletionService:
         )
         events = list(result.events)
         # 2: capture every provider credential, then remove the sources.
-        captured = connection.execute(
-            """insert into argus_private.account_deletion_revocations
-                 (subject_hash, provider, source_ref, external_ref, secret_ciphertext,
-                  secret_key_fingerprint)
-               select %s, source, id, external_ref, secret_ciphertext,
-                      secret_key_fingerprint
-                 from public.financial_source_connections
-                where user_id = %s and source in ('plaid', 'gmail')
-                  and secret_ciphertext is not null
-               on conflict (subject_hash, provider, source_ref) do update
-                 set secret_ciphertext = excluded.secret_ciphertext,
-                     secret_key_fingerprint = excluded.secret_key_fingerprint,
-                     external_ref = excluded.external_ref
-               returning 1""",
-            (subject, user_id),
-        ).fetchall()
+        captured = self._capture_provider_credentials(connection, user_id, subject)
         connection.execute(
             "delete from public.financial_source_connections where user_id = %s",
             (user_id,),
@@ -859,7 +891,7 @@ class AccountDeletionService:
             "plans_handed_over": result.plans_handed_over,
             "archives_passed_on": result.archives_passed_on,
             "placeholders_used": len(used),
-            "credentials_captured": len(captured),
+            "credentials_captured": captured,
             "events": len(events),
             "cross_scope_references": int(cross_scope),
         }
@@ -1091,7 +1123,14 @@ class AccountDeletionService:
 
     def _delete_auth_user(self, user_id: str, run_id: str, claim: str) -> dict[str, int]:
         self._renew(run_id, claim)
+        self._business.require_detached(user_id)
         self._auth.delete_user(user_id)
+        self._business.complete(
+            user_id=user_id,
+            run_id=run_id,
+            claim_id=claim,
+            renew=lambda: self._renew(run_id, claim),
+        )
         with self._households.connection() as connection:
             subject = subject_hash(user_id)
             unused = [
@@ -1103,9 +1142,11 @@ class AccountDeletionService:
                 ).fetchall()
             ]
         for pid in unused:
+            self._renew(run_id, claim)
             self._auth.delete_user(pid)
         now = self._clock()
         with self._households.connection() as connection, connection.transaction():
+            self._lock_live_claim(connection, {"id": run_id, "claim": claim})
             connection.execute(
                 "delete from argus_private.account_deletion_placeholders where subject_hash = %s",
                 (subject,),
@@ -1134,7 +1175,7 @@ class AccountDeletionService:
                 "     steps = (steps - 'pending_since' - 'last_error')"
                 "       || jsonb_build_object('storage', coalesce(steps ->> 'storage', 'not_applicable'),"
                 "                             'revocations', %s::jsonb)"
-                " where id = %s and claim_id = %s returning steps",
+                " where id = %s and claim_id = %s and claimed_until>clock_timestamp() returning steps",
                 (now, now, json.dumps(revocations), run_id, claim),
             ).fetchone()
             if done is None:
@@ -1201,6 +1242,8 @@ class AccountDeletionService:
 
         if self._sources is None:
             return None
+        self._renew(run["id"], run["claim"])
+        self._business.require_detached(user_id)
         try:
             self._sources.delete(owner_prefix(user_id))
         except Exception as exc:
