@@ -642,19 +642,22 @@ def test_answered_attachment_allows_existing_account_deletion_order(
     db.execute(
         "select argus_private.deletion_finish(%s, %s)", (client["owner"], fake.sha256())
     )
-    db.execute("delete from auth.users where id=%s", (client["owner"],))
+    with pytest.raises(
+        errors.CheckViolation, match="business_custody_identity_detachment_required"
+    ), db.transaction():
+        db.execute("delete from auth.users where id=%s", (client["owner"],))
     assert (
         db.execute(
             "select count(*) from public.spaces where id=%s", (client["id"],)
         ).fetchone()[0]
-        == 0
+        == 1
     )
     assert (
         db.execute(
             "select count(*) from public.business_draft_revisions where draft_id=%s",
             (client["draft"],),
         ).fetchone()[0]
-        == 0
+        == 1
     )
 
 

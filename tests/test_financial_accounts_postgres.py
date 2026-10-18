@@ -74,12 +74,25 @@ def _create_users(connection, *labels: tuple[str, bool]) -> dict[str, str]:  # n
 def _delete_users(connection, ids: dict[str, str]) -> None:  # noqa: ANN001
     from tests.household.shared_cleanup import cleanup
 
-    cleanup(connection, list(ids.values()))
+    user_ids = list(ids.values())
+    cleanup(connection, user_ids)
     with connection.cursor() as cursor:
+        # The custody guard refuses Auth deletion while a Business receipt,
+        # transfer notice, or owned space still names the person. Consents
+        # leave with the space.
+        for statement in (
+            "delete from public.business_action_receipts where actor_id = any(%s)",
+            "delete from public.business_turns where actor_id = any(%s)",
+            "delete from public.business_receipt_reading_consents where owner_id = any(%s)",
+            "delete from public.business_receipt_consent_commands where owner_id = any(%s)",
+            "delete from public.business_transfer_mail_outbox where recipient_id = any(%s) or owner_id = any(%s) or target_id = any(%s)",
+        ):
+            cursor.execute(statement, (user_ids,) * statement.count("%s"))
         cursor.execute(
-            "delete from public.spaces where created_by = any(%s)", (list(ids.values()),)
+            "delete from public.spaces where created_by = any(%s) or current_owner_id = any(%s)",
+            (user_ids, user_ids),
         )
-        cursor.execute("delete from auth.users where id = any(%s)", (list(ids.values()),))
+        cursor.execute("delete from auth.users where id = any(%s)", (user_ids,))
     connection.commit()
 
 

@@ -205,7 +205,30 @@ async def test_parent_deletion_purges_transport_but_link_deletion_keeps_canonica
         elif parent == "space":
             connection.execute("delete from public.spaces where id=%s", (world.space,))
         else:
-            connection.execute("delete from auth.users where id=%s", (world.owner,))
+            from psycopg.errors import CheckViolation
+
+            with pytest.raises(
+                CheckViolation, match="business_custody_identity_detachment_required"
+            ), connection.transaction():
+                connection.execute("delete from auth.users where id=%s", (world.owner,))
+            assert (
+                connection.execute(
+                    "select 1 from public.whatsapp_inbound_messages where provider_message_key=%s",
+                    (world.keys.message(message.id),),
+                ).fetchone()
+                is not None
+            )
+            assert (
+                connection.execute(
+                    "select 1 from public.whatsapp_outbox where provider_message_key=%s",
+                    (world.keys.message(message.id),),
+                ).fetchone()
+                is not None
+            )
+            assert connection.execute(
+                "select text_content from public.business_sources where id=%s", (source,)
+            ).fetchone() == (message.body,)
+            return
         assert (
             connection.execute(
                 "select 1 from public.whatsapp_inbound_messages where provider_message_key=%s",

@@ -465,12 +465,23 @@ async def test_owner_erasure_cascades_pending_attempt_and_daily_counter(pool, us
     world.clock.now += timedelta(seconds=120)
     assert world.store.reply_groups.claim(now=world.clock.now, limit=10)
     await _failed(world, 1)
+    import psycopg
+
     with pool.connection() as connection:
         for table in ("groups", "attempts", "days"):
             assert connection.execute(
                 f"select count(*) from public.whatsapp_reply_{table} where owner_id=%s",
                 (world.alice,),
             ).fetchone() == (1,)
+        with pytest.raises(
+            psycopg.errors.CheckViolation,
+            match="business_custody_identity_detachment_required",
+        ), connection.transaction():
+            connection.execute("delete from auth.users where id=%s", (world.alice,))
+        connection.execute(
+            "delete from public.spaces where created_by=%s or current_owner_id=%s",
+            (world.alice, world.alice),
+        )
         connection.execute("delete from auth.users where id=%s", (world.alice,))
         for table in ("groups", "attempts", "days"):
             assert connection.execute(

@@ -175,9 +175,14 @@ def world() -> Iterator[World]:
         for person in world.people.values():
             world.objects.delete(owner_prefix(person))
         with pool.connection() as connection:
+            people = list(world.people.values())
+            connection.execute(
+                "delete from public.spaces where created_by = any(%s) or current_owner_id = any(%s)",
+                (people, people),
+            )
             connection.execute(
                 "delete from auth.users where id = any(%s)",
-                (list(world.people.values()),),
+                (people,),
             )
         pool.close()
 
@@ -637,4 +642,8 @@ def test_starting_a_space_is_idempotent_under_concurrency_and_owned_by_one_perso
         assert resolve_business_scope(world.spaces, str(uuid4())) is None
     finally:
         with world.pool.connection() as connection:
+            connection.execute(
+                "delete from public.spaces where created_by = %s or current_owner_id = %s",
+                (person, person),
+            )
             connection.execute("delete from auth.users where id = %s", (person,))

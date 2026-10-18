@@ -252,10 +252,29 @@ def test_business_or_account_parent_purges_consent_and_transport(world, consent,
     capture, _, lease = captured(world)
     world.turns.release(lease)
     with world.pool.connection() as db:
-        db.execute(
-            f"delete from {parent} where id=%s",
-            (world.space if parent == "spaces" else world.owner,),
-        )
+        target = world.space if parent == "spaces" else world.owner
+        if parent == "auth.users":
+            with pytest.raises(
+                errors.CheckViolation,
+                match="business_custody_identity_detachment_required",
+            ), db.transaction():
+                db.execute("delete from auth.users where id=%s", (target,))
+            assert (
+                db.execute(
+                    "select count(*) from business_whatsapp_ai_consents where owner_id=%s",
+                    (world.owner,),
+                ).fetchone()[0]
+                == 1
+            )
+            assert (
+                db.execute(
+                    "select count(*) from whatsapp_inbound_messages where id=%s",
+                    (capture.id,),
+                ).fetchone()[0]
+                == 1
+            )
+            return
+        db.execute(f"delete from {parent} where id=%s", (target,))
         assert (
             db.execute(
                 "select count(*) from business_whatsapp_ai_consents where owner_id=%s",

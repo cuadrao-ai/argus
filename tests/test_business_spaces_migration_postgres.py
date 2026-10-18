@@ -359,7 +359,7 @@ def test_create_account_fingerprint_includes_the_space(db, users) -> None:  # no
         _create(db, owner, "forged-key", "sha256:a", space(db, users["other"]))
 
 
-def test_deleting_the_person_removes_the_space_and_its_rows(db, users) -> None:  # noqa: ANN001
+def test_deleting_the_person_is_refused_while_the_business_remains(db, users) -> None:  # noqa: ANN001
     owner = users["owner"]
     business = space(db, owner)
     rows = {
@@ -369,11 +369,16 @@ def test_deleting_the_person_removes_the_space_and_its_rows(db, users) -> None: 
         "financial_import_events": event(db, owner, business),
     }
     sender_link(db, owner)
-    db.execute("delete from auth.users where id = %s", (owner,))
-    assert _one(db, "select count(*) from public.spaces where id = %s", (business,)) == 0
+    with _raises(
+        db,
+        psycopg.errors.CheckViolation,
+        "business_custody_identity_detachment_required",
+    ):
+        db.execute("delete from auth.users where id = %s", (owner,))
+    assert _one(db, "select count(*) from public.spaces where id = %s", (business,)) == 1
     for table, row_id in rows.items():
         assert (
-            _one(db, f"select count(*) from public.{table} where id = %s", (row_id,)) == 0
+            _one(db, f"select count(*) from public.{table} where id = %s", (row_id,)) == 1
         ), table
     assert (
         _one(
@@ -381,5 +386,5 @@ def test_deleting_the_person_removes_the_space_and_its_rows(db, users) -> None: 
             "select count(*) from public.whatsapp_sender_links where destination_space_id = %s",
             (business,),
         )
-        == 0
+        == 1
     )
