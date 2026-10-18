@@ -22,7 +22,6 @@ export default function BusinessOverviewPanel() {
   const periodLabel = usePeriodLabel();
   // The Bandeja's own counts, from the same server answer as the sidebar badge.
   const inbox = inboxCount(records);
-  const attention = records.receiptActivity?.needs_attention_count ?? null;
 
   return (
     <section aria-labelledby="business-overview-title">
@@ -55,7 +54,6 @@ export default function BusinessOverviewPanel() {
             <span className="min-w-0 flex-1">
               <span className="block font-display text-[20px] font-medium text-black dark:text-white">
                 {inbox === null ? t("business.overview.in_inbox", "In your inbox") : <><span data-testid="overview-inbox-count">{inbox}</span>{" "}{locale === "es-419" ? "por revisar" : t("business.overview.in_inbox", "In your inbox")}</>}
-                {attention !== null && attention > 0 ? <span data-testid="overview-attention" className="text-[15px] font-normal text-black/70 dark:text-white/75">{locale === "es-419" ? ` · ${attention} con problema` : ` · ${t("business.overview.attention", "{{count}} receipts need your attention", { count: attention })}`}</span> : null}
               </span>
               <span className="mt-1 block text-[13px] text-black/60 dark:text-white/65">{t("business.overview.open_inbox", "Open inbox")}</span>
             </span>

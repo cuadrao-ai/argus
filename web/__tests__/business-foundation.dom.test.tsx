@@ -69,7 +69,7 @@ describe("status is a word, a color, and a dot", () => {
 
   test("the empty Bandeja uses the locked sentence", async () => {
     const spanish = (await import("@/public/locales/es-419/common.json")).default;
-    assert.equal(spanish.business.inbox.empty_body, "Aún no has subido recibos.");
+    assert.equal(spanish.business.inbox.empty_body, "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.");
   });
 });
 

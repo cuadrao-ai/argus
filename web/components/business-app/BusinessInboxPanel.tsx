@@ -8,9 +8,11 @@ import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
 import ActionMenu from "./ActionMenu";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
+import InboxForwardingCard from "./InboxForwardingCard";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
 import { bandejaReceipts } from "./bandeja-order";
+import { countPorRevisar, countStillReading, countUnreadable, porRevisar } from "@/lib/business-review-count";
 import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, LoadingRows, PanelHeading, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
@@ -238,7 +240,7 @@ function EmptyInbox({ upload }: { upload: { label: string; run: () => void } | n
         {i18n.resolvedLanguage === "es-419" ? "Todo aprobado. Pa'que cuadre." : t("business.inbox.all_reviewed", "All reviewed")}
       </p> : null}
       <p className={`${approved ? "mt-1 " : ""}text-[14px] text-black/65 dark:text-white/70`}>
-        {t("business.inbox.empty_body", "Aún no has subido recibos.")}
+        {t("business.inbox.empty_body", "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.")}
       </p>
       {upload ? <div className="mt-4"><PrimaryUpload label={upload.label} onClick={upload.run} /></div> : null}
     </div>
@@ -256,6 +258,17 @@ export default function BusinessInboxPanel() {
   const notes = records.notes === null ? null : openNotesByDraft(records.notes);
   const upload = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
   const empty = items !== null && notes !== null && items.length === 0 && notes.length === 0 && !records.notesError && !records.error;
+  const reviewCount = items ? countPorRevisar(items) : null;
+  const readingCount = items ? countStillReading(items) : 0;
+  const unreadableCount = items ? countUnreadable(items) : 0;
+  const aside = [
+    readingCount ? t("business.inbox.aside_reading_placeholder", "{{count}} todavía leyéndose", { count: readingCount }) : null,
+    unreadableCount ? t("business.inbox.aside_unreadable_placeholder", "{{count}} no se pudo leer", { count: unreadableCount }) : null,
+  ].filter((part): part is string => Boolean(part));
+  const openReview = () => {
+    const next = porRevisar(items ?? [])[0];
+    if (next) openPanel({ kind: "receipt", receiptId: next.id });
+  };
 
   return (
     <section>
@@ -264,9 +277,21 @@ export default function BusinessInboxPanel() {
       <PanelHeading
         title={t("business.inbox.title", "Inbox")}
         subtitle={t("business.inbox.subtitle", "Receipts waiting for you to review. Nothing here is an expense until you confirm it.")}
-        action={upload && !isBelowTablet && !empty ? <PrimaryUpload label={upload.label} onClick={upload.run} /> : null}
+        action={
+          upload && !isBelowTablet && !empty ? <PrimaryUpload label={upload.label} onClick={upload.run} />
+          : chosen?.role === "accountant" ? (
+            <button type="button" data-testid="business-primary-review" onClick={openReview} className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--cuadrao-green)] px-5 text-[16px] font-medium text-[#fffefa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]">
+              {t("business.inbox.review_receipts", "Revisar recibos")}
+            </button>
+          ) : null
+        }
       />
-      <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />
+      {reviewCount !== null && (items?.length || notes?.length) ? (
+        <div className="mb-4">
+          <p data-testid="bandeja-por-revisar" className="text-[15px] font-medium tabular-nums text-black dark:text-white">{t("business.inbox.por_revisar", "{{count}} por revisar", { count: reviewCount })}</p>
+          {aside.length ? <p data-testid="bandeja-aside" className="mt-1 text-[13px] text-black/60 dark:text-white/65">{`${aside.join(". ")}.`}</p> : null}
+        </div>
+      ) : null}
       {records.error ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
           {t("business.inbox.error", "We couldn't load your inbox. Try again.")}
@@ -303,6 +328,8 @@ export default function BusinessInboxPanel() {
           ) : null}
         </>
       )}
+      <InboxForwardingCard />
+      <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />
       {personal.toast}
     </section>
   );
