@@ -465,7 +465,7 @@ The October 12 email receiving migration adds ten foreign keys, all nondeferrabl
 
 ### Month close
 
-Migration `20261018070000_business_month_close.sql` adds four foreign keys. A settlement annotates one recorded activity and stores no amount. It goes with the Business space and with that activity. Revisions are append-only and follow the settlement. The actor id on a revision clears when that person is deleted, and the revision stays.
+Migration `20261018090200_business_month_close.sql` adds four foreign keys. A settlement annotates one recorded activity and stores no amount. It goes with the Business space and with that activity. Revisions are append-only and follow the settlement. The actor id on a revision clears when that person is deleted, and the revision stays.
 
 | Table | Column(s) | References | On delete | On update | Deferrable | Re-key to a placeholder | Plain delete, live probe | Lane 6 must |
 |---|---|---|---|---|---|---|---|---|
