@@ -9812,8 +9812,10 @@ Signup still sends confirmation immediately; welcome follows confirmation.
 
 ### Business closure lifecycle domain contract, draft October 18, 2026
 
-The scoped closure work adds a domain service only. No HTTP route, launch UI,
-email send, account-deletion enablement or scheduled purge is added by this slice.
+The scoped closure work adds a domain service and an unmounted HTTP router.
+The router also refuses every request through `require_lifecycle_ready` until
+retention and purge are complete. A standalone confirmation dialog is unmounted.
+No email send, account-deletion enablement or scheduled purge is added by this slice.
 The full lane now has founder-approved copy, transfer and retention rules.
 Its remaining implementation is recorded in the lifecycle checkpoint handoff.
 
@@ -9836,3 +9838,33 @@ Businesses return the same missing-record outcome. The deadline uses the databas
 clock after locks are acquired. This contract does not promise receipt retention
 after the owner deletes their account; the existing cascade remains unchanged
 pending the required current-owner and data-custodian implementation.
+
+#### Unavailable lifecycle HTTP contract, WIP October 18, 2026
+
+`src/argus/api/routers/business_lifecycle.py` defines the following future routes.
+The application does not include this router, and its unconditional readiness
+dependency returns `404 business_unavailable` even if it is mounted accidentally.
+Only isolated tests override the dependency. Enabling requires the complete
+custody, account-deletion retention and full-purge work plus root acceptance.
+
+- `GET /business/closed-spaces` returns `{spaces: [...]}` for the authenticated
+  person, independently of the selected Business grant.
+- `POST /business/spaces/{space_id}/close` requires `Idempotency-Key` and
+  `{confirmation: string}`. The body rejects extra fields and preserves exact
+  whitespace and case for the domain's current-name comparison.
+- `POST /business/spaces/{space_id}/reopen` requires `Idempotency-Key`.
+- Each result contains `space_id`, `name`, `closed_at` and `reopen_until`. The
+  server owns the dates. Responses and domain refusals use `Cache-Control: no-store`.
+- Foreign, member, guest and missing-actor commands return the same
+  `404 business_record_not_found`. Name mismatch and an invalid command key
+  return 422. Expired reopening, another open Business and conflicting command
+  replay return 409. Normal authentication and Business availability remain
+  required when the gate is eventually opened.
+
+The standalone browser transport keeps the caller's original command key for
+retries and validates server results. The close dialog takes translated copy,
+controlled command state, an error message and the existing export control from
+its caller. Its bundled Spanish copy is the exact approved checkpoint copy.
+Mounting, English approval, the command journal, export-control binding, member
+notification and a reopen UI remain unfinished. No receipt or export behavior
+is changed by this checkpoint.

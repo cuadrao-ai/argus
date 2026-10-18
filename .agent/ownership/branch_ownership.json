@@ -3254,16 +3254,22 @@
       ]
     },
     "codex/business-close-lifecycle-20261018": {
-      "description": "WIP Business close/reopen domain core only. Preserves existing grants and closed_at authority. Transfer, launch UI/email and owner-deletion preservation remain pending the current-owner/data-custodian design.",
+      "description": "WIP Business close/reopen core plus unmounted fail-closed transport and standalone exact-name dialog. Transfer, mounted UI, member email, custody preservation and full purge remain pending; export and receipt logic stay unchanged.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",
         "docs/API_CONTRACT.md",
         "docs/DATA_MODEL.md",
+        "docs/reports/evidence/business-close-lifecycle-20261018/**",
+        "src/argus/api/routers/business_lifecycle.py",
         "src/argus/domain/business/lifecycle.py",
         "supabase/migrations/20261018080000_business_close_lifecycle.sql",
         "tests/test_business_lifecycle_postgres.py",
-        "docs/reports/evidence/business-close-lifecycle-20261018/**"
+        "tests/test_business_lifecycle_routes.py",
+        "web/__tests__/business-close-dialog.dom.test.tsx",
+        "web/__tests__/business-lifecycle-api.test.ts",
+        "web/components/business-app/BusinessCloseDialog.tsx",
+        "web/lib/business-lifecycle-api.ts"
       ],
       "deny": [
         ".env",
