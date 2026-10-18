@@ -173,6 +173,62 @@ def test_non_evidence_folder_passes(tmp_path: Path, path: str) -> None:
     assert run_check(repo, base).returncode == 0
 
 
+def test_png_already_on_the_base_passes(tmp_path: Path) -> None:
+    repo, _base = init_repo(tmp_path)
+    commit_bytes(repo, "ios/evidence/already.png", b"tip")
+    base = git(repo, "rev-parse", "HEAD")
+    (repo / "notes.txt").write_text("notes\n")
+    git(repo, "add", "notes.txt")
+    git(repo, "commit", "-q", "-m", "notes")
+    result = run_check(repo, base)
+    assert result.returncode == 0
+    assert result.stderr == ""
+
+
+def _merge_tip_with_pngs(repo: Path, root: str) -> str:
+    git(repo, "checkout", "-q", "-b", "pr")
+    (repo / "notes.txt").write_text("notes\n")
+    git(repo, "add", "notes.txt")
+    git(repo, "commit", "-q", "-m", "notes")
+    git(repo, "checkout", "-q", "-b", "tip", root)
+    for name in ("one.png", "two.png"):
+        commit_bytes(repo, f"ios/evidence/{name}", b"tip")
+    tip = git(repo, "rev-parse", "HEAD")
+    git(repo, "checkout", "-q", "pr")
+    git(repo, "merge", "--no-edit", "tip")
+    return tip
+
+
+def test_merged_tip_pngs_pass(tmp_path: Path) -> None:
+    repo, root = init_repo(tmp_path)
+    tip = _merge_tip_with_pngs(repo, root)
+    result = run_check(repo, tip)
+    assert result.returncode == 0
+    assert "ios/evidence/" not in result.stderr
+    assert result.stderr == ""
+
+
+def test_pr_png_after_merged_tip_names_only_that_file(tmp_path: Path) -> None:
+    repo, root = init_repo(tmp_path)
+    tip = _merge_tip_with_pngs(repo, root)
+    ours = "docs/reports/evidence/ours.png"
+    commit_bytes(repo, ours, b"ours")
+    result = run_check(repo, tip)
+    assert result.returncode == 1
+    assert result.stderr.splitlines() == [f"{ours}: {REJECTION}"]
+
+
+def test_missing_merge_base_fails_closed(tmp_path: Path) -> None:
+    repo, _base = init_repo(tmp_path)
+    missing = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+    result = run_check(repo, missing)
+    assert result.returncode == 1
+    assert result.stderr.strip() == (
+        "Cannot find the merge base. Fetch the base history and retry."
+    )
+    assert missing not in result.stdout
+
+
 def test_pull_request_without_a_base_fails(tmp_path: Path) -> None:
     repo, _base = init_repo(tmp_path)
     result = subprocess.run(

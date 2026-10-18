@@ -1,13 +1,16 @@
 """Fail when a pull request adds evidence media.
 
+The diff is `git diff --name-status --diff-filter=A <merge-base>...HEAD`.
+It compares that merge base to HEAD. It does not diff the work tree, so
+files that arrive by merging the base branch are not added files.
+
 A path is evidence when it is under docs/reports/, or when any directory
 segment is "evidence" or ends with "-evidence". The match is
 case-insensitive for that segment and for the suffix. Suffixes are png,
 jpg, jpeg, gif, webp, mp4, mov, and pdf.
 
-Only added files fail. Git copy status counts as added. A modification
-or a rename does not. Brand canon paths in .github/media-allowlist.txt
-are exempt.
+Only added files fail. A modification or a rename does not. Brand canon
+paths in .github/media-allowlist.txt are exempt.
 """
 
 from __future__ import annotations
@@ -25,6 +28,11 @@ REJECTION = (
     "do not commit evidence media. Attach it on the pull request, "
     "or upload it with actions/upload-artifact."
 )
+MISSING_BASE = "Cannot find the merge base. Fetch the base history and retry."
+
+
+class MergeBaseMissing(Exception):
+    pass
 
 
 def is_media(path: str) -> bool:
@@ -62,7 +70,7 @@ def matches_glob(path: str, pattern: str) -> bool:
 def blocking_paths(changes: list[tuple[str, str]], globs: tuple[str, ...]) -> list[str]:
     blocked: list[str] = []
     for letter, path in changes:
-        if letter not in {"A", "C"}:
+        if letter != "A":
             continue
         if not is_media(path) or not is_evidence_path(path):
             continue
@@ -90,16 +98,36 @@ def parse_name_status(blob: bytes) -> list[tuple[str, str]]:
     return changes
 
 
+def resolve_merge_base(root: Path, base: str) -> str:
+    present = subprocess.run(
+        ["git", "cat-file", "-e", f"{base}^{{commit}}"],
+        cwd=root,
+        capture_output=True,
+    )
+    if present.returncode != 0:
+        raise MergeBaseMissing(MISSING_BASE)
+    result = subprocess.run(
+        ["git", "merge-base", base, "HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        raise MergeBaseMissing(MISSING_BASE)
+    return result.stdout.strip()
+
+
 def changed_paths(root: Path, base: str) -> list[tuple[str, str]]:
+    resolved = resolve_merge_base(root, base)
     result = subprocess.run(
         [
             "git",
             "diff",
             "--name-status",
             "--find-renames",
-            "--find-copies",
+            "--diff-filter=A",
             "-z",
-            f"{base}...HEAD",
+            f"{resolved}...HEAD",
         ],
         cwd=root,
         check=True,
@@ -122,7 +150,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     allowlist = args.allowlist or (args.root / ".github" / "media-allowlist.txt")
     globs = load_globs(allowlist.read_text(encoding="utf-8"))
-    blocked = blocking_paths(changed_paths(args.root, base), globs)
+    try:
+        changes = changed_paths(args.root, base)
+    except MergeBaseMissing as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    blocked = blocking_paths(changes, globs)
     for path in blocked:
         print(f"{path}: {REJECTION}", file=sys.stderr)
     return int(bool(blocked))
