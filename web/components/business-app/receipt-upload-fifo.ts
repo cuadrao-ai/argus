@@ -30,7 +30,18 @@ export function nextWaitingUpload<T extends WaitingUpload>(
   seeded: ReadonlySet<string>,
   presentAtStart: ReadonlySet<string>,
 ): T | undefined {
-  return items.find((item) => {
+  return waitingUploads(items, target, attempted, seeded, presentAtStart)[0];
+}
+
+/** Every file this drain has still to upload, in the order it will upload them. */
+export function waitingUploads<T extends WaitingUpload>(
+  items: readonly T[],
+  target: string,
+  attempted: ReadonlySet<string>,
+  seeded: ReadonlySet<string>,
+  presentAtStart: ReadonlySet<string>,
+): T[] {
+  return items.filter((item) => {
     if (item.target !== target || attempted.has(item.key)) return false;
     if (item.status === "failed") return seeded.has(item.key);
     if (item.status !== "queued") return false;
