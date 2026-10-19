@@ -1,5 +1,7 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { rncStatus } from "@/lib/rnc-status";
 import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
@@ -166,6 +168,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const [advancing, setAdvancing] = useState(false);
   const [fiscalBusy, setFiscalBusy] = useState(false);
   const [fiscalDirty, setFiscalDirty] = useState(false);
+  const [rncConfirmation, setRncConfirmation] = useState<{ draftId: string; version: number; next: boolean; status: "missing" | "invalid_length" } | null>(null);
   const inFlight = useRef(false);
   const reviewRequest = useRef<{ version: number; facts: BusinessFactPatch; key: string } | null>(null);
   const approvalKey = useRef<{ version: number; key: string } | null>(null);
@@ -318,10 +321,21 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const confirmations = extractedConfirmationPatch(dossier, edits);
   const confirmationCount = Object.keys(confirmations).length;
 
+  const requestApproval = (next = false) => {
+    if (!canApprove || !supportedKind || !approvable) return;
+    const status = rncStatus(dossier.facts.fiscal?.rnc);
+    const showsFiscal = Boolean(dossier.facts.fiscal) || dossier.fiscal_known === true && !dossier.fiscal_value;
+    if (showsFiscal && status !== "unverified") {
+      setRncConfirmation({ draftId: dossier.draft_id, version: dossier.version, next, status });
+    } else if (next) void approveAndNext();
+    else void write("approve");
+  };
+  const approvalLabel = dossier.facts.kind.value === "income" ? t("business.dgii.approve_income", "Aprobar ingreso") : dossier.facts.kind.value === "refund" ? t("business.dgii.approve_refund", "Aprobar reembolso") : (spanishReview ? "Aprobar" : t("business.dossier.approve", "Approve expense"));
+
   const canMove = mutable && !dirty && !editing.length && !advancing && !settling;
   return (<ContentFade><>
     <ReceiptShortcutRegistration actions={{
-      ...(canApprove && supportedKind && approvable ? { approve: () => { void write("approve"); }, ...(receipt ? { approve_next: () => { void approveAndNext(); } } : {}) } : {}),
+      ...(canApprove && supportedKind && approvable ? { approve: () => requestApproval(), ...(receipt ? { approve_next: () => requestApproval(true) } : {}) } : {}),
       ...(canMove && receipt ? receiptNavigationActions(receipt.id, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {}),
       ...(canPrepare && mutable ? { edit: () => {
         const focused = document.activeElement?.closest<HTMLElement>("[data-fact]")?.dataset.fact;
@@ -343,8 +357,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       summary={<><p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{amount === null ? t("business.dossier.amount_unknown", "Amount unknown") : currency === null ? `${amount} · ${t("business.dossier.currency_unknown", "Currency unknown")}` : formatMoney(amount, currency, i18n.resolvedLanguage ?? "en")}</p><span className="text-[12px] text-black/50 dark:text-white/50">{t("business.dossier.revision", "Revision {{version}}", { version: factsRevision(dossier) })}</span></>}
       footer={!approval && canApprove ? <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} disabled={!supportedKind || !approvable} onClick={() => void write("approve")}>{operation.kind === "approving" && !advancing ? t("business.dossier.approving", "Approving…") : dossier.facts.kind.value === "income" ? t("business.dgii.approve_income", "Aprobar ingreso") : dossier.facts.kind.value === "refund" ? t("business.dgii.approve_refund", "Aprobar reembolso") : (spanishReview ? "Aprobar" : t("business.dossier.approve", "Approve expense"))}</button>
-          {receipt ? <button type="button" className={secondaryButtonClass} disabled={!supportedKind || !approvable} onClick={() => void approveAndNext()}>{operation.kind === "approving" && advancing ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve_next", "Approve and next")}</button> : null}
+          <button type="button" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? t("business.dossier.approving", "Approving…") : approvalLabel}</button>
+          {receipt ? <button type="button" className={secondaryButtonClass} disabled={!supportedKind || !approvable} onClick={() => requestApproval(true)}>{operation.kind === "approving" && advancing ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve_next", "Approve and next")}</button> : null}
         </div>
         {!approvable ? <p className="text-[12px] text-black/65 dark:text-white/70">{dirty ? t("business.dossier.edit_note", "Saving updates the review details. Approval is a separate action.") : dossier.blockers.length ? t(`business.dossier.blocker.${dossier.blockers[0].code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval.")) : t("business.dossier.blocker_fallback", "This record needs further review before approval.")}</p> : null}
       </div> : undefined}
@@ -384,6 +398,21 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     </ReceiptReviewFrame>
     {/* The note dialog keeps the third place in every branch, so a refused save keeps its message. */}
     {captureDialog}
+    {rncConfirmation ? <ConfirmDialog
+      isOpen
+      title={t(`business.dgii.rnc_check.${rncConfirmation.status}.approval_title`)}
+      description={t(`business.dgii.rnc_check.${rncConfirmation.status}.approval_body`)}
+      confirmLabel={rncConfirmation.next ? t("business.dossier.approve_next", "Approve and next") : approvalLabel}
+      cancelLabel={t("common.cancel", "Cancel")}
+      isBusy={busy}
+      onCancel={() => setRncConfirmation(null)}
+      onConfirm={() => {
+        setRncConfirmation(null);
+        if (!canApprove || !supportedKind || !approvable || rncConfirmation.draftId !== dossier.draft_id || rncConfirmation.version !== dossier.version) return;
+        if (rncConfirmation.next) void approveAndNext();
+        else void write("approve");
+      }}
+    /> : null}
     {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
   </></ContentFade>
   );
