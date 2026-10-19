@@ -145,6 +145,7 @@ describe("Novedades rows", () => {
     });
     await page.settle(() => page.rows().length === 3);
     const expected = ["pending", "needs_attention", "approved"] as const;
+    const icons = { pending: "lucide-clock", needs_attention: "lucide-circle-alert", approved: "lucide-circle-check" };
     page.rows().forEach((row, index) => {
       const pill = row.querySelector<HTMLElement>('[data-testid="status-pill"]')!;
       const tone = BUSINESS_STATUS[expected[index]];
@@ -152,7 +153,8 @@ describe("Novedades rows", () => {
       assert.equal(pill.textContent, tone.label);
       assert.equal(pill.style.color, tone.ink);
       assert.equal(pill.style.backgroundColor, tone.surface);
-      assert.equal(row.querySelectorAll("svg").length, 0, "no dashed circle or red icon beside the pill");
+      assert.deepEqual([...pill.querySelectorAll("svg")].map((icon) => icon.classList.contains(icons[expected[index]])), [true], "the pill carries its one icon");
+      assert.deepEqual([...row.querySelectorAll("svg")].filter((icon) => !pill.contains(icon)).map((icon) => icon.outerHTML), [], "no dashed circle or red icon beside the pill");
       const outsidePill = [...row.querySelectorAll<HTMLElement>("*")].filter((element) => !pill.contains(element));
       assert.deepEqual(outsidePill.filter((element) => /#9e2f39|#d66d75|red|dashed/i.test(element.className + element.getAttribute("style"))).map((element) => element.outerHTML), []);
     });
