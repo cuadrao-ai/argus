@@ -139,6 +139,13 @@ test.describe("indexing", () => {
     expect(await (await request.get("/sitemap.xml")).text()).not.toContain("<loc>");
   });
 
+  test("privacy and deletion pages omit the robots header and another page still sends it", async ({ request }) => {
+    for (const path of ["/privacidad", "/privacidad/", "/eliminar-datos", "/eliminar-datos/"]) {
+      expect((await request.get(path, { maxRedirects: 0 })).headers()["x-robots-tag"]).toBeUndefined();
+    }
+    expect((await request.get("/terminos", { maxRedirects: 0 })).headers()["x-robots-tag"]).toBe("noindex, nofollow");
+  });
+
   test("the public host is indexable and lists every page once, without private routes", async ({ request }) => {
     const robots = await (await request.get(`${PUBLIC_URL}/robots.txt`)).text();
     expect(robots).toContain("Allow: /");

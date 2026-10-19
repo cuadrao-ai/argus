@@ -65,9 +65,10 @@ async function checkPage(route: SiteRoute): Promise<void> {
   record(`${label} sets no cookie`, !response.headers.has("set-cookie"), "Set-Cookie present");
   record(`${label} share image`, html.includes(`<meta property="og:image" content="${SITE_ORIGIN}/cuadrao-site/`), "og:image missing or off the public origin");
   const robots = response.headers.get("x-robots-tag");
+  const omitsRobotsHeader = route.path === "/privacidad" || route.path === "/eliminar-datos";
   record(
     `${label} robots header`,
-    publicHost ? robots === null : robots === "noindex, nofollow",
+    publicHost || omitsRobotsHeader ? robots === null : robots === "noindex, nofollow",
     `x-robots-tag was ${robots}`,
   );
 }
