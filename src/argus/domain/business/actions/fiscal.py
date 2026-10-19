@@ -47,12 +47,13 @@ def require_distinct_fiscal_document(tx, event, facts: BusinessFacts) -> None:
     if ncf is None:
         return
     identity = document_identity(facts.kind.value, rnc, ncf)
-    if identity is None:
+    # A purchase is the same comprobante only when the supplier RNC matches too.
+    if identity is None or identity[0] == "purchase" and identity[1] is None:
         return
     matches = tx.rows(
-        "select resolution->'business'->'facts' as facts from public.financial_import_events where owner_space_id=%s"
+        "select id,resolution->'business'->'facts' as facts from public.financial_import_events where owner_space_id=%s"
         " and user_id=%s and id<>%s and state in ('accepting','accepted')"
-        " and resolution->'business'->'facts'->'fiscal' is not null",
+        " and resolution->'business'->'facts'->'fiscal' is not null order by created_at,id",
         (tx.context.actor.space_id, tx.context.owner_id, event.id),
     )
     for match in matches:
@@ -66,7 +67,11 @@ def require_distinct_fiscal_document(tx, event, facts: BusinessFacts) -> None:
             document_identity((other.get("kind") or {}).get("value"), taxpayer, number)
             == identity
         ):
-            raise ActionError("invalid_input", "fiscal_duplicate_document")
+            if identity[0] == "sale":
+                raise ActionError("invalid_input", "fiscal_duplicate_document")
+            raise ActionError(
+                "invalid_input", "duplicate_comprobante", existing_record_id=match["id"]
+            )
 
 
 def refund_reference(event):
