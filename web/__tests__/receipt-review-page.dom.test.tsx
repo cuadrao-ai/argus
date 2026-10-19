@@ -209,15 +209,15 @@ describe("one receipt review page", () => {
 
     await page.open(
       { kind: "receipt", receiptId: "rcpt-unknown" },
-      () => page.host.textContent?.includes("Este archivo no parece un recibo ni una factura") === true,
+      () => page.host.textContent?.includes("Esto no parece un recibo.") === true,
     );
     const notice = page.host.querySelector('[data-testid="receipt-attention"]');
-    assert.equal(notice?.querySelector(".font-medium")?.textContent, "Este archivo no parece un recibo ni una factura");
+    assert.equal(notice?.querySelector(".font-medium")?.textContent, "Esto no parece un recibo.");
     assert.equal(notice?.querySelector(".mt-1")?.textContent, "Sube la foto o el PDF de un comprobante.");
     assert.equal(notice?.textContent?.includes("No pudimos leer este archivo"), false);
     assert.equal(notice?.textContent?.includes("borroso, cortado o dañado"), false);
     const noticeLabels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
-    assert.deepEqual(noticeLabels, ["Escribir datos"]);
+    assert.deepEqual(noticeLabels, ["Subir otro archivo", "Escribir datos"]);
     await page.act(async () => page.root.unmount());
   });
 

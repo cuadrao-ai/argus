@@ -15,7 +15,7 @@ import { useBusinessConsent } from "./business-consent-context";
 import { bandejaReceipts } from "./bandeja-order";
 import { countPorRevisar, countStillReading, countUnreadable, porRevisar } from "@/lib/business-review-count";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, PanelHeading, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
+import { cardClass, PanelHeading, primaryButtonClass, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
 import { PrimaryUpload } from "./foundation/PrimaryUpload";
 import { ToastQueue, type QueuedToast } from "./foundation/ToastNotice";
@@ -177,7 +177,7 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { rec
           {receipt.preparable && onRetry && !terminal ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}</p> : null}
           <div className="flex flex-wrap gap-2">
             {receipt.preparable && onRetry && !terminal ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={() => void tryAgain()}>{t("common.retry", "Retry")}</button> : null}
-            {terminal?.upload && onUpload ? <button type="button" className={secondaryButtonClass} onClick={onUpload}>{terminal.uploadLabel}</button> : null}
+            {terminal?.upload && onUpload ? <button type="button" className={primaryButtonClass} onClick={onUpload}>{terminal.uploadLabel}</button> : null}
             {receipt.enterable ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={onOpen}>{terminal ? terminal.enterLabel : locale === "es-419" ? "Escribir datos" : t("business.actions.record_expense", "Record expense")}</button> : null}
           </div>
           {retry === "failed" ? <p role="alert" className="mt-2 break-words text-[13px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again.")}</p> : null}
@@ -262,7 +262,9 @@ export default function BusinessInboxPanel() {
   const personal = usePersonalMark();
   const items = records.inbox ? bandejaReceipts(records.inbox) : null;
   const notes = records.notes === null ? null : openNotesByDraft(records.notes);
-  const upload = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
+  const uploadAction = actions.create.find((action) => action.id === "upload_receipt");
+  const upload = chosen?.role === "owner" ? uploadAction : null;
+  const uploadAnother = chosen?.role === "owner" || chosen?.capabilities.includes("prepare") ? uploadAction : null;
   const empty = items !== null && notes !== null && items.length === 0 && notes.length === 0 && !records.notesError && !records.error;
   const reviewCount = items ? countPorRevisar(items) : null;
   const readingCount = items ? countStillReading(items) : 0;
@@ -331,7 +333,7 @@ export default function BusinessInboxPanel() {
                         }
                         try { await source.prepareReceipt(receipt.id); } finally { reload(); }
                       }}
-                      onUpload={upload ? () => upload.run() : undefined}
+                      onUpload={uploadAnother ? () => uploadAnother.run() : undefined}
                     />
                   )}
                 />
