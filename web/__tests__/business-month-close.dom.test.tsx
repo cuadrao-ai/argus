@@ -458,6 +458,7 @@ describe("fiscal complete months stay editable", () => {
     const invoice: MonthCloseDocument = {
       id: "inv-ready",
       kind: "invoice",
+      currency: "DOP",
       counterparty: "Colmado Don Luis",
       occurred_on: "2026-10-04",
       due_on: "2026-10-20",
@@ -537,6 +538,68 @@ describe("a fully settled month", () => {
     assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 4,000\.00/);
     assert.equal(host.querySelector('[data-testid="month-close-empty"]'), null);
     assert.equal(host.textContent?.includes("Este mes no tiene documentos"), false);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+});
+
+describe("foreign currency lines", () => {
+  test("a USD line renders as US$, an EUR line renders as euro, and the DOP cards leave both out", async () => {
+    const client = createHttpMonthCloseClient(async () => ({
+      month: "2026-10",
+      from: "2026-10-01",
+      to: "2026-10-31",
+      closed: false,
+      reasons: [],
+      currencies: [{
+        currency: "DOP",
+        income_before_itbis: "1000.00",
+        expense_before_itbis: "0.00",
+        net_result: "1000.00",
+        itbis_owed: "18.00",
+      }],
+      missing_rnc: [],
+      missing_ncf: [],
+      cuentas_por_cobrar: [{
+        activity_id: "act-usd",
+        document_kind: "invoice",
+        currency: "USD",
+        occurred_on: "2026-10-06",
+        total_minor: 5000,
+        before_itbis_minor: 5000,
+        itbis_minor: null,
+        status: "pendiente",
+      }, {
+        activity_id: "act-dop",
+        document_kind: "invoice",
+        currency: "DOP",
+        occurred_on: "2026-10-04",
+        total_minor: 118000,
+        before_itbis_minor: 100000,
+        itbis_minor: 18000,
+        status: "pendiente",
+      }],
+      cuentas_por_pagar: [{
+        activity_id: "act-eur",
+        document_kind: "receipt",
+        currency: "EUR",
+        occurred_on: "2026-10-07",
+        total_minor: 2000,
+        before_itbis_minor: 2000,
+        itbis_minor: null,
+        status: "pendiente",
+      }],
+    }));
+    const { act, host, root } = await renderView(client);
+    const usd = host.querySelector('[data-document-id="act-usd"]');
+    const eur = host.querySelector('[data-document-id="act-eur"]');
+    assert.match(usd?.textContent ?? "", /US\$ 50\.00/);
+    assert.match(eur?.textContent ?? "", /€ 20\.00/);
+    assert.match(host.querySelector('[data-document-id="act-dop"]')?.textContent ?? "", /RD\$ 1,180\.00/);
+    assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 1,000\.00/);
+    assert.equal(host.querySelector('[data-testid="month-close-income"]')?.textContent?.includes("US$"), false);
+    assert.match(host.querySelector('[data-testid="month-close-state-receivable"]')?.textContent ?? "", /RD\$ 1,180\.00/);
+    assert.equal(host.querySelector('[data-testid="month-close-state-receivable"]')?.textContent?.includes("1,230"), false);
     await act(async () => root.unmount());
     host.remove();
   });
@@ -658,4 +721,163 @@ describe("Inicio month close source", () => {
       globalThis.fetch = original;
     }
   });
+});
+
+describe("Inicio month close export", () => {
+  const bytes = new Uint8Array([80, 75, 3, 4, 0, 255]);
+  const own = { space_id: "own-space", grant_id: "own-grant", name: "Taller Luna", role: "owner" as const, capabilities: ["read", "prepare", "approve"] as const, access_seen: true };
+  const client = { ...own, space_id: "client-space", grant_id: "client-grant", name: "Colmado Sol", role: "accountant" as const, capabilities: ["read"] as const };
+  let calls: { url: URL; init?: RequestInit }[] = [];
+  let downloads: { filename: string; blob: Blob }[] = [];
+  let respond: (init?: RequestInit) => Promise<Response> = async () => new Response(bytes, { headers: { "Content-Type": "application/zip" } });
+  const original = { fetch: globalThis.fetch, create: URL.createObjectURL, revoke: URL.revokeObjectURL, auth: process.env.NEXT_PUBLIC_MOCK_AUTH };
+
+  function monthEnd(month: string): string {
+    const [year, monthNumber] = month.split("-").map(Number);
+    return `${month}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2, "0")}`;
+  }
+
+  beforeAll(() => {
+    process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+    URL.createObjectURL = (blob) => {
+      downloads.push({ filename: "", blob: blob as Blob });
+      return "blob:export";
+    };
+    URL.revokeObjectURL = () => undefined;
+    HTMLAnchorElement.prototype.click = function click() {
+      downloads.at(-1)!.filename = this.download;
+    };
+  });
+
+  afterAll(async () => {
+    (await import("../lib/business-grant")).setChosenGrant(null);
+    globalThis.fetch = original.fetch;
+    URL.createObjectURL = original.create;
+    URL.revokeObjectURL = original.revoke;
+    if (original.auth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+    else process.env.NEXT_PUBLIC_MOCK_AUTH = original.auth;
+  });
+
+  async function renderExport(chosen: typeof own | typeof client = own) {
+    calls = [];
+    downloads = [];
+    respond = async () => new Response(bytes, { headers: { "Content-Type": "application/zip" } });
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("../public/locales/es-419/common.json")).default;
+    const { BusinessContext } = await import("../components/business-app/BusinessWorkspace");
+    const { setChosenGrant } = await import("../lib/business-grant");
+    const { currentMonthKey } = await import("../lib/business-month-close");
+    const Panel = (await import("../components/business-app/BusinessMonthClosePanel")).default;
+    setChosenGrant(chosen.role === "owner" ? null : chosen.grant_id);
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    globalThis.fetch = async (input, init) => {
+      const url = new URL(String(input), "http://localhost");
+      if (url.pathname.endsWith("/business/fiscal-profile")) return Response.json({ rnc: null, can_edit: false });
+      calls.push({ url, init });
+      if (url.pathname.endsWith("/business/exports")) return respond(init);
+      const month = url.searchParams.get("month") ?? currentMonthKey();
+      return Response.json({
+        month,
+        from: `${month}-01`,
+        to: monthEnd(month),
+        closed: false,
+        reasons: [],
+        currencies: [],
+        missing_rnc: [],
+        missing_ncf: [],
+        cuentas_por_cobrar: [],
+        cuentas_por_pagar: [],
+      });
+    };
+    const value = {
+      source: { mode: "live" },
+      chosen,
+    } as unknown as BusinessContextValue;
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <BusinessContext.Provider value={value}>
+            <Panel />
+          </BusinessContext.Provider>
+        </I18nextProvider>,
+      );
+    });
+    for (let i = 0; i < 20; i += 1) await act(async () => { await Promise.resolve(); });
+    const button = () => [...host.querySelectorAll("button")].find((item) => item.textContent?.includes("Descargar CSV, Excel y originales"));
+    const exports = () => calls.filter((call) => call.url.pathname.endsWith("/business/exports"));
+    return { act, host, root, button, exports, currentMonthKey };
+  }
+
+  for (const chosen of [own, client]) test(`Inicio month close downloads the open month ZIP for ${chosen.role}`, async () => {
+    const view = await renderExport(chosen);
+    try {
+      const button = view.button();
+      assert.ok(button instanceof HTMLButtonElement);
+      assert.ok(view.host.querySelector('[data-testid="month-close"]')?.contains(button));
+      const month = view.currentMonthKey();
+      await view.act(async () => { button.click(); });
+      const sent = view.exports();
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].url.searchParams.get("start"), `${month}-01`);
+      assert.equal(sent[0].url.searchParams.get("end"), monthEnd(month));
+      assert.equal(new Headers(sent[0].init?.headers).get("X-Business-Grant"), chosen.role === "accountant" ? chosen.grant_id : null);
+      assert.equal(downloads.length, 1);
+      assert.equal(downloads[0].filename, `business-export-${month}-01-${monthEnd(month)}.zip`);
+      assert.ok(view.host.textContent?.includes(chosen.name));
+    } finally {
+      await view.act(async () => view.root.unmount());
+      view.host.remove();
+    }
+  });
+
+  test("the download follows the month close month", async () => {
+    const view = await renderExport();
+    try {
+      const month = view.currentMonthKey();
+      const { shiftMonthKey } = await import("../lib/business-month-close");
+      const previous = shiftMonthKey(month, -1);
+      const control = view.host.querySelector('[data-testid="month-close-month-prev"]');
+      assert.ok(control instanceof HTMLButtonElement);
+      await view.act(async () => { control.click(); });
+      for (let i = 0; i < 20; i += 1) await view.act(async () => { await Promise.resolve(); });
+      const button = view.button();
+      assert.ok(button instanceof HTMLButtonElement);
+      await view.act(async () => { button.click(); });
+      const sent = view.exports();
+      assert.equal(sent.at(-1)?.url.searchParams.get("start"), `${previous}-01`);
+      assert.equal(sent.at(-1)?.url.searchParams.get("end"), monthEnd(previous));
+    } finally {
+      await view.act(async () => view.root.unmount());
+      view.host.remove();
+    }
+  });
+
+  for (const [status, pattern] of [[403, /acceso actual/], [413, /período más corto/], [503, /No se pudo descargar/]] as const) {
+    test(`Inicio export refusal ${status} keeps the Gastos error and permits retry`, async () => {
+      const view = await renderExport(client);
+      try {
+        respond = async () => new Response(JSON.stringify({ code: "export_refused" }), { status });
+        const button = view.button();
+        assert.ok(button instanceof HTMLButtonElement);
+        await view.act(async () => { button.click(); });
+        assert.match(view.host.querySelector('[role="alert"]')?.textContent ?? "", pattern);
+        assert.equal(downloads.length, 0);
+        assert.equal(button.disabled, false);
+        respond = async () => new Response(bytes, { headers: { "Content-Type": "application/zip" } });
+        await view.act(async () => { button.click(); });
+        assert.equal(downloads.length, 1);
+        assert.equal(view.host.querySelector('[role="alert"]'), null);
+      } finally {
+        await view.act(async () => view.root.unmount());
+        view.host.remove();
+      }
+    });
+  }
 });

@@ -14,7 +14,9 @@ import { apiFetch } from "./argus-api-transport";
  *   Body: `status`, `settled_on`, `payment_method`. A settled status needs
  *   both a date and a method. Pending omits them.
  *
- * Money is DOP decimal text with at most two fraction digits, never a float.
+ * Each amount is decimal text with at most two fraction digits, never a float.
+ * A line keeps its currency. DOP totals leave other currencies out, and use
+ * the DOP block when the response includes one.
  * `amount` is the document total. `itbis` is the ITBIS printed on it, or null
  * when the document does not state one. The web does not invent ITBIS from a
  * rate. Net before ITBIS is invoice bases minus receipt bases, where the base
@@ -53,7 +55,9 @@ export type MonthCloseDocument = {
   occurred_on: string;
   /** Day the document is due, `YYYY-MM-DD`. Null when the document has none. */
   due_on: string | null;
-  /** Document total, DOP decimal text. */
+  /** ISO currency of this document. DOP when the record does not name one. */
+  currency: string;
+  /** Document total, decimal text in `currency`. */
   amount: string;
   /** Stated ITBIS. Null when the document does not print one. */
   itbis: string | null;
@@ -251,6 +255,7 @@ export function monthCloseSummary(documents: readonly MonthCloseDocument[]): Mon
   let invoiceItbis = ZERO;
   let receiptItbis = ZERO;
   for (const document of documents) {
+    if (document.currency !== "DOP") continue;
     const base = documentBaseCents(document);
     const itbis = parseDopCents(document.itbis ?? "0");
     if (document.kind === "invoice") {
@@ -283,8 +288,8 @@ export function monthCloseNetDisplay(
   return { state: "final", net_before_itbis: net };
 }
 
-export function documentsTotal(documents: readonly Pick<MonthCloseDocument, "amount">[]): string {
-  return formatDopCents(documents.reduce((total, document) => addCents(total, document.amount), ZERO));
+export function documentsTotal(documents: readonly Pick<MonthCloseDocument, "amount" | "currency">[]): string {
+  return formatDopCents(documents.reduce((total, document) => (document.currency === "DOP" ? addCents(total, document.amount) : total), ZERO));
 }
 
 function utcDayNumber(day: string): number {
@@ -314,6 +319,7 @@ export function statusTotals(documents: readonly MonthCloseDocument[]): Record<M
   const totals: Record<MonthCloseStatus, bigint> = { pendiente: ZERO, cobrado: ZERO, pagado: ZERO };
   const counts: Record<MonthCloseStatus, number> = { pendiente: 0, cobrado: 0, pagado: 0 };
   for (const document of documents) {
+    if (document.currency !== "DOP") continue;
     counts[document.status] += 1;
     totals[document.status] = addCents(totals[document.status], document.amount);
   }
@@ -459,13 +465,13 @@ export function readMonthCloseDocument(value: unknown): MonthCloseDocument {
   if (value.kind !== "invoice" && value.kind !== "receipt") throw new MonthCloseError("unavailable", "month close document kind is unknown");
   if (typeof value.counterparty !== "string" || value.counterparty.trim().length === 0) throw new MonthCloseError("unavailable", "month close document has no counterparty");
   if (typeof value.occurred_on !== "string" || !DAY.test(value.occurred_on)) throw new MonthCloseError("unavailable", "month close document date is unknown");
-  if (value.currency !== undefined && value.currency !== "DOP") throw new MonthCloseError("unavailable", "month close is DOP only");
   if (typeof value.status !== "string" || !statusFits(value.kind, value.status)) throw new MonthCloseError("unavailable", "month close status does not fit the document");
   return {
     id: value.id,
     kind: value.kind,
     counterparty: value.counterparty.trim(),
     occurred_on: value.occurred_on,
+    currency: lineCurrency(value.currency),
     amount: readAmount(value.amount),
     itbis: value.itbis === null || value.itbis === undefined ? null : readAmount(value.itbis),
     rnc: readNullableText(value.rnc),
@@ -513,7 +519,7 @@ function dayInMonth(monthStart: Date, day: number): string {
   return `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-type SampleInput = Omit<MonthCloseDocument, "occurred_on" | "due_on"> & { day: number; dueDay: number | null };
+type SampleInput = Omit<MonthCloseDocument, "occurred_on" | "due_on" | "currency"> & { day: number; dueDay: number | null };
 
 function sample(monthStart: Date, input: SampleInput, now: Date): MonthCloseDocument {
   const { day, dueDay, ...document } = input;
@@ -522,6 +528,7 @@ function sample(monthStart: Date, input: SampleInput, now: Date): MonthCloseDocu
   const used = currentMonth ? Math.min(day, now.getDate()) : day;
   return {
     ...document,
+    currency: "DOP",
     occurred_on: dayInMonth(monthStart, used),
     due_on: dueDay === null ? null : dayInMonth(monthStart, dueDay),
   };
@@ -562,7 +569,7 @@ function earliestMonthOf(documents: readonly MonthCloseDocument[]): string | nul
   return earliest;
 }
 
-function windowForMonth(month: string): MonthCloseWindow {
+export function windowForMonth(month: string): MonthCloseWindow {
   if (!MONTH.test(month)) throw new MonthCloseError("unavailable", "month close month is unknown");
   const [year, monthNumber] = month.split("-").map(Number);
   return { from: `${month}-01`, to: lastDayOfMonth(year, monthNumber) };
@@ -689,7 +696,16 @@ type WireLine = {
   total_minor: number;
   itbis_minor: number | null;
   status: string;
+  currency?: string;
 };
+
+const CURRENCY_CODE = /^[A-Z]{3}$/;
+
+function lineCurrency(value: unknown): string {
+  if (value === undefined || value === null || value === "") return "DOP";
+  if (typeof value !== "string" || !CURRENCY_CODE.test(value)) throw new MonthCloseError("unavailable", "month close currency is unknown");
+  return value;
+}
 
 function readWireLine(value: unknown): WireLine {
   if (!isRecord(value)) throw new MonthCloseError("unavailable", "month close document was not an object");
@@ -706,6 +722,7 @@ function readWireLine(value: unknown): WireLine {
     total_minor: value.total_minor,
     itbis_minor: value.itbis_minor,
     status: value.status,
+    currency: lineCurrency(value.currency),
   };
 }
 
@@ -716,6 +733,7 @@ function wireDocument(line: WireLine): MonthCloseDocument {
     counterparty: line.document_kind === "invoice" ? "Factura" : "Gasto",
     occurred_on: line.occurred_on,
     due_on: null,
+    currency: line.currency ?? "DOP",
     amount: minorToAmount(line.total_minor),
     itbis: line.itbis_minor === null ? null : minorToAmount(line.itbis_minor),
     rnc: null,
