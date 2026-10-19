@@ -2136,6 +2136,27 @@
   },
   "business": {
     "dgii": {
+      "rnc_check": {
+        "aria": "Estado del RNC: {{label}}",
+        "missing": {
+          "label": "Sin RNC",
+          "reason": "El recibo no tiene RNC. Agrégalo para poder reportarlo en el 606.",
+          "action": "Agregar RNC",
+          "approval_title": "Este recibo no tiene RNC. ¿Aprobar de todos modos?",
+          "approval_body": "Tendrás que agregar el RNC antes de exportar el 606."
+        },
+        "invalid_length": {
+          "label": "RNC con error",
+          "reason": "El RNC debe tener 9 dígitos (empresa) u 11 (cédula). Revisa que esté bien escrito.",
+          "action": "Editar RNC",
+          "approval_title": "Este RNC tiene un error. ¿Aprobar de todos modos?",
+          "approval_body": "Tendrás que corregirlo antes de exportar el 606."
+        },
+        "unverified": {
+          "label": "RNC sin verificar",
+          "reason": "Todavía no lo hemos verificado con la DGII."
+        }
+      },
       "business_rnc": "RNC del negocio",
       "save_rnc": "Guardar RNC",
       "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
@@ -2275,7 +2296,7 @@
       "settle_failed": "No se pudo marcar el resto como atendido. Revisa el registro actual antes de intentarlo de nuevo.",
       "title": "Revisar registro",
       "unknown": "Desconocido",
-      "rnc_unknown": "RNC desconocido",
+      "rnc_unknown": "Sin RNC",
       "owner_unknown": "El dueño no sabe",
       "owner_funds": "Dinero del dueño",
       "business_account": "Cuenta del negocio",
