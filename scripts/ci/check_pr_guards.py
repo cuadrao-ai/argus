@@ -138,7 +138,7 @@ def parse_names(blob: bytes) -> list[str]:
     return [decode_field(field) for field in nul_fields(blob)]
 
 
-def resolve_merge_base(root: Path, base: str) -> str:
+def resolve_merge_base(root: Path, base: str, tip: str) -> str:
     if not base:
         raise GuardError(MISSING_BASE)
     present = subprocess.run(
@@ -149,7 +149,7 @@ def resolve_merge_base(root: Path, base: str) -> str:
     if present.returncode != 0:
         raise GuardError(MISSING_BASE)
     result = subprocess.run(
-        ["git", "merge-base", base, "HEAD"],
+        ["git", "merge-base", base, tip],
         cwd=root,
         capture_output=True,
         text=True,
@@ -159,7 +159,7 @@ def resolve_merge_base(root: Path, base: str) -> str:
     return result.stdout.strip()
 
 
-def git_diff(root: Path, merge_base: str, mode: str) -> bytes:
+def git_diff(root: Path, merge_base: str, mode: str, tip: str) -> bytes:
     result = subprocess.run(
         [
             "git",
@@ -167,7 +167,7 @@ def git_diff(root: Path, merge_base: str, mode: str) -> bytes:
             "-z",
             mode,
             "--find-renames",
-            f"{merge_base}...HEAD",
+            f"{merge_base}...{tip}",
         ],
         cwd=root,
         capture_output=True,
@@ -177,10 +177,12 @@ def git_diff(root: Path, merge_base: str, mode: str) -> bytes:
     return result.stdout
 
 
-def load_changes(root: Path, base: str) -> tuple[list[str], list[ChangedFile]]:
-    merge_base = resolve_merge_base(root, base)
-    names = parse_names(git_diff(root, merge_base, "--name-only"))
-    changes = parse_numstat(git_diff(root, merge_base, "--numstat"))
+def load_changes(
+    root: Path, base: str, tip: str
+) -> tuple[list[str], list[ChangedFile]]:
+    merge_base = resolve_merge_base(root, base, tip)
+    names = parse_names(git_diff(root, merge_base, "--name-only", tip))
+    changes = parse_numstat(git_diff(root, merge_base, "--numstat", tip))
     return names, changes
 
 
@@ -302,9 +304,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = args.root if args.root is not None else Path(__file__).resolve().parents[2]
     base = args.base.strip() or os.environ.get("PR_BASE_SHA", "").strip()
+    tip = os.environ.get("PR_HEAD_SHA", "").strip() or "HEAD"
     try:
         labels = event_labels()
-        names, changes = load_changes(root, base)
+        names, changes = load_changes(root, base, tip)
     except GuardError as exc:
         print(exc, file=sys.stderr)
         return 1

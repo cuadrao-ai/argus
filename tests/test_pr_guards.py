@@ -57,6 +57,7 @@ def run_check(
     base: str,
     command: str,
     labels: list[str],
+    head: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     event = repo / f"{command}-event.json"
     payload = {"pull_request": {"labels": [{"name": label} for label in labels]}}
@@ -64,6 +65,9 @@ def run_check(
     env = os.environ.copy()
     env["GITHUB_EVENT_PATH"] = str(event)
     env["PR_BASE_SHA"] = base
+    env.pop("PR_HEAD_SHA", None)
+    if head is not None:
+        env["PR_HEAD_SHA"] = head
     return subprocess.run(
         [sys.executable, str(CHECKER), command, "--root", str(repo)],
         capture_output=True,
@@ -270,6 +274,52 @@ def test_missing_merge_base_fails(tmp_path: Path) -> None:
     assert "merge base" in result.stderr.lower()
 
 
+def test_merge_checkout_with_stale_base_judges_the_pull_request_head(
+    tmp_path: Path,
+) -> None:
+    repo, stale_base = init_repo(tmp_path)
+    branch = git(repo, "rev-parse", "--abbrev-ref", "HEAD")
+    git(repo, "checkout", "-q", "-b", "feature")
+    commit_lines(repo, "src/app.py", 10)
+    feature = git(repo, "rev-parse", "HEAD")
+    git(repo, "checkout", "-q", branch)
+    commit_text(repo, "web/public/locales/en/common.json", "{}\n")
+    commit_lines(repo, "src/base_only.py", 900)
+    git(repo, "merge", "-q", "--no-ff", feature, "-m", "merge feature")
+
+    blamed = run_check(repo, stale_base, "hotspot", [])
+    judged = run_check(repo, stale_base, "hotspot", [], head=feature)
+    size = run_check(repo, stale_base, "size", [], head=feature)
+
+    assert blamed.returncode == 1
+    assert blamed.stderr.splitlines() == [
+        "web/public/locales/en/common.json",
+        HOTSPOT_SENTENCE,
+    ]
+    assert judged.returncode == 0
+    assert judged.stderr == ""
+    assert size.returncode == 0
+    assert "counted 10\n" in size.stdout
+    assert "src/app.py 10" in size.stdout
+    assert "src/base_only.py" not in size.stdout
+    assert "common.json" not in size.stdout
+
+
+def test_missing_pull_request_head_fails(tmp_path: Path) -> None:
+    repo, base = init_repo(tmp_path)
+
+    result = run_check(
+        repo,
+        base,
+        "hotspot",
+        [],
+        head="c0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ff",
+    )
+
+    assert result.returncode == 1
+    assert "merge base" in result.stderr.lower()
+
+
 def test_agents_states_the_label_rule() -> None:
     text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
 
@@ -304,3 +354,4 @@ def test_workflow_runs_both_guards_without_a_path_filter() -> None:
             if step.get("run") == f"python scripts/ci/check_pr_guards.py {command}"
         )
         assert check["env"]["PR_BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
+        assert check["env"]["PR_HEAD_SHA"] == "${{ github.event.pull_request.head.sha }}"
