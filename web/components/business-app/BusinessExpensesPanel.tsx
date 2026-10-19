@@ -93,7 +93,7 @@ export default function BusinessExpensesPanel() {
           {t("business.expenses.error", "We couldn't load your expenses. Try again.")}
         </p>
       ) : items === null ? (
-        <Settle pending layout="rows" />
+        <Settle pending layout="expenses" />
       ) : items.length === 0 ? (
         <div className={`${cardClass} text-center text-[14px] text-black/55 dark:text-white/55`}>
           {t("business.expenses.empty", "No expenses saved in this period.")}

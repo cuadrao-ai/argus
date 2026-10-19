@@ -38,6 +38,7 @@ def signup_context(monkeypatch):
         email=fake.email(),
         password=fake.password(length=16),
         captcha_token=fake.uuid4(),
+        age_confirmed_at="2026-01-01T00:00:00Z",
     )
     return request, body, gateway
 
