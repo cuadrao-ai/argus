@@ -34,8 +34,8 @@ async function render(node: import("react").ReactNode) {
   };
 }
 
-describe("status is a word, a color, and a dot", () => {
-  test("each receipt status shows its Spanish name, ink, and dot", async () => {
+describe("status is an icon, a word, and a color", () => {
+  test("each receipt status shows its icon and Spanish name on its locked colors", async () => {
     const { StatusPill } = await import("@/components/business-app/foundation/StatusPill");
     const page = await render(
       <>
@@ -44,14 +44,18 @@ describe("status is a word, a color, and a dot", () => {
         <StatusPill status="saved" />
       </>,
     );
-    const pills = [...page.host.querySelectorAll('[data-testid="status-pill"]')];
+    const pills = [...page.host.querySelectorAll<HTMLElement>('[data-testid="status-pill"]')];
     assert.deepEqual(pills.map((pill) => pill.textContent), ["Aprobado", "Necesita atención", "Pendiente"]);
     assert.deepEqual(pills.map((pill) => pill.getAttribute("data-status")), ["approved", "needs_attention", "pending"]);
-    const approved = BUSINESS_STATUS.approved;
-    assert.match(pills[0].getAttribute("style") ?? "", new RegExp(approved.ink, "i"));
-    assert.match(pills[0].getAttribute("style") ?? "", new RegExp(approved.surface, "i"));
-    assert.match(pills[0].querySelector('[data-testid="status-dot"]')?.getAttribute("style") ?? "", new RegExp(approved.ink, "i"));
-    assert.equal(pills.every((pill) => pill.querySelector('[data-testid="status-dot"]')), true);
+    const icons = pills.map((pill) => pill.querySelector("svg"));
+    assert.deepEqual(icons.map((icon) => [...(icon?.classList ?? [])].find((name) => /^lucide-(circle-check|clock|circle-alert)$/.test(name))), ["lucide-circle-check", "lucide-circle-alert", "lucide-clock"]);
+    assert.ok(icons.every((icon) => icon?.getAttribute("aria-hidden") === "true" && icon.getAttribute("width") === "14" && icon.getAttribute("height") === "14"));
+    for (const [index, name] of (["approved", "needs_attention", "pending"] as const).entries()) {
+      assert.match(pills[index].getAttribute("style") ?? "", new RegExp(BUSINESS_STATUS[name].ink, "i"));
+      assert.match(pills[index].getAttribute("style") ?? "", new RegExp(BUSINESS_STATUS[name].surface, "i"));
+    }
+    assert.ok(pills.every((pill) => /(^|\s)h-6(\s|$)/.test(pill.className) && /rounded-full/.test(pill.className) && /px-2/.test(pill.className) && /text-\[12px\]/.test(pill.className) && /leading-4/.test(pill.className) && /font-medium/.test(pill.className)));
+    assert.equal(page.host.querySelector('[data-testid="status-dot"]'), null);
     await page.close();
   });
 
