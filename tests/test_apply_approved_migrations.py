@@ -1004,6 +1004,27 @@ def test_the_staging_dgii_export_month_close_record_holds_inside_its_window() ->
         )
 
 
+_STAGING_APPROVAL_D = (
+    "docs/release-manifests/2026-10-19-staging-bank-import-receipt-address-apply.json"
+)
+_STAGING_SHA_D = "471d4dd778fe2bf6e70af2327a0e77db74d65e88"
+_STAGING_VERSIONS_D = ["20261019020000", "20261019040000"]
+
+
+def test_the_staging_bank_import_receipt_address_record_holds_inside_its_window() -> None:
+    text = (Path(__file__).resolve().parents[1] / _STAGING_APPROVAL_D).read_text()
+    approval = _staging_approval(_STAGING_APPROVAL_D, _STAGING_SHA_D, _STAGING_VERSIONS_D)
+    expires = datetime.fromisoformat("2026-10-22T13:00:00-05:00")
+    assert (approval.id, approval.expires_at) == ("staging-apply-2026-10-19-a", expires)
+    for v in (["20261018230000", *_STAGING_VERSIONS_D], _STAGING_VERSIONS_D[:1]):
+        with pytest.raises(applier.ApplyError, match="different list of versions"):
+            applier.parse_hosted_approval(text, _STAGING_SHA_D, v, (), _STAGING_NOW)
+    with pytest.raises(applier.ApplyError, match="not valid now"):
+        applier.parse_hosted_approval(
+            text, _STAGING_SHA_D, _STAGING_VERSIONS_D, (), expires
+        )
+
+
 _STAGING_REF = "skedzwocnmrhfigiwyzi"
 _STAGING_DIRECT = f"db.{_STAGING_REF}.supabase.co"
 _STAGING_POOLER = "aws-0-us-east-1.pooler.supabase.com"
@@ -1014,6 +1035,7 @@ _STAGING_RECORDS = (
     (_STAGING_APPROVAL, _STAGING_SHA, _STAGING_VERSIONS),
     (_STAGING_APPROVAL_B, _STAGING_SHA_B, _STAGING_VERSIONS_B),
     (_STAGING_APPROVAL_C, _STAGING_SHA_C, _STAGING_VERSIONS_C),
+    (_STAGING_APPROVAL_D, _STAGING_SHA_D, _STAGING_VERSIONS_D),
 )
 
 
