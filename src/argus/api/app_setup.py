@@ -13,6 +13,7 @@ from loguru import logger
 from pydantic_core import ErrorType
 
 from argus.api import state as api_state
+from argus.api.age_confirmation import age_confirmation_response_code
 from argus.api.apple_sign_in import AppleCaptureFlagGateMiddleware
 from argus.api.chat.refusal_evidence import record_http_rejection
 from argus.api.dependencies import (
@@ -184,6 +185,9 @@ async def validation_exception_handler(  # type: ignore[no-untyped-def]
         getattr(request.state, "request_id", api_state.store.new_id()),
         exc.errors(),
     )
+    code = age_confirmation_response_code(exc.errors())
+    if code is not None:
+        body["code"] = code
 
     origin = request.headers.get("origin")
     headers: dict[str, str] = {}

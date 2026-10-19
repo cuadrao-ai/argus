@@ -212,7 +212,7 @@ def build_fiscal_packet(
 
     def collect(subject: FiscalRecord) -> list[dict]:
         found = record_issues(subject, originals, filer_identity=rnc, period_end=end)
-        return found + hard_rejects(subject, registry)
+        return found + hard_rejects(subject)
 
     for record in selected:
         gross = Decimal(record.amount)

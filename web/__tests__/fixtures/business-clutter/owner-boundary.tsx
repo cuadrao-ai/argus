@@ -29,18 +29,6 @@ test("actual BusinessApp owner boundary rejects delayed prior-owner dismissal an
   const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   const { default: BusinessApp } = await import("@/components/business-app/BusinessApp");
-  const { rememberPrivacyNoticeAcceptance } = await import("@/lib/business-privacy-notice-client");
-  const { BUSINESS_PRIVACY_NOTICE_VERSION, currentNoticeHashes } = await import("@/lib/business-privacy-notice");
-  const textSha256 = (await currentNoticeHashes())["es-419"];
-  for (const userId of ["owner-a", "owner-b"]) {
-    rememberPrivacyNoticeAcceptance({
-      userId,
-      acceptedAt: "2026-10-18T12:00:00.000Z",
-      noticeVersion: BUSINESS_PRIVACY_NOTICE_VERSION,
-      locale: "es-419",
-      textSha256,
-    });
-  }
   const original = { ...liveBusinessDataSource };
   const seen = new Set<string>();
   let releaseDismissal!: () => void;
