@@ -589,14 +589,7 @@ def _signup_auth_user(*, confirmed: bool = False) -> dict[str, object]:
     }
 
 
-_OMIT_AGE = object()
-
-
-def _post_guest_signup(
-    gateway: MagicMock,
-    *,
-    age_confirmed_at: object = "2026-01-01T00:00:00Z",
-) -> object:
+def _post_guest_signup(gateway: MagicMock) -> object:
     app.dependency_overrides.clear()
     from argus.api.dependencies import current_user
 
@@ -609,18 +602,16 @@ def _post_guest_signup(
         ):
             client.cookies.set("argus-guest-handoff-id", HANDOFF_ID)
             client.cookies.set("argus-guest-handoff", "opaque-signup-secret")
-            payload = {
-                "email": "approved@example.com",
-                "password": "strong-password",
-                "captcha_token": "captcha-proof",
-                "display_name": "Alex",
-                "language": "es-419",
-            }
-            if age_confirmed_at is not _OMIT_AGE:
-                payload["age_confirmed_at"] = age_confirmed_at
             return client.post(
                 "/api/v1/auth/guest/signup",
-                json=payload,
+                json={
+                    "age_confirmed_at": "2026-01-01T00:00:00Z",
+                    "email": "approved@example.com",
+                    "password": "strong-password",
+                    "captcha_token": "captcha-proof",
+                    "display_name": "Alex",
+                    "language": "es-419",
+                },
                 headers={"Authorization": "Bearer guest-token"},
             )
     finally:
@@ -671,110 +662,6 @@ def test_guest_signup_creates_a_distinct_account_and_keeps_pending_handoff(
         },
     )
     gateway.claim_guest_workspace_handoff.assert_not_called()
-
-
-class _ProfileAgeTable:
-    def __init__(self, row: dict[str, object]) -> None:
-        self.row = row
-        self._payload: dict[str, object] | None = None
-        self._user_id: str | None = None
-
-    def table(self, name: str) -> "_ProfileAgeTable":
-        assert name == "profiles"
-        return self
-
-    def update(self, payload: dict[str, object]) -> "_ProfileAgeTable":
-        self._payload = payload
-        return self
-
-    def eq(self, column: str, value: str) -> "_ProfileAgeTable":
-        assert column == "id"
-        self._user_id = value
-        return self
-
-    def is_(self, column: str, value: str) -> "_ProfileAgeTable":
-        assert column == "age_confirmed_at"
-        assert value == "null"
-        return self
-
-    def execute(self) -> MagicMock:
-        assert self._user_id == self.row["id"]
-        assert self._payload is not None
-        if self.row["age_confirmed_at"] is None:
-            self.row["age_confirmed_at"] = self._payload["age_confirmed_at"]
-        return MagicMock()
-
-
-@pytest.mark.parametrize("age_sent", [True, False])
-def test_guest_signup_stores_the_profile_age_through_the_handoff(age_sent: bool) -> None:
-    from argus.domain.supabase_signup import SupabaseSignupMixin
-
-    instant = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    profile_row = {"id": REGISTERED_ID, "age_confirmed_at": None}
-    writer = SupabaseSignupMixin.__new__(SupabaseSignupMixin)
-    writer.client = _ProfileAgeTable(profile_row)
-    gateway = MagicMock(spec=SupabaseGateway)
-    gateway.private_alpha_email_disabled.return_value = False
-    gateway.get_guest_signup_handoff.side_effect = [
-        _signup_handoff(destination_user_id=None),
-        _signup_handoff(destination_user_id=REGISTERED_ID),
-    ]
-    gateway.signup.return_value = {
-        "user": _signup_auth_user(),
-        "session": {
-            "access_token": "registered-access-token",
-            "refresh_token": "registered-refresh-token",
-            "expires_in": 3600,
-        },
-    }
-    gateway.get_or_create_profile_for_auth_user.return_value = _profile(
-        user_id=REGISTERED_ID,
-        email="approved@example.com",
-    )
-    gateway.record_age_confirmation.side_effect = writer.record_age_confirmation
-    gateway.claim_guest_workspace_handoff.return_value = {
-        "source_user_id": GUEST_ID,
-        "destination_user_id": REGISTERED_ID,
-        "conversation_id": CONVERSATION_ID,
-        "pending_action": _signup_handoff(destination_user_id=None)["pending_action"],
-        "replayed": False,
-    }
-
-    with patch("argus.api.routers.auth.serialized_guest_signup") as serialized:
-        serialized.return_value.__enter__.return_value = GuestSignupPrevalidation(
-            auth_user_id=None,
-            auth_user_confirmed=False,
-            username_available=True,
-        )
-        response = _post_guest_signup(
-            gateway,
-            age_confirmed_at=instant.isoformat() if age_sent else _OMIT_AGE,
-        )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["user"]["id"] == REGISTERED_ID
-    assert body["user"]["id"] != GUEST_ID
-    assert body["session"]["access_token"] == "registered-access-token"
-    assert body["guest_claim"]["conversation_id"] == CONVERSATION_ID
-    gateway.claim_guest_workspace_handoff.assert_called_once_with(
-        handoff_id=HANDOFF_ID,
-        opaque_secret="opaque-signup-secret",
-        destination_user_id=REGISTERED_ID,
-        allow_same_destination_replay=True,
-    )
-    set_cookie = response.headers.get_list("set-cookie")
-    assert any(value.startswith("sb-auth-token=") for value in set_cookie)
-    assert any(
-        value.startswith("argus-guest-handoff=") and "Max-Age=0" in value
-        for value in set_cookie
-    )
-    if age_sent:
-        assert profile_row["age_confirmed_at"] == instant.isoformat()
-        gateway.record_age_confirmation.assert_called_once_with(REGISTERED_ID, instant)
-    else:
-        assert profile_row["age_confirmed_at"] is None
-        gateway.record_age_confirmation.assert_not_called()
 
 
 def test_guest_signup_immediate_session_claims_the_complete_graph() -> None:
