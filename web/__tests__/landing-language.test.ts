@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import english from "../public/locales/en/common.json";
 import spanish from "../public/locales/es-419/common.json";
-import { accountLanguageToApply, commitShellLanguage, defaultLanguage, documentLanguage, fallbackChain, languageDetectionCaches, languageDetectionOrder, languageToShow } from "../lib/language-features";
+import { ALL_LANGUAGES, accountLanguageToApply, commitShellLanguage, defaultLanguage, documentLanguage, fallbackChain, landingLanguageChoices, languageDetectionCaches, languageDetectionOrder, languageToShow } from "../lib/language-features";
 
 const root = join(import.meta.dir, "..");
 
@@ -68,6 +68,13 @@ describe("the language a visitor sees first", () => {
     expect(login).toContain("saveProfileLanguage(i18n, chosenLanguage");
     // Signup already sends the shown language with the account.
     expect(page).toContain("language: normalizeApiLanguage(i18n.resolvedLanguage ?? i18n.language)");
+    expect(page).toContain("landingLanguageChoices(businessPilotEnabled, shownLanguage)");
+  });
+
+  test("Business hides the landing language link and a consumer page still offers the other language", () => {
+    expect(landingLanguageChoices(true, "es-419", ALL_LANGUAGES)).toEqual([]);
+    expect(landingLanguageChoices(false, "es-419", ALL_LANGUAGES).map((language) => language.name)).toEqual(["English"]);
+    expect(landingLanguageChoices(false, "en", ALL_LANGUAGES).map((language) => language.name)).toEqual(["Español"]);
   });
 });
 
