@@ -9188,7 +9188,9 @@ A recorded `approval_result` carries `activity_id`, the approving `actor`,
 approvals and settlements), `approved_revision` (the latest `history` version
 at or below `reviewed_version`: the facts revision the person approved) and
 `approved_at` (when the approval receipt was written). Marks and 606 answers
-after approval add `history` revisions without changing either field.
+after approval add `history` revisions without changing either field. So does
+an expense approval whose draft holds no 606 declaration: it adds one revision
+at the next version with the declaration built from the reviewed facts.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
 and `Idempotency-Key`. The same existing
