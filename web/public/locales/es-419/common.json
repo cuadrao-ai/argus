@@ -2131,6 +2131,15 @@
     }
   },
   "business": {
+    "date_picker": {
+      "next_month": "Mes siguiente",
+      "open": "[placeholder] business.date_picker.open",
+      "placeholder": "dd/mm/aaaa",
+      "previous_month": "Mes anterior",
+      "today": "Hoy",
+      "weekdays": "lu ma mi ju vi sá do",
+      "yesterday": "Ayer"
+    },
     "dgii": {
       "rnc_check": {
         "aria": "Estado del RNC: {{label}}",

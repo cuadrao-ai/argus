@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import MoneyInput from "@/components/money/MoneyInput";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessFacts, BusinessFactField, BusinessFactInput, BusinessFactPatch } from "@/lib/business-dossier";
 import { RECEIPT_CATEGORY_IDS } from "./business-format";
-import { DayTextInput } from "./foundation/DayTextInput";
+import { DatePicker } from "./foundation/DatePicker";
 import { useCategoryLabel } from "./business-ui";
 
 const inputClass = "mt-1.5 block min-h-11 w-full rounded-[12px] border border-black/10 bg-white px-3 text-[16px] text-black outline-none focus-visible:ring-2 focus-visible:ring-black/20 disabled:opacity-50 dark:border-white/10 dark:bg-[#141517] dark:text-white dark:focus-visible:ring-white/20";
@@ -23,6 +23,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
 }) {
   const { t } = useTranslation();
   const controls = useRef<HTMLDivElement>(null);
+  const dateId = useId();
   useEffect(() => {
     if (autoFocus) controls.current?.querySelector<HTMLInputElement | HTMLSelectElement>("input, select")?.focus();
   }, [autoFocus]);
@@ -48,7 +49,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
         else if (facts.kind.state === "known" && event.target.value === facts.kind.value) set("kind", { state: "known", value: facts.kind.value });
       }}><option value="">{choose}</option>{(["expense", "income", "refund"] as const).map((kind) => <option key={kind} value={kind}>{t(`business.dossier.kind.${kind}`, kind)}</option>)}{facts.kind.state === "known" && !["expense", "income", "refund"].includes(facts.kind.value) ? <option value={facts.kind.value}>{t(`business.dossier.kind.${facts.kind.value}`, facts.kind.value)}</option> : null}</select></label> : null}
       {field === "counterparty" ? <label className="block text-[13px] text-black/65 dark:text-white/65">{label("counterparty")}<input className={inputClass} value={scalar("counterparty")} disabled={disabled} onChange={(event) => setScalar("counterparty", event.target.value)} autoComplete="off" /></label> : null}
-      {field === "occurred_on" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("occurred_on")}</span><DayTextInput className={inputClass} value={(patch.occurred_on ?? facts.occurred_on).value ?? ""} disabled={disabled} onChange={(iso, invalid) => set("occurred_on", iso ? { state: "known", value: iso } : { state: "unknown", value: null }, invalid)} /></label> : null}
+      {field === "occurred_on" ? <div className="mt-1.5"><label htmlFor={dateId} className="sr-only">{label("occurred_on")}</label><DatePicker id={dateId} value={(patch.occurred_on ?? facts.occurred_on).value ?? ""} disabled={disabled} onChange={(iso, invalid) => set("occurred_on", iso ? { state: "known", value: iso } : { state: "unknown", value: null }, invalid)} /></div> : null}
       {field === "currency" ? <label className="text-[13px] text-black/65 dark:text-white/65">{label("currency")}<select className={inputClass} value={scalar("currency")} disabled={disabled} onChange={(event) => setScalar("currency", event.target.value)}><option value="">{choose}</option>{[...new Set([...currencies, ...(scalar("currency") ? [scalar("currency")] : [])])].map((currency) => <option key={currency}>{currency}</option>)}</select></label> : null}
       {field === "amount" ? <MoneyInput label={label("amount")} currency={scalar("currency")} value={scalar("amount") || null} disabled={disabled} onValueChange={({ value, invalid }) => { set("amount", value ? { state: "known", value } : { state: "unknown", value: null }, invalid); }} testId="dossier-review-amount" /> : null}
       {field === "funding" ? <label className="block text-[13px] text-black/65 dark:text-white/65">{label("funding")}<select className={inputClass} value={fundingValue} disabled={disabled} onChange={(event) => {

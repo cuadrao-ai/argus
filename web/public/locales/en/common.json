@@ -2131,6 +2131,15 @@
     }
   },
   "business": {
+    "date_picker": {
+      "next_month": "Next month",
+      "open": "Open calendar",
+      "placeholder": "dd/mm/yyyy",
+      "previous_month": "Previous month",
+      "today": "Today",
+      "weekdays": "Mo Tu We Th Fr Sa Su",
+      "yesterday": "Yesterday"
+    },
     "dgii": {
       "rnc_check": {
         "aria": "RNC status: {{label}}",
