@@ -14,6 +14,7 @@ from argus.domain.ingestion.documents import preparation
 from argus.domain.ingestion.documents.email_source import MAX_EMAIL_BYTES
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 from argus.domain.ingestion.documents.service import stored_filename
+from argus.domain.ingestion.email_intake.alignment import from_address
 from argus.domain.ingestion.gmail.html_text import html_to_text
 
 MAX_BODY_BYTES = 64 * 1024
@@ -118,7 +119,7 @@ def parse_envelope(content: bytes) -> Envelope:
 
     return Envelope(
         header("subject"),
-        header("from"),
+        from_address(content),
         header("date"),
         "\n".join(plain or html)[:MAX_BODY_BYTES],
         tuple(parts),
