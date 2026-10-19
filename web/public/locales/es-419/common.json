@@ -2136,6 +2136,27 @@
   },
   "business": {
     "dgii": {
+      "rnc_check": {
+        "aria": "Estado del RNC: {{label}}",
+        "missing": {
+          "label": "Sin RNC",
+          "reason": "El recibo no tiene RNC. Agrégalo para poder reportarlo en el 606.",
+          "action": "Agregar RNC",
+          "approval_title": "Este recibo no tiene RNC. ¿Aprobar de todos modos?",
+          "approval_body": "Tendrás que agregar el RNC antes de exportar el 606."
+        },
+        "invalid_length": {
+          "label": "RNC con error",
+          "reason": "El RNC debe tener 9 dígitos (empresa) u 11 (cédula). Revisa que esté bien escrito.",
+          "action": "Editar RNC",
+          "approval_title": "Este RNC tiene un error. ¿Aprobar de todos modos?",
+          "approval_body": "Tendrás que corregirlo antes de exportar el 606."
+        },
+        "unverified": {
+          "label": "RNC sin verificar",
+          "reason": "Todavía no lo hemos verificado con la DGII."
+        }
+      },
       "business_rnc": "RNC del negocio",
       "save_rnc": "Guardar RNC",
       "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
@@ -2275,7 +2296,7 @@
       "settle_failed": "No se pudo marcar el resto como atendido. Revisa el registro actual antes de intentarlo de nuevo.",
       "title": "Revisar registro",
       "unknown": "Desconocido",
-      "rnc_unknown": "RNC desconocido",
+      "rnc_unknown": "Sin RNC",
       "owner_unknown": "El dueño no sabe",
       "owner_funds": "Dinero del dueño",
       "business_account": "Cuenta del negocio",
@@ -2516,8 +2537,8 @@
     "file_read": {
       "unreadable_title": "No pudimos leer este archivo",
       "unreadable_body": "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz, o escribe los datos a mano.",
-      "not_a_receipt_title": "Esto no parece un recibo",
-      "not_a_receipt_body": "Leímos el archivo, pero no encontramos una compra con su total. Los estados de cuenta y los avisos de pago no van aquí. Si es una factura que tú emitiste, márcala como Venta.",
+      "not_a_receipt_title": "Este archivo no parece un recibo ni una factura",
+      "not_a_receipt_body": "Sube la foto o el PDF de un comprobante.",
       "upload_another": "Subir otro archivo",
       "enter_details": "Escribir datos"
     },
@@ -2671,6 +2692,8 @@
       "pending_reason_one": "{{count}} documento pendiente",
       "pending_reason_other": "{{count}} documentos pendientes",
       "previous_month": "Mes anterior",
+      "itbis_credit_label": "Saldo a favor de ITBIS",
+      "itbis_credit_line": "Este mes pagaste más ITBIS del que cobraste. Normalmente esa diferencia queda como saldo a favor para los próximos meses; tu contador lo confirma en el IT-1.",
       "itbis_label": "ITBIS a pagar",
       "itbis_hint": "ITBIS de las facturas menos ITBIS de los gastos.",
       "receivable_title": "Por cobrar",
@@ -2685,6 +2708,7 @@
       "status_vencida": "Vencida",
       "kind_invoice": "Factura",
       "kind_receipt": "Gasto",
+      "filing_ready": "Ya tienes todo para el 606 y el 607. Cierra el mes cuando termines de marcar lo cobrado y lo pagado.",
       "filter_label": "Estado",
       "filter_all": "Todos",
       "filter_all_hint": "Facturas y gastos",

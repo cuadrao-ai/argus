@@ -3537,9 +3537,11 @@ identity and ITBIS remain in `BusinessFacts.fiscal`.
 
 The existing human `ReviewCommand` carries the tax input. It updates the current
 open resolution and appends one source-linked revision atomically. Every later
-revision preserves the declaration. Owner approval binds the reviewed revision;
-the export reads that revision's facts and declaration, then checks current money
-amount, date and currency. Accepted-record tax edits remain refused. No second
+revision preserves the declaration. Owner approval binds the reviewed revision.
+When the draft holds no declaration, an expense approval appends one revision at
+the next version, with a 606 declaration built from the reviewed facts. The export
+reads the reviewed revision's facts and the declaration from it or from that
+approval revision, then checks current money amount, date and currency. Accepted-record tax edits remain refused. No second
 tax ledger or fiscal approval bypass is added. New human-only action receipt
 types `approve_refund` and `set_business_rnc` retain the existing immutable actor,
 command hash and idempotency rules. The migration uses five-second lock and

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDossier, BusinessFactField } from "@/lib/business-dossier";
+import RncStatusBlock from "./RncStatusBlock";
 import { useCategoryLabel } from "./business-ui";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import { fiscalFactRows, recordFactRows, reviewCounts, type FactStanding } from "./receipt-fact-rows";
@@ -25,10 +26,11 @@ const STYLE: Record<FactStanding, StandingStyle> = {
 };
 const BLOCKED: StandingStyle = { Icon: AlertCircle, className: "text-[var(--rui-color-danger)]", chip: "border-[var(--rui-color-danger)]/50 text-[var(--rui-color-danger)]" };
 
-export default function ReceiptRecordFacts({ dossier, accounts, onEdit, editor }: {
+export default function ReceiptRecordFacts({ dossier, accounts, onEdit, onEditRnc, editor }: {
   dossier: BusinessDossier;
   accounts: BusinessAccount[];
   onEdit?: (key: BusinessFactField) => void;
+  onEditRnc?: () => void;
   editor?: (key: BusinessFactField) => ReactNode;
 }) {
   const { t, i18n } = useTranslation();
@@ -55,7 +57,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, editor }
   // Without an NCF and an e-CF the record has no fiscal receipt number: one row
   // says so, in the chip's words, in place of two empty ones.
   const noFiscal = dossier.fiscal_known === true && !dossier.fiscal_value;
-  const shownFiscalRows = noFiscal ? fiscalRows.filter(({ key }) => key !== "ncf" && key !== "ecf") : fiscalRows;
+  const shownFiscalRows = noFiscal ? fiscalRows.filter(({ key }) => key !== "ncf" && key !== "ecf") : [...fiscalRows];
+  if (!shownFiscalRows.some(({ key }) => key === "rnc")) shownFiscalRows.push({ key: "rnc", standing: "empty", blocked: false, asked: false });
 
   const standingText = (standing: FactStanding, origin: string | null, blocked: boolean) => {
     if (standing === "verified") return t("business.dossier.verified", "Verified");
@@ -119,6 +122,10 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, editor }
               </div>
             ) : null}
             {shownFiscalRows.map(({ key, standing }) => {
+              if (key === "rnc") return <div key={key} data-fact="rnc" className="py-3 first:pt-0 last:pb-0">
+                <dt className="text-[12px] font-medium text-black/55 dark:text-white/55">{t("business.dossier.field.rnc", "RNC")}</dt>
+                <dd className="mt-0.5 break-words text-[15px] text-black/85 dark:text-white/85"><RncStatusBlock fact={fiscal?.rnc} onEditRnc={onEditRnc} /></dd>
+              </div>;
               const fact = fiscal?.[key];
               const value = presentFiscalFact(key, dossier.facts, locale, { ...labels, notRecorded: t("business.dossier.not_recorded", "Not recorded"), rncUnknown: t("business.dossier.rnc_unknown", "Unknown RNC") });
               // NCF and e-CF are alternatives and no blocker names a fiscal field: an empty one is "Sin dato", never "Falta".
