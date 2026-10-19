@@ -71,7 +71,7 @@ private struct GuestModeHost<Content: View>: View {
                 WelcomePalette.brandPaper.ignoresSafeArea().accessibilityIdentifier("guest.launching")
             case .guest:
                 if let model = controller.model {
-                    AgeRangeObservationView {
+                    AgeRangeObservationView(observation: auth.ageRangeObservation) {
                         GuestRoot(model: model, appearance: $appearance,
                                   leave: { controller.leave() }, deleteData: { await controller.deleteDataAndLeave() })
                             .environment(\.guestReceipts, controller.receipts)

@@ -6,13 +6,16 @@ import OSLog
 final class AgeRangeObservation: ObservableObject {
     static let shared = AgeRangeObservation(checker: AppleAgeRangeChecker())
     private(set) var assessment: DeclaredAgeAssessment?
+    private(set) var adultConfirmedAt: Date?
+    private let now: () -> Date
     private let checker: any AgeRangeChecking
     private let record: (DeclaredAgeAssessment) -> Void
     private var requestID: UUID?
     private var task: Task<Void, Never>?
 
-    init(checker: any AgeRangeChecking, record: ((DeclaredAgeAssessment) -> Void)? = nil) {
+    init(checker: any AgeRangeChecking, now: @escaping () -> Date = Date.init, record: ((DeclaredAgeAssessment) -> Void)? = nil) {
         self.checker = checker
+        self.now = now
         self.record = record ?? { assessment in
             Logger(subsystem: "local.cuadrao.age-range", category: "observation")
                 .notice("result=\(assessment.rawValue, privacy: .public)")
@@ -37,6 +40,7 @@ final class AgeRangeObservation: ObservableObject {
             catch is CancellationError { return }
             catch { result = .unavailable }
             guard !Task.isCancelled, let self, self.requestID == id else { return }
+            if result == .adult { self.adultConfirmedAt = self.now() }
             self.assessment = result
             self.record(result)
         }

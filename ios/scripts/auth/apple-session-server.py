@@ -37,6 +37,7 @@ def session():
 
 class Handler(BaseHTTPRequestHandler):
     linked = True
+    signup_requests = []
 
     def log_message(self, *_):
         pass
@@ -45,7 +46,9 @@ class Handler(BaseHTTPRequestHandler):
         self.respond()
 
     def do_POST(self):
-        self.rfile.read(int(self.headers.get("Content-Length", "0")))
+        data = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+        if self.path == "/api/v1/auth/signup":
+            Handler.signup_requests.append(json.loads(data))
         self.respond()
 
     def respond(self):
@@ -54,6 +57,13 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/synthetic/identity-"):
             Handler.linked = path.endswith("identity-present")
             body = {}
+        elif path == "/synthetic/age-signup-reset":
+            Handler.signup_requests = []
+            body = {}
+        elif path == "/synthetic/age-signup":
+            body = Handler.signup_requests
+        elif path == "/api/v1/auth/signup":
+            body = {"session": None}
         elif path == "/api/v1/auth/login":
             body = {"session": session()}
         elif path == "/auth/v1/token":

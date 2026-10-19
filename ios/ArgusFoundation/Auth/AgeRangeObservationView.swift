@@ -6,12 +6,7 @@ struct AgeRangeObservationView<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     init(observation: AgeRangeObservation? = nil, @ViewBuilder content: @escaping () -> Content) {
-        #if DEBUG
-        let fixture = AgeConfirmationHarness.legalEntryObservation()
-        #else
-        let fixture: AgeRangeObservation? = nil
-        #endif
-        _observation = StateObject(wrappedValue: observation ?? fixture ?? .shared)
+        _observation = StateObject(wrappedValue: observation ?? .shared)
         self.content = content
     }
 

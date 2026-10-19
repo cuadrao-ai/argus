@@ -167,7 +167,7 @@ struct ConnectedCreateAccount: View {
         if signingIn {
             form
         } else {
-            AgeRangeObservationView { form }
+            AgeRangeObservationView(observation: auth.ageRangeObservation) { form }
         }
     }
 

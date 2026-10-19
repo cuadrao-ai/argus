@@ -192,11 +192,13 @@ for ownership and exact integration/design/auth reference commits.
 Signup and guest entry have no custom age gate. A shared MainActor task requests
 `ageGates: 18` through the system UI on iOS 26.2 and later and logs a coarse result.
 It saves no raw range, birthday, account identity or preference. No result, pending
-request, failure or cancellation controls entry or signup. No attestation is created.
-Redraws do not repeat the request.
+request, failure or cancellation controls entry or signup. Redraws do not repeat
+the request. Only a completed adult result retains its completion time in memory.
+Signup snapshots that time as RFC3339 `age_confirmed_at`; every other result,
+including a pending request, omits it without waiting or creating a substitute.
 
-Integration `d7fdf5a55` requires `age_confirmed_at`. This client sends no attestation,
-so API account creation is blocked pending contract alignment.
+Integration `d7fdf5a55` requires `age_confirmed_at`. Its separately owned backend
+change must make the field optional before omitted-timestamp signup can work.
 
 The device target requests `com.apple.developer.declared-age-range` through
 `Config/DeclaredAgeRange.entitlements`; simulator and optional Apple-sign-in
@@ -222,6 +224,16 @@ The `AgeConfirmationUITests` suite uses `--age-confirmation-harness` in DEBUG.
 Its Apple results are synthetic. Set only process-level synthetic auth build
 values for the existing Cuadrao build gate; no server or provider is called.
 The CI workflow contains that command and retains its result bundle.
+
+`AgeSignupPayloadUITests` separately captures real `ProfileAuthModel` signup
+requests with synthetic observations. Start `python3 ios/scripts/auth/apple-session-server.py`
+in another terminal, then add `TEST_RUNNER_ARGUS_AGE_PAYLOAD_PROOF=true` to the
+same synthetic `xcodebuild test` command and select
+`-only-testing:ArgusFoundationUITests/AgeSignupPayloadUITests`. The fixture uses
+only loopback port 59920 and an isolated synthetic Keychain service. Adult uses a
+fixed observation instant; declined, unavailable, under18 and pending omit it.
+Use normal simulator ad-hoc signing so the isolated Keychain is available.
+The suite skips unless opted in; normal age UI tests need no server.
 
 Apple API and availability sources checked October 17, 2026:
 [requesting age ranges](https://developer.apple.com/documentation/declaredagerange/requesting-people-share-their-age-range-with-your-app),

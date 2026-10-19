@@ -110,6 +110,17 @@ final class SessionControllerTests: XCTestCase, @unchecked Sendable {
                               "captcha_token": "synthetic-captcha", "language": "es-419"])
     }
 
+    func testSignupSendsTheProvidedAdultObservationTime() async throws {
+        let fixture = try SessionFixture()
+        let result = try await fixture.controller().signup(email: "new@example.test", password: "synthetic-password",
+            captchaToken: "synthetic-captcha", language: "es-419", ageConfirmedAt: Date(timeIntervalSince1970: 1767225600))
+        XCTAssertEqual(result, .confirmationRequired)
+        let requests = await fixture.server.captured()
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests.first?.httpBody)) as? [String: String])
+        XCTAssertEqual(body["age_confirmed_at"], "2026-01-01T00:00:00Z")
+        XCTAssertEqual(Set(body.keys), ["email", "password", "captcha_token", "language", "age_confirmed_at"])
+    }
+
     func testSignupWithoutSessionRequiresConfirmationWithoutAutomaticLogin() async throws {
         let fixture = try SessionFixture()
         let result = try await fixture.controller().signup(email: "new@example.test", password: "synthetic-password", captchaToken: "synthetic-captcha", language: "es-419")
