@@ -35,6 +35,10 @@ final class AgeConfirmationUITests: XCTestCase {
         app.launchArguments.removeAll { $0 == "--cuadrao-guest-reset" }
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["guest.home.empty"].firstMatch.waitForExistence(timeout: 8))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Guest entry after under18 signal and relaunch"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
         app.terminate()
     }
 
