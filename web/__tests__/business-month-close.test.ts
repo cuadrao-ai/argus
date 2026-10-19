@@ -35,6 +35,7 @@ const now = new Date(2026, 9, 18);
 
 function document(partial: Pick<MonthCloseDocument, "id" | "kind" | "amount" | "itbis" | "status"> & Partial<MonthCloseDocument>): MonthCloseDocument {
   return {
+    currency: "DOP",
     counterparty: partial.id,
     occurred_on: "2026-10-01",
     due_on: null,
@@ -441,5 +442,71 @@ describe("live figure mapping", () => {
 
   test("M7 a document keeps its itbis_minor", () => {
     expect(readMonthCloseWire(mappedWire).documents[0]?.itbis).toBe("180.00");
+  });
+
+  test("a USD line keeps its amount and currency, and the DOP totals leave it out", () => {
+    const dop = document({ id: "dop", kind: "invoice", amount: "118.00", itbis: "18.00", status: "cobrado" });
+    const usd = { ...document({ id: "usd", kind: "invoice", amount: "50.00", itbis: "5.00", status: "cobrado" }), currency: "USD" };
+    const eur = { ...document({ id: "eur", kind: "receipt", amount: "20.00", itbis: "2.00", status: "pagado" }), currency: "EUR" };
+    expect(monthCloseSummary([dop, usd, eur])).toEqual({
+      currency: "DOP",
+      income_before_itbis: "100.00",
+      expense_before_itbis: "0.00",
+      net_before_itbis: "100.00",
+      itbis_owed: "18.00",
+    });
+    expect(documentsTotal([dop, usd, eur])).toBe("118.00");
+    const current = monthCloseSampleDocuments(now).filter((item) => item.occurred_on.startsWith("2026-10"));
+    expect(monthCloseSummary(current).income_before_itbis).toBe("58400.00");
+    expect(monthCloseSummary(current).expense_before_itbis).toBe("9600.00");
+  });
+
+  test("a document keeps its counterparty, RNC, NCF, e-CF, and fiscal flag", () => {
+    const line = {
+      activity_id: "act-usd",
+      document_kind: "receipt",
+      currency: "USD",
+      occurred_on: "2026-10-05",
+      total_minor: 5000,
+      before_itbis_minor: 4500,
+      itbis_minor: 500,
+      status: "pendiente",
+      counterparty: "Acme Supplies",
+      rnc: "101-23456-7",
+      ncf: "B0100000099",
+      ecf: "E310000000012",
+      fiscal_known: true,
+    };
+    const snapshot = readMonthCloseWire({
+      ...mappedWire,
+      currencies: [
+        { currency: "DOP", income_before_itbis: "1000.00", expense_before_itbis: "0.00", net_result: "1000.00", itbis_owed: "18.00" },
+      ],
+      cuentas_por_cobrar: [],
+      cuentas_por_pagar: [line],
+    });
+    expect(snapshot.figures?.income_before_itbis).toBe("1000.00");
+    expect(snapshot.documents).toEqual([
+      expect.objectContaining({
+        id: "act-usd",
+        currency: "USD",
+        amount: "50.00",
+        itbis: "5.00",
+        counterparty: "Acme Supplies",
+        rnc: "101-23456-7",
+        ncf: "B0100000099",
+        ecf: "E310000000012",
+        fiscal_known: true,
+      }),
+    ]);
+    const blank = readMonthCloseWire(mappedWire).documents[0];
+    expect(blank).toMatchObject({
+      counterparty: "Factura",
+      rnc: null,
+      ncf: null,
+      ecf: null,
+      fiscal_known: false,
+      currency: "DOP",
+    });
   });
 });
