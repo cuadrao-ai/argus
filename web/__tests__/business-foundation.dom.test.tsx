@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { useState } from "react";
-import { BUSINESS_STATUS, CANVAS, CONFIRM_ACTION, LOADING_TRACK, PLAIN_TOAST_MS, UNDO_TOAST_MS, contrastRatio } from "@/components/business-app/foundation/presentation";
+import { BUSINESS_STATUS, CANVAS, CONFIRM_ACTION, LOADING_TRACK, MUTED_TEXT, PLAIN_TOAST_MS, UNDO_TOAST_MS, contrastRatio } from "@/components/business-app/foundation/presentation";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
@@ -55,13 +55,15 @@ describe("status is a word, a color, and a dot", () => {
     await page.close();
   });
 
-  test("pill ink and the loading track clear their contrast floors", () => {
+  test("pill ink, muted text, and the loading track clear their contrast floors", () => {
     for (const tone of Object.values(BUSINESS_STATUS)) {
       assert.ok(contrastRatio(tone.ink, tone.surface) >= 4.5, `${tone.label} ${contrastRatio(tone.ink, tone.surface)}`);
     }
     assert.ok(contrastRatio(LOADING_TRACK, "#ffffff") >= 3);
     assert.ok(contrastRatio(LOADING_TRACK, CANVAS) >= 3);
     assert.ok(contrastRatio("#ffffff", CONFIRM_ACTION) >= 4.5);
+    assert.ok(contrastRatio(MUTED_TEXT, "#ffffff") >= 4.5);
+    assert.ok(contrastRatio(MUTED_TEXT, CANVAS) >= 4.5);
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
     assert.match(css, /--cuadrao-cream:\s*#F7F5EE/);
     assert.match(css, /border-color:\s*#7d8a84/);

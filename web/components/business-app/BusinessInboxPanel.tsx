@@ -70,7 +70,7 @@ export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }:
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="line-clamp-2 whitespace-pre-line break-words text-[15px] text-black dark:text-white">{note.text.trim()}</span>
-                  <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
+                  <span className="mt-0.5 block truncate text-[13px] text-[#56635e] dark:text-white/60">
                     {[formatRelativeTime(note.receivedAt, locale), t("business.dossier.revision", "Revision {{version}}", { version: note.revision }), note.earlier ? t("business.inbox.note_more", "{{count}} earlier notes", { count: note.earlier }) : null].filter(Boolean).join(" · ")}
                   </span>
                 </span>
@@ -122,7 +122,7 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { rec
           <span className={`block ${needsAttention ? "break-words" : "truncate"} text-[15px] font-medium text-black dark:text-white`}>
             {receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt")}
           </span>
-          <span className={`mt-0.5 flex gap-1.5 ${needsAttention ? "items-start whitespace-normal break-words text-black/70 dark:text-white/75" : "items-center truncate text-black/50 dark:text-white/50"} text-[13px]`}>
+          <span className={`mt-0.5 flex gap-1.5 ${needsAttention ? "items-start whitespace-normal break-words text-black/70 dark:text-white/75" : "items-center truncate text-[#56635e] dark:text-white/60"} text-[13px]`}>
             {receipt.channel === "whatsapp" ? (
               <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-label="WhatsApp" />
             ) : receipt.channel === "email" ? (
