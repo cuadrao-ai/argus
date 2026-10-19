@@ -88,7 +88,7 @@ def _reject(record: FiscalRecord, code: str, field: str) -> dict:
     }
 
 
-def hard_rejects(record: FiscalRecord, registry: RncRegistry) -> list[dict]:
+def hard_rejects(record: FiscalRecord) -> list[dict]:
     declaration = confirmed_declaration(record)
     if not isinstance(declaration, PurchaseDeclaration):
         return []
@@ -98,7 +98,7 @@ def hard_rejects(record: FiscalRecord, registry: RncRegistry) -> list[dict]:
     issues = []
     if digits is None or len(digits) not in {9, 11}:
         issues.append(_reject(record, "fiscal_identity_length", "rnc"))
-    elif registry.lookup(digits) is None and not (
+    elif not (
         rnc_check_digit_ok(digits) if len(digits) == 9 else cedula_check_digit_ok(digits)
     ):
         issues.append(_reject(record, "fiscal_identity_check_digit", "rnc"))
