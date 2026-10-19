@@ -2865,17 +2865,19 @@ describe("Argus Alpha frontend contract", () => {
       flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted))"),
     );
     const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
-    const closedHome = page.slice(page.indexOf("const signOutClosedHome"), page.indexOf("const handleAuthSubmit"));
+    const leaveClosedHome = page.slice(page.indexOf("const leaveClosedHome"), page.indexOf("const handleAuthSubmit"));
+    expect(leaveClosedHome).toContain("resetLeavingSession()");
+    expect(page).toContain("<BusinessClosedNotice navigate={leaveClosedHome} />");
+    const closedHome = readFileSync(join(root, "components/status/BusinessClosedNotice.tsx"), "utf-8");
     expect(closedHome).toContain("setSignOutFailed(true)");
-    expect(closedHome).toContain("resetLeavingSession()");
     expect(closedHome.indexOf("setSignOutFailed(false)")).toBeGreaterThan(-1);
     expect(closedHome.indexOf("setSignOutFailed(false)")).toBeLessThan(
-      closedHome.indexOf("leaveSession"),
+      closedHome.indexOf("leaveSession("),
     );
     expect(closedHome).not.toContain("onFailed() {}");
-    expect(page).toContain('t("settings.logout_error")');
-    expect(page).toContain('!text-[var(--cuadrao-cream)]');
-    expect(page).toContain("mailto:${BUSINESS_HOME_CLOSED_EMAIL}");
+    expect(closedHome).toContain('t("settings.logout_error")');
+    expect(closedHome).toContain('!text-[var(--cuadrao-cream)]');
+    expect(closedHome).toContain("mailto:${CUADRAO_ADMIN_EMAIL}");
     const shots = readFileSync(join(root, "e2e/business-signed-in-home.spec.ts"), "utf-8");
     expect(shots).toContain("E2E_SCREENSHOT_DIR");
     expect(shots).toContain('"test-results"');

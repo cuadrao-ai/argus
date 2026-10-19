@@ -1012,7 +1012,6 @@
       "ai_on": "Activado. Puedes desactivarlo cuando quieras.",
       "ai_replaces": "Otro permiso de IA está activo en este número. Al activar este, lo reemplaza.",
       "ai_off": "Desactivado. Los recibos que envíes esperan en tu bandeja para que los llenes tú.",
-      "ai_models": "Proveedor: OpenRouter. Modelos: {{models}}.",
       "ai_approval": "Tú siempre apruebas los registros de dinero en Cuadrao.",
       "ai_reason_unavailable": "Ahora no se puede activar la lectura con IA.",
       "ai_reason_whatsapp_link_required": "Primero vincula tu número.",
@@ -1474,10 +1473,7 @@
       "email_placeholder": "Correo electrónico",
       "password_placeholder": "Contraseña",
       "submit": "Iniciar sesión",
-      "loading": "Iniciando sesión...",
-      "errors": {
-        "supabase_not_configured": "La autenticacion de Supabase no esta configurada."
-      }
+      "loading": "Iniciando sesión..."
     },
     "signup": {
       "subtitle": "Crea tu cuenta de Cuadrao",
@@ -1535,12 +1531,20 @@
       "cleanup_warning": "Las sesiones fueron revocadas, pero este navegador no pudo confirmar la limpieza de cookies. Aún necesitas iniciar sesión de nuevo."
     },
     "screen": {
+      "email_wait": "Espera un minuto antes de pedir otro correo.",
+      "go_home": "Ir a Inicio",
+      "go_to_businesses": "Ir a mis negocios",
       "go_to_cuadrao": "Ir a Cuadrao",
       "invite_line": "Pide a quien te invitó que te envíe otra invitación.",
       "link_expired_title": "Este enlace ya venció o ya se usó.",
       "not_found_detail": "Puede que el enlace esté viejo o mal copiado.",
       "not_found_title": "No encontramos esta página.",
-      "request_new_link": "Pedir un enlace nuevo"
+      "offline": "Sin conexión. Revisa tu internet.",
+      "removed_title": "No tienes acceso a este negocio.",
+      "request_new_link": "Pedir un enlace nuevo",
+      "server_title": "Algo salió mal de nuestro lado.",
+      "session_ended": "Tu sesión terminó. Entra de nuevo.",
+      "try_again": "Intentar de nuevo"
     },
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
@@ -2559,6 +2563,7 @@
       "aside_unreadable_placeholder": "{{count}} no se pudo leer",
       "empty_body": "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.",
       "error": "No pudimos cargar tu bandeja. Reintenta.",
+      "load_more": "Cargar más",
       "notes_title": "Notas en revisión",
       "notes_subtitle": "Guardadas con tus palabras. Abre una para agregar datos o un recibo.",
       "notes_error": "No pudimos cargar tus notas. Reintenta.",
@@ -2566,6 +2571,7 @@
       "note_more_one": "{{count}} nota anterior",
       "note_more_other": "{{count}} notas anteriores",
       "por_revisar": "{{count}} por revisar",
+      "reveal_more": "Ver más",
       "review_receipts": "Revisar recibos",
       "subtitle": "Recibos que esperan tu revisión. Nada aquí es un gasto hasta que lo confirmes.",
       "title": "Bandeja",
@@ -2871,17 +2877,19 @@
       "confirmed": "Gasto guardado",
       "dismissed": "Descartado",
       "needs_attention": "Necesita atención",
+      "pill_approved": "Aprobado",
+      "pill_attention": "Necesita atención",
+      "pill_pending": "Pendiente",
       "preparing": "Preparando",
       "queued": "En espera de preparación",
       "review_ready": "Listo para revisar",
       "saved": "Guardado, sin leer"
     },
     "updates": {
-      "attention": "{{name}} necesita atención",
-      "confirmed": "{{name}} se guardó como gasto",
+      "confirmed_line": "Se guardó como gasto",
       "empty": "Nada nuevo. Aquí aparecerán los resultados de tus recibos.",
       "error": "No pudimos cargar las novedades. Reintenta.",
-      "ready": "{{name}} está listo para revisar",
+      "ready_line": "Está listo para revisar",
       "subtitle": "Resultados de tus recibos y lo que necesita tu atención.",
       "title": "Novedades"
     },
@@ -2931,7 +2939,8 @@
       "role_accountant": "Ver y preparar",
       "access_line": "Ahora tienes acceso a {{name}} · Ver y preparar",
       "got_it": "Entendido",
-      "lost": "Ya no tienes acceso a este negocio."
+      "lost": "Ya no tienes acceso a este negocio.",
+      "team": "Equipo y accesos"
     },
     "marks": {
       "real_expenses": "Gastos reales",

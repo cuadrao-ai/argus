@@ -12,26 +12,15 @@ extension FinancialLoopUITests {
         app.launchArguments = ["-AppleLanguages", spanish ? "(es-419)" : "(en)", "-AppleLocale", spanish ? "es_DO" : "en_US",
                                "-appearancePreference", dark ? "dark" : "light",
                                "--cuadrao-guest-book", "--cuadrao-guest-notices-seen", "--cuadrao-guest-reset",
-                               "--age-confirmation-harness", "--age-legal-entry", "--age-reset"]
+                               "--age-confirmation-harness", "--age-legal-entry", "--age-response=under18"]
             + (testURLs ? [Self.legalTestURLs] : []) + arguments
         app.launch()
-    }
-
-    private func completeLegalAgeConfirmation() {
-        let checkbox = app.descendants(matching: .any)["age.confirmation.checkbox"].firstMatch
-        XCTAssertTrue(checkbox.waitForExistence(timeout: 8))
-        let next = app.buttons["age.confirmation.continue"]
-        XCTAssertFalse(next.isEnabled)
-        checkbox.tap()
-        next.tap()
-        XCTAssertTrue(checkbox.waitForNonExistence(timeout: 8))
     }
 
     private func openGuestProfile() {
         let guest = app.buttons["cuadrao.welcome.guest"]
         XCTAssertTrue(guest.waitForExistence(timeout: 15))
         guest.tap()
-        completeLegalAgeConfirmation()
         XCTAssertTrue(app.buttons["header.profile"].waitForExistence(timeout: 10))
         app.buttons["header.profile"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["guest.profile"].waitForExistence(timeout: 10))
@@ -42,7 +31,6 @@ extension FinancialLoopUITests {
         let signUp = app.buttons["cuadrao.welcome.signup"]
         XCTAssertTrue(signUp.waitForExistence(timeout: 15))
         signUp.tap()
-        completeLegalAgeConfirmation()
         XCTAssertTrue(app.buttons["cuadrao.signup.email"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Crea tu cuenta."].exists || app.staticTexts["Create your account."].exists)
     }

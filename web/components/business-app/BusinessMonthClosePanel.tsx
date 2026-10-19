@@ -55,7 +55,7 @@ function previewHold(): PreviewHold | null {
   return null;
 }
 
-function MonthSwitcher({
+export function MonthSwitcher({
   month,
   current,
   earliest,

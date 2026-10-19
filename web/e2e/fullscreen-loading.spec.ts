@@ -17,7 +17,7 @@ for (const width of [1280, 390]) {
       const indicator = page.getByTestId(before ? "conversation-retrieval-state" : "fullscreen-loading");
       await expect(indicator).toBeVisible();
       if (!before) {
-        await expect(indicator.getByRole("status")).toHaveText("Cargando");
+        await expect(indicator.getByRole("status")).toHaveText("Cargando...");
         const status = indicator.getByRole("status");
         expect(await status.evaluate((node) => getComputedStyle(node).clipPath !== "none" || getComputedStyle(node).clip !== "auto")).toBe(true);
         const geometry = await indicator.evaluate((node) => {
@@ -27,7 +27,7 @@ for (const width of [1280, 390]) {
           const b = track.getBoundingClientRect();
           return { logo: a.width, bar: b.width, offset: Math.abs(a.x - b.x), center: Math.abs(a.x + a.width / 2 - innerWidth / 2), text: (node as HTMLElement).innerText.trim() };
         });
-        expect(geometry).toEqual({ logo: 240, bar: 240, offset: 0, center: 0, text: "Cargando" });
+        expect(geometry).toEqual({ logo: 240, bar: 240, offset: 0, center: 0, text: "Cargando..." });
         const sheen = page.getByTestId("fullscreen-loading-sheen");
         expect(await sheen.evaluate((node) => getComputedStyle(node).animationName)).not.toBe("none");
         const positions = await sheen.evaluate(async (node) => {
@@ -92,7 +92,7 @@ test("the landing session check uses the same full-page bar", async ({ page }) =
   const held = new Promise<void>((resolve) => { release = resolve; });
   await page.route("**/api/v1/me", async (route) => { await held; await route.fallback(); });
   await page.goto("/");
-  await expect(page.getByTestId("fullscreen-loading").getByRole("status")).toHaveText("Cargando");
+  await expect(page.getByTestId("fullscreen-loading").getByRole("status")).toHaveText("Cargando...");
   release();
   await expect(page.getByTestId("fullscreen-loading")).toHaveCount(0);
 });

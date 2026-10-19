@@ -1012,7 +1012,6 @@
       "ai_on": "On. You can turn it off at any time.",
       "ai_replaces": "Another AI permission is on for this number. Turning this on replaces it.",
       "ai_off": "Off. Receipts you send wait in your Inbox for you to fill in.",
-      "ai_models": "Provider: OpenRouter. Models: {{models}}.",
       "ai_approval": "You always approve money records yourself in Cuadrao.",
       "ai_reason_unavailable": "AI reading cannot be turned on right now.",
       "ai_reason_whatsapp_link_required": "Link your number first.",
@@ -1474,10 +1473,7 @@
       "email_placeholder": "Email address",
       "password_placeholder": "Password",
       "submit": "Sign in",
-      "loading": "Signing in...",
-      "errors": {
-        "supabase_not_configured": "Supabase auth is not configured."
-      }
+      "loading": "Signing in..."
     },
     "signup": {
       "subtitle": "Create your Cuadrao account",
@@ -1535,12 +1531,20 @@
       "cleanup_warning": "Sessions were revoked, but this browser could not confirm local cookie cleanup. A fresh sign-in is still required."
     },
     "screen": {
+      "email_wait": "Wait a minute before requesting another email.",
+      "go_home": "Go to Home",
+      "go_to_businesses": "Go to my businesses",
       "go_to_cuadrao": "Go to Cuadrao",
       "invite_line": "Ask the person who invited you to send another invitation.",
       "link_expired_title": "This link expired or was already used.",
       "not_found_detail": "The link may be old or copied wrong.",
       "not_found_title": "We could not find this page.",
-      "request_new_link": "Request a new link"
+      "offline": "You are offline. Check your internet.",
+      "removed_title": "You do not have access to this business.",
+      "request_new_link": "Request a new link",
+      "server_title": "Something went wrong on our side.",
+      "session_ended": "Your session ended. Sign in again.",
+      "try_again": "Try again"
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",
@@ -2505,6 +2509,9 @@
       "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."
     },
     "status": {
+      "pill_approved": "Approved",
+      "pill_attention": "Needs attention",
+      "pill_pending": "Pending",
       "saved": "Saved, unread",
       "queued": "Waiting to prepare",
       "preparing": "Preparing",
@@ -2560,7 +2567,7 @@
     },
     "nav": {
       "label": "Business",
-      "overview": "Overview",
+      "overview": "Home",
       "inbox": "Inbox",
       "expenses": "Expenses",
       "updates": "Updates"
@@ -2666,6 +2673,8 @@
       "untitled": "Receipt"
     },
     "inbox": {
+      "load_more": "Load more",
+      "reveal_more": "Show more",
       "title": "Inbox",
       "por_revisar": "{{count}} por revisar",
       "review_receipts": "Revisar recibos",
@@ -2784,9 +2793,8 @@
       "label": "Create"
     },
     "updates": {
-      "ready": "{{name}} is ready to review",
-      "attention": "{{name}} needs attention",
-      "confirmed": "{{name}} was saved as an expense",
+      "ready_line": "Ready to review",
+      "confirmed_line": "Saved as an expense",
       "title": "Updates",
       "subtitle": "Processing results and anything that needs you.",
       "error": "We couldn't load updates. Try again.",
@@ -2931,7 +2939,8 @@
       "role_accountant": "View and prepare",
       "access_line": "You now have access to {{name}} · View and prepare",
       "got_it": "Got it",
-      "lost": "You no longer have access to this Business."
+      "lost": "You no longer have access to this Business.",
+      "team": "Team and access"
     },
     "marks": {
       "real_expenses": "Actual expenses",

@@ -5,7 +5,12 @@ import ReceiptReadingControl from "./ReceiptReadingControl";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Camera, ClipboardPaste, FileUp, ReceiptText, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { OfflineBanner } from "@/components/status/OfflineBanner";
+import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
+import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { referenceCode, sessionEndedLoginPath, type FailureClass } from "@/lib/failure-screen";
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
@@ -47,7 +52,7 @@ function IntakeSurface(props: IntakeProps) {
 function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & { limits: ReceiptLimits }) {
   const { t, i18n } = useTranslation();
   const capabilities = useInputCapabilities();
-  const { bridge } = useBusiness();
+  const { bridge, clearLostAccess } = useBusiness();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replacingRef = useRef<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +66,19 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
   const many = target === "inbox";
   const progress = many && queue.progress?.target === target ? queue.progress : null;
+  const failed = entries.find((item) => item.status === "failed");
+  const failure: FailureClass | null = failed?.status === "failed" ? failed.failure : null;
+  const [serverReference, setServerReference] = useState("");
+
+  useEffect(() => {
+    if (failure !== "server" && failure !== "unavailable") return;
+    setServerReference((current) => current || referenceCode(null));
+  }, [failure]);
+
+  useEffect(() => {
+    if (failure !== "session_ended") return;
+    window.location.replace(sessionEndedLoginPath(window.location.pathname, window.location.search));
+  }, [failure]);
 
   const choose = (files: readonly File[]) => {
     setClipboardEmpty(false);
@@ -208,6 +226,13 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           />
         </div>
 
+        {failure === "offline" ? <OfflineBanner onRetry={() => void queue.save(target, consent)} /> : null}
+        {failure === "server" || failure === "unavailable" ? (
+          <ServerErrorScreen reference={serverReference} onRetry={() => void queue.save(target, consent)} />
+        ) : null}
+        {failure === "removed" ? <RemovedMemberScreen onReturn={clearLostAccess} /> : null}
+        {failure === "closed" ? <BusinessClosedNotice /> : null}
+
         {clipboardEmpty ? (
           <p role="status" className="text-[14px] text-black/60 dark:text-white/60">
             {t("business.intake.clipboard_empty", "There's no receipt image or PDF to paste. Copy one first, or choose a file.")}
@@ -241,7 +266,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
                     </button>
                   </div>
                 ) : null}
-                {item.status === "failed" ? (
+                {item.status === "failed" && item.failure === "other" ? (
                   <div className="mt-2 space-y-2">
                     <p role="alert" className="text-sm text-[#a8434c] dark:text-[#ec9aa0]">
                       {t("business.intake.failed", "We couldn't read the receipt. Try again.")}

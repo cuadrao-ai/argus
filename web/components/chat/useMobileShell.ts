@@ -18,6 +18,28 @@ export type MobileShell = ResponsiveLayout & {
  * state: a desktop user with an expanded rail who narrows the window must not
  * find a drawer already covering the conversation.
  */
+/** Which business navigation band this width uses, and how the rail behaves there. */
+export function businessShellLayout(
+  workspaceId: string | undefined,
+  belowTablet: boolean,
+  belowDesktop: boolean,
+  sidebarOpen: boolean,
+) {
+  const businessShell = workspaceId === "business";
+  const businessPhone = businessShell && belowTablet;
+  const businessTabletStrip = businessShell && !belowTablet && belowDesktop;
+  const nav = !businessShell ? undefined : businessPhone ? "phone" : businessTabletStrip ? "tablet" : "desktop";
+  return {
+    businessShell,
+    businessPhone,
+    businessTabletStrip,
+    nav,
+    sidebarCollapsed: businessTabletStrip ? true : !(belowTablet ? true : sidebarOpen),
+    railLocked: businessTabletStrip,
+    sidebarIsOpen: businessTabletStrip ? false : belowTablet ? true : sidebarOpen,
+  };
+}
+
 export function useMobileShell(): MobileShell {
   const layout = useResponsiveLayout();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);

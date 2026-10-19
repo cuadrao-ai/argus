@@ -10,6 +10,7 @@ import yaml
 from tests.test_environment_scripts import (
     _contract_array,
     _real_workflow_api_env_payload,
+    _render_env,
     _render_env_payload,
     _run_render_release_audit,
     _workflow_env_payload,
@@ -137,9 +138,7 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
     }
     assert services["cuadrao-marketing-staging"]["branch"] == "main"
     assert "NEXT_PUBLIC_ARGUS_API_URL" in _contract_array("ARGUS_RENDER_WEB_ENV")
-    assert "NEXT_PUBLIC_ARGUS_API_URL" in {
-        item["key"] for item in services["argus-app"]["envVars"]
-    }
+    assert "NEXT_PUBLIC_ARGUS_API_URL" in _render_env("argus-app")
 
 
 def test_argus_api_disables_the_default_render_subdomain() -> None:

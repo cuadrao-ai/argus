@@ -88,7 +88,7 @@ private struct AuthFormView: View {
     private struct Challenge: Identifiable { let id = UUID(); let url: URL }
 
     var body: some View {
-        if signup { AgeConfirmationGate { form } }
+        if signup { AgeRangeObservationView(observation: model.ageRangeObservation) { form } }
         else { form }
     }
 

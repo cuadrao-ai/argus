@@ -131,7 +131,7 @@ def test_flag_is_default_off_in_the_four_declaration_files() -> None:
     )
     render_config = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
     render_api = next(
-        service for service in render_config["services"] if service["name"] == "argus-api"
+        service for service in render_config["services"] if service["name"] == "cuadrao-api"
     )
     render_values = {
         item["key"]: item.get("value") for item in render_api["envVars"]
