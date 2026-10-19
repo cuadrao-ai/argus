@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
+from loguru import logger
 from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter, ValidationError
 
@@ -393,9 +394,7 @@ def prepare_attachment(
         if ambiguous
         else ()
     )
-    read_total = (
-        batch.receipt.total if ambiguous and batch.receipt is not None else None
-    )
+    read_total = batch.receipt.total if ambiguous and batch.receipt is not None else None
     candidate = _consensus(purchases) if ambiguous else purchases[0]
     source_id = sources.record_source(
         tx,
@@ -424,6 +423,7 @@ def prepare_attachment(
         "kind": _kind(candidate.kind_hint),
     }
     uncertain = set(candidate.uncertain)
+    _fill_unknown_purchase(values, uncertain, batch)
     if "merchant" in uncertain:
         uncertain.add("counterparty")
     if "direction" in uncertain:
@@ -619,6 +619,37 @@ def _consensus(purchases: list) -> SimpleNamespace:  # noqa: ANN001
         kind_hint=shared({_kind(c.kind_hint) for c in purchases}),
         uncertain=frozenset(uncertain),
     )
+
+
+def _fill_unknown_purchase(
+    values: dict, uncertain: set[str], batch: ExtractionBatch
+) -> None:
+    """A candidate that left the supplier or the currency unknown takes the receipt's.
+
+    The currency is the one every part of the read names, never a raw symbol.
+    A later merge still runs ``_retain_or_fill``, so a member or owner value stays.
+    """
+
+    from argus.domain.ingestion.documents.extractor import _agreed_currency
+
+    filled = []
+    merchant = batch.receipt.merchant if batch.receipt is not None else None
+    if (
+        values["counterparty"] is None
+        or "counterparty" in uncertain
+        or "merchant" in uncertain
+    ) and merchant:
+        values["counterparty"] = merchant
+        uncertain.discard("counterparty")
+        uncertain.discard("merchant")
+        filled.append("counterparty")
+    currency = _agreed_currency(batch) if batch.receipt is not None else None
+    if values["currency"] is None and currency:
+        values["currency"] = currency
+        uncertain.discard("currency")
+        filled.append("currency")
+    if filled:
+        logger.info("business.receipt_filled_purchase fields={}", filled)
 
 
 def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> dict:
