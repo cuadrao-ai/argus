@@ -11,6 +11,8 @@ import Link from "next/link";
 import { signedInHomePath } from "@/lib/landing-intent";
 import { useTranslation } from "react-i18next";
 
+import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   accountSecurityLoadFailureAction,
@@ -18,9 +20,10 @@ import {
   type SessionActionResult,
 } from "@/lib/auth-security";
 import { getMe } from "@/lib/argus-api";
+import { referenceCode, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 
 type Confirmation = "others" | "all" | null;
-type AuthCheckState = "checking" | "ready" | "unavailable";
+type AuthCheckState = "checking" | "ready" | "unavailable" | "closed" | "server";
 
 export default function AccountSecurityPage() {
   const { t } = useTranslation();
@@ -36,14 +39,25 @@ export default function AccountSecurityPage() {
   const [warning, setWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [freshLogin, setFreshLogin] = useState(false);
+  const [reference, setReference] = useState("");
 
   const checkSession = useCallback(() => {
     setAuthCheckState("checking");
-    getMe()
+    runQuietRetries(() => getMe())
       .then(() => setAuthCheckState("ready"))
       .catch((loadError: unknown) => {
-        if (accountSecurityLoadFailureAction(loadError) === "redirect_to_login") {
-          window.location.replace("/?auth=login");
+        const action = accountSecurityLoadFailureAction(loadError);
+        if (action === "redirect_to_login") {
+          window.location.replace(sessionEndedLoginPath("/account/security", window.location.search));
+          return;
+        }
+        if (action === "closed") {
+          setAuthCheckState("closed");
+          return;
+        }
+        if (action === "server") {
+          setReference(referenceCode(loadError));
+          setAuthCheckState("server");
           return;
         }
         setAuthCheckState("unavailable");
@@ -160,6 +174,11 @@ export default function AccountSecurityPage() {
       setBusy(null);
     }
   };
+
+  if (authCheckState === "closed") return <BusinessClosedNotice />;
+  if (authCheckState === "server") {
+    return <ServerErrorScreen reference={reference} onRetry={checkSession} />;
+  }
 
   if (authCheckState !== "ready") {
     return (

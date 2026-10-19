@@ -29,7 +29,8 @@ import {
   type ReceiptSummary,
   type ReceiptActivityCounts,
 } from "@/lib/business-api";
-import { getChosenGrant, grantNotLive, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
+import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
+import { classifyFailure, referenceCode, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey } from "./business-format";
@@ -74,6 +75,8 @@ type Records = {
   /** The captures list stops at the server's page size; older open notes are found through search. */
   notesTruncated: boolean;
   error: boolean;
+  closed?: boolean;
+  serverReference?: string | null;
 };
 
 export type BusinessContextValue = Readonly<{
@@ -88,6 +91,7 @@ export type BusinessContextValue = Readonly<{
   markAccessSeen: () => Promise<void>;
   /** The chosen grant stopped being live mid-session; the person is back in their own Business. */
   lostAccess: boolean;
+  clearLostAccess: () => void;
   revision: number;
   reload: () => void;
   period: Period;
@@ -139,6 +143,8 @@ const EMPTY_RECORDS: Records = {
   notesError: false,
   notesTruncated: false,
   error: false,
+  closed: false,
+  serverReference: null,
 };
 
 function shellViewFromSearch(params: URLSearchParams): ChatShellView {
@@ -208,6 +214,7 @@ function BusinessWorkspaceContent({
   const [spaces, setSpaces] = useState<GrantedSpace[] | null>(null);
   const [accessRevision, setAccessRevision] = useState(0);
   const [lostAccess, setLostAccess] = useState(false);
+  const clearLostAccess = useCallback(() => setLostAccess(false), []);
   const chosen = useMemo(
     () => spaces?.find((space) => (chosenGrant ? space.grant_id === chosenGrant : space.role === "owner")) ?? null,
     [spaces, chosenGrant],
@@ -281,7 +288,10 @@ function BusinessWorkspaceContent({
   }, [conversationId]);
 
   // One queue outlives the dialog: closing it never drops a running upload.
-  const [uploadQueue] = useState(() => new ReceiptUploadQueue(source.uploadReceipt, reload));
+  const [uploadQueue] = useState(() => new ReceiptUploadQueue(
+    (file, consent, key) => runQuietRetries(() => source.uploadReceipt(file, consent, key)),
+    reload,
+  ));
   useLayoutEffect(() => {
     uploadQueue.setOnSaved((receipt, origin) => {
       reload();
@@ -306,24 +316,36 @@ function BusinessWorkspaceContent({
   useEffect(() => {
     let cancelled = false;
     if (onRecord) return;
-    Promise.all([
+    runQuietRetries(() => Promise.all([
       source.workspace(),
       source.overview(period.from, period.to),
       source.receiptPage?.("inbox") ?? source.receipts("inbox").then((items) => ({ items, activity: null })),
-    ])
+    ]))
       .then(([workspace, overview, page]) => {
-        if (!cancelled) setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false }));
+        if (!cancelled) setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, closed: false, serverReference: null }));
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        if (grantNotLive(error) && getChosenGrant()) {
-          // The grant stopped being live mid-session: back to the own Business, said so.
+        const kind = classifyFailure(error, { fetch: true });
+        if (kind === "removed" && getChosenGrant()) {
           setChosenGrant(null);
           setLostAccess(true);
           setRevision((value) => value + 1);
           return;
         }
-        setRecords((current) => ({ ...current, error: true }));
+        if (kind === "session_ended") {
+          window.location.replace(sessionEndedLoginPath(window.location.pathname, window.location.search));
+          return;
+        }
+        if (kind === "closed") {
+          setRecords((current) => ({ ...current, error: false, closed: true, serverReference: null }));
+          return;
+        }
+        if (kind === "unavailable" || kind === "server") {
+          setRecords((current) => ({ ...current, error: false, closed: false, serverReference: referenceCode(error) }));
+          return;
+        }
+        setRecords((current) => ({ ...current, error: true, closed: false, serverReference: null }));
       });
     return () => {
       cancelled = true;
@@ -391,6 +413,7 @@ function BusinessWorkspaceContent({
       chooseBusiness,
       markAccessSeen,
       lostAccess,
+      clearLostAccess,
       revision,
       reload,
       period,
@@ -402,7 +425,7 @@ function BusinessWorkspaceContent({
       attachedReceipt,
       clearAttachedReceipt: () => setAttachedReceipt(null),
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, lostAccess, markAccessSeen, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, lostAccess, markAccessSeen, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;

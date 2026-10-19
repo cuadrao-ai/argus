@@ -56,11 +56,17 @@ test("a receipt without a record context is read-only, never a crash", () => {
 test("a crash inside a panel becomes the in-page message with a retry, not the page error", async () => {
   // Server rendering cannot exercise a boundary's catch, so the two halves are checked apart:
   // the boundary's state transition, and the fallback it renders in that state.
-  assert.deepEqual(PanelErrorBoundary.getDerivedStateFromError(), { failed: true });
+  const derived = PanelErrorBoundary.getDerivedStateFromError(new Error("render"));
+  assert.equal(derived.failed, true);
+  assert.match(String(derived.reference), /^c[0-9a-f]{8}$/);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
-  const html = renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(PanelCrashed, { onRetry: () => undefined })));
-  assert.match(html, /business-panel-crashed/);
-  assert.match(html, /Esta parte no se pudo mostrar/);
+  const html = renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(PanelCrashed, { onRetry: () => undefined, reference: "c0ffee00" })));
+  assert.match(html, /server-error-screen/);
+  assert.match(html, /Algo salió mal de nuestro lado/);
   assert.match(html, /Intentar de nuevo/);
+  assert.match(html, /Ir a Inicio/);
+  assert.match(html, /hola@cuadrao\.ai/);
+  assert.match(html, /c0ffee00/);
+  assert.equal(html.includes("render"), false);
 });
