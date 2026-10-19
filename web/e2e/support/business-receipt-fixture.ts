@@ -1,6 +1,6 @@
 import { expect, type Page, type Route } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../../components/business-app/fixture-data";
-import { installBreakpointFixture } from "./breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./breakpoint-fixture";
 
 type Source = ReturnType<typeof createFixtureBusinessDataSource>;
 /** A spec's own answer for one Business path: undefined falls through to the fixture data, null means the override fulfilled the route itself. */
@@ -26,6 +26,7 @@ export async function installReceiptBusiness(page: Page, override?: BusinessOver
         const json = await custom;
         return json === null ? undefined : route.fulfill({ json });
       }
+      if (parts[0] === "consent") return fulfillAcceptedBusinessConsent(route);
       let json: unknown;
       if (parts[0] === "space") json = await source.ensureSpace("es-419");
       else if (parts[0] === "spaces") json = { spaces: await source.spaces() };
