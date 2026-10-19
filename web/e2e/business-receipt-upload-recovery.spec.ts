@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
 async function openIntake(page: Page) {
   // All external traffic is refused. Every Business request is fixture-only.
@@ -25,6 +25,7 @@ async function openIntake(page: Page) {
     if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
     if (path === "receipts" || path === "captures" || path === "updates") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });
     if (path === "spaces") return route.fulfill({ json: { spaces: [] } });
+    if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
   await page.goto("/biz");

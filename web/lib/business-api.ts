@@ -429,6 +429,21 @@ export async function markBusinessAccessSeen(grantId: string): Promise<void> {
   if (!response.ok) throw new Error(`API error ${response.status}`);
 }
 
+/** The person's acceptance of one wording of the consent screen, kept server side; null until accepted. */
+export type BusinessConsent = { version: string; accepted_at: string | null };
+
+export function getBusinessConsent(version: string): Promise<BusinessConsent> {
+  return apiFetch(`/business/consent?version=${encodeURIComponent(version)}`);
+}
+
+export function acceptBusinessConsent(version: string): Promise<BusinessConsent> {
+  return apiFetch("/business/consent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ version }),
+  });
+}
+
 export async function getBusinessWorkspace(): Promise<BusinessWorkspaceInfo> {
   return apiFetch("/business/workspace");
 }
