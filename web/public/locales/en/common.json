@@ -1463,7 +1463,7 @@
       "error": "We couldn’t send your request. Please try again."
     },
     "business_unavailable": {
-      "body": "If you think this is a mistake, email us at admin@cuadrao.ai.",
+      "body": "If you think this is a mistake, email us at hola@cuadrao.ai.",
       "sign_out": "Sign out",
       "title": "Cuadrao Business isn't available for your account yet."
     },

@@ -4,7 +4,7 @@ import { parseRetryAfterDelaySeconds } from "./retry-after";
 
 export const QUIET_UNAVAILABLE_MS = 30_000;
 export const EMAIL_RETRY_FALLBACK_SECONDS = 60;
-export const CUADRAO_ADMIN_EMAIL = "admin@cuadrao.ai";
+export const CUADRAO_ADMIN_EMAIL = "hola@cuadrao.ai";
 
 export type FailureClass =
   | "session_ended"

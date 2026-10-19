@@ -57,7 +57,7 @@ for (const width of [390, 1280]) {
     await expect(page.getByRole("button", { name: "Intentar de nuevo" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Ir a Inicio" })).toBeVisible();
     await expect(page.getByText("c0ffee00")).toBeVisible();
-    await expect(page.getByRole("link", { name: "admin@cuadrao.ai" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "hola@cuadrao.ai" })).toBeVisible();
     await expect(page.locator("body")).not.toContainText(frameworkText);
     await shot(page, `server-${width}`);
   });
@@ -85,7 +85,7 @@ test("a closed business reuses the existing notice", async ({ page }) => {
   await page.goto("/dev/error-screen?screen=closed");
   await expect(page.getByTestId("business-home-closed")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Cuadrao Business aún no está disponible para tu cuenta." })).toBeVisible();
-  await expect(page.getByRole("link", { name: "admin@cuadrao.ai" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "hola@cuadrao.ai" })).toBeVisible();
   await shot(page, "closed-1280");
 });
 

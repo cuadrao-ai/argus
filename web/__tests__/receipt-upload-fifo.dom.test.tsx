@@ -202,7 +202,7 @@ test("a 503 upload ends on the server screen and keeps the file", async () => {
     const shown = surface().textContent ?? "";
     assert.match(shown, /Algo salió mal de nuestro lado\./);
     assert.match(shown, /factura\.txt/);
-    assert.match(shown, /admin@cuadrao\.ai/);
+    assert.match(shown, /hola@cuadrao\.ai/);
     assert.equal(shown.includes("unavailable"), false);
     assert.equal(queue.snapshot()[0]?.file.name, "factura.txt");
   } finally {

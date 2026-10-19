@@ -66,7 +66,7 @@ test("a crash inside a panel becomes the in-page message with a retry, not the p
   assert.match(html, /Algo salió mal de nuestro lado/);
   assert.match(html, /Intentar de nuevo/);
   assert.match(html, /Ir a Inicio/);
-  assert.match(html, /admin@cuadrao.ai/);
+  assert.match(html, /hola@cuadrao\.ai/);
   assert.match(html, /c0ffee00/);
   assert.equal(html.includes("render"), false);
 });
