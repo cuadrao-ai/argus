@@ -153,9 +153,9 @@ export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
 }
 
 const STATE_STYLE: Record<RowState, { Icon: typeof CheckCircle2; className: string }> = {
-  verified: { Icon: CheckCircle2, className: "text-[var(--rui-color-teal)]" },
-  failed: { Icon: AlertCircle, className: "text-[var(--rui-color-danger)]" },
-  not_checked: { Icon: CircleDashed, className: "text-black/45 dark:text-white/45" },
+  verified: { Icon: CheckCircle2, className: "text-[#2f5a49] dark:text-[#8fcbb0]" },
+  failed: { Icon: AlertCircle, className: "text-[#9e2f39] dark:text-[#ec9aa0]" },
+  not_checked: { Icon: CircleDashed, className: "text-[#56635e] dark:text-white/70" },
 };
 
 export default function ReceiptEcfChecks({ verification, qr = null }: { verification: EcfVerification | null | undefined; qr?: DgiiQr | null }) {
@@ -185,7 +185,7 @@ export default function ReceiptEcfChecks({ verification, qr = null }: { verifica
                 <span className="block text-[14px] font-medium text-black dark:text-white">{row.title}</span>
                 <span className={`block text-[13px] ${className}`}>{row.caption}</span>
                 {row.notes?.length ? <span className="block text-[13px] text-black/55 dark:text-white/55">{row.notes.join(" ")}</span> : null}
-                {checkedAt ? <span className="block text-[12px] text-black/45 dark:text-white/45">{checkedAt}</span> : null}
+                {checkedAt ? <span className="block text-[12px] text-[#56635e] dark:text-white/70">{checkedAt}</span> : null}
               </span>
             </li>
           );
