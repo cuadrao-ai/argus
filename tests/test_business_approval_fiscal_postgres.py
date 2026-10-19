@@ -1,0 +1,411 @@
+"""On real local Postgres: a receipt photo is read, bound, reviewed and
+approved, and the approval writes the 606 declaration from the stored facts."""
+
+import io
+import json
+from datetime import date, datetime, timedelta, timezone
+from hashlib import sha256
+from uuid import UUID, uuid4
+from zipfile import ZipFile
+
+import pytest
+from argus.domain.business.contracts.actions import (
+    ApproveExpense,
+    ReviewDraft,
+    canonical_input_hash,
+)
+from argus.domain.business.contracts.dgii import FiscalReview
+from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.business.export import ExportPeriod, export_package
+from argus.domain.business.fiscal_profile import FiscalProfileChange, set_profile
+from argus.domain.ingestion.contract import Attachment
+from argus.domain.ingestion.documents.extractor import batch_from_result
+from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
+from argus.domain.ingestion.documents.objects import InMemorySourceObjects
+from argus.domain.recording.repository import NewAccount
+from faker import Faker
+from psycopg.types.json import Jsonb
+
+from tests import test_business_actions_postgres as shared
+from tests.test_business_spaces_migration_postgres import connection
+
+users = shared.users
+shared_actions = shared.actions
+pytestmark = [shared.pytestmark, pytest.mark.owner_acts]
+FILER = "199990013"
+SUPPLIER = "199990021"
+EDITED_SUPPLIER = "199990048"
+NCF = "B0100000001"
+SEPTEMBER = ExportPeriod(date(2026, 9, 1), date(2026, 9, 30))
+fake = Faker("es_MX")
+Faker.seed(606)
+
+
+@pytest.fixture
+def actions(shared_actions):
+    from argus.domain.business.spaces import PostgresSpaceStore
+
+    service, context, grant = shared_actions
+    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, fake.company())
+    set_profile(
+        service.authority,
+        context,
+        FiscalProfileChange(rnc=FILER, previous_rnc=None),
+        "rnc",
+    )
+    yield service, context
+
+
+def colmado(**changes):
+    """A local receipt: RNC, NCF and ITBIS printed, the supplier only in the header."""
+
+    read = {
+        "merchant": f"Colmado {fake.last_name()}",
+        "total": "1180.00",
+        "currency": "DOP",
+        "rnc": SUPPLIER,
+        "ncf": NCF,
+        "itbis": "180.00",
+        "occurred_on": "2026-09-05",
+    }
+    return {**read, **changes}
+
+
+def receipt_draft(service, context, receipt: dict, currency: str | None):
+    """Prepare and bind one saved photo read. The purchase row leaves the supplier unknown."""
+
+    content = f"{fake.uuid4()} {receipt['total']}".encode()
+    digest = sha256(content).hexdigest()
+    now = datetime.now(timezone.utc)
+    holder = str(uuid4())
+    result = ExtractionResult.model_validate(
+        dict(
+            complete=True,
+            readable=True,
+            pages_read=[1],
+            observations=[
+                dict(
+                    page=1,
+                    row=1,
+                    evidence="transaction",
+                    amount=receipt["total"],
+                    currency=currency,
+                    occurred_on=receipt["occurred_on"],
+                    direction="outflow",
+                    kind_hint="expense",
+                )
+            ],
+            receipt=receipt,
+        )
+    )
+    with service.authority.pool.connection() as db:
+        cid = connection(db, context.owner_id, context.actor.space_id)
+        draft = DocumentDraft(
+            connection_id=cid,
+            filename="recibo.jpg",
+            media_type="image/jpeg",
+            sha256=digest,
+            size_bytes=len(content),
+            consent=True,
+            created_at=now,
+            updated_at=now,
+        )
+        batch = batch_from_result(result, digest, cid, now, 1)
+        attachment = Attachment(
+            external_id=digest,
+            sha256=digest,
+            media_type=draft.media_type,
+            size_bytes=len(content),
+            filename=draft.filename,
+        )
+        batch = batch.model_copy(
+            update={
+                "metadata": {"sha256": digest},
+                "candidates": tuple(
+                    c.model_copy(update={"attachments": (attachment,)})
+                    for c in batch.candidates
+                ),
+            }
+        )
+        db.execute(
+            "insert into public.financial_document_extractions"
+            " (connection_id,user_id,draft,source_bytes,batch) values (%s,%s,%s,%s,%s)",
+            (
+                cid,
+                context.owner_id,
+                Jsonb(draft.model_dump(mode="json")),
+                content,
+                Jsonb(batch.model_dump(mode="json")),
+            ),
+        )
+        db.execute(
+            "update public.financial_source_connections set lease_holder=%s,"
+            " lease_until=%s where id=%s",
+            (holder, now + timedelta(minutes=3), cid),
+        )
+    service.capture_attachment_preparation(context, UUID(cid), target=None)
+    prepared = service.prepare_attachment(
+        user_id=context.owner_id,
+        connection_id=cid,
+        scope=context.scope,
+        holder=holder,
+        attempt_id=None,
+        expected_batch_sha256=canonical_input_hash(batch),
+    )
+    assert prepared.outcome == "applied", prepared
+    return prepared.draft_id, prepared.version
+
+
+def review(service, context, draft, version, *, funding=None, dgii=None):
+    facts = BusinessFactPatch.model_validate(
+        {
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "funding": funding or {"kind": "owner_funds"},
+                "business_share": {"kind": "all"},
+            }.items()
+        }
+    )
+    return service.review(
+        context,
+        draft,
+        ReviewDraft(
+            version=version,
+            facts=facts,
+            dgii=FiscalReview.model_validate(dgii) if dgii else None,
+        ),
+        str(uuid4()),
+    )
+
+
+def reviewed(service, context, draft, version, **changes):
+    result = review(service, context, draft, version, **changes)
+    assert result.outcome == "applied", result
+    return result.version
+
+
+def approve(service, context, draft, version):
+    return service.approve(
+        context,
+        draft,
+        ApproveExpense(version=version, action="record_expense"),
+        str(uuid4()),
+    )
+
+
+def revisions(service, draft) -> list[dict]:
+    with service.authority.pool.connection() as db:
+        rows = db.execute(
+            "select version,after_facts,after_dgii from public.business_draft_revisions"
+            " where draft_id=%s order by version",
+            (draft,),
+        ).fetchall()
+    return [dict(zip(("version", "facts", "dgii"), row, strict=True)) for row in rows]
+
+
+def dop_cash(service, context):
+    return service.imports.money.repository.create(
+        user_id=context.owner_id,
+        idempotency_key=str(uuid4()),
+        identity_hash=uuid4().hex,
+        account=NewAccount(
+            type="cash", currency="DOP", nickname="Caja", ownership_share_bps=10000
+        ),
+        opening=shared.shared._opening(1000000),
+        scope=context.scope,
+    ).stored.account.id
+
+
+def booked(service, context) -> list[tuple]:
+    with service.authority.pool.connection() as db:
+        return db.execute(
+            "select funding,currency from public.financial_records"
+            " where user_id=%s and record_kind='expense'",
+            (context.owner_id,),
+        ).fetchall()
+
+
+def lines_606(service, context) -> tuple[list[str], list[dict]]:
+    blob = export_package(service.authority, context, SEPTEMBER, InMemorySourceObjects())
+    with ZipFile(io.BytesIO(blob)) as archive:
+        issues = json.loads(archive.read("manifest.json"))["dgii"]["issues"]
+        name = f"dgii/DGII_F_606_{FILER}_202609.TXT"
+        text = archive.read(name).decode() if name in archive.namelist() else ""
+    return [line for line in text.split("\r\n")[1:] if line], issues
+
+
+def saved_declaration(**changes):
+    declaration = {
+        "form": "606",
+        "id_type": "1",
+        "modified_ncf": None,
+        "selective_tax": "0.00",
+        "other_taxes": "0.00",
+        "legal_tip": "0.00",
+        "category": "02",
+        "category_suggested": False,
+        "paid_on": "2026-09-05",
+        "services_amount": "1000.00",
+        "goods_amount": "0.00",
+        "itbis_withheld": "0.00",
+        "itbis_proportionality": "0.00",
+        "itbis_cost": "0.00",
+        "itbis_perceived": "0.00",
+        "income_withholding_type": None,
+        "income_withheld": "0.00",
+        "income_perceived": "0.00",
+        "payment_method": "03",
+        "actual_refund": False,
+        "purchase_activity_id": None,
+    }
+    return {**declaration, **changes}
+
+
+def test_local_receipt_approval_writes_its_606_line(actions):
+    service, context = actions
+    read = colmado()
+    draft, version = receipt_draft(service, context, read, "DOP")
+    approved = reviewed(service, context, draft, version)
+
+    outcome = approve(service, context, draft, approved)
+
+    assert outcome.outcome == "applied", outcome
+    *reviewing, declared = revisions(service, draft)
+    assert all(row["dgii"] is None for row in reviewing)
+    assert declared["version"] == approved + 1
+    assert declared["facts"] == reviewing[-1]["facts"]
+    assert declared["facts"]["counterparty"]["value"] == read["merchant"]
+    assert {
+        name: declared["dgii"][name]
+        for name in (
+            "form",
+            "id_type",
+            "category",
+            "category_suggested",
+            "payment_method",
+            "goods_amount",
+            "services_amount",
+        )
+    } == {
+        "form": "606",
+        "id_type": "1",
+        "category": "09",
+        "category_suggested": False,
+        "payment_method": "01",
+        "goods_amount": "1000.00",
+        "services_amount": None,
+    }
+    lines, issues = lines_606(service, context)
+    assert issues == []
+    [line] = lines
+    assert line.split("|")[:4] == [SUPPLIER, "1", "09", NCF]
+    assert booked(service, context) == [("owner_funds", "DOP")]
+    assert service.dossier(context, draft).approval_result.approved_revision == approved
+
+
+def test_usd_owner_funded_receipt_stays_usd_after_approval(actions):
+    service, context = actions
+    draft, version = receipt_draft(
+        service,
+        context,
+        colmado(currency="USD", total="59.00", itbis=None, rnc=None, ncf=None),
+        None,
+    )
+    approved = reviewed(service, context, draft, version)
+
+    outcome = approve(service, context, draft, approved)
+
+    assert outcome.outcome == "applied", outcome
+    assert revisions(service, draft)[-1]["facts"]["currency"]["value"] == "USD"
+    assert booked(service, context) == [("owner_funds", "USD")]
+
+
+def test_usd_receipt_on_a_dop_account_is_refused_without_money(actions):
+    service, context = actions
+    account = dop_cash(service, context)
+    draft, version = receipt_draft(
+        service, context, colmado(currency="USD", total="59.00"), "USD"
+    )
+    funding = {"kind": "business_account", "account_id": str(account)}
+
+    refused = review(service, context, draft, version, funding=funding)
+    outcome = approve(service, context, draft, version)
+
+    assert (refused.outcome, refused.code) == (
+        "invalid_input",
+        "import_currency_mismatch",
+    )
+    assert outcome.outcome == "invalid_input", outcome
+    assert booked(service, context) == []
+    assert [row["version"] for row in revisions(service, draft)] == [version]
+
+
+def test_account_funded_receipt_without_currency_is_refused_without_money(actions):
+    service, context = actions
+    account = dop_cash(service, context)
+    draft, version = receipt_draft(
+        service, context, colmado(currency=None, total="59.00"), None
+    )
+    funding = {"kind": "business_account", "account_id": str(account)}
+    approved = reviewed(service, context, draft, version, funding=funding)
+
+    outcome = approve(service, context, draft, approved)
+
+    assert (outcome.outcome, outcome.code) == ("invalid_input", "fact_required")
+    assert booked(service, context) == []
+
+
+def test_rnc_edited_before_approval_is_the_one_declared(actions):
+    service, context = actions
+    draft, version = receipt_draft(service, context, colmado(), "DOP")
+    approved = reviewed(
+        service,
+        context,
+        draft,
+        version,
+        dgii={
+            "fiscal": {"rnc": EDITED_SUPPLIER, "ncf": NCF, "itbis": "180.00"},
+            "declaration": saved_declaration(
+                category="09", services_amount="0.00", goods_amount="1000.00"
+            ),
+        },
+    )
+
+    outcome = approve(service, context, draft, approved)
+
+    assert outcome.outcome == "applied", outcome
+    assert (
+        revisions(service, draft)[-1]["facts"]["fiscal"]["rnc"]["value"]
+        == EDITED_SUPPLIER
+    )
+    lines, issues = lines_606(service, context)
+    assert issues == []
+    [line] = lines
+    assert line.split("|")[0] == EDITED_SUPPLIER
+
+
+def test_declaration_saved_before_approval_is_kept(actions):
+    service, context = actions
+    draft, version = receipt_draft(service, context, colmado(), "DOP")
+    saved = saved_declaration()
+    approved = reviewed(
+        service,
+        context,
+        draft,
+        version,
+        dgii={
+            "fiscal": {"rnc": SUPPLIER, "ncf": NCF, "itbis": "180.00"},
+            "declaration": saved,
+        },
+    )
+
+    outcome = approve(service, context, draft, approved)
+
+    assert outcome.outcome == "applied", outcome
+    history = revisions(service, draft)
+    assert history[-1]["version"] == approved
+    assert history[-1]["dgii"] == saved
+    lines, issues = lines_606(service, context)
+    assert issues == []
+    [line] = lines
+    assert line.split("|")[:4] == [SUPPLIER, "1", "02", NCF]
