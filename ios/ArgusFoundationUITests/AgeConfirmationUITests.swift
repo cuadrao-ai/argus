@@ -19,8 +19,13 @@ final class AgeConfirmationUITests: XCTestCase {
         email.tap()
         email.typeText("synthetic@example.test")
         let password = app.secureTextFields["auth.password"]
-        password.tap()
-        password.typeText("synthetic-password\n")
+        password.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: 22, dy: 0)).tap()
+        let visiblePassword = app.textFields["auth.password"]
+        visiblePassword.tap()
+        visiblePassword.typeText("synthetic-password")
+        XCTAssertEqual(email.value as? String, "synthetic@example.test")
+        XCTAssertEqual(visiblePassword.value as? String, "synthetic-password")
+        visiblePassword.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: 22, dy: 0)).tap()
         let submit = app.buttons["auth.submit"]
         XCTAssertTrue(submit.isEnabled)
         XCTAssertFalse(app.descendants(matching: .any)["age.confirmation.checkbox"].firstMatch.exists)

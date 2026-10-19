@@ -189,15 +189,24 @@ for ownership and exact integration/design/auth reference commits.
 
 ## Native age signal
 
-Signup and guest entry have no custom age question or age restriction. A shared
-MainActor task requests `ageGates: 18` on iOS 26.2 and later through the system UI.
-Only a coarse adult/under18/unknown/notShared/unsupported/unavailable result is
-logged locally. No range, birthday, account identity or preference is saved.
-The observation never controls entry or signup submission, even when pending,
-failed or cancelled. Redraws do not repeat the request. Signup sends the normal
-API fields and creates no adult attestation timestamp. The existing age-range
-entitlements remain. Real system account and physical-device proof are pending.
-Release social sign-in remains off and keeps its separate acceptance gate.
+Signup and guest entry have no custom age gate. A shared MainActor task requests
+`ageGates: 18` through the system UI on iOS 26.2 and later and logs a coarse result.
+It saves no raw range, birthday, account identity or preference. No result, pending
+request, failure or cancellation controls entry or signup. No attestation is created.
+Redraws do not repeat the request.
+
+Integration `d7fdf5a55` requires `age_confirmed_at`. This client sends no attestation,
+so API account creation is blocked pending contract alignment.
+
+The device target requests `com.apple.developer.declared-age-range` through
+`Config/DeclaredAgeRange.entitlements`; simulator and optional Apple-sign-in
+entitlement files request it too. `run_age_build_settings.py` checks each effective
+path without writing Local.xcconfig or device provisioning. Physical-device
+provisioning and an actual Apple account response remain separate acceptance.
+
+Release social sign-in remains off in `NativeProviderConfiguration.load` and
+Release settings. Its parked DEBUG ID-token path creates Supabase identities and
+hydrates `/me`; it does not use the signup API.
 
 Offline checks:
 
@@ -228,6 +237,5 @@ The existing native swipe and reorder UI requires SDK 27 symbols. CI uses
 
 Legal entry UI tests add `--age-legal-entry` to the Debug age harness. It mounts
 the real welcome, signup and guest views with a signed-out model that has no
-session controller. Each launch resets the canonical age key on the isolated test simulator. The tests complete
-the real checkbox and a synthetic required adult check before legal assertions.
-They preserve the real signup controls and never send an auth request.
+session controller. Synthetic results never block these views. The tests use the
+real signup controls and guest book without age-key resets or auth requests.
