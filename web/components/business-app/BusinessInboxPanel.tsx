@@ -18,7 +18,7 @@ import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, PanelHeading, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
 import { PrimaryUpload } from "./foundation/PrimaryUpload";
-import { ToastQueue, type ToastKind } from "./foundation/ToastNotice";
+import { ToastQueue, type QueuedToast } from "./foundation/ToastNotice";
 import { Settle } from "./business-skeletons";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
@@ -191,10 +191,13 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { rec
 export function usePersonalMark() {
   const { t } = useTranslation();
   const { source, reload } = useBusiness();
-  const [toasts, setToasts] = useState<{ text: string; kind: ToastKind; onUndo?: () => void }[]>([]);
+  const [toasts, setToasts] = useState<QueuedToast[]>([]);
+  const nextToastId = useRef(0);
   const dismiss = useCallback(() => setToasts((items) => items.slice(1)), []);
-  const push = useCallback((item: { text: string; kind: ToastKind; onUndo?: () => void }) => {
-    setToasts((items) => [...items, item]);
+  const push = useCallback((item: Omit<QueuedToast, "id">) => {
+    nextToastId.current += 1;
+    const id = nextToastId.current;
+    setToasts((items) => [...items, { ...item, id }]);
   }, []);
   const mark = useCallback(async (receipt: ReceiptSummary) => {
     try {

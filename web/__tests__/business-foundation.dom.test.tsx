@@ -90,8 +90,8 @@ describe("one toast at a time", () => {
       const { ToastQueue } = await import("@/components/business-app/foundation/ToastNotice");
       function Queue() {
         const [items, setItems] = useState([
-          { text: "Guardado", kind: "confirm" as const },
-          { text: "Deshecho", kind: "undo" as const, onUndo: () => undefined },
+          { id: 1, text: "Guardado", kind: "confirm" as const },
+          { id: 2, text: "Deshecho", kind: "undo" as const, onUndo: () => undefined },
         ]);
         return <ToastQueue items={items} onDismiss={() => setItems((current) => current.slice(1))} />;
       }
@@ -105,6 +105,42 @@ describe("one toast at a time", () => {
       assert.match(page.host.textContent ?? "", /Deshecho/);
       assert.equal((page.host.textContent ?? "").includes("Guardado"), false);
       assert.equal(pending.at(-1)?.ms, UNDO_TOAST_MS);
+      await page.close();
+    } finally {
+      window.setTimeout = real;
+    }
+  });
+
+  test("two identical toasts behind a stable dismiss each clear on their own timer", async () => {
+    const pending: { fn: () => void; ms: number }[] = [];
+    const real = window.setTimeout;
+    window.setTimeout = ((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
+      if (ms === UNDO_TOAST_MS && typeof fn === "function") {
+        pending.push({ fn, ms });
+        return pending.length as unknown as ReturnType<typeof setTimeout>;
+      }
+      return real(fn as never, ms as number, ...args);
+    }) as typeof setTimeout;
+    try {
+      const { ToastQueue } = await import("@/components/business-app/foundation/ToastNotice");
+      const { useCallback } = await import("react");
+      function Queue() {
+        const [items, setItems] = useState([
+          { id: 1, text: "Marcado como personal", kind: "undo" as const, onUndo: () => undefined },
+          { id: 2, text: "Marcado como personal", kind: "undo" as const, onUndo: () => undefined },
+        ]);
+        const dismiss = useCallback(() => setItems((current) => current.slice(1)), []);
+        return <ToastQueue items={items} onDismiss={dismiss} />;
+      }
+      const page = await render(<Queue />);
+      const toasts = () => page.host.querySelectorAll('[data-testid="undo-toast"]').length;
+      assert.equal(toasts(), 1);
+      assert.equal(pending.length, 1);
+      await page.act(async () => { pending[0].fn(); });
+      assert.equal(toasts(), 1, "the second toast is on screen");
+      assert.equal(pending.length, 2, "the second toast armed its own timer");
+      await page.act(async () => { pending[1].fn(); });
+      assert.equal(toasts(), 0, "both toasts cleared");
       await page.close();
     } finally {
       window.setTimeout = real;

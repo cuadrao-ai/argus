@@ -6,6 +6,8 @@ import { PLAIN_TOAST_MS, UNDO_TOAST_MS } from "./presentation";
 
 export type ToastKind = "confirm" | "undo" | "error";
 
+export type QueuedToast = { id: number; text: string; kind: ToastKind; onUndo?: () => void };
+
 export function ToastNotice({
   text,
   kind,
@@ -55,10 +57,10 @@ export function ToastQueue({
   items,
   onDismiss,
 }: {
-  items: readonly { text: string; kind: ToastKind; onUndo?: () => void }[];
+  items: readonly QueuedToast[];
   onDismiss: () => void;
 }) {
   const current = items[0];
   if (!current) return null;
-  return <ToastNotice text={current.text} kind={current.kind} onUndo={current.onUndo} onClose={onDismiss} />;
+  return <ToastNotice key={current.id} text={current.text} kind={current.kind} onUndo={current.onUndo} onClose={onDismiss} />;
 }
