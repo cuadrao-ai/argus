@@ -185,17 +185,56 @@ def test_the_staging_bank_import_receipt_address_record_holds_inside_its_window(
         )
 
 
+_STAGING_APPROVAL_E = (
+    "docs/release-manifests/2026-10-19-staging-business-consent-acceptances-apply.json"
+)
+_STAGING_SHA_E = "43001d9f83306bd245605e676f205fda225b4998"
+_STAGING_VERSIONS_E = ["20261019050000"]
+_STAGING_APPROVAL_F = (
+    "docs/release-manifests/2026-10-19-staging-profile-age-confirmation-apply.json"
+)
+_STAGING_SHA_F = "d7fdf5a55719582372226617a6ad28310561f085"
+_STAGING_VERSIONS_F = ["20261019060000"]
+
+
+@pytest.mark.parametrize(
+    ("path", "sha", "versions", "record_id", "wrong"),
+    [
+        (_STAGING_APPROVAL_E, _STAGING_SHA_E, _STAGING_VERSIONS_E,
+         "staging-apply-2026-10-19-b", ["20261019040000", "20261019050000"]),
+        (_STAGING_APPROVAL_F, _STAGING_SHA_F, _STAGING_VERSIONS_F,
+         "staging-apply-2026-10-19-c", ["20261019050000", "20261019060000"]),
+    ],
+)  # fmt: skip
+def test_the_staging_consent_and_age_records_hold_inside_their_window(
+    path: str, sha: str, versions: list[str], record_id: str, wrong: list[str]
+) -> None:
+    text = (Path(__file__).resolve().parents[1] / path).read_text()
+    approval = _staging_approval(path, sha, versions)
+    expires = datetime.fromisoformat("2026-10-22T16:55:00-05:00")
+    assert (approval.id, approval.expires_at) == (record_id, expires)
+    with pytest.raises(applier.ApplyError, match="different list of versions"):
+        applier.parse_hosted_approval(text, sha, wrong, (), _STAGING_NOW)
+    other = _STAGING_SHA_F if sha == _STAGING_SHA_E else _STAGING_SHA_E
+    with pytest.raises(applier.ApplyError, match="different candidate commit"):
+        applier.parse_hosted_approval(text, other, versions, (), _STAGING_NOW)
+    with pytest.raises(applier.ApplyError, match="not valid now"):
+        applier.parse_hosted_approval(text, sha, versions, (), expires)
+
+
 _STAGING_REF = "skedzwocnmrhfigiwyzi"
 _STAGING_DIRECT = f"db.{_STAGING_REF}.supabase.co"
 _STAGING_POOLER = "aws-0-us-east-1.pooler.supabase.com"
 _STAGING_OTHER_POOLER = "aws-0-eu-west-1.pooler.supabase.com"
 _STAGING_PASSWORD = "fake-password-do-not-echo"
-_STAGING_NOW = datetime.fromisoformat("2026-10-19T15:00:00-05:00")
+_STAGING_NOW = datetime.fromisoformat("2026-10-19T17:00:00-05:00")
 _STAGING_RECORDS = (
     (_STAGING_APPROVAL, _STAGING_SHA, _STAGING_VERSIONS),
     (_STAGING_APPROVAL_B, _STAGING_SHA_B, _STAGING_VERSIONS_B),
     (_STAGING_APPROVAL_C, _STAGING_SHA_C, _STAGING_VERSIONS_C),
     (_STAGING_APPROVAL_D, _STAGING_SHA_D, _STAGING_VERSIONS_D),
+    (_STAGING_APPROVAL_E, _STAGING_SHA_E, _STAGING_VERSIONS_E),
+    (_STAGING_APPROVAL_F, _STAGING_SHA_F, _STAGING_VERSIONS_F),
 )
 
 
