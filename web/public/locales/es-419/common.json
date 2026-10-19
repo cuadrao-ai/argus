@@ -2409,7 +2409,10 @@
       "unavailable": "Este registro no está disponible con tu acceso actual.",
       "outcome_unknown": "Todavía no se conoce el resultado de la acción. Consulta el estado guardado antes de realizar otra acción.",
       "approval_failed": "La aprobación no terminó. Consulta el registro actual antes de realizar otra acción.",
+      "duplicate_recorded": "Ya registraste este comprobante.",
+      "see_recorded": "Ver el registrado",
       "missing_draft": "El movimiento preparado todavía no está disponible. Revisa el recibo actual antes de continuar.",
+      "missing_list": "Falta: {{fields}}",
       "refused": "No se pudo completar esta acción. Consulta el registro actual antes de intentarlo de nuevo.",
       "blocker_fallback": "Este registro necesita más revisión antes de aprobarse.",
       "kind": {
@@ -2537,7 +2540,7 @@
     "file_read": {
       "unreadable_title": "No pudimos leer este archivo",
       "unreadable_body": "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz, o escribe los datos a mano.",
-      "not_a_receipt_title": "Este archivo no parece un recibo ni una factura",
+      "not_a_receipt_title": "Esto no parece un recibo.",
       "not_a_receipt_body": "Sube la foto o el PDF de un comprobante.",
       "upload_another": "Subir otro archivo",
       "enter_details": "Escribir datos"
@@ -2664,7 +2667,8 @@
         "rejected": "No se puede subir"
       },
       "too_large": "Este archivo pesa más de {{size}} MB. Usa una foto o un PDF más pequeño.",
-      "unsupported": "Este archivo no es compatible. Prueba con {{formats}}."
+      "unsupported": "Este archivo no es compatible. Prueba con {{formats}}.",
+      "uploading_progress": "Subiendo {{position}} de {{total}}…"
     },
     "notice": {
       "conversation_unavailable": "Esta conversación no está disponible en Cuadrao Business.",
