@@ -5,11 +5,10 @@ import SwiftUI
 struct GuestWelcomeAction: View {
     let spanish: Bool
     @Environment(\.cuadraoGuestWelcome) private var welcome
-    @State private var confirmingAge = false
 
     var body: some View {
         if let welcome, case .full(true) = welcome.shape {
-            Button { confirmingAge = true } label: {
+            Button { welcome.open() } label: {
                 Text(spanish ? "Probar sin cuenta" : "Try without an account")
                     .font(.system(.body, weight: .medium))
                     .multilineTextAlignment(.center)
@@ -19,11 +18,6 @@ struct GuestWelcomeAction: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("cuadrao.welcome.guest")
-            .sheet(isPresented: $confirmingAge) {
-                AgeConfirmationGate {
-                    Color.clear.onAppear { confirmingAge = false; welcome.open() }
-                }
-            }
         }
     }
 }
@@ -32,10 +26,9 @@ struct GuestWelcomeAction: View {
 struct GuestOpenLine: View {
     let spanish: Bool
     let open: () -> Void
-    @State private var confirmingAge = false
 
     var body: some View {
-        Button { confirmingAge = true } label: {
+        Button(action: open) {
             (Text(spanish ? "Tienes datos de invitado en este iPhone · " : "You have guest data on this iPhone · ")
                 .foregroundColor(.secondary)
              + Text(spanish ? "Abrir" : "Open").foregroundColor(WelcomePalette.pine).bold())
@@ -47,10 +40,5 @@ struct GuestOpenLine: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 28).padding(.bottom, 8)
         .accessibilityIdentifier("cuadrao.login.guestLine")
-        .sheet(isPresented: $confirmingAge) {
-            AgeConfirmationGate {
-                Color.clear.onAppear { confirmingAge = false; open() }
-            }
-        }
     }
 }
