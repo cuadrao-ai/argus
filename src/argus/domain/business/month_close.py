@@ -130,7 +130,10 @@ def in_close(document: MonthDocument) -> bool:
 
 
 def in_606(document: MonthDocument) -> bool:
-    if document.role != "receipt" or not _fiscal(document):
+    if (
+        document.role != "receipt"
+        or normalized_ncf(document.ecf or document.ncf) is None
+    ):
         return False
     if document.personal:
         return document.include_606 is True

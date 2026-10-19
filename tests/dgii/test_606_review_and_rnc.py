@@ -1,5 +1,8 @@
+import io
+import json
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime, timezone
+from zipfile import ZipFile
 
 import pytest
 from argus.domain.business.contracts.dgii import PurchaseReview
@@ -100,10 +103,19 @@ class TestHardRejects:
         assert matched["activity_id"] == record.activity_id
         assert FORM not in result.files
 
-    def test_bad_check_digit_blocks_when_the_registry_misses(self):
-        result = one(supplier(purchase(), INVALID))
-        assert "fiscal_identity_check_digit" in codes(result)
-        assert FORM not in result.files
+    def test_bad_check_digit_is_a_review_flag_when_the_registry_misses(self):
+        record = supplier(purchase(), INVALID)
+        result = one(record)
+        warning = next(
+            item
+            for item in result.manifest["warnings"]
+            if item["code"] == "fiscal_identity_check_digit"
+        )
+        assert warning["reason"] == reason("fiscal_identity_check_digit")
+        assert warning["reason_en"] == reason("fiscal_identity_check_digit", "en")
+        assert warning["line"] == record.activity_id
+        assert "fiscal_identity_check_digit" not in codes(result)
+        assert FORM in result.files
 
     def test_id_type_does_not_match_the_number(self):
         result = one(supplier(purchase(), VALID, "2"))
@@ -209,10 +221,14 @@ class TestChecksumByRegistry:
         )
         assert FORM in result.files
 
-    def test_invalid_and_not_found_blocks(self):
+    def test_invalid_and_not_found_is_flagged_and_still_prepared(self):
         result = one(supplier(purchase(), INVALID), MapRegistry({}))
-        assert "fiscal_identity_check_digit" in codes(result)
-        assert FORM not in result.files
+        assert any(
+            item["code"] == "fiscal_identity_check_digit"
+            for item in result.manifest["warnings"]
+        )
+        assert "fiscal_identity_check_digit" not in codes(result)
+        assert FORM in result.files
 
     def test_invalid_and_found_is_trusted(self):
         result = one(
@@ -220,6 +236,10 @@ class TestChecksumByRegistry:
             MapRegistry({INVALID: listed(INVALID)}),
         )
         assert "fiscal_identity_check_digit" not in codes(result)
+        assert not any(
+            item["code"] == "fiscal_identity_check_digit"
+            for item in result.manifest["warnings"]
+        )
         assert result.manifest["issues"] == []
         assert FORM in result.files
 
@@ -313,6 +333,67 @@ class TestReviewChecklist:
         assert declared.category_suggested is True
         assert declared.goods_amount is None
         assert declared.services_amount is None
+
+    def test_a_confirmed_type_fills_the_base_after_taxes_and_keeps_cents(self):
+        current = purchase().declaration.model_copy(
+            update={
+                "category": None,
+                "services_amount": None,
+                "goods_amount": None,
+                "selective_tax": "1.10",
+                "other_taxes": "2.20",
+                "legal_tip": "0.25",
+            }
+        )
+        declared = apply_purchase(
+            current,
+            PurchaseReview(
+                category="09",
+                payment_method="04",
+                paid_on=date(2026, 9, 3),
+                itbis_withheld="18.40",
+                income_withholding_type="02",
+                income_withheld="10.15",
+            ),
+            "1180.55",
+            "180.10",
+        )
+        assert declared.goods_amount == "996.90"
+        assert declared.services_amount is None
+        assert declared.payment_method == "04"
+        assert declared.paid_on == date(2026, 9, 3)
+        assert declared.itbis_withheld == "18.40"
+        assert declared.income_withholding_type == "02"
+        assert declared.income_withheld == "10.15"
+
+
+def test_the_archive_trusts_a_listed_bad_check_digit():
+    from argus.domain.business.export import ExportPeriod, ExportSnapshot, build_archive
+
+    record = supplier(purchase(), INVALID)
+    snapshot = ExportSnapshot(
+        ExportPeriod(date(2026, 9, 1), date(2026, 9, 30)),
+        (),
+        (),
+        (),
+        datetime(2026, 10, 18, tzinfo=timezone.utc),
+        (record,),
+        "199990013",
+        "Taller Ensayo",
+    )
+    blob = build_archive(
+        snapshot, lambda _: None, MapRegistry({INVALID: listed(INVALID)})
+    )
+    with ZipFile(io.BytesIO(blob)) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    manifest = json.loads(files["manifest.json"])["dgii"]
+    assert not any(
+        item["code"] == "fiscal_identity_check_digit" for item in manifest["warnings"]
+    )
+    assert "fiscal_identity_check_digit" not in {
+        item["code"] for item in manifest["issues"]
+    }
+    assert FORM in files
 
 
 class TestRncRegistry:

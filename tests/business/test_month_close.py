@@ -184,6 +184,38 @@ def test_summary_matches_formato_totals_for_the_fixture_month():
     MonthClose.model_validate({"month": "2026-10", **summary})
 
 
+def test_a_receipt_with_an_unusable_fiscal_number_stays_out_of_expense():
+    start, end = month_period("2026-10")
+    good = document(
+        activity_id="receipt-good",
+        role="receipt",
+        total_minor=11800,
+        itbis_minor=1800,
+        ncf="B0100000001",
+        status="pagado",
+    )
+    bad = document(
+        activity_id="receipt-mistyped",
+        role="receipt",
+        ncf="B01-0001",
+        total_minor=5900,
+        itbis_minor=900,
+        status="pagado",
+    )
+    totals = formato_totals([good, bad], start, end)
+    summary = summarize([good, bad], start, end)
+    dop = next(block for block in summary["currencies"] if block["currency"] == "DOP")
+
+    assert totals["DOP"].expense_before_itbis == 10000
+    assert dop["expense_before_itbis_minor"] == 10000
+    assert summary["closed"] is False
+    assert {
+        "code": "missing_ncf",
+        "activity_id": "receipt-mistyped",
+        "document_kind": "receipt",
+    } in summary["reasons"]
+
+
 def test_a_sale_with_an_unusable_fiscal_number_keeps_the_month_open():
     start, end = month_period("2026-10")
     good = document(
