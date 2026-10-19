@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 const baseline = process.env.CUADRAO_CLUTTER_BASELINE === "true";
 const evidence = process.env.CUADRAO_CLUTTER_EVIDENCE_DIR;
 type Scenario = "pending" | "new" | "approved" | "dismissed" | "filtered" | "unknown" | "unapproved" | "unavailable";
@@ -23,6 +23,7 @@ async function setup(page: Page, scenario: Scenario = "pending", language: "en" 
     if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
     if (["email/deliveries", "captures", "updates"].includes(path)) return route.fulfill({ json: { items: [] } });
+    if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
 }

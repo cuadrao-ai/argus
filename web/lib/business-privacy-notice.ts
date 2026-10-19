@@ -1,92 +1,28 @@
 import enCatalog from "@/public/locales/en/common.json";
 import esCatalog from "@/public/locales/es-419/common.json";
 
-/**
- * Versioned Cuadrao Business privacy-notice acceptance.
- *
- * TODO(counsel): replace the placeholder copy, then bump
- * BUSINESS_PRIVACY_NOTICE_VERSION in this file. The placeholder lives only in
- * the i18n catalogs, Spanish first:
- * - business.consent.title
- * - business.consent.intro
- * - business.consent.privacy_link
- * - business.consent.opt_in
- * - business.consent.accept
- * - business.consent.decline
- * - business.consent.saving
- * - business.consent.save_error
- * - business.consent.decline_title
- * - business.consent.decline_body
- * - business.consent.continue_without
- * - business.consent.holding
- * - business.consent.hold_error
- * - business.consent.back
- * - business.consent.accepted_title
- * - business.consent.accepted_body
- * - business.consent.continue
- * - business.consent.held
- * - business.consent.review
- * - business.consent.version_label
- * - business.privacy_notice.title
- * - business.privacy_notice.close
- * - business.privacy_notice.paragraphs
- */
-
-export const BUSINESS_PRIVACY_NOTICE_VERSION = "2026-10-18-draft-2";
-
 export const MOCK_AUTH_CONSENT_USER_ID = "mock-auth-user";
-
-export const CONSENT_REQUIRED_FEATURES = ["receipt_reading", "assistant"] as const;
-
-export type ConsentRequiredFeature = (typeof CONSENT_REQUIRED_FEATURES)[number];
 
 export type PrivacyNoticeLocale = "en" | "es-419";
 
-export type PrivacyNoticeAcceptance = {
-  userId: string;
-  acceptedAt: string;
-  noticeVersion: string;
-  locale: PrivacyNoticeLocale;
-  textSha256: string;
-};
-
+/** Every word of the Business consent screen, Spanish first, in screen order. */
 export const BUSINESS_CONSENT_I18N_KEYS = [
   "business.consent.title",
-  "business.consent.intro",
-  "business.consent.privacy_link",
+  "business.consent.body",
   "business.consent.opt_in",
-  "business.consent.accept",
-  "business.consent.decline",
-  "business.consent.saving",
-  "business.consent.save_error",
-  "business.consent.decline_title",
-  "business.consent.decline_body",
-  "business.consent.continue_without",
-  "business.consent.holding",
-  "business.consent.hold_error",
-  "business.consent.back",
-  "business.consent.accepted_title",
-  "business.consent.accepted_body",
   "business.consent.continue",
-  "business.consent.held",
-  "business.consent.review",
-  "business.consent.version_label",
-  "business.privacy_notice.title",
-  "business.privacy_notice.close",
+  "business.consent.privacy_link",
 ] as const;
 
-type NoticeCatalog = {
-  business?: { privacy_notice?: { paragraphs?: unknown } };
-};
+type Catalog = Record<string, unknown>;
 
-export function noticeParagraphs(locale: PrivacyNoticeLocale): string[] {
-  const catalog = (locale === "en" ? enCatalog : esCatalog) as NoticeCatalog;
-  const value = catalog.business?.privacy_notice?.paragraphs;
-  return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0) ? value : [];
-}
+const CATALOGS: Record<PrivacyNoticeLocale, Catalog> = { en: enCatalog, "es-419": esCatalog };
 
-export function noticePlainText(paragraphs: readonly string[]): string {
-  return paragraphs.join("\n\n");
+function lookup(catalog: Catalog, key: string): unknown {
+  return key.split(".").reduce<unknown>(
+    (value, part) => (value && typeof value === "object" ? (value as Catalog)[part] : undefined),
+    catalog,
+  );
 }
 
 export async function sha256Hex(text: string): Promise<string> {
@@ -94,40 +30,45 @@ export async function sha256Hex(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function isPrivacyNoticeLocale(value: string): value is PrivacyNoticeLocale {
-  return value === "en" || value === "es-419";
+function shownWords(locale: PrivacyNoticeLocale): unknown[] {
+  const catalog = CATALOGS[locale];
+  const words = BUSINESS_CONSENT_I18N_KEYS.filter((key) => key !== "business.consent.privacy_link")
+    .map((key) => lookup(catalog, key));
+  if (!privacyNoticePublished(locale)) return words;
+  return [
+    ...words,
+    lookup(catalog, "business.consent.privacy_link"),
+    lookup(catalog, "business.privacy_notice.title"),
+    ...noticeParagraphs(locale),
+  ];
 }
 
-export function acceptanceMatchesCurrentNotice(
-  record: PrivacyNoticeAcceptance | null | undefined,
-  userId: string,
-  noticeHashes: Readonly<Record<PrivacyNoticeLocale, string>>,
-  version: string = BUSINESS_PRIVACY_NOTICE_VERSION,
-): boolean {
-  if (!record || record.userId !== userId || record.noticeVersion !== version) return false;
-  if (record.acceptedAt.length === 0 || !isPrivacyNoticeLocale(record.locale)) return false;
-  return noticeHashes[record.locale] === record.textSha256 && /^[0-9a-f]{64}$/.test(record.textSha256);
+/**
+ * The wording a person accepts, named by what the screen shows, the notice
+ * behind its link included: changing any of it in either language is a new
+ * wording, and everyone is asked again.
+ */
+export async function consentCopyVersion(): Promise<string> {
+  const words = (["es-419", "en"] as const).map(shownWords);
+  return (await sha256Hex(JSON.stringify(words))).slice(0, 16);
 }
 
-export async function currentNoticeHashes(): Promise<Record<PrivacyNoticeLocale, string>> {
-  return {
-    en: await sha256Hex(noticePlainText(noticeParagraphs("en"))),
-    "es-419": await sha256Hex(noticePlainText(noticeParagraphs("es-419"))),
-  };
+export function noticeParagraphs(locale: PrivacyNoticeLocale): string[] {
+  const value = lookup(CATALOGS[locale], "business.privacy_notice.paragraphs");
+  return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0) ? value : [];
 }
 
-export function featureRequiresConsent(feature: string): feature is ConsentRequiredFeature {
-  return (CONSENT_REQUIRED_FEATURES as readonly string[]).includes(feature);
-}
-
-export function featureReachable(feature: string, accepted: boolean): boolean {
-  return accepted || !featureRequiresConsent(feature);
+/**
+ * The Business privacy notice is a draft until its text is in the catalog.
+ * While it is a draft, nothing links to it.
+ */
+export function privacyNoticePublished(locale: PrivacyNoticeLocale): boolean {
+  const catalog = CATALOGS[locale];
+  return typeof lookup(catalog, "business.privacy_notice.title") === "string"
+    && typeof lookup(catalog, "business.privacy_notice.close") === "string"
+    && noticeParagraphs(locale).length > 0;
 }
 
 export function canEnterBusiness(accepted: boolean, grantId: string | null): boolean {
   return accepted || grantId === null;
-}
-
-export function canSubmitAcceptance(optedIn: boolean, saving: boolean): boolean {
-  return optedIn && !saving;
 }

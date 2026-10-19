@@ -1,145 +1,84 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CuadraoLockup } from "@/components/CuadraoLockup";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
-import {
-  BUSINESS_PRIVACY_NOTICE_VERSION,
-  canSubmitAcceptance,
-  noticeParagraphs,
-  noticePlainText,
-  sha256Hex,
-  type PrivacyNoticeLocale,
-} from "@/lib/business-privacy-notice";
-import type { BusinessPrivacyNoticeClient } from "@/lib/business-privacy-notice-client";
-import { cardClass, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { noticeParagraphs, privacyNoticePublished, type PrivacyNoticeLocale } from "@/lib/business-privacy-notice";
+import { BusinessSkeleton } from "./business-skeletons";
+import { pillButtonClass } from "./business-ui";
 
-function ConsentFrame({
-  title,
-  children,
-  testId,
-}: {
-  title: string;
-  children: ReactNode;
-  testId: string;
-}) {
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
-    headingRef.current?.focus();
-  }, [title]);
-  return (
-    <main className="mx-auto flex min-h-[100dvh] w-full max-w-xl flex-col justify-center px-4 py-8" data-testid={testId}>
-      <div className={cardClass}>
-        <h1 ref={headingRef} tabIndex={-1} className="font-display text-[28px] font-medium tracking-tight text-black outline-none dark:text-white">
-          {title}
-        </h1>
-        {children}
-      </div>
-    </main>
-  );
-}
+const continueClass = `${pillButtonClass} w-full bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)] tablet:w-auto`;
 
 export function BusinessConsentScreen({
-  userId,
-  client,
-  onAccepted,
-  onDecline,
+  failed,
+  onContinue,
 }: {
-  userId: string;
-  client: BusinessPrivacyNoticeClient;
-  onAccepted: () => void;
-  onDecline: () => void;
+  failed: boolean;
+  onContinue: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const locale = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language) as PrivacyNoticeLocale;
-  const paragraphs = noticeParagraphs(locale);
-  const title = t("business.consent.title");
-  const ready = title.length > 0 && paragraphs.length > 0;
+  const published = privacyNoticePublished(locale);
   const checkboxId = useId();
   const errorId = useId();
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const privacyRef = useRef<HTMLButtonElement>(null);
   const [optedIn, setOptedIn] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [failed, setFailed] = useState(false);
 
-  const accept = async () => {
-    if (!canSubmitAcceptance(optedIn, saving) || !ready) return;
-    setSaving(true);
-    setFailed(false);
-    try {
-      await client.accept({
-        userId,
-        noticeVersion: BUSINESS_PRIVACY_NOTICE_VERSION,
-        locale,
-        textSha256: await sha256Hex(noticePlainText(paragraphs)),
-      });
-      onAccepted();
-    } catch {
-      setFailed(true);
-    } finally {
-      setSaving(false);
-    }
-  };
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   return (
-    <>
-      <ConsentFrame title={title} testId="business-consent-screen">
-        <p className="mt-3 text-[16px] leading-relaxed text-black dark:text-white">
-          {t("business.consent.intro")}
-        </p>
-        <p className="mt-3 text-[14px] text-black/80 dark:text-white/80">
-          {t("business.consent.version_label", { version: BUSINESS_PRIVACY_NOTICE_VERSION })}
-        </p>
-        <button
-          ref={privacyRef}
-          type="button"
-          className="mt-4 inline-flex min-h-11 items-center text-[16px] font-medium text-black underline underline-offset-4 dark:text-white"
-          onClick={() => setNoticeOpen(true)}
-        >
-          {t("business.consent.privacy_link")}
-        </button>
-        <div className="mt-6">
-          <label htmlFor={checkboxId} className="flex min-h-11 cursor-pointer items-start gap-3 text-[16px] leading-relaxed text-black dark:text-white">
-            <input
-              id={checkboxId}
-              type="checkbox"
-              className="mt-1 h-5 w-5 shrink-0 accent-black dark:accent-white"
-              checked={optedIn}
-              disabled={!ready || saving}
-              onChange={(event) => setOptedIn(event.target.checked)}
-            />
-            <span>{t("business.consent.opt_in")}</span>
-          </label>
-        </div>
+    <main data-testid="business-consent-screen" className="min-h-[100dvh] w-full bg-[#F7F5EE] dark:bg-background">
+      <div className="mx-auto flex w-full max-w-xl flex-col px-4 pb-12 pt-10 tablet:px-6 tablet:pt-20">
+        <CuadraoLockup width={112} />
+        <h1 ref={headingRef} tabIndex={-1} className="mt-10 font-display text-[28px] font-medium tracking-tight text-black outline-none dark:text-white">
+          {t("business.consent.title")}
+        </h1>
+        <p className="mt-4 text-[16px] leading-relaxed text-black dark:text-white">{t("business.consent.body")}</p>
+        <label htmlFor={checkboxId} className="mt-8 flex min-h-11 cursor-pointer items-start gap-3 text-[16px] leading-relaxed text-black dark:text-white">
+          <input
+            id={checkboxId}
+            type="checkbox"
+            className="mt-1 h-5 w-5 shrink-0 accent-[var(--cuadrao-green)]"
+            checked={optedIn}
+            onChange={(event) => setOptedIn(event.target.checked)}
+          />
+          <span>{t("business.consent.opt_in")}</span>
+        </label>
         {failed ? (
           <p id={errorId} role="alert" className="mt-3 text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">
-            {t("business.consent.save_error")}
+            {t("settings.data.personalization.errors.edit")}
           </p>
         ) : null}
-        <div className="mt-6 flex flex-col gap-3">
+        <div className="mt-8 flex flex-col items-start gap-4">
           <button
             type="button"
-            data-testid="business-consent-accept"
-            className={primaryButtonClass}
-            disabled={!canSubmitAcceptance(optedIn && ready, saving)}
+            data-testid="business-consent-continue"
+            className={continueClass}
+            disabled={!optedIn}
             aria-describedby={failed ? errorId : undefined}
-            onClick={() => void accept()}
+            onClick={onContinue}
           >
-            {saving ? t("business.consent.saving") : t("business.consent.accept")}
+            {t("business.consent.continue")}
           </button>
-          <button
-            type="button"
-            data-testid="business-consent-decline"
-            className={secondaryButtonClass}
-            disabled={saving}
-            onClick={onDecline}
-          >
-            {t("business.consent.decline")}
-          </button>
+          {published ? (
+            <button
+              ref={privacyRef}
+              type="button"
+              data-testid="business-consent-privacy"
+              className="inline-flex min-h-11 items-center text-[16px] font-medium text-black underline underline-offset-4 dark:text-white"
+              onClick={() => setNoticeOpen(true)}
+            >
+              {t("business.consent.privacy_link")}
+            </button>
+          ) : null}
         </div>
-      </ConsentFrame>
+      </div>
       {noticeOpen ? (
         <AdaptivePanel
           title={t("business.privacy_notice.title")}
@@ -149,80 +88,21 @@ export function BusinessConsentScreen({
           width="lg"
         >
           <div className="space-y-4 px-4 pb-6 text-[16px] leading-relaxed text-black dark:text-white" data-testid="business-privacy-notice">
-            {paragraphs.map((paragraph) => (
+            {noticeParagraphs(locale).map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
           </div>
         </AdaptivePanel>
       ) : null}
-    </>
+    </main>
   );
 }
 
-export function BusinessConsentDeclined({
-  onBack,
-  onContinue,
-  holding = false,
-  failed = false,
-}: {
-  onBack: () => void;
-  onContinue: () => void;
-  holding?: boolean;
-  failed?: boolean;
-}) {
-  const { t } = useTranslation();
-  const errorId = useId();
+/** Inicio's layout while the gate checks or saves, so /biz never paints blank. */
+export function BusinessConsentLoading() {
   return (
-    <ConsentFrame title={t("business.consent.decline_title")} testId="business-consent-declined">
-      <p className="mt-3 text-[16px] leading-relaxed text-black dark:text-white">
-        {t("business.consent.decline_body")}
-      </p>
-      {failed ? (
-        <p id={errorId} role="alert" className="mt-3 text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">
-          {t("business.consent.hold_error")}
-        </p>
-      ) : null}
-      <div className="mt-6 flex flex-col gap-3">
-        <button
-          type="button"
-          className={primaryButtonClass}
-          data-testid="business-consent-continue-without"
-          disabled={holding}
-          aria-describedby={failed ? errorId : undefined}
-          onClick={onContinue}
-        >
-          {holding ? t("business.consent.holding") : t("business.consent.continue_without")}
-        </button>
-        <button type="button" className={secondaryButtonClass} disabled={holding} onClick={onBack}>
-          {t("business.consent.back")}
-        </button>
-      </div>
-    </ConsentFrame>
-  );
-}
-
-export function BusinessConsentAccepted({ onContinue }: { onContinue: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <ConsentFrame title={t("business.consent.accepted_title")} testId="business-consent-accepted">
-      <p className="mt-3 text-[16px] leading-relaxed text-black dark:text-white">
-        {t("business.consent.accepted_body")}
-      </p>
-      <button type="button" className={`${primaryButtonClass} mt-6`} data-testid="business-consent-continue" onClick={onContinue}>
-        {t("business.consent.continue")}
-      </button>
-    </ConsentFrame>
-  );
-}
-
-export function BusinessConsentHeld({ onReview }: { onReview: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <div role="status" data-testid="business-consent-held" className="border-b border-black/10 bg-[#f6f4ef] px-4 py-3 text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white">
-      <p className="text-[15px] leading-relaxed">{t("business.consent.held")}</p>
-      <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={onReview}>
-        {t("business.consent.review")}
-      </button>
-    </div>
+    <main data-testid="business-consent-loading" className="mx-auto w-full max-w-3xl px-4 pb-12 pt-10 tablet:px-6 tablet:pt-20">
+      <BusinessSkeleton layout="overview" />
+    </main>
   );
 }

@@ -359,6 +359,9 @@ export function createFixtureBusinessDataSource(
       await delay();
       return { id: "fixture-space", name: "Mi negocio" };
     },
+    // The sample owner accepted the consent screen long ago.
+    consent: async (version) => ({ version, accepted_at: "2026-10-01T12:00:00.000Z" }),
+    acceptConsent: async (version) => ({ version, accepted_at: "2026-10-01T12:00:00.000Z" }),
     spaces: async () => {
       await delay();
       return [

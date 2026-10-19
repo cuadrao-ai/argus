@@ -9396,6 +9396,16 @@ person starts their space, every route below except POST `/space` answers 404
   idempotency and selected-client behavior remain unchanged.
 - PATCH `/api/v1/business/space` takes `{name}` and returns the renamed space,
   or 404 `business_space_missing` before the space is started.
+- GET `/api/v1/business/consent?version=<16 hex>` answers `{version,
+  accepted_at}`: when the caller accepted that wording of the Business consent
+  screen, or null. It needs no space, and a chosen grant does not change the
+  answer. POST `/api/v1/business/consent` takes `{version}` and answers the same
+  shape with the first acceptance time. It is idempotent per person and
+  wording, and names the Business the caller works in: the chosen grant's, else
+  their own, or 404 `business_space_missing` with neither. The web derives the
+  version from the words the screen shows in both languages, so an edited
+  wording asks everyone again. A version that is not 16 lowercase hex
+  characters is 422.
 - Access (owner only, the grant in `business_client_grants` is the only
   authority). Starting a space creates the owner's own grant (read, prepare,
   approve) in the same transaction; POST `/business/space` and GET

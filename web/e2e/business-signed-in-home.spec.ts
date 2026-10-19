@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
 function screenshotDir(): string {
   const configured = process.env.E2E_SCREENSHOT_DIR?.trim();
@@ -100,6 +100,7 @@ async function installBusinessShell(page: Page) {
     if (path === "email/deliveries" || path === "captures" || path === "updates") {
       return route.fulfill({ json: { items: [] } });
     }
+    if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
 }

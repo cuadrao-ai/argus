@@ -2246,26 +2246,11 @@
       }
     },
     "consent": {
-      "title": "[BORRADOR] Antes de usar IA en tu negocio",
-      "intro": "[BORRADOR] La lectura de recibos con IA y el asistente envían datos de tu negocio a un proveedor de modelos. Revisa el aviso y confirma que lo aceptas. El texto definitivo lo reemplaza el abogado; esto es un marcador.",
-      "privacy_link": "[BORRADOR] Leer el aviso de privacidad",
-      "opt_in": "[BORRADOR] Acepto el aviso de privacidad de Cuadrao Business que acabo de ver, en esta versión.",
-      "accept": "[BORRADOR] Aceptar y continuar",
-      "decline": "[BORRADOR] No aceptar",
-      "saving": "[BORRADOR] Guardando tu aceptación…",
-      "save_error": "[BORRADOR] No se pudo guardar tu aceptación. Inténtalo otra vez.",
-      "decline_title": "[BORRADOR] Sin este permiso, la IA queda apagada",
-      "decline_body": "[BORRADOR] Si no aceptas, la lectura de recibos con IA y el asistente no están disponibles. Puedes seguir subiendo recibos, escribiendo gastos y revisando lo que ya guardaste.",
-      "continue_without": "[BORRADOR] Continuar sin IA",
-      "holding": "[BORRADOR] Apagando la lectura de recibos…",
-      "hold_error": "[BORRADOR] No pudimos apagar la lectura de recibos. La IA seguiría disponible, así que seguimos aquí.",
-      "back": "[BORRADOR] Volver al aviso",
-      "accepted_title": "[BORRADOR] Aceptación registrada en este navegador",
-      "accepted_body": "[BORRADOR] Guardamos quién aceptó, cuándo, la versión del aviso, el idioma y una huella del texto mostrado. Esta copia vive solo en esta pestaña hasta que el servidor pueda guardarla.",
-      "continue": "[BORRADOR] Continuar",
-      "held": "[BORRADOR] La lectura de recibos con IA y el asistente siguen apagados hasta que aceptes el aviso vigente.",
-      "review": "[BORRADOR] Revisar el aviso",
-      "version_label": "[BORRADOR] Versión {{version}}"
+      "title": "Antes de empezar",
+      "body": "Cuadrao guarda los recibos, facturas y datos que subes para leerlos, organizarlos y preparar tus reportes. Solo tú y las personas que invites a tu negocio pueden verlos. Puedes pedir que borremos tus datos cuando quieras.",
+      "opt_in": "Entiendo y acepto que Cuadrao use mis datos para esto.",
+      "continue": "Continuar",
+      "privacy_link": "Ver aviso de privacidad"
     },
     "export": {
       "title": "Exportar registros del negocio",
@@ -2808,18 +2793,6 @@
       "last_30_days": "Últimos 30 días",
       "last_month": "Mes pasado",
       "this_month": "Este mes"
-    },
-    "privacy_notice": {
-      "title": "[BORRADOR] Aviso de privacidad de Cuadrao Business",
-      "close": "[BORRADOR] Cerrar aviso",
-      "paragraphs": [
-        "[BORRADOR] Este aviso es un marcador. No está publicado ni revisado por un abogado. El texto definitivo reemplaza estas frases.",
-        "[BORRADOR] Cubre Cuadrao Business, la app web del negocio. El dueño del negocio es responsable de sus registros. Cuadrao los trata por encargo suyo. El responsable legal, el domicilio y el contacto de privacidad siguen como {{OPERADOR_LEGAL}}, {{DIRECCION_LEGAL}} y {{CONTACTO_PRIVACIDAD}}.",
-        "[BORRADOR] Recopilamos la cuenta de quien entra, los registros del negocio, los recibos originales, lo que la lectura propone y los datos fiscales que aparecen en un recibo, como RNC, NCF o e-CF e ITBIS. Esos datos fiscales quedan sin verificar hasta que una persona autorizada los revise.",
-        "[BORRADOR] Leer un recibo con IA envía la foto, el PDF o el documento a un modelo, solo para proponer comercio, monto, fecha y datos fiscales. El asistente envía el texto del mensaje y el contexto que necesita. Ninguno registra un gasto por sí solo.",
-        "[BORRADOR] Sin tu aceptación de este aviso, esas funciones no se activan. Subir un recibo, escribir un gasto o revisar lo guardado no es un permiso para enviar datos a un modelo.",
-        "[BORRADOR] Puedes pedir acceso, corrección, eliminación, oposición y portabilidad. Los plazos y la ley aplicable, incluida la Ley 172-13, los confirma el abogado. [A CONFIRMAR]"
-      ]
     },
     "receipt": {
       "untitled": "Recibo"

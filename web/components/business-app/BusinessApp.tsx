@@ -53,7 +53,7 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
   if (sample) return <BusinessConsentTestProvider accepted>{workspace}</BusinessConsentTestProvider>;
   if (!consentUserId) return workspace;
   return (
-    <BusinessConsentGate key={consentUserId} userId={consentUserId} source={source}>
+    <BusinessConsentGate key={consentUserId} source={source}>
       {workspace}
     </BusinessConsentGate>
   );
