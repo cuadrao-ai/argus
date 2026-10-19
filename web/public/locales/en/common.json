@@ -2527,6 +2527,7 @@
       "pm": "PM",
       "read": "Read",
       "received": "Received",
+      "rnc_verified": "RNC verified",
       "see_all": "See all",
       "set": "{{field}}: {{after}}",
       "title": "History"

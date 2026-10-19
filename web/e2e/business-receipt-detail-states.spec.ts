@@ -46,7 +46,9 @@ for (const width of [1440, 390] as const) {
         await seeAll.click();
         await expect(seeAll).toHaveCount(0);
       }
-      await expect(history).not.toContainText(/Revisión|tras aprobar|primer flujo/);
+      const lines = await history.locator("li > p").allTextContents();
+      expect(lines.length).toBeGreaterThan(0);
+      expect(lines.filter((line) => /revisi[oó]n|tras aprobar|primer flujo|registrado/i.test(line)), "no dev wording in the rail").toEqual([]);
       await history.scrollIntoViewIfNeeded();
       await noHorizontalScroll(page);
       await page.screenshot({ path: `${SHOT_DIR}/historial-${width}.png` });
@@ -74,12 +76,14 @@ for (const width of [1440, 390] as const) {
       await expect(page.getByTestId("business-inbox-receipts")).toBeVisible();
       await page.getByTestId("business-inbox-receipts").getByRole("button", { name: /Ferretería La Esquina/ }).click();
       const skeleton = page.locator('[data-testid="business-loading"][data-layout="detail"]');
-      await expect(skeleton).toHaveCount(0, { timeout: 200 });
+      await page.waitForTimeout(200);
+      expect(await skeleton.count(), "200ms in, the page is still blank").toBe(0);
       await expect(skeleton).toBeVisible();
       await page.screenshot({ path: `${SHOT_DIR}/loading-${width}.png` });
       await expect(skeleton.getByTestId("business-skeleton-top")).toBeVisible();
       await expect(skeleton.getByTestId("business-skeleton-fields")).toBeVisible();
-      await expect(page.getByText("Cargando", { exact: false })).toBeHidden();
+      const shownWords = await page.getByTestId("workspace-panel-region").evaluate((region) => [...region.querySelectorAll("*")].filter((element) => !element.closest(".sr-only") && [...element.childNodes].some((node) => node.nodeType === 3 && /Cargando/i.test(node.textContent ?? ""))).length);
+      expect(shownWords, "no visible Cargando line while the skeleton shows").toBe(0);
       await noHorizontalScroll(page);
       await expect(page.getByTestId("receipt-top-block")).toBeVisible({ timeout: 8000 });
     });

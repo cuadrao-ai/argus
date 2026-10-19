@@ -28,13 +28,13 @@ export default function ReceiptReadingState({ children }: { children?: ReactNode
     ["total", t("business.reading.total", "Total")],
   ];
   return (
-    <section className={`${SURFACE_CARD} space-y-4`} data-testid="receipt-reading-state">
+    <section aria-busy="true" className={`${SURFACE_CARD} space-y-4`} data-testid="receipt-reading-state">
       <p role="status" aria-live="polite" className="text-[15px] font-medium leading-[22px] text-[#2f5a49] dark:text-[#8fcbb0]">{t("business.reading.line", "Reading your receipt…")}</p>
-      <dl className="space-y-4">
+      <dl aria-hidden="true" className="space-y-4">
         {fields.map(([key, label]) => (
           <div key={key} data-reading-field={key} className="space-y-2">
             <dt className="text-[13px] font-medium leading-[18px] text-[#172b26] dark:text-white">{label}</dt>
-            <dd aria-hidden="true" className="h-11 rounded-[12px] bg-[#e3ebe1] dark:bg-white/10" />
+            <dd className="h-11 rounded-[12px] bg-[#e3ebe1] dark:bg-white/10" />
           </div>
         ))}
       </dl>

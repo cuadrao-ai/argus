@@ -296,19 +296,22 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
 
   // A read the backend says is running shows the reading state until it settles; the poll then swaps in the filled fields at once.
   if (waitingForAi) {
-    return frame(
-      <ReceiptReadingState>
-        {readStalled ? (
-          <div role="status" data-testid="receipt-read-stalled" className="text-[15px] leading-[22px] text-[#56635e] dark:text-white/70">
-            <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
-            <button type="button" disabled={busy !== null} className={`${SECONDARY_BUTTON} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button>
-          </div>
-        ) : null}
-        {detail.activity?.state === "reading" ? <ReceiptReadingControl /> : null}
-      </ReceiptReadingState>,
-      <ReadingSheen><ReceiptSourcePreview detail={detail} /></ReadingSheen>,
-      true,
-    );
+    return <>
+      <ReceiptShortcutRegistration actions={receiptNavigationActions(receiptId, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); })} />
+      {frame(
+        <ReceiptReadingState>
+          {readStalled ? (
+            <div role="status" data-testid="receipt-read-stalled" className="text-[15px] leading-[22px] text-[#56635e] dark:text-white/70">
+              <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
+              <button type="button" disabled={busy !== null} className={`${SECONDARY_BUTTON} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button>
+            </div>
+          ) : null}
+          {detail.activity?.state === "reading" ? <ReceiptReadingControl /> : null}
+        </ReceiptReadingState>,
+        <ReadingSheen><ReceiptSourcePreview detail={detail} /></ReadingSheen>,
+        true,
+      )}
+    </>;
   }
   return (
     <>

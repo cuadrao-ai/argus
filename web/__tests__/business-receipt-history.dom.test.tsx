@@ -75,7 +75,8 @@ describe("Historial", () => {
     await page.act(async () => { seeAll.click(); });
     assert.deepEqual(lines().slice(3), [["Leído", "Cuadrao · 10/10, 9:25 a.m."], ["Recibido · WhatsApp", "10/10, 9:20 a.m."]]);
     assert.equal([...section.querySelectorAll("button")].some((button) => button.textContent === "Ver todo"), false);
-    assert.doesNotMatch(section.textContent ?? "", /Revisión|tras aprobar|primer flujo|Registrado|Desconocido/);
+    assert.doesNotMatch(section.textContent ?? "", /revisi[oó]n|tras aprobar|primer flujo|registrado|desconocido/i);
+    assert.equal(document.activeElement, section.querySelectorAll("li")[3], "focus lands on the first event Ver todo revealed");
     await page.close();
   });
 
@@ -87,6 +88,36 @@ describe("Historial", () => {
       assert.equal(page.host.querySelector("li p")?.textContent, `Recibido · ${word}`);
       await page.close();
     }
+  });
+
+  test("a chat proposal or a web action is not Recibido; the first file or WhatsApp message is", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const sources = [
+      { id: "p", kind: "agent_proposal", channel: "web", received_at: at(9, 8, 0), text: "Gasto de pintura" },
+      { id: "w", kind: "web_action", channel: "web", received_at: at(9, 8, 30), text: "Revisó" },
+      { id: "m", kind: "message", channel: "whatsapp", received_at: at(9, 9, 0), text: "Te mando el recibo" },
+    ] as BusinessDossier["sources"];
+    const page = await render(<ReceiptHistory history={[]} accounts={[]} sources={sources} />);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Recibido · WhatsApp"]);
+    await page.close();
+    const proposalOnly = await render(<ReceiptHistory history={[]} accounts={[]} sources={sources.slice(0, 2)} />);
+    assert.equal(proposalOnly.host.querySelector('[data-testid="receipt-history"]'), null);
+    await proposalOnly.close();
+  });
+
+  test("an RNC the backend verifies reads RNC verificado", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const withRnc = (verified: boolean) => ({ ...facts("500.00"), fiscal: { rnc: { ...known("131999888"), verified }, ncf: unknown, ecf: unknown, itbis: unknown } }) as unknown as BusinessFacts;
+    const page = await render(<ReceiptHistory history={[revision(2, at(10, 9, 0), actor("Ana Peña"), withRnc(false), withRnc(true))]} accounts={[]} />);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["RNC verificado"]);
+    await page.close();
+  });
+
+  test("events of one revision keep their field order", async () => {
+    const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+    const page = await render(<ReceiptHistory history={[revision(2, at(10, 9, 0), actor("Ana Peña"), facts("100.00"), facts("200.00", "USD"))]} accounts={[]} />);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Monto cambiado de RD$ 100.00 a US$ 200.00", "Moneda cambiada de DOP a USD"]);
+    await page.close();
   });
 
   test("a confirmation that keeps the value adds no correction line", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
 import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFiscalField } from "@/lib/business-dossier";
@@ -42,6 +42,12 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
   const [open, setOpen] = useState(false);
+  const titleId = useId();
+  const list = useRef<HTMLOListElement>(null);
+  // Ver todo disappears once pressed, so focus moves to the first event it revealed.
+  useEffect(() => {
+    if (open) (list.current?.children[COLLAPSED] as HTMLElement | undefined)?.focus();
+  }, [open]);
   const labels = {
     unknown: "",
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),
@@ -72,7 +78,10 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
   const events: HistoryEvent[] = [];
-  const first = [...sources].sort((a, b) => a.received_at.localeCompare(b.received_at))[0];
+  // What arrived is a file or a WhatsApp message; a chat proposal or a web action is not a receipt coming in.
+  const first = sources
+    .filter((item) => item.kind === "attachment" || (item.kind === "message" && item.channel === "whatsapp"))
+    .sort((a, b) => Date.parse(a.received_at) - Date.parse(b.received_at))[0];
   if (first) {
     const channel = first.channel === "whatsapp" ? "WhatsApp" : first.channel === "email" ? t("business.history.channel_email", "Email") : t("business.history.channel_web", "Uploaded");
     events.push({ id: `source-${first.id}`, at: first.received_at, line: `${t("business.history.received", "Received")} · ${channel}`, who: null });
@@ -101,10 +110,12 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       const after = revision.after.fiscal?.[key as Exclude<BusinessFiscalField, "include_606">] as BusinessFact<string> | undefined;
       if (same(before, after)) continue;
       const show = (side: BusinessDraftRevision["before"]) => side ? presentFiscalFact(key, side, locale, labels) : "";
-      events.push({ id: `${revision.version}-${key}`, at, line: changed(key, show(revision.before), show(revision.after)), who });
+      const line = changed(key, show(revision.before), show(revision.after));
+      const verified = key === "rnc" && line === null && after?.state === "known" && after.verified && !before?.verified;
+      events.push({ id: `${revision.version}-${key}`, at, line: verified ? t("business.history.rnc_verified", "RNC verified") : line, who });
     }
     if (revision.after_dgii && !same(revision.before_dgii, revision.after_dgii)) {
-      events.push({ id: `${revision.version}-dgii`, at, line: `${t("business.dgii.revision", "Datos fiscales de esta revisión")} · ${revision.after_dgii.form}`, who, detail: <FiscalRevision declaration={revision.after_dgii} /> });
+      events.push({ id: `${revision.version}-dgii`, at, line: `${t("business.dossier.fiscal_details", "Fiscal details")} · ${revision.after_dgii.form}`, who, detail: <FiscalRevision declaration={revision.after_dgii} /> });
     }
     if (!events.some((event) => event.line !== null && event.id.startsWith(`${revision.version}-`))) {
       events.push({ id: `${revision.version}-reviewed`, at, line: t("business.dossier.reviewed_revision", "This revision was reviewed."), who });
@@ -115,17 +126,18 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   }
   const kept = events.filter((event): event is HistoryEvent & { line: string } => event.line !== null);
   if (!kept.length) return null;
-  const newestFirst = kept.map((event, index) => ({ event, index })).sort((a, b) => b.event.at.localeCompare(a.event.at) || b.index - a.index).map(({ event }) => event);
+  // Newest first; events of one revision keep their field order.
+  const newestFirst = kept.map((event, index) => ({ event, index })).sort((a, b) => Date.parse(b.event.at) - Date.parse(a.event.at) || a.index - b.index).map(({ event }) => event);
   const shown = open ? newestFirst : newestFirst.slice(0, COLLAPSED);
   const am = t("business.history.am", "a.m.");
   const pm = t("business.history.pm", "p.m.");
 
   return (
-    <section className={SURFACE_CARD} aria-labelledby="receipt-history-title" data-testid="receipt-history">
-      <h3 id="receipt-history-title" className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.history.title", "History")}</h3>
-      <ol className="mt-4">
+    <section className={SURFACE_CARD} aria-labelledby={titleId} data-testid="receipt-history">
+      <h3 id={titleId} className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.history.title", "History")}</h3>
+      <ol ref={list} className="mt-4">
         {shown.map((event, index) => (
-          <li key={event.id} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative pb-4 pl-6 last:pb-0">
+          <li key={event.id} tabIndex={-1} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative pb-4 pl-6 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]">
             {index < shown.length - 1 ? <span aria-hidden="true" className="absolute bottom-0 left-[5px] top-3 w-px bg-[#DCE0DA] dark:bg-white/15" /> : null}
             <span aria-hidden="true" data-testid="history-dot" className="absolute left-0 top-[5px] h-3 w-3 rounded-full" style={{ backgroundColor: event.approved ? BUSINESS_STATUS.approved.ink : MUTED_TEXT }} />
             <p className="break-words text-[15px] leading-[22px] text-[#172b26] dark:text-white">{event.line}</p>
