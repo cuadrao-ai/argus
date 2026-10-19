@@ -65,6 +65,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const unfinished = entries.some(isUnfinishedUpload);
   const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
   const many = target === "inbox";
+  const progress = many && queue.progress?.target === target ? queue.progress : null;
   const failed = entries.find((item) => item.status === "failed");
   const failure: FailureClass | null = failed?.status === "failed" ? failed.failure : null;
   const [serverReference, setServerReference] = useState("");
@@ -143,7 +144,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           ) : null}
           {pending || uploading ? (
             <button type="button" className={primaryButtonClass} disabled={uploading} onClick={() => void queue.save(target, consent)}>
-              {uploading ? t("business.intake.saving", "Saving…") : many ? t("business.intake.save_pending", "Save remaining files") : t("business.intake.save", "Save to Inbox")}
+              {progress ? t("business.intake.uploading_progress", "Uploading {{position}} of {{total}}…", { position: progress.position, total: progress.total }) : uploading ? t("business.intake.saving", "Saving…") : many ? t("business.intake.save_pending", "Save remaining files") : t("business.intake.save", "Save to Inbox")}
             </button>
           ) : null}
         </div>
