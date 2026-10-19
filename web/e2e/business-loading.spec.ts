@@ -35,21 +35,13 @@ for (const width of [1280, 390]) {
       await capture("initial-reduced-motion");
     }
     release();
-    const skeleton = baseline ? page.locator('[role="status"][aria-label="Cargando..."]') : page.getByTestId("business-loading");
-    await expect(skeleton).toBeVisible();
-    if (!baseline) {
-      await expect(skeleton).toHaveAttribute("data-layout", "overview");
-      await expect(skeleton.locator(".sr-only")).toHaveText("Cargando");
-      expect(await skeleton.locator('[aria-hidden="true"]').evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
-      expect(await skeleton.getByTestId("business-skeleton-shimmer").first().evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
-      const geometry = await skeleton.locator('[aria-hidden="true"] > div').evaluate((grid) => ({
-        cards: grid.children.length,
-        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
-      }));
-      expect(geometry).toEqual({ cards: 3, columns: width === 390 ? 1 : 2 });
-    }
+    await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
+    const monthLoading = page.getByTestId("month-close-loading");
+    const cards = page.getByTestId("month-close-cards");
+    await expect(monthLoading.or(cards)).toBeVisible();
     await capture("overview");
-    await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+    await expect(cards).toBeVisible();
+    const skeleton = page.getByTestId("business-loading");
     for (const name of ["inbox", "expenses", "updates"]) {
       await page.goto(`/dev/business-preview?view=${name}`);
       await expect(skeleton).toBeVisible();

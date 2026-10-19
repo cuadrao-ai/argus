@@ -24,19 +24,20 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => ReceiptActivityCounts | null } = {}) {
+async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => ReceiptActivityCounts | null; grant?: string | null } = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
   const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
   const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
   const { setChosenGrant } = await import("@/lib/business-grant");
-  setChosenGrant(null);
+  setChosenGrant(overrides.grant ?? null);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
@@ -65,9 +66,11 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessWorkspaceProvider source={source as never}>
-          <Probe />
-        </BusinessWorkspaceProvider>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as never}>
+            <Probe />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
       </I18nextProvider>,
     );
   });
@@ -87,11 +90,13 @@ describe("the Bandeja and the Resumen on one saved state", () => {
   test("the Resumen card, the sidebar badge and the Bandeja rows agree; attention is its own count", async () => {
     const page = await mount();
     assert.equal(page.rows(), 5, "five receipts listed; the email itself is not a row");
-    assert.equal(page.text('[data-testid="overview-inbox-count"]'), "4");
+    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "4");
+    assert.match(page.text('[data-testid="inicio-otras"]') ?? "", /1 con problema/);
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
     assert.equal(page.text('[data-testid="bandeja-por-revisar"]'), "4 por revisar");
     assert.equal(page.text('[data-testid="bandeja-aside"]'), "1 no se pudo leer.");
-    assert.equal(page.host.querySelector('[data-testid="overview-attention"]'), null);
+    assert.equal(page.host.querySelector('[data-testid="overview-inbox-count"]'), null);
+    assert.equal(page.host.querySelector('[data-testid="overview-real-expenses"]'), null);
     assert.equal(page.host.textContent?.includes("necesita tu atención"), false);
     assert.equal(/Revisar \d+ recibos/.test(page.host.textContent ?? ""), false);
     assert.equal(page.host.textContent?.includes("DOP"), false);
@@ -108,15 +113,14 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     await page.settle(() => page.host.querySelectorAll('[data-testid="business-inbox-notes"] li').length === 1);
     assert.equal(page.host.querySelectorAll('[data-testid="business-inbox-notes"] li').length, 1);
     assert.equal(page.rows(), 6);
-    assert.equal(page.text('[data-testid="overview-inbox-count"]'), "4", "a note is not a receipt waiting for review");
+    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "4");
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
     await page.act(async () => page.root.unmount());
   });
 
-  test("an approval leaves the Bandeja and the Resumen together, and Gastos reales counts it once", async () => {
+  test("an approval leaves the Bandeja and the Resumen together", async () => {
     const page = await mount();
-    const real = () => [...page.host.querySelectorAll('[data-testid="overview-real-expenses"] li')].map((item) => item.textContent).sort();
-    assert.deepEqual(real(), ["RD$ 2,100.001 gasto", "US$ 24.001 gasto"]);
+    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "4");
     await page.act(async () => {
       const receipt = await page.source.receipt("rcpt-ferreteria");
       const saved = await page.source.saveReview(receipt.id, receipt.version, { account_id: "acct-ops" });
@@ -124,23 +128,49 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       await page.source.approveDraft(record.draft_id, record.version, "approve-1113");
       page.api().reload();
     });
-    await page.settle(() => page.text('[data-testid="overview-inbox-count"]') === "3");
+    await page.settle(() => page.text('[data-testid="inicio-por-revisar-count"]') === "3");
+    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "3");
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "3");
     assert.equal(page.rows(), 4);
-    assert.deepEqual(real(), ["RD$ 5,550.002 gastos", "US$ 24.001 gasto"]);
-    // A second reload reads the same saved state: nothing stale, nothing doubled.
     await page.act(async () => page.api().reload());
     await page.settle(() => false);
-    assert.equal(page.text('[data-testid="overview-inbox-count"]'), "3");
-    assert.deepEqual(real(), ["RD$ 5,550.002 gastos", "US$ 24.001 gasto"]);
+    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "3");
     await page.act(async () => page.root.unmount());
   });
 
-  test("a missing activity object does not invent a second count", async () => {
+  test("the owner gets one upload primary and the accountant gets one review primary", async () => {
+    const owner = await mount();
+    const resumen = owner.host.querySelector('[data-testid="resumen"]')!;
+    const primaries = resumen.querySelectorAll('[data-primary="true"]');
+    assert.equal(primaries.length, 1);
+    assert.equal(primaries[0]?.getAttribute("data-testid"), "business-primary-upload");
+    assert.equal(primaries[0]?.textContent, "Subir recibo");
+    assert.match(primaries[0]?.className ?? "", /min-h-11/);
+    const action = resumen.querySelector('[data-testid="inicio-por-revisar"]');
+    const cards = resumen.querySelector('[data-testid="month-close-cards"]');
+    assert.ok(action && cards && (action.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+    await owner.settle(() => (resumen.querySelector('[data-testid="inicio-forward-address"]')?.textContent ?? "").includes("@"));
+    const forward = resumen.querySelector('[data-testid="inicio-forward"]');
+    assert.ok(cards && forward && (cards.compareDocumentPosition(forward) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+    assert.match(resumen.querySelector('[data-testid="inicio-forward-copy"]')?.className ?? "", /min-h-11/);
+    await owner.act(async () => owner.root.unmount());
+
+    const accountant = await mount({ grant: "fixture-grant-client" });
+    const view = accountant.host.querySelector('[data-testid="resumen"]')!;
+    const review = view.querySelectorAll('[data-primary="true"]');
+    assert.equal(review.length, 1);
+    assert.equal(review[0]?.getAttribute("data-testid"), "inicio-primary-review");
+    assert.equal(review[0]?.textContent, "Revisar recibos");
+    assert.equal(view.querySelector('[data-testid="business-primary-upload"]'), null);
+    await accountant.act(async () => accountant.root.unmount());
+  });
+
+  test("a missing activity object does not invent a zero", async () => {
     const page = await mount({ activity: () => null });
-    assert.equal(page.text('[data-testid="overview-inbox-count"]'), "4", "the list is the count when the server omits its activity object");
-    assert.equal(page.host.querySelector('[data-testid="overview-attention"]'), null);
+    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "4");
+    assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
     assert.equal(page.text('[data-testid="bandeja-por-revisar"]'), "4 por revisar");
+    assert.equal(page.host.textContent?.includes("0 por revisar"), false);
     await page.act(async () => page.root.unmount());
   });
 });

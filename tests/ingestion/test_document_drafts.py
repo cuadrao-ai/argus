@@ -129,6 +129,43 @@ def test_receipt_items_are_retained_and_ambiguous_purchases_withheld(ambiguous):
 
 
 @pytest.mark.asyncio
+async def test_background_prepare_logs_exception_type_and_receipt_id(rig):
+    from loguru import logger
+
+    from tests.ingestion.test_document_service import fake
+
+    service, _, extractor, _ = rig
+    secret = "payer-token-9f3a body must stay out of the log"
+    extractor.extract.side_effect = RuntimeError(secret)
+    user = fake.uuid4()
+    saved = await service.upload(
+        user_id=user,
+        content=b"%PDF-fixture",
+        filename="secret-name.pdf",
+        media_type="application/pdf",
+        consent=True,
+        scope=PERSONAL,
+    )
+    records = []
+    sink = logger.add(lambda message: records.append(message.record), level="WARNING")
+    try:
+        await service.background_prepare(
+            user_id=user, connection_id=saved.connection_id, scope=PERSONAL
+        )
+    finally:
+        logger.remove(sink)
+    logged = [str(record["message"]) for record in records]
+    assert logged == [
+        "document_prepare_failed"
+        f" failure_mode=RuntimeError connection_id={saved.connection_id}"
+    ]
+    blob = "\n".join(logged)
+    assert secret not in blob
+    assert "secret-name.pdf" not in blob
+    assert user not in blob
+
+
+@pytest.mark.asyncio
 async def test_failure_keeps_source_and_duplicate_does_not_retry(rig):
     from tests.ingestion.test_document_service import fake
 

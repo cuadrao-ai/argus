@@ -33,6 +33,7 @@ authorize Apple TestFlight or change public signup or marketing publication.
 - **Legal drafts.** [docs/legal](legal/OPEN_QUESTIONS.md) holds draft privacy, terms and
   data-use documents. They use placeholders, the company is not formed, and a lawyer
   must review them before any publication. They are not published policy.
+- **Month close.** Request and response shapes, error codes, and the settlement grain are in [the month-close contract](contracts/business-month-close.md). `API_CONTRACT.md` points there. The migration is the schema.
 - **"Already included" is server-owned.** The API decides whether to ask if a movement
   was already counted in a balance. It asks only when a movement is backdated to a date
   on or before a balance check made after it. A skipped question is recorded with a
@@ -57,7 +58,7 @@ authorize Apple TestFlight or change public signup or marketing publication.
 | Which core flows exist for both apps, and when was each last walked? | [Core flows](CORE_FLOWS.md) | Owns the flow list, labels and last-walked evidence. It is the founder's test checklist and claims no more than a row's walk date. Other documents link here and do not repeat the list. |
 | What is an agent authorized to build now? | Explicit assignment and its scoped package/spec | MVEE approval does not assign every feature, unlock stages, or authorize provider integrations |
 | What is next, who owns it, and what counts as done? | [Private iPhone execution manifest](specs/argus-execution-board.md) | One execution map; states and evidence links do not authorize a restart, merge or deployment |
-| How is work reviewed and released? | Yelena's ship playbooks (internal), [CI/CD discipline](specs/private-alpha-ci-cd-sota.md), [launch runbook](PRIVATE_LAUNCH_RUNBOOK.md), [manifest template](release-manifests/TEMPLATE.md) | Existing evaluation, privacy, branch, merge, and deployment gates remain in force |
+| How is work reviewed and released? | Yelena's ship playbooks (internal), [CI/CD discipline](specs/private-alpha-ci-cd-sota.md), [launch runbook](PRIVATE_LAUNCH_RUNBOOK.md), [manifest template](release-manifests/TEMPLATE.md) | Existing evaluation, privacy, branch, merge, and deployment gates remain in force. The ordered staging-to-production checklist is the runbook's [Cuadrao production promotion](PRIVATE_LAUNCH_RUNBOOK.md#cuadrao-production-promotion). |
 | What evidence or thinking informed a direction? | Linked research and historical strategy docs | Inputs and provenance, not independent scope authority |
 
 ## Constitution source material

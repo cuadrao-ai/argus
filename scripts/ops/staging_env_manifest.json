@@ -186,6 +186,11 @@
           "value": "true"
         },
         {
+          "name": "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
           "name": "ARGUS_INVITE_CODE_SECRET",
           "kind": "generated"
         },

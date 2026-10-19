@@ -5,10 +5,12 @@ import { useTranslation } from "react-i18next";
 import type { ReceiptReading } from "@/lib/business-api";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { useBusiness } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import { secondaryButtonClass } from "./business-ui";
 
 export default function ReceiptReadingControl({ hideWhenEnabled = false }: { hideWhenEnabled?: boolean }) {
   const { source, reload, chosen } = useBusiness();
+  const consent = useBusinessConsent();
   const { t, i18n } = useTranslation();
   const language = normalizeEnabledLanguage(i18n.resolvedLanguage ?? "en");
   const businessKey = chosen?.space_id ?? "own";
@@ -30,7 +32,7 @@ export default function ReceiptReadingControl({ hideWhenEnabled = false }: { hid
     source.receiptReading?.(language, controller.signal).then((value) => { if (current) setReading(value); }, () => { if (current) setFailed(true); });
     return () => { current = false; controller.abort(); };
   }, [source, language, businessKey]);
-  if (!source.receiptReading || (hideWhenEnabled && (reading?.enabled || (!reading && !failed)))) return null;
+  if (!consent.accepted || !source.receiptReading || (hideWhenEnabled && (reading?.enabled || (!reading && !failed)))) return null;
   const change = async () => {
     if (!reading || !source.setReceiptReading || busy) return;
     const current = generation.current;

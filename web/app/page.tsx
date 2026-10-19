@@ -9,7 +9,6 @@ import AuthForm, {
 } from "@/components/auth/AuthForm";
 import RequestAccess from "@/components/auth/RequestAccess";
 import { SettingsMenu } from "@/components/SettingsMenu";
-import GuestEntry from "@/components/guest/GuestEntry";
 import { useTranslation } from "react-i18next";
 import { DevModeBadge } from "@/components/ui/DevModeBadge";
 import {
@@ -19,7 +18,7 @@ import {
   normalizeApiLanguage,
   signupWithEmail,
 } from "@/lib/argus-api";
-import { leaveSession } from "@/lib/logout-flow";
+import { leaveSession, resetLeavingSession } from "@/lib/logout-flow";
 import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-flags";
 import {
   guestEntryAvailable,
@@ -32,7 +31,7 @@ import {
   signedInHomeClosed,
 } from "@/lib/landing-intent";
 import { guestCaptchaConfigured } from "@/lib/guest-session";
-import { ENABLED_LANGUAGES, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
+import { landingLanguageChoices, languageToShow, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { saveProfileLanguage } from "@/lib/profile-writes";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
 import { completeAuthVerification } from "@/lib/auth-verification";
@@ -87,6 +86,7 @@ export default function LandingPage() {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [verificationFailed, setVerificationFailed] = useState(false);
   const [homeClosed, setHomeClosed] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
   const [profileProbeFailedClosed, setProfileProbeFailedClosed] =
     useState(false);
 
@@ -160,30 +160,40 @@ export default function LandingPage() {
     const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
     window.history.replaceState(null, "", nextUrl);
   };
-  // A language chosen on this page before signing in. It is shown at once and,
-  // once the account signs in, saved on it; the account's own setting rules
-  // every later visit.
+  // A language chosen on this page before signing in. It is saved on the
+  // account after sign-in. A Business build keeps showing Spanish.
   const [chosenLanguage, setChosenLanguage] = useState<ArgusLanguage | null>(null);
   const shownLanguage = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language);
-  const otherLanguages = ENABLED_LANGUAGES.filter((language) => language.code !== shownLanguage);
+  const otherLanguages = landingLanguageChoices(businessPilotEnabled, shownLanguage);
   const chooseLanguage = async (code: ArgusLanguage) => {
-    await i18n.changeLanguage(code);
+    const shown = languageToShow(businessPilotEnabled, code);
+    if (shown) await i18n.changeLanguage(shown);
     setChosenLanguage(code);
   };
   const showRequest = () => updateAuthMode("request");
   const showSignup = () => updateAuthMode("signup");
   const showLogin = () => updateAuthMode("login");
   const signOutClosedHome = () => {
+    setSignOutFailed(false);
     void leaveSession({
       boundary: { beginConversion() {}, finishConversion() {} },
       currentUserId: null,
       signOut: () => logoutFromApi(),
       clearLocalState() {},
       navigate: (href) => {
+        setHomeClosed(false);
+        if (href === "/" || href.startsWith("/?auth=login")) {
+          updateAuthMode("login");
+          return;
+        }
         window.location.assign(href);
       },
-      onFailed() {},
+      onFailed() {
+        setSignOutFailed(true);
+      },
       businessBuild: businessPilotEnabled,
+    }).finally(() => {
+      resetLeavingSession();
     });
   };
 
@@ -267,10 +277,6 @@ export default function LandingPage() {
     );
   }
 
-  if (entrySurface === "guest") {
-    return <GuestEntry />;
-  }
-
   return (
     <>
       <DevModeBadge />
@@ -290,11 +296,12 @@ export default function LandingPage() {
               <p className="mt-3 text-[16px] tracking-wide">{businessHomeClosedBody(String(t("auth.business_unavailable.body")))}</p>
               <button
                 type="button"
-                className="font-display mt-6 flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:bg-white dark:text-black dark:focus-visible:ring-white"
+                className="font-display mt-6 flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium !text-[var(--cuadrao-cream)] transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:bg-white dark:focus-visible:ring-white"
                 onClick={signOutClosedHome}
               >
                 {t("auth.business_unavailable.sign_out")}
               </button>
+              {signOutFailed ? <p className="mt-3" role="alert">{t("settings.logout_error")}</p> : null}
             </div>
           ) : authMode === "intro" ? (
             <button
@@ -308,6 +315,7 @@ export default function LandingPage() {
           ) : (
             <div className="w-full max-w-sm">
               {verificationFailed ? <p role="alert">{t("auth.errors.unauthorized", "We couldn’t verify those account details. Check them and try again.")}</p> : null}
+              {signOutFailed ? <p role="alert">{t("settings.logout_error")}</p> : null}
               {authMode === "request" ? (
                 <RequestAccess
                   onShowSignup={showSignup}

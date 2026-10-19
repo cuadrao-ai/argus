@@ -522,7 +522,10 @@ def test_package_capture_is_canonical_utc_instant_not_record_date(monkeypatch, i
     )
     pool = MagicMock()
     cursor = pool.connection.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value
-    cursor.fetchone.return_value = {"count": 0}
+    cursor.fetchone.side_effect = [
+        {"count": 0},
+        {"name": "PRÁCTICA", "business_rnc": None},
+    ]
     cursor.fetchall.side_effect = [
         [
             {
@@ -533,6 +536,7 @@ def test_package_capture_is_canonical_utc_instant_not_record_date(monkeypatch, i
                 "resolution": {},
             }
         ],
+        [],
         [],
     ]
     period = export.ExportPeriod(date(2025, 12, 1), date(2025, 12, 31))

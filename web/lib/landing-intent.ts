@@ -440,18 +440,6 @@ function homeFor(pilot: boolean, businessOnly: boolean): SignedInHome {
   });
 }
 
-/** One door for a signed-in or signed-out person. Business-only never names chat. */
-export function homeTarget(input: {
-  signedIn: boolean;
-  pilot: boolean;
-  businessOnly: boolean;
-  chatPath: string;
-}): SignedInHome {
-  if (input.signedIn) return resolveSignedInHome(input);
-  if (input.businessOnly || input.pilot) return { href: "/?auth=login" };
-  return { href: input.chatPath };
-}
-
 /** /biz follows the signed-in home. Closed means the sign-in screen. No pilot and no business-only means this route does not exist. */
 export function businessShellEntry(input: {
   pilot: boolean;

@@ -175,7 +175,7 @@ describe("chat header wiring", () => {
   });
 
   test("owner menu renders only for a manageable conversation", () => {
-    expect(chat).toContain(') : currentView === "chat" &&');
+    expect(chat).toContain('currentView === "chat" &&');
     expect(chat).toContain("conversationId &&");
     expect(chat).toContain("canManageConversation ? (");
     expect(chat).toContain("<ChatHeaderMenu");

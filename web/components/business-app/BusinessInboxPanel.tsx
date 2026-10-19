@@ -11,6 +11,7 @@ import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
 import InboxForwardingCard from "./InboxForwardingCard";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import { bandejaReceipts } from "./bandeja-order";
 import { countPorRevisar, countStillReading, countUnreadable, porRevisar } from "@/lib/business-review-count";
 import { formatMoney, formatRelativeTime } from "./business-format";
@@ -253,6 +254,7 @@ const INBOX_PAGE = 8;
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
+  const consent = useBusinessConsent();
   const { records, openPanel, actions, panel, chosen, source, reload, revision } = useBusiness();
   const personal = usePersonalMark();
   const items = records.inbox ? bandejaReceipts(records.inbox) : null;
@@ -320,6 +322,10 @@ export default function BusinessInboxPanel() {
                       onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
                       onMark={personal.mark}
                       onRetry={async () => {
+                        if (!consent.accepted) {
+                          consent.reopen();
+                          return;
+                        }
                         try { await source.prepareReceipt(receipt.id); } finally { reload(); }
                       }}
                       onUpload={upload ? () => upload.run() : undefined}
