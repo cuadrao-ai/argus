@@ -2,7 +2,6 @@
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timezone
 from threading import Barrier
 
 import httpx
@@ -31,7 +30,9 @@ def test_daily_message_cap_keeps_mail_pending_and_exact_replays_are_free():
 
 
 def usage(world):
-    day = world.clock().astimezone(timezone.utc).date()
+    from argus.domain.ingestion.email_intake.budget import business_day
+
+    day = business_day(world.clock())
     return world.store._usage.get((world.route.id, day), [0, 0])
 
 
@@ -112,9 +113,10 @@ def test_crashed_fetch_stays_charged_and_cannot_refund_reclaimed_attempt():
     assert usage(world) == [2, SOURCE_MAX_BYTES + 11]
 
 
-def test_new_utc_day_is_independent_and_existing_reservation_settles_its_own_day():
+def test_new_business_day_is_independent_and_existing_reservation_settles_its_own_day():
     world = rig()
-    world.clock.now = world.clock.now.replace(hour=23, minute=59, second=59)
+    # 03:59:59 UTC is 23:59:59 in Santo Domingo. Two seconds later is the next day.
+    world.clock.now = world.clock.now.replace(hour=3, minute=59, second=59)
     delivery = world.enqueue()
     held = world.store.claim(delivery_id=delivery.id)
     first = world.store.reserve_fetch(held)
@@ -157,6 +159,44 @@ async def test_metadata_and_raw_reserve_separately_and_settle_actual_bytes():
     assert len(requests) == 2
     assert usage(world) == [1, len(metadata_bytes) + len(world.provider.raw)]
     assert world.store.get(delivery.id, world.route.space_id).state == "captured"
+
+
+@pytest.mark.asyncio
+async def test_oversized_download_stops_at_the_cap_and_keeps_that_charge():
+    world = rig()
+    delivery = world.enqueue()
+    pulled = []
+    metadata = {
+        "id": delivery.external_id,
+        "to": [world.route.recipient],
+        "raw": {"download_url": "https://cdn.resend.app/raw"},
+    }
+    metadata_bytes = len(httpx.Response(200, json=metadata).content)
+
+    class Chunks(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            pulled.append(1)
+            yield b"x" * (SOURCE_MAX_BYTES - 1)
+            pulled.append(2)
+            yield b"yy"
+            pulled.append(3)
+            yield b"z" * 64
+
+    def handler(request):
+        if request.url.host == "api.resend.com":
+            return httpx.Response(200, json=metadata)
+        return httpx.Response(200, stream=Chunks(), headers={})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        world.runtime.provider = ResendReceivingClient(
+            client, "synthetic", ("cdn.resend.app",)
+        )
+        assert await world.runtime.next()
+    saved = world.store.get(delivery.id, world.route.space_id)
+    assert (saved.state, saved.error_code) == ("rejected", "provider_response_too_large")
+    assert pulled == [1, 2]
+    assert usage(world) == [1, metadata_bytes + SOURCE_MAX_BYTES]
+    assert world.drafts() == []
 
 
 @pytest.mark.asyncio
@@ -239,7 +279,9 @@ def test_each_address_has_an_independent_daily_allowance():
     assert world.enqueue().error_code is None
     assert world.enqueue().error_code == "email_daily_message_budget"
     assert world.enqueue(second.recipient).error_code is None
-    assert world.store._usage[(second.id, world.clock().date())] == [1, 0]
+    from argus.domain.ingestion.email_intake.budget import business_day
+
+    assert world.store._usage[(second.id, business_day(world.clock()))] == [1, 0]
 
 
 def test_manual_retry_of_quota_wait_cannot_bypass_next_day_or_spend_attempts():
@@ -255,15 +297,17 @@ def test_manual_retry_of_quota_wait_cannot_bypass_next_day_or_spend_attempts():
 
 @pytest.mark.asyncio
 async def test_metadata_before_midnight_and_raw_after_midnight_charge_separate_days():
+    from argus.domain.ingestion.email_intake.budget import business_day
+
     world = rig()
-    world.clock.now = world.clock.now.replace(hour=23, minute=59, second=59)
+    world.clock.now = world.clock.now.replace(hour=3, minute=59, second=59)
     delivery = world.enqueue()
-    first_day = world.clock().date()
+    first_day = business_day(world.clock())
     settle = world.store.settle_fetch
 
     def advance_after_metadata(*args):
         settle(*args)
-        if world.clock().date() == first_day:
+        if business_day(world.clock()) == first_day:
             world.clock.advance(2)
 
     world.store.settle_fetch = advance_after_metadata
