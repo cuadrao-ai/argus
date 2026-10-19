@@ -13,23 +13,20 @@ describe("robots.txt", () => {
   test("a blocked host keeps the global disallow and allows two crawlers on two paths", () => {
     delete process.env.CUADRAO_SITE_INDEXING;
 
-    expect(resolveRobots(robots())).toBe(
-      [
-        "User-Agent: facebookexternalhit",
-        "Allow: /eliminar-datos",
-        "Allow: /privacidad",
-        "Disallow: /",
-        "",
-        "User-Agent: Facebot",
-        "Allow: /eliminar-datos",
-        "Allow: /privacidad",
-        "Disallow: /",
-        "",
-        "User-Agent: *",
-        "Disallow: /",
-        "",
-      ].join("\n"),
-    );
+    expect(resolveRobots(robots())).toBe(`User-Agent: facebookexternalhit
+Allow: /eliminar-datos
+Allow: /privacidad
+Disallow: /
+
+User-Agent: Facebot
+Allow: /eliminar-datos
+Allow: /privacidad
+Disallow: /
+
+User-Agent: *
+Disallow: /
+
+`);
   });
 
   test("a public host still allows the site, blocks the API, and names the sitemap", () => {
