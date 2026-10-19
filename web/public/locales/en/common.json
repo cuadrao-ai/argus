@@ -1012,7 +1012,6 @@
       "ai_on": "On. You can turn it off at any time.",
       "ai_replaces": "Another AI permission is on for this number. Turning this on replaces it.",
       "ai_off": "Off. Receipts you send wait in your Inbox for you to fill in.",
-      "ai_models": "Provider: OpenRouter. Models: {{models}}.",
       "ai_approval": "You always approve money records yourself in Cuadrao.",
       "ai_reason_unavailable": "AI reading cannot be turned on right now.",
       "ai_reason_whatsapp_link_required": "Link your number first.",
@@ -1469,10 +1468,7 @@
       "email_placeholder": "Email address",
       "password_placeholder": "Password",
       "submit": "Sign in",
-      "loading": "Signing in...",
-      "errors": {
-        "supabase_not_configured": "Supabase auth is not configured."
-      }
+      "loading": "Signing in..."
     },
     "signup": {
       "subtitle": "Create your Cuadrao account",
@@ -2584,8 +2580,8 @@
       "label": "Business",
       "overview": "Home",
       "inbox": "Inbox",
-      "expenses": "Receipts",
-      "updates": "Notifications"
+      "expenses": "Expenses",
+      "updates": "Updates"
     },
     "month_close": {
       "title": "Close the month",

@@ -1012,7 +1012,6 @@
       "ai_on": "Activado. Puedes desactivarlo cuando quieras.",
       "ai_replaces": "Otro permiso de IA está activo en este número. Al activar este, lo reemplaza.",
       "ai_off": "Desactivado. Los recibos que envíes esperan en tu bandeja para que los llenes tú.",
-      "ai_models": "Proveedor: OpenRouter. Modelos: {{models}}.",
       "ai_approval": "Tú siempre apruebas los registros de dinero en Cuadrao.",
       "ai_reason_unavailable": "Ahora no se puede activar la lectura con IA.",
       "ai_reason_whatsapp_link_required": "Primero vincula tu número.",
@@ -1469,10 +1468,7 @@
       "email_placeholder": "Correo electrónico",
       "password_placeholder": "Contraseña",
       "submit": "Iniciar sesión",
-      "loading": "Iniciando sesión...",
-      "errors": {
-        "supabase_not_configured": "La autenticacion de Supabase no esta configurada."
-      }
+      "loading": "Iniciando sesión..."
     },
     "signup": {
       "subtitle": "Crea tu cuenta de Cuadrao",
@@ -2673,11 +2669,11 @@
       "go_business": "Ir a Cuadrao Business"
     },
     "nav": {
-      "expenses": "Recibos",
+      "expenses": "Gastos",
       "inbox": "Bandeja",
       "label": "Negocio",
       "overview": "Inicio",
-      "updates": "Notificaciones"
+      "updates": "Novedades"
     },
     "month_close": {
       "title": "Cuadrar el mes",

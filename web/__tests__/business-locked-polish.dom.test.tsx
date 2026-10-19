@@ -226,7 +226,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         accessible.querySelectorAll('[aria-hidden="true"]').forEach((element) => element.remove());
         return accessible.getAttribute("aria-label") ?? accessible.textContent?.replace(/\d+$/, "").trim();
       });
-      assert.deepEqual(names, ["Inicio", "Bandeja", "Recibos", "Notificaciones"]);
+      assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos", "Novedades"]);
       assert.ok(items.every((button) => button.querySelector("svg")), "each name sits with its icon");
       await page.close();
     }
@@ -258,13 +258,13 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     }
   });
 
-  test("phone tabs name Inicio, Bandeja, Recibos and Notificaciones and do not include a menu button", async () => {
+  test("phone tabs name Inicio, Bandeja, Gastos and Novedades and do not include a menu button", async () => {
     const BusinessBottomTabs = (await import("@/components/business-app/BusinessBottomTabs")).default;
     const page = await mount(() => <BusinessBottomTabs shell={shell({ isBelowTablet: true })} />);
     const tabs = page.host.querySelector('[data-testid="business-bottom-tabs"]');
     assert.ok(tabs);
     const names = [...tabs.querySelectorAll("button")].map((button) => button.textContent?.trim());
-    assert.deepEqual(names, ["Inicio", "Bandeja", "Recibos", "Notificaciones"]);
+    assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos", "Novedades"]);
     assert.equal(page.host.querySelector('[data-testid="chat-shell-menu-trigger"]'), null);
     await page.close();
   });
