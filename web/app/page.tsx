@@ -37,7 +37,7 @@ import { guestProfileProbeOutcome } from "@/lib/guest-account";
 import { completeAuthVerification } from "@/lib/auth-verification";
 import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
 
-const BUSINESS_HOME_CLOSED_EMAIL = "admin@cuadrao.ai";
+const BUSINESS_HOME_CLOSED_EMAIL = "hola@cuadrao.ai";
 
 function businessHomeClosedBody(body: string) {
   const at = body.indexOf(BUSINESS_HOME_CLOSED_EMAIL);
