@@ -8,7 +8,6 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from psycopg.types.json import Jsonb
-from pydantic import TypeAdapter
 
 from argus.domain.business.actions import dossier, mutations, plans
 from argus.domain.business.actions.facts import validate_facts
@@ -30,7 +29,7 @@ from argus.domain.business.contracts.actions import (
     RefundApprovalCommand,
     Refused,
 )
-from argus.domain.business.contracts.dgii import DgiiDeclaration
+from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessFacts,
@@ -81,10 +80,6 @@ def _money_request(
     funding = facts.funding.value
     if kind in {"income", "refund"} and not isinstance(funding, BusinessAccountFunding):
         raise ActionError("invalid_input", "business_funding_unsupported")
-    if not isinstance(funding, OwnerFunding) and (
-        not isinstance(facts.currency, Known) or not facts.currency.value
-    ):
-        raise ActionError("invalid_input", "import_currency_mismatch")
     return MoneyRequest(
         kind=kind,
         purchase_activity_id=purchase_activity_id,
@@ -103,33 +98,19 @@ def _money_request(
     )
 
 
-def _ensure_purchase_declaration(tx, event, facts: BusinessFacts):
-    """Write after_dgii on the revision being approved.
+def _approval_declaration(
+    event: ImportEvent, facts: BusinessFacts
+) -> PurchaseDeclaration | None:
+    """The 606 declaration an expense approval writes from its stored facts.
 
-    A declaration already stored on the draft wins. Otherwise an expense
-    builds one from the stored facts. The snapshot reads that same revision.
+    None when the draft already holds a declaration: the one a person saved wins.
     """
 
+    if (event.resolution.get("business") or {}).get("dgii"):
+        return None
     if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
-        return event
-    raw = (event.resolution.get("business") or {}).get("dgii")
-    declared = (
-        TypeAdapter(DgiiDeclaration).validate_python(raw)
-        if raw
-        else declaration_from_facts(facts)
-    )
-    mutations.save_revision(
-        tx,
-        event,
-        facts,
-        facts,
-        (),
-        tx.authorization.provenance,
-        None,
-        dgii=declared,
-        reuse_version=True,
-    )
-    return tx.imports.event(str(event.id))
+        return None
+    return declaration_from_facts(facts)
 
 
 def reviewed_request(
@@ -222,7 +203,6 @@ def approve(
                 plans.start_receipt(tx, key, command)
                 try:
                     event, facts = _reviewed_facts(tx, draft_id, request.version, kind)
-                    event = _ensure_purchase_declaration(tx, event, facts)
                 except ActionError as error:
                     return plans.finish_receipt(tx, key, error.result)
                 claim_key = hashlib.sha256(
@@ -243,7 +223,23 @@ def approve(
                         },
                     },
                 )
-                tx.imports.put_event(event)
+                declared = _approval_declaration(event, facts)
+                if declared is None:
+                    tx.imports.put_event(event)
+                else:
+                    # Revisions are immutable, so the declaration is the approval's
+                    # own revision, at the version the accepting record takes.
+                    mutations.save_revision(
+                        tx,
+                        event,
+                        facts,
+                        facts,
+                        (),
+                        tx.authorization.provenance,
+                        None,
+                        dgii=declared,
+                    )
+                    event = tx.imports.event(str(draft_id))
                 plans.finish_receipt(
                     tx, key, OutcomeUnknown(code="business_recording_unsettled")
                 )

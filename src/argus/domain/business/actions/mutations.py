@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
+from loguru import logger
 from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter, ValidationError
 
@@ -91,8 +92,6 @@ def save_revision(
     ecf_checks: EcfVerification | None = None,
     dgii_qr: DgiiQr | None = None,
     dgii: DgiiDeclaration | None = None,
-    *,
-    reuse_version: bool = False,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -124,19 +123,6 @@ def save_revision(
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
     sources.attach(tx, event.id, source_ids)
-    if reuse_version:
-        payload = resolution["business"].get("dgii")
-        tx.rows(
-            "update public.business_draft_revisions set after_dgii=coalesce(after_dgii, %s)"
-            " where space_id=%s and draft_id=%s and version=%s",
-            (
-                Jsonb(payload) if payload else None,
-                tx.context.actor.space_id,
-                event.id,
-                event.version,
-            ),
-        )
-        return Applied(outcome="applied", draft_id=event.id, version=event.version)
     tx.rows(
         "insert into public.business_draft_revisions"
         " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,before_dgii,after_dgii)"
@@ -408,9 +394,7 @@ def prepare_attachment(
         if ambiguous
         else ()
     )
-    read_total = (
-        batch.receipt.total if ambiguous and batch.receipt is not None else None
-    )
+    read_total = batch.receipt.total if ambiguous and batch.receipt is not None else None
     candidate = _consensus(purchases) if ambiguous else purchases[0]
     source_id = sources.record_source(
         tx,
@@ -647,6 +631,7 @@ def _fill_unknown_purchase(
 
     if receipt is None:
         return
+    filled = []
     if (
         values["counterparty"] is None
         or "counterparty" in uncertain
@@ -655,9 +640,13 @@ def _fill_unknown_purchase(
         values["counterparty"] = receipt.merchant
         uncertain.discard("counterparty")
         uncertain.discard("merchant")
+        filled.append("counterparty")
     if (values["currency"] is None or "currency" in uncertain) and receipt.currency:
         values["currency"] = receipt.currency
         uncertain.discard("currency")
+        filled.append("currency")
+    if filled:
+        logger.info("business.receipt_filled_purchase fields={}", filled)
 
 
 def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> dict:

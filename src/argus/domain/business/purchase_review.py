@@ -18,6 +18,8 @@ from argus.domain.business.fiscal_identity import identity_digits, normalized_nc
 
 # 606 type 09 is goods that form the cost of a sale. A saved declaration replaces it.
 _GOODS_COST = "09"
+# 606 payment form by who paid: 01 cash for the owner, 02 bank for a Business account.
+_PAYMENT_FORM = {OwnerFunding: "01", BusinessAccountFunding: "02"}
 
 
 def apply_purchase(
@@ -61,72 +63,34 @@ def apply_purchase(
 
 
 def declaration_from_facts(facts: BusinessFacts) -> PurchaseDeclaration:
-    """A 606 declaration from the stored facts when the person saved none.
+    """The 606 declaration of an approved expense whose draft holds none.
 
-    The amount that lands in goods is the total minus ITBIS, so the annex
-    still adds back to the booked total. Payment follows who paid.
+    Goods take the total minus ITBIS, so the line adds back to the booked
+    total. Payment follows who paid.
     """
 
+    rnc = _fiscal(facts, "rnc")
+    number = normalized_ncf(_fiscal(facts, "ecf") or _fiscal(facts, "ncf"))
+    funding = facts.funding.value if isinstance(facts.funding, Known) else None
     review = PurchaseReview(
-        category=_GOODS_COST if _reportable_local_purchase(facts) else None,
-        payment_method=_payment_method(facts),
+        category=_GOODS_COST
+        if rnc is not None and number is not None and number[1:3] != "02"
+        else None,
+        payment_method=_PAYMENT_FORM.get(type(funding)),
     )
-    declared = apply_purchase(None, review, _base_amount(facts))
-    id_type = _id_type(facts)
-    if id_type is None:
-        return declared
-    return declared.model_copy(update={"id_type": id_type})
-
-
-def _payment_method(facts: BusinessFacts) -> str | None:
-    if not isinstance(facts.funding, Known):
-        return None
-    funding = facts.funding.value
-    if isinstance(funding, OwnerFunding):
-        return "01"
-    if isinstance(funding, BusinessAccountFunding):
-        return "02"
-    return None
-
-
-def _id_type(facts: BusinessFacts) -> str | None:
-    fiscal = facts.fiscal
-    if fiscal is None or not isinstance(fiscal.rnc, Known) or not fiscal.rnc.value:
-        return None
-    digits = identity_digits(fiscal.rnc.value)
-    if digits is None:
-        return None
-    if len(digits) == 9:
-        return "1"
-    if len(digits) == 11:
-        return "2"
-    return None
-
-
-def _base_amount(facts: BusinessFacts) -> str | None:
-    if not isinstance(facts.amount, Known) or not facts.amount.value:
-        return None
-    gross = Decimal(facts.amount.value)
-    fiscal = facts.fiscal
-    itbis = (
-        Decimal(fiscal.itbis.value)
-        if fiscal is not None
-        and isinstance(fiscal.itbis, Known)
-        and fiscal.itbis.value
-        else None
+    gross = Decimal(facts.amount.value) if isinstance(facts.amount, Known) else None
+    itbis = _fiscal(facts, "itbis")
+    base = (
+        gross - Decimal(itbis)
+        if gross is not None and itbis is not None and gross > Decimal(itbis)
+        else gross
     )
-    if itbis is not None and gross > itbis:
-        return money_text(gross - itbis)
-    return money_text(gross)
+    digits = identity_digits(rnc)
+    return apply_purchase(
+        None, review, money_text(base) if base is not None else None
+    ).model_copy(update={"id_type": {9: "1", 11: "2"}.get(len(digits or ""))})
 
 
-def _reportable_local_purchase(facts: BusinessFacts) -> bool:
-    fiscal = facts.fiscal
-    if fiscal is None or not isinstance(fiscal.rnc, Known) or not fiscal.rnc.value:
-        return False
-    number = None
-    if isinstance(fiscal.ecf, Known) and fiscal.ecf.value:
-        number = normalized_ncf(fiscal.ecf.value)
-    elif isinstance(fiscal.ncf, Known) and fiscal.ncf.value:
-        number = normalized_ncf(fiscal.ncf.value)
-    return number is not None and number[1:3] != "02"
+def _fiscal(facts: BusinessFacts, name: str) -> str | None:
+    fact = getattr(facts.fiscal, name, None)
+    return fact.value if isinstance(fact, Known) and fact.value else None
