@@ -120,7 +120,10 @@ class TestHardRejects:
             for issue in result.manifest["issues"]
             if issue["code"] == "fiscal_identity_check_digit"
         )
-        assert matched["reason"] == "El dígito verificador no coincide."
+        assert matched["reason"] == (
+            "El RNC debe tener 9 dígitos (empresa) u 11 (cédula). "
+            "Revisa que esté bien escrito."
+        )
         assert matched["reason_en"] == "The check digit does not match."
         assert matched["activity_id"] == record.activity_id
         assert matched["field"] == "rnc"
@@ -239,42 +242,20 @@ class TestChecksumByRegistry:
         )
         assert FORM not in result.files
 
-    def test_invalid_and_found_blocks_the_file(self):
+    def test_invalid_and_found_stays_in_the_file(self):
         result = one(
             supplier(purchase(), INVALID),
             MapRegistry({INVALID: listed(INVALID)}),
         )
-        assert "fiscal_identity_check_digit" in codes(result)
+        assert "fiscal_identity_check_digit" not in codes(result)
         assert not any(
             item["code"] == "fiscal_identity_check_digit"
             for item in result.manifest["warnings"]
         )
-        assert FORM not in result.files
-        assert result.manifest["forms"]["606"]["status"] == "needs_review"
+        assert result.manifest["issues"] == []
+        assert FORM in result.files
 
-    def test_remainder_boundaries_prepare_and_the_next_digit_blocks(self):
-        cases = (
-            ("100000022", "100000020"),
-            ("100000081", "100000080"),
-        )
-        for valid, invalid in cases:
-            prepared = one(
-                supplier(purchase(), valid), MapRegistry({valid: listed(valid)})
-            )
-            blocked = one(
-                supplier(purchase(), invalid),
-                MapRegistry({invalid: listed(invalid)}),
-            )
-            assert FORM in prepared.files
-            assert prepared.manifest["issues"] == []
-            assert "fiscal_identity_check_digit" in codes(blocked)
-            assert not any(
-                item["code"] == "fiscal_identity_check_digit"
-                for item in blocked.manifest["warnings"]
-            )
-            assert FORM not in blocked.files
-
-    def test_both_identity_lengths_prepare_when_valid_and_block_when_invalid(self):
+    def test_both_lengths_block_a_miss_and_trust_a_listed_bad_digit(self):
         cases = (
             ("138888002", "138888003", "1"),
             ("10000000058", "10000000059", "2"),
@@ -282,17 +263,28 @@ class TestChecksumByRegistry:
         for valid, invalid, id_type in cases:
             prepared = one(
                 supplier(purchase(), valid, id_type),
-                MapRegistry({valid: listed(valid)}),
+                MapRegistry({}),
             )
-            blocked = one(
+            missed = one(
+                supplier(purchase(), invalid, id_type),
+                MapRegistry({}),
+            )
+            listed_bad = one(
                 supplier(purchase(), invalid, id_type),
                 MapRegistry({invalid: listed(invalid)}),
             )
             assert FORM in prepared.files
-            assert prepared.manifest["issues"] == []
-            assert "fiscal_identity_check_digit" in codes(blocked)
-            assert FORM not in blocked.files
-            assert blocked.manifest["forms"]["606"]["status"] == "needs_review"
+            assert "fiscal_identity_check_digit" not in codes(prepared)
+            assert "fiscal_identity_check_digit" in codes(missed)
+            assert not any(
+                item["code"] == "fiscal_identity_check_digit"
+                for item in missed.manifest["warnings"]
+            )
+            assert FORM not in missed.files
+            assert missed.manifest["forms"]["606"]["status"] == "needs_review"
+            assert "fiscal_identity_check_digit" not in codes(listed_bad)
+            assert listed_bad.manifest["issues"] == []
+            assert FORM in listed_bad.files
 
     def test_a_missing_rnc_blocks_the_606_without_a_check_digit_warning(self):
         result = one(supplier(purchase(), None))
@@ -429,7 +421,7 @@ class TestReviewChecklist:
         assert declared.income_withheld == "10.15"
 
 
-def test_the_archive_omits_the_606_for_a_listed_bad_check_digit():
+def test_the_archive_keeps_the_606_for_a_listed_bad_check_digit():
     from argus.domain.business.export import ExportPeriod, ExportSnapshot, build_archive
 
     record = supplier(purchase(), INVALID)
@@ -452,11 +444,11 @@ def test_the_archive_omits_the_606_for_a_listed_bad_check_digit():
     assert not any(
         item["code"] == "fiscal_identity_check_digit" for item in manifest["warnings"]
     )
-    assert "fiscal_identity_check_digit" in {
+    assert "fiscal_identity_check_digit" not in {
         item["code"] for item in manifest["issues"]
     }
-    assert manifest["forms"]["606"]["status"] == "needs_review"
-    assert FORM not in files
+    assert manifest["forms"]["606"]["status"] == "prepared_candidate"
+    assert FORM in files
 
 
 class TestRncRegistry:
