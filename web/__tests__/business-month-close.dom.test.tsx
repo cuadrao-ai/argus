@@ -439,6 +439,14 @@ describe("fiscal complete months stay editable", () => {
     assert.equal(pagado.textContent, "Marcar pagado");
     assert.equal(host.querySelector('[data-testid="month-close-closed"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close"]')?.getAttribute("data-closed"), "false");
+    const filing = host.querySelector('[data-testid="month-close-filing"]');
+    assert.equal(filing?.querySelector('[data-testid="month-close-filing-status"]')?.textContent, "Pendiente");
+    assert.equal(
+      filing?.querySelector('[data-testid="month-close-filing-line"]')?.textContent,
+      "Ya tienes todo para el 606 y el 607. Cierra el mes cuando termines de marcar lo cobrado y lo pagado.",
+    );
+    assert.equal(host.textContent?.includes("Listo"), false);
+    assert.equal(host.textContent?.includes("Mes cerrado"), false);
     await act(async () => {
       cobrado.click();
       await Promise.resolve();
@@ -499,6 +507,97 @@ describe("fiscal complete months stay editable", () => {
     assert.equal(host.querySelector('[data-testid="month-close-mark-pagado"]'), null);
     assert.match(host.querySelector('[data-testid="month-close-closed"]')?.textContent ?? "", /Mes cerrado/);
     assert.equal(host.querySelector('[data-testid="month-close"]')?.getAttribute("data-closed"), "true");
+    assert.equal(host.querySelector('[data-testid="month-close-filing"]'), null);
+    assert.equal(
+      host.textContent?.includes("Ya tienes todo para el 606 y el 607. Cierra el mes cuando termines de marcar lo cobrado y lo pagado."),
+      false,
+    );
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  test("an incomplete month shows neither the filing line nor a closed label", async () => {
+    const client = createMockMonthCloseClient({ now });
+    const { act, host, root } = await renderView(client);
+    assert.equal(host.querySelector('[data-testid="month-close-filing"]'), null);
+    assert.equal(
+      host.textContent?.includes("Ya tienes todo para el 606 y el 607. Cierra el mes cuando termines de marcar lo cobrado y lo pagado."),
+      false,
+    );
+    assert.equal(host.textContent?.includes("Listo"), false);
+    assert.equal(host.textContent?.includes("Mes cerrado"), false);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+});
+
+describe("Inicio ITBIS balance", () => {
+  function amountSnapshot(itbisOwed: string): MonthCloseSnapshot {
+    return {
+      month: "2026-10",
+      from: "2026-10-01",
+      to: "2026-10-31",
+      currency: "DOP",
+      closed_at: null,
+      earliest_month: null,
+      documents: [],
+      figures: {
+        income_before_itbis: "1000.00",
+        expense_before_itbis: "2000.00",
+        net_before_itbis: "-1000.00",
+        itbis_owed: itbisOwed,
+      },
+    };
+  }
+
+  function clientFor(itbisOwed: string): MonthCloseClient {
+    const snapshot = amountSnapshot(itbisOwed);
+    return {
+      mode: "mock",
+      async load() { return snapshot; },
+      async markCobrado() { throw new Error("no mark"); },
+      async markPagado() { throw new Error("no mark"); },
+      async closeMonth() { throw new Error("no close"); },
+    };
+  }
+
+  test("a negative ITBIS balance shows the credit label, the absolute amount, and the exact line", async () => {
+    const { act, host, root } = await renderView(clientFor("-1250.00"));
+    const card = host.querySelector('[data-testid="month-close-itbis"]');
+    assert.equal(card?.querySelector("h4")?.textContent, "Saldo a favor de ITBIS");
+    assert.equal(card?.querySelector("p")?.textContent, "RD$ 1,250.00");
+    assert.equal(/-/.test(card?.querySelector("p")?.textContent ?? "missing"), false);
+    assert.equal(
+      card?.querySelector("p:last-of-type")?.textContent,
+      "Este mes pagaste más ITBIS del que cobraste. Normalmente esa diferencia queda como saldo a favor para los próximos meses; tu contador lo confirma en el IT-1.",
+    );
+    assert.equal(card?.textContent?.includes("reembolso"), false);
+    assert.equal(card?.textContent?.includes("devuelven"), false);
+    assert.equal(host.textContent?.includes("reembolso"), false);
+    assert.equal(host.textContent?.includes("devuelven"), false);
+    assert.equal(card?.textContent?.includes("ITBIS a pagar"), false);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  test("a positive ITBIS balance keeps ITBIS a pagar", async () => {
+    const { act, host, root } = await renderView(clientFor("1250.00"));
+    const card = host.querySelector('[data-testid="month-close-itbis"]');
+    assert.equal(card?.querySelector("h4")?.textContent, "ITBIS a pagar");
+    assert.equal(card?.querySelector("p")?.textContent, "RD$ 1,250.00");
+    assert.equal(card?.querySelector("p:last-of-type")?.textContent, "ITBIS de las facturas menos ITBIS de los gastos.");
+    assert.equal(card?.textContent?.includes("Saldo a favor de ITBIS"), false);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  test("a zero ITBIS balance keeps ITBIS a pagar", async () => {
+    const { act, host, root } = await renderView(clientFor("0.00"));
+    const card = host.querySelector('[data-testid="month-close-itbis"]');
+    assert.equal(card?.querySelector("h4")?.textContent, "ITBIS a pagar");
+    assert.equal(card?.querySelector("p")?.textContent, "RD$ 0.00");
+    assert.equal(card?.textContent?.includes("Saldo a favor de ITBIS"), false);
+    assert.equal(card?.textContent?.includes("Este mes pagaste más ITBIS"), false);
     await act(async () => root.unmount());
     host.remove();
   });
