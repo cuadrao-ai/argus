@@ -69,7 +69,7 @@ for (const width of [390, 1280]) {
   });
 }
 
-test("a signed-in missing page goes home", async ({ page }) => {
+test("a signed-in missing page follows the signed-in home", async ({ page }) => {
   await page.route("**/api/v1/me", (route) => route.fulfill({
     status: 200,
     contentType: "application/json",
@@ -79,5 +79,5 @@ test("a signed-in missing page goes home", async ({ page }) => {
     }),
   }));
   await page.goto("/no-such-page");
-  await expect(page.getByRole("link", { name: "Ir a Cuadrao" })).toHaveAttribute("href", "/chat");
+  await expect(page.getByRole("link", { name: "Ir a Cuadrao" })).toHaveAttribute("href", "/?auth=login");
 });
