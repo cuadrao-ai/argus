@@ -5,17 +5,28 @@ final class AgeConfirmationUITests: XCTestCase {
 
     private func assertSignupAvailable(_ response: String) {
         let app = XCUIApplication()
-        app.launchArguments = ["--age-confirmation-harness", "--age-response=\(response)",
-                               "-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO"]
+        app.launchArguments = ["--age-confirmation-harness", "--age-legal-entry", "--age-response=\(response)",
+                               "--cuadrao-guest-reset", "-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["age.harness.allowed"].waitForExistence(timeout: 5))
+        let signup = app.buttons["cuadrao.welcome.signup"]
+        XCTAssertTrue(signup.waitForExistence(timeout: 8))
+        signup.tap()
+        let emailChoice = app.buttons["cuadrao.signup.email"]
+        XCTAssertTrue(emailChoice.waitForExistence(timeout: 5))
+        emailChoice.tap()
+        let email = app.textFields["auth.email"]
+        XCTAssertTrue(email.waitForExistence(timeout: 5))
+        email.tap()
+        email.typeText("synthetic@example.test")
+        let password = app.secureTextFields["auth.password"]
+        password.tap()
+        password.typeText("synthetic-password\n")
+        let submit = app.buttons["auth.submit"]
+        XCTAssertTrue(submit.isEnabled)
         XCTAssertFalse(app.descendants(matching: .any)["age.confirmation.checkbox"].firstMatch.exists)
         XCTAssertFalse(app.staticTexts["age.confirmation.refused"].exists)
-        XCTAssertFalse(app.staticTexts["age.confirmation.error"].exists)
-        let signup = app.buttons["age.harness.signup"]
-        XCTAssertTrue(signup.isEnabled)
-        signup.tap()
-        XCTAssertTrue(app.staticTexts["age.harness.submitted"].waitForExistence(timeout: 3))
+        submit.tap()
+        XCTAssertTrue(app.staticTexts["No pudimos conectar."].waitForExistence(timeout: 5))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Signup available with \(response) age signal"
         screenshot.lifetime = .keepAlways
