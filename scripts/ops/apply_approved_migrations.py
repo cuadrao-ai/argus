@@ -320,6 +320,13 @@ def verify_connection(
         )
     elif int(getattr(info, "port", 0) or 0) != 5432:
         raise ApplyError("the hosted connection is not on port 5432")
+    if hosted is not None:
+        direct = f"db.{hosted.project_ref}.supabase.co"
+        expected_user = "postgres" if host == direct else f"postgres.{hosted.project_ref}"
+        if getattr(info, "user", None) != expected_user:
+            raise ApplyError(
+                "the connected user is not the one the approval record names"
+            )
     if host not in allowed:
         raise ApplyError("the connection went to a host that is not on the allowed list")
     if (
@@ -631,7 +638,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         else:
             connection_context = psycopg.connect(url, autocommit=True)
-    except psycopg.Error:
+    except (psycopg.Error, UnicodeEncodeError, ValueError):
         connection_failed = True
     if connection_failed:
         raise ApplyError("the database connection was refused") from None
