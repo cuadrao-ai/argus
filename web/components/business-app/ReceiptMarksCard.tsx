@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { useBusiness } from "./BusinessWorkspace";
-import { cardClass, RecordMarks } from "./business-ui";
+import { RecordMarks } from "./business-ui";
+import { SURFACE_CARD } from "./foundation/surfaces";
 
 /**
  * What the record is marked as, and the two decisions that are people's:
@@ -44,7 +45,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   const answer = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border px-4 text-[14px] font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40";
 
   return (
-    <div className={cardClass} data-testid="receipt-marks-card">
+    <div className={SURFACE_CARD} data-testid="receipt-marks-card">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <RecordMarks personal={personal} fiscalValue={fiscalValue} known={dossier.fiscal_known === true} markedBy={markedBy} />
         {canPrepare ? (

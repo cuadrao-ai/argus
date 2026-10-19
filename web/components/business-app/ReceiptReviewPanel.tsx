@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { AlertCircle, RotateCcw } from "lucide-react";
+import { AlertCircle, CircleAlert, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
@@ -13,6 +13,7 @@ import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { DatePicker } from "./foundation/DatePicker";
+import { PRIMARY_BUTTON, SECONDARY_BUTTON, SURFACE_CARD } from "./foundation/surfaces";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
@@ -20,11 +21,8 @@ import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { formatBusinessName, formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
+import { formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
 import {
-  cardClass,
-  primaryButtonClass,
-  secondaryButtonClass,
   StatusPill,
   useAttentionLabel,
   useCategoryLabel,
@@ -48,7 +46,7 @@ function draftFrom(detail: ReceiptDetail): Draft {
 }
 
 const inputClass =
-  "mt-1.5 block min-h-11 w-full rounded-[12px] border border-black/10 bg-white px-3 text-[16px] text-black outline-none transition-colors focus-visible:border-black/30 focus-visible:ring-[0.125rem] focus-visible:ring-black/10 disabled:bg-black/[0.03] disabled:text-black/50 dark:border-white/10 dark:bg-[#141517] dark:text-white dark:disabled:bg-white/[0.03]";
+  "block min-h-11 w-full rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 dark:bg-[#141517] dark:text-white";
 
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
@@ -61,6 +59,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState<"prepare" | "rebind" | "save" | "refresh" | null>(null);
   const [uncertainVersion, setUncertainVersion] = useState<number | null>(null);
   const inFlight = useRef(false);
@@ -86,7 +85,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       cancelled = true;
       controller.abort();
     };
-  }, [receiptId, source, revision]);
+  }, [receiptId, source, revision, attempt]);
 
   const { accounts, canPrepare, canApprove } = detail ? receiptReviewAccess(detail) : { accounts: [], canPrepare: false, canApprove: false };
   const currencies = [...new Set(accounts.map((account) => account.currency))];
@@ -124,9 +123,15 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
 
   if (failed) {
     return (
-      <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
-        {t("business.review.error", "This receipt isn't available. It may have been removed.")}
-      </p>
+      <section className={SURFACE_CARD} data-testid="receipt-load-error">
+        <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
+          <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+          {t("business.review.error", "This receipt isn't available. It may have been removed.")}
+        </p>
+        <button type="button" className={`${SECONDARY_BUTTON} mt-4`} onClick={() => { setFailed(false); setAttempt((value) => value + 1); }}>
+          {t("common.retry", "Retry")}
+        </button>
+      </section>
     );
   }
   if (!detail || !draft) return <Settle pending layout="detail" />;
@@ -137,10 +142,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
       back={confirmed ? "expenses" : "inbox"}
-      eyebrow={detail.record_context ? formatBusinessName(detail.record_context.space_name, t("business.overview.title", "My business")) : null}
-      title={confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt")}
+      title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
       badge={<StatusPill status={detail.status} />}
-      summary={detail.amount && detail.currency ? <p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{formatMoney(detail.amount, detail.currency, locale)}</p> : null}
+      amount={detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
       source={source}
     >
       {children}
@@ -271,10 +275,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
 
   const field = (key: keyof ReceiptReviewFields, label: string, control: React.ReactNode, htmlFor?: string) => {
     const heading = (
-      <span className="flex items-center justify-between text-[13px] font-medium text-black/60 dark:text-white/60">
+      <span className="mb-2 flex items-center justify-between text-[13px] font-medium leading-[18px] text-[#172b26] dark:text-white">
         {label}
         {!confirmed && missing.includes(key) ? (
-          <span className="text-[12px] font-normal text-[#a8434c] dark:text-[#ec9aa0]">
+          <span className="font-normal text-[#9e2f39] dark:text-[#ec9aa0]">
             {t("business.review.needed", "Needed")}
           </span>
         ) : null}
@@ -297,10 +301,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       }} />
       {frame(
         <>
-          {detail.email_original ? <div role="note" data-testid="receipt-email-original" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p>{t("business.review.email_original", "This is the email itself. Its attachment is the receipt to review.")}</p></div> : null}
-          {incompleteBridge ? <div className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p>{uncertainVersion === null ? <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}</div> : null}
+          {detail.email_original ? <div role="note" data-testid="receipt-email-original" className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p>{t("business.review.email_original", "This is the email itself. Its attachment is the receipt to review.")}</p></div> : null}
+          {incompleteBridge ? <div className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p>{uncertainVersion === null ? <button type="button" disabled={busy !== null} className={`${SECONDARY_BUTTON} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}</div> : null}
           {detail.status === "needs_attention" ? (
-            <div role="alert" data-testid="receipt-attention" className={`${cardClass} text-[14px] text-black/75 dark:text-white/75`}>
+            <div role="alert" data-testid="receipt-attention" className={`${SURFACE_CARD} text-[14px] text-black/75 dark:text-white/75`}>
               {terminal ? (
                 <>
                   <p className="flex gap-2.5">
@@ -312,14 +316,14 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {terminal.upload && uploadAnother ? (
-                      <button type="button" className={secondaryButtonClass} onClick={uploadAnother.run}>
+                      <button type="button" className={SECONDARY_BUTTON} onClick={uploadAnother.run}>
                         {terminal.uploadLabel}
                       </button>
                     ) : null}
                     {canEnter ? (
                       <button
                         type="button"
-                        className={secondaryButtonClass}
+                        className={SECONDARY_BUTTON}
                         onClick={() => document.querySelector<HTMLElement>('[data-testid="receipt-review-fields"] input:not(:disabled), [data-testid="receipt-review-fields"] select:not(:disabled)')?.focus()}
                       >
                         {terminal.enterLabel}
@@ -334,14 +338,14 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 </p>
               )}
               {detail.duplicate_of ? (
-                <button type="button" data-testid="receipt-duplicate-original" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "receipt", receiptId: detail.duplicate_of as string })}>
+                <button type="button" data-testid="receipt-duplicate-original" className={`${SECONDARY_BUTTON} mt-3`} onClick={() => openPanel({ kind: "receipt", receiptId: detail.duplicate_of as string })}>
                   {t("business.review.see_original", "See the receipt already saved")}
                 </button>
               ) : null}
               {detail.error_code === "business_record_not_found" && canApprove ? (
                 <>
                   <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">{t("business.review.rebind_note", "The access that prepared this receipt is no longer valid. Bind it to your current access, then prepare it again.")}</p>
-                  <button type="button" data-testid="receipt-rebind" disabled={busy !== null} onClick={() => void rebind()} className={`${secondaryButtonClass} mt-3`}>
+                  <button type="button" data-testid="receipt-rebind" disabled={busy !== null} onClick={() => void rebind()} className={`${SECONDARY_BUTTON} mt-3`}>
                     {t("business.review.rebind", "Bind to my current access")}
                   </button>
                 </>
@@ -351,7 +355,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                   <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">
                     {t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}
                   </p>
-                  <button type="button" disabled={busy !== null} onClick={() => void prepare()} className={`${secondaryButtonClass} mt-3`}>
+                  <button type="button" disabled={busy !== null} onClick={() => void prepare()} className={`${SECONDARY_BUTTON} mt-3`}>
                     <RotateCcw className="h-4 w-4" aria-hidden="true" />
                     {t("business.review.retry", "Try again with AI")}
                   </button>
@@ -361,81 +365,77 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           ) : null}
           <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={canEnter} preparable={detail.preparable && canPrepare} />
           {waitingForAi && readStalled ? (
-            <div role="status" data-testid="receipt-read-stalled" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>
+            <div role="status" data-testid="receipt-read-stalled" className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}>
               <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
-              <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button>
+              <button type="button" disabled={busy !== null} className={`${SECONDARY_BUTTON} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button>
             </div>
           ) : null}
 
-          <div className={`${cardClass} space-y-4`}>
+          <section data-testid="receipt-facts-activity" className={`${SURFACE_CARD} space-y-4`}>
+            {field(
+              "occurred_on",
+              t("business.dossier.field.occurred_on", "Activity date"),
+              <DatePicker
+                id={dateId}
+                label={t("business.dossier.field.occurred_on", "Activity date")}
+                value={draft.occurred_on}
+                disabled={locked}
+                onChange={(iso, invalid) => {
+                  setDraft((current) => (current ? { ...current, occurred_on: iso ?? "" } : current));
+                  setDateInvalid(invalid);
+                }}
+              />,
+              dateId,
+            )}
+            {field(
+              "amount",
+              t("business.dossier.field.amount", "Amount"),
+              <MoneyInput
+                label={t("business.dossier.field.amount", "Amount")}
+                currency={draft.currency}
+                value={draft.amount || null}
+                onValueChange={({ value, invalid }) => {
+                  setDraft((current) => (current ? { ...current, amount: value ?? "" } : current));
+                  setAmountInvalid(invalid);
+                  setAmountError(null);
+                }}
+                serverError={amountError}
+                description={!confirmed && missing.includes("amount") ? t("business.review.needed", "Needed") : null}
+                disabled={locked}
+                testId="receipt-review-amount"
+              />,
+            )}
+            {field(
+              "currency",
+              t("business.dossier.field.currency", "Currency"),
+              <select className={inputClass} value={draft.currency} onChange={set("currency")} disabled={locked}>
+                <option value="">{t("business.review.choose", "Choose")}</option>
+                {currencies.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>,
+            )}
+          </section>
+          <section data-testid="receipt-facts-more" className={`${SURFACE_CARD} space-y-4`}>
+            {field(
+              "category_id",
+              t("business.dossier.field.category_id", "Category"),
+              <select className={inputClass} value={draft.category_id} onChange={set("category_id")} disabled={locked}>
+                <option value="">{categoryLabel(null)}</option>
+                {RECEIPT_CATEGORY_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {categoryLabel(id)}
+                  </option>
+                ))}
+              </select>,
+            )}
             {field(
               "merchant",
-              t("business.review.merchant", "Merchant"),
+              t("business.dossier.field.counterparty", "Merchant or person"),
               <input className={inputClass} value={draft.merchant} onChange={set("merchant")} disabled={locked} autoComplete="off" />,
             )}
-            <div className="grid grid-cols-2 gap-3">
-              {field(
-                "occurred_on",
-                t("business.review.date", "Date"),
-                <div className="mt-1.5">
-                  <DatePicker
-                    id={dateId}
-                    label={t("business.review.date", "Date")}
-                    value={draft.occurred_on}
-                    disabled={locked}
-                    onChange={(iso, invalid) => {
-                      setDraft((current) => (current ? { ...current, occurred_on: iso ?? "" } : current));
-                      setDateInvalid(invalid);
-                    }}
-                  />
-                </div>,
-                dateId,
-              )}
-              {field(
-                "category_id",
-                t("business.review.category", "Category"),
-                <select className={inputClass} value={draft.category_id} onChange={set("category_id")} disabled={locked}>
-                  <option value="">{categoryLabel(null)}</option>
-                  {RECEIPT_CATEGORY_IDS.map((id) => (
-                    <option key={id} value={id}>
-                      {categoryLabel(id)}
-                    </option>
-                  ))}
-                </select>,
-              )}
-            </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] items-start gap-3">
-              {field(
-                "amount",
-                t("business.review.amount", "Total"),
-                <MoneyInput
-                  label={t("business.review.amount", "Total")}
-                  currency={draft.currency}
-                  value={draft.amount || null}
-                  onValueChange={({ value, invalid }) => {
-                    setDraft((current) => (current ? { ...current, amount: value ?? "" } : current));
-                    setAmountInvalid(invalid);
-                    setAmountError(null);
-                  }}
-                  serverError={amountError}
-                  description={!confirmed && missing.includes("amount") ? t("business.review.needed", "Needed") : null}
-                  disabled={locked}
-                  testId="receipt-review-amount"
-                />,
-              )}
-              {field(
-                "currency",
-                t("business.review.currency", "Currency"),
-                <select className={inputClass} value={draft.currency} onChange={set("currency")} disabled={locked}>
-                  <option value="">{t("business.review.choose", "Choose")}</option>
-                  {currencies.map((code) => (
-                    <option key={code} value={code}>
-                      {code}
-                    </option>
-                  ))}
-                </select>,
-              )}
-            </div>
             {field(
               "account_id",
               t("business.review.account", "Paid from"),
@@ -448,19 +448,18 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 ))}
               </select>,
             )}
-          </div>
-
+          </section>
 
           {problem ? (
             <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p>
           ) : null}
 
           {confirmed ? (
-            <div className={`${cardClass} flex flex-wrap items-center justify-between gap-3`}>
+            <div className={`${SURFACE_CARD} flex flex-wrap items-center justify-between gap-3`}>
               <p className="text-[14px] text-black/75 dark:text-white/75">
                 {t("business.review.saved_body", "Saved as one expense of {{amount}}.", { amount: formatMoney(detail.amount, detail.currency, locale) })}
               </p>
-              <button type="button" className={secondaryButtonClass} onClick={() => openPanel({ kind: "expenses" })}>
+              <button type="button" className={SECONDARY_BUTTON} onClick={() => openPanel({ kind: "expenses" })}>
                 {t("business.review.view_expenses", "View expenses")}
               </button>
             </div>
@@ -468,7 +467,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                className={primaryButtonClass}
+                className={PRIMARY_BUTTON}
                 disabled={busy !== null || missing.length > 0 || amountInvalid || dateInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
                 onClick={() => void save()}
               >
@@ -479,14 +478,14 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                   {t("business.review.missing", "Fill in the details marked Needed to save this expense.")}
                 </span>
               ) : null}
-              {uncertainVersion !== null ? <button type="button" className={secondaryButtonClass} disabled={busy !== null} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}
+              {uncertainVersion !== null ? <button type="button" className={SECONDARY_BUTTON} disabled={busy !== null} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}
             </div>
           ) : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
         </>,
         <>
           <ReceiptSourcePreview detail={detail} />
           {detail.evidence ? (
-            <details className={cardClass}>
+            <details className={SURFACE_CARD}>
               <summary className="cursor-pointer text-[14px] font-medium text-black/70 dark:text-white/70">
                 {t("business.review.evidence", "What the receipt says")}
               </summary>

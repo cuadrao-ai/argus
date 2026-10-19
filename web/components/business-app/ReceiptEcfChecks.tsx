@@ -4,7 +4,8 @@ import { AlertCircle, CheckCircle2, CircleDashed, ExternalLink } from "lucide-re
 import { useTranslation } from "react-i18next";
 import type { DgiiQr, EcfCheck, EcfVerification } from "@/lib/business-dossier";
 import { formatRelativeTime } from "./business-format";
-import { cardClass, secondaryButtonClass } from "./business-ui";
+import { secondaryButtonClass } from "./business-ui";
+import { SURFACE_CARD } from "./foundation/surfaces";
 
 /**
  * What the e-CF file proved by itself, as five rows: the signature, the totals,
@@ -171,7 +172,7 @@ export default function ReceiptEcfChecks({ verification, qr = null }: { verifica
   const checkedAt = when ? t("business.dossier.ecf_checked_ago", "checked {{when}}", { when }) : "";
   const link = dgiiLink(qr?.url);
   return (
-    <section className={cardClass} aria-labelledby="receipt-ecf-checks-title" data-testid="receipt-ecf-checks">
+    <section className={SURFACE_CARD} aria-labelledby="receipt-ecf-checks-title" data-testid="receipt-ecf-checks">
       <h3 id="receipt-ecf-checks-title" className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.ecf_title", "Electronic invoice verification")}</h3>
       {document ? <p className="mt-1 text-[13px] text-black/60 dark:text-white/60">{document}</p> : null}
       <ul className="mt-4 divide-y divide-black/[0.05] dark:divide-white/[0.05]">

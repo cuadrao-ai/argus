@@ -106,7 +106,7 @@ describe("one receipt review page", () => {
     ] as const) {
       await page.open(panel, () => page.frame().fields !== null);
       const review = page.host.querySelector('[data-testid="business-record-review"]');
-      assert.ok(review?.querySelector("header")?.textContent?.includes("Mi negocio"));
+      assert.ok(review?.querySelector('[data-testid="receipt-top-block"] [data-testid="status-pill"]'), "the top block is supplier, total and status");
       assert.ok(!review?.textContent?.includes("My business"));
       await page.open({ kind: "inbox" }, () => page.frame().count === 0);
     }
@@ -144,7 +144,7 @@ describe("one receipt review page", () => {
     });
     await page.open({ kind: "inbox" }, () => page.frame().count === 0);
     await page.open({ kind: "draft", draftId: id }, () => page.frame().title === "Ferretería Prueba Revisada");
-    assert.match(page.host.querySelector('[data-testid="business-record-review"] header')?.textContent ?? "", /Revisión \d+/);
+    assert.doesNotMatch(page.host.querySelector('[data-testid="business-record-review"] header')?.textContent ?? "", /Revisión \d+/, "the revision number is not part of the top block");
     const after = await page.source.dossier(id);
     assert.equal(after.version, before.version + 1);
     // Saving review details never approves: the record is still awaiting review.

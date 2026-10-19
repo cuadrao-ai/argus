@@ -53,7 +53,7 @@ export function BusinessContextCue() {
 export default function BusinessPanel() {
   const { panel } = useBusiness();
   return (
-    <div className="mx-auto w-full max-w-3xl pb-6">
+    <div className={`mx-auto w-full ${panel.kind === "receipt" || panel.kind === "draft" ? "" : "max-w-3xl pb-6"}`}>
       <SampleDataNotice />
       <BusinessContextCue />
       <BusinessSectionActions />

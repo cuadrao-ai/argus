@@ -6,7 +6,8 @@ import type { BusinessDossier } from "@/lib/business-dossier";
 import { listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
 import { getDgiiFields, reviewDgii, type DgiiDeclaration, type DgiiFields, type DgiiReview } from "@/lib/business-dgii";
 import { randomId } from "@/lib/random-id";
-import { cardClass, secondaryButtonClass } from "./business-ui";
+import { secondaryButtonClass } from "./business-ui";
+import { SURFACE_CARD } from "./foundation/surfaces";
 
 const inputClass = "mt-1 block min-h-11 w-full rounded-lg border border-black/15 bg-transparent px-3 text-[16px] text-black dark:border-white/20 dark:text-white";
 
@@ -61,7 +62,7 @@ export default function FiscalDeclarationEditor({ dossier, disabled, onChanged, 
       setProblem(t(`business.dgii.error.${code}`, t("business.dgii.save_failed", "No se confirmó que los datos fiscales se guardaran. Revisa el registro actual antes de aprobar.")));
     } finally { setBusy(false); onBusy(false); }
   };
-  return <details className={cardClass} data-testid="fiscal-declaration">
+  return <details className={SURFACE_CARD} data-testid="fiscal-declaration">
     <summary className="min-h-11 cursor-pointer text-[14px] font-medium text-black dark:text-white">{t("business.dgii.details", "Datos fiscales para 606 / 607")}</summary>
     <p className="my-3 text-[13px] text-black/65 dark:text-white/65">{t("business.dgii.review_note", "Usa los montos del comprobante y tu clasificación fiscal. Deja en blanco los datos que no sabes. Guardar crea una revisión; aprobar es otro paso.")}</p>
     <label className="block text-[13px]">{t("business.dgii.form", "Formato")}<select className={inputClass} value={form} disabled={!editable || uncertain} onChange={(event) => { change(); setForm(event.target.value === "607" ? "607" : "606"); setValues({}); }}><option value="606">606</option><option value="607">607</option></select></label>

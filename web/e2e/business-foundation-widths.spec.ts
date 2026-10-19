@@ -91,7 +91,7 @@ async function openScreen(page: Page, screen: "inicio" | "bandeja" | "receipt") 
   }
   if (screen === "receipt") {
     await page.getByTestId("business-inbox-receipts").getByRole("button", { name: /Ferretería La Esquina/ }).click();
-    await expect(page.getByRole("heading", { name: "Revisar recibo" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ferretería La Esquina" })).toBeVisible();
     await expect(page.getByTestId("status-pill")).toBeVisible();
   }
 }

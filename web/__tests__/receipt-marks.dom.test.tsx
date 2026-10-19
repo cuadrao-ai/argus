@@ -265,7 +265,7 @@ describe("the review page's fiscal details", () => {
   test("a record without an NCF or an e-CF reads Sin comprobante fiscal in its fiscal row, never No registrado", async () => {
     for (const fiscal of [null, { rnc: unknown, ncf: unknown, ecf: unknown, itbis: unknown }]) {
       const env = await facts(fiscal);
-      const section = env.host.querySelector('[data-testid="receipt-fiscal-facts"]')!;
+      const section = env.host.querySelector('[data-testid="receipt-facts-fiscal"]')!;
       assert.ok(section, "the fiscal details are there");
       const row = section.querySelector('[data-fact="fiscal_number"]')!;
       assert.equal(row.querySelector("dt")?.textContent, "NCF / e-CF");
