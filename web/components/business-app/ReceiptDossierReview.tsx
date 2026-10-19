@@ -358,6 +358,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       recordId={receipt?.id ?? draftId}
       back={recorded ? "expenses" : "inbox"}
       title={title}
+      history={<ReceiptHistory history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} />}
       badge={pillStatus ? <StatusPill status={pillStatus} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
       amount={amount !== null && currency !== null ? formatMoney(amount, currency, i18n.resolvedLanguage ?? "en") : null}
       footer={!approval && canApprove ? <div className="flex flex-wrap items-center gap-3">
@@ -371,7 +372,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           {!attachments.length ? <div className={`${SURFACE_CARD} text-[14px] text-black/65 dark:text-white/65`}>{dossier.facts.receipt_state.state === "known" && dossier.facts.receipt_state.value === "no_receipt" ? t("business.dossier.no_receipt", "No receipt was supplied.") : t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</div> : null}
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
           <ReceiptEcfChecks verification={dossier.ecf_checks ?? null} qr={dossier.dgii_qr ?? null} />
-          <ReceiptHistory history={dossier.history} accounts={accounts} />
       </>}
     >
           <div>

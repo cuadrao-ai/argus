@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { cardClass } from "./business-ui";
+import { SURFACE_CARD } from "./foundation/surfaces";
 import styles from "./business-skeletons.module.css";
 
 export const SKELETON_DELAY_MS = 300;
@@ -89,24 +90,31 @@ function OverviewSkeleton() {
   );
 }
 
+/** The receipt detail as it will stand: the top block, then field cards beside the source. */
 function DetailSkeleton() {
   return (
     <>
       <div className="mb-4 flex min-h-11 items-center">
         <Bar className="h-4 w-24" />
       </div>
-      <div className="mb-5">
+      <div className="mb-6" data-testid="business-skeleton-top">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Bar className="h-[25px] w-2/5 max-w-full" />
+          <Bar className="h-7 w-2/5 max-w-full" />
           <Bar className="h-6 w-24 shrink-0 rounded-full" />
         </div>
+        <Bar className="mt-2 h-[34px] w-48 max-w-full" />
       </div>
-      <div className="grid items-start gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className={`${cardClass} p-3`}>
-          <div data-testid="business-skeleton-preview" className={`${styles.shimmer} ${styles.block} hidden min-h-[200px] overflow-hidden rounded-[14px] desktop:flex desktop:min-h-[280px]`} />
+      <div className="grid items-start gap-4 desktop:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] desktop:gap-6">
+        <div className={`${SURFACE_CARD} space-y-4 desktop:col-start-2 desktop:row-start-1`} data-testid="business-skeleton-fields">
+          {Array.from({ length: 3 }, (_, index) => (
+            <span key={index} className="block space-y-2">
+              <Bar className="h-[13px] w-1/4" />
+              <Bar className="h-11 w-full rounded-[12px]" />
+            </span>
+          ))}
         </div>
-        <div className={`${cardClass} space-y-4`}>
-          {Array.from({ length: 4 }, (_, index) => <Bar key={index} className="h-4 w-full" />)}
+        <div className={`${SURFACE_CARD} desktop:col-start-1 desktop:row-start-1`}>
+          <div data-testid="business-skeleton-preview" className={`${styles.shimmer} ${styles.block} hidden min-h-[200px] overflow-hidden rounded-[12px] desktop:flex desktop:min-h-[280px]`} />
         </div>
       </div>
     </>

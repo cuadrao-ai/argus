@@ -8,6 +8,7 @@ import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import ReceiptDossierReview from "./ReceiptDossierReview";
 import ReceiptReadNotice from "./ReceiptReadNotice";
+import ReceiptReadingState, { ReadingSheen } from "./ReceiptReadingState";
 import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
@@ -138,19 +139,19 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const terminal = terminalRead(detail.attention, detail.error_code);
   const uploadAnother = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
-  const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />) => (
+  const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
       back={confirmed ? "expenses" : "inbox"}
       title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
       badge={<StatusPill status={detail.status} />}
-      amount={detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
+      amount={!reading && detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
       source={source}
     >
       {children}
     </ReceiptReviewFrame></ContentFade>
   );
-  if (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading") return frame(<><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></>);
+  if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
   const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
   const canEnter = detail.enterable && canPrepare && !locked;
@@ -293,6 +294,22 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const set = (key: keyof ReceiptReviewFields) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setDraft((current) => (current ? { ...current, [key]: event.target.value } : current));
 
+  // A read the backend says is running shows the reading state until it settles; the poll then swaps in the filled fields at once.
+  if (waitingForAi) {
+    return frame(
+      <ReceiptReadingState>
+        {readStalled ? (
+          <div role="status" data-testid="receipt-read-stalled" className="text-[15px] leading-[22px] text-[#56635e] dark:text-white/70">
+            <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
+            <button type="button" disabled={busy !== null} className={`${SECONDARY_BUTTON} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button>
+          </div>
+        ) : null}
+        {detail.activity?.state === "reading" ? <ReceiptReadingControl /> : null}
+      </ReceiptReadingState>,
+      <ReadingSheen><ReceiptSourcePreview detail={detail} /></ReadingSheen>,
+      true,
+    );
+  }
   return (
     <>
       <ReceiptShortcutRegistration actions={{
@@ -364,12 +381,6 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
             </div>
           ) : null}
           <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={canEnter} preparable={detail.preparable && canPrepare} />
-          {waitingForAi && readStalled ? (
-            <div role="status" data-testid="receipt-read-stalled" className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}>
-              <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
-              <button type="button" disabled={busy !== null} className={`${SECONDARY_BUTTON} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button>
-            </div>
-          ) : null}
 
           <section data-testid="receipt-facts-activity" className={`${SURFACE_CARD} space-y-4`}>
             {field(

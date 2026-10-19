@@ -2566,6 +2566,20 @@
       "retry": "Reintentar",
       "account_unknown": "Desconocida"
     },
+    "history": {
+      "am": "a.m.",
+      "approved": "Aprobado",
+      "changed": "{{field}} cambiado de {{before}} a {{after}}",
+      "changed_female": "{{field}} cambiada de {{before}} a {{after}}",
+      "channel_email": "Correo",
+      "channel_web": "Subido",
+      "pm": "p.m.",
+      "read": "Leído",
+      "received": "Recibido",
+      "see_all": "Ver todo",
+      "set": "{{field}}: {{after}}",
+      "title": "Historial"
+    },
     "home": {
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",
       "title": "¿Qué hacemos hoy por tu negocio?"
@@ -2827,6 +2841,11 @@
         "[BORRADOR] Sin tu aceptación de este aviso, esas funciones no se activan. Subir un recibo, escribir un gasto o revisar lo guardado no es un permiso para enviar datos a un modelo.",
         "[BORRADOR] Puedes pedir acceso, corrección, eliminación, oposición y portabilidad. Los plazos y la ley aplicable, incluida la Ley 172-13, los confirma el abogado. [A CONFIRMAR]"
       ]
+    },
+    "reading": {
+      "line": "Leyendo tu recibo…",
+      "supplier": "Proveedor",
+      "total": "Total"
     },
     "receipt": {
       "untitled": "Recibo"

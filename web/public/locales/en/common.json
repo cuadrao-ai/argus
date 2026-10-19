@@ -2517,6 +2517,20 @@
       "retry": "Try again",
       "account_unknown": "Unknown"
     },
+    "history": {
+      "am": "AM",
+      "approved": "Approved",
+      "changed": "{{field}} changed from {{before}} to {{after}}",
+      "changed_female": "{{field}} changed from {{before}} to {{after}}",
+      "channel_email": "Email",
+      "channel_web": "Uploaded",
+      "pm": "PM",
+      "read": "Read",
+      "received": "Received",
+      "see_all": "See all",
+      "set": "{{field}}: {{after}}",
+      "title": "History"
+    },
     "privacy_notice": {
       "title": "[DRAFT] Cuadrao Business privacy notice",
       "close": "[DRAFT] Close notice",
@@ -2528,6 +2542,11 @@
         "[DRAFT] Without your acceptance of this notice, those features stay off. Uploading a receipt, recording an expense, or reviewing what is saved is not permission to send data to a model.",
         "[DRAFT] You can ask for access, correction, deletion, objection, and portability. Response times and the applicable law, including Law 172-13, are for counsel to confirm. [A CONFIRMAR]"
       ]
+    },
+    "reading": {
+      "line": "Reading your receipt…",
+      "supplier": "Supplier",
+      "total": "Total"
     },
     "sample": {
       "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."
