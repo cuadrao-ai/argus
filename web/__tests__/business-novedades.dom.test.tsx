@@ -130,7 +130,7 @@ describe("Novedades rows", () => {
     await page.settle(() => page.rows().length > 0);
     const link = page.rows()[0].querySelector("a")!;
     const id = new URLSearchParams(link.getAttribute("href")!.slice(1)).get("receipt");
-    await page.act(async () => { link.click(); });
+    await page.act(async () => { link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 })); });
     assert.deepEqual(page.business().panel, { kind: "receipt", receiptId: id });
     await page.close();
   });
