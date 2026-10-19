@@ -2896,11 +2896,10 @@
       "saved": "Guardado, sin leer"
     },
     "updates": {
-      "attention": "{{name}} necesita atención",
-      "confirmed": "{{name}} se guardó como gasto",
+      "confirmed_line": "Se guardó como gasto",
       "empty": "Nada nuevo. Aquí aparecerán los resultados de tus recibos.",
       "error": "No pudimos cargar las novedades. Reintenta.",
-      "ready": "{{name}} está listo para revisar",
+      "ready_line": "Está listo para revisar",
       "subtitle": "Resultados de tus recibos y lo que necesita tu atención.",
       "title": "Novedades"
     },
