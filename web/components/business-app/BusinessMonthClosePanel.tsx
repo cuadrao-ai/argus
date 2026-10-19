@@ -18,11 +18,13 @@ import {
   electronicNcf,
   fiscalNumberPresent,
   formatMonthLabel,
+  itbisBalanceDisplay,
   monthCloseBlockers,
   monthCloseClient,
   monthCloseNetDisplay,
   monthCloseStatusView,
   monthCloseSummary,
+  monthFilingNotice,
   monthPickerMonths,
   paperNcf,
   rncPresent,
@@ -271,6 +273,19 @@ function figureCard(computed: string, override: string | null | undefined, hasFi
   return { state: "final", value: override };
 }
 
+function itbisCard(
+  computed: string,
+  override: string | null | undefined,
+  hasFigures: boolean,
+  pending: string,
+): { state: "pending" | "final"; value: string; credit: boolean } {
+  const figure = figureCard(computed, override, hasFigures, pending);
+  if (figure.state !== "final") return { state: "pending", value: figure.value, credit: false };
+  const balance = itbisBalanceDisplay(figure.value);
+  if (balance.kind === "credit") return { state: "final", value: balance.amount, credit: true };
+  return { state: "final", value: figure.value, credit: false };
+}
+
 function SummaryCard({
   testId,
   label,
@@ -365,6 +380,10 @@ export function BusinessMonthCloseView({
   }, [toast]);
 
   const summary = snapshot ? monthCloseSummary(snapshot.documents) : null;
+  const itbis = snapshot && summary
+    ? itbisCard(summary.itbis_owed, snapshot.figures?.itbis_owed, Boolean(snapshot.figures), t("business.month_close.pending_label", "Pending"))
+    : null;
+  const filingNotice = snapshot ? monthFilingNotice(snapshot) : false;
   const listedBlockers = snapshot ? snapshot.blockers ?? monthCloseBlockers(snapshot.documents) : [];
   const blockers = listedBlockers.filter((blocker) => blocker.kind === "missing_rnc" || blocker.kind === "missing_ncf");
   const net = snapshot ? monthCloseNetDisplay(snapshot.documents, listedBlockers, snapshot.figures ? snapshot.figures.net_before_itbis : undefined) : null;
@@ -638,6 +657,16 @@ export function BusinessMonthCloseView({
                   {reason}
                 </p>
               ) : null}
+              {filingNotice ? (
+                <p data-testid="month-close-filing" className="max-w-sm text-[13px] text-black/70 dark:text-white/70">
+                  <span data-testid="month-close-filing-status" className="block text-[14px] font-medium text-black dark:text-white">
+                    {t("business.month_close.status_pendiente", "Pending")}
+                  </span>
+                  <span data-testid="month-close-filing-line" className="mt-0.5 block">
+                    {t("business.month_close.filing_ready", "You already have everything for the 606 and the 607. Close the month when you finish marking what was collected and what was paid.")}
+                  </span>
+                </p>
+              ) : null}
             </>
           )}
         </div>
@@ -698,7 +727,18 @@ export function BusinessMonthCloseView({
                 : t("business.month_close.net_hint", "Income minus expenses, before ITBIS.")}
               locale={locale}
             />
-            <SummaryCard testId="month-close-itbis" label={t("business.month_close.itbis_label", "ITBIS to pay")} {...figureCard(summary.itbis_owed, snapshot.figures?.itbis_owed, Boolean(snapshot.figures), t("business.month_close.pending_label", "Pending"))} hint={t("business.month_close.itbis_hint", "ITBIS on invoices minus ITBIS on expenses.")} locale={locale} />
+            {itbis ? (
+              <SummaryCard
+                testId="month-close-itbis"
+                label={itbis.credit ? t("business.month_close.itbis_credit_label", "ITBIS balance in your favor") : t("business.month_close.itbis_label", "ITBIS to pay")}
+                state={itbis.state}
+                value={itbis.value}
+                hint={itbis.credit
+                  ? t("business.month_close.itbis_credit_line", "This month you paid more ITBIS than you collected. That difference normally stays as a balance in your favor for the coming months. Your accountant confirms it on the IT-1.")
+                  : t("business.month_close.itbis_hint", "ITBIS on invoices minus ITBIS on expenses.")}
+                locale={locale}
+              />
+            ) : null}
           </div>
 
           {blockers.length > 0 ? (

@@ -223,6 +223,16 @@ export function formatDopCents(cents: bigint): string {
   return `${negative ? "-" : ""}${absolute / HUNDRED}.${fraction}`;
 }
 
+export type ItbisBalanceDisplay =
+  | { kind: "payable"; amount: string }
+  | { kind: "credit"; amount: string };
+
+export function itbisBalanceDisplay(amount: string): ItbisBalanceDisplay {
+  const cents = parseDopCents(amount);
+  if (cents < ZERO) return { kind: "credit", amount: formatDopCents(-cents) };
+  return { kind: "payable", amount };
+}
+
 function addCents(left: bigint, right: string | null): bigint {
   return left + parseDopCents(right ?? "0");
 }
@@ -423,6 +433,17 @@ export function canCloseMonth(snapshot: Pick<MonthCloseSnapshot, "month" | "clos
   const blockers = snapshot.blockers ?? monthCloseBlockers(snapshot.documents);
   if (blockers.some(isFiscalBlocker)) return { ok: false, reason: "blockers" };
   return { ok: true, month: snapshot.month };
+}
+
+export function monthFilingNotice(
+  snapshot: Pick<MonthCloseSnapshot, "closed" | "closed_at" | "blockers" | "documents">,
+): boolean {
+  if (snapshot.closed_at) return false;
+  if (snapshot.closed === true) return true;
+  if (snapshot.closed === false) return false;
+  if (snapshot.documents.length === 0) return false;
+  const blockers = snapshot.blockers ?? monthCloseBlockers(snapshot.documents);
+  return !blockers.some(isFiscalBlocker);
 }
 
 /** Same function as `canCloseMonth`. */
