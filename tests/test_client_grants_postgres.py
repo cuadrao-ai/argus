@@ -69,6 +69,7 @@ CLIENT_RELATION_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
     "public.business_bank_suggestions": {
         "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
     },
+    "public.business_consent_acceptances": {"authenticated": frozenset({"SELECT"})},
     "public.chat_turn_lifecycles": {"authenticated": frozenset({"SELECT"})},
     "public.conversation_read_states": {"authenticated": frozenset({"SELECT"})},
     "public.financial_accounts": {"authenticated": frozenset({"SELECT"})},
@@ -95,6 +96,9 @@ CLIENT_RELATION_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
 
 # Column grants that are not covered by a table-level grant above.
 CLIENT_COLUMN_PRIVILEGES: dict[str, dict[str, dict[str, frozenset[str]]]] = {
+    "public.business_consent_acceptances": {
+        "authenticated": {"INSERT": frozenset({"copy_version", "space_id", "user_id"})},
+    },
     "public.financial_source_connections": {
         "authenticated": {
             "SELECT": frozenset(
@@ -669,6 +673,111 @@ def test_service_role_still_writes_backend_owned_rows(owned_rows) -> None:
                 "select status from public.backtest_jobs where id = %(job_id)s", ids
             )
             assert cursor.fetchone() == ("succeeded",)
+
+
+@pytest.fixture
+def consent_people() -> Iterator[tuple]:
+    """Ana and Beto each own a Business; neither holds a grant on the other's."""
+
+    with psycopg.connect(DSN) as connection:
+        try:
+            people = {}
+            with connection.cursor() as cursor:
+                for name in ("ana", "beto"):
+                    user_id = str(uuid4())
+                    cursor.execute(
+                        "insert into auth.users (id, email, is_anonymous)"
+                        " values (%s, %s, false)",
+                        (user_id, f"consent-{name}-{user_id}@example.test"),
+                    )
+                    cursor.execute(
+                        "insert into public.spaces (kind, name, created_by)"
+                        " values ('business', %s, %s) returning id::text",
+                        (name, user_id),
+                    )
+                    (space_id,) = cursor.fetchone()
+                    cursor.execute(
+                        "insert into public.business_client_grants"
+                        " (space_id, grantee_id, issuer_id, capabilities)"
+                        " values (%s, %s, %s, array['read', 'prepare', 'approve'])",
+                        (space_id, user_id, user_id),
+                    )
+                    people[name] = (user_id, space_id)
+            yield connection, people
+        finally:
+            connection.rollback()
+
+
+CONSENT_INSERT = (
+    "insert into public.business_consent_acceptances (user_id, space_id, copy_version)"
+    " values (%s, %s, %s)"
+)
+CONSENT_VERSION = "0123456789abcdef"
+
+
+def test_a_signed_in_person_writes_and_reads_only_their_own_consent(
+    consent_people,
+) -> None:
+    connection, people = consent_people
+    ana, ana_space = people["ana"]
+    beto, beto_space = people["beto"]
+    with connection.cursor() as cursor:
+        with connection.transaction():
+            _act_as(cursor, "authenticated", user_id=ana)
+            cursor.execute(CONSENT_INSERT, (ana, ana_space, CONSENT_VERSION))
+            cursor.execute(
+                "select user_id::text, space_id::text, copy_version,"
+                " accepted_at is not null from public.business_consent_acceptances"
+            )
+            assert cursor.fetchall() == [(ana, ana_space, CONSENT_VERSION, True)]
+            cursor.execute("reset role")
+
+        refused = {
+            "someone else's acceptance": (CONSENT_INSERT, (beto, beto_space, "f" * 16)),
+            "a Business without a grant": (CONSENT_INSERT, (ana, beto_space, "e" * 16)),
+            "a chosen time": (
+                "insert into public.business_consent_acceptances"
+                " (user_id, space_id, copy_version, accepted_at)"
+                " values (%s, %s, %s, now() - interval '1 year')",
+                (ana, ana_space, "d" * 16),
+            ),
+            "an edit": (
+                "update public.business_consent_acceptances set copy_version = %s"
+                " where user_id = %s",
+                ("c" * 16, ana),
+            ),
+            "a delete": (
+                "delete from public.business_consent_acceptances where user_id = %s",
+                (ana,),
+            ),
+        }
+        for label, (statement, params) in refused.items():
+            with (
+                pytest.raises(psycopg.errors.InsufficientPrivilege),
+                connection.transaction(),
+            ):
+                _act_as(cursor, "authenticated", user_id=ana)
+                cursor.execute(statement, params)
+                pytest.fail(f"{label} was written")
+
+        with connection.transaction():
+            _act_as(cursor, "authenticated", user_id=beto)
+            cursor.execute("select count(*) from public.business_consent_acceptances")
+            assert cursor.fetchone() == (0,)
+            cursor.execute("reset role")
+        with (
+            pytest.raises(psycopg.errors.InsufficientPrivilege),
+            connection.transaction(),
+        ):
+            _act_as(cursor, "anon")
+            cursor.execute("select count(*) from public.business_consent_acceptances")
+
+        cursor.execute("delete from auth.users where id = %s", (ana,))
+        cursor.execute(
+            "select count(*) from public.business_consent_acceptances where user_id = %s",
+            (ana,),
+        )
+        assert cursor.fetchone() == (0,), "a deleted account keeps no acceptance"
 
 
 # Storage. Buckets no client may reach, and every storage.objects policy; an

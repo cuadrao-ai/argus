@@ -6,6 +6,7 @@ from argus.domain.business.contracts.dgii import (
     SERVICE_EXPENSE_TYPES,
     PurchaseDeclaration,
     PurchaseReview,
+    amount_or_zero,
     money_text,
 )
 from argus.domain.business.contracts.facts import BusinessFacts, Known
@@ -25,6 +26,7 @@ def apply_purchase(
     current: PurchaseDeclaration | None,
     review: PurchaseReview,
     amount: str | None,
+    itbis: str | None = None,
 ) -> PurchaseDeclaration:
     if current is None:
         data = {name: None for name in PurchaseDeclaration.model_fields}
@@ -57,7 +59,13 @@ def apply_purchase(
         and amount is not None
     ):
         side = "services_amount" if category in SERVICE_EXPENSE_TYPES else "goods_amount"
-        data[side] = money_text(Decimal(amount))
+        data[side] = money_text(
+            Decimal(amount)
+            - amount_or_zero(itbis)
+            - amount_or_zero(data.get("selective_tax"))
+            - amount_or_zero(data.get("other_taxes"))
+            - amount_or_zero(data.get("legal_tip"))
+        )
     return PurchaseDeclaration.model_validate(data)
 
 

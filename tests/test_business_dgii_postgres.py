@@ -17,7 +17,7 @@ from argus.domain.business.contracts.actions import (
     ReviewDraft,
 )
 from argus.domain.business.contracts.authority import TrustedActor
-from argus.domain.business.contracts.dgii import FiscalReview
+from argus.domain.business.contracts.dgii import FiscalReview, PurchaseReview
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.export import ExportPeriod, export_package
 from argus.domain.business.fiscal_profile import (
@@ -470,3 +470,161 @@ def test_cedula_filer_persists_and_exports_both_formats(actions):
                 archive.read(f"dgii/DGII_F_{form}_{filer}_202609.TXT").split(b"\r\n")[0]
                 == f"{form}|{filer}|202609|1".encode()
             )
+
+
+def _blank_purchase():
+    return {
+        "form": "606",
+        "id_type": "1",
+        "modified_ncf": None,
+        "selective_tax": "1.10",
+        "other_taxes": "2.20",
+        "legal_tip": "0.25",
+        "category": None,
+        "paid_on": None,
+        "services_amount": None,
+        "goods_amount": None,
+        "itbis_withheld": None,
+        "itbis_proportionality": None,
+        "itbis_cost": None,
+        "itbis_perceived": None,
+        "income_withholding_type": None,
+        "income_withheld": None,
+        "income_perceived": None,
+        "payment_method": None,
+    }
+
+
+def test_purchase_review_save_applies_payment_withholding_and_the_base(actions):
+    service, context, _ = actions
+    account = cash_account(service, context)
+    capture = service.capture(
+        context, CaptureNote(text="PRÁCTICA compra con centavos"), str(uuid4())
+    )
+    facts = BusinessFactPatch.model_validate(
+        {
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "kind": "expense",
+                "amount": "1180.55",
+                "currency": "DOP",
+                "occurred_on": "2026-09-03",
+                "counterparty": "PRÁCTICA centavos",
+                "funding": {"kind": "business_account", "account_id": str(account)},
+                "business_share": {"kind": "all"},
+                "receipt_state": "fiscal_receipt",
+            }.items()
+        }
+    )
+    stored = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(
+            version=capture.version,
+            facts=facts,
+            dgii=FiscalReview.model_validate(
+                {
+                    "fiscal": {
+                        "rnc": "199990021",
+                        "ncf": "B0100000001",
+                        "itbis": "180.10",
+                    },
+                    "declaration": _blank_purchase(),
+                }
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert stored.outcome == "applied", stored
+    saved = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(
+            version=stored.version,
+            facts=BusinessFactPatch(
+                purchase=PurchaseReview(
+                    category="09",
+                    payment_method="04",
+                    paid_on=date(2026, 9, 3),
+                    itbis_withheld="18.40",
+                    income_withholding_type="02",
+                    income_withheld="10.15",
+                )
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert saved.outcome == "applied", saved
+    dossier = service.dossier(context, capture.draft_id)
+    assert dossier.dgii.goods_amount == "996.90"
+    assert dossier.dgii.services_amount is None
+    assert dossier.dgii.payment_method == "04"
+    assert dossier.dgii.itbis_withheld == "18.40"
+    assert dossier.dgii.income_withholding_type == "02"
+    assert dossier.dgii.income_withheld == "10.15"
+    assert dossier.history[-1].after_dgii.payment_method == "04"
+    assert dossier.history[-1].after_dgii.goods_amount == "996.90"
+
+
+def test_a_listed_bad_check_digit_stays_in_the_606(actions):
+    service, context, _ = actions
+    account = cash_account(service, context)
+    set_profile(
+        service.authority,
+        context,
+        FiscalProfileChange(rnc="199990013", previous_rnc=None),
+        "rnc",
+    )
+    listed_rnc = "138888003"
+    with service.authority.pool.connection() as connection, connection.transaction():
+        connection.execute(
+            "insert into public.dgii_rnc (rnc, name, trade_name, status, file_date)"
+            " values (%s, %s, %s, 'ACTIVO', %s)",
+            (listed_rnc, "FARMACIA CAROL", "FARMACIA", date(2026, 10, 17)),
+        )
+    try:
+        draft = reviewed(service, context, account, override={"rnc": listed_rnc})
+        assert approve(service, context, draft).outcome == "applied"
+        blob = export_package(
+            service.authority,
+            context,
+            ExportPeriod(date(2026, 9, 1), date(2026, 9, 30)),
+            InMemorySourceObjects(),
+        )
+    finally:
+        with service.authority.pool.connection() as connection, connection.transaction():
+            connection.execute("delete from public.dgii_rnc where rnc=%s", (listed_rnc,))
+    with ZipFile(io.BytesIO(blob)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))["dgii"]
+        assert "dgii/DGII_F_606_199990013_202609.TXT" in archive.namelist()
+    assert manifest["forms"]["606"]["status"] == "prepared_candidate"
+    assert not any(
+        item["code"] == "fiscal_identity_check_digit" for item in manifest["warnings"]
+    )
+    assert manifest["rnc_checks"][0]["status"] == "verificado"
+    assert manifest["rnc_checks"][0]["name"] == "FARMACIA CAROL"
+
+
+def test_an_income_draft_without_a_declaration_does_not_gain_a_606(actions):
+    service, context, _ = actions
+    capture = service.capture(
+        context, CaptureNote(text="PRÁCTICA ingreso sin declaración"), str(uuid4())
+    )
+    saved = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(
+            version=capture.version,
+            facts=BusinessFactPatch.model_validate(
+                {
+                    "kind": {"state": "known", "value": "income"},
+                    "amount": {"state": "known", "value": "100.50"},
+                    "purchase": {"category": "09", "payment_method": "04"},
+                }
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert saved.outcome == "applied", saved
+    dossier = service.dossier(context, capture.draft_id)
+    assert dossier.dgii is None

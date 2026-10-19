@@ -181,7 +181,7 @@ export default function BusinessAccessPanel() {
       {failed ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">{t("business_access.error", "We couldn't load access. Try again.")}</p>
       ) : access === null ? (
-        <Settle pending layout="rows" />
+        <Settle pending layout="access" />
       ) : (
         <>
           <AccessList access={access} busyId={busyId} onRemove={setPending} onResend={resend} />

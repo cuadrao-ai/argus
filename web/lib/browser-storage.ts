@@ -29,7 +29,6 @@ export type StorageConcept =
  */
 export const THEME_STORAGE_KEY = "argus-theme";
 export const LANGUAGE_STORAGE_KEY = "i18nextLng";
-export const BUSINESS_PRIVACY_NOTICE_STORAGE_KEY = "argus:business-privacy-notice:v1" as const;
 
 export const STORAGE_REGISTRY = {
   [LANGUAGE_STORAGE_KEY]: "language",
@@ -46,7 +45,6 @@ export const STORAGE_REGISTRY = {
   "argus:landing-starter:v1": "temporary",
   // The Business the person was working in, as the grant that admits them.
   "argus:business-grant:v1": "layout",
-  [BUSINESS_PRIVACY_NOTICE_STORAGE_KEY]: "temporary",
 } as const satisfies Record<string, StorageConcept>;
 
 export type StorageKey = keyof typeof STORAGE_REGISTRY;
