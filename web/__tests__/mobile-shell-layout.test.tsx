@@ -366,6 +366,14 @@ describe("sidebar header", () => {
 });
 
 describe("mobile top bar", () => {
+  test("a leading control replaces the menu button", async () => {
+    const markup = await render(
+      <ChatShellMenuTrigger onOpen={() => undefined} leading={<span data-testid="business-mark">MP</span>} />,
+    );
+    expect(markup).toContain('data-testid="business-mark"');
+    expect(markup).not.toContain('data-testid="chat-shell-menu-trigger"');
+  });
+
   test("the trigger is a menu glyph with an accessible name", async () => {
     const markup = await render(
       <ChatShellMenuTrigger onOpen={() => undefined} />,

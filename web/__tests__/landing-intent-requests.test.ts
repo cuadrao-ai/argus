@@ -32,6 +32,7 @@ function installStorage() {
       },
     },
     location: { search: "", pathname: "/" },
+    dispatchEvent: () => true,
   };
 }
 
@@ -58,6 +59,7 @@ describe("landing attribution on auth requests", () => {
 
     await bootstrapGuest({ captcha_token: "token", language: "en" });
     expect(bodies[0]).toEqual({ captcha_token: "token", language: "en" });
+    expect(bodies[0]).not.toHaveProperty("age_confirmed_at");
     expect(bodies[0]).not.toHaveProperty("attribution");
 
     captureLandingIntent("utm_campaign=x&starter=backtest", "/");
@@ -84,6 +86,7 @@ describe("landing attribution on auth requests", () => {
       email: "alpha@example.com",
       password: "password123",
       language: "en",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
     expect(bodies.at(-1)).toMatchObject({
       email: "alpha@example.com",
@@ -126,6 +129,7 @@ describe("landing attribution on auth requests", () => {
       email: "shared@example.com",
       password: "password123",
       language: "en",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
     expect(bodies.at(-1)).toMatchObject({
       attribution: {

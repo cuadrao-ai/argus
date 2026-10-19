@@ -86,7 +86,7 @@ def test_real_sessions_create_reopen_edit_and_stay_isolated(
             # A real anonymous session is a guest: refused before any read or write.
             guest = client.post(
                 "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
+                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
                 headers=ORIGIN,
             )
             assert guest.status_code == 200, guest.text

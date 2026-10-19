@@ -29,7 +29,7 @@ import {
   type ReceiptSummary,
   type ReceiptActivityCounts,
 } from "@/lib/business-api";
-import { getChosenGrant, setChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
+import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
 import { classifyFailure, referenceCode, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
@@ -41,8 +41,7 @@ import BusinessSwitcher from "./BusinessSwitcher";
 import { BusinessReviewShortcutsProvider } from "./BusinessReviewShortcuts";
 import { useBusinessKeyboardShortcuts } from "./business-keyboard-shortcuts";
 import BusinessBottomTabs from "./BusinessBottomTabs";
-import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
-import { Users } from "lucide-react";
+import { PhoneSearchButton } from "./foundation/BusinessPhoneHeader";
 import BusinessPanel from "./BusinessPanel";
 import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
@@ -231,6 +230,12 @@ function BusinessWorkspaceContent({
         if (grant && !listed.some((space) => space.grant_id === grant && space.role !== "owner")) {
           setChosenGrant(null);
           setLostAccess(true);
+        } else if (!grant) {
+          const sole = soleClientGrantId(listed);
+          if (sole) {
+            setChosenGrant(sole);
+            setRevision((value) => value + 1);
+          }
         }
       },
       () => { if (!cancelled) setSpaces((current) => current ?? []); },
@@ -447,14 +452,14 @@ function BusinessWorkspaceContent({
       keyboardShortcuts,
       bottomNavigation: (shell) => shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview",
-      sidebarHeader: (shell) => <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} />,
       sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
-      sidebarFooter: (shell) => <SidebarNavButton icon={Users} label={t("business_access.nav", "Access")} collapsed={shell.sidebarCollapsed} onClick={() => openPanel({ kind: "access" })} />,
+      sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} />,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} /> : null,
       headerActions: (shell) => <>
-        {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-sm text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
+        {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-[16px] text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
         </button> : null}
-        {shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={false} onChoose={chooseBusiness} /> : null}
+        {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}
       </>,
       panel: () => <BusinessPanel />,
       starterEntries: () => actions.starterEntries,

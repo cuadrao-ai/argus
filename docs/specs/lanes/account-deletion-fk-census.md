@@ -167,6 +167,7 @@ Every uuid column whose name marks a person or a membership, or that has a forei
 | `business_action_receipts.actor_id` | no | `auth.users` CASCADE |
 | `business_access_invites.issuer_id` | no | `auth.users` CASCADE |
 | `business_client_grants.grantee_id` | no | `auth.users` CASCADE |
+| `business_consent_acceptances.user_id` | no | `auth.users` CASCADE |
 | `business_email_deliveries.principal_id` | yes | `auth.users` CASCADE |
 | `business_email_routes.granted_by` | no | `auth.users` CASCADE |
 | `business_email_routes.principal_id` | no | `auth.users` CASCADE |
@@ -438,6 +439,8 @@ The October 10 C0 catalog adds sixteen foreign keys, all nondeferrable `ON DELET
 | `business_client_grants` | `grantee_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove the named human grant when its grantee is deleted at step 7; do not transfer authority. |
 | `business_client_grants` | `issuer_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove the grant when its issuer is deleted at step 7; do not substitute an issuer. |
 | `business_client_grants` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove all client grants with the Business space at step 7. |
+| `business_consent_acceptances` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: an acceptance belongs to the actual person and the Business they worked in. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7; the person is asked again in their next Business. |
+| `business_consent_acceptances` | `user_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: an acceptance belongs to the actual person and the Business they worked in. | Catalog only. Household and guest probes had no rows here. | Goes with its actual person at step 7; do not transfer an acceptance to a placeholder. |
 | `business_draft_revisions` | `draft_id, space_id` | `financial_import_events` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the canonical import event; immutable revisions allow parent deletion. |
 | `business_draft_sources` | `draft_id, space_id` | `financial_import_events` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the canonical import event; no orphaned draft-source relationship. |
 | `business_draft_sources` | `source_id, space_id` | `business_sources` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with its source during step 2 or space deletion at step 7. |

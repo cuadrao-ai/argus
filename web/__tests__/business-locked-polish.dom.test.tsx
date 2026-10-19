@@ -232,7 +232,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     }
   });
 
-  test("Acceso keeps its Spanish name and icon in the footer and opens access in either sidebar layout", async () => {
+  test("the footer mark opens Equipo y accesos and has no separate Equipo icon", async () => {
     const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
     function Footer({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
       const workspace = useChatWorkspace();
@@ -241,18 +241,32 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     for (const sidebarCollapsed of [false, true]) {
       const page = await mount(() => <Footer sidebarCollapsed={sidebarCollapsed} />);
       try {
-        const access = page.host.querySelector("footer button");
-        assert.ok(access, "Acceso is reachable in the footer");
-        assert.equal(access.textContent?.trim(), "Acceso");
-        assert.equal(access.getAttribute("aria-hidden"), null);
-        assert.ok(access.querySelector("svg"), "Acceso keeps its icon");
+        await page.settle(() => page.host.querySelector("footer button") !== null);
+        const mark = page.host.querySelector("footer button");
+        assert.ok(mark, "the business mark is in the footer");
+        assert.equal(mark.getAttribute("aria-haspopup"), "menu");
+        assert.equal(page.host.textContent?.includes("Tu negocio"), false);
         assert.equal(page.business().panel.kind, "overview");
+        await page.click(mark);
+        const access = [...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes("Equipo y accesos"));
+        assert.ok(access, "Equipo y accesos is in the menu");
         await page.click(access);
-        assert.equal(page.business().panel.kind, "access", "the footer action opens access");
+        assert.equal(page.business().panel.kind, "access", "the menu opens access");
       } finally {
         await page.close();
       }
     }
+  });
+
+  test("phone tabs name Inicio, Bandeja, Gastos and Novedades and do not include a menu button", async () => {
+    const BusinessBottomTabs = (await import("@/components/business-app/BusinessBottomTabs")).default;
+    const page = await mount(() => <BusinessBottomTabs shell={shell({ isBelowTablet: true })} />);
+    const tabs = page.host.querySelector('[data-testid="business-bottom-tabs"]');
+    assert.ok(tabs);
+    const names = [...tabs.querySelectorAll("button")].map((button) => button.textContent?.trim());
+    assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos", "Novedades"]);
+    assert.equal(page.host.querySelector('[data-testid="chat-shell-menu-trigger"]'), null);
+    await page.close();
   });
 
   test("Correos recibidos says so when no email has arrived", async () => {

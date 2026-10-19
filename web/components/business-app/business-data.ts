@@ -9,6 +9,7 @@ import type {
   BusinessAccount,
   BusinessCapture,
   BusinessCaptureInput,
+  BusinessConsent,
   BusinessExpense,
   BusinessExpenseDetail,
   BusinessOverview,
@@ -31,6 +32,9 @@ import type {
 export type BusinessDataSource = Readonly<{
   mode: "live" | "fixture";
   ensureSpace: (language: ArgusLanguage) => Promise<BusinessSpace>;
+  /** The person's acceptance of one wording of the consent screen. */
+  consent: (version: string) => Promise<BusinessConsent>;
+  acceptConsent: (version: string) => Promise<BusinessConsent>;
   /** Every Business the person may enter through a live grant, their own first. */
   spaces: () => Promise<GrantedSpace[]>;
   /** The person dismissed the one-time access line for one of their grants. */
@@ -85,6 +89,8 @@ export type BusinessDataSource = Readonly<{
 export const liveBusinessDataSource: BusinessDataSource = {
   mode: "live",
   ensureSpace: api.startBusinessSpace,
+  consent: api.getBusinessConsent,
+  acceptConsent: api.acceptBusinessConsent,
   workspace: api.getBusinessWorkspace,
   receiptActivity: api.getReceiptActivity,
   receiptPage: api.getBusinessReceiptPage,
@@ -167,6 +173,8 @@ export function withBusinessSpace(
   return {
     mode: source.mode,
     ensureSpace: ready,
+    consent: source.consent,
+    acceptConsent: source.acceptConsent,
     workspace: after(source.workspace),
     receiptActivity: source.receiptActivity ? after(source.receiptActivity) : undefined,
     receiptPage: source.receiptPage ? after(source.receiptPage) : undefined,

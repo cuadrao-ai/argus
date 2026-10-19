@@ -2,119 +2,76 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { normalizeEnabledLanguage } from "@/lib/language-features";
-import {
-  BUSINESS_PRIVACY_NOTICE_VERSION,
-  acceptanceMatchesCurrentNotice,
-  currentNoticeHashes,
-  isPrivacyNoticeLocale,
-  type PrivacyNoticeLocale,
-} from "@/lib/business-privacy-notice";
-import {
-  createStubPrivacyNoticeClient,
-  readPrivacyNoticeAcceptance,
-  revokeEnabledReceiptReading,
-} from "@/lib/business-privacy-notice-client";
+import { getChosenGrant, grantNotLive, setChosenGrant } from "@/lib/business-grant";
+import { consentCopyVersion } from "@/lib/business-privacy-notice";
+import { normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import type { BusinessDataSource } from "./business-data";
 import { BusinessConsentContext } from "./business-consent-context";
-import {
-  BusinessConsentAccepted,
-  BusinessConsentDeclined,
-  BusinessConsentHeld,
-  BusinessConsentScreen,
-} from "./BusinessConsentScreen";
+import { BusinessConsentLoading, BusinessConsentScreen } from "./BusinessConsentScreen";
 
-type Phase = "checking" | "screen" | "declined" | "saved" | "app";
+type Phase = "checking" | "screen" | "saving" | "app";
 
-function storedNoticeIsPlausible(userId: string): boolean {
-  const record = readPrivacyNoticeAcceptance(userId);
-  return Boolean(
-    record
-    && record.userId === userId
-    && record.noticeVersion === BUSINESS_PRIVACY_NOTICE_VERSION
-    && record.acceptedAt.length > 0
-    && isPrivacyNoticeLocale(record.locale),
-  );
+type ConsentSource = Pick<BusinessDataSource, "consent" | "acceptConsent" | "ensureSpace">;
+
+/**
+ * Saved in the Business the person works in: the chosen client's, else their
+ * own, started first. A grant that died since it was chosen is dropped, and
+ * the person's own Business takes it.
+ */
+async function acceptWhereWorking(source: ConsentSource, language: ArgusLanguage, version: string) {
+  try {
+    if (!getChosenGrant()) await source.ensureSpace(language);
+    return await source.acceptConsent(version);
+  } catch (error) {
+    if (!grantNotLive(error) || !getChosenGrant()) throw error;
+    setChosenGrant(null);
+    await source.ensureSpace(language);
+    return source.acceptConsent(version);
+  }
 }
 
-export default function BusinessConsentGate({
-  userId,
-  source,
-  children,
-}: {
-  userId: string;
-  source: Pick<BusinessDataSource, "receiptReading" | "setReceiptReading">;
-  children: ReactNode;
-}) {
+export default function BusinessConsentGate({ source, children }: { source: ConsentSource; children: ReactNode }) {
   const { i18n } = useTranslation();
-  const locale = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language) as PrivacyNoticeLocale;
-  const client = useMemo(() => createStubPrivacyNoticeClient(), []);
-  const [phase, setPhase] = useState<Phase>(() => (storedNoticeIsPlausible(userId) ? "checking" : "screen"));
-  const [accepted, setAccepted] = useState(false);
-  const [holding, setHolding] = useState(false);
-  const [holdFailed, setHoldFailed] = useState(false);
-  const value = useMemo(
-    () => ({ accepted: phase === "app" && accepted, reopen: () => setPhase("screen") }),
-    [accepted, phase],
-  );
+  const [phase, setPhase] = useState<Phase>("checking");
+  const [failed, setFailed] = useState(false);
+  const value = useMemo(() => ({ accepted: phase === "app", reopen: () => setPhase("screen") }), [phase]);
 
   useEffect(() => {
     let live = true;
-    if (!storedNoticeIsPlausible(userId)) {
-      setAccepted(false);
-      setPhase("screen");
-      return () => { live = false; };
-    }
-    setPhase("checking");
-    void currentNoticeHashes().then((hashes) => {
-      if (!live) return;
-      const matches = acceptanceMatchesCurrentNotice(readPrivacyNoticeAcceptance(userId), userId, hashes);
-      setAccepted(matches);
-      setPhase(matches ? "app" : "screen");
-    });
-    return () => { live = false; };
-  }, [userId]);
+    consentCopyVersion()
+      .then((version) => source.consent(version))
+      .then((found) => {
+        if (live) setPhase(found.accepted_at ? "app" : "screen");
+      })
+      .catch(() => {
+        if (live) setPhase("screen");
+      });
+    return () => {
+      live = false;
+    };
+  }, [source]);
 
-  const continueWithout = () => {
-    setHolding(true);
-    setHoldFailed(false);
-    void revokeEnabledReceiptReading(source, locale)
-      .then(() => {
-        setAccepted(false);
+  const accept = () => {
+    setPhase("saving");
+    setFailed(false);
+    const language = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language);
+    consentCopyVersion()
+      .then((version) => acceptWhereWorking(source, language, version))
+      .then((saved) => {
+        if (!saved.accepted_at) throw new Error("business_consent_not_saved");
         setPhase("app");
       })
-      .catch(() => setHoldFailed(true))
-      .finally(() => setHolding(false));
+      .catch(() => {
+        setFailed(true);
+        setPhase("screen");
+      });
   };
 
   return (
     <BusinessConsentContext.Provider value={value}>
-      {phase === "screen" ? (
-        <BusinessConsentScreen
-          userId={userId}
-          client={client}
-          onAccepted={() => {
-            setAccepted(true);
-            setPhase("saved");
-          }}
-          onDecline={() => setPhase("declined")}
-        />
-      ) : null}
-      {phase === "declined" ? (
-        <BusinessConsentDeclined
-          holding={holding}
-          failed={holdFailed}
-          onBack={() => setPhase("screen")}
-          onContinue={continueWithout}
-        />
-      ) : null}
-      {phase === "saved" ? <BusinessConsentAccepted onContinue={() => setPhase("app")} /> : null}
-      {phase === "app" ? (
-        <>
-          {accepted ? null : <BusinessConsentHeld onReview={() => setPhase("screen")} />}
-          {children}
-        </>
-      ) : null}
+      {phase === "checking" || phase === "saving" ? <BusinessConsentLoading /> : null}
+      {phase === "screen" ? <BusinessConsentScreen failed={failed} onContinue={accept} /> : null}
+      {phase === "app" ? children : null}
     </BusinessConsentContext.Provider>
   );
 }

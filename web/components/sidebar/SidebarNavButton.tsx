@@ -29,6 +29,8 @@ type SidebarNavButtonProps = {
   shortcutOnInteraction?: boolean;
   /** Icon size override (default: 22) */
   iconSize?: number;
+  /** Labels wrap onto the next line instead of staying on one. */
+  wrapLabel?: boolean;
   /** Optional aggregate conversation activity rendered over the icon */
   activityPresentation?: ConversationActivityPresentation;
 };
@@ -52,13 +54,14 @@ export default function SidebarNavButton({
   showShortcutHint = false,
   shortcutOnInteraction = false,
   iconSize = 22,
+  wrapLabel = false,
   activityPresentation = "none",
 }: SidebarNavButtonProps) {
   const button = (
     <button
       onClick={onClick}
       aria-current={active ? "page" : undefined}
-      className={`group mb-1 flex h-11 w-full items-center rounded-[14px] transition-colors duration-200 ${
+      className={`group mb-1 flex items-center transition-colors duration-200 ${wrapLabel ? "min-h-11 w-full rounded-[12px]" : "h-11 w-full rounded-[14px]"} ${
         active
           ? "bg-black/5 dark:bg-white/5"
           : "hover:bg-black/5 dark:hover:bg-white/5"
@@ -67,6 +70,7 @@ export default function SidebarNavButton({
       {/* Icon container: fixed 44px square, always centered */}
       <div className="relative flex h-11 w-11 flex-shrink-0 items-center justify-center">
         <Icon
+          strokeWidth={2}
           style={{ width: iconSize, height: iconSize }}
           className="text-black/60 transition-transform duration-150 ease-out group-hover:scale-[1.06] group-hover:text-black dark:text-white/60 dark:group-hover:text-white"
         />
@@ -84,16 +88,18 @@ export default function SidebarNavButton({
       </div>
       {/* Label: font-display (Space Grotesk) per DESIGN.md Nav/UI role */}
       <span
-        className={`ml-1 whitespace-nowrap font-display text-[15px] font-medium tracking-tight text-black transition-[opacity,max-width] duration-300 ease-in-out dark:text-white ${
+        className={`font-display text-[15px] font-medium tracking-tight text-black transition-[opacity,max-width] duration-300 ease-in-out dark:text-white ${
+          wrapLabel ? "-ml-1 whitespace-normal break-words text-left" : "ml-1 whitespace-nowrap"
+        } ${
           collapsed
             ? "pointer-events-none max-w-0 overflow-hidden opacity-0"
-            : "max-w-[180px] opacity-100"
+            : wrapLabel ? "min-w-0 flex-1 opacity-100" : "max-w-[180px] opacity-100"
         }`}
       >
         {label}
       </span>
       {!collapsed && (shortcutHint || trailing) && (
-        <div className="ml-auto flex h-[22px] shrink-0 items-center justify-end pr-4">
+        <div className={`ml-auto flex h-[22px] shrink-0 items-center justify-end ${wrapLabel ? "pr-3" : "pr-4"}`}>
           {shortcutOnInteraction && shortcutHint ? <>
             <span className="group-hover:hidden group-focus-visible:hidden">{trailing}</span>
             <KeyboardShortcutKeycap className="hidden group-hover:inline-flex group-focus-visible:inline-flex">{shortcutHint}</KeyboardShortcutKeycap>
