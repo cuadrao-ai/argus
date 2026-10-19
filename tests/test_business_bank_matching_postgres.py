@@ -128,6 +128,47 @@ def test_one_confirmed_suggestion_is_rejected_on_insert(db, users) -> None:  # n
         confirm("two")
 
 
+def test_deleting_the_importer_keeps_the_upload(db, users) -> None:  # noqa: ANN001
+    owner = users["owner"]
+    importer = users["other"]
+    space_id = space(db, owner)
+    account_id = account(db, owner, space_id)
+    binding = _binding(db, space_id, account_id)
+    import_id = _import(db, space_id, binding, importer)
+    line_id = _line(db, space_id, binding, import_id, "f" * 64)
+
+    db.execute("delete from auth.users where id = %s", (importer,))
+
+    kept = db.execute(
+        "select imported_by::text, inserted_count, idempotency_key"
+        " from public.business_bank_imports where id = %s::uuid",
+        (import_id,),
+    ).fetchone()
+    assert kept == (None, 1, "k1")
+    assert db.execute(
+        "select count(*) from auth.users where id = %s", (importer,)
+    ).fetchone() == (0,)
+    assert db.execute(
+        "select count(*) from auth.users where id = %s", (owner,)
+    ).fetchone() == (1,)
+    assert db.execute(
+        "select count(*) from public.spaces where id = %s::uuid", (space_id,)
+    ).fetchone() == (1,)
+    assert db.execute(
+        "select count(*) from public.financial_accounts where id = %s::uuid",
+        (account_id,),
+    ).fetchone() == (1,)
+    assert db.execute(
+        "select count(*) from public.business_bank_accounts where id = %s::uuid",
+        (binding,),
+    ).fetchone() == (1,)
+    assert db.execute(
+        "select id::text, first_import_id::text, raw_line"
+        " from public.business_bank_lines where id = %s::uuid",
+        (line_id,),
+    ).fetchone() == (line_id, import_id, {"synthetic": True})
+
+
 def test_a_grant_can_read_and_authenticated_cannot_delete(db, users) -> None:  # noqa: ANN001
     owner = users["owner"]
     other = users["other"]

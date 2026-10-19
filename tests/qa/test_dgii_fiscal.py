@@ -296,6 +296,7 @@ def test_review_cannot_store_the_practice_declaration_columns() -> None:
         "funding",
         "kind",
         "occurred_on",
+        "purchase",
         "receipt_state",
     }
     for name in fiscal.UNSUPPORTED_DECLARATION_FIELDS:

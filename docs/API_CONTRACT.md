@@ -31,7 +31,10 @@ Future assigned Cuadrao endpoints derive their approval, authorization and retry
 requirements from the [architecture action principles](ARCHITECTURE.md#cuadrao-action-and-integration-principles).
 Specify each endpoint's payload and failure behavior in its own contract before
 implementation. The constitution sources introduce no routes or envelopes and
-do not change the behavior of existing endpoints.
+do not change the behavior of existing endpoints. Month close
+(`GET /api/v1/business/month-close` and
+`PATCH /api/v1/business/month-close/documents/{activity_id}`) is specified in
+[the month-close contract](contracts/business-month-close.md).
 
 ## Forward Evolvable
 
@@ -9209,7 +9212,9 @@ A recorded `approval_result` carries `activity_id`, the approving `actor`,
 approvals and settlements), `approved_revision` (the latest `history` version
 at or below `reviewed_version`: the facts revision the person approved) and
 `approved_at` (when the approval receipt was written). Marks and 606 answers
-after approval add `history` revisions without changing either field.
+after approval add `history` revisions without changing either field. So does
+an expense approval whose draft holds no 606 declaration: it adds one revision
+at the next version with the declaration built from the reviewed facts.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
 and `Idempotency-Key`. The same existing
@@ -9218,7 +9223,10 @@ and `Idempotency-Key`. The same existing
 `{version, action: "record_income"}`, with the existing required
 `Idempotency-Key`. The route resolves the actual actor and live named grant from
 the canonical draft, then dispatches to the matching human command; the caller
-supplies no actor, space or grant. Both approval variants and unchanged human
+supplies no actor, space or grant. A document that arrived by email from a
+sender who is not yet authorized is refused with 403 `email_sender_unauthorized`
+until that sender is authorized. Nothing in the message is approved by receiving
+it. Both approval variants and unchanged human
 review return the authoritative `BusinessDossier` with `Cache-Control: no-store`.
 The same no-store problem responses and refusal mapping apply to both variants.
 Human review and approval remain separate from model actions. This contract
@@ -9230,6 +9238,59 @@ requests return 409; invalid facts or unresolved approval blockers return 422.
 An uncertain financial effect is `outcome_unknown`, not success or safe retry.
 
 `GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named read grant; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission.
+
+**DGII period export.** The same authorized ZIP additionally contains
+`dgii/606-607.xlsx` and `dgii/summary.json`. TXT names are
+`dgii/DGII_F_606_<filer>_<AAAAMM>.TXT` and the corresponding `607` name.
+The filer may be a nine-digit RNC or eleven-digit cédula, preserved as text.
+Disabled perception fields remain empty in both formats. A Business without a configured RNC
+has `No aplica` for both formats and receives no empty TXT files. Applicable
+TXT candidates require one complete, closed calendar month and complete reviewed
+fiscal facts. Other date ranges retain the general export and report fiscal
+validation issues. Prepared candidates use `606|RNC|AAAAMM|count` or
+`607|RNC|AAAAMM|count`, followed by 23 pipe-delimited fields in NG 07-2018 order,
+as amended by NG 05-2019 and the current DGII templates. The review workbook
+uses the same detail column order. All candidates explicitly state that official
+prevalidation is `NOT RUN` and no tax return has been submitted.
+
+Human `PATCH /business/drafts/{id}/review` accepts `dgii: FiscalReview` alongside
+or instead of `facts`. It holds explicitly entered fiscal identity and ITBIS plus
+a typed `606` purchase or `607` sale declaration. Blank required facts remain
+unknown. The existing live prepare grant, expected version, immutable web-action
+source and review receipt govern this operation. Tax fields never enter the
+model-facing `BusinessFactPatch` or `TurnPlan` schema. A person may send an
+optional `facts.purchase` review for the 606 expense type, payment form, payment
+date, goods and services split, and withholdings. That object is stored on the
+purchase declaration, which remains the only 606 column owner. A suggested
+expense type is not confirmed and stays out of the export column. The 606
+manifest keeps blocking problems in `issues` and lists warn-only gaps in
+`warnings`, including an unverified or inactive supplier RNC. An RNC registry
+state never blocks approval or the export file. Accepted records remain immutable;
+this operation cannot change an approved tax declaration or repost money.
+The existing approval endpoint also accepts human `record_refund`, requiring an
+explicit actual refund linked to an original purchase. Other credit-note
+settlements remain unsupported. The owner alone approves income, expense or
+refund. Under the existing per-owner transaction lock, fiscal duplicate approval
+is refused before money recording. Purchases use supplier plus NCF; issued sales
+use the Business plus NCF regardless of buyer identity. Printed identifier spaces
+or hyphens and NCF letter case normalize for identity without changing sources.
+
+`GET /business/fiscal-profile` returns `{rnc, can_edit}` under the same live read
+grant. Optional `draft_id` supplies the existing canonical Business anchor.
+`PATCH /business/fiscal-profile` requires the actual owner, approve permission,
+`Idempotency-Key`, and `{rnc, previous_rnc}`. It records an immutable human action;
+a stale prior RNC is 409. The filer identity supports a nine-digit RNC or eleven-digit cédula.
+`GET /business/fiscal-profile/fields` supplies the form controls from the same
+typed declaration and annex column definitions used by the exporter.
+
+The summary keeps positive TXT credit-note magnitudes separate from signed
+economic reductions. B02 purchases stay in recorded money and are excluded from
+606. Small B02 sales go to a separate consumption summary; reportable B02 detail
+also stays in that summary. Tax allocations, exact Decimal totals, exclusions,
+validation issues, approval revisions and source links remain machine-readable.
+Unknown facts are never replaced by zero or inferred tax rates. Cross-period or
+older credit-note tax treatment, issued e-CF in 607, and unsupported document
+types require review. The formatter does not decide final deductibility.
 
 **Business attachment preparation.** The existing consented Business upload and preparation routes use the shared document extractor, then the canonical Business Actions finalizer. No new HTTP route, caller-supplied actor/grant, or approval endpoint is added. Server dispatch captures the original preparing member's exact grant and issuer, Business owner, source connection/hash, consent and explicit target. Current web upload dispatch uses `target: null` for a new draft. An internal existing-draft target requires its exact open version; it must not fall back to creating a different draft.
 
@@ -9546,30 +9607,62 @@ accept path recorded.
     delivery row; the worker fetches the message later. An address with no
     active route, two routes or a revoked grant is recorded as rejected and
     never fetched.
-  - Daily receiving allowances are server-owned per immutable receipt address and UTC
-    day. `CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT` defaults to 100;
-    `CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT` defaults to 104857600 bytes.
-    Enqueue admits each new message once; exact webhook replays consume nothing.
-    A download retry consumes another message allowance. Metadata and raw content
-    share one message allowance per worker attempt, but each HTTP fetch reserves
-    the canonical 10 MiB source maximum before any request. Completed fetches settle
-    actual response-body bytes. Interrupted or failed fetches retain their full
-    reservation when the transferred count is uncertain. Headers are not counted.
-    A saved-source retry needs no provider allowance. An exhausted allowance keeps
-    the durable delivery `received`, with `email_daily_message_budget` or
-    `email_daily_byte_budget`, until the next UTC midnight. It does not reject or
-    drop mail, fetch it, spin, or consume the worker retry-attempt limit. Work
-    spanning midnight must obtain the new day's allowance before its next fetch.
-  - GET `/api/v1/business/email` returns `{enabled, receiving_address}`:
-    configuration readiness for the caller's Business, not provider health.
-  - POST `/api/v1/business/email` (prepare capability) mints one address per
-    Business, `recibos-<8 hex>@<domain>`. The route names the Business owner
-    as the captured documents' owner and the caller's own live grant as the
-    authority checked before each capture. A replay, or a concurrent create,
-    returns the one live address with 200. 409 `email_route_revoked` when that
-    address's grant is no longer live and 409 `email_route_unavailable` while
-    capture is off: stop receiving, then create a new address. 503
-    `email_receiving_unconfigured` without a domain or Postgres.
+  - Daily receiving allowances are server-owned per receipt address and
+    America/Santo_Domingo day. `CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT`
+    defaults to 100; `CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT` defaults to
+    104857600 bytes. The worker admits each new unauthorized message once;
+    exact webhook replays consume nothing. Mail from a sender the admin already
+    authorized does not count and is not held. A download retry consumes another
+    message allowance. Metadata and raw content share one message allowance per
+    worker attempt, but each HTTP fetch reserves the canonical 10 MiB source
+    maximum before any request. Completed fetches settle actual response-body
+    bytes. Interrupted or failed fetches retain their full reservation when the
+    transferred count is uncertain. Headers are not counted. A saved-source
+    retry needs no provider allowance. An exhausted allowance keeps the durable
+    delivery `received`, with `email_daily_message_budget` or
+    `email_daily_byte_budget`, until the next Santo Domingo midnight. It does
+    not reject or drop mail, fetch it, spin, or consume the worker retry-attempt
+    limit. Work spanning that midnight must obtain the new day's allowance
+    before its next fetch.
+  - GET `/api/v1/business/email` returns
+    `{enabled, receiving_address, alias, review_required}`: configuration
+    readiness for the caller's Business, not provider health. `alias` is null
+    and `review_required` is false when no usable route exists.
+  - POST `/api/v1/business/email` (prepare capability) takes `{alias}` and
+    creates one address per Business, `<alias>@<domain>`. The alias is the
+    owner's chosen name. Stored addresses keep the recipient they already
+    have. The route names the Business owner as the captured documents' owner
+    and the caller's own live grant as the authority checked before each
+    capture. A replay, or a concurrent create, returns the one live address
+    with 200. 422 `email_alias_required` when the name is missing, 422
+    `email_alias_invalid` when it is not 3–32 letters, digits, or hyphens,
+    and 422 `email_alias_unavailable` with "Ese nombre no está disponible.
+    Prueba otro." when the name is taken or refused. 409
+    `email_route_revoked` when that address's grant is no longer live and
+    409 `email_route_unavailable` while capture is off: stop receiving, then
+    create a new address. 503 `email_receiving_unconfigured` without a domain
+    or Postgres, before the alias is checked.
+  - GET `/api/v1/business/email/availability?alias=` returns
+    `{available, review_required, suggestions, message}`. Taken and refused
+    names share one message and never name the holder. Suggestions are two or
+    three free names checked the same way.
+  - GET `/api/v1/business/email/suggestion?name=` suggests an alias from the
+    business name, or from the stored space name when `name` is absent.
+  - POST `/api/v1/business/email/address` (owner) replaces the live alias.
+    The previous recipient is reserved and mail to it is recorded as rejected
+    with `email_alias_retired`. Deliveries stay on the route id.
+  - GET `/api/v1/business/email/senders` lists sender rules for any member.
+    POST (owner) authorizes or blocks one address or one domain. A public
+    mail domain cannot be authorized as a whole. A repeated rule returns 200
+    with the same id. DELETE `/api/v1/business/email/senders/{sender_id}`
+    (owner) removes that sender. A grantee is refused with 403
+    `business_permission_denied`. An id that is not on this Business's list
+    is 404 `email_sender_not_found`. Stopping or changing the receipt address,
+    and authorizing, removing, or blocking a sender, each append one audit row
+    with the actor, the time, the old address, and the new address.
+  - GET `/api/v1/business/email/inbox` groups deliveries as
+    `remitentes_nuevos`, then `bandeja`. A first scan from an authorized
+    sender sets `notice` to "Prueba recibida".
   - DELETE `/api/v1/business/email` switches the address off. A route can be
     switched off, never pointed at another Business or person.
   - GET `/api/v1/business/email/deliveries` and `/{id}` list the Business's

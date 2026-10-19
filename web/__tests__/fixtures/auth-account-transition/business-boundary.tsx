@@ -2,13 +2,19 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
+import { createContext } from "react";
+const BusinessContext = createContext<unknown>(null);
 let listener: (event: string, session: { user: { id: string } } | null) => void = () => {};
 let releaseInitial!: (result: unknown) => void;
 mock.module("@/lib/supabase-client", () => ({ getSupabaseClient: () => ({ auth: {
   onAuthStateChange: (next: typeof listener) => { listener = next; return { data: { subscription: { unsubscribe: () => {} } } }; },
   getSession: () => new Promise(resolve => { releaseInitial = resolve; }),
 } }) }));
-mock.module("@/components/business-app/BusinessWorkspace", () => ({ BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children }));
+mock.module("@/components/business-app/BusinessWorkspace", () => ({
+  BusinessContext,
+  useBusiness: () => { throw new Error("workspace is replaced in this boundary test"); },
+  BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children,
+}));
 mock.module("@/components/chat/ChatInterface", () => ({ default: () => <input aria-label="Account draft" defaultValue="" /> }));
 mock.module("@/components/chat/ConversationShellGuard", () => ({ default: () => null }));
 mock.module("@/components/business-app/ConversationUnavailableNotice", () => ({ default: () => null }));
@@ -22,16 +28,30 @@ test("account changes discard the old workspace, and late initial session cannot
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { default: BusinessApp } = await import("@/components/business-app/BusinessApp");
+  const { rememberPrivacyNoticeAcceptance } = await import("@/lib/business-privacy-notice-client");
+  const { BUSINESS_PRIVACY_NOTICE_VERSION, currentNoticeHashes } = await import("@/lib/business-privacy-notice");
+  const textSha256 = (await currentNoticeHashes()).en;
+  for (const userId of ["old", "new"]) {
+    rememberPrivacyNoticeAcceptance({
+      userId,
+      acceptedAt: "2026-10-18T12:00:00.000Z",
+      noticeVersion: BUSINESS_PRIVACY_NOTICE_VERSION,
+      locale: "en",
+      textSha256,
+    });
+  }
   const host = document.createElement("div"); document.body.appendChild(host);
   const root = createRoot(host);
   await act(async () => root.render(<BusinessApp />));
   assert.equal(host.querySelector("input"), null);
   await act(async () => listener("SIGNED_IN", { user: { id: "old" } }));
+  await act(async () => { await new Promise((done) => setTimeout(done, 50)); });
   const oldInput = host.querySelector("input")!;
   oldInput.value = "Old private draft";
   await act(async () => listener("TOKEN_REFRESHED", { user: { id: "old" } }));
   assert.equal(host.querySelector("input"), oldInput);
   await act(async () => listener("SIGNED_IN", { user: { id: "new" } }));
+  await act(async () => { await new Promise((done) => setTimeout(done, 50)); });
   const newInput = host.querySelector("input")!;
   assert.notEqual(newInput, oldInput);
   assert.equal(newInput.value, "");

@@ -8,7 +8,7 @@ import { ChatWorkspaceProvider, type ChatWorkspace } from "@/components/chat/Cha
 import { useBusinessKeyboardShortcuts } from "@/components/business-app/business-keyboard-shortcuts";
 import type { BusinessActions } from "@/components/business-app/business-actions";
 import { useChatKeyboardShortcuts } from "@/components/keyboard/useChatKeyboardShortcuts";
-import { useGuestShellActions } from "@/components/guest/useGuestShellActions";
+import { useChatShellCapabilities } from "@/components/chat/useChatShellCapabilities";
 import { businessSearchEnabledFromEnv, businessSearchEntryEnabled } from "@/lib/private-alpha-flags";
 import spanish from "@/public/locales/es-419/common.json";
 import type { UserResponse } from "@/lib/guest-account";
@@ -89,17 +89,12 @@ function SearchKeys({ business }: { business: boolean }) {
     togglePin: () => {},
     showChatOptions: () => {},
   });
-  useGuestShellActions({
+  useChatShellCapabilities({
     account: { account_kind: "registered" } as UserResponse,
-    guestBootstrapRequired: false,
-    hasAcceptedContent: false,
+    conversationId: "conversation-1",
     closeTransientSidebar: () => {},
-    onOpenFeedback: () => {},
     onNewChat: () => {},
-    onRequestNonEmptyGuestChoice: () => {},
-    onRequestGuestDecision: () => {},
     onOpenOmnisearch: () => setOpen(true),
-    onRequestSignIn: () => {},
     omnisearchShortcutEnabled: !business,
   });
   return open ? <div role="dialog" aria-label="Buscar" /> : null;

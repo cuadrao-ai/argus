@@ -92,3 +92,77 @@ def test_postgres_existing_profile_stays_unconfirmed_and_direct_client_cannot_se
     assert db.execute(
         "select age_confirmed_at is not null from public.profiles where id=%s", (user_id,)
     ).fetchone()[0]
+
+
+def test_signed_in_user_cannot_write_its_own_age_confirmation(db):
+    httpx = pytest.importorskip("httpx")
+    url = os.getenv("ARGUS_LOCAL_SUPABASE_URL", "").rstrip("/")
+    anon_key = os.getenv("ARGUS_LOCAL_SUPABASE_ANON_KEY", "")
+    service_key = os.getenv("ARGUS_LOCAL_SUPABASE_SERVICE_ROLE_KEY", "")
+    if not (url and anon_key and service_key):
+        pytest.skip("Set the local Supabase URL and keys to drive a real client write")
+    email = f"age-{uuid4()}@example.test"
+    password = f"Age-{uuid4()}"
+    created = httpx.post(
+        f"{url}/auth/v1/admin/users",
+        headers={"apikey": service_key, "Authorization": f"Bearer {service_key}"},
+        json={"email": email, "password": password, "email_confirm": True},
+        timeout=10,
+    )
+    assert created.status_code == 200, created.text
+    user_id = created.json()["id"]
+    try:
+        db.execute(
+            "insert into public.profiles (id,email) values (%s,%s)", (user_id, email)
+        )
+        db.commit()
+        token = httpx.post(
+            f"{url}/auth/v1/token?grant_type=password",
+            headers={"apikey": anon_key},
+            json={"email": email, "password": password},
+            timeout=10,
+        ).json()["access_token"]
+        own_profile = f"{url}/rest/v1/profiles?id=eq.{user_id}"
+        as_user = {"apikey": anon_key, "Authorization": f"Bearer {token}"}
+
+        allowed = httpx.patch(
+            own_profile, headers=as_user, json={"preferred_name": "Ana"}, timeout=10
+        )
+        assert allowed.status_code == 204, allowed.text
+        refused = httpx.patch(
+            own_profile,
+            headers=as_user,
+            json={"age_confirmed_at": datetime.now(timezone.utc).isoformat()},
+            timeout=10,
+        )
+        assert refused.status_code in (401, 403), refused.text
+        assert refused.json()["code"] == "42501"
+
+        claims = '{"sub":"' + user_id + '","role":"authenticated","is_anonymous":false}'
+        with (
+            pytest.raises(
+                psycopg.errors.InsufficientPrivilege,
+                match="age confirmation requires backend initialization",
+            ),
+            db.transaction(),
+        ):
+            db.execute(
+                "grant update (age_confirmed_at) on public.profiles to authenticated"
+            )
+            db.execute("select set_config('request.jwt.claims', %s, true)", (claims,))
+            db.execute("set local role authenticated")
+            db.execute(
+                "update public.profiles set age_confirmed_at=now() where id=%s",
+                (user_id,),
+            )
+        assert db.execute(
+            "select age_confirmed_at, preferred_name from public.profiles where id=%s",
+            (user_id,),
+        ).fetchone() == (None, "Ana")
+    finally:
+        db.rollback()
+        httpx.delete(
+            f"{url}/auth/v1/admin/users/{user_id}",
+            headers={"apikey": service_key, "Authorization": f"Bearer {service_key}"},
+            timeout=10,
+        )

@@ -44,7 +44,7 @@ for (const width of [1280, 390]) {
     };
     await page.goto("/biz");
     const region = page.getByTestId("workspace-panel-region");
-    await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+    await expect(page.getByTestId("month-close-cards")).toBeVisible();
     await capture("overview");
     if (!baseline) {
       const upload = region.getByTestId("business-primary-upload");
@@ -109,7 +109,7 @@ for (const permissions of [{ enterable: false, preparable: false }, { enterable:
 test("English keeps existing canonical labels and accountant has no upload hero", async ({ page }) => {
   await setup(page, { language: "en", owner: false });
   await page.goto("/biz");
-  await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+  await expect(page.getByTestId("month-close-cards")).toBeVisible();
   await expect(page.getByTestId("business-primary-upload")).toHaveCount(0);
   await page.goto("/biz?view=inbox");
   const row = page.getByTestId("business-inbox-receipts").locator("li").first();

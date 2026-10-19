@@ -217,7 +217,11 @@ Release readiness should be checked at five layers together:
 
 ### Promotion Path
 
-Use the following progression when moving from integration to `main`:
+Use the following progression when moving from integration to `main`.
+The ordered Cuadrao staging-to-production checklist, including the current
+migration inventory and production env gates, is the launch runbook section
+[Cuadrao production promotion](../PRIVATE_LAUNCH_RUNBOOK.md#cuadrao-production-promotion).
+This progression is the commit, schema, and deploy discipline that checklist follows.
 
 1. Develop on a focused `codex/private-alpha-next` slice.
 2. Validate on the staging/private-alpha surface with the proof workflow task.

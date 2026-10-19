@@ -17,7 +17,7 @@ from argus.api.documents import documents_service
 from argus.domain.ingestion.email_intake.store import InMemoryEmailStore
 from fastapi.testclient import TestClient
 
-from tests.business.test_business_api import Owner, alice, bob  # noqa: F401
+from tests.business.test_business_api import BASE, Owner, alice, bob  # noqa: F401
 
 UNREADABLE = (
     Path(__file__).parents[1] / "document_extraction_fixtures/unreadable.png"
@@ -127,7 +127,12 @@ def test_owner_sees_readiness_and_in_memory_app_cannot_mint_an_address(
 ) -> None:  # noqa: F811
     status = alice.get("/email")
     assert status.status_code == 200, status.text
-    assert status.json() == {"enabled": False, "receiving_address": None}
+    assert status.json() == {
+        "enabled": False,
+        "receiving_address": None,
+        "alias": None,
+        "review_required": False,
+    }
     assert alice.get("/email/deliveries").json() == {"items": []}
     assert alice.get(f"/email/deliveries/{uuid4()}").status_code == 404
     created = alice.post("/email", key=str(uuid4()))
@@ -460,7 +465,7 @@ def test_capped_email_waiting_survives_real_api_serialization(alice, runtime, co
     from dataclasses import asdict, replace
     from datetime import datetime, timedelta, timezone
 
-    from argus.domain.ingestion.email_intake.budget import next_utc_day
+    from argus.domain.ingestion.email_intake.budget import next_business_day
     from argus.domain.ingestion.email_intake.store import _delivery
 
     now = datetime.now(timezone.utc)
@@ -484,10 +489,10 @@ def test_capped_email_waiting_survives_real_api_serialization(alice, runtime, co
     )
     store.defer_budget(store.claim(delivery_id=item.id), code)
     waiting_item = store.get(item.id, route.space_id)
-    assert _delivery(asdict(waiting_item)).available_at == next_utc_day(now)
+    assert _delivery(asdict(waiting_item)).available_at == next_business_day(now)
     expected = {
         "reason": "daily_budget",
-        "retry_at": next_utc_day(now).isoformat().replace("+00:00", "Z"),
+        "retry_at": next_business_day(now).isoformat().replace("+00:00", "Z"),
     }
     for payload in (
         alice.get("/email/deliveries").json()["items"][0],
@@ -504,9 +509,373 @@ def test_capped_email_waiting_survives_real_api_serialization(alice, runtime, co
     due = alice.get(f"/email/deliveries/{item.id}").json()
     assert due["waiting"] is None and due["error_code"] is None
     assert store.get(item.id, route.space_id).error_code == code
-    store._available[item.id] = next_utc_day(now)
+    store._available[item.id] = next_business_day(now)
     for state in ("processing", "partial", "rejected", "captured"):
         store._deliveries[item.id] = replace(waiting_item, state=state)
         assert alice.get(f"/email/deliveries/{item.id}").json()["waiting"] is None
     store._deliveries[item.id] = replace(waiting_item, error_code=None)
     assert alice.get(f"/email/deliveries/{item.id}").json()["waiting"] is None
+
+
+def test_new_senders_are_listed_before_the_tray(alice, runtime):  # noqa: F811
+    from dataclasses import replace
+
+    store = runtime.store
+    route = _route_for(store, alice, "ferreterianunez@recibos.example.test")
+    space_id = alice.scope().owner.space_id
+    tray = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=space_id,
+        principal_id=route.principal_id,
+    )
+    fresh = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=space_id,
+        principal_id=route.principal_id,
+    )
+    store._deliveries[tray.id] = replace(
+        store.get(tray.id, space_id), state="captured", inbox_group="bandeja"
+    )
+    store._deliveries[fresh.id] = replace(
+        store.get(fresh.id, space_id), state="captured", inbox_group="remitentes_nuevos"
+    )
+    response = alice.get("/email/inbox")
+    assert response.status_code == 200, response.text
+    groups = response.json()["groups"]
+    assert [group["id"] for group in groups] == ["remitentes_nuevos", "bandeja"]
+    assert [item["id"] for item in groups[0]["items"]] == [fresh.id]
+    assert [item["id"] for item in groups[1]["items"]] == [tray.id]
+
+
+def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runtime):  # noqa: F811
+    body = {"kind": "address", "value": "Caja@Tienda.test", "status": "authorized"}
+    created = alice.post("/email/senders", body)
+    assert created.status_code == 201, created.text
+    replay = alice.post("/email/senders", body)
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["id"] == created.json()["id"]
+    refused = alice.post(
+        "/email/senders",
+        {"kind": "domain", "value": "gmail.com", "status": "authorized"},
+    )
+    assert (refused.status_code, refused.json()["code"]) == (
+        422,
+        "email_sender_domain_refused",
+    )
+    whole = alice.post(
+        "/email/senders",
+        {"kind": "domain", "value": "tienda.test", "status": "authorized"},
+    )
+    assert (whole.status_code, whole.json()["code"]) == (
+        422,
+        "email_sender_domain_refused",
+    )
+    listed = alice.get("/email/senders").json()["items"]
+    authorized = [
+        event
+        for event in runtime.store.address_events(alice.scope().owner.space_id)
+        if event.event_type == "sender_authorized"
+    ]
+    assert authorized[-1].actor_id == alice.scope().person_id
+    assert authorized[-1].new_address == "caja@tienda.test"
+    assert authorized[-1].old_address is None
+    assert authorized[-1].created_at is not None
+    assert listed == [
+        {
+            "id": created.json()["id"],
+            "kind": "address",
+            "value": "caja@tienda.test",
+            "status": "authorized",
+        }
+    ]
+    taken = runtime.store.create_route(
+        recipient="ferreterianunez@recibos.example.test",
+        space_id=str(uuid4()),
+        principal_id=str(uuid4()),
+        granted_by=str(uuid4()),
+        grant_id=str(uuid4()),
+        alias="ferreterianunez",
+        alias_normalized="ferreterianunez",
+    )
+    answer = alice.get("/email/availability", alias="ferreterianunez")
+    assert answer.status_code == 200, answer.text
+    payload = answer.json()
+    assert payload["available"] is False
+    assert payload["message"] == "Ese nombre no está disponible. Prueba otro."
+    assert taken.recipient not in answer.text
+    assert "ferreterianunez@" not in answer.text
+
+
+def test_alias_lookups_are_limited_for_the_owner(alice: Owner, runtime) -> None:  # noqa: F811
+    from argus.api.routers import email_intake as routes
+
+    limiter = getattr(routes, "_alias_lookup_limiter", None)
+    if limiter is not None:
+        limiter.reset()
+    try:
+        statuses = [
+            alice.get("/email/availability", alias=f"nombre{i:02d}").status_code
+            for i in range(30)
+        ]
+        suggestion = alice.get("/email/suggestion", name="Ferreteria Gomez")
+        assert statuses == [200] * 30
+        assert suggestion.status_code == 429, suggestion.text
+        assert suggestion.json()["code"] == "email_alias_lookup_limited"
+    finally:
+        limiter = getattr(routes, "_alias_lookup_limiter", None)
+        if limiter is not None:
+            limiter.reset()
+
+
+def test_the_owner_removes_a_sender(alice: Owner, runtime) -> None:  # noqa: F811
+    created = alice.post(
+        "/email/senders",
+        {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},
+    )
+    assert created.status_code == 201, created.text
+    removed = alice.client.delete(
+        f"{BASE}/email/senders/{created.json()['id']}", headers=alice.auth
+    )
+    assert removed.status_code == 204, removed.text
+    assert alice.get("/email/senders").json()["items"] == []
+    gone = [
+        event
+        for event in runtime.store.address_events(alice.scope().owner.space_id)
+        if event.event_type == "sender_removed"
+    ]
+    assert gone[-1].actor_id == alice.scope().person_id
+    assert gone[-1].old_address == "caja@tienda.test"
+    assert gone[-1].new_address is None
+    assert gone[-1].created_at is not None
+
+
+def test_blocking_a_sender_records_the_sender(alice: Owner, runtime) -> None:  # noqa: F811
+    blocked = alice.post(
+        "/email/senders",
+        {"kind": "address", "value": "caja@tienda.test", "status": "blocked"},
+    )
+    assert blocked.status_code == 201, blocked.text
+    events = [
+        event
+        for event in runtime.store.address_events(alice.scope().owner.space_id)
+        if event.event_type == "sender_blocked"
+    ]
+    assert events[-1].actor_id == alice.scope().person_id
+    assert events[-1].old_address == "caja@tienda.test"
+    assert events[-1].new_address == "caja@tienda.test"
+    assert events[-1].created_at is not None
+
+
+def test_stopping_the_address_records_the_old_one(alice: Owner, runtime) -> None:  # noqa: F811
+    route = _route_for(runtime.store, alice, "recibos-stop01@recibos.example.test")
+    stopped = alice.client.delete(f"{BASE}/email", headers=alice.auth)
+    assert stopped.status_code == 204, stopped.text
+    events = [
+        event
+        for event in runtime.store.address_events(alice.scope().owner.space_id)
+        if event.event_type == "address_stopped"
+    ]
+    assert events[-1].actor_id == alice.scope().person_id
+    assert events[-1].old_address == route.recipient
+    assert events[-1].new_address is None
+    assert events[-1].created_at is not None
+
+
+def test_changing_the_address_records_both(
+    alice: Owner,  # noqa: F811
+    runtime,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "argus.api.routers.email_intake._configured_domain",
+        lambda request: "recibos.example.test",
+    )
+    route = runtime.store.create_route(
+        recipient="ferreteriagomez@recibos.example.test",
+        space_id=alice.scope().owner.space_id,
+        principal_id=alice.scope().person_id,
+        granted_by=alice.scope().person_id,
+        grant_id=str(uuid4()),
+        alias="ferreteriagomez",
+        alias_normalized="ferreteriagomez",
+    )
+    changed = alice.post("/email/address", {"alias": "tallerpena"})
+    assert changed.status_code == 200, changed.text
+    events = [
+        event
+        for event in runtime.store.address_events(alice.scope().owner.space_id)
+        if event.event_type == "address_changed"
+    ]
+    assert events[-1].actor_id == alice.scope().person_id
+    assert events[-1].old_address == route.recipient
+    assert events[-1].new_address == "tallerpena@recibos.example.test"
+    assert events[-1].created_at is not None
+
+
+def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> None:  # noqa: F811
+    from argus.api.business_drafts import DraftContext, require_drafts
+    from argus.api.routers.business_drafts import router
+    from argus.domain.business.contracts.actions import Refused
+    from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
+    from fastapi import FastAPI
+
+    store = runtime.store
+    route = _route_for(store, alice, "recibos-approve1@recibos.example.test")
+    document_id = uuid4()
+    delivery = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=route.space_id,
+        principal_id=route.principal_id,
+    )
+    claimed = store.claim()
+    store.update(claimed, sender="caja@tienda.test")
+    store.put_part(
+        claimed,
+        EmailDeliveryPart("1.2", "recibo.png", "image/png", "captured", str(document_id), None),
+    )
+    store.stamp_route(
+        claimed,
+        inbox_group="bandeja",
+        auth_result="aligned",
+        review_note=None,
+        first_scan=False,
+    )
+    store.finish(claimed, "captured")
+    draft_id = uuid4()
+    store.link_draft_documents(route.space_id, draft_id, [document_id])
+
+    class Recording:
+        def __init__(self) -> None:
+            self.calls: list = []
+
+        def context_for_draft(self, actor_id, draft_id, **_pin):  # noqa: ANN001
+            return object()
+
+        def approve(self, context, draft_id, request, key):  # noqa: ANN001
+            self.calls.append(draft_id)
+            return Refused(outcome="invalid_input", code="expense_blocked")
+
+    service = Recording()
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):  # noqa: ANN001
+        request.state.request_id = "approve-sender"
+        return await call_next(request)
+
+    app.include_router(router)
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(
+        service, uuid4(), route.space_id
+    )
+    body = {"version": 1, "action": "record_expense"}
+    url = f"/business/drafts/{draft_id}/approve"
+    with TestClient(app) as drafts:
+        blocked = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
+        assert blocked.status_code == 403, blocked.text
+        assert blocked.json()["detail"]["code"] == "email_sender_unauthorized"
+        assert service.calls == []
+        assert store.get(delivery.id, route.space_id).approved is False
+        allowed = alice.post(
+            "/email/senders",
+            {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},
+        )
+        assert allowed.status_code == 201, allowed.text
+        opened = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
+    assert opened.status_code == 422, opened.text
+    assert opened.json()["detail"]["code"] == "expense_blocked"
+    assert service.calls == [draft_id]
+    assert store.get(delivery.id, route.space_id).approved is False
+
+
+def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
+    alice: Owner,  # noqa: F811
+    runtime,
+) -> None:
+    from argus.api.business_drafts import DraftContext, require_drafts
+    from argus.api.routers.business_drafts import router
+    from argus.domain.business.contracts.actions import Refused
+    from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
+    from fastapi import FastAPI
+
+    store = runtime.store
+    route = _route_for(store, alice, "recibos-approve2@recibos.example.test")
+    document_id = uuid4()
+    store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=route.space_id,
+        principal_id=route.principal_id,
+    )
+    claimed = store.claim()
+    store.update(claimed, sender="caja@tienda.test")
+    store.put_part(
+        claimed,
+        EmailDeliveryPart(
+            "1.2", "recibo.png", "image/png", "captured", str(document_id), None
+        ),
+    )
+    store.stamp_route(
+        claimed,
+        inbox_group="remitentes_nuevos",
+        auth_result="failed",
+        review_note=None,
+        first_scan=False,
+    )
+    store.finish(claimed, "captured")
+    draft_id = uuid4()
+    store.link_draft_documents(route.space_id, draft_id, [document_id])
+    alice.post(
+        "/email/senders",
+        {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},
+    )
+
+    class Recording:
+        def __init__(self) -> None:
+            self.calls: list = []
+
+        def context_for_draft(self, actor_id, draft_id, **_pin):
+            return object()
+
+        def approve(self, context, draft_id, request, key):
+            self.calls.append(draft_id)
+            return Refused(outcome="invalid_input", code="expense_blocked")
+
+    service = Recording()
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "approve-forged"
+        return await call_next(request)
+
+    app.include_router(router)
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(
+        service, uuid4(), route.space_id
+    )
+    body = {"version": 1, "action": "record_expense"}
+    url = f"/business/drafts/{draft_id}/approve"
+    with TestClient(app) as drafts:
+        forged = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
+        assert forged.status_code == 403, forged.text
+        assert forged.json()["detail"]["code"] == "email_sender_unauthorized"
+        assert service.calls == []
+
+        def unreachable(*_args, **_kwargs):
+            raise RuntimeError("email store unreachable")
+
+        store.email_document_standing = unreachable
+        down = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
+    assert down.status_code == 503, down.text
+    assert down.json()["detail"]["code"] == "email_store_unavailable"
+    assert service.calls == []
