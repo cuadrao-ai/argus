@@ -92,6 +92,7 @@ def save_revision(
     ecf_checks: EcfVerification | None = None,
     dgii_qr: DgiiQr | None = None,
     dgii: DgiiDeclaration | None = None,
+    clear_dgii: bool = False,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -118,7 +119,7 @@ def save_revision(
         ecf_checks=ecf_checks,
         dgii_qr=dgii_qr,
         remainder_settled=bool(previous.get("remainder_settled", False)),
-        dgii=dgii if dgii is not None else previous.get("dgii"),
+        dgii=None if clear_dgii else dgii if dgii is not None else previous.get("dgii"),
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
