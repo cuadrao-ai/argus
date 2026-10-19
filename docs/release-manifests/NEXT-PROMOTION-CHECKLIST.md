@@ -65,11 +65,14 @@ section
 
   1. Confirm `.github/workflows/dgii-rnc-import.yml` is on `main` after
      promotion. The daily schedule does not run until that file is on `main`.
-  2. The first production load needs Lucas's explicit yes at promotion time,
-     and the size-gate check. The size gate reads `pg_database_size` before
-     truncate. It refuses the load when that size plus the required headroom
-     exceeds the limit. Headroom is the larger of the live `public.dgii_rnc`
-     size and a 200 MB floor. The default limit is 450 MB.
+  2. The first load needs Lucas's explicit yes at promotion time, and the
+     size-gate check. PR #1257's job loads the staging registry only. That yes
+     is enforced only by leaving `DGII_RNC_LOAD_ENABLED` unset and leaving the
+     `SUPABASE_STAGING_DB_URL` secret unset until Lucas approves. The size gate
+     reads `pg_database_size` before truncate. It refuses the load when that
+     size plus the required headroom exceeds the limit. Headroom is the larger
+     of the live `public.dgii_rnc` size and a 200 MB floor. The default limit
+     is 450 MB.
   3. Confirm the first scheduled run of `.github/workflows/dgii-rnc-import.yml`
      on `main` succeeds.
 

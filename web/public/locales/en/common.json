@@ -2818,9 +2818,8 @@
       "label": "Create"
     },
     "updates": {
-      "ready": "{{name}} is ready to review",
-      "attention": "{{name}} needs attention",
-      "confirmed": "{{name}} was saved as an expense",
+      "ready_line": "Ready to review",
+      "confirmed_line": "Saved as an expense",
       "title": "Updates",
       "subtitle": "Processing results and anything that needs you.",
       "error": "We couldn't load updates. Try again.",

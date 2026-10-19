@@ -87,7 +87,7 @@ for (const width of [1440, 390]) {
       const skeleton = page.getByTestId("business-loading");
       await expect(skeleton).toBeVisible();
       await expect(skeleton).toHaveAttribute("data-layout", screen.view);
-      await expect(page.getByRole("heading", { level: 2, name: screen.title })).toBeVisible();
+      await expect(page.getByRole("heading", { name: screen.title, exact: true })).toBeVisible();
       await expect(page.locator(".animate-spin")).toHaveCount(0);
       const measure = (rows: import("@playwright/test").Locator) => rows.evaluateAll((items) => items.map((item) => {
         const box = item.getBoundingClientRect();

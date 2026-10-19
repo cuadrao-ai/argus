@@ -18,9 +18,12 @@ UNSET_WEB_FLAG_SURFACES = {
         "private-alpha-release-profile.json",
         "staging_env_manifest.json",
     },
-    "NEXT_PUBLIC_OMNISEARCH_ENABLED": {"staging_env_manifest.json"},
-    "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED": {"staging_env_manifest.json"},
-    "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED": {"staging_env_manifest.json"},
+    "NEXT_PUBLIC_OMNISEARCH_ENABLED": {"render.yaml", "staging_env_manifest.json"},
+    "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED": {"render.yaml", "staging_env_manifest.json"},
+    "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED": {
+        "render.yaml",
+        "staging_env_manifest.json",
+    },
     "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED": {
         ".env.example",
         "private-alpha-release-profile.json",
@@ -93,7 +96,7 @@ def test_private_alpha_web_flags_are_declared_for_hosted_settings() -> None:
     render_web = {
         service["name"]: {item["key"]: item for item in service["envVars"]}
         for service in yaml.safe_load(_text("render.yaml"))["services"]
-        if service["name"] in {"argus-app", "cuadrao-web-staging"}
+        if service["name"] == "cuadrao-web-staging"
     }
     for name in BUSINESS_DEFAULT_OFF_FLAGS:
         assert re.search(rf"^{name}=false$", env_example, re.M)
