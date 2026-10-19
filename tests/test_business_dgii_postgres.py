@@ -566,7 +566,7 @@ def test_purchase_review_save_applies_payment_withholding_and_the_base(actions):
     assert dossier.history[-1].after_dgii.goods_amount == "996.90"
 
 
-def test_a_listed_bad_check_digit_stays_in_the_606(actions):
+def test_a_listed_bad_check_digit_blocks_the_606(actions):
     service, context, _ = actions
     account = cash_account(service, context)
     set_profile(
@@ -596,8 +596,12 @@ def test_a_listed_bad_check_digit_stays_in_the_606(actions):
             connection.execute("delete from public.dgii_rnc where rnc=%s", (listed_rnc,))
     with ZipFile(io.BytesIO(blob)) as archive:
         manifest = json.loads(archive.read("manifest.json"))["dgii"]
-        assert "dgii/DGII_F_606_199990013_202609.TXT" in archive.namelist()
-    assert manifest["forms"]["606"]["status"] == "prepared_candidate"
+        names = archive.namelist()
+    assert "dgii/DGII_F_606_199990013_202609.TXT" not in names
+    assert manifest["forms"]["606"]["status"] == "needs_review"
+    assert any(
+        item["code"] == "fiscal_identity_check_digit" for item in manifest["issues"]
+    )
     assert not any(
         item["code"] == "fiscal_identity_check_digit" for item in manifest["warnings"]
     )
