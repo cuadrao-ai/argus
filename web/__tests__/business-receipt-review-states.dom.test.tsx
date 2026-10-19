@@ -82,8 +82,8 @@ test("a duplicate comprobante refusal names it and opens the record already appr
   const dossier = await fiscalDossier();
   const existing = dossierFixtureIds.ready;
   const approvals = serveDossier(dossier, () => Response.json(
-    { code: "duplicate_comprobante", title: "Duplicate comprobante", detail: "duplicate_comprobante", existing_record_id: existing },
-    { status: 409 },
+    { code: "duplicate_comprobante", title: "Duplicate comprobante", detail: "duplicate_comprobante", context: { existing_record_id: existing } },
+    { status: 422 },
   ));
   const { default: Review } = await import("@/components/business-app/ReceiptDossierReview");
   const page = await render(() => <Review draftId={dossier.draft_id} />);
@@ -109,7 +109,7 @@ test("a duplicate comprobante refusal names it and opens the record already appr
 
 test("a duplicate refusal without an id still says so, with no dead button", async () => {
   const dossier = await fiscalDossier();
-  serveDossier(dossier, () => Response.json({ code: "duplicate_comprobante" }, { status: 409 }));
+  serveDossier(dossier, () => Response.json({ code: "duplicate_comprobante", title: "Duplicate comprobante", detail: "duplicate_comprobante" }, { status: 422 }));
   const { default: Review } = await import("@/components/business-app/ReceiptDossierReview");
   const page = await render(() => <Review draftId={dossier.draft_id} />);
   try {

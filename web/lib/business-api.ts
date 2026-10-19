@@ -202,10 +202,10 @@ export async function approveBusinessDraft(draftId: string, version: number, ide
   });
 }
 
-/** The record an approval refused as a second copy of: `duplicate_comprobante` names it in `existing_record_id`. */
+/** The draft an approval refused as a second copy of: `duplicate_comprobante` names it in `context.existing_record_id`. */
 export function duplicateRecordId(error: unknown): string | null {
-  const { code, body } = (error ?? {}) as { code?: unknown; body?: { existing_record_id?: unknown } };
-  const id = body?.existing_record_id;
+  const { code, context } = (error ?? {}) as { code?: unknown; context?: { existing_record_id?: unknown } | null };
+  const id = context?.existing_record_id;
   return code === "duplicate_comprobante" && typeof id === "string" && id ? id : null;
 }
 
