@@ -423,7 +423,7 @@ def prepare_attachment(
         "kind": _kind(candidate.kind_hint),
     }
     uncertain = set(candidate.uncertain)
-    _fill_unknown_purchase(values, uncertain, batch.receipt)
+    _fill_unknown_purchase(values, uncertain, batch)
     if "merchant" in uncertain:
         uncertain.add("counterparty")
     if "direction" in uncertain:
@@ -622,27 +622,30 @@ def _consensus(purchases: list) -> SimpleNamespace:  # noqa: ANN001
 
 
 def _fill_unknown_purchase(
-    values: dict, uncertain: set[str], receipt: ReceiptDetails | None
+    values: dict, uncertain: set[str], batch: ExtractionBatch
 ) -> None:
     """A candidate that left the supplier or the currency unknown takes the receipt's.
 
+    The currency is the one every part of the read names, never a raw symbol.
     A later merge still runs ``_retain_or_fill``, so a member or owner value stays.
     """
 
-    if receipt is None:
-        return
+    from argus.domain.ingestion.documents.extractor import _agreed_currency
+
     filled = []
+    merchant = batch.receipt.merchant if batch.receipt is not None else None
     if (
         values["counterparty"] is None
         or "counterparty" in uncertain
         or "merchant" in uncertain
-    ) and receipt.merchant:
-        values["counterparty"] = receipt.merchant
+    ) and merchant:
+        values["counterparty"] = merchant
         uncertain.discard("counterparty")
         uncertain.discard("merchant")
         filled.append("counterparty")
-    if (values["currency"] is None or "currency" in uncertain) and receipt.currency:
-        values["currency"] = receipt.currency
+    currency = _agreed_currency(batch) if batch.receipt is not None else None
+    if values["currency"] is None and currency:
+        values["currency"] = currency
         uncertain.discard("currency")
         filled.append("currency")
     if filled:

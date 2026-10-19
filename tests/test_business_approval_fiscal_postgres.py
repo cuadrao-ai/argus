@@ -203,13 +203,13 @@ def revisions(service, draft) -> list[dict]:
     return [dict(zip(("version", "facts", "dgii"), row, strict=True)) for row in rows]
 
 
-def dop_cash(service, context):
+def dop_account(service, context, kind="cash"):
     return service.imports.money.repository.create(
         user_id=context.owner_id,
         idempotency_key=str(uuid4()),
         identity_hash=uuid4().hex,
         account=NewAccount(
-            type="cash", currency="DOP", nickname="Caja", ownership_share_bps=10000
+            type=kind, currency="DOP", nickname="Caja", ownership_share_bps=10000
         ),
         opening=shared.shared._opening(1000000),
         scope=context.scope,
@@ -316,13 +316,43 @@ def test_usd_owner_funded_receipt_stays_usd_after_approval(actions):
     outcome = approve(service, context, draft, approved)
 
     assert outcome.outcome == "applied", outcome
-    assert revisions(service, draft)[-1]["facts"]["currency"]["value"] == "USD"
+    history = revisions(service, draft)
+    assert history[-1]["version"] == approved
+    assert history[-1]["facts"]["currency"]["value"] == "USD"
+    assert history[-1]["dgii"] is None
     assert booked(service, context) == [("owner_funds", "USD")]
+
+
+def test_a_printed_currency_symbol_stays_unknown(actions):
+    service, context = actions
+
+    draft, _ = receipt_draft(service, context, colmado(currency="RD$"), None)
+
+    assert revisions(service, draft)[-1]["facts"]["currency"]["state"] == "unknown"
+
+
+@pytest.mark.parametrize("kind,form", [("cash", "01"), ("checking", "02")])
+def test_payment_form_follows_the_account_that_paid(actions, kind, form):
+    service, context = actions
+    account = dop_account(service, context, kind)
+    draft, version = receipt_draft(service, context, colmado(), "DOP")
+    approved = reviewed(
+        service,
+        context,
+        draft,
+        version,
+        funding={"kind": "business_account", "account_id": str(account)},
+    )
+
+    outcome = approve(service, context, draft, approved)
+
+    assert outcome.outcome == "applied", outcome
+    assert revisions(service, draft)[-1]["dgii"]["payment_method"] == form
 
 
 def test_usd_receipt_on_a_dop_account_is_refused_without_money(actions):
     service, context = actions
-    account = dop_cash(service, context)
+    account = dop_account(service, context)
     draft, version = receipt_draft(
         service, context, colmado(currency="USD", total="59.00"), "USD"
     )
@@ -342,7 +372,7 @@ def test_usd_receipt_on_a_dop_account_is_refused_without_money(actions):
 
 def test_account_funded_receipt_without_currency_is_refused_without_money(actions):
     service, context = actions
-    account = dop_cash(service, context)
+    account = dop_account(service, context)
     draft, version = receipt_draft(
         service, context, colmado(currency=None, total="59.00"), None
     )

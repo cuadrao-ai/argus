@@ -99,7 +99,7 @@ def _money_request(
 
 
 def _approval_declaration(
-    event: ImportEvent, facts: BusinessFacts
+    tx: ActionTransaction, event: ImportEvent, facts: BusinessFacts
 ) -> PurchaseDeclaration | None:
     """The 606 declaration an expense approval writes from its stored facts.
 
@@ -110,7 +110,17 @@ def _approval_declaration(
         return None
     if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
         return None
-    return declaration_from_facts(facts)
+    funding = facts.funding.value
+    paid_from = (
+        "owner_funds"
+        if isinstance(funding, OwnerFunding)
+        else next(
+            account.type
+            for account in dossier.record_context(tx).accounts
+            if account.id == funding.account_id
+        )
+    )
+    return declaration_from_facts(facts, paid_from)
 
 
 def reviewed_request(
@@ -223,7 +233,7 @@ def approve(
                         },
                     },
                 )
-                declared = _approval_declaration(event, facts)
+                declared = _approval_declaration(tx, event, facts)
                 if declared is None:
                     tx.imports.put_event(event)
                 else:
