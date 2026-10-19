@@ -20,9 +20,13 @@ This record covers exactly this version. It runs after record `staging-apply-202
 
 `20261019050000` creates `public.business_consent_acceptances` with an index on `space_id`, enables row level security, and adds select and insert policies for the row's own user. No existing table, column, or row changes.
 
+The migration gate classifies `20261019050000` as contract-replacing (`expand_contract_or_maintenance_required` under `classify_migration`). It is add-only: no table, column, or row is removed.
+
 ## Approval
 
-Lucas yes, 2026-10-19 3:25 PM CT, staging only. Relayed by Yelena. The approval covers staging `skedzwocnmrhfigiwyzi` and exactly this version.
+Lucas yes, 2026-10-19 3:25 PM CT, staging only. Relayed by Yelena.
+
+Approval source: Lucas, 1:1 chat with Yelena · cuadrao, Oct 19 2026 3:25 PM CT, pre-approving add-only staging migrations that Priya SHIPs (staging only, merged PR plus committed record, never prod). The approval covers staging `skedzwocnmrhfigiwyzi` and exactly this version.
 
 The record is issued at `2026-10-19T16:55:00-05:00` and expires at `2026-10-22T16:55:00-05:00`.
 

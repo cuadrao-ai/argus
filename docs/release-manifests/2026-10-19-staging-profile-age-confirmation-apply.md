@@ -20,9 +20,13 @@ This record covers exactly this version. It runs after record `staging-apply-202
 
 `20261019060000` adds nullable `public.profiles.age_confirmed_at`, plus the function `public.protect_profile_age_confirmation()` and the trigger `profiles_age_confirmation_first_write`, which keep the value write-once and backend-only. Existing rows keep `age_confirmed_at` null and are not rewritten. It sets `lock_timeout` 5s and `statement_timeout` 60s for its transaction.
 
+The migration gate classifies `20261019060000` as contract-replacing (`expand_contract_or_maintenance_required` under `classify_migration`). It is add-only: no table, column, or row is removed.
+
 ## Approval
 
-Lucas yes, 2026-10-19 3:25 PM CT, staging only. Relayed by Yelena. The approval covers staging `skedzwocnmrhfigiwyzi` and exactly this version.
+Lucas yes, 2026-10-19 3:25 PM CT, staging only. Relayed by Yelena.
+
+Approval source: Lucas, 1:1 chat with Yelena · cuadrao, Oct 19 2026 3:25 PM CT, pre-approving add-only staging migrations that Priya SHIPs (staging only, merged PR plus committed record, never prod). The approval covers staging `skedzwocnmrhfigiwyzi` and exactly this version.
 
 The record is issued at `2026-10-19T16:55:00-05:00` and expires at `2026-10-22T16:55:00-05:00`.
 
