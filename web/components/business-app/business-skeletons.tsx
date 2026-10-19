@@ -60,7 +60,7 @@ function UpdateRow() {
     <div className="flex min-h-16 items-start gap-3 px-3 py-3">
       <Bar className="h-6 w-20 shrink-0 rounded-full" />
       <span className="min-w-0 flex-1">
-        <span className="flex h-[22px] items-center"><Bar className="h-[15px] w-2/5" /></span>
+        <span className="flex h-6 items-center"><Bar className="h-[15px] w-2/5" /></span>
         <span className="mt-1 flex h-[18px] items-center"><Bar className="h-[13px] w-3/5" /></span>
       </span>
       <span className="flex h-[18px] shrink-0 items-center"><Bar className="h-[13px] w-14" /></span>

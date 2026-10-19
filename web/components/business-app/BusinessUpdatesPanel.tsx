@@ -69,7 +69,7 @@ export default function BusinessUpdatesPanel() {
     const line = sentence(update);
     const content = (
       <>
-        <span className="row-span-2 tablet:row-span-1">
+        <span className="row-span-2 flex tablet:row-span-1">
           <StatusPill status={KIND_STATUS[update.kind]} />
         </span>
         <span className="min-w-0 break-words text-[15px] font-medium leading-[22px] text-[#172b26] dark:text-white">
@@ -98,7 +98,7 @@ export default function BusinessUpdatesPanel() {
               event.preventDefault();
               openPanel({ kind: "receipt", receiptId });
             }}
-            className={`${rowClass} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-[#2f5a49]`}
+            className={rowClass}
           >
             {content}
           </a>
@@ -131,7 +131,7 @@ export default function BusinessUpdatesPanel() {
               setFailed(false);
               setAttempt((value) => value + 1);
             }}
-            className="inline-flex min-h-11 items-center rounded-full px-4 text-[15px] font-medium leading-5 text-[#2f5a49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#9cc5b2]"
+            className="inline-flex min-h-11 items-center rounded-full px-4 text-[15px] font-medium leading-5 text-[#2f5a49] dark:text-[#8fcbb0]"
           >
             {t("common.retry", "Retry")}
           </button>
