@@ -9190,7 +9190,14 @@ at or below `reviewed_version`: the facts revision the person approved) and
 `approved_at` (when the approval receipt was written). Marks and 606 answers
 after approval add `history` revisions without changing either field. So does
 an expense approval whose draft holds no 606 declaration: it adds one revision
-at the next version with the declaration built from the reviewed facts.
+at the next version with the declaration built from the reviewed facts. That
+declaration leaves the expense type unknown, and the payment form unknown unless
+a cash (01), bank (02) or credit card (03) Business account paid, so the 606
+reports `fiscal_fact_required` until a person answers. No declaration is built
+without a supplier RNC or for a consumer B02 or E32 number. When the money write
+then fails, the reopened draft gets one more revision that clears the
+approval's declaration; a declaration a person saved stays. If that clear cannot
+run, the next approval rebuilds the declaration instead of keeping it.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
 and `Idempotency-Key`. The same existing
@@ -9213,7 +9220,7 @@ missing write capability returns 403. Stale versions and same-key/different-inpu
 requests return 409; invalid facts or unresolved approval blockers return 422.
 An uncertain financial effect is `outcome_unknown`, not success or safe retry.
 
-`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named read grant; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission.
+`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named read grant; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, in that order. The supplier and fiscal facts come from the approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows.
 
 **DGII period export.** The same authorized ZIP additionally contains
 `dgii/606-607.xlsx` and `dgii/summary.json`. TXT names are
@@ -9247,8 +9254,13 @@ The existing approval endpoint also accepts human `record_refund`, requiring an
 explicit actual refund linked to an original purchase. Other credit-note
 settlements remain unsupported. The owner alone approves income, expense or
 refund. Under the existing per-owner transaction lock, fiscal duplicate approval
-is refused before money recording. Purchases use supplier plus NCF; issued sales
-use the Business plus NCF regardless of buyer identity. Printed identifier spaces
+is refused before money recording. A purchase or refund whose supplier RNC and
+NCF match one already approved or being approved in the Business is refused with
+422 `duplicate_comprobante`, and the problem's `context.existing_record_id` names
+that record's draft; a replay with the same key returns the same refusal. One
+without a known supplier RNC never matches. Issued
+sales use the Business plus NCF regardless of buyer identity and keep
+`fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.
 
 `GET /business/fiscal-profile` returns `{rnc, can_edit}` under the same live read

@@ -2414,7 +2414,10 @@
       "unavailable": "This record isn't available with your current access.",
       "outcome_unknown": "The action's outcome isn't known yet. Check the saved status before taking another action.",
       "approval_failed": "Approval did not finish. Check the current record before another action.",
+      "duplicate_recorded": "You already recorded this fiscal receipt.",
+      "see_recorded": "See the recorded one",
       "missing_draft": "The prepared record isn't available yet. Check the current receipt before continuing.",
+      "missing_list": "Missing: {{fields}}",
       "refused": "This action could not be completed. Check the current record before trying again.",
       "blocker_fallback": "This record needs further review before approval.",
       "kind": {
@@ -2567,7 +2570,7 @@
     "file_read": {
       "unreadable_title": "We couldn't read this file",
       "unreadable_body": "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light, or enter the details yourself.",
-      "not_a_receipt_title": "This file doesn't look like a receipt or an invoice",
+      "not_a_receipt_title": "This doesn't look like a receipt.",
       "not_a_receipt_body": "Upload the photo or the PDF of a receipt.",
       "upload_another": "Upload another file",
       "enter_details": "Enter details"
@@ -2841,6 +2844,7 @@
     "intake": {
       "replayed": "Already saved before. This is that receipt.",
       "unsupported": "This file isn't supported. Try {{formats}}.",
+      "uploading_progress": "Uploading {{position}} of {{total}}…",
       "too_large": "This file is larger than {{size}} MB. Use a smaller photo or PDF.",
       "heic": "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first.",
       "title": "Upload receipt",

@@ -131,7 +131,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   }
   if (!detail || !draft) return <Settle pending layout="detail" />;
   const terminal = terminalRead(detail.attention, detail.error_code);
-  const uploadAnother = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
+  const uploadAnother = chosen?.role === "owner" || chosen?.capabilities.includes("prepare") ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />) => (
     <ContentFade><ReceiptReviewFrame
@@ -312,7 +312,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {terminal.upload && uploadAnother ? (
-                      <button type="button" className={secondaryButtonClass} onClick={uploadAnother.run}>
+                      <button type="button" className={primaryButtonClass} onClick={uploadAnother.run}>
                         {terminal.uploadLabel}
                       </button>
                     ) : null}
