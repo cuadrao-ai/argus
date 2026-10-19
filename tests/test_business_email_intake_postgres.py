@@ -513,6 +513,51 @@ def test_a_full_message_cap_does_not_fetch_spoofed_mail_on_postgres(rig):
     assert all(flag[0] is False for flag in flags)
 
 
+def test_email_origin_commits_with_the_delivery_link_or_not_at_all(rig):
+    from psycopg.errors import ForeignKeyViolation
+
+    from tests.test_business_spaces_migration_postgres import connection, space
+
+    store = rig["store"]
+    delivery = rig["runtime"].enqueue_resend(str(uuid4()), (rig["route"].recipient,))
+    claimed = store.claim(delivery_id=delivery.id)
+    assert claimed is not None
+    with rig["pool"].connection() as db:
+        foreign_space = space(db, rig["users"]["other"])
+        foreign = connection(db, rig["users"]["other"], foreign_space)
+        own = connection(db, rig["users"]["owner"], rig["route"].space_id)
+    with pytest.raises(ForeignKeyViolation):
+        store.update(claimed, original_document_id=foreign)
+    with rig["pool"].connection() as db:
+        assert (
+            db.execute(
+                "select original_document_id from public.business_email_deliveries where id=%s",
+                (delivery.id,),
+            ).fetchone()[0]
+            is None
+        )
+        assert (
+            db.execute(
+                "select count(*) from public.business_sources where connection_id=%s",
+                (foreign,),
+            ).fetchone()[0]
+            == 0
+        )
+    store.update(claimed, original_document_id=own)
+    with rig["pool"].connection() as db:
+        linked = db.execute(
+            "select original_document_id::text from public.business_email_deliveries where id=%s",
+            (delivery.id,),
+        ).fetchone()[0]
+        origin = db.execute(
+            "select origin from public.business_sources"
+            " where space_id=%s and source_key=%s",
+            (rig["route"].space_id, f"attachment:{own}"),
+        ).fetchone()[0]
+    assert linked == own
+    assert origin == "email"
+
+
 def test_deleting_the_space_keeps_the_alias_taken(rig):
     alias = fresh_alias()
     store = rig["store"]

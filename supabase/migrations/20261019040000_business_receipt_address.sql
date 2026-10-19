@@ -179,3 +179,9 @@ create index business_email_address_events_space_idx
 alter table public.business_email_address_events enable row level security;
 revoke all on public.business_email_address_events from public, anon, authenticated, service_role;
 grant select, insert on public.business_email_address_events to service_role;
+
+-- Existing upload and WhatsApp writers omit this column. The default keeps
+-- those rows non-email. Email capture sets 'email' in the delivery transaction.
+alter table public.business_sources
+    add column origin text not null default 'direct'
+        check (origin in ('email', 'direct'));

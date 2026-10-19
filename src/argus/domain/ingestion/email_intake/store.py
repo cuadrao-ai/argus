@@ -242,8 +242,16 @@ class PostgresEmailStore(PostgresAddressing):
                 "or p.document_id in (select id from ids))",
                 (document_id, space_id, space_id),
             ).fetchall()
-        if not rows:
-            return None
+            if not rows:
+                email = cursor.execute(
+                    "select 1 from public.business_draft_sources l "
+                    "join public.business_sources s "
+                    "on s.id=l.source_id and s.space_id=l.space_id "
+                    "where l.draft_id=%s::uuid and l.space_id=%s::uuid "
+                    "and s.origin='email' limit 1",
+                    (document_id, space_id),
+                ).fetchone()
+                return "new" if email else None
         for row in rows:
             if row["auth_result"] != "aligned":
                 return "new"
@@ -548,7 +556,7 @@ class PostgresEmailStore(PostgresAddressing):
         if not values or set(values) - _UPDATABLE:
             raise ValueError("invalid_email_update")
         assignments = ",".join(f"{key}=%s" for key in values)
-        with self.pool.connection() as connection:
+        with self.pool.connection() as connection, connection.transaction():
             changed = connection.execute(
                 f"update public.business_email_deliveries set {assignments},updated_at=now(),lease_until=now()+interval '120 seconds' "
                 "where id=%s and lease_token=%s and lease_until>now() and state='processing'",
@@ -556,6 +564,9 @@ class PostgresEmailStore(PostgresAddressing):
             ).rowcount
             if changed != 1:
                 raise LeaseLost()
+            _remember_email_origin(
+                connection, delivery.space_id, values.get("original_document_id")
+            )
 
     def renew(self, delivery: EmailDelivery) -> None:
         with self.pool.connection() as connection:
@@ -603,6 +614,7 @@ class PostgresEmailStore(PostgresAddressing):
                     part.error_code,
                 ),
             )
+            _remember_email_origin(connection, delivery.space_id, part.document_id)
 
     def parts(self, delivery_id: str) -> list[EmailDeliveryPart]:
         with (
@@ -689,6 +701,18 @@ def _relations(rows: list[dict]) -> dict[str, EmailRelation]:
     return found
 
 
+def _remember_email_origin(connection, space_id, document_id) -> None:
+    if not space_id or not document_id:
+        return
+    connection.execute(
+        "insert into public.business_sources"
+        " (space_id,kind,channel,source_key,connection_id,received_at,origin)"
+        " values (%s,'attachment','web',%s,%s,now(),'email')"
+        " on conflict (space_id, source_key) do nothing",
+        (space_id, f"attachment:{document_id}", document_id),
+    )
+
+
 T = TypeVar("T")
 
 
@@ -726,6 +750,7 @@ class InMemoryEmailStore(MemoryAddressing):
         self._space_names: dict[str, str] = {}
         self._events: list = []
         self._draft_links: dict[tuple[str, str], set[str]] = {}
+        self._email_origins: set[tuple[str, str]] = set()
 
     @_synchronized
     def link_draft_documents(self, space_id: str, draft_id, document_ids) -> None:
@@ -801,6 +826,8 @@ class InMemoryEmailStore(MemoryAddressing):
             if matched:
                 linked.append(delivery)
         if not linked:
+            if any((str(space_id), item) in self._email_origins for item in ids):
+                return "new"
             return None
         for delivery in linked:
             if delivery.auth_result != "aligned":
@@ -1062,6 +1089,7 @@ class InMemoryEmailStore(MemoryAddressing):
             current, updated_at=self.clock(), **values
         )
         self._lease_until[delivery.id] = self.clock() + LEASE
+        self._note_email_origin(current.space_id, values.get("original_document_id"))
 
     @_synchronized
     def renew(self, delivery):
@@ -1084,8 +1112,13 @@ class InMemoryEmailStore(MemoryAddressing):
 
     @_synchronized
     def put_part(self, delivery, part):
-        self._held(delivery)
+        current = self._held(delivery)
         self._parts.setdefault(delivery.id, {})[part.id] = part
+        self._note_email_origin(current.space_id, part.document_id)
+
+    def _note_email_origin(self, space_id, document_id) -> None:
+        if space_id and document_id:
+            self._email_origins.add((str(space_id), str(document_id)))
 
     @_synchronized
     def parts(self, delivery_id):
