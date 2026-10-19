@@ -18842,8 +18842,10 @@ components:
     GuestAccountSignupRequest:
       properties:
         age_confirmed_at:
-          type: string
-          format: date-time
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
         email:
           type: string
           maxLength: 320
@@ -18873,7 +18875,6 @@ components:
       additionalProperties: false
       type: object
       required:
-      - age_confirmed_at
       - email
       - password
       - captcha_token
@@ -26544,8 +26545,10 @@ components:
     SignupRequest:
       properties:
         age_confirmed_at:
-          type: string
-          format: date-time
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
         email:
           type: string
         password:
@@ -26570,7 +26573,6 @@ components:
           - type: 'null'
       type: object
       required:
-      - age_confirmed_at
       - email
       - password
       - captcha_token

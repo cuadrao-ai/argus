@@ -1010,7 +1010,7 @@ def _context_depth(value: Any) -> int:
 
 
 class SignupRequest(BaseModel):
-    age_confirmed_at: AgeConfirmation
+    age_confirmed_at: AgeConfirmation = None
     email: str
     password: str
     captcha_token: str = Field(min_length=1, max_length=4096)
@@ -1174,7 +1174,7 @@ class GuestHandoffClaimResponse(BaseModel):
 
 
 class GuestAccountSignupRequest(BaseModel):
-    age_confirmed_at: AgeConfirmation
+    age_confirmed_at: AgeConfirmation = None
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     email: str = Field(min_length=3, max_length=320)

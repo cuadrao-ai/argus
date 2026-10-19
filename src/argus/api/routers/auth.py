@@ -722,9 +722,10 @@ def signup_guest_account(
             profile = api_state.supabase_gateway.get_or_create_profile_for_auth_user(
                 auth_user
             )
-            api_state.supabase_gateway.record_age_confirmation(
-                profile.id, body.age_confirmed_at
-            )
+            if body.age_confirmed_at is not None:
+                api_state.supabase_gateway.record_age_confirmation(
+                    profile.id, body.age_confirmed_at
+                )
             result["user"] = profile.model_dump(mode="json")
             _emit_account_registration_completed_event(
                 profile, surface="guest_conversion"
@@ -823,9 +824,10 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
                 profile = api_state.supabase_gateway.get_or_create_profile_for_auth_user(
                     auth_user
                 )
-                api_state.supabase_gateway.record_age_confirmation(
-                    profile.id, body.age_confirmed_at
-                )
+                if body.age_confirmed_at is not None:
+                    api_state.supabase_gateway.record_age_confirmation(
+                        profile.id, body.age_confirmed_at
+                    )
                 _emit_account_registration_completed_event(
                     profile,
                     surface="direct_signup",

@@ -2725,24 +2725,25 @@ emailless permanent identities require a separate schema and Auth slice.
 
 ## Age confirmation for new entry
 
-`POST /api/v1/auth/signup` and `POST /api/v1/auth/guest/signup` require
+`POST /api/v1/auth/signup` and `POST /api/v1/auth/guest/signup` accept an optional
 `age_confirmed_at`, a string containing an RFC 3339 timestamp with an explicit
-timezone offset. The client captures the instant when the person checks the box
-during account creation and sends it on that request. English says
-"I confirm I'm 18 or older." Spanish says "Confirmo que tengo 18 años o más."
-The browser does not store the confirmation. `POST /api/v1/auth/guest` does not
-accept or require it. Reusing an already verified guest session stays compatible.
+timezone offset. The client sends that instant only when it has an attestation
+to store. English says "I confirm I'm 18 or older." Spanish says
+"Confirmo que tengo 18 años o más." The browser does not store the confirmation.
+`POST /api/v1/auth/guest` does not accept or require it. Reusing an already
+verified guest session stays compatible.
 
-A missing `age_confirmed_at` returns `422` with code `age_confirmation_required`.
-An invalid or unsavable value returns `422` with code `age_confirmation_invalid`.
-That includes null, a boolean, a number, a naive timestamp, a time more than
-five minutes ahead, and an instant the clock cannot store. The provider is not
-called. The API normalizes valid offsets to UTC. Existing admission, CAPTCHA, email-confirmation
-and handoff rules still apply. The server stores the first attestation in
+A missing `age_confirmed_at` and an explicit null are stored as null. Neither
+returns `422` or `age_confirmation_required`. An invalid or unsavable value
+returns `422` with code `age_confirmation_invalid`. That includes a boolean, a
+number, a naive timestamp, a time more than five minutes ahead, and an instant
+the clock cannot store. The provider is not called. The API normalizes valid
+offsets to UTC. Existing admission, CAPTCHA, email-confirmation and handoff
+rules still apply. The server stores the first real attestation in
 `profiles.age_confirmed_at`; retries cannot replace it. Provider user metadata
 carries the timestamp only to recover an interrupted initial profile write.
 This is a client attestation, never verified age or an authorization claim.
-No birthday or Apple age range is accepted or persisted by this contract.
+No birthday or raw age range is accepted or persisted by this contract.
 Existing profiles remain null until an explicit attestation exists.
 
 ## `POST /auth/signup`
