@@ -25,6 +25,16 @@ export const ENABLED_LANGUAGE_CODES = ENABLED_LANGUAGES.map(
   (language) => language.code,
 );
 
+/** Languages the landing page may offer. A Business build offers none, so the English link cannot save `en` on the account. A consumer build offers every enabled language except the one already shown. */
+export function landingLanguageChoices(
+  businessBuild: boolean,
+  shown: ArgusLanguage,
+  languages: readonly ArgusLanguageOption[] = ENABLED_LANGUAGES,
+): readonly ArgusLanguageOption[] {
+  if (businessBuild) return [];
+  return languages.filter((language) => language.code !== shown);
+}
+
 /** The language a visitor sees before any choice: Spanish on a Cuadrao Business build that ships it, English otherwise. */
 export function defaultLanguage(spanishEnabled: boolean, businessBuild: boolean): ArgusLanguage {
   return spanishEnabled && businessBuild ? "es-419" : "en";

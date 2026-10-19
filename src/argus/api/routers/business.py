@@ -35,6 +35,7 @@ from argus.api.business import (
     require_business_person,
     require_business_surface,
     require_business_workspace,
+    working_scope,
 )
 from argus.api.business_drafts import (
     action_problem,
@@ -51,8 +52,10 @@ from argus.api.business_drafts import (
     upload_recorder,
 )
 from argus.api.business_schemas import (
+    AcceptBusinessConsent,
     BusinessAccess,
     BusinessAccount,
+    BusinessConsent,
     BusinessExpense,
     BusinessOverview,
     BusinessSearch,
@@ -60,6 +63,7 @@ from argus.api.business_schemas import (
     BusinessSpaces,
     BusinessWorkspace,
     ConfirmBody,
+    ConsentVersion,
     CreateBusinessAccount,
     ExpenseDetail,
     ExpenseInput,
@@ -283,6 +287,39 @@ def mark_space_seen(
 
     _access_store(request).mark_seen(person.person_id, grant_id)
     return Response(status_code=204, headers=NO_STORE)
+
+
+@router.get("/consent", response_model=BusinessConsent)
+def get_consent(
+    version: Annotated[ConsentVersion, Query()],
+    person: BusinessPerson = Depends(require_business_person),  # noqa: B008
+) -> dict[str, Any]:
+    """Whether the caller accepted this wording of the consent screen. It is
+    the person's, so a chosen client grant does not change the answer."""
+
+    return {
+        "version": version,
+        "accepted_at": person.spaces.consent_accepted_at(person.person_id, version),
+    }
+
+
+@router.post("/consent", response_model=BusinessConsent)
+def accept_consent(
+    request: Request,
+    body: AcceptBusinessConsent,
+    person: BusinessPerson = Depends(require_business_person),  # noqa: B008
+) -> dict[str, Any]:
+    """Idempotent: one acceptance per person and wording, naming the Business
+    they work in (the chosen grant's, else their own), answered with the first
+    acceptance time. No Business yet is a 404."""
+
+    scope = working_scope(request, person.spaces, person.person_id)
+    if scope is None:
+        raise space_missing_problem(request)
+    accepted_at = person.spaces.accept_consent(
+        person.person_id, scope.owner.space_id, body.version
+    )
+    return {"version": body.version, "accepted_at": accepted_at}
 
 
 @router.post("/space", response_model=BusinessSpaceInfo, status_code=201)
