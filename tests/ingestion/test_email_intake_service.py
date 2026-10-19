@@ -824,6 +824,9 @@ def test_every_linked_delivery_must_be_authorized_and_aligned():
         sender="caja@tienda.test",
         auth_result="aligned",
     )
+    assert world.store.email_document_standing(space, draft_id) is None
+    for document in (good_doc, bad_doc):
+        world.store._note_email_origin(space, document)
     assert world.store.email_document_standing(space, draft_id) == "authorized"
     world.store._deliveries[bad.id] = replace(
         world.store.get(bad.id, space), auth_result="failed"

@@ -230,7 +230,8 @@ class PostgresEmailStore(PostgresAddressing):
                 "select s.id, s.connection_id from public.business_draft_sources l "
                 "join public.business_sources s "
                 "on s.id=l.source_id and s.space_id=l.space_id "
-                "where l.draft_id=%s::uuid and l.space_id=%s::uuid), "
+                "where l.draft_id=%s::uuid and l.space_id=%s::uuid "
+                "and s.origin='email'), "
                 "ids as ("
                 "select id from linked "
                 "union "
@@ -814,7 +815,11 @@ class InMemoryEmailStore(MemoryAddressing):
 
     @_synchronized
     def email_document_standing(self, space_id: str, document_id: str) -> str | None:
-        ids = set(self._draft_links.get((str(space_id), str(document_id)), ()))
+        ids = {
+            item
+            for item in self._draft_links.get((str(space_id), str(document_id)), ())
+            if (str(space_id), item) in self._email_origins
+        }
         linked = []
         for delivery in self._deliveries.values():
             if delivery.space_id != space_id:
@@ -826,9 +831,7 @@ class InMemoryEmailStore(MemoryAddressing):
             if matched:
                 linked.append(delivery)
         if not linked:
-            if any((str(space_id), item) in self._email_origins for item in ids):
-                return "new"
-            return None
+            return "new" if ids else None
         for delivery in linked:
             if delivery.auth_result != "aligned":
                 return "new"

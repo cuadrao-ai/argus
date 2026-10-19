@@ -185,3 +185,17 @@ grant select, insert on public.business_email_address_events to service_role;
 alter table public.business_sources
     add column origin text not null default 'direct'
         check (origin in ('email', 'direct'));
+
+-- Sources an email delivery already links keep the sender check. Sources are
+-- immutable evidence; this one-time origin backfill is the only write.
+alter table public.business_sources disable trigger business_source_immutable;
+update public.business_sources s
+set origin = 'email'
+where exists (
+    select 1
+    from public.business_email_deliveries d
+    left join public.business_email_parts p on p.delivery_id = d.id
+    where d.space_id = s.space_id
+      and s.connection_id in (d.original_document_id, p.document_id)
+);
+alter table public.business_sources enable trigger business_source_immutable;

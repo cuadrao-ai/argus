@@ -333,102 +333,22 @@ def test_disconnected_source_refuses_completion(prepared):
 
 
 @pytest.mark.owner_acts
-def test_approve_refuses_a_forged_sender_on_the_real_draft(prepared):
-    from argus.api.business_drafts import DraftContext, require_drafts
-    from argus.api.email_intake import configure_email_intake, email_intake
-    from argus.api.routers.business_drafts import router
-    from argus.domain.ingestion.email_intake.store import PostgresEmailStore
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-    from psycopg.types.json import Jsonb
-
-    service, context, grant, cid, _, _ = prepared
+def test_approve_refuses_a_body_that_names_other_ids(prepared):
+    service, context, _, cid, _, _ = prepared
     bind(prepared)
     draft_id = finish(prepared).draft_id
     assert str(draft_id) != str(cid)
-    space = str(context.actor.space_id)
-    store = PostgresEmailStore(service.authority.pool)
-    route = store.create_route(
-        recipient=f"recibos-{uuid4().hex[:8]}@recibos.example.test",
-        space_id=space,
-        principal_id=str(context.owner_id),
-        granted_by=str(context.owner_id),
-        grant_id=str(grant),
+    foreign = str(uuid4())
+    refused = post_approve(
+        service,
+        context,
+        draft_id,
+        extra={"document_id": foreign, "source_id": foreign, "connection_id": foreign},
     )
-    store.upsert_sender(space, "address", "caja@tienda.test", "authorized")
-    with service.authority.pool.connection() as db:
-        db.execute(
-            "insert into public.business_email_deliveries("
-            "provider, external_id, recipients, route_id, space_id, principal_id,"
-            " state, original_document_id, sender, auth_result, inbox_group)"
-            " values ('resend', %s, %s, %s, %s, %s, 'captured', %s,"
-            " 'caja@tienda.test', 'failed', 'remitentes_nuevos')",
-            (
-                str(uuid4()),
-                Jsonb(["caja@tienda.test"]),
-                route.id,
-                space,
-                str(context.owner_id),
-                cid,
-            ),
-        )
-        db.execute(
-            "insert into public.business_email_deliveries("
-            "provider, external_id, recipients, route_id, space_id, principal_id,"
-            " state, original_document_id, sender, auth_result, inbox_group)"
-            " values ('resend', %s, %s, %s, %s, %s, 'captured', %s,"
-            " 'caja@tienda.test', 'aligned', 'bandeja')",
-            (
-                str(uuid4()),
-                Jsonb(["caja@tienda.test"]),
-                route.id,
-                space,
-                str(context.owner_id),
-                cid,
-            ),
-        )
-    assert store.email_document_standing(space, str(draft_id)) == "new"
-    foreign = uuid4()
-    app = FastAPI()
-
-    @app.middleware("http")
-    async def request_id(request, call_next):
-        request.state.request_id = "approve-forged-draft"
-        return await call_next(request)
-
-    app.include_router(router)
-    app.dependency_overrides[require_drafts] = lambda: DraftContext(
-        service, context.actor.actor_id, space
-    )
-    previous = email_intake()
-    configure_email_intake(None)
-    try:
-        with TestClient(app) as drafts:
-            foreign_body = {
-                "version": 1,
-                "action": "record_expense",
-                "document_id": str(foreign),
-                "source_id": str(foreign),
-                "connection_id": str(foreign),
-            }
-            refused = drafts.post(
-                f"/business/drafts/{draft_id}/approve",
-                json=foreign_body,
-                headers={"Idempotency-Key": str(uuid4())},
-            )
-            blocked = drafts.post(
-                f"/business/drafts/{draft_id}/approve",
-                json={"version": 1, "action": "record_expense"},
-                headers={"Idempotency-Key": str(uuid4())},
-            )
-    finally:
-        configure_email_intake(previous)
     assert refused.status_code == 422, refused.text
-    assert blocked.status_code == 403, blocked.text
-    assert blocked.json()["detail"]["code"] == "email_sender_unauthorized"
 
 
-def post_approve(service, context, draft_id, *, version=1):
+def post_approve(service, context, draft_id, *, version=1, extra=None):
     from argus.api.business_drafts import DraftContext, require_drafts
     from argus.api.email_intake import configure_email_intake, email_intake
     from argus.api.routers.business_drafts import router
@@ -452,7 +372,7 @@ def post_approve(service, context, draft_id, *, version=1):
         with TestClient(app) as drafts:
             return drafts.post(
                 f"/business/drafts/{draft_id}/approve",
-                json={"version": version, "action": "record_expense"},
+                json={"version": version, "action": "record_expense", **(extra or {})},
                 headers={"Idempotency-Key": str(uuid4())},
             )
     finally:
