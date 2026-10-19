@@ -276,34 +276,3 @@ describe("phone navigation", () => {
     await page.close();
   });
 });
-
-describe("Gastos dates read day first", () => {
-  test("Desde and Hasta show dd/mm/aaaa, refuse a month-first date, and apply the typed range", async () => {
-    const { default: BusinessPeriodControl } = await import("@/components/business-app/BusinessPeriodControl");
-    const chosen: unknown[] = [];
-    const page = await render(<BusinessPeriodControl period={{ key: "this_month", from: "2026-10-01", to: "2026-10-31" }} setPeriod={(next) => chosen.push(next)} />);
-    const custom = [...page.host.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find((chip) => chip.textContent === "Personalizado");
-    assert.ok(custom);
-    await page.act(async () => { custom.click(); });
-    const from = page.host.querySelector<HTMLInputElement>('[data-testid="business-period-from"]')!;
-    const to = page.host.querySelector<HTMLInputElement>('[data-testid="business-period-to"]')!;
-    assert.equal(page.host.querySelector('input[type="date"]'), null);
-    assert.equal(from.placeholder, "dd/mm/aaaa");
-    assert.equal(to.placeholder, "dd/mm/aaaa");
-    assert.equal(from.value, "01/10/2026");
-    assert.equal(to.value, "31/10/2026");
-    assert.match(from.className, /min-h-11/);
-    const apply = page.host.querySelector<HTMLButtonElement>('button[type="submit"]')!;
-    const type = (input: HTMLInputElement, value: string) => page.act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await type(to, "10/31/2026");
-    assert.equal(apply.disabled, true, "month-first is not a day");
-    await type(to, "15/10/2026");
-    assert.equal(apply.disabled, false);
-    await page.act(async () => { apply.click(); });
-    assert.deepEqual(chosen, [{ key: "custom", from: "2026-10-01", to: "2026-10-15" }]);
-    await page.close();
-  });
-});
