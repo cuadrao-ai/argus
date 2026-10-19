@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from psycopg.types.json import Jsonb
 
 from argus.domain.business.actions import dossier, mutations, plans
-from argus.domain.business.actions.facts import validate_facts
+from argus.domain.business.actions.facts import facts_of, validate_facts
 from argus.domain.business.actions.fiscal import (
     refund_reference,
     require_distinct_fiscal_document,
@@ -121,6 +121,42 @@ def _approval_declaration(
         )
     )
     return declaration_from_facts(facts, paid_from)
+
+
+def _clear_approval_declaration(
+    service: BusinessActions, context: ActionContext, draft_id: UUID, claimed: int
+) -> None:
+    """Clear the declaration an approval built once its money write failed.
+
+    Only the approval writes a revision at the version its claim took, so a
+    declaration found there is the approval's own; a person's saved one is not.
+    """
+
+    with transaction(service.authority, context, "approve") as tx:
+        event = tx.imports.event(str(draft_id))
+        built = tx.rows(
+            "select after_dgii from public.business_draft_revisions"
+            " where space_id=%s and draft_id=%s and version=%s",
+            (context.actor.space_id, draft_id, claimed),
+        )
+        dgii = (event.resolution.get("business") or {}).get("dgii")
+        if event.state != "open" or not built or built[0]["after_dgii"] != dgii:
+            return
+        facts = facts_of(event)
+        mutations.save_revision(
+            tx,
+            replace(
+                event,
+                version=event.version + 1,
+                updated_at=datetime.now(timezone.utc),
+            ),
+            facts,
+            facts,
+            (),
+            tx.authorization.provenance,
+            None,
+            clear_dgii=True,
+        )
 
 
 def reviewed_request(
@@ -262,6 +298,7 @@ def approve(
                 scope=context.scope,
             )
         except _NOT_WRITTEN as error:
+            _clear_approval_declaration(service, context, draft_id, event.version)
             result = Refused(
                 outcome="invalid_input", code=getattr(error, "code", "activity_invalid")
             )
