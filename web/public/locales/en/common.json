@@ -1012,7 +1012,6 @@
       "ai_on": "On. You can turn it off at any time.",
       "ai_replaces": "Another AI permission is on for this number. Turning this on replaces it.",
       "ai_off": "Off. Receipts you send wait in your Inbox for you to fill in.",
-      "ai_models": "Provider: OpenRouter. Models: {{models}}.",
       "ai_approval": "You always approve money records yourself in Cuadrao.",
       "ai_reason_unavailable": "AI reading cannot be turned on right now.",
       "ai_reason_whatsapp_link_required": "Link your number first.",
@@ -1474,10 +1473,7 @@
       "email_placeholder": "Email address",
       "password_placeholder": "Password",
       "submit": "Sign in",
-      "loading": "Signing in...",
-      "errors": {
-        "supabase_not_configured": "Supabase auth is not configured."
-      }
+      "loading": "Signing in..."
     },
     "signup": {
       "subtitle": "Create your Cuadrao account",
@@ -2505,6 +2501,9 @@
       "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."
     },
     "status": {
+      "pill_approved": "Approved",
+      "pill_attention": "Needs attention",
+      "pill_pending": "Pending",
       "saved": "Saved, unread",
       "queued": "Waiting to prepare",
       "preparing": "Preparing",
@@ -2560,7 +2559,7 @@
     },
     "nav": {
       "label": "Business",
-      "overview": "Overview",
+      "overview": "Home",
       "inbox": "Inbox",
       "expenses": "Expenses",
       "updates": "Updates"
@@ -2666,6 +2665,8 @@
       "untitled": "Receipt"
     },
     "inbox": {
+      "load_more": "Load more",
+      "reveal_more": "Show more",
       "title": "Inbox",
       "por_revisar": "{{count}} por revisar",
       "review_receipts": "Revisar recibos",
@@ -2931,7 +2932,8 @@
       "role_accountant": "View and prepare",
       "access_line": "You now have access to {{name}} · View and prepare",
       "got_it": "Got it",
-      "lost": "You no longer have access to this Business."
+      "lost": "You no longer have access to this Business.",
+      "team": "Team and access"
     },
     "marks": {
       "real_expenses": "Actual expenses",

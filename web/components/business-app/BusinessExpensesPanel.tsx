@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ChevronRight, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessExpense } from "@/lib/business-api";
+import { currentMonthKey, windowForMonth } from "@/lib/business-month-close";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatDay, formatMoney } from "./business-format";
 import { expensePanel } from "./business-expense-target";
@@ -12,13 +13,16 @@ import { Settle } from "./business-skeletons";
 import BusinessPeriodControl from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
 import { ReceiptPeriodExport } from "./ReceiptDossierReview";
+import { MonthSwitcher } from "./BusinessMonthClosePanel";
 
 export default function BusinessExpensesPanel() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
   const { source, revision, period, setPeriod, records, panel, openPanel, actions, chosen } = useBusiness();
-  const exportEnd = period.to ?? (records.overview?.from === period.from ? records.overview.to : undefined);
+  const [exportMonth, setExportMonth] = useState(() => currentMonthKey());
+  const exportWindow = windowForMonth(exportMonth);
+  const exportHeading = useId();
   const found = panel.kind === "expenses" ? panel.expenseId : undefined;
   const [items, setItems] = useState<BusinessExpense[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -76,12 +80,13 @@ export default function BusinessExpensesPanel() {
         <BusinessPeriodControl period={period} setPeriod={setPeriod} />
         {records.overview ? <OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /> : null}
       </div>
-      {chosen && exportEnd ? <div className="mb-4"><ReceiptPeriodExport
-        key={`${chosen.grant_id}:${period.from}:${exportEnd}`}
+      {chosen && exportWindow.to ? <div className="mb-4"><ReceiptPeriodExport
+        key={chosen.grant_id}
         scope={{ name: chosen.name, capabilities: chosen.capabilities, grantId: chosen.role === "owner" ? null : chosen.grant_id }}
-        start={period.from}
-        end={exportEnd}
+        start={exportWindow.from}
+        end={exportWindow.to}
         available={source.mode === "live"}
+        monthSwitcher={<MonthSwitcher month={exportMonth} current={currentMonthKey()} earliest={null} onMonth={setExportMonth} headingId={exportHeading} />}
       /></div> : null}
       {failed ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">

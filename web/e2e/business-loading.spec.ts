@@ -21,7 +21,7 @@ for (const width of [1280, 390]) {
     if (baseline) await expect(page.locator('[role="status"]')).toBeVisible();
     else {
       await expect(page.getByTestId("fullscreen-loading")).toBeVisible();
-      await expect(page.getByTestId("fullscreen-loading").getByRole("status")).toHaveText("Cargando");
+      await expect(page.getByTestId("fullscreen-loading").getByRole("status")).toHaveText("Cargando...");
       await expect(page.getByTestId("fullscreen-loading").getByRole("status")).toHaveAttribute("aria-live", "polite");
     }
     const capture = async (name: string) => {
