@@ -98,6 +98,38 @@ describe("the receipt detail's top block", () => {
   });
 });
 
+describe("a record opened without its receipt", () => {
+  test("shows the record's own review state when no status pill can say it", async () => {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("@/public/locales/es-419/common.json")).default;
+    const { BusinessWorkspaceProvider } = await import("@/components/business-app/BusinessWorkspace");
+    const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
+    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+    const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+    const ReceiptReviewPanel = (await import("@/components/business-app/ReceiptReviewPanel")).default;
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
+    for (const [state, shown] of [["open", "Pendiente"], ["accepting", "Consultando resultado de aprobación"]] as const) {
+      const source: BusinessDataSource = { ...fixture, dossier: async (id) => ({ ...structuredClone(await fixture.dossier(id)), review_state: state }) };
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const root = createRoot(host);
+      await act(async () => {
+        root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessWorkspaceProvider source={source}><ReceiptReviewPanel target={{ kind: "draft", id: dossierFixtureIds.ready }} /></BusinessWorkspaceProvider></BusinessConsentTestProvider></I18nextProvider>);
+      });
+      for (let i = 0; i < 80 && !host.querySelector('[data-testid="receipt-top-block"]'); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+      const top = host.querySelector('[data-testid="receipt-top-block"]')!;
+      assert.ok(top.textContent?.includes(shown), `${state}: ${top.textContent}`);
+      assert.equal(Boolean(top.querySelector('[data-testid="status-pill"]')), state === "open");
+      await act(async () => { root.unmount(); host.remove(); });
+    }
+  });
+});
+
 describe("the footer", () => {
   test("holds Aprobar and Aprobar y siguiente, and nothing else, with no reason while Aprobar is open", async () => {
     const page = await mount();
@@ -112,7 +144,10 @@ describe("the footer", () => {
     const page = await mount({ change: noDate });
     assert.equal(page.button("Aprobar")?.disabled, true);
     assert.equal(page.button("Aprobar y siguiente")?.disabled, true);
-    assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]')?.textContent, "Agrega la fecha para aprobar");
+    const reason = page.footer()!.querySelector('[data-testid="approve-reason"]')!;
+    assert.equal(reason.textContent, "Agrega la fecha para aprobar");
+    assert.equal(page.button("Aprobar")?.getAttribute("aria-describedby"), reason.id, "the reason describes the disabled button");
+    assert.ok(page.host.querySelector('[data-fact="occurred_on"]')?.textContent?.includes("Agrega la fecha para aprobar"), "the empty date says the same beside the field");
     await page.close();
   });
 

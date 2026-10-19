@@ -1,7 +1,7 @@
 "use client";
 
 import { CircleAlert } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDossier, BusinessFactField } from "@/lib/business-dossier";
@@ -9,11 +9,7 @@ import RncStatusBlock from "./RncStatusBlock";
 import { useCategoryLabel } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
-import { fiscalFactRows, recordFactRows, reviewCounts, type FactRow } from "./receipt-fact-rows";
-
-/** The record's own fields in the order the page groups them: the activity first, everything else after the fiscal card. */
-const ACTIVITY: readonly BusinessFactField[] = ["occurred_on", "amount", "currency"];
-const MORE: readonly BusinessFactField[] = ["category_id", "counterparty", "kind", "funding", "business_share", "receipt_state"];
+import { ACTIVITY_FIELDS as ACTIVITY, MORE_FIELDS as MORE, fiscalFactRows, recordFactRows, reviewCounts, type FactRow } from "./receipt-fact-rows";
 const FISCAL = ["rnc", "ncf", "itbis", "ecf"] as const;
 
 const labelClass = "text-[13px] font-medium leading-[18px] text-[#172b26] dark:text-white";
@@ -34,6 +30,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, onEditRn
   cards?: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  const ids = useId();
   const categoryLabel = useCategoryLabel();
   const locale = i18n.resolvedLanguage ?? "en";
   const fiscal = dossier.facts.fiscal;
@@ -67,7 +64,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, onEditRn
         {row?.blocked || row?.asked ? (
           <span className="mt-2 flex items-center gap-1 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">
             <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            {t("business.dossier.needs_resolution", "Needs a decision before approval")}
+            {key === "occurred_on" && row?.standing === "empty" ? t("business.dossier.approve_reason.date", "Add the date to approve") : t("business.dossier.needs_resolution", "Needs a decision before approval")}
           </span>
         ) : null}
       </dd>
@@ -93,8 +90,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, onEditRn
   };
 
   const section = (id: string, fields: ReactNode, fromReceipt: boolean, title?: string) => (
-    <section key={id} data-testid={`receipt-facts-${id}`} aria-labelledby={title ? `receipt-facts-${id}-title` : undefined} className={card}>
-      {title ? <h3 id={`receipt-facts-${id}-title`} className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{title}</h3> : null}
+    <section key={id} data-testid={`receipt-facts-${id}`} aria-labelledby={title ? `${ids}-${id}` : undefined} className={card}>
+      {title ? <h3 id={`${ids}-${id}`} className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{title}</h3> : null}
       <dl className="space-y-4">{fields}</dl>
       {fromReceipt ? <p className={sourceClass}>{t("business.dossier.read_from_receipt", "Read from the receipt")}</p> : null}
     </section>

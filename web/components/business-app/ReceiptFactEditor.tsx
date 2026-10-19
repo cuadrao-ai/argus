@@ -39,7 +39,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
   const share = patch.business_share ?? facts.business_share;
   const receiptState = patch.receipt_state ?? facts.receipt_state;
   const label = (key: BusinessFactField) => t(`business.dossier.field.${key}`, key);
-  const choose = t("business.dossier.unknown", "Unknown");
+  const choose = t("business.review.choose", "Choose");
 
   return (
     <div ref={controls} className="space-y-3" data-testid={`edit-${field}`}>

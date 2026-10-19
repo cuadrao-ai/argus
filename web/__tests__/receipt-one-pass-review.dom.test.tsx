@@ -153,7 +153,7 @@ describe("one-pass receipt review", () => {
       assert.ok(button(page.host, `Confirm ${count}`));
       assert.ok(button(page.host, "Approve expense"));
       assert.ok(page.host.textContent?.includes("Read from the receipt"));
-      assert.ok(page.host.textContent?.includes("Needs a decision before approval"));
+      assert.ok(page.host.textContent?.includes("Add the date to approve"));
       for (const copy of ["Leído del recibo", "Agrega la fecha para aprobar", "datos leídos"]) assert.ok(!page.host.textContent?.includes(copy));
       await page.act(async () => { await page.i18n.changeLanguage("es-419"); });
       assert.ok(button(page.host, `Confirmar ${count} datos leídos`));

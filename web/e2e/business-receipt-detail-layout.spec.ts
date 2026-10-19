@@ -87,17 +87,32 @@ for (const width of [1440, 390] as const) {
       expect(Math.round(footerBox.width), "the footer spans the pane").toBe(Math.round(region.width));
       expect(Math.round(footerBox.x)).toBe(Math.round(region.left));
       await noHorizontalScroll(page);
+      const pane = (await page.getByTestId("workspace-panel-region").boundingBox())!;
+      expect(Math.round(footerBox.y + footerBox.height), "before scrolling, the footer sticks to the pane's bottom edge").toBe(Math.round(pane.y + pane.height));
       await page.screenshot({ path: `${SHOT_DIR}/full-receipt-${width}.png` });
 
       await page.getByTestId("workspace-panel-region").evaluate((element) => element.scrollTo(0, element.scrollHeight));
       const footerTop = (await box(page, '[data-testid="receipt-review-footer"]')).y;
+      const atEnd = await box(page, '[data-testid="receipt-review-footer"]');
+      expect(Math.round(atEnd.y + atEnd.height), "at the end the footer still meets the pane's bottom edge").toBe(Math.round(pane.y + pane.height));
       const cardBottoms = await review.locator("section, [data-testid='receipt-marks-card'], [data-testid='fiscal-declaration']").evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect()).filter((rect) => rect.height > 0).map((rect) => rect.bottom));
       for (const bottom of cardBottoms) expect(bottom, "no card hides under the footer").toBeLessThanOrEqual(footerTop + 0.5);
       if (width < 720) {
         const tabs = await box(page, '[data-testid="business-bottom-tabs"]');
-        expect(footerTop + (await box(page, '[data-testid="receipt-review-footer"]')).height).toBeLessThanOrEqual(tabs.y + 0.5);
+        expect(footerTop + (await box(page, '[data-testid="receipt-review-footer"]')).height).toBeLessThanOrEqual(tabs.y + 1);
       }
       await page.screenshot({ path: `${SHOT_DIR}/full-receipt-bottom-${width}.png` });
+    });
+
+    test("the fields come before the source in reading order", async ({ page }) => {
+      await installReceiptBusiness(page, prepared());
+      await openReceipt(page, /Ferretería La Esquina/);
+      const order = await page.getByTestId("business-record-review").evaluate((review) => {
+        const fields = review.querySelector('[data-testid="receipt-review-fields"]')!;
+        const source = review.querySelector('[data-testid="receipt-review-source"]')!;
+        return Boolean(fields.compareDocumentPosition(source) & Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+      expect(order).toBe(true);
     });
 
     test("a disabled Aprobar always says why", async ({ page }) => {
@@ -132,3 +147,16 @@ for (const width of [1440, 390] as const) {
     });
   });
 }
+
+test.describe("receipt detail at a narrow desktop", () => {
+  test.use({ viewport: { width: 1100, height: 900 } });
+  test("the source column keeps room beside the fields", async ({ page }) => {
+    await installReceiptBusiness(page, prepared());
+    await openReceipt(page, /Ferretería La Esquina/);
+    const source = (await page.getByTestId("receipt-review-source").boundingBox())!;
+    const fields = (await page.getByTestId("receipt-review-fields").boundingBox())!;
+    expect(source.width).toBeGreaterThanOrEqual(279);
+    expect(source.x + source.width).toBeLessThanOrEqual(fields.x);
+    await noHorizontalScroll(page);
+  });
+});

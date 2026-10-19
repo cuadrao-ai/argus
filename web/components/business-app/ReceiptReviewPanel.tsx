@@ -451,7 +451,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           </section>
 
           {problem ? (
-            <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p>
+            <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p>
           ) : null}
 
           {confirmed ? (

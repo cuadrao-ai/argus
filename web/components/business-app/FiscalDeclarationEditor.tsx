@@ -6,10 +6,9 @@ import type { BusinessDossier } from "@/lib/business-dossier";
 import { listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
 import { getDgiiFields, reviewDgii, type DgiiDeclaration, type DgiiFields, type DgiiReview } from "@/lib/business-dgii";
 import { randomId } from "@/lib/random-id";
-import { secondaryButtonClass } from "./business-ui";
-import { SURFACE_CARD } from "./foundation/surfaces";
+import { SECONDARY_BUTTON, SURFACE_CARD } from "./foundation/surfaces";
 
-const inputClass = "mt-1 block min-h-11 w-full rounded-lg border border-black/15 bg-transparent px-3 text-[16px] text-black dark:border-white/20 dark:text-white";
+const inputClass = "mt-2 block min-h-11 w-full rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] dark:bg-[#141517] dark:text-white";
 
 export default function FiscalDeclarationEditor({ dossier, disabled, onChanged, onBusy, onDirty }: { dossier: BusinessDossier; disabled: boolean; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t } = useTranslation();
@@ -74,8 +73,8 @@ export default function FiscalDeclarationEditor({ dossier, disabled, onChanged, 
       return <label key={field.name} className="block text-[13px] text-black/65 dark:text-white/65">{field.label}{suggested ? <span className="ml-2 text-black/45 dark:text-white/45">{t("business.dgii.suggested", "Sugerido")}</span> : null}{field.kind === "select" ? <select className={inputClass} value={value} disabled={!editable || uncertain} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select> : <input className={inputClass} type={field.kind === "date" ? "date" : "text"} inputMode={field.kind === "money" ? "decimal" : undefined} value={value} disabled={!editable || uncertain} onChange={(event) => setValue(event.target.value)} />}</label>;
     })}</div>
     {form === "606" ? <div className="my-4 space-y-3"><label className="flex min-h-11 items-center gap-2 text-[13px]"><input type="checkbox" checked={actualRefund} disabled={!editable || uncertain} onChange={(event) => { change(); setActualRefund(event.target.checked); }} />{t("business.dgii.actual_refund", "Se recibió un reembolso de dinero por esta nota de crédito")}</label>{actualRefund ? <label className="block text-[13px]">{t("business.dgii.original_purchase", "Compra original")}<select className={inputClass} value={values.purchase_activity_id ?? ""} disabled={!editable || uncertain} onChange={(event) => { change(); setValues((current) => ({ ...current, purchase_activity_id: event.target.value })); }}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{purchases.map((purchase) => <option key={purchase.id} value={purchase.id}>{purchase.merchant ?? purchase.occurred_on} · {purchase.amount} {purchase.currency}</option>)}</select></label> : null}</div> : null}
-    {problem ? <p role="alert" className="my-3 text-[13px] text-[#a8434c]">{problem}</p> : null}
-    {dossier.review_state === "open" && dossier.capabilities.includes("prepare") ? <button type="button" className={`${secondaryButtonClass} mt-3`} disabled={!editable || !fields} onClick={() => void save()}>{t("business.dgii.save", "Guardar revisión fiscal")}</button> : null}
-    {editable && !uncertain ? <button type="button" className={`${secondaryButtonClass} ml-2 mt-3`} onClick={reset}>{t("common.cancel", "Cancel")}</button> : null}
+    {problem ? <p role="alert" className="my-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{problem}</p> : null}
+    {dossier.review_state === "open" && dossier.capabilities.includes("prepare") ? <button type="button" className={`${SECONDARY_BUTTON} mt-3`} disabled={!editable || !fields} onClick={() => void save()}>{t("business.dgii.save", "Guardar revisión fiscal")}</button> : null}
+    {editable && !uncertain ? <button type="button" className={`${SECONDARY_BUTTON} ml-2 mt-3`} onClick={reset}>{t("common.cancel", "Cancel")}</button> : null}
   </details>;
 }
