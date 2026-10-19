@@ -569,11 +569,6 @@ describe("foreign currency lines", () => {
         before_itbis_minor: 5000,
         itbis_minor: null,
         status: "pendiente",
-        counterparty: "Acme Supplies",
-        rnc: "101-23456-7",
-        ncf: "B0100000099",
-        ecf: "E310000000012",
-        fiscal_known: true,
       }, {
         activity_id: "act-dop",
         document_kind: "invoice",
@@ -593,20 +588,13 @@ describe("foreign currency lines", () => {
         before_itbis_minor: 2000,
         itbis_minor: null,
         status: "pendiente",
-        counterparty: "Euro Parts",
-        fiscal_known: true,
       }],
     }));
     const { act, host, root } = await renderView(client);
     const usd = host.querySelector('[data-document-id="act-usd"]');
     const eur = host.querySelector('[data-document-id="act-eur"]');
     assert.match(usd?.textContent ?? "", /US\$ 50\.00/);
-    assert.match(usd?.textContent ?? "", /Acme Supplies/);
-    assert.match(usd?.textContent ?? "", /RNC 101-23456-7/);
-    assert.match(usd?.textContent ?? "", /NCF B0100000099/);
-    assert.match(usd?.textContent ?? "", /e-CF E310000000012/);
     assert.match(eur?.textContent ?? "", /€ 20\.00/);
-    assert.match(eur?.textContent ?? "", /Euro Parts/);
     assert.match(host.querySelector('[data-document-id="act-dop"]')?.textContent ?? "", /RD\$ 1,180\.00/);
     assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 1,000\.00/);
     assert.equal(host.querySelector('[data-testid="month-close-income"]')?.textContent?.includes("US$"), false);
@@ -761,7 +749,8 @@ describe("Inicio month close export", () => {
     };
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    (await import("../lib/business-grant")).setChosenGrant(null);
     globalThis.fetch = original.fetch;
     URL.createObjectURL = original.create;
     URL.revokeObjectURL = original.revoke;

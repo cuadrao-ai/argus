@@ -461,7 +461,7 @@ describe("live figure mapping", () => {
     expect(monthCloseSummary(current).expense_before_itbis).toBe("9600.00");
   });
 
-  test("a document keeps its counterparty, RNC, NCF, e-CF, and fiscal flag", () => {
+  test("a wire line keeps its own currency", () => {
     const line = {
       activity_id: "act-usd",
       document_kind: "receipt",
@@ -471,11 +471,6 @@ describe("live figure mapping", () => {
       before_itbis_minor: 4500,
       itbis_minor: 500,
       status: "pendiente",
-      counterparty: "Acme Supplies",
-      rnc: "101-23456-7",
-      ncf: "B0100000099",
-      ecf: "E310000000012",
-      fiscal_known: true,
     };
     const snapshot = readMonthCloseWire({
       ...mappedWire,
@@ -486,27 +481,10 @@ describe("live figure mapping", () => {
       cuentas_por_pagar: [line],
     });
     expect(snapshot.figures?.income_before_itbis).toBe("1000.00");
+    expect(snapshot.currency).toBe("DOP");
     expect(snapshot.documents).toEqual([
-      expect.objectContaining({
-        id: "act-usd",
-        currency: "USD",
-        amount: "50.00",
-        itbis: "5.00",
-        counterparty: "Acme Supplies",
-        rnc: "101-23456-7",
-        ncf: "B0100000099",
-        ecf: "E310000000012",
-        fiscal_known: true,
-      }),
+      expect.objectContaining({ id: "act-usd", currency: "USD", amount: "50.00", itbis: "5.00" }),
     ]);
-    const blank = readMonthCloseWire(mappedWire).documents[0];
-    expect(blank).toMatchObject({
-      counterparty: "Factura",
-      rnc: null,
-      ncf: null,
-      ecf: null,
-      fiscal_known: false,
-      currency: "DOP",
-    });
+    expect(readMonthCloseWire(mappedWire).documents[0]?.currency).toBe("DOP");
   });
 });

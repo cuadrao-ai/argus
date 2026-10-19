@@ -519,16 +519,16 @@ function dayInMonth(monthStart: Date, day: number): string {
   return `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-type SampleInput = Omit<MonthCloseDocument, "occurred_on" | "due_on" | "currency"> & { day: number; dueDay: number | null; currency?: string };
+type SampleInput = Omit<MonthCloseDocument, "occurred_on" | "due_on" | "currency"> & { day: number; dueDay: number | null };
 
 function sample(monthStart: Date, input: SampleInput, now: Date): MonthCloseDocument {
-  const { day, dueDay, currency = "DOP", ...document } = input;
+  const { day, dueDay, ...document } = input;
   const currentMonth = monthStart.getFullYear() === now.getFullYear() && monthStart.getMonth() === now.getMonth();
   // The open month runs through today, so a fixture day after today moves onto today.
   const used = currentMonth ? Math.min(day, now.getDate()) : day;
   return {
     ...document,
-    currency,
+    currency: "DOP",
     occurred_on: dayInMonth(monthStart, used),
     due_on: dueDay === null ? null : dayInMonth(monthStart, dueDay),
   };
@@ -697,11 +697,6 @@ type WireLine = {
   itbis_minor: number | null;
   status: string;
   currency?: string;
-  counterparty?: string | null;
-  rnc?: string | null;
-  ncf?: string | null;
-  ecf?: string | null;
-  fiscal_known?: boolean;
 };
 
 const CURRENCY_CODE = /^[A-Z]{3}$/;
@@ -709,12 +704,6 @@ const CURRENCY_CODE = /^[A-Z]{3}$/;
 function lineCurrency(value: unknown): string {
   if (value === undefined || value === null || value === "") return "DOP";
   if (typeof value !== "string" || !CURRENCY_CODE.test(value)) throw new MonthCloseError("unavailable", "month close currency is unknown");
-  return value;
-}
-
-function lineFlag(value: unknown): boolean | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (typeof value !== "boolean") throw new MonthCloseError("unavailable", "month close document was not an object");
   return value;
 }
 
@@ -734,30 +723,24 @@ function readWireLine(value: unknown): WireLine {
     itbis_minor: value.itbis_minor,
     status: value.status,
     currency: lineCurrency(value.currency),
-    counterparty: readNullableText(value.counterparty),
-    rnc: readNullableText(value.rnc),
-    ncf: readNullableText(value.ncf),
-    ecf: readNullableText(value.ecf),
-    fiscal_known: lineFlag(value.fiscal_known),
   };
 }
 
 function wireDocument(line: WireLine): MonthCloseDocument {
-  const named = line.counterparty?.trim() ?? "";
   return {
     id: line.activity_id,
     kind: line.document_kind,
-    counterparty: named.length > 0 ? named : line.document_kind === "invoice" ? "Factura" : "Gasto",
+    counterparty: line.document_kind === "invoice" ? "Factura" : "Gasto",
     occurred_on: line.occurred_on,
     due_on: null,
-    currency: line.currency && CURRENCY_CODE.test(line.currency) ? line.currency : "DOP",
+    currency: line.currency ?? "DOP",
     amount: minorToAmount(line.total_minor),
     itbis: line.itbis_minor === null ? null : minorToAmount(line.itbis_minor),
-    rnc: line.rnc ?? null,
-    ncf: line.ncf ?? null,
-    ecf: line.ecf ?? null,
+    rnc: null,
+    ncf: null,
+    ecf: null,
     status: line.status as MonthCloseStatus,
-    fiscal_known: line.fiscal_known ?? false,
+    fiscal_known: false,
   };
 }
 
