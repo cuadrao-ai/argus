@@ -51,7 +51,7 @@ There is no hosted, production, TestFlight, real signup or provider proof here.
   settings and a separate build directory. No environment file changed.
 - Local real Postgres tests passed four cases for immutability, direct-client
   refusal, future/infinite refusal and deletion. Migration
-  `20261019010000_profile_age_confirmation.sql` applied only to the owned
+  `20261019060000_profile_age_confirmation.sql` applied only to the owned
   `age_confirmation_testdb`.
 - That local database was cloned from `business_close_testdb`. It contains the
   shared 145-migration baseline plus that lane's unmerged Business migrations.
