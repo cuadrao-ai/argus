@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from loguru import logger
 from psycopg.types.json import Jsonb
 
 from argus.domain.business.actions import dossier, mutations, plans
@@ -99,14 +100,15 @@ def _money_request(
 
 
 def _approval_declaration(
-    tx: ActionTransaction, event: ImportEvent, facts: BusinessFacts
+    tx: ActionTransaction, event: ImportEvent, facts: BusinessFacts, stale: bool
 ) -> PurchaseDeclaration | None:
     """The 606 declaration an expense approval writes from its stored facts.
 
-    None when the draft already holds a declaration: the one a person saved wins.
+    None when the draft holds a declaration a person saved: theirs wins. A
+    ``stale`` one, left by an approval whose money write failed, is rebuilt.
     """
 
-    if (event.resolution.get("business") or {}).get("dgii"):
+    if (event.resolution.get("business") or {}).get("dgii") and not stale:
         return None
     if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
         return None
@@ -123,40 +125,58 @@ def _approval_declaration(
     return declaration_from_facts(facts, paid_from)
 
 
-def _clear_approval_declaration(
-    service: BusinessActions, context: ActionContext, draft_id: UUID, claimed: int
-) -> None:
-    """Clear the declaration an approval built once its money write failed.
+def _failed_approval_declaration(tx: ActionTransaction, event: ImportEvent) -> bool:
+    """Whether an open draft's declaration is the one its last approval built.
 
-    Only the approval writes a revision at the version its claim took, so a
-    declaration found there is the approval's own; a person's saved one is not.
+    That approval wrote it as the revision at the version its claim took
+    (request version + 1); a person's saved declaration is never there.
     """
 
-    with transaction(service.authority, context, "approve") as tx:
-        event = tx.imports.event(str(draft_id))
-        built = tx.rows(
-            "select after_dgii from public.business_draft_revisions"
-            " where space_id=%s and draft_id=%s and version=%s",
-            (context.actor.space_id, draft_id, claimed),
-        )
-        dgii = (event.resolution.get("business") or {}).get("dgii")
-        if event.state != "open" or not built or built[0]["after_dgii"] != dgii:
-            return
-        facts = facts_of(event)
-        mutations.save_revision(
-            tx,
-            replace(
-                event,
-                version=event.version + 1,
-                updated_at=datetime.now(timezone.utc),
-            ),
-            facts,
-            facts,
-            (),
-            tx.authorization.provenance,
-            None,
-            clear_dgii=True,
-        )
+    dgii = (event.resolution.get("business") or {}).get("dgii")
+    pointer = event.resolution.get("approval_receipt")
+    if event.state != "open" or not dgii or not pointer:
+        return False
+    built = tx.rows(
+        "select r.after_dgii from public.business_action_receipts a"
+        " join public.business_draft_revisions r on r.space_id=a.space_id"
+        " and r.draft_id=%s and r.version=(a.command->'request'->>'version')::integer+1"
+        " where a.space_id=%s and a.actor_id::text=%s and a.idempotency_key=%s",
+        (event.id, tx.context.actor.space_id, pointer["actor_id"], pointer["key"]),
+    )
+    return bool(built) and built[0]["after_dgii"] == dgii
+
+
+def _clear_approval_declaration(
+    service: BusinessActions, context: ActionContext, draft_id: UUID
+) -> None:
+    """Clear, on the reopened draft, the declaration a failed approval built.
+
+    A failure here leaves it for the next approval to rebuild and never stops
+    the refusal from being stored.
+    """
+
+    try:
+        with transaction(service.authority, context, "approve") as tx:
+            event = tx.imports.event(str(draft_id))
+            if not _failed_approval_declaration(tx, event):
+                return
+            facts = facts_of(event)
+            mutations.save_revision(
+                tx,
+                replace(
+                    event,
+                    version=event.version + 1,
+                    updated_at=datetime.now(timezone.utc),
+                ),
+                facts,
+                facts,
+                (),
+                tx.authorization.provenance,
+                None,
+                clear_dgii=True,
+            )
+    except ActionError as error:
+        logger.warning("business.approval_declaration_not_cleared code={}", error.code)
 
 
 def reviewed_request(
@@ -251,6 +271,7 @@ def approve(
                     event, facts = _reviewed_facts(tx, draft_id, request.version, kind)
                 except ActionError as error:
                     return plans.finish_receipt(tx, key, error.result)
+                stale = _failed_approval_declaration(tx, event)
                 claim_key = hashlib.sha256(
                     f"{context.actor.actor_id}:{key}".encode()
                 ).hexdigest()
@@ -269,8 +290,8 @@ def approve(
                         },
                     },
                 )
-                declared = _approval_declaration(tx, event, facts)
-                if declared is None:
+                declared = _approval_declaration(tx, event, facts, stale)
+                if declared is None and not stale:
                     tx.imports.put_event(event)
                 else:
                     # Revisions are immutable, so the declaration is the approval's
@@ -284,6 +305,7 @@ def approve(
                         tx.authorization.provenance,
                         None,
                         dgii=declared,
+                        clear_dgii=declared is None,
                     )
                     event = tx.imports.event(str(draft_id))
                 plans.finish_receipt(
@@ -298,7 +320,7 @@ def approve(
                 scope=context.scope,
             )
         except _NOT_WRITTEN as error:
-            _clear_approval_declaration(service, context, draft_id, event.version)
+            _clear_approval_declaration(service, context, draft_id)
             result = Refused(
                 outcome="invalid_input", code=getattr(error, "code", "activity_invalid")
             )

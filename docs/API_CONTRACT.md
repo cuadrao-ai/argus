@@ -9196,7 +9196,8 @@ a cash (01), bank (02) or credit card (03) Business account paid, so the 606
 reports `fiscal_fact_required` until a person answers. No declaration is built
 without a supplier RNC or for a consumer B02 or E32 number. When the money write
 then fails, the reopened draft gets one more revision that clears the
-approval's declaration; a declaration a person saved stays.
+approval's declaration; a declaration a person saved stays. If that clear cannot
+run, the next approval rebuilds the declaration instead of keeping it.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
 and `Idempotency-Key`. The same existing
@@ -9250,10 +9251,11 @@ The existing approval endpoint also accepts human `record_refund`, requiring an
 explicit actual refund linked to an original purchase. Other credit-note
 settlements remain unsupported. The owner alone approves income, expense or
 refund. Under the existing per-owner transaction lock, fiscal duplicate approval
-is refused before money recording. A purchase whose supplier RNC and NCF match
-one already approved or being approved in the Business is refused with 422
-`duplicate_comprobante`, and the problem's `context.existing_record_id` names that
-record's draft. A purchase without a known supplier RNC never matches. Issued
+is refused before money recording. A purchase or refund whose supplier RNC and
+NCF match one already approved or being approved in the Business is refused with
+422 `duplicate_comprobante`, and the problem's `context.existing_record_id` names
+that record's draft; a replay with the same key returns the same refusal. One
+without a known supplier RNC never matches. Issued
 sales use the Business plus NCF regardless of buyer identity and keep
 `fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.

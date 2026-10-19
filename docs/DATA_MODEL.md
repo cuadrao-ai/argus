@@ -3530,7 +3530,8 @@ When the draft holds no declaration, an expense approval appends one revision at
 the next version, with a 606 declaration built from the reviewed facts; its
 expense type stays unknown and its payment form is known only from the Business
 account that paid. If the money write then fails, the reopened draft appends one
-revision that clears that declaration and leaves a person's saved one alone. The export
+revision that clears that declaration and leaves a person's saved one alone;
+if it cannot, the next approval rebuilds it. The export
 reads the reviewed revision's facts and the declaration from it or from that
 approval revision, then checks current money amount, date and currency. Accepted-record tax edits remain refused. No second
 tax ledger or fiscal approval bypass is added. New human-only action receipt

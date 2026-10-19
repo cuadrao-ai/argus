@@ -378,7 +378,10 @@ def test_a_read_naming_two_currencies_leaves_the_currency_unknown(actions):
     assert revisions(service, draft)[-1]["facts"]["currency"]["state"] == "unknown"
 
 
-@pytest.mark.parametrize("kind,form", [("cash", "01"), ("checking", "02")])
+@pytest.mark.parametrize(
+    "kind,form",
+    [("cash", "01"), ("checking", "02"), ("savings", "02"), ("credit_card", "03")],
+)
 def test_payment_form_follows_the_account_that_paid(actions, kind, form):
     service, context = actions
     account = dop_account(service, context, kind)
@@ -519,16 +522,21 @@ def test_same_rnc_and_ncf_already_approved_is_refused_with_its_record(actions):
     second, version = receipt_draft(service, context, colmado(), "DOP")
     approved = reviewed(service, context, second, version)
 
+    key = str(uuid4())
     with drafts_client(service, context) as client:
-        refused = client.post(
-            f"/business/drafts/{second}/approve",
-            json={"version": approved, "action": "record_expense"},
-            headers={"Idempotency-Key": str(uuid4())},
+        refused, replayed = (
+            client.post(
+                f"/business/drafts/{second}/approve",
+                json={"version": approved, "action": "record_expense"},
+                headers={"Idempotency-Key": key},
+            )
+            for _ in range(2)
         )
 
-    assert refused.status_code == 422, refused.json()
-    assert refused.json()["code"] == "duplicate_comprobante"
-    assert refused.json()["context"] == {"existing_record_id": str(first)}
+    for response in (refused, replayed):
+        assert response.status_code == 422, response.json()
+        assert response.json()["code"] == "duplicate_comprobante"
+        assert response.json()["context"] == {"existing_record_id": str(first)}
     assert booked(service, context) == [("owner_funds", "DOP")]
 
 
@@ -678,3 +686,63 @@ def test_records_sheet_has_the_accountant_columns(actions):
     assert ids[1][ids[0].index("activity_id")] == str(outcome.activity_id)
     assert ids[1][ids[0].index("draft_ids")] == str(draft)
     assert "note" not in ids[0]
+
+
+def test_reapproval_rebuilds_a_declaration_the_clear_missed(actions, monkeypatch):
+    from argus.domain.business.actions import approval
+    from argus.domain.recording.errors import RecordingInputError
+
+    service, context = actions
+    checking = dop_account(service, context, "checking")
+    draft, version = receipt_draft(service, context, colmado(), "DOP")
+    approved = reviewed(service, context, draft, version)
+    money = service.imports.money
+    write = money.write
+
+    def refuse_once(**kwargs):
+        monkeypatch.setattr(money, "write", write)
+        raise RecordingInputError("activity_invalid", "synthetic refusal")
+
+    monkeypatch.setattr(money, "write", refuse_once)
+    monkeypatch.setattr(approval, "_clear_approval_declaration", lambda *_: None)
+    assert approve(service, context, draft, approved).outcome == "invalid_input"
+    reopened = service.dossier(context, draft)
+    assert reopened.dgii is not None
+    funded = reviewed(
+        service,
+        context,
+        draft,
+        reopened.version,
+        funding={"kind": "business_account", "account_id": str(checking)},
+    )
+
+    outcome = approve(service, context, draft, funded)
+
+    assert outcome.outcome == "applied", outcome
+    assert revisions(service, draft)[-1]["dgii"]["payment_method"] == "02"
+
+
+def test_a_failed_clear_still_stores_the_refusal(actions, monkeypatch):
+    from argus.domain.business.actions import approval
+    from argus.domain.business.authority import ActionError
+    from argus.domain.recording.errors import RecordingInputError
+
+    service, context = actions
+    draft, version = receipt_draft(service, context, colmado(), "DOP")
+    approved = reviewed(service, context, draft, version)
+
+    def refuse(**kwargs):
+        raise RecordingInputError("activity_invalid", "synthetic refusal")
+
+    def unreadable(event):
+        raise ActionError("not_found", "business_record_not_found")
+
+    monkeypatch.setattr(service.imports.money, "write", refuse)
+    monkeypatch.setattr(approval, "facts_of", unreadable)
+    key = str(uuid4())
+    command = ApproveExpense(version=approved, action="record_expense")
+
+    failed, replayed = (service.approve(context, draft, command, key) for _ in range(2))
+
+    assert (failed.outcome, failed.code) == ("invalid_input", "activity_invalid")
+    assert replayed == failed
