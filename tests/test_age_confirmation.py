@@ -12,16 +12,30 @@ from pydantic import ValidationError
 @pytest.mark.parametrize("schema", [SignupRequest, GuestAccountSignupRequest])
 @pytest.mark.parametrize(
     "confirmation",
-    [None, False, True, 12345, "2026-10-17", "2026-10-17T10:00:00", "nonsense"],
+    [False, True, 12345, "2026-10-17", "2026-10-17T10:00:00", "nonsense"],
 )
-def test_signup_requires_explicit_aware_confirmation(schema, confirmation):
+def test_signup_rejects_unusable_confirmation(schema, confirmation):
+    with pytest.raises(ValidationError):
+        schema.model_validate(
+            dict(
+                email="adult@example.com",
+                password="strong-password",
+                captcha_token="proof",
+                age_confirmed_at=confirmation,
+            )
+        )
+
+
+@pytest.mark.parametrize("schema", [SignupRequest, GuestAccountSignupRequest])
+@pytest.mark.parametrize("age_field", ["absent", "null"])
+def test_signup_stores_null_when_confirmation_is_absent_or_null(schema, age_field):
     payload = dict(
         email="adult@example.com", password="strong-password", captcha_token="proof"
     )
-    if confirmation is not None:
-        payload["age_confirmed_at"] = confirmation
-    with pytest.raises(ValidationError):
-        schema.model_validate(payload)
+    if age_field == "null":
+        payload["age_confirmed_at"] = None
+    body = schema.model_validate(payload)
+    assert body.age_confirmed_at is None
 
 
 @pytest.mark.parametrize("schema", [SignupRequest, GuestAccountSignupRequest])
@@ -56,21 +70,65 @@ def test_confirmation_refuses_future_clock_values(schema):
         )
 
 
-def test_routed_signup_refuses_absent_confirmation_before_provider():
+@pytest.mark.parametrize(
+    "path",
+    ["/api/v1/auth/signup", "/api/v1/auth/guest/signup"],
+)
+@pytest.mark.parametrize("age_field", ["present", "absent", "null"])
+def test_signup_routes_never_return_age_confirmation_required(
+    path, age_field, monkeypatch
+):
+    from argus.api.routers import auth as auth_router
+    from argus.api.schemas import User
+    from argus.domain.store import utcnow
+
+    auth_router.reset_auth_attempt_limiter_for_tests()
+    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
     gateway = MagicMock()
-    with patch.object(api_state, "supabase_gateway", gateway), TestClient(app) as client:
-        response = client.post(
-            "/api/v1/auth/signup",
-            json=dict(
-                email="adult@example.com",
-                password="strong-password",
-                captcha_token="proof",
-            ),
-        )
-    assert response.status_code == 422
-    assert response.json()["code"] == "age_confirmation_required"
-    assert "Confirmo que tengo 18 años o más." not in response.text
-    gateway.signup.assert_not_called()
+    gateway.private_alpha_email_disabled.return_value = False
+    gateway.signup.return_value = {
+        "user": {"id": "user-1", "email": "adult@example.com", "identities": [{"id": "1"}]},
+        "session": None,
+    }
+    gateway.get_or_create_profile_for_auth_user.return_value = User(
+        id="user-1",
+        email="adult@example.com",
+        username=None,
+        display_name=None,
+        language="en",
+        locale="en-US",
+        is_admin=False,
+        created_at=utcnow(),
+        updated_at=utcnow(),
+    )
+    instant = datetime.now(timezone.utc) - timedelta(days=1)
+    payload = {
+        "email": "adult@example.com",
+        "password": "strong-password",
+        "captcha_token": "proof",
+    }
+    if age_field == "present":
+        payload["age_confirmed_at"] = instant.isoformat()
+    elif age_field == "null":
+        payload["age_confirmed_at"] = None
+    with (
+        patch.object(api_state, "supabase_gateway", gateway),
+        TestClient(app, raise_server_exceptions=False) as client,
+    ):
+        response = client.post(path, json=payload)
+    assert response.status_code != 422
+    assert response.json().get("code") != "age_confirmation_required"
+    if path != "/api/v1/auth/signup":
+        return
+    assert response.status_code == 200
+    assert gateway.signup.call_args.kwargs["age_confirmed_at"] == (
+        instant if age_field == "present" else None
+    )
+    if age_field == "present":
+        gateway.record_age_confirmation.assert_called_once_with("user-1", instant)
+    else:
+        gateway.record_age_confirmation.assert_not_called()
 
 
 @pytest.mark.parametrize(
