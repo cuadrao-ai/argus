@@ -114,6 +114,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           : fresh,
       );
       setAmountInvalid(false);
+      if (!draft || !before || draft.occurred_on === before.occurred_on) setDateInvalid(false);
       setUnprepared(false);
       setReadStalled(false);
       reload();

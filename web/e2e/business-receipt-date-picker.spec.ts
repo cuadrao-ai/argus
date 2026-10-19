@@ -39,14 +39,20 @@ for (const width of [1440, 390] as const) {
       }
       await page.screenshot({ path: `${SHOT_DIR}/date-picker-open-${width}.png` });
 
+      const before = await input.inputValue();
       await page.keyboard.press("ArrowRight");
       await page.keyboard.press("Enter");
       await expect(dialog).toHaveCount(0);
+      await expect(input, "Enter picks the next day").not.toHaveValue(before);
       await input.fill("05/10/2026");
       await input.blur();
       await expect(input).toHaveValue("5 oct 2026");
+      await input.click();
+      await page.keyboard.type("07102026");
+      await input.blur();
+      await expect(input, "a click selects the day, so typing replaces it").toHaveValue("7 oct 2026");
       await input.focus();
-      await expect(input).toHaveValue("05/10/2026");
+      await expect(input).toHaveValue("07/10/2026");
     });
   });
 }

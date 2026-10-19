@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { formatDay, todayIso } from "../business-format";
@@ -13,10 +14,10 @@ export function dayText(iso: string): string {
   return iso ? iso.split("-").reverse().join("/") : "";
 }
 
-/** A typed dd/mm/aaaa day as ISO, or null when it is not a real calendar day. */
+/** A typed dd/mm/aaaa (or ddmmaaaa, from a phone number pad) day as ISO, or null when it is not a real calendar day. */
 export function parseDayText(text: string): string | null {
-  const parts = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
-  if (!parts) return null;
+  const parts = /^(\d{2})\/?(\d{2})\/?(\d{4})$/.exec(text.trim());
+  if (!parts || Number(parts[3]) < 1900) return null;
   const iso = `${parts[3]}-${parts[2]}-${parts[1]}`;
   const parsed = new Date(`${iso}T12:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : null;
@@ -55,22 +56,20 @@ const quickButton = `inline-flex min-h-11 items-center rounded-full px-4 text-[1
  * dd/mm/aaaa, and opens one Monday-first month with Hoy and Ayer. On a
  * phone the month opens as a bottom sheet. Values are ISO days.
  */
-export function DatePicker({ id, label, value, onChange, disabled, required, describedBy, testId }: {
+export function DatePicker({ id, label, value, onChange, disabled }: {
   id?: string;
   /** The field's name, which also names the phone sheet. */
   label: string;
   value: string;
   onChange: (iso: string | null, invalid: boolean) => void;
   disabled?: boolean;
-  required?: boolean;
-  describedBy?: string;
-  testId?: string;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "es-419";
   const ownId = useId();
   const inputId = id ?? `${ownId}-input`;
   const headingId = `${ownId}-month`;
+  const popoverId = `${ownId}-popover`;
   const [text, setText] = useState(() => dayText(value));
   const [seen, setSeen] = useState(value);
   const [focused, setFocused] = useState(false);
@@ -108,14 +107,6 @@ export function DatePicker({ id, label, value, onChange, disabled, required, des
     activeDay.current?.focus();
   }, [open, active]);
 
-  useEffect(() => {
-    if (!open || isBelowTablet) return;
-    const away = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", away);
-    return () => document.removeEventListener("pointerdown", away);
-  }, [open, isBelowTablet]);
 
   const show = () => {
     setActive(typed ?? todayIso());
@@ -134,12 +125,13 @@ export function DatePicker({ id, label, value, onChange, disabled, required, des
     const { year, month } = monthOf(current);
     return isoOf(year, month + step, 1);
   });
-  const escape = (event: KeyboardEvent) => {
-    if (!open || event.key !== "Escape") return;
-    event.preventDefault();
-    event.stopPropagation();
-    close();
-  };
+  useOverlayLayer({
+    isOpen: open && !isBelowTablet,
+    overlayId: popoverId,
+    containerRef: root,
+    onEscape: close,
+    onOutsidePointerDown: () => setOpen(false),
+  });
   const onGridKey = (event: KeyboardEvent) => {
     const step = KEY_STEP[event.key];
     if (step === undefined) return;
@@ -205,8 +197,6 @@ export function DatePicker({ id, label, value, onChange, disabled, required, des
     <div
       ref={root}
       className="relative"
-      data-testid={testId}
-      onKeyDown={escape}
       onBlur={(event) => { if (open && !isBelowTablet && event.relatedTarget && !root.current?.contains(event.relatedTarget as Node)) setOpen(false); }}
     >
       <div className="flex min-h-11 items-center rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] dark:bg-[#141517]">
@@ -220,10 +210,9 @@ export function DatePicker({ id, label, value, onChange, disabled, required, des
           className={`min-h-11 min-w-0 flex-1 rounded-[12px] bg-transparent pl-3 text-[16px] text-[#172b26] placeholder:text-[#687A72] disabled:opacity-50 dark:text-white ${focusRing}`}
           value={shown}
           disabled={disabled}
-          required={required}
-          aria-describedby={describedBy}
+          aria-invalid={Boolean(text) && !typed}
           onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onBlur={() => { setFocused(false); if (typed) setText(dayText(typed)); }}
           onChange={(event) => {
             const next = event.target.value;
             const iso = parseDayText(next);
@@ -236,6 +225,7 @@ export function DatePicker({ id, label, value, onChange, disabled, required, des
           disabled={disabled}
           aria-haspopup="dialog"
           aria-expanded={open}
+          aria-controls={open && !isBelowTablet ? popoverId : undefined}
           aria-label={t("business.date_picker.open", "Open calendar")}
           className={iconButton}
           onClick={() => (open ? close() : show())}
@@ -244,7 +234,7 @@ export function DatePicker({ id, label, value, onChange, disabled, required, des
         </button>
       </div>
       {open && !isBelowTablet ? (
-        <div role="dialog" aria-labelledby={headingId} data-testid="date-picker-dialog" className="absolute left-0 top-full z-[70] mt-2 w-max rounded-[12px] border border-[#DCE0DA] bg-[#FFFEFA] p-4 shadow-lg dark:border-white/10 dark:bg-[#1f2225]">
+        <div id={popoverId} role="dialog" aria-labelledby={headingId} data-testid="date-picker-dialog" className="absolute left-0 top-full z-[70] mt-2 w-max rounded-[12px] border border-[#DCE0DA] bg-[#FFFEFA] p-4 shadow-lg dark:border-white/10 dark:bg-[#1f2225]">
           {month}
         </div>
       ) : null}

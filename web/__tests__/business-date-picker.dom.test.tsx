@@ -167,6 +167,43 @@ describe("the single-date picker", () => {
     await page.close();
   });
 
+  test("a phone number pad's ddmmaaaa counts, a year before 1900 does not, and a wrong day is marked invalid", async () => {
+    const changes: [string | null, boolean][] = [];
+    const page = await picker("", (iso, invalid) => changes.push([iso, invalid]));
+    await page.act(async () => { page.input.focus(); });
+    await page.type(page.input, "14/10/0026");
+    assert.equal(page.input.getAttribute("aria-invalid"), "true");
+    await page.type(page.input, "05102026");
+    assert.equal(page.input.getAttribute("aria-invalid"), "false");
+    assert.deepEqual(changes, [[null, true], ["2026-10-05", false]]);
+    await page.close();
+  });
+
+  test("a new value from the record replaces what the field shows", async () => {
+    const { DatePicker } = await import("@/components/business-app/foundation/DatePicker");
+    const { useState } = await import("react");
+    let replace: (iso: string) => void = () => {};
+    function Harness() {
+      const [day, setDay] = useState("2026-10-14");
+      replace = setDay;
+      return <><label htmlFor="day">Fecha</label><DatePicker id="day" label="Fecha" value={day} onChange={() => {}} /></>;
+    }
+    const page = await render(<Harness />);
+    const input = page.host.querySelector<HTMLInputElement>("#day")!;
+    await page.act(async () => { replace("2026-09-02"); });
+    assert.equal(input.value, "2 sept 2026");
+    await page.close();
+  });
+
+  test("a press outside the open month closes it", async () => {
+    const page = await picker("2026-10-14");
+    await page.act(async () => { page.trigger.click(); });
+    assert.ok(page.dialog());
+    await page.act(async () => { document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); });
+    assert.equal(page.dialog(), null);
+    await page.close();
+  });
+
   test("an empty date shows only the format and stays empty", async () => {
     const page = await picker("");
     assert.equal(page.input.value, "");
@@ -199,6 +236,20 @@ describe("receipt detail uses the picker for its date", () => {
     const input = fields.querySelector<HTMLInputElement>('input[placeholder="dd/mm/aaaa"]')!;
     assert.equal(fields.querySelector(`label[for="${CSS.escape(input.id)}"]`)?.textContent, "Fecha");
     assert.equal(input.value, formatDay(receipt.occurred_on, "es-419"));
+    const save = [...page.host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Guardar detalles de revisión")!;
+    const merchant = [...fields.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Comercio"))!.querySelector("input")!;
+    await page.type(merchant, "Ferretería La Esquina SRL");
+    const account = [...fields.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Pagado desde"))!.querySelector("select")!;
+    await page.act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(account, account.options[1].value);
+      account.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    assert.equal(save.disabled, false, "a changed merchant can be saved");
+    await page.act(async () => { input.focus(); });
+    await page.type(input, "12/1");
+    assert.equal(save.disabled, true, "a half-typed date blocks the save");
+    await page.type(input, "12/10/2026");
+    assert.equal(save.disabled, false, "a whole day unblocks it");
     await page.close();
   });
 
