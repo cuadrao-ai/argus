@@ -31,6 +31,7 @@ async function mount(node: (React: typeof import("react")) => import("react").Re
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const value = {
@@ -45,7 +46,7 @@ async function mount(node: (React: typeof import("react")) => import("react").Re
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  await act(async () => { root.render(React.createElement(I18nextProvider, { i18n }, React.createElement(BusinessContext.Provider, { value }, node(React)))); });
+  await act(async () => { root.render(React.createElement(I18nextProvider, { i18n }, React.createElement(BusinessConsentTestProvider, { accepted: true }, React.createElement(BusinessContext.Provider, { value }, node(React))))); });
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   return { act, root, host };
 }

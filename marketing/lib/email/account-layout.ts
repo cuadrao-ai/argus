@@ -36,7 +36,10 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => (
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 })[character]!);
 
+const confirmTemplate = /^\{\{ \.SiteURL \}\}\/auth\/confirm\?token_hash=\{\{ \.TokenHash \}\}&type=[a-z_]+&next=\/[A-Za-z0-9\-._~/?]*$/;
+
 function safeUrl(value: string): string {
+  if (confirmTemplate.test(value)) return escapeHtml(value);
   const url = new URL(value);
   if (url.protocol !== "https:" || url.username || url.password || /[\r\n]/.test(value)) {
     throw new Error("Email links must use HTTPS without credentials");
@@ -46,12 +49,15 @@ function safeUrl(value: string): string {
 
 export function renderAccountEmail(content: AccountEmail, options: EmailLayoutOptions = {}): { html: string; text: string } {
   const assets = emailAssets(options);
-  if (content.code !== undefined && (!/^\d{6,10}$/.test(content.code) || content.unsubscribeUrl)) {
+  if (content.code !== undefined && (!/^(?:\d{6,10}|\{\{ \.Token \}\})$/.test(content.code) || content.unsubscribeUrl)) {
     throw new Error("Invalid account email code");
   }
-  const postalAddress = content.postalAddress?.trim() || options.postalAddress?.trim() || process.env.MARKETING_POSTAL_ADDRESS?.trim();
-  if (!postalAddress || /^Cuadrao LLC[,\s]*$/i.test(postalAddress) || /[\r\n]/.test(postalAddress)) throw new Error("Email postal address configuration is required");
-  const legalLine = /^Cuadrao LLC(?:,|$)/.test(postalAddress) ? postalAddress : `Cuadrao LLC, ${postalAddress}`;
+  let legalLine = "Cuadrao LLC";
+  if (content.unsubscribeUrl) {
+    const postalAddress = content.postalAddress?.trim() || options.postalAddress?.trim() || process.env.MARKETING_POSTAL_ADDRESS?.trim();
+    if (!postalAddress || /^Cuadrao LLC[,\s]*$/i.test(postalAddress) || /[\r\n]/.test(postalAddress)) throw new Error("Email postal address configuration is required");
+    legalLine = /^Cuadrao LLC(?:,|$)/.test(postalAddress) ? postalAddress : `Cuadrao LLC, ${postalAddress}`;
+  }
   const p = emailPalette;
   const paragraph = (value: string) => `<p class="copy" style="margin:0 0 20px;color:${p.text};font-size:16px;line-height:24px">${escapeHtml(value)}</p>`;
   const muted = (value: string) => `<p class="muted" style="margin:16px 0;color:${p.muted};font-size:14px;line-height:21px">${escapeHtml(value)}</p>`;

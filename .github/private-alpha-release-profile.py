@@ -14,9 +14,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
 LOCALES_DIR = ROOT / "web" / "public" / "locales"
-SURFACES = ("api", "web", "workflow")
-# Deploys are manual by founder decision; all three services share one trigger.
-# render.yaml mirrors it for the API and app, held to this profile by its contract test.
+SURFACES = ("api", "web", "workflow", "marketing")
 AUTO_DEPLOY_TRIGGERS = ("off", "checksPass")
 # The canary's fixed checks, in run order. They never follow features.
 CANARY_CHECKS = (
@@ -81,11 +79,14 @@ def validate_profile(profile: dict[str, Any]) -> None:
 
     services = _require_mapping(profile.get("services"), "services")
     if set(services) != set(SURFACES):
-        raise ProfileValidationError("services must define api, web, and workflow")
+        raise ProfileValidationError(
+            "services must define api, web, workflow, and marketing"
+        )
     expected_names = {
         "api": "argus-api",
         "web": "argus-app",
         "workflow": "argus-backtests",
+        "marketing": "cuadrao-web",
     }
     triggers: set[object] = set()
     for surface, expected_name in expected_names.items():
@@ -114,7 +115,7 @@ def validate_profile(profile: dict[str, Any]) -> None:
             raise ProfileValidationError(f"services.{surface} repeats environment keys")
     if len(triggers) != 1:
         raise ProfileValidationError(
-            "api, web, and workflow must share one auto_deploy_trigger"
+            "api, web, workflow, and marketing must share one auto_deploy_trigger"
         )
 
     workflow = _require_mapping(profile.get("workflow"), "workflow")

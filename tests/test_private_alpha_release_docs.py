@@ -945,8 +945,8 @@ def test_waitlist_exposure_waits_for_paid_render_rollback_controls() -> None:
     )
     runbook = " ".join(_source("docs/PRIVATE_LAUNCH_RUNBOOK.md").split())
     blueprint = _source("render.yaml")
-    api_service = blueprint.split("name: argus-api", 1)[1].split("\n  - type:", 1)[0]
-    app_service = blueprint.split("name: argus-app", 1)[1]
+    api_service = blueprint.split("name: cuadrao-api", 1)[1].split("\n  - type:", 1)[0]
+    app_service = blueprint.split("name: cuadrao-web", 1)[1]
 
     assert "plan: standard" in api_service
     assert "plan: starter" in app_service

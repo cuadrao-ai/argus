@@ -26,6 +26,7 @@ async function mount(overrides: (fixture: BusinessDataSource) => Partial<Busines
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const english = (await import("@/public/locales/en/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
   const { setChosenGrant } = await import("@/lib/business-grant");
@@ -53,9 +54,11 @@ async function mount(overrides: (fixture: BusinessDataSource) => Partial<Busines
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessWorkspaceProvider source={source as never}>
-          <Probe />
-        </BusinessWorkspaceProvider>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as never}>
+            <Probe />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
       </I18nextProvider>,
     );
   });
@@ -192,6 +195,9 @@ describe("one-pass receipt review", () => {
       assert.equal(page.approvals(), 0);
       assert.equal(button(page.host, "Aprobar").disabled, false);
       await page.act(async () => button(page.host, "Aprobar").click());
+      const confirmation = document.querySelector('[role="alertdialog"]');
+      assert.ok(confirmation);
+      await page.act(async () => button(confirmation, "Aprobar").click());
       assert.equal(page.approvals(), 1);
     } finally { await page.act(async () => page.root.unmount()); }
   });

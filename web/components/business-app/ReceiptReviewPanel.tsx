@@ -18,6 +18,7 @@ import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import { formatBusinessName, formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
 import {
   cardClass,
@@ -55,6 +56,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const attentionLabel = useAttentionLabel();
   const terminalRead = useTerminalRead();
   const { source, reload, openPanel, revision, records, actions, chosen } = useBusiness();
+  const consent = useBusinessConsent();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [failed, setFailed] = useState(false);
@@ -125,7 +127,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   }
   if (!detail || !draft) return <Settle pending layout="detail" />;
   const terminal = terminalRead(detail.attention, detail.error_code);
-  const uploadAnother = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : null;
+  const uploadAnother = chosen?.role === "owner" || chosen?.capabilities.includes("prepare") ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />) => (
     <ContentFade><ReceiptReviewFrame
@@ -174,6 +176,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   };
 
   const prepare = async () => {
+    if (!consent.accepted) {
+      consent.reopen();
+      return;
+    }
     setBusy("prepare");
     setProblem(null);
     try {
@@ -193,6 +199,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   };
 
   const rebind = async () => {
+    if (!consent.accepted) {
+      consent.reopen();
+      return;
+    }
     setBusy("rebind");
     setProblem(null);
     try {
@@ -293,7 +303,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {terminal.upload && uploadAnother ? (
-                      <button type="button" className={secondaryButtonClass} onClick={uploadAnother.run}>
+                      <button type="button" className={primaryButtonClass} onClick={uploadAnother.run}>
                         {terminal.uploadLabel}
                       </button>
                     ) : null}

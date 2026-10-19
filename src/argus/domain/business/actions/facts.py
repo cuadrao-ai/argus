@@ -34,6 +34,8 @@ def patched_facts(
         or BusinessFacts(currency=Known(value="DOP", origin="default", source_ids=()))
     ).model_dump(mode="json")
     for name, value in patch.model_dump(mode="json").items():
+        if name == "purchase":
+            continue
         facts[name] = {
             **value,
             "origin": origin,
