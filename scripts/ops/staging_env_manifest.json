@@ -249,6 +249,18 @@
         {
           "name": "CUADRAO_EMAIL_ASSET_ORIGIN",
           "reason": "Optional HTTPS origin for shared email images. Preserve current value; do not inject during this build."
+        },
+        {
+          "name": "CUADRAO_OPENROUTER_API_KEY_DEV",
+          "reason": "Preserve a live value. Do not inject this name on staging."
+        },
+        {
+          "name": "CUADRAO_OPENROUTER_API_KEY_STG",
+          "reason": "Preserve a live value. Do not inject this name until the blueprint lists it."
+        },
+        {
+          "name": "CUADRAO_OPENROUTER_API_KEY_PROD",
+          "reason": "Preserve a live value. Do not inject this name on staging."
         }
       ],
       "distinct": [
