@@ -88,23 +88,16 @@ def _reject(record: FiscalRecord, code: str, field: str) -> dict:
     }
 
 
-def hard_rejects(record: FiscalRecord, registry: RncRegistry) -> list[dict]:
+def hard_rejects(record: FiscalRecord) -> list[dict]:
     declaration = confirmed_declaration(record)
     if not isinstance(declaration, PurchaseDeclaration):
         return []
-    raw = fact_value(record, "rnc")
-    digits = identity_digits(raw)
-    found = registry.lookup(digits) if digits else None
+    digits = identity_digits(fact_value(record, "rnc"))
     number = normalized_ncf(fact_value(record, "ecf") or fact_value(record, "ncf"))
     presented = fact_value(record, "ecf") or fact_value(record, "ncf")
     issues = []
     if digits is None or len(digits) not in {9, 11}:
         issues.append(_reject(record, "fiscal_identity_length", "rnc"))
-    elif not (
-        rnc_check_digit_ok(digits) if len(digits) == 9 else cedula_check_digit_ok(digits)
-    ):
-        if found is None:
-            issues.append(_reject(record, "fiscal_identity_check_digit", "rnc"))
     if (declaration.id_type == "1" and (digits is None or len(digits) != 9)) or (
         declaration.id_type == "2" and (digits is None or len(digits) != 11)
     ):
@@ -190,6 +183,17 @@ def line_review(record: FiscalRecord, registry: RncRegistry) -> tuple[dict, list
                 name=found.name,
             )
         )
+    if (
+        digits
+        and len(digits) in {9, 11}
+        and found is None
+        and not (
+            rnc_check_digit_ok(digits)
+            if len(digits) == 9
+            else cedula_check_digit_ok(digits)
+        )
+    ):
+        warnings.append(_warning(record, "fiscal_identity_check_digit"))
     if declaration.category is None:
         warnings.append(_warning(record, "expense_type_missing"))
     if declaration.payment_method is None:
