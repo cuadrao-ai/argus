@@ -1,9 +1,0 @@
-# Brand canon folders. A line ending in /** matches that directory and everything under it.
-marketing/brand/**
-marketing/app/**
-marketing/public/cuadrao-site/**
-marketing/public/email/**
-web/public/brand/**
-web/public/icons/**
-web/public/email/**
-ios/ArgusFoundation/Cuadrao/Brand.xcassets/**

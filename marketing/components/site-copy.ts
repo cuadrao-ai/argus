@@ -110,7 +110,7 @@ const es = {
   ],
   founderTitle: "Soy Lucas.\nFundador de Cuadrao.",
   founderParagraphs: [
-    "Estoy construyendo Cuadrao para ayudarte a entender tu dinero y planificar lo que sigue. Quiero que tengas más tiempo para el trabajo que te llevó a empezar tu negocio.",
+    "Estoy construyendo Cuadrao, una forma cómoda para que los negocios lleven sus gastos en orden.",
     "Mi experiencia está en tecnología y datos. Quiero usar lo que sé para resolver problemas que encuentras cada día. Eso empieza por escuchar cómo trabajas y qué te cuesta mantener al día.",
     "Mi compromiso es construir con cuidado, probar lo que sirve y aprender de ti. Cada función debe ayudarte a terminar una tarea o tomar una decisión, con tu dinero, clientes y documentos en un mismo lugar.",
     "La conversación es conmigo. Me gustaría saber qué funciona en tu negocio y qué quisieras cambiar. Gracias por compartir tu experiencia y ayudarme a dar forma a Cuadrao.",

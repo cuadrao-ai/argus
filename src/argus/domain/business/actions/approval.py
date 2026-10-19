@@ -11,6 +11,10 @@ from psycopg.types.json import Jsonb
 
 from argus.domain.business.actions import dossier, mutations, plans
 from argus.domain.business.actions.facts import validate_facts
+from argus.domain.business.actions.fiscal import (
+    refund_reference,
+    require_distinct_fiscal_document,
+)
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
@@ -18,17 +22,21 @@ from argus.domain.business.contracts.actions import (
     ApprovalCommand,
     ApproveExpense,
     ApproveIncome,
+    ApproveRefund,
     ExistingDraft,
     IncomeApprovalCommand,
     OutcomeUnknown,
+    RefundApprovalCommand,
     Refused,
 )
+from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessFacts,
     Known,
     OwnerFunding,
 )
+from argus.domain.business.purchase_review import declaration_from_facts
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import ImportEvent
 from argus.domain.ingestion.reconcile.recording import _NOT_WRITTEN
@@ -42,7 +50,7 @@ def _reviewed_facts(
     tx: ActionTransaction,
     draft_id: UUID,
     version: int,
-    kind: Literal["expense", "income"],
+    kind: Literal["expense", "income", "refund"],
 ) -> tuple[ImportEvent, BusinessFacts]:
     event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=version))
     view = dossier.dossier(tx, draft_id)
@@ -55,21 +63,26 @@ def _reviewed_facts(
     if not isinstance(view.facts.kind, Known) or view.facts.kind.value != kind:
         raise ActionError("invalid_input", "activity_kind_unsupported")
     validate_facts(tx, view.facts)
+    require_distinct_fiscal_document(tx, event, view.facts)
     return event, view.facts
 
 
 def _money_request(
-    facts: BusinessFacts, space_id: UUID, kind: Literal["expense", "income"]
+    facts: BusinessFacts,
+    space_id: UUID,
+    kind: Literal["expense", "income", "refund"],
+    purchase_activity_id: str | None = None,
 ) -> MoneyRequest:
     if not isinstance(facts.kind, Known) or facts.kind.value != kind:
         raise ActionError("invalid_input", "activity_kind_unsupported")
     if not isinstance(facts.funding, Known):
         raise ActionError("invalid_input", "fact_required")
     funding = facts.funding.value
-    if kind == "income" and not isinstance(funding, BusinessAccountFunding):
+    if kind in {"income", "refund"} and not isinstance(funding, BusinessAccountFunding):
         raise ActionError("invalid_input", "business_funding_unsupported")
     return MoneyRequest(
         kind=kind,
+        purchase_activity_id=purchase_activity_id,
         owner_funding=OwnerFunds(owner_space_id=space_id, currency=facts.currency.value)
         if isinstance(funding, OwnerFunding)
         else None,
@@ -85,16 +98,42 @@ def _money_request(
     )
 
 
+def _approval_declaration(
+    tx: ActionTransaction, event: ImportEvent, facts: BusinessFacts
+) -> PurchaseDeclaration | None:
+    """The 606 declaration an expense approval writes from its stored facts.
+
+    None when the draft already holds a declaration: the one a person saved wins.
+    """
+
+    if (event.resolution.get("business") or {}).get("dgii"):
+        return None
+    if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
+        return None
+    funding = facts.funding.value
+    paid_from = (
+        "owner_funds"
+        if isinstance(funding, OwnerFunding)
+        else next(
+            account.type
+            for account in dossier.record_context(tx).accounts
+            if account.id == funding.account_id
+        )
+    )
+    return declaration_from_facts(facts, paid_from)
+
+
 def reviewed_request(
     service: BusinessActions,
     context: ActionContext,
     draft_id: UUID,
     version: int,
-    kind: Literal["expense", "income"],
+    kind: Literal["expense", "income", "refund"],
 ) -> MoneyRequest:
     with transaction(service.authority, context, "approve") as tx:
-        _, facts = _reviewed_facts(tx, draft_id, version, kind)
-    draft = _money_request(facts, context.actor.space_id, kind)
+        event, facts = _reviewed_facts(tx, draft_id, version, kind)
+        purchase = refund_reference(event) if kind == "refund" else None
+    draft = _money_request(facts, context.actor.space_id, kind, purchase)
     preview = service.imports.money.preview(
         user_id=context.owner_id, request=draft, scope=context.scope
     )
@@ -109,14 +148,20 @@ def approve(
     service: BusinessActions,
     context: ActionContext,
     draft_id: UUID,
-    request: ApproveExpense | ApproveIncome,
+    request: ApproveExpense | ApproveIncome | ApproveRefund,
     key: str,
 ) -> ActionOutcome:
-    kind: Literal["expense", "income"] = (
-        "income" if isinstance(request, ApproveIncome) else "expense"
+    kind: Literal["expense", "income", "refund"] = (
+        "refund"
+        if isinstance(request, ApproveRefund)
+        else "income"
+        if isinstance(request, ApproveIncome)
+        else "expense"
     )
     command = (
-        IncomeApprovalCommand(draft_id=draft_id, request=request)
+        RefundApprovalCommand(draft_id=draft_id, request=request)
+        if isinstance(request, ApproveRefund)
+        else IncomeApprovalCommand(draft_id=draft_id, request=request)
         if isinstance(request, ApproveIncome)
         else ApprovalCommand(draft_id=draft_id, request=request)
     )
@@ -167,7 +212,7 @@ def approve(
             else:
                 plans.start_receipt(tx, key, command)
                 try:
-                    event, _ = _reviewed_facts(tx, draft_id, request.version, kind)
+                    event, facts = _reviewed_facts(tx, draft_id, request.version, kind)
                 except ActionError as error:
                     return plans.finish_receipt(tx, key, error.result)
                 claim_key = hashlib.sha256(
@@ -188,7 +233,23 @@ def approve(
                         },
                     },
                 )
-                tx.imports.put_event(event)
+                declared = _approval_declaration(tx, event, facts)
+                if declared is None:
+                    tx.imports.put_event(event)
+                else:
+                    # Revisions are immutable, so the declaration is the approval's
+                    # own revision, at the version the accepting record takes.
+                    mutations.save_revision(
+                        tx,
+                        event,
+                        facts,
+                        facts,
+                        (),
+                        tx.authorization.provenance,
+                        None,
+                        dgii=declared,
+                    )
+                    event = tx.imports.event(str(draft_id))
                 plans.finish_receipt(
                     tx, key, OutcomeUnknown(code="business_recording_unsettled")
                 )

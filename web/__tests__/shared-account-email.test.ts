@@ -44,7 +44,7 @@ describe("shared account email layout", () => {
     expect(rendered.html).not.toContain('<p class="code"');
     expect(rendered.text).toContain("Este enlace vence en 48 horas.");
   });
-  test("account and waitlist mail share the configured legal address without account unsubscribe", () => {
+  test("waitlist mail uses the configured legal address and account mail stays Cuadrao LLC", () => {
     const address = "Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.";
     const rendered = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: link, postalAddress: address});
     expect(rendered.text).toContain(address);
@@ -52,8 +52,9 @@ describe("shared account email layout", () => {
     expect(rendered.html.indexOf(address)).toBeGreaterThan(rendered.html.indexOf("hola@cuadrao.ai"));
     for (const postalAddress of [address, address.replace("Cuadrao LLC, ", "")]) {
       const account = renderAccountEmail({title: "Cuenta", paragraphs: []}, {postalAddress});
-      expect(account.text).toContain(address);
-      expect(account.html).toContain(address);
+      expect(account.text).toContain("Cuadrao LLC");
+      expect(account.text).not.toContain("1209 Mountain");
+      expect(account.html).not.toContain("1209 Mountain");
       expect(account.text.match(/Cuadrao LLC/g)).toHaveLength(1);
       expect(account.html).not.toContain("Salir de la lista");
     }
@@ -78,10 +79,33 @@ describe("shared account email layout", () => {
 });
 
 
-test("missing or multiline legal address refuses rendering", () => {
+test("account mail renders Cuadrao LLC and ignores a supplied postal address", () => {
   delete process.env.MARKETING_POSTAL_ADDRESS;
-  expect(() => renderAccountEmail({title: "Cuenta", paragraphs: []})).toThrow("postal address");
-  for (const postalAddress of ["bad\naddress", "Cuadrao LLC"]) {
-    expect(() => renderAccountEmail({title: "Cuenta", paragraphs: []}, {postalAddress})).toThrow("postal address");
+  const street = "1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.";
+  for (const postalAddress of [undefined, street, `Cuadrao LLC, ${street}`]) {
+    const rendered = renderAccountEmail({title: "Cuenta", paragraphs: []}, postalAddress ? {postalAddress} : {});
+    expect(rendered.html).toContain(">Cuadrao LLC</p>");
+    expect(rendered.text).toContain("\n\nCuadrao LLC");
+    expect(rendered.html).not.toContain("Cuadrao LLC,");
+    expect(rendered.text).not.toContain(street);
+    expect(rendered.html).not.toContain("Salir de la lista");
   }
+});
+
+test("unsubscribe footer fails closed without a postal address and includes it when set", () => {
+  delete process.env.MARKETING_POSTAL_ADDRESS;
+  const leave = "https://example.test/leave";
+  const street = "1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.";
+  const address = `Cuadrao LLC, ${street}`;
+  expect(() => renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave})).toThrow("postal address");
+  for (const postalAddress of ["bad\naddress", "Cuadrao LLC"]) {
+    expect(() => renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave}, {postalAddress})).toThrow("postal address");
+  }
+  const explicit = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave, postalAddress: address});
+  expect(explicit.html).toContain(address);
+  expect(explicit.text).toContain(address);
+  process.env.MARKETING_POSTAL_ADDRESS = street;
+  const fromEnv = renderAccountEmail({title: "Lista", paragraphs: [], unsubscribeUrl: leave});
+  expect(fromEnv.html).toContain(address);
+  expect(fromEnv.text).toContain(address);
 });

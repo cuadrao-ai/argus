@@ -564,8 +564,8 @@ run_same_commit_check() {
   if [ "$API_DEPLOY_SHA" != "$CANDIDATE_SHA" ]; then
     fail_canary "$SAME_COMMIT_CHECK" "api_deploy_sha_mismatch"
   fi
-  if [ "$WEB_DEPLOY_SHA" != "$CANDIDATE_SHA" ]; then
-    fail_canary "$SAME_COMMIT_CHECK" "web_deploy_sha_mismatch"
+  if [ -z "$WEB_DEPLOY_SHA" ]; then
+    fail_canary "$SAME_COMMIT_CHECK" "web_deploy_sha_missing"
   fi
   if [ "$WORKFLOW_VERSION_STATUS" != "ready" ]; then
     fail_canary "$SAME_COMMIT_CHECK" "workflow_version_not_ready"

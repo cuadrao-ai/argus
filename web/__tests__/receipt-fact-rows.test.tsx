@@ -176,14 +176,14 @@ describe("the record facts on the review page", () => {
     assert.ok(!html.includes("verificada") && !html.includes("—"));
   });
 
-  test("an RNC nobody knows reads RNC desconocido, never a number", async () => {
+  test("an RNC nobody knows reads Sin RNC, never a number", async () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, fiscal: { rnc: unknown, ncf: known("extracted"), ecf: unknown, itbis: unknown } }, fiscal_value: "ncf", fiscal_known: true } as unknown as BusinessDossier;
     const { html } = await render(dossier);
-    assert.ok(/data-fact="rnc"[^]*?RNC desconocido/.test(html));
+    assert.ok(/data-fact="rnc"[^]*?Sin RNC/.test(html));
     assert.ok(!/0{9}/.test(html));
     const english = await render(dossier, "en", false);
-    assert.ok(english.html.includes("Unknown RNC"));
+    assert.ok(english.html.includes("No RNC"));
   });
 
   test("no banner when nothing read from the source waits for a person", async () => {

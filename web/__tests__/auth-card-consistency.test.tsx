@@ -8,8 +8,6 @@ import { I18nextProvider } from "react-i18next";
 import ForgotPasswordPage from "../app/auth/forgot-password/page";
 import AuthForm from "../components/auth/AuthForm";
 import RequestAccess from "../components/auth/RequestAccess";
-import ExpiredGuestSession from "../components/guest/ExpiredGuestSession";
-import { GuestConversionModalSurface as GuestConversionModal } from "../components/guest/GuestConversionModal";
 import en from "../public/locales/en/common.json";
 
 async function renderLocalized(element: ReactElement): Promise<string> {
@@ -67,87 +65,6 @@ describe("auth card consistency", () => {
     equal(occurrences(standalone, canonicalCard), 1);
     doesNotMatch(standalone, /shadow/);
     equal(occurrences(embedded, canonicalCard), 0);
-  });
-
-  test("expired guest session uses one 20px zero-shadow card", async () => {
-    const html = await renderLocalized(
-      createElement(ExpiredGuestSession, {
-        publicAccountAccessEnabled: true,
-      }),
-    );
-
-    equal(occurrences(html, "border border-black/10"), 1);
-    match(html, /rounded-\[20px\]/);
-    doesNotMatch(html, /rounded-\[2rem\]/);
-    doesNotMatch(html, /shadow/);
-  });
-
-  test("guest conversion uses one 20px zero-shadow card", async () => {
-    const authHtml = await renderLocalized(
-      createElement(GuestConversionModal, {
-        isOpen: true,
-        reason: "new_conversation",
-        initialMode: "login",
-        publicAccountAccessEnabled: true,
-        onClose: () => undefined,
-        onAuthenticate: async () => undefined,
-      }),
-    );
-    const requestHtml = await renderLocalized(
-      createElement(GuestConversionModal, {
-        isOpen: true,
-        reason: "new_conversation",
-        initialMode: "login",
-        publicAccountAccessEnabled: false,
-        onClose: () => undefined,
-        onAuthenticate: async () => undefined,
-      }),
-    );
-
-    for (const html of [authHtml, requestHtml]) {
-      equal(occurrences(html, "border border-black/10"), 1);
-      match(html, /rounded-\[20px\]/);
-      doesNotMatch(html, /rounded-\[28px\]/);
-      doesNotMatch(html, /shadow/);
-    }
-  });
-
-  test("simulation exhaustion names the authoritative reset time and conversion path", async () => {
-    const html = await renderLocalized(
-      createElement(GuestConversionModal, {
-        isOpen: true,
-        reason: "simulation_limit",
-        initialMode: "signup",
-        publicAccountAccessEnabled: true,
-        resetAt: "2026-08-09T00:00:00.000Z",
-        locale: "en-US",
-        onClose: () => undefined,
-        onAuthenticate: async () => undefined,
-      }),
-    );
-
-    match(html, /This temporary chat has reached today’s simulation limit/);
-    match(html, /It resets on/);
-    match(html, /Aug 9, 2026/);
-    match(html, /Create your account/);
-  });
-
-  test("simulation exhaustion does not promise signup when public access is disabled", async () => {
-    const html = await renderLocalized(
-      createElement(GuestConversionModal, {
-        isOpen: true,
-        reason: "simulation_limit",
-        initialMode: "signup",
-        publicAccountAccessEnabled: false,
-        resetAt: "2026-08-09T00:00:00.000Z",
-        locale: "en-US",
-        onClose: () => undefined,
-        onAuthenticate: async () => undefined,
-      }),
-    );
-
-    match(html, /Request access or sign in to continue/);
-    doesNotMatch(html, /Create an account to continue now/);
   });
 
   test("forgot password uses the canonical 20px card radius", async () => {
