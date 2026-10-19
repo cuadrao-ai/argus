@@ -161,6 +161,8 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
     const target = button(name);
     assert.ok(target, `${name} is on the page`);
     await act(async () => target.click());
+    const confirmation = [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find((item) => item.textContent === name);
+    if (confirmation) await act(async () => confirmation.click());
     await settle(done);
   };
   return {

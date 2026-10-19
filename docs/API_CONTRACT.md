@@ -9188,7 +9188,9 @@ A recorded `approval_result` carries `activity_id`, the approving `actor`,
 approvals and settlements), `approved_revision` (the latest `history` version
 at or below `reviewed_version`: the facts revision the person approved) and
 `approved_at` (when the approval receipt was written). Marks and 606 answers
-after approval add `history` revisions without changing either field.
+after approval add `history` revisions without changing either field. So does
+an expense approval whose draft holds no 606 declaration: it adds one revision
+at the next version with the declaration built from the reviewed facts.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
 and `Idempotency-Key`. The same existing
@@ -9197,7 +9199,10 @@ and `Idempotency-Key`. The same existing
 `{version, action: "record_income"}`, with the existing required
 `Idempotency-Key`. The route resolves the actual actor and live named grant from
 the canonical draft, then dispatches to the matching human command; the caller
-supplies no actor, space or grant. Both approval variants and unchanged human
+supplies no actor, space or grant. A document that arrived by email from a
+sender who is not yet authorized is refused with 403 `email_sender_unauthorized`
+until that sender is authorized. Nothing in the message is approved by receiving
+it. Both approval variants and unchanged human
 review return the authoritative `BusinessDossier` with `Cache-Control: no-store`.
 The same no-store problem responses and refusal mapping apply to both variants.
 Human review and approval remain separate from model actions. This contract
@@ -9578,30 +9583,62 @@ accept path recorded.
     delivery row; the worker fetches the message later. An address with no
     active route, two routes or a revoked grant is recorded as rejected and
     never fetched.
-  - Daily receiving allowances are server-owned per immutable receipt address and UTC
-    day. `CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT` defaults to 100;
-    `CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT` defaults to 104857600 bytes.
-    Enqueue admits each new message once; exact webhook replays consume nothing.
-    A download retry consumes another message allowance. Metadata and raw content
-    share one message allowance per worker attempt, but each HTTP fetch reserves
-    the canonical 10 MiB source maximum before any request. Completed fetches settle
-    actual response-body bytes. Interrupted or failed fetches retain their full
-    reservation when the transferred count is uncertain. Headers are not counted.
-    A saved-source retry needs no provider allowance. An exhausted allowance keeps
-    the durable delivery `received`, with `email_daily_message_budget` or
-    `email_daily_byte_budget`, until the next UTC midnight. It does not reject or
-    drop mail, fetch it, spin, or consume the worker retry-attempt limit. Work
-    spanning midnight must obtain the new day's allowance before its next fetch.
-  - GET `/api/v1/business/email` returns `{enabled, receiving_address}`:
-    configuration readiness for the caller's Business, not provider health.
-  - POST `/api/v1/business/email` (prepare capability) mints one address per
-    Business, `recibos-<8 hex>@<domain>`. The route names the Business owner
-    as the captured documents' owner and the caller's own live grant as the
-    authority checked before each capture. A replay, or a concurrent create,
-    returns the one live address with 200. 409 `email_route_revoked` when that
-    address's grant is no longer live and 409 `email_route_unavailable` while
-    capture is off: stop receiving, then create a new address. 503
-    `email_receiving_unconfigured` without a domain or Postgres.
+  - Daily receiving allowances are server-owned per receipt address and
+    America/Santo_Domingo day. `CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT`
+    defaults to 100; `CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT` defaults to
+    104857600 bytes. The worker admits each new unauthorized message once;
+    exact webhook replays consume nothing. Mail from a sender the admin already
+    authorized does not count and is not held. A download retry consumes another
+    message allowance. Metadata and raw content share one message allowance per
+    worker attempt, but each HTTP fetch reserves the canonical 10 MiB source
+    maximum before any request. Completed fetches settle actual response-body
+    bytes. Interrupted or failed fetches retain their full reservation when the
+    transferred count is uncertain. Headers are not counted. A saved-source
+    retry needs no provider allowance. An exhausted allowance keeps the durable
+    delivery `received`, with `email_daily_message_budget` or
+    `email_daily_byte_budget`, until the next Santo Domingo midnight. It does
+    not reject or drop mail, fetch it, spin, or consume the worker retry-attempt
+    limit. Work spanning that midnight must obtain the new day's allowance
+    before its next fetch.
+  - GET `/api/v1/business/email` returns
+    `{enabled, receiving_address, alias, review_required}`: configuration
+    readiness for the caller's Business, not provider health. `alias` is null
+    and `review_required` is false when no usable route exists.
+  - POST `/api/v1/business/email` (prepare capability) takes `{alias}` and
+    creates one address per Business, `<alias>@<domain>`. The alias is the
+    owner's chosen name. Stored addresses keep the recipient they already
+    have. The route names the Business owner as the captured documents' owner
+    and the caller's own live grant as the authority checked before each
+    capture. A replay, or a concurrent create, returns the one live address
+    with 200. 422 `email_alias_required` when the name is missing, 422
+    `email_alias_invalid` when it is not 3–32 letters, digits, or hyphens,
+    and 422 `email_alias_unavailable` with "Ese nombre no está disponible.
+    Prueba otro." when the name is taken or refused. 409
+    `email_route_revoked` when that address's grant is no longer live and
+    409 `email_route_unavailable` while capture is off: stop receiving, then
+    create a new address. 503 `email_receiving_unconfigured` without a domain
+    or Postgres, before the alias is checked.
+  - GET `/api/v1/business/email/availability?alias=` returns
+    `{available, review_required, suggestions, message}`. Taken and refused
+    names share one message and never name the holder. Suggestions are two or
+    three free names checked the same way.
+  - GET `/api/v1/business/email/suggestion?name=` suggests an alias from the
+    business name, or from the stored space name when `name` is absent.
+  - POST `/api/v1/business/email/address` (owner) replaces the live alias.
+    The previous recipient is reserved and mail to it is recorded as rejected
+    with `email_alias_retired`. Deliveries stay on the route id.
+  - GET `/api/v1/business/email/senders` lists sender rules for any member.
+    POST (owner) authorizes or blocks one address or one domain. A public
+    mail domain cannot be authorized as a whole. A repeated rule returns 200
+    with the same id. DELETE `/api/v1/business/email/senders/{sender_id}`
+    (owner) removes that sender. A grantee is refused with 403
+    `business_permission_denied`. An id that is not on this Business's list
+    is 404 `email_sender_not_found`. Stopping or changing the receipt address,
+    and authorizing, removing, or blocking a sender, each append one audit row
+    with the actor, the time, the old address, and the new address.
+  - GET `/api/v1/business/email/inbox` groups deliveries as
+    `remitentes_nuevos`, then `bandeja`. A first scan from an authorized
+    sender sets `notice` to "Prueba recibida".
   - DELETE `/api/v1/business/email` switches the address off. A route can be
     switched off, never pointed at another Business or person.
   - GET `/api/v1/business/email/deliveries` and `/{id}` list the Business's

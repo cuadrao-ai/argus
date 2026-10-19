@@ -6,7 +6,7 @@ Apply `20261018040438`, `20261018180000`, `20261018190000`, and `20261018210000`
 
 The record is `docs/release-manifests/2026-10-18-staging-invites-bank-matching-registry-apply.json`. Its id is `staging-apply-2026-10-18-b`. The database name is `postgres`.
 
-The record lists the direct host `db.skedzwocnmrhfigiwyzi.supabase.co` and no other host. The pooler host is decided at apply time. The record's hosts list stays the direct host only.
+The record names the direct host `db.skedzwocnmrhfigiwyzi.supabase.co` and the session pooler `aws-0-us-east-1.pooler.supabase.com`. The direct host has no IPv4 address, so the connection path is the session pooler on port 5432. The user is `postgres.skedzwocnmrhfigiwyzi`.
 
 ## Versions
 
@@ -27,13 +27,13 @@ The migration gate classifies `20261018190000` as destructive, because its swap 
 
 ## Approval
 
-Lucas yes, 2026-10-18 10:53 AM CT, staging only. Relayed by Yelena. The approval covers staging `skedzwocnmrhfigiwyzi` and exactly these four versions.
+Lucas yes, 2026-10-18 10:53 AM CT, staging only. Relayed by Yelena. Lucas confirmed the same four versions for staging again at 12:22 PM CT on 2026-10-18. The approval covers staging `skedzwocnmrhfigiwyzi` and exactly these four versions.
 
 The record is issued at `2026-10-18T10:56:00-05:00` and expires at `2026-10-21T10:56:00-05:00`.
 
 ## Apply
 
-Set `ARGUS_APPLY_DATABASE_URL` in the environment to the staging database URL. Do not put that URL on the command line.
+Set `ARGUS_APPLY_DATABASE_URL` to the staging session pooler URL. The host is `aws-0-us-east-1.pooler.supabase.com`, the port is 5432, the database is `postgres`, and the user is `postgres.skedzwocnmrhfigiwyzi`. Do not put that URL on the command line. One matching pair of quotes around the value is removed before the URL is read. Mismatched quotes are left in place.
 
 Write this JSON list to `approved.json`.
 
@@ -48,6 +48,7 @@ poetry run python scripts/ops/apply_approved_migrations.py \
   --candidate-sha fb6d969505f364fa08e4eb89e7317619f7de4781 \
   --approved-file approved.json \
   --allow-host db.skedzwocnmrhfigiwyzi.supabase.co \
+  --allow-host aws-0-us-east-1.pooler.supabase.com \
   --allow-database postgres \
   --hosted-approval docs/release-manifests/2026-10-18-staging-invites-bank-matching-registry-apply.json \
   --ssl-root-cert /path/to/ca-bundle.pem
