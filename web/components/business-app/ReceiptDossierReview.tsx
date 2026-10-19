@@ -6,7 +6,7 @@ import { ReceiptShortcutRegistration, receiptNavigationActions } from "./Busines
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Download, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, type BusinessDossier, type BusinessFactField, type BusinessFactPatch } from "@/lib/business-dossier";
@@ -103,15 +103,13 @@ export function saveBlobDownload(blob: Blob, filename: string, revokeAfterMs = 3
 }
 
 /** The period view supplies its selected Business; a record may supply an explicit draft anchor. */
-export function ReceiptPeriodExport({ scope, start, end, available }: { scope: { draftId?: string; grantId?: string | null; name: string; capabilities: BusinessDossier["capabilities"] }; start: string; end: string; available: boolean }) {
+export function ReceiptPeriodExport({ scope, start: from, end: to, available, monthSwitcher }: { scope: { draftId?: string; grantId?: string | null; name: string; capabilities: BusinessDossier["capabilities"] }; start: string; end: string; available: boolean; monthSwitcher?: ReactNode }) {
   const { t } = useTranslation();
-  const [from, setFrom] = useState(start);
-  const [to, setTo] = useState(end);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const request = useRef<AbortController | null>(null);
   const canRead = scope.capabilities.includes("read");
-  useEffect(() => () => request.current?.abort(), [scope.draftId, scope.grantId, canRead, available]);
+  useEffect(() => () => request.current?.abort(), [scope.draftId, scope.grantId, canRead, available, from, to]);
   if (!canRead) return null;
   const download = async () => {
     if (request.current || !available || !businessExportPeriodValid(from, to)) return;
@@ -135,8 +133,7 @@ export function ReceiptPeriodExport({ scope, start, end, available }: { scope: {
     <p className="mt-2 text-[13px] text-black/65 dark:text-white/65">{t("business.export.scope", "{{name}} · CSV, Excel and retained originals in one ZIP.", { name: formatBusinessName(scope.name, t("business.overview.title", "My business")) })}</p>
     {available ? <BusinessFiscalProfile draftId={scope.draftId} /> : null}
     <form className="mt-4 space-y-3" onSubmit={(event) => { event.preventDefault(); void download(); }}>
-      <div className="grid grid-cols-2 gap-3">{[{ field: "start", value: from, setValue: setFrom }, { field: "end", value: to, setValue: setTo }].map(({ field, value, setValue }) => <label key={field} className="block text-[13px] text-black/65 dark:text-white/65">{t(`business.export.${field}`, field === "start" ? "From" : "Through")}<input type="date" required value={value} disabled={busy} onChange={(event) => setValue(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-black/15 bg-transparent px-2 text-black dark:border-white/20 dark:text-white" /></label>)}</div>
-      <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.export.period_hint", "Choose 1–366 days, including both dates. Pending records are separate from recorded money; the manifest reports missing originals.")}</p>
+      {monthSwitcher}
       <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.dgii.period_hint", "El 606 y el 607 requieren un mes completo y cerrado. El Excel muestra los datos fiscales pendientes y el resumen de consumo por separado.")}</p>
       {problem ? <p role="alert" className="text-[13px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
       <button type="submit" disabled={busy || !available || !businessExportPeriodValid(from, to)} className={secondaryButtonClass}><Download className="h-4 w-4" aria-hidden="true" />{busy ? t("business.export.downloading", "Downloading…") : t("business.export.download", "Download CSV, Excel and originals")}</button>

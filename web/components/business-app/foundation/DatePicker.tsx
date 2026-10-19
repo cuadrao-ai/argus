@@ -6,9 +6,21 @@ import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { formatDay, todayIso } from "../business-format";
-import { dayText, parseDayText } from "./DayTextInput";
 
 type Month = { year: number; month: number };
+
+export function dayText(iso: string): string {
+  return iso ? iso.split("-").reverse().join("/") : "";
+}
+
+/** A typed dd/mm/aaaa day as ISO, or null when it is not a real calendar day. */
+export function parseDayText(text: string): string | null {
+  const parts = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
+  if (!parts) return null;
+  const iso = `${parts[3]}-${parts[2]}-${parts[1]}`;
+  const parsed = new Date(`${iso}T12:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : null;
+}
 
 function monthOf(iso: string): Month {
   const [year, month] = iso.split("-").map(Number);
