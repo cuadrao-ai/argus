@@ -117,6 +117,26 @@ for (const width of [1440, 1024]) {
   });
 }
 
+test.describe("Business rail row states", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("hover tints only the fill and keyboard focus draws the green ring", async ({ page }) => {
+    await installBusiness(page, null);
+    await page.goto("/biz");
+    await expect(page.getByTestId("business-current-name")).toBeVisible();
+    const gastos = page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Gastos" });
+    const resting = await gastos.evaluate((row) => ({ color: getComputedStyle(row).color, weight: getComputedStyle(row).fontWeight }));
+    await gastos.hover();
+    await expect.poll(() => gastos.evaluate((row) => getComputedStyle(row).backgroundColor)).toMatch(/^(rgba\(227, 235, 225, 0\.5\)|lab\(92\.2\d* -4\.09\d* 3\.89\d* \/ 0\.5\))$/);
+    expect(await gastos.evaluate((row) => ({ color: getComputedStyle(row).color, weight: getComputedStyle(row).fontWeight }))).toEqual(resting);
+    await page.mouse.move(900, 450);
+    await page.keyboard.press("Tab");
+    await gastos.focus();
+    await expect.poll(() => gastos.evaluate((row) => ({ style: getComputedStyle(row).outlineStyle, width: getComputedStyle(row).outlineWidth, color: getComputedStyle(row).outlineColor })))
+      .toEqual({ style: "solid", width: "2px", color: "rgb(47, 90, 73)" });
+  });
+});
+
 test.describe("Business on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
