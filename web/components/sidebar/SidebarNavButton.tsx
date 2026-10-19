@@ -88,8 +88,8 @@ export default function SidebarNavButton({
       </div>
       {/* Label: font-display (Space Grotesk) per DESIGN.md Nav/UI role */}
       <span
-        className={`ml-1 font-display text-[15px] font-medium tracking-tight text-black transition-[opacity,max-width] duration-300 ease-in-out dark:text-white ${
-          wrapLabel ? "whitespace-normal break-words" : "whitespace-nowrap"
+        className={`font-display text-[15px] font-medium tracking-tight text-black transition-[opacity,max-width] duration-300 ease-in-out dark:text-white ${
+          wrapLabel ? "-ml-1 whitespace-normal break-words text-left" : "ml-1 whitespace-nowrap"
         } ${
           collapsed
             ? "pointer-events-none max-w-0 overflow-hidden opacity-0"
@@ -99,7 +99,7 @@ export default function SidebarNavButton({
         {label}
       </span>
       {!collapsed && (shortcutHint || trailing) && (
-        <div className="ml-auto flex h-[22px] shrink-0 items-center justify-end pr-4">
+        <div className={`ml-auto flex h-[22px] shrink-0 items-center justify-end ${wrapLabel ? "pr-3" : "pr-4"}`}>
           {shortcutOnInteraction && shortcutHint ? <>
             <span className="group-hover:hidden group-focus-visible:hidden">{trailing}</span>
             <KeyboardShortcutKeycap className="hidden group-hover:inline-flex group-focus-visible:inline-flex">{shortcutHint}</KeyboardShortcutKeycap>
