@@ -265,6 +265,25 @@ def test_excluded_lines_do_not_count(tmp_path: Path) -> None:
         assert path not in result.stdout
 
 
+def test_missing_event_path_fails(tmp_path: Path) -> None:
+    repo, base = init_repo(tmp_path)
+    commit_text(repo, ".env.example", "PLACEHOLDER=\n")
+    env = os.environ.copy()
+    env.pop("GITHUB_EVENT_PATH", None)
+    env["PR_BASE_SHA"] = base
+    env.pop("PR_HEAD_SHA", None)
+
+    result = subprocess.run(
+        [sys.executable, str(CHECKER), "hotspot", "--root", str(repo)],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode != 0
+    assert result.stderr.strip() == "GITHUB_EVENT_PATH is required."
+
+
 def test_missing_merge_base_fails(tmp_path: Path) -> None:
     repo, _base = init_repo(tmp_path)
 
@@ -355,3 +374,11 @@ def test_workflow_runs_both_guards_without_a_path_filter() -> None:
         )
         assert check["env"]["PR_BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
         assert check["env"]["PR_HEAD_SHA"] == "${{ github.event.pull_request.head.sha }}"
+        fetch = next(
+            step
+            for step in steps
+            if step.get("name") == "Fetch the pull request base"
+        )
+        assert fetch["env"]["BASE_REF"] == "${{ github.base_ref }}"
+        assert 'git fetch --no-tags origin "$BASE_REF"' in fetch["run"]
+        assert "${{ github.base_ref }}" not in fetch["run"]
