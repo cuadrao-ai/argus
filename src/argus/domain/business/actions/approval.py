@@ -29,12 +29,14 @@ from argus.domain.business.contracts.actions import (
     RefundApprovalCommand,
     Refused,
 )
+from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessFacts,
     Known,
     OwnerFunding,
 )
+from argus.domain.business.purchase_review import declaration_from_facts
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import ImportEvent
 from argus.domain.ingestion.reconcile.recording import _NOT_WRITTEN
@@ -94,6 +96,31 @@ def _money_request(
         else None,
         category_id=facts.category_id.value,
     )
+
+
+def _approval_declaration(
+    tx: ActionTransaction, event: ImportEvent, facts: BusinessFacts
+) -> PurchaseDeclaration | None:
+    """The 606 declaration an expense approval writes from its stored facts.
+
+    None when the draft already holds a declaration: the one a person saved wins.
+    """
+
+    if (event.resolution.get("business") or {}).get("dgii"):
+        return None
+    if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
+        return None
+    funding = facts.funding.value
+    paid_from = (
+        "owner_funds"
+        if isinstance(funding, OwnerFunding)
+        else next(
+            account.type
+            for account in dossier.record_context(tx).accounts
+            if account.id == funding.account_id
+        )
+    )
+    return declaration_from_facts(facts, paid_from)
 
 
 def reviewed_request(
@@ -185,7 +212,7 @@ def approve(
             else:
                 plans.start_receipt(tx, key, command)
                 try:
-                    event, _ = _reviewed_facts(tx, draft_id, request.version, kind)
+                    event, facts = _reviewed_facts(tx, draft_id, request.version, kind)
                 except ActionError as error:
                     return plans.finish_receipt(tx, key, error.result)
                 claim_key = hashlib.sha256(
@@ -206,7 +233,23 @@ def approve(
                         },
                     },
                 )
-                tx.imports.put_event(event)
+                declared = _approval_declaration(tx, event, facts)
+                if declared is None:
+                    tx.imports.put_event(event)
+                else:
+                    # Revisions are immutable, so the declaration is the approval's
+                    # own revision, at the version the accepting record takes.
+                    mutations.save_revision(
+                        tx,
+                        event,
+                        facts,
+                        facts,
+                        (),
+                        tx.authorization.provenance,
+                        None,
+                        dgii=declared,
+                    )
+                    event = tx.imports.event(str(draft_id))
                 plans.finish_receipt(
                     tx, key, OutcomeUnknown(code="business_recording_unsettled")
                 )

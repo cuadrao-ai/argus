@@ -195,6 +195,9 @@ describe("one-pass receipt review", () => {
       assert.equal(page.approvals(), 0);
       assert.equal(button(page.host, "Aprobar").disabled, false);
       await page.act(async () => button(page.host, "Aprobar").click());
+      const confirmation = document.querySelector('[role="alertdialog"]');
+      assert.ok(confirmation);
+      await page.act(async () => button(confirmation, "Aprobar").click());
       assert.equal(page.approvals(), 1);
     } finally { await page.act(async () => page.root.unmount()); }
   });
