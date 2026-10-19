@@ -59,6 +59,21 @@ class RenameBusinessSpace(_Wire):
     name: SpaceName
 
 
+#: Names one wording of the Business consent screen; the web derives it from the copy.
+ConsentVersion = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{16}$")]
+
+
+class AcceptBusinessConsent(_Wire):
+    version: ConsentVersion
+
+
+class BusinessConsent(_Wire):
+    """The caller's acceptance of one wording; ``accepted_at`` is null until then."""
+
+    version: ConsentVersion
+    accepted_at: datetime | None
+
+
 class BusinessAccount(_Wire):
     id: str
     nickname: str | None
