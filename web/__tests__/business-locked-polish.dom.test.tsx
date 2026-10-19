@@ -232,20 +232,26 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     }
   });
 
-  test("the footer mark opens Equipo y accesos and has no separate Equipo icon", async () => {
+  test("the header mark opens Equipo y accesos and Acceso is the one row at the foot", async () => {
     const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
-    function Footer({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
+    function Rail({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
       const workspace = useChatWorkspace();
-      return <footer>{workspace?.sidebarFooter(shell({ sidebarCollapsed }))}</footer>;
+      const bridge = shell({ sidebarCollapsed });
+      return <>
+        <header>{workspace?.sidebarHeader?.(bridge)}</header>
+        <footer>{workspace?.sidebarFooter(bridge)}</footer>
+      </>;
     }
     for (const sidebarCollapsed of [false, true]) {
-      const page = await mount(() => <Footer sidebarCollapsed={sidebarCollapsed} />);
+      const page = await mount(() => <Rail sidebarCollapsed={sidebarCollapsed} />);
       try {
-        await page.settle(() => page.host.querySelector("footer button") !== null);
-        const mark = page.host.querySelector("footer button");
-        assert.ok(mark, "the business mark is in the footer");
+        await page.settle(() => page.host.querySelector("header button") !== null);
+        const mark = page.host.querySelector("header button");
+        assert.ok(mark, "the business mark is in the header");
         assert.equal(mark.getAttribute("aria-haspopup"), "menu");
         assert.equal(page.host.textContent?.includes("Tu negocio"), false);
+        const footerRows = [...page.host.querySelectorAll("footer button")];
+        assert.deepEqual(footerRows.map((button) => button.textContent?.trim()), ["Acceso"]);
         assert.equal(page.business().panel.kind, "overview");
         await page.click(mark);
         const access = [...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes("Equipo y accesos"));
