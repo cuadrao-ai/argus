@@ -29,11 +29,12 @@ jobs:
       - name: Fetch the pull request base
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           if git cat-file -e "${PR_BASE_SHA}^{commit}"; then
             exit 0
           fi
-          git fetch --no-tags origin "${{ github.base_ref }}"
+          git fetch --no-tags origin "$BASE_REF"
           git cat-file -e "${PR_BASE_SHA}^{commit}"
 
       - name: Check hotspot files
@@ -59,11 +60,12 @@ jobs:
       - name: Fetch the pull request base
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           if git cat-file -e "${PR_BASE_SHA}^{commit}"; then
             exit 0
           fi
-          git fetch --no-tags origin "${{ github.base_ref }}"
+          git fetch --no-tags origin "$BASE_REF"
           git cat-file -e "${PR_BASE_SHA}^{commit}"
 
       - name: Check pull request size
