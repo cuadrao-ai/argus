@@ -144,12 +144,12 @@ export function useTerminalRead() {
     }
     if (attention === "not_a_receipt") {
       return {
-        title: t("business.file_read.not_a_receipt_title", "This file doesn't look like a receipt or an invoice"),
+        title: t("business.file_read.not_a_receipt_title", "This doesn't look like a receipt."),
         body: t(
           "business.file_read.not_a_receipt_body",
           "Upload the photo or the PDF of a receipt.",
         ),
-        upload: false,
+        upload: true,
         uploadLabel,
         enterLabel,
       };
