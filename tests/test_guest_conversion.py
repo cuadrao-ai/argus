@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -132,6 +132,7 @@ def test_guest_account_signup_contract_requires_a_real_email_and_strong_password
     None
 ):
     request = GuestAccountSignupRequest(
+        age_confirmed_at="2026-01-01T00:00:00Z",
         email="new-member@example.com",
         password="strong-password",
         captcha_token="captcha-proof",
@@ -142,12 +143,14 @@ def test_guest_account_signup_contract_requires_a_real_email_and_strong_password
 
     with pytest.raises(ValueError):
         GuestAccountSignupRequest(
+            age_confirmed_at="2026-01-01T00:00:00Z",
             email="not-an-email",
             password="strong-password",
             captcha_token="captcha-proof",
         )
     with pytest.raises(ValueError):
         GuestAccountSignupRequest(
+            age_confirmed_at="2026-01-01T00:00:00Z",
             email="new-member@example.com",
             password="short",
             captcha_token="captcha-proof",
@@ -602,6 +605,7 @@ def _post_guest_signup(gateway: MagicMock) -> object:
             return client.post(
                 "/api/v1/auth/guest/signup",
                 json={
+                    "age_confirmed_at": "2026-01-01T00:00:00Z",
                     "email": "approved@example.com",
                     "password": "strong-password",
                     "captcha_token": "captcha-proof",
@@ -645,6 +649,7 @@ def test_guest_signup_creates_a_distinct_account_and_keeps_pending_handoff(
     assert response.json()["session"] is None
     assert response.json()["user"]["id"] == REGISTERED_ID
     gateway.signup.assert_called_once_with(
+        age_confirmed_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         email="approved@example.com",
         password="strong-password",
         captcha_token="captcha-proof",
@@ -917,6 +922,7 @@ def test_guest_signup_requires_prepared_cookie_and_old_link_route_is_removed() -
             signup = client.post(
                 "/api/v1/auth/guest/signup",
                 json={
+                    "age_confirmed_at": "2026-01-01T00:00:00Z",
                     "email": "approved@example.com",
                     "password": "strong-password",
                     "captcha_token": "captcha-proof",

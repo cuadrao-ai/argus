@@ -1,191 +1,102 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 import { describe, test } from "bun:test";
 import en from "../public/locales/en/common.json";
 import es from "../public/locales/es-419/common.json";
 import {
   BUSINESS_CONSENT_I18N_KEYS,
-  BUSINESS_PRIVACY_NOTICE_VERSION,
-  acceptanceMatchesCurrentNotice,
   canEnterBusiness,
-  canSubmitAcceptance,
-  currentNoticeHashes,
-  featureReachable,
-  featureRequiresConsent,
-  noticePlainText,
-  noticeParagraphs,
-  sha256Hex,
-  type PrivacyNoticeAcceptance,
-  type PrivacyNoticeLocale,
+  consentCopyVersion,
+  privacyNoticePublished,
 } from "../lib/business-privacy-notice";
-import { getChosenGrant, setChosenGrant } from "../lib/business-grant";
-import { rememberPrivacyNoticeAcceptance, revokeEnabledReceiptReading } from "../lib/business-privacy-notice-client";
 
-const USER = "owner-jose";
+const SPANISH = {
+  title: "Antes de empezar",
+  body: "Cuadrao guarda los recibos, facturas y datos que subes para leerlos, organizarlos y preparar tus reportes. Solo tú y las personas que invites a tu negocio pueden verlos. Puedes pedir que borremos tus datos cuando quieras.",
+  opt_in: "Entiendo y acepto que Cuadrao use mis datos para esto.",
+  continue: "Continuar",
+  privacy_link: "Ver aviso de privacidad",
+};
 
-function acceptance(overrides: Partial<PrivacyNoticeAcceptance> = {}): PrivacyNoticeAcceptance {
-  return {
-    userId: USER,
-    acceptedAt: "2026-10-18T15:00:00.000Z",
-    noticeVersion: BUSINESS_PRIVACY_NOTICE_VERSION,
-    locale: "es-419",
-    textSha256: "ab".repeat(32),
-    ...overrides,
-  };
-}
+const ENGLISH = {
+  title: "Before you start",
+  body: "Cuadrao keeps the receipts, invoices and data you upload to read them, organize them and prepare your reports. Only you and the people you invite to your business can see them. You can ask us to delete your data whenever you want.",
+  opt_in: "I understand and agree that Cuadrao uses my data for this.",
+  continue: "Continue",
+  privacy_link: "View privacy notice",
+};
 
-function lookup(catalog: object, key: string): unknown {
-  return key.split(".").reduce<unknown>((value, part) => {
-    if (!value || typeof value !== "object") return undefined;
-    return (value as Record<string, unknown>)[part];
-  }, catalog);
-}
-
-describe("business privacy notice version", () => {
-  test("a current acceptance for this person skips the screen", async () => {
-    const hashes = await currentNoticeHashes();
-    const current = acceptance({ locale: "es-419", textSha256: hashes["es-419"] });
-    assert.equal(acceptanceMatchesCurrentNotice(current, USER, hashes), true);
+describe("business consent copy", () => {
+  test("the screen says exactly the approved words, and nothing else", () => {
+    assert.deepEqual(es.business.consent, SPANISH);
+    assert.deepEqual(en.business.consent, ENGLISH);
+    assert.deepEqual(BUSINESS_CONSENT_I18N_KEYS, Object.keys(SPANISH).map((key) => `business.consent.${key}`));
   });
 
-  test("a missing, other-person, older, or different notice does not skip the screen", async () => {
-    const hashes = await currentNoticeHashes();
-    const current = acceptance({ textSha256: hashes["es-419"] });
-    assert.equal(acceptanceMatchesCurrentNotice(null, USER, hashes), false);
-    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ userId: "someone-else", textSha256: hashes["es-419"] }), USER, hashes), false);
-    assert.equal(acceptanceMatchesCurrentNotice({ ...current, noticeVersion: "2026-10-01-draft-0" }, USER, hashes), false);
-    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ textSha256: "not-a-hash" }), USER, hashes), false);
-    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ textSha256: "ab".repeat(32) }), USER, hashes), false);
-    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ acceptedAt: "", textSha256: hashes["es-419"] }), USER, hashes), false);
-    assert.equal(acceptanceMatchesCurrentNotice(acceptance({ locale: "en", textSha256: hashes["es-419"] }), USER, hashes), false);
-  });
+  test("the wording version names what the screen shows, so any edit asks everyone again", async () => {
+    const version = await consentCopyVersion();
+    assert.match(version, /^[0-9a-f]{16}$/);
+    assert.equal(await consentCopyVersion(), version);
+    for (const catalog of [es, en]) {
+      const before = catalog.business.consent.opt_in;
+      catalog.business.consent.opt_in = `${before} `;
+      try {
+        assert.notEqual(await consentCopyVersion(), version);
+      } finally {
+        catalog.business.consent.opt_in = before;
+      }
+    }
 
-  test("the same version with edited paragraphs does not skip", async () => {
-    const hashes = await currentNoticeHashes();
-    const edited = noticePlainText([...noticeParagraphs("es-419").slice(0, -1), "[BORRADOR] Frase distinta."]);
-    const stale = acceptance({ textSha256: await sha256Hex(edited) });
-    assert.equal(acceptanceMatchesCurrentNotice(stale, USER, hashes), false);
-  });
-
-  test("the shown notice text is what the stored hash covers", async () => {
-    const shown = noticePlainText(["[BORRADOR] Primera frase.", "[BORRADOR] Segunda frase."]);
-    const changed = noticePlainText(["[BORRADOR] Primera frase.", "[BORRADOR] Frase distinta."]);
-    const hash = await sha256Hex(shown);
-    assert.equal(hash, await sha256Hex(shown));
-    assert.notEqual(hash, await sha256Hex(changed));
-    assert.match(hash, /^[0-9a-f]{64}$/);
-  });
-});
-
-describe("business consent gating", () => {
-  test("receipt reading and the assistant wait for acceptance", () => {
-    for (const feature of ["receipt_reading", "assistant"] as const) {
-      assert.equal(featureRequiresConsent(feature), true);
-      assert.equal(featureReachable(feature, false), false);
-      assert.equal(featureReachable(feature, true), true);
+    const link = es.business.consent.privacy_link;
+    es.business.consent.privacy_link = `${link} `;
+    try {
+      assert.equal(await consentCopyVersion(), version, "a hidden link is not part of what was accepted");
+    } finally {
+      es.business.consent.privacy_link = link;
+    }
+    const business = es.business as Record<string, unknown>;
+    business.privacy_notice = { title: "Aviso", close: "Cerrar", paragraphs: ["Texto."] };
+    try {
+      assert.notEqual(await consentCopyVersion(), version, "publishing the notice asks again");
+    } finally {
+      delete business.privacy_notice;
     }
   });
 
-  test("a declined notice cannot re-enter a client Business", () => {
+  test("no placeholder copy is left anywhere in the repository", () => {
+    const root = path.resolve(import.meta.dir, "../..");
+    const marker = ["[", "BORRADOR", "]"].join("");
+    const english = ["[", "DRAFT", "]"].join("");
+    for (const needle of [marker, english]) {
+      let found = "";
+      try {
+        found = execFileSync("git", ["grep", "-n", "-F", needle], { cwd: root, encoding: "utf8" });
+      } catch (error) {
+        if ((error as { status?: number }).status !== 1) throw error;
+      }
+      assert.equal(found, "", `${needle} is still in the repository`);
+    }
+  });
+});
+
+describe("business privacy notice", () => {
+  test("the notice is a draft until its text is in the catalog, and nothing links to a draft", () => {
+    assert.equal(privacyNoticePublished("es-419"), false);
+    assert.equal(privacyNoticePublished("en"), false);
+    const business = es.business as Record<string, unknown>;
+    business.privacy_notice = { title: "Aviso", close: "Cerrar", paragraphs: ["Texto."] };
+    try {
+      assert.equal(privacyNoticePublished("es-419"), true);
+      assert.equal(privacyNoticePublished("en"), false);
+    } finally {
+      delete business.privacy_notice;
+    }
+  });
+
+  test("a client Business stays closed without acceptance", () => {
     assert.equal(canEnterBusiness(false, null), true);
     assert.equal(canEnterBusiness(false, "44444444-4444-4444-8444-444444444444"), false);
     assert.equal(canEnterBusiness(true, "44444444-4444-4444-8444-444444444444"), true);
-  });
-
-  test("manual recording stays reachable when the notice is declined", () => {
-    for (const feature of ["upload_receipt", "record_expense", "review_inbox"]) {
-      assert.equal(featureRequiresConsent(feature), false);
-      assert.equal(featureReachable(feature, false), true);
-    }
-  });
-
-  test("accept stays disabled until the person opts in, and while the save is in flight", () => {
-    assert.equal(canSubmitAcceptance(false, false), false);
-    assert.equal(canSubmitAcceptance(true, true), false);
-    assert.equal(canSubmitAcceptance(true, false), true);
-  });
-
-  test("a failed tab write is not an acceptance", () => {
-    assert.throws(
-      () => rememberPrivacyNoticeAcceptance(acceptance(), () => false),
-      /privacy_notice_not_stored/,
-    );
-  });
-
-  test("declining turns off receipt reading even when the read says it is already off", async () => {
-    const calls: boolean[] = [];
-    await revokeEnabledReceiptReading({
-      receiptReading: async () => ({ enabled: false }),
-      setReceiptReading: async (_reading, enabled) => {
-        calls.push(enabled);
-        return { enabled };
-      },
-    }, "es-419");
-    assert.deepEqual(calls, [false]);
-  });
-
-  test("decline leaves a selected client before it reads the reading switch", async () => {
-    setChosenGrant("44444444-4444-4444-8444-444444444444");
-    let wrote = false;
-    await revokeEnabledReceiptReading({
-      receiptReading: async () => ({ enabled: false, can_change: false }),
-      setReceiptReading: async () => { wrote = true; return { enabled: false }; },
-    }, "es-419");
-    assert.equal(getChosenGrant(), null);
-    assert.equal(wrote, false);
-  });
-
-  test("a grantee cannot claim AI is off while the owner's switch stays on", async () => {
-    await assert.rejects(() => revokeEnabledReceiptReading({
-      receiptReading: async () => ({ enabled: true, can_change: false }),
-      setReceiptReading: async () => ({ enabled: false }),
-    }, "es-419"));
-  });
-
-  test("a missing Business has no receipt-reading switch to turn off", async () => {
-    const missing = Object.assign(new Error("missing"), { status: 404, code: "business_space_missing" });
-    let wrote = false;
-    await revokeEnabledReceiptReading({
-      receiptReading: async () => { throw missing; },
-      setReceiptReading: async () => { wrote = true; return { enabled: false }; },
-    }, "es-419");
-    assert.equal(wrote, false);
-  });
-
-  test("declining stays put when receipt reading cannot be turned off", async () => {
-    await assert.rejects(() => revokeEnabledReceiptReading({
-      receiptReading: async () => ({ enabled: true }),
-      setReceiptReading: async () => ({ enabled: true }),
-    }, "en" satisfies PrivacyNoticeLocale));
-  });
-
-  test("declining does nothing when this source has no receipt-reading switch", async () => {
-    await revokeEnabledReceiptReading({}, "es-419");
-  });
-
-  test("another failure while turning receipt reading off stays on the decline screen", async () => {
-    await assert.rejects(() => revokeEnabledReceiptReading({
-      receiptReading: async () => { throw new Error("offline"); },
-      setReceiptReading: async () => ({ enabled: false }),
-    }, "es-419"));
-  });
-});
-
-describe("placeholder notice copy", () => {
-  test("every consent string is in both catalogs and marked as a draft", () => {
-    for (const key of BUSINESS_CONSENT_I18N_KEYS) {
-      const spanish = lookup(es, key);
-      const english = lookup(en, key);
-      assert.equal(typeof spanish, "string", key);
-      assert.equal(typeof english, "string", key);
-      assert.equal(String(spanish).startsWith("[BORRADOR]"), true, key);
-      assert.equal(String(english).startsWith("[DRAFT]"), true, key);
-    }
-    for (const paragraph of es.business.privacy_notice.paragraphs) {
-      assert.equal(paragraph.startsWith("[BORRADOR]"), true);
-    }
-    for (const paragraph of en.business.privacy_notice.paragraphs) {
-      assert.equal(paragraph.startsWith("[DRAFT]"), true);
-    }
-    assert.equal(es.business.privacy_notice.paragraphs.length, en.business.privacy_notice.paragraphs.length);
   });
 });

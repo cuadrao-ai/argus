@@ -69,11 +69,13 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       email: "alpha@example.com",
       password: "password123",
       language: "en",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
 
     expect(body).toMatchObject({
       email: "alpha@example.com",
       captcha_token: "argus-local-browser-qa",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
     expect(result.response.session).toBeNull();
     expect(result.needsEmailConfirmation).toBe(true);
@@ -121,6 +123,7 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       email: "alpha@example.com",
       password: "password123",
       language: "en",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
 
     expect(result.needsEmailConfirmation).toBe(false);
@@ -151,6 +154,7 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       password: "password123",
       language: "es-419",
       display_name: "Alex",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
       source_conversation_id: "conversation-1",
       pending_action: {
         reason: "keep_history",
@@ -179,6 +183,7 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       language: "es-419",
       display_name: "Alex",
       captcha_token: "argus-local-browser-qa",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
     expect(result.needsEmailConfirmation).toBe(true);
   });

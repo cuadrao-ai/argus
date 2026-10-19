@@ -895,3 +895,18 @@ def test_nonimage_source_download_keeps_exact_bytes_without_image_producer(alice
     assert source.headers["x-content-type-options"] == "nosniff"
     assert source.headers["content-disposition"].startswith("attachment;")
     assert len(documents_service().store.objects.objects) == 1
+
+
+def test_consent_is_kept_per_person_and_wording(biz: TestClient) -> None:
+    alice = Owner(biz, ALICE)
+    wording = {"version": "0123456789abcdef"}
+    assert alice.get("/consent", **wording).json()["accepted_at"] is None
+    before = biz.post(f"{BASE}/consent", json=wording, headers=alice.auth)
+    assert (before.status_code, before.json()["code"]) == (404, "business_space_missing")
+    started(alice)
+    first = biz.post(f"{BASE}/consent", json=wording, headers=alice.auth).json()
+    again = biz.post(f"{BASE}/consent", json=wording, headers=alice.auth).json()
+    assert first["accepted_at"] and again == first
+    assert alice.get("/consent", **wording).json() == first
+    assert Owner(biz, BOB).get("/consent", **wording).json()["accepted_at"] is None
+    assert alice.get("/consent", version="fedcba9876543210").json()["accepted_at"] is None

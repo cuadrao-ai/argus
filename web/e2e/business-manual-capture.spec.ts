@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 import type { BusinessCaptureInput } from "../lib/business-api";
-import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
 type CaptureMode = "ok" | "lost" | "denied" | "stale" | "business_action_unsettled" | "outcome_unknown" | "conflict";
 async function setup(page: Page, draftId?: string, workspaceUnavailable = false) {
@@ -16,6 +16,7 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
     const method = route.request().method();
     try {
       if (path === "space") { state.starts++; return route.fulfill({ json: { id: "fixture-space", name: "Negocio de prueba" } }); }
+      if (path === "consent") return fulfillAcceptedBusinessConsent(route);
       if (path === "workspace") {
         if (state.workspaceUnavailable) return route.fulfill({ status: 403, json: { detail: { code: "permission_denied", status: 403, title: "Action refused", detail: "permission_denied", request_id: "capture-test" } } });
         return route.fulfill({ json: await source.workspace() });
