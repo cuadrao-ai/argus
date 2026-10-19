@@ -167,7 +167,7 @@ struct ConnectedCreateAccount: View {
         if signingIn {
             form
         } else {
-            AgeConfirmationGate { form }
+            AgeRangeObservationView { form }
         }
     }
 

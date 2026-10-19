@@ -187,40 +187,17 @@ See the [lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb
 for ownership and exact integration/design/auth reference commits.
 
 
-## 18+ entry confirmation
+## Native age signal
 
-Before signup or opening the on-device guest book, the person accepts
-"Confirmo que tengo 18 años o más." One local timestamp survives relaunch and
-conversion. `SessionController.signup` refuses a missing attestation and sends
-that exact string as `age_confirmed_at` to `POST /api/v1/auth/signup`.
-The web/API age-confirmation PR owns server validation and profile persistence.
-The native guest book has no anonymous server session; conversion creates a
-permanent account through ordinary signup before the existing book claim.
-
-No birthday, raw Apple range, declaration method, or parental-control details are
-saved. The timestamp is a person's attestation and does not certify verified age.
-Existing login, admission, CAPTCHA, and email-confirmation paths remain in place.
-
-On iOS 26.2 and later, the app requests `ageGates: 18`. On iOS 26.4 and later,
-`.declaredAgeRangeRequired` from `requiredRegulatoryFeatures` makes sharing
-mandatory. A shared range below 18 always refuses entry. Optional decline or
-request failure permits the checkbox attestation. Mandatory decline, request
-failure, or an unknown regulatory requirement blocks entry and offers the approved
-recovery action. Older systems use only the checkbox. The under-18 screen has no
-retry and may open the configured terms URL through its scoped legal exception.
-The general legal-links flag stays false.
-
-The device target requests `com.apple.developer.declared-age-range` through
-`Config/DeclaredAgeRange.entitlements`; simulator and optional Apple-sign-in
-entitlement files request it too. `run_age_build_settings.py` checks each effective
-path without writing Local.xcconfig or device provisioning. Physical-device
-provisioning and an actual Apple account response remain separate acceptance.
-
-Release social sign-in remains off in `NativeProviderConfiguration.load` and
-Release settings. Its parked DEBUG ID-token path creates Supabase identities and
-hydrates `/me`; it does not use the signup API. Before enabling social sign-in,
-connect the same age confirmation to the server-owned profile creation path and
-verify its complete first-sign-in journey.
+Signup and guest entry have no custom age question or age restriction. A shared
+MainActor task requests `ageGates: 18` on iOS 26.2 and later through the system UI.
+Only a coarse adult/under18/unknown/notShared/unsupported/unavailable result is
+logged locally. No range, birthday, account identity or preference is saved.
+The observation never controls entry or signup submission, even when pending,
+failed or cancelled. Redraws do not repeat the request. Signup sends the normal
+API fields and creates no adult attestation timestamp. The existing age-range
+entitlements remain. Real system account and physical-device proof are pending.
+Release social sign-in remains off and keeps its separate acceptance gate.
 
 Offline checks:
 

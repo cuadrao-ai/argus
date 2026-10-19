@@ -1,31 +1,24 @@
 #if DEBUG
 import SwiftUI
 
-/// Synthetic Apple responses exercise the real gate without a server or Apple account.
 struct AgeConfirmationHarness: View {
-    @State private var conversion = false
+    @State private var submitted = false
     @State private var appearance = AppearancePreference.light
     @StateObject private var auth = ProfileAuthModel(configuration: nil, controller: nil)
-    private let store: AgeConfirmationStore
-    private let checker: HarnessAgeRangeChecker
+    @StateObject private var observation: AgeRangeObservation
 
     init() {
         _appearance = State(initialValue: AppearancePreference(rawValue: UserDefaults.standard.string(forKey: AppearancePreference.storageKey) ?? "light") ?? .light)
-        let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("--age-legal-entry"), arguments.contains("--age-reset") {
-            UserDefaults.standard.removeObject(forKey: AgeConfirmationStore.key)
-        }
-        let suite = UserDefaults.standard.string(forKey: "ageHarnessSuite") ?? "local.cuadrao.age-harness"
-        let defaults = UserDefaults(suiteName: suite)!
-        if arguments.contains("--age-reset") { defaults.removePersistentDomain(forName: suite) }
-        store = AgeConfirmationStore(defaults: defaults)
-        checker = HarnessAgeRangeChecker(fixture: arguments.first { $0.hasPrefix("--age-response=") }?
-            .replacingOccurrences(of: "--age-response=", with: "") ?? "older")
+        let fixture = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--age-response=") }?
+            .replacingOccurrences(of: "--age-response=", with: "") ?? "older"
+        _observation = StateObject(wrappedValue: AgeRangeObservation(checker: HarnessAgeRangeChecker(fixture: fixture)))
     }
 
-    static func legalEntryModel() -> AgeConfirmationModel? {
+    static func legalEntryObservation() -> AgeRangeObservation? {
         guard ProcessInfo.processInfo.arguments.contains("--age-legal-entry") else { return nil }
-        return AgeConfirmationModel(checker: HarnessAgeRangeChecker(fixture: "adult"))
+        let fixture = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--age-response=") }?
+            .replacingOccurrences(of: "--age-response=", with: "") ?? "adult"
+        return AgeRangeObservation(checker: HarnessAgeRangeChecker(fixture: fixture))
     }
 
     var body: some View {
@@ -41,21 +34,16 @@ struct AgeConfirmationHarness: View {
             }
             .preferredColorScheme(appearance.colorScheme)
         } else {
-            gate
-        }
-    }
-
-    private var gate: some View {
-        NavigationStack {
-            AgeConfirmationGate(model: AgeConfirmationModel(store: store, checker: checker)) {
+            AgeRangeObservationView(observation: observation) {
                 VStack {
-                    Text("Synthetic entry allowed").accessibilityIdentifier("age.harness.allowed")
-                    Text(store.confirmation?.timestamp ?? "missing").accessibilityIdentifier("age.harness.timestamp")
-                    Button("Synthetic conversion") { conversion = true }
-                        .accessibilityIdentifier("age.harness.conversion")
+                    Text("Synthetic signup ready").accessibilityIdentifier("age.harness.allowed")
+                    Button("Synthetic signup") { submitted = true }
+                        .accessibilityIdentifier("age.harness.signup")
+                    if submitted {
+                        Text("Synthetic signup submitted").accessibilityIdentifier("age.harness.submitted")
+                    }
                 }
             }
-            .id(conversion)
         }
     }
 }
@@ -64,18 +52,18 @@ struct AgeConfirmationHarness: View {
 private struct HarnessAgeRangeChecker: AgeRangeChecking {
     let fixture: String
     enum Failure: Error { case synthetic }
-    func requirement() async throws -> AgeRangeRequirement {
-        switch fixture {
-        case "older": .unsupported
-        case "optional-error", "under18": .optional
-        default: .required
-        }
-    }
+
     func request() async throws -> DeclaredAgeAssessment {
         switch fixture {
+        case "older": return .unsupported
         case "required-error", "optional-error": throw Failure.synthetic
+        case "cancelled": throw CancellationError()
+        case "pending":
+            try await Task.sleep(for: .seconds(3600))
+            return .unknown
         case "under18": return .under18
         case "declined": return .notShared
+        case "unknown": return .unknown
         default: return .adult
         }
     }
