@@ -204,10 +204,9 @@ def test_fiscal_duplicate_approvals_create_one_money_activity(actions, sale, buy
             executor.map(lambda draft: approve(service, context, draft), [first, second])
         )
     assert sorted(result.outcome for result in results) == ["applied", "invalid_input"]
-    assert (
-        next(result.code for result in results if result.outcome == "invalid_input")
-        == "fiscal_duplicate_document"
-    )
+    assert next(
+        result.code for result in results if result.outcome == "invalid_input"
+    ) == ("fiscal_duplicate_document" if sale else "duplicate_comprobante")
     with service.authority.pool.connection() as db:
         assert (
             db.execute(
@@ -239,7 +238,8 @@ def test_conflicting_amount_same_ncf_is_refused_before_money_and_review_keeps_ta
     assert before.dgii is not None
     assert before.history[-1].before_dgii == before.history[-1].after_dgii
     outcome = approve(service, context, (second[0], changed.version, second[2]))
-    assert outcome.code == "fiscal_duplicate_document"
+    assert outcome.code == "duplicate_comprobante"
+    assert outcome.existing_record_id == first[0]
 
 
 def test_accountant_cannot_change_rnc_or_approve_refund_but_reads_same_fiscal_packet(
@@ -354,7 +354,7 @@ def test_legacy_printed_supplier_identity_blocks_new_canonical_duplicate(actions
         == "applied"
     )
     second = reviewed(service, context, account)
-    assert approve(service, context, second).code == "fiscal_duplicate_document"
+    assert approve(service, context, second).code == "duplicate_comprobante"
 
 
 def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, users):

@@ -347,6 +347,17 @@ class Refused(Contract):
         "idempotency_conflict",
     ]
     code: str
+    # The approved record a duplicate_comprobante refusal points at.
+    existing_record_id: UUID | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_record(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        payload = handler(self)
+        if self.existing_record_id is None:
+            payload.pop("existing_record_id", None)
+        return payload
 
 
 class OutcomeUnknown(Contract):
