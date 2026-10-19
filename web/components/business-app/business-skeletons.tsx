@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { cardClass } from "./business-ui";
+import { cardClass, lockedCardClass } from "./business-ui";
 import styles from "./business-skeletons.module.css";
 
 export const SKELETON_DELAY_MS = 300;
@@ -57,10 +57,14 @@ function InboxRow() {
 
 function UpdateRow() {
   return (
-    <div className="flex items-start gap-3 px-3 py-3">
-      <Bar className="mt-0.5 h-5 w-5 shrink-0" />
-      <Bar className="h-[14px] min-w-0 flex-1" />
-      <Bar className="h-3 w-14 shrink-0" />
+    <div className="flex min-h-16 items-start gap-3 px-3 py-3">
+      <Bar className="h-6 w-32 shrink-0 rounded-full" />
+      <span className="min-w-0 flex-1">
+        <span className="flex h-6 items-center"><Bar className="h-[15px] w-2/5" /></span>
+        <span className="mt-1 flex h-[18px] items-center"><Bar className="h-[13px] w-3/5" /></span>
+        <span className="mt-1 flex h-[18px] items-center tablet:hidden"><Bar className="h-[13px] w-14" /></span>
+      </span>
+      <span className="hidden h-[18px] shrink-0 items-center tablet:flex"><Bar className="h-[13px] w-14" /></span>
     </div>
   );
 }
@@ -153,11 +157,9 @@ function DetailSkeleton() {
 
 function Rows({ count, layout }: { count: number; layout: ListLayout }) {
   const Row = LIST_ROWS[layout];
-  return (
-    <ListShell>
-      {Array.from({ length: count }, (_, index) => <Row key={index} />)}
-    </ListShell>
-  );
+  const rows = Array.from({ length: count }, (_, index) => <Row key={index} />);
+  if (layout === "updates") return <div className={`${lockedCardClass} divide-y divide-[#DCE0DA] p-2 dark:divide-white/[0.06]`}>{rows}</div>;
+  return <ListShell>{rows}</ListShell>;
 }
 
 export function BusinessSkeleton({ layout, rows = 3 }: { layout: SkeletonLayout; rows?: number }) {
