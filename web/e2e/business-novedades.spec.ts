@@ -1,7 +1,7 @@
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
 type Feed = "data" | "empty" | "error" | "slow" | "late";
 
@@ -25,6 +25,7 @@ async function installBusiness(page: Page, feed: Feed) {
   await page.route("**/api/v1/business/**", async (route) => {
     const url = new URL(route.request().url());
     const parts = url.pathname.split("/business/")[1].split("/");
+    if (parts[0] === "consent") return fulfillAcceptedBusinessConsent(route);
     try {
       let json: unknown;
       if (parts[0] === "updates") {

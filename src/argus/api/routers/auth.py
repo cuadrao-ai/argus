@@ -696,6 +696,7 @@ def signup_guest_account(
                     display_name=body.display_name,
                     username=body.username,
                     language=body.language,
+                    age_confirmed_at=body.age_confirmed_at,
                     guest_signup_handoff={
                         "handoff_id": handoff_id,
                         "proof": str(handoff["proof"]),
@@ -720,6 +721,9 @@ def signup_guest_account(
 
             profile = api_state.supabase_gateway.get_or_create_profile_for_auth_user(
                 auth_user
+            )
+            api_state.supabase_gateway.record_age_confirmation(
+                profile.id, body.age_confirmed_at
             )
             result["user"] = profile.model_dump(mode="json")
             _emit_account_registration_completed_event(
@@ -807,6 +811,7 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
                 display_name=body.display_name,
                 username=body.username,
                 language=body.language,
+                age_confirmed_at=body.age_confirmed_at,
             )
             auth_user = result.get("user")
             if not isinstance(auth_user, dict):
@@ -817,6 +822,9 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
             if identities != []:
                 profile = api_state.supabase_gateway.get_or_create_profile_for_auth_user(
                     auth_user
+                )
+                api_state.supabase_gateway.record_age_confirmation(
+                    profile.id, body.age_confirmed_at
                 )
                 _emit_account_registration_completed_event(
                     profile,

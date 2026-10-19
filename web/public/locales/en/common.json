@@ -132,7 +132,7 @@
             },
             "preferences": {
               "label": "Preferences you set",
-              "body": "Your browser’s local storage holds your language, which starts from your browser’s own setting until you change it, along with your appearance and layout choices, tips you dismissed, the conversations you marked temporary, and the ad or link that brought you here. Language, appearance, layout, tips, and temporary-chat marks stay on your device. The campaign is stored there too, and Argus may receive it when you start as a guest or create an account. This tab temporarily keeps your account identifier, the daily-limit reset time, and whether you closed the notice. That notice state clears when the limit resets, a question succeeds, you sign out or switch accounts, or you close the tab. This tab also keeps whether you accepted the current Cuadrao Business privacy notice, until that acceptance can be stored on the server. Closing the tab clears that copy. Argus never sends any of this to advertisers."
+              "body": "Your browser’s local storage holds your language, which starts from your browser’s own setting until you change it, along with your appearance and layout choices, tips you dismissed, the conversations you marked temporary, and the ad or link that brought you here. Language, appearance, layout, tips, and temporary-chat marks stay on your device. The campaign is stored there too, and Argus may receive it when you start as a guest or create an account. This tab temporarily keeps your account identifier, the daily-limit reset time, and whether you closed the notice. That notice state clears when the limit resets, a question succeeds, you sign out or switch accounts, or you close the tab. This tab also keeps whether you accepted the current Cuadrao Business privacy notice, until that acceptance can be stored on the server. Closing the tab clears that copy. Argus never sends any of this to advertisers. When you create your account, we save with it when you confirmed you're 18 or older. We don't store your date of birth."
             }
           },
           "body_after": "Argus does not use advertising cookies, ad pixels, marketing trackers, or cross-site tracking, and it does not share browser data with advertising partners. Product analytics, when enabled, run on Argus servers and store nothing in your browser. You can clear or block this storage in your browser settings, though signing in will stop working if you block the sign-in cookies."
@@ -1440,6 +1440,11 @@
     "close_dossier": "Close dossier"
   },
   "auth": {
+    "age_confirmation": {
+      "checkbox": "I confirm I'm 18 or older.",
+      "missing": "To continue, confirm you're 18 or older.",
+      "rejected": "We couldn't save your age confirmation. Check the box and try again."
+    },
     "captcha": {
       "verifying": "Verifying you’re not a bot…"
     },
@@ -2242,26 +2247,11 @@
       }
     },
     "consent": {
-      "title": "[DRAFT] Before AI is used for your business",
-      "intro": "[DRAFT] Receipt reading with AI and the assistant send business data to a model provider. Review the notice and confirm that you accept it. Counsel replaces this marker with the final text.",
-      "privacy_link": "[DRAFT] Read the privacy notice",
-      "opt_in": "[DRAFT] I accept the Cuadrao Business privacy notice I just saw, for this version.",
-      "accept": "[DRAFT] Accept and continue",
-      "decline": "[DRAFT] Do not accept",
-      "saving": "[DRAFT] Saving your acceptance…",
-      "save_error": "[DRAFT] Your acceptance could not be saved. Try again.",
-      "decline_title": "[DRAFT] Without this permission, AI stays off",
-      "decline_body": "[DRAFT] If you do not accept, receipt reading with AI and the assistant stay unavailable. You can still upload receipts, record expenses, and review what is already saved.",
-      "continue_without": "[DRAFT] Continue without AI",
-      "holding": "[DRAFT] Turning receipt reading off…",
-      "hold_error": "[DRAFT] Receipt reading could not be turned off. AI would stay available, so we stayed here.",
-      "back": "[DRAFT] Back to the notice",
-      "accepted_title": "[DRAFT] Acceptance kept in this browser",
-      "accepted_body": "[DRAFT] We kept who accepted, when, the notice version, the language, and a fingerprint of the text shown. This copy lives only in this tab until the server can store it.",
-      "continue": "[DRAFT] Continue",
-      "held": "[DRAFT] Receipt reading with AI and the assistant stay off until you accept the current notice.",
-      "review": "[DRAFT] Review the notice",
-      "version_label": "[DRAFT] Version {{version}}"
+      "title": "Before you start",
+      "body": "Cuadrao keeps the receipts, invoices and data you upload to read them, organize them and prepare your reports. Only you and the people you invite to your business can see them. You can ask us to delete your data whenever you want.",
+      "opt_in": "I understand and agree that Cuadrao uses my data for this.",
+      "continue": "Continue",
+      "privacy_link": "View privacy notice"
     },
     "export": {
       "title": "Export Business records",
@@ -2506,18 +2496,6 @@
       "detail_error": "We couldn't open this expense. Try again.",
       "retry": "Try again",
       "account_unknown": "Unknown"
-    },
-    "privacy_notice": {
-      "title": "[DRAFT] Cuadrao Business privacy notice",
-      "close": "[DRAFT] Close notice",
-      "paragraphs": [
-        "[DRAFT] This notice is a placeholder. It is not published and a lawyer has not reviewed it. The final text replaces these sentences.",
-        "[DRAFT] It covers Cuadrao Business, the business web app. The business owner is responsible for the business records. Cuadrao processes them on the owner's behalf. The legal operator, address, and privacy contact remain {{OPERADOR_LEGAL}}, {{DIRECCION_LEGAL}}, and {{CONTACTO_PRIVACIDAD}}.",
-        "[DRAFT] We collect the account of the person who signs in, business records, original receipts, what reading proposes, and tax data that appears on a receipt, such as RNC, NCF or e-CF, and ITBIS. That tax data stays unverified until an authorized person reviews it.",
-        "[DRAFT] Reading a receipt with AI sends the photo, PDF, or document to a model, only to propose the merchant, amount, date, and tax data. The assistant sends the message text and the context it needs. Neither records an expense on its own.",
-        "[DRAFT] Without your acceptance of this notice, those features stay off. Uploading a receipt, recording an expense, or reviewing what is saved is not permission to send data to a model.",
-        "[DRAFT] You can ask for access, correction, deletion, objection, and portability. Response times and the applicable law, including Law 172-13, are for counsel to confirm. [A CONFIRMAR]"
-      ]
     },
     "sample": {
       "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."

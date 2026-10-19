@@ -7,7 +7,7 @@ const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
 test("logout invalidates delayed login and signup responses before they can restore a session", async () => {
   const { loginWithEmail, signupWithEmail } = await import("@/lib/argus-api");
-  for (const login of [() => loginWithEmail({ email: "fixture@example.test", password: "fixture" }), () => signupWithEmail({ email: "fixture@example.test", password: "fixture", language: "en" })]) {
+  for (const login of [() => loginWithEmail({ email: "fixture@example.test", password: "fixture" }), () => signupWithEmail({ email: "fixture@example.test", password: "fixture", language: "en", age_confirmed_at: "2026-10-17T12:00:00.000Z" })]) {
     let release!: (response: Response) => void;
     globalThis.fetch = mock(() => new Promise<Response>(resolve => { release = resolve; })) as typeof fetch;
     const pending = login();

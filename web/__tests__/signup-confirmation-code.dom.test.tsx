@@ -59,6 +59,11 @@ async function renderSpanishSignup(props: {
   await setNativeValue(fields[0] as HTMLInputElement, "Ada");
   await setNativeValue(fields[1] as HTMLInputElement, "ada@example.com");
   await setNativeValue(fields[2] as HTMLInputElement, "correct-horse");
+  const checkbox = signupForm.querySelector("#age-confirmation-checkbox");
+  if (!(checkbox instanceof HTMLInputElement)) throw new Error("age checkbox missing");
+  await act(async () => {
+    checkbox.click();
+  });
   const signupButton = signupForm.querySelector("button[type='submit']");
   await act(async () => {
     signupForm.requestSubmit(signupButton as HTMLButtonElement);
