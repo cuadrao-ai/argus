@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, BadgeCheck, Check, ChevronLeft, ChevronRight, CircleCheck, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -18,15 +18,18 @@ import {
   electronicNcf,
   fiscalNumberPresent,
   formatMonthLabel,
+  itbisBalanceDisplay,
   monthCloseBlockers,
   monthCloseClient,
   monthCloseNetDisplay,
   monthCloseStatusView,
   monthCloseSummary,
+  monthFilingNotice,
   monthPickerMonths,
   paperNcf,
   rncPresent,
   shiftMonthKey,
+  windowForMonth,
   sortDocuments,
   type MonthCloseBlocker,
   type MonthCloseClient,
@@ -36,7 +39,8 @@ import {
 } from "@/lib/business-month-close";
 import { formatDay, formatMoney } from "./business-format";
 import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
-import { useBusiness } from "./BusinessWorkspace";
+import { BusinessContext, useBusiness } from "./BusinessWorkspace";
+import { ReceiptPeriodExport } from "./ReceiptDossierReview";
 
 const monthArrowClass =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-white/70 dark:hover:bg-white/5";
@@ -269,6 +273,19 @@ function figureCard(computed: string, override: string | null | undefined, hasFi
   return { state: "final", value: override };
 }
 
+function itbisCard(
+  computed: string,
+  override: string | null | undefined,
+  hasFigures: boolean,
+  pending: string,
+): { state: "pending" | "final"; value: string; credit: boolean } {
+  const figure = figureCard(computed, override, hasFigures, pending);
+  if (figure.state !== "final") return { state: "pending", value: figure.value, credit: false };
+  const balance = itbisBalanceDisplay(figure.value);
+  if (balance.kind === "credit") return { state: "final", value: balance.amount, credit: true };
+  return { state: "final", value: figure.value, credit: false };
+}
+
 function SummaryCard({
   testId,
   label,
@@ -315,11 +332,13 @@ export function BusinessMonthCloseView({
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
+  const workspace = useContext(BusinessContext);
   const [clock] = useState(() => now ?? new Date());
   const currentMonth = currentMonthKey(clock);
   const today = calendarDay(clock);
   const preview = previewHold();
   const [month, setMonth] = useState(currentMonth);
+  const bounds = windowForMonth(month);
   const [snapshot, setSnapshot] = useState<MonthCloseSnapshot | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
@@ -361,6 +380,10 @@ export function BusinessMonthCloseView({
   }, [toast]);
 
   const summary = snapshot ? monthCloseSummary(snapshot.documents) : null;
+  const itbis = snapshot && summary
+    ? itbisCard(summary.itbis_owed, snapshot.figures?.itbis_owed, Boolean(snapshot.figures), t("business.month_close.pending_label", "Pending"))
+    : null;
+  const filingNotice = snapshot ? monthFilingNotice(snapshot) : false;
   const listedBlockers = snapshot ? snapshot.blockers ?? monthCloseBlockers(snapshot.documents) : [];
   const blockers = listedBlockers.filter((blocker) => blocker.kind === "missing_rnc" || blocker.kind === "missing_ncf");
   const net = snapshot ? monthCloseNetDisplay(snapshot.documents, listedBlockers, snapshot.figures ? snapshot.figures.net_before_itbis : undefined) : null;
@@ -503,8 +526,8 @@ export function BusinessMonthCloseView({
           {relative ? <span className="mt-1 block text-[12px] text-black/50 dark:text-white/50">{relative}</span> : null}
         </div>
         <div>
-          <span className="text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, "DOP", locale)}</span>
-          {document.itbis ? <span className="mt-1 block text-[12px] tabular-nums text-black/50 dark:text-white/50">{t("business.month_close.itbis_line", "ITBIS {{amount}}", { amount: formatMoney(document.itbis, "DOP", locale) })}</span> : null}
+          <span className="text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, document.currency, locale)}</span>
+          {document.itbis ? <span className="mt-1 block text-[12px] tabular-nums text-black/50 dark:text-white/50">{t("business.month_close.itbis_line", "ITBIS {{amount}}", { amount: formatMoney(document.itbis, document.currency, locale) })}</span> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {pending ? (
@@ -543,7 +566,7 @@ export function BusinessMonthCloseView({
         <Check className="h-4 w-4 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-black dark:text-white">{document.counterparty}</span>
         <time dateTime={document.occurred_on} className="shrink-0 text-[13px] text-black/55 dark:text-white/55">{formatDay(document.occurred_on, locale)}</time>
-        <span className="shrink-0 text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, "DOP", locale)}</span>
+        <span className="shrink-0 text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, document.currency, locale)}</span>
         <StatusChip status={document.status} label={statusLabel(document.status)} />
       </li>
     );
@@ -634,6 +657,16 @@ export function BusinessMonthCloseView({
                   {reason}
                 </p>
               ) : null}
+              {filingNotice ? (
+                <p data-testid="month-close-filing" className="max-w-sm text-[13px] text-black/70 dark:text-white/70">
+                  <span data-testid="month-close-filing-status" className="block text-[14px] font-medium text-black dark:text-white">
+                    {t("business.month_close.status_pendiente", "Pending")}
+                  </span>
+                  <span data-testid="month-close-filing-line" className="mt-0.5 block">
+                    {t("business.month_close.filing_ready", "You already have everything for the 606 and the 607. Close the month when you finish marking what was collected and what was paid.")}
+                  </span>
+                </p>
+              ) : null}
             </>
           )}
         </div>
@@ -694,7 +727,18 @@ export function BusinessMonthCloseView({
                 : t("business.month_close.net_hint", "Income minus expenses, before ITBIS.")}
               locale={locale}
             />
-            <SummaryCard testId="month-close-itbis" label={t("business.month_close.itbis_label", "ITBIS to pay")} {...figureCard(summary.itbis_owed, snapshot.figures?.itbis_owed, Boolean(snapshot.figures), t("business.month_close.pending_label", "Pending"))} hint={t("business.month_close.itbis_hint", "ITBIS on invoices minus ITBIS on expenses.")} locale={locale} />
+            {itbis ? (
+              <SummaryCard
+                testId="month-close-itbis"
+                label={itbis.credit ? t("business.month_close.itbis_credit_label", "ITBIS balance in your favor") : t("business.month_close.itbis_label", "ITBIS to pay")}
+                state={itbis.state}
+                value={itbis.value}
+                hint={itbis.credit
+                  ? t("business.month_close.itbis_credit_line", "This month you paid more ITBIS than you collected. That difference normally stays as a balance in your favor for the coming months. Your accountant confirms it on the IT-1.")
+                  : t("business.month_close.itbis_hint", "ITBIS on invoices minus ITBIS on expenses.")}
+                locale={locale}
+              />
+            ) : null}
           </div>
 
           {blockers.length > 0 ? (
@@ -788,6 +832,22 @@ export function BusinessMonthCloseView({
       {toast ? (
         <div role="alert" data-testid="month-close-toast" className="fixed inset-x-4 bottom-24 z-[60] mx-auto max-w-md rounded-[14px] bg-black px-4 py-3 text-[13px] text-white shadow-lg dark:bg-white dark:text-black">
           {toast}
+        </div>
+      ) : null}
+
+      {workspace?.chosen && bounds.to ? (
+        <div className="mt-6">
+          <ReceiptPeriodExport
+            key={`${workspace.chosen.grant_id}:${bounds.from}:${bounds.to}`}
+            scope={{
+              name: workspace.chosen.name,
+              capabilities: workspace.chosen.capabilities,
+              grantId: workspace.chosen.role === "owner" ? null : workspace.chosen.grant_id,
+            }}
+            start={bounds.from}
+            end={bounds.to}
+            available={workspace.source.mode === "live"}
+          />
         </div>
       ) : null}
     </section>

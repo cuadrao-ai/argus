@@ -2538,8 +2538,8 @@
     "file_read": {
       "unreadable_title": "We couldn't read this file",
       "unreadable_body": "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light, or enter the details yourself.",
-      "not_a_receipt_title": "This doesn't look like a receipt",
-      "not_a_receipt_body": "We read the file, but we didn't find a purchase with its total. Statements and payment notices don't belong here. If this is an invoice you issued, mark it as a sale.",
+      "not_a_receipt_title": "This file doesn't look like a receipt or an invoice",
+      "not_a_receipt_body": "Upload the photo or the PDF of a receipt.",
       "upload_another": "Upload another file",
       "enter_details": "Enter details"
     },
@@ -2578,6 +2578,8 @@
       "pending_reason_one": "{{count}} document still pending",
       "pending_reason_other": "{{count}} documents still pending",
       "previous_month": "Previous month",
+      "itbis_credit_label": "ITBIS balance in your favor",
+      "itbis_credit_line": "This month you paid more ITBIS than you collected. That difference normally stays as a balance in your favor for the coming months. Your accountant confirms it on the IT-1.",
       "itbis_label": "ITBIS to pay",
       "itbis_hint": "ITBIS on invoices minus ITBIS on expenses.",
       "receivable_title": "To collect",
@@ -2592,6 +2594,7 @@
       "status_vencida": "Overdue",
       "kind_invoice": "Invoice",
       "kind_receipt": "Expense",
+      "filing_ready": "You already have everything for the 606 and the 607. Close the month when you finish marking what was collected and what was paid.",
       "filter_label": "Status",
       "filter_all": "All",
       "filter_all_hint": "Every invoice and expense",
