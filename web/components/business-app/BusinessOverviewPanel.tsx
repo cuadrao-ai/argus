@@ -10,6 +10,7 @@ import { useBusiness } from "./BusinessWorkspace";
 import { formatBusinessName } from "./business-format";
 import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
 import BusinessMonthClosePanel from "./BusinessMonthClosePanel";
+import { PrimaryUpload } from "./foundation/PrimaryUpload";
 
 function ForwardCard() {
   const { t } = useTranslation();
@@ -58,15 +59,14 @@ export default function BusinessOverviewPanel() {
 
   return (
     <section aria-labelledby="business-overview-title">
+      {upload && isBelowTablet ? <div className="mb-4"><PrimaryUpload fullWidth label={upload.label} onClick={upload.run} /></div> : null}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
           {formatBusinessName(chosen?.name, t("business.overview.title", "My business"))}
         </h2>
         <div className="flex flex-wrap items-center justify-end gap-3">
           {upload ? (
-            <button type="button" data-testid="business-primary-upload" data-primary="true" className={primaryClass} onClick={upload.run}>
-              {upload.label}
-            </button>
+            isBelowTablet ? null : <PrimaryUpload label={upload.label} onClick={upload.run} />
           ) : chosen?.role === "accountant" ? (
             <button type="button" data-testid="inicio-primary-review" data-primary="true" className={primaryClass} onClick={() => openPanel({ kind: "inbox" })}>
               {t("business.actions.review_receipts", "Review receipts")}
