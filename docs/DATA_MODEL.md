@@ -170,7 +170,19 @@ capture; a durable delivery queue; one row per attachment part.
 business_email_routes
 business_email_deliveries
 business_email_parts
+business_email_retired_aliases
+business_email_senders
+business_email_address_events
 ```
+
+A route may carry one current alias. Changing it appends the previous
+recipient to `business_email_retired_aliases` and leaves existing deliveries
+on the route id. Deleting the route keeps the live alias reserved.
+`business_email_senders` is one rule per Business, kind, and
+value. `business_email_address_events` appends one row when that address stops
+or changes, and when a sender is authorized, removed, or blocked. The row
+stores the actor, the time, the old address, and the new address. The daily
+allowance day is America/Santo_Domingo.
 
 Service-role only, part of the hosted Business beta (no flag):
 ```text
@@ -3495,6 +3507,8 @@ establish delivery of all seven Business journeys.
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
 | `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
+| `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the space or the activity cascades the row. |
+| `business_document_settlement_revisions` | Append-only previous status, date, and method, plus the actor and the time. A repeated identical settlement writes no row. Updates and direct deletes fail. Deleting the settlement cascades these rows. The actor reference clears when that person is deleted. The month summary is computed, not stored. Shapes and the closed rule are in the [month-close contract](contracts/business-month-close.md). |
 
 Migration `20261011070000_business_manual_capture_command.sql` extends only
 the action-receipt checks to admit human `capture_note` commands without a turn.
@@ -3523,9 +3537,11 @@ identity and ITBIS remain in `BusinessFacts.fiscal`.
 
 The existing human `ReviewCommand` carries the tax input. It updates the current
 open resolution and appends one source-linked revision atomically. Every later
-revision preserves the declaration. Owner approval binds the reviewed revision;
-the export reads that revision's facts and declaration, then checks current money
-amount, date and currency. Accepted-record tax edits remain refused. No second
+revision preserves the declaration. Owner approval binds the reviewed revision.
+When the draft holds no declaration, an expense approval appends one revision at
+the next version, with a 606 declaration built from the reviewed facts. The export
+reads the reviewed revision's facts and the declaration from it or from that
+approval revision, then checks current money amount, date and currency. Accepted-record tax edits remain refused. No second
 tax ledger or fiscal approval bypass is added. New human-only action receipt
 types `approve_refund` and `set_business_rnc` retain the existing immutable actor,
 command hash and idempotency rules. The migration uses five-second lock and

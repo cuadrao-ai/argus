@@ -27,6 +27,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -57,6 +58,14 @@ def _plain_host(name: str) -> str:
     """The name libpq would connect to: decoded, lowercase, no trailing dot."""
 
     return unquote(name).lower().rstrip(".")
+
+
+def _without_surrounding_quotes(value: str) -> str:
+    """Drop one matching pair of quotes around an environment value."""
+
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        return value[1:-1]
+    return value
 
 
 def _is_hosted(name: str) -> bool:
@@ -237,10 +246,16 @@ def check_target(
     for name in _REFUSED_ENVIRONMENT:
         if environment.get(name):
             raise ApplyError(f"{name} is set and could redirect the connection")
-    parts = urlsplit(url)
-    if "," in parts.netloc:
-        raise ApplyError("a multi-host database URL is refused")
-    host = _plain_host(parts.hostname or "")
+    parts = None
+    try:
+        parts = urlsplit(url)
+        if "," in parts.netloc:
+            raise ApplyError("a multi-host database URL is refused")
+        host = _plain_host(parts.hostname or "")
+    except ValueError:
+        parts = None
+    if parts is None:
+        raise ApplyError("the database URL could not be parsed") from None
     if parts.query or parts.fragment:
         raise ApplyError("the database URL must not carry a query or fragment")
     if "," in host:
@@ -567,9 +582,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    url = os.environ.get(args.database_url_env, "")
+    url = _without_surrounding_quotes(os.environ.get(args.database_url_env, ""))
     if not url:
         raise ApplyError(f"{args.database_url_env} is not set")
+    if url != url.strip() or any(unicodedata.category(char) == "Cc" for char in url):
+        raise ApplyError(
+            "the database URL must not contain surrounding whitespace or control characters"
+        )
     lock_timeout = check_lock_timeout(args.lock_timeout)
     for version in args.unrecorded:
         if version not in _EFFECT_PROBES:
@@ -601,12 +620,21 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     import psycopg
 
-    if hosted:
-        connection_context = psycopg.connect(
-            url, autocommit=True, sslmode="verify-full", sslrootcert=args.ssl_root_cert
-        )
-    else:
-        connection_context = psycopg.connect(url, autocommit=True)
+    connection_failed = False
+    try:
+        if hosted:
+            connection_context = psycopg.connect(
+                url,
+                autocommit=True,
+                sslmode="verify-full",
+                sslrootcert=args.ssl_root_cert,
+            )
+        else:
+            connection_context = psycopg.connect(url, autocommit=True)
+    except psycopg.Error:
+        connection_failed = True
+    if connection_failed:
+        raise ApplyError("the database connection was refused") from None
     with connection_context as connection:
         verify_connection(connection, args.allow_host, args.allow_database, hosted)
         locked = connection.execute(

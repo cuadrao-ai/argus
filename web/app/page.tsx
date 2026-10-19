@@ -18,6 +18,7 @@ import {
   normalizeApiLanguage,
   signupWithEmail,
 } from "@/lib/argus-api";
+import { resetLeavingSession } from "@/lib/logout-flow";
 import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-flags";
 import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
 import { sessionEndedNotice } from "@/lib/failure-screen";
@@ -32,7 +33,7 @@ import {
   signedInHomeClosed,
 } from "@/lib/landing-intent";
 import { guestCaptchaConfigured } from "@/lib/guest-session";
-import { ENABLED_LANGUAGES, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
+import { landingLanguageChoices, languageToShow, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { saveProfileLanguage } from "@/lib/profile-writes";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
 import { completeAuthVerification } from "@/lib/auth-verification";
@@ -143,19 +144,29 @@ export default function LandingPage() {
     const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
     window.history.replaceState(null, "", nextUrl);
   };
-  // A language chosen on this page before signing in. It is shown at once and,
-  // once the account signs in, saved on it; the account's own setting rules
-  // every later visit.
+  // A language chosen on this page before signing in. It is saved on the
+  // account after sign-in. A Business build keeps showing Spanish.
   const [chosenLanguage, setChosenLanguage] = useState<ArgusLanguage | null>(null);
   const shownLanguage = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language);
-  const otherLanguages = ENABLED_LANGUAGES.filter((language) => language.code !== shownLanguage);
+  const otherLanguages = landingLanguageChoices(businessPilotEnabled, shownLanguage);
   const chooseLanguage = async (code: ArgusLanguage) => {
-    await i18n.changeLanguage(code);
+    const shown = languageToShow(businessPilotEnabled, code);
+    if (shown) await i18n.changeLanguage(shown);
     setChosenLanguage(code);
   };
   const showRequest = () => updateAuthMode("request");
   const showSignup = () => updateAuthMode("signup");
   const showLogin = () => updateAuthMode("login");
+  const leaveClosedHome = (href: string) => {
+    resetLeavingSession();
+    setHomeClosed(false);
+    if (href === "/" || href.startsWith("/?auth=login")) {
+      updateAuthMode("login");
+      return;
+    }
+    window.location.assign(href);
+  };
+
   const handleAuthSubmit = async (submission: AuthFormSubmission) => {
     const allowMockSignupNetwork =
       process.env.NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP === "true" &&
@@ -250,7 +261,7 @@ export default function LandingPage() {
 
         <div data-auth-brand="cuadrao" className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4">
           {homeClosed ? (
-            <BusinessClosedNotice />
+            <BusinessClosedNotice navigate={leaveClosedHome} />
           ) : authMode === "intro" ? (
             <button
               type="button"

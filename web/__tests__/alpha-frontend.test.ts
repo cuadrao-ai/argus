@@ -2859,9 +2859,30 @@ describe("Argus Alpha frontend contract", () => {
     expect(logoutHandler).toContain("resetToEmptyChatSurface()");
     expect(logoutHandler).toContain("clearHistory()");
     expect(flow).toContain('result?.revocation === "failed"');
+    expect(flow.indexOf('return "failed"')).toBeLessThan(flow.indexOf("deps.clearLocalState()"));
+    expect(flow).toContain("finishConversion(deps.currentUserId)");
     expect(flow.indexOf("deps.clearLocalState()")).toBeLessThan(
       flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted))"),
     );
+    const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
+    const leaveClosedHome = page.slice(page.indexOf("const leaveClosedHome"), page.indexOf("const handleAuthSubmit"));
+    expect(leaveClosedHome).toContain("resetLeavingSession()");
+    expect(page).toContain("<BusinessClosedNotice navigate={leaveClosedHome} />");
+    const closedHome = readFileSync(join(root, "components/status/BusinessClosedNotice.tsx"), "utf-8");
+    expect(closedHome).toContain("setSignOutFailed(true)");
+    expect(closedHome.indexOf("setSignOutFailed(false)")).toBeGreaterThan(-1);
+    expect(closedHome.indexOf("setSignOutFailed(false)")).toBeLessThan(
+      closedHome.indexOf("leaveSession("),
+    );
+    expect(closedHome).not.toContain("onFailed() {}");
+    expect(closedHome).toContain('t("settings.logout_error")');
+    expect(closedHome).toContain('!text-[var(--cuadrao-cream)]');
+    expect(closedHome).toContain("mailto:${CUADRAO_ADMIN_EMAIL}");
+    const shots = readFileSync(join(root, "e2e/business-signed-in-home.spec.ts"), "utf-8");
+    expect(shots).toContain("E2E_SCREENSHOT_DIR");
+    expect(shots).toContain('"test-results"');
+    expect(shots).not.toContain('const shots = "/opt/cursor/artifacts/screenshots"');
+    expect(shots).toContain("screenshot directory is not a test output path");
   });
 
   test("front door auth states stay interactive during auth entry", () => {

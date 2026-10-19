@@ -88,7 +88,7 @@ function drop(files: File[]) {
   }
 }
 
-test("a file added by picker or drop while another uploads shows En cola and is kept across a rerender", async () => {
+test("a file added by picker or drop while another uploads shows En cola, omits the wait warning, and stays across a rerender", async () => {
   let releaseA!: (receipt: ReceiptSummary) => void;
   const order: string[] = [];
   const queue = new ReceiptUploadQueue(async (candidate) => {
@@ -107,6 +107,7 @@ test("a file added by picker or drop while another uploads shows En cola and is 
     await act(async () => { choose([file("b.txt")]); });
     await act(async () => { drop([file("c.txt")]); });
     const shown = surface().textContent ?? "";
+    assert.equal(shown.includes("Espera a que termine la subida actual"), false);
     assert.match(shown, /b\.txt/);
     assert.match(shown, /c\.txt/);
     assert.match(shown, /En cola/);
@@ -114,6 +115,7 @@ test("a file added by picker or drop while another uploads shows En cola and is 
     const remounted = await mount(queue);
     page = remounted;
     const again = surface().textContent ?? "";
+    assert.equal(again.includes("Espera a que termine la subida actual"), false);
     assert.match(again, /b\.txt/);
     assert.match(again, /c\.txt/);
     assert.match(again, /En cola/);

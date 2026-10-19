@@ -34,7 +34,7 @@ Usage:
 Commands:
   api-status              Print redacted API workflow env status for argus-api.
   api-deploy-status       Print latest argus-api deploy status and commit.
-  web-deploy-status       Print latest argus-app deploy status and commit.
+  web-deploy-status       Print latest cuadrao-web deploy status and commit.
   api-safe-off            Disable API job dispatch/execution and blank its Render key.
   api-proof-shadow-on     Enable proof-only shadow dispatch to workflow_proof.
   api-real-workflow-on    Enable real async dispatch to run_backtest_job.
@@ -262,7 +262,7 @@ print_api_deploy_status() {
 
 print_web_deploy_status() {
   require_local_env RENDER_API_KEY
-  print_deploy_status "$WEB_SERVICE_ID" "argus-app"
+  print_deploy_status "$WEB_SERVICE_ID" "cuadrao-web"
 }
 
 latest_workflow_version_json() {
@@ -305,7 +305,7 @@ print_workflow_version_status() {
 is_secret_render_env_key() {
   local key="$1"
   case "$key" in
-    ARGUS_OPS_TOKEN|ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD|DATABASE_URL|ARGUS_WORKFLOW_DATABASE_URL|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_JWT_SECRET|RENDER_API_KEY|OPENROUTER_API_KEY|ARGUS_PROD_OPENROUTER_API_KEY|ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY|ALPACA_API_KEY|ALPACA_SECRET_KEY|NEXT_PUBLIC_POSTHOG_KEY)
+    ARGUS_OPS_TOKEN|ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD|DATABASE_URL|ARGUS_WORKFLOW_DATABASE_URL|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_JWT_SECRET|RENDER_API_KEY|OPENROUTER_API_KEY|ARGUS_PROD_OPENROUTER_API_KEY|ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY|ALPACA_API_KEY|ALPACA_SECRET_KEY|NEXT_PUBLIC_POSTHOG_KEY|RESEND_API_KEY|CUADRAO_WAITLIST_TURNSTILE_SECRET)
       return 0
       ;;
     *)
@@ -708,13 +708,13 @@ audit_release_config() {
   done < <(release_profile_expected_pairs api "$expected_mode")
   while IFS= read -r mode_pair; do
     web_profile_pairs+=("$mode_pair")
-  done < <(release_profile_expected_pairs web "$expected_mode")
+  done < <(release_profile_expected_pairs marketing "$expected_mode")
   while IFS= read -r mode_pair; do
     api_allowed_keys+=("$mode_pair")
   done < <(release_profile_allowed_keys api)
   while IFS= read -r mode_pair; do
     web_allowed_keys+=("$mode_pair")
-  done < <(release_profile_allowed_keys web)
+  done < <(release_profile_allowed_keys marketing)
   if [ "$expected_mode" = "real-workflow" ]; then
     audit_workflow_env=true
     while IFS= read -r mode_pair; do
@@ -733,7 +733,7 @@ audit_release_config() {
   web_service_json="$(render_service_json "$WEB_SERVICE_ID")"
   workflow_service_json="$(render_workflow_json)"
   api_autodeploy_trigger="$(release_profile_auto_deploy_trigger api)"
-  web_autodeploy_trigger="$(release_profile_auto_deploy_trigger web)"
+  web_autodeploy_trigger="$(release_profile_auto_deploy_trigger marketing)"
   workflow_autodeploy_trigger="$(release_profile_auto_deploy_trigger workflow)"
   if [ "$audit_workflow_env" = "true" ]; then
     workflow_env_json="$(render_env_json "$WORKFLOW_SERVICE_ID")"
@@ -745,19 +745,19 @@ audit_release_config() {
   echo "release_profile_status=ready"
   echo "release_profile_hash=$RELEASE_PROFILE_HASH"
   audit_forbidden_render_env_keys "$api_env_json" "argus-api" "${ARGUS_FORBIDDEN_LEGACY_ENV[@]}"
-  audit_forbidden_render_env_keys "$web_env_json" "argus-app" "${ARGUS_FORBIDDEN_LEGACY_ENV[@]}"
+  audit_forbidden_render_env_keys "$web_env_json" "cuadrao-web" "${ARGUS_FORBIDDEN_LEGACY_ENV[@]}"
   audit_unexpected_render_env_keys "$api_env_json" "argus-api" "${api_allowed_keys[@]}"
-  audit_unexpected_render_env_keys "$web_env_json" "argus-app" "${web_allowed_keys[@]}"
+  audit_unexpected_render_env_keys "$web_env_json" "cuadrao-web" "${web_allowed_keys[@]}"
   audit_render_service_config "$api_env_json" "argus-api" "${api_profile_pairs[@]}"
   audit_render_service_config "$api_env_json" "argus-api" "${mode_pairs[@]}"
-  audit_render_service_config "$web_env_json" "argus-app" "${web_profile_pairs[@]}"
+  audit_render_service_config "$web_env_json" "cuadrao-web" "${web_profile_pairs[@]}"
   audit_render_auto_deploy_trigger \
     "$api_service_json" \
     "argus-api" \
     "$api_autodeploy_trigger"
   audit_render_auto_deploy_trigger \
     "$web_service_json" \
-    "argus-app" \
+    "cuadrao-web" \
     "$web_autodeploy_trigger"
   audit_render_auto_deploy_trigger \
     "$workflow_service_json" \

@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 
 import {
   businessShellEntry,
-  homeTarget,
   postAuthPath,
   resolveSignedInHome,
   signedInHomeClosed,
@@ -52,21 +51,16 @@ describe("signed-in home", () => {
     delete (globalThis as { window?: unknown }).window;
   });
 
-  test("four flag combinations, signed in and signed out, never name chat when business-only is on", () => {
+  test("four flag combinations never name chat when business-only is on", () => {
     const chatPath = "/chat";
     const cases = [
-      { signedIn: true, pilot: false, businessOnly: false, expected: { href: chatPath } },
-      { signedIn: true, pilot: true, businessOnly: false, expected: { href: "/biz" } },
-      { signedIn: true, pilot: true, businessOnly: true, expected: { href: "/biz" } },
-      { signedIn: true, pilot: false, businessOnly: true, expected: { closed: true } },
-      { signedIn: false, pilot: false, businessOnly: false, expected: { href: chatPath } },
-      { signedIn: false, pilot: true, businessOnly: false, expected: { href: "/?auth=login" } },
-      { signedIn: false, pilot: true, businessOnly: true, expected: { href: "/?auth=login" } },
-      { signedIn: false, pilot: false, businessOnly: true, expected: { href: "/?auth=login" } },
+      { pilot: false, businessOnly: false, expected: { href: chatPath } },
+      { pilot: true, businessOnly: false, expected: { href: "/biz" } },
+      { pilot: true, businessOnly: true, expected: { href: "/biz" } },
+      { pilot: false, businessOnly: true, expected: { closed: true } },
     ] as const;
     for (const row of cases) {
-      const target = homeTarget({
-        signedIn: row.signedIn,
+      const target = resolveSignedInHome({
         pilot: row.pilot,
         businessOnly: row.businessOnly,
         chatPath,

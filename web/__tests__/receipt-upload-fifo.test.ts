@@ -42,6 +42,22 @@ const savedReceipt = (id: string): ReceiptSummary => ({
   merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null,
 });
 
+test("a single file of about 4.2 MB still uploads", async () => {
+  const bytes = Math.round(4.2 * 1024 * 1024);
+  const roomy = { max_bytes: 10 * 1024 * 1024, media_types: ["application/pdf"] };
+  const payload = new Uint8Array(bytes);
+  const big = new File([payload], "factura.pdf", { type: "application/pdf" });
+  let size = 0;
+  const queue = new ReceiptUploadQueue(async (candidate) => {
+    size = candidate.size;
+    return savedReceipt(candidate.name);
+  }, () => undefined);
+  queue.add([big], roomy, "inbox");
+  await queue.save("inbox", false);
+  expect(size).toBe(bytes);
+  expect(queue.snapshot().map((item) => item.status)).toEqual(["saved"]);
+});
+
 test("several files added together upload in the order they were added", async () => {
   const order: string[] = [];
   const queue = new ReceiptUploadQueue(async (candidate) => {

@@ -157,12 +157,17 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_action_receipts",
         "public.business_ai_consents",
         "public.business_client_grants",
+        "public.business_document_settlement_revisions",
+        "public.business_document_settlements",
         "public.business_draft_revisions",
         "public.business_draft_sources",
+        "public.business_email_address_events",
         "public.business_email_daily_usage",
         "public.business_email_deliveries",
         "public.business_email_parts",
+        "public.business_email_retired_aliases",
         "public.business_email_routes",
+        "public.business_email_senders",
         "public.business_questions",
         "public.business_receipt_activity_baseline",
         "public.business_receipt_consent_commands",
@@ -705,3 +710,27 @@ def test_client_roles_cannot_see_their_own_private_objects(owned_rows, role) -> 
                 "select count(*) from storage.objects where name = %s", (name,)
             )
             assert cursor.fetchone() == (0,)
+
+
+def test_service_role_cannot_rewrite_address_events(catalog) -> None:
+    catalog.execute(
+        "select has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'SELECT'),"
+        " has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'INSERT'),"
+        " has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'UPDATE'),"
+        " has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'DELETE')"
+    )
+    assert catalog.fetchone() == (True, True, False, False)
+    with psycopg.connect(DSN) as connection:
+        with connection.cursor() as cursor:
+            for statement in (
+                "update public.business_email_address_events set event_type = event_type",
+                "delete from public.business_email_address_events",
+            ):
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    with connection.transaction():
+                        _act_as(cursor, "service_role")
+                        cursor.execute(statement)

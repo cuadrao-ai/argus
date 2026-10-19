@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
-import { Bell, Inbox, LayoutGrid, ReceiptText } from "lucide-react";
+import { Bell, House, Inbox, ReceiptText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
@@ -32,7 +32,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
       className="mt-2 border-t border-black/5 pt-2 dark:border-white/5"
     >
       <SidebarNavButton
-        icon={LayoutGrid}
+        icon={House}
         label={t("business.nav.overview", "Overview")}
         active={isActive("overview")}
         shortcutHint={quickJumpHintDisplay(1, command)}

@@ -33,25 +33,15 @@ for (const language of ["es-419", "en"] as const) {
     test(`privacy notice consent ${language} at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await setup(page, language);
-      const copy = language === "es-419"
-        ? {
-            title: "[BORRADOR] Antes de usar IA en tu negocio",
-            privacy: "[BORRADOR] Leer el aviso de privacidad",
-            notice: "[BORRADOR] Aviso de privacidad de Cuadrao Business",
-            declineTitle: "[BORRADOR] Sin este permiso, la IA queda apagada",
-            held: "siguen apagados",
-            accept: "[BORRADOR] Aceptar y continuar",
-            accepted: "[BORRADOR] Aceptación registrada en este navegador",
-          }
-        : {
-            title: "[DRAFT] Before AI is used for your business",
-            privacy: "[DRAFT] Read the privacy notice",
-            notice: "[DRAFT] Cuadrao Business privacy notice",
-            declineTitle: "[DRAFT] Without this permission, AI stays off",
-            held: "stay off",
-            accept: "[DRAFT] Accept and continue",
-            accepted: "[DRAFT] Acceptance kept in this browser",
-          };
+      const copy = {
+        title: "[BORRADOR] Antes de usar IA en tu negocio",
+        privacy: "[BORRADOR] Leer el aviso de privacidad",
+        notice: "[BORRADOR] Aviso de privacidad de Cuadrao Business",
+        declineTitle: "[BORRADOR] Sin este permiso, la IA queda apagada",
+        held: "siguen apagados",
+        accept: "[BORRADOR] Aceptar y continuar",
+        accepted: "[BORRADOR] Aceptación registrada en este navegador",
+      };
       const shot = (name: string) => capture(page, `${name}-${language}-${width === 1280 ? "desktop" : "mobile"}`);
 
       await page.goto("/biz");
@@ -60,7 +50,7 @@ for (const language of ["es-419", "en"] as const) {
       await expect(screen.getByText(BUSINESS_PRIVACY_NOTICE_VERSION)).toBeVisible();
       const accept = screen.getByTestId("business-consent-accept");
       await expect(accept).toBeDisabled();
-      await expect(page.getByTestId("overview-real-expenses")).toHaveCount(0);
+      await expect(page.getByTestId("inicio-por-revisar")).toHaveCount(0);
 
       await screen.getByRole("heading", { name: copy.title }).focus();
       await page.keyboard.press("Tab");
@@ -80,7 +70,7 @@ for (const language of ["es-419", "en"] as const) {
       await shot("decline");
       await declined.getByTestId("business-consent-continue-without").click();
       await expect(page.getByTestId("business-consent-held")).toContainText(copy.held);
-      await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+      await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
       await expect(page.getByTestId("receipt-reading-control")).toHaveCount(0);
 
       await page.getByTestId("business-consent-held").getByRole("button").click();
@@ -95,11 +85,11 @@ for (const language of ["es-419", "en"] as const) {
       await saved.getByTestId("business-consent-continue").click();
       await expect(page.getByTestId("business-consent-screen")).toHaveCount(0);
       await expect(page.getByTestId("business-consent-held")).toHaveCount(0);
-      await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+      await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
 
       await page.reload();
       await expect(page.getByTestId("business-consent-screen")).toHaveCount(0);
-      await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+      await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
     });
   }
 }

@@ -96,7 +96,7 @@ def test_a_read_that_found_nothing_still_says_no_purchase_found():
     assert receipt.preparable is False and receipt.enterable is True
 
 
-def test_a_stored_statement_refusal_reads_as_not_a_receipt():
+def test_a_stored_priced_statement_stays_reprocessable():
     draft = _draft("receipt_requires_review")
     statement = {
         **PURCHASE,
@@ -118,8 +118,8 @@ def test_a_stored_statement_refusal_reads_as_not_a_receipt():
     batch = batch_from_result(result, draft.sha256, draft.connection_id, NOW, 1)
     receipt = compose(draft, batch, [], "web")
     assert (receipt.attention, receipt.preparable, receipt.enterable) == (
-        "not_a_receipt",
-        False,
+        "interrupted",
+        True,
         True,
     )
     assert receipt.error_code == "receipt_requires_review"
@@ -209,7 +209,7 @@ def _saved_read(kind: str) -> ExtractionBatch:
 @pytest.mark.parametrize(
     ("kind", "attention", "preparable", "extracts_again"),
     [
-        ("incomplete", "interrupted", True, True),
+        ("incomplete", "interrupted", True, False),
         ("unreadable", "unreadable", False, False),
         ("no_receipt", "not_a_receipt", False, False),
         ("ncf_bill", "interrupted", True, False),
