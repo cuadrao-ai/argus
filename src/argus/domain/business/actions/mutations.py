@@ -92,6 +92,7 @@ def save_revision(
     ecf_checks: EcfVerification | None = None,
     dgii_qr: DgiiQr | None = None,
     dgii: DgiiDeclaration | None = None,
+    clear_dgii: bool = False,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -118,7 +119,7 @@ def save_revision(
         ecf_checks=ecf_checks,
         dgii_qr=dgii_qr,
         remainder_settled=bool(previous.get("remainder_settled", False)),
-        dgii=dgii if dgii is not None else previous.get("dgii"),
+        dgii=None if clear_dgii else dgii if dgii is not None else previous.get("dgii"),
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
@@ -199,14 +200,24 @@ def revise(
         if current is None:
             raw = (event.resolution.get("business") or {}).get("dgii")
             current = TypeAdapter(DgiiDeclaration).validate_python(raw) if raw else None
-        if not isinstance(current, SalesDeclaration):
+        kind = after.kind.value if isinstance(after.kind, Known) else None
+        if not isinstance(current, SalesDeclaration) and not (
+            current is None and kind == "income"
+        ):
             from argus.domain.business.purchase_review import apply_purchase
 
             amount = after.amount.value if isinstance(after.amount, Known) else None
+            fiscal = after.fiscal
+            itbis = (
+                fiscal.itbis.value
+                if fiscal is not None and isinstance(fiscal.itbis, Known)
+                else None
+            )
             declared = apply_purchase(
                 current if isinstance(current, PurchaseDeclaration) else None,
                 patch.purchase,
                 amount,
+                itbis,
             )
     return save_revision(
         tx,

@@ -7,15 +7,23 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import xlsxwriter
 
+from argus.domain.business.contracts.dgii import PurchaseDeclaration, money_text
+from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_export import build_fiscal_packet
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
+from argus.domain.business.rnc_registry import (
+    RncRegistry,
+    postgres_rnc_fetch,
+    registry_from_config,
+)
 from argus.domain.store import utcnow
 
 MAX_ROWS = 1000
@@ -45,6 +53,23 @@ COLUMNS = (
     "fiscal_value",
     "include_606",
 )
+# The accountant's sheet, in this order. The internal columns go to a second
+# sheet without the note.
+SHEET_COLUMNS = (
+    "Fecha",
+    "Proveedor",
+    "RNC",
+    "NCF",
+    "Tipo de gasto",
+    "Forma de pago",
+    "Subtotal",
+    "ITBIS",
+    "Total",
+    "Moneda",
+    "Estado",
+)
+ID_COLUMNS = tuple(column for column in COLUMNS if column != "note")
+UNRESOLVED_COLUMNS = ("draft_id", "version", "review_state", "occurred_on", "reason")
 
 
 class ExportLimit(ValueError):
@@ -178,6 +203,54 @@ def record_rows(snapshot: ExportSnapshot) -> list[dict[str, str]]:
     return sorted(rows, key=lambda row: (row["occurred_on"], row["activity_id"]))
 
 
+def _known(fact: Any) -> str:
+    return fact.value if isinstance(fact, Known) and fact.value else ""
+
+
+def sheet_rows(
+    rows: Sequence[Mapping[str, str]],
+    records: Sequence[FiscalRecord],
+    reconciliation: Sequence[Mapping[str, Any]],
+) -> list[dict[str, str]]:
+    """Each recorded row as the accountant reads it: supplier and fiscal facts
+    from the approved revision, the 606 answer from its declaration, and the
+    fiscal packet's disposition. Subtotal is the total less a known ITBIS."""
+
+    approved = {str(UUID(str(record.activity_id))): record for record in records}
+    status = {
+        str(UUID(str(item["activity_id"]))): item["disposition"]
+        for item in reconciliation
+    }
+    sheet = []
+    for row in rows:
+        record = approved.get(row["activity_id"])
+        facts = record.facts if record else BusinessFacts()
+        declaration = record.declaration if record else None
+        purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
+        itbis = _known(getattr(facts.fiscal, "itbis", None))
+        sheet.append(
+            {
+                "Fecha": row["occurred_on"],
+                "Proveedor": _known(facts.counterparty),
+                "RNC": _known(getattr(facts.fiscal, "rnc", None)),
+                "NCF": _known(getattr(facts.fiscal, "ecf", None))
+                or _known(getattr(facts.fiscal, "ncf", None)),
+                "Tipo de gasto": purchase.category or ""
+                if purchase and not purchase.category_suggested
+                else "",
+                "Forma de pago": purchase.payment_method or "" if purchase else "",
+                "Subtotal": money_text(Decimal(row["amount"]) - Decimal(itbis))
+                if itbis
+                else "",
+                "ITBIS": money_text(Decimal(itbis)) if itbis else "",
+                "Total": row["amount"],
+                "Moneda": row["currency"],
+                "Estado": status.get(row["activity_id"], ""),
+            }
+        )
+    return sheet
+
+
 def _csv(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> bytes:
     output = io.StringIO(newline="")
     writer = csv.writer(output)
@@ -187,7 +260,9 @@ def _csv(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> bytes:
 
 
 def _xlsx(
-    rows: Sequence[Mapping[str, Any]], unresolved: Sequence[Mapping[str, Any]]
+    sheet_values: Sequence[Mapping[str, Any]],
+    rows: Sequence[Mapping[str, Any]],
+    unresolved: Sequence[Mapping[str, Any]],
 ) -> bytes:
     output = io.BytesIO()
     with xlsxwriter.Workbook(
@@ -196,12 +271,9 @@ def _xlsx(
     ) as book:
         heading = book.add_format({"bold": True, "bg_color": "#E8F1ED"})
         for name, columns, values in (
-            ("Recorded money", COLUMNS, rows),
-            (
-                "Unresolved drafts",
-                ("draft_id", "version", "review_state", "occurred_on", "reason"),
-                unresolved,
-            ),
+            ("Recorded money", SHEET_COLUMNS, sheet_values),
+            ("Record ids", ID_COLUMNS, rows),
+            ("Unresolved drafts", UNRESOLVED_COLUMNS, unresolved),
         ):
             sheet = book.add_worksheet(name)
             for col, label in enumerate(columns):
@@ -221,6 +293,7 @@ def _xlsx(
 def build_archive(
     snapshot: ExportSnapshot,
     read_original: Callable[[ExportSource], bytes | None],
+    registry: RncRegistry | None = None,
 ) -> bytes:
     rows = record_rows(snapshot)
     included = {UUID(row["activity_id"]) for row in rows}
@@ -298,10 +371,6 @@ def build_archive(
                         size_bytes=len(content),
                     )
             entries.append(entry)
-        csv_bytes = _csv(rows, COLUMNS)
-        xlsx_bytes = _xlsx(rows, snapshot.unresolved)
-        archive.writestr("records.csv", csv_bytes)
-        archive.writestr("records.xlsx", xlsx_bytes)
         fiscal = build_fiscal_packet(
             snapshot.fiscal_records,
             rnc=snapshot.business_rnc,
@@ -309,16 +378,18 @@ def build_archive(
             start=snapshot.period.start,
             end=snapshot.period.end,
             captured_on=snapshot.captured_at.date(),
+            registry=registry,
         )
+        sheet = sheet_rows(
+            rows, snapshot.fiscal_records, fiscal.manifest["reconciliation"]
+        )
+        csv_bytes = _csv(sheet, SHEET_COLUMNS)
+        xlsx_bytes = _xlsx(sheet, rows, snapshot.unresolved)
+        archive.writestr("records.csv", csv_bytes)
+        archive.writestr("records.xlsx", xlsx_bytes)
         for name, content in fiscal.files.items():
             archive.writestr(name, content)
-        archive.writestr(
-            "unresolved.csv",
-            _csv(
-                snapshot.unresolved,
-                ("draft_id", "version", "review_state", "occurred_on", "reason"),
-            ),
-        )
+        archive.writestr("unresolved.csv", _csv(snapshot.unresolved, UNRESOLVED_COLUMNS))
         manifest = {
             "schema_version": 1,
             "period": {
@@ -632,6 +703,14 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 except SourceStorageUnavailable:
                     return None
 
-            result = build_archive(snapshot, original)
+            def lookup(sql, params):
+                cursor.execute(sql, params)
+                return cursor.fetchone()
+
+            result = build_archive(
+                snapshot,
+                original,
+                registry_from_config("dgii", postgres_rnc_fetch(lookup)),
+            )
             authorize(connection, context.actor, context.grant_id).require("read")
             return result
