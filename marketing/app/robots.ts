@@ -1,11 +1,11 @@
 import type { MetadataRoute } from "next";
-import { indexingEnabled } from "@/lib/indexing";
+import { indexingEnabled, PRIVATE_HOST_INDEXABLE_PATHS } from "@/lib/indexing";
 import { SITE_ORIGIN } from "@/lib/site-routes";
 
 // Read the environment on every request; a static build would freeze it.
 export const dynamic = "force-dynamic";
 
-const crawlerAllow = ["/eliminar-datos", "/privacidad"];
+const crawlerAllow = [...PRIVATE_HOST_INDEXABLE_PATHS];
 
 export default function robots(): MetadataRoute.Robots {
   if (!indexingEnabled(process.env.CUADRAO_SITE_INDEXING)) {
