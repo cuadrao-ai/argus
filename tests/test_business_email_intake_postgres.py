@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import io
 from email.message import EmailMessage
+from pathlib import Path
 from uuid import uuid4
 
 import psycopg
@@ -34,24 +35,40 @@ pytestmark = shared.pytestmark
 class Provider:
     def __init__(self, raw: bytes, recipients: tuple[str, ...]) -> None:
         self.raw, self.recipients, self.calls = raw, recipients, 0
+        self.sender = "proveedor@example.test"
+        self.authentication = None
+        self.provider_from = None
+
+    async def preview_from(self, email_id: str) -> str | None:
+        return self.sender
 
     async def raw_message(self, email_id: str, *, budget=None) -> ReceivedEmail:
         reservation = await budget.reserve() if budget else None
         self.calls += 1
         if budget:
             await budget.settle(reservation, len(self.raw))
-        return ReceivedEmail(self.raw, self.recipients)
+        return ReceivedEmail(
+            self.raw, self.recipients, self.authentication, self.provider_from
+        )
+
+
+def fresh_alias() -> str:
+    return f"a{uuid4().hex[:8]}"
+
+
+def receipt_png() -> bytes:
+    stream = io.BytesIO()
+    Image.new("RGB", (32, 32), "white").save(stream, format="PNG")
+    return stream.getvalue()
 
 
 def message() -> bytes:
-    stream = io.BytesIO()
-    Image.new("RGB", (32, 32), "white").save(stream, format="PNG")
     msg = EmailMessage()
     msg["From"] = "proveedor@example.test"
     msg["Subject"] = "Factura"
     msg.set_content("Adjunto la factura.")
     msg.add_attachment(
-        stream.getvalue(), maintype="image", subtype="png", filename="recibo.png"
+        receipt_png(), maintype="image", subtype="png", filename="recibo.png"
     )
     return msg.as_bytes()
 
@@ -175,6 +192,8 @@ def test_clients_cannot_read_the_queue(rig):
             "business_email_routes",
             "business_email_deliveries",
             "business_email_parts",
+            "business_email_retired_aliases",
+            "business_email_senders",
         ):
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 with db.transaction():
@@ -266,47 +285,34 @@ def email_logs():
 
 
 @pytest.mark.owner_acts
-def test_new_receipt_address_has_128_random_bits(address_client, rig):
-    import re
-
-    response = address_client.post("/business/email")
+def test_new_receipt_address_uses_the_chosen_alias(address_client, rig):
+    alias = fresh_alias()
+    response = address_client.post("/business/email", json={"alias": alias})
     assert response.status_code == 201, response.text
     address = response.json()["receiving_address"]
-    assert re.fullmatch(r"recibos-[0-9a-f]{32}@recibos\.example\.test", address)
+    domain = address.split("@", 1)[1]
+    assert address == f"{alias}@{domain}"
     assert len(address) <= 254
-    replay = address_client.post("/business/email")
+    replay = address_client.post("/business/email", json={"alias": alias})
     assert replay.status_code == 200
     assert replay.json()["receiving_address"] == address
 
 
 @pytest.mark.owner_acts
-@pytest.mark.parametrize("collisions", [1, 3, 4])
-def test_recipient_collision_retries_are_bounded(
-    address_client, rig, monkeypatch, email_logs, collisions
+def test_a_taken_alias_is_refused_without_logging_the_address(
+    address_client, rig, email_logs
 ):
-    from argus.api.routers import email_intake as api
-
-    old = rig["route"].recipient
-    taken = old.split("@", 1)[0].removeprefix("recibos-")
-    sizes = []
-
-    def token_hex(size):
-        sizes.append(size)
-        return taken if len(sizes) <= collisions else uuid4().hex
-
-    monkeypatch.setattr(api.secrets, "token_hex", token_hex)
-    response = address_client.post("/business/email")
-    assert sizes == [16] * min(collisions + 1, 4)
-    if collisions == 4:
-        assert response.status_code == 503, response.text
-        assert response.json()["detail"]["code"] == "email_route_unavailable"
-        assert rig["store"].route_for_space(rig["route"].space_id) is None
-        assert any(r["message"] == "email_route_collision_exhausted" for r in email_logs)
-    else:
-        assert response.status_code == 201, response.text
-        assert response.json()["receiving_address"] != old
-    assert sum(r["message"] == "email_route_collision" for r in email_logs) == collisions
-    assert old not in str(email_logs)
+    alias = fresh_alias()
+    created = address_client.post("/business/email", json={"alias": alias})
+    assert created.status_code == 201, created.text
+    rig["store"].deactivate_routes(rig["route"].space_id)
+    again = address_client.post("/business/email", json={"alias": alias})
+    assert again.status_code == 422, again.text
+    body = again.json()["detail"]
+    assert body["code"] == "email_alias_unavailable"
+    assert body["detail"] == "Ese nombre no está disponible. Prueba otro."
+    assert alias not in str(email_logs)
+    assert any(record["message"] == "email_alias_unavailable" for record in email_logs)
 
 
 def test_concurrent_route_creates_keep_one_live_route(rig):
@@ -346,9 +352,11 @@ def test_inactive_short_address_is_rejected_and_logged(
     address_client, rig, email_logs, rotate
 ):
     old = rig["route"]
+    alias = fresh_alias()
     assert len(old.recipient.split("@", 1)[0]) < 40
     if rotate:
-        assert address_client.post("/business/email").status_code == 201
+        created = address_client.post("/business/email", json={"alias": alias})
+        assert created.status_code == 201, created.text
     rejected = rig["runtime"].enqueue_resend(str(uuid4()), (old.recipient,))
     assert (rejected.state, rejected.error_code, rejected.route_id) == (
         "rejected",
@@ -363,15 +371,15 @@ def test_inactive_short_address_is_rejected_and_logged(
         assert (
             db.execute(
                 "select count(*) from public.business_email_routes "
-                "where space_id=%s and active and length(split_part(recipient,'@',1))<40",
-                (old.space_id,),
+                "where space_id=%s and active and recipient=%s",
+                (old.space_id, old.recipient),
             ).fetchone()[0]
             == 0
         )
         assert db.execute(
             "select count(*) from public.business_email_routes "
-            "where space_id=%s and active and length(split_part(recipient,'@',1))=40",
-            (old.space_id,),
+            "where space_id=%s and active and split_part(recipient,'@',1)=%s",
+            (old.space_id, alias),
         ).fetchone()[0] == int(rotate)
         assert (
             db.execute(
@@ -381,3 +389,477 @@ def test_inactive_short_address_is_rejected_and_logged(
             ).fetchone()[0]
             == 1
         )
+
+
+@pytest.mark.owner_acts
+def test_alias_change_keeps_the_delivery_and_retires_the_old_recipient(
+    address_client, rig
+):
+    created = address_client.post("/business/email", json={"alias": fresh_alias()})
+    assert created.status_code == 201, created.text
+    old = created.json()["receiving_address"]
+    delivery = rig["runtime"].enqueue_resend(str(uuid4()), (old,))
+    nxt = fresh_alias()
+    changed = address_client.post("/business/email/address", json={"alias": nxt})
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["alias"] == nxt
+    saved = rig["store"].get(delivery.id, rig["route"].space_id)
+    assert saved.route_id == delivery.route_id
+    assert saved.recipients == (old,)
+    bounced = rig["runtime"].enqueue_resend(str(uuid4()), (old,))
+    assert bounced.state == "rejected"
+    assert bounced.error_code == "email_alias_retired"
+    assert bounced.bounce_text.startswith("Esta dirección ya no recibe recibos.")
+    assert nxt not in bounced.bounce_text
+    route_id = saved.route_id
+    with rig["pool"].connection() as db, pytest.raises(psycopg.errors.RaiseException):
+        db.execute(
+            "update public.business_email_routes set space_id="
+            "(select id from public.spaces where id<>%s limit 1) where id=%s",
+            (rig["route"].space_id, route_id),
+        )
+
+
+def test_address_and_sender_changes_leave_an_audit_row(rig):
+    store, route, actor = rig["store"], rig["route"], rig["users"]["owner"]
+    space_id = route.space_id
+    previous = route.recipient
+    alias = fresh_alias()
+    recipient = f"{alias}@recibos.example.test"
+    store.change_address(
+        route.id,
+        alias=alias,
+        alias_normalized=alias,
+        recipient=recipient,
+        review_required=False,
+        actor_id=actor,
+    )
+    store.deactivate_routes(space_id, actor_id=actor)
+    sender = store.upsert_sender(
+        space_id, "address", "caja@tienda.test", "authorized", actor_id=actor
+    )
+    store.upsert_sender(
+        space_id, "address", "otro@tienda.test", "blocked", actor_id=actor
+    )
+    assert store.remove_sender(space_id, sender.id, actor_id=actor) is not None
+    events = store.address_events(space_id)
+    assert [(event.event_type, event.old_address, event.new_address) for event in events] == [
+        ("address_changed", previous, recipient),
+        ("address_stopped", recipient, None),
+        ("sender_authorized", None, "caja@tienda.test"),
+        ("sender_blocked", "otro@tienda.test", "otro@tienda.test"),
+        ("sender_removed", "caja@tienda.test", None),
+    ]
+    assert {event.actor_id for event in events} == {actor}
+    assert all(event.created_at is not None for event in events)
+
+
+def _daily(rig) -> tuple[int, int] | None:
+    with rig["pool"].connection() as db:
+        return db.execute(
+            "select messages, bytes_used from public.business_email_daily_usage"
+            " where route_id=%s",
+            (rig["route"].id,),
+        ).fetchone()
+
+
+def _spoof(rig, messages: int, byte_cap: int) -> None:
+    from argus.domain.ingestion.email_intake.budget import DailyEmailBudget
+
+    rig["store"].budget = DailyEmailBudget(messages, byte_cap)
+    rig["store"].upsert_sender(
+        rig["route"].space_id, "address", "proveedor@example.test", "authorized"
+    )
+    rig["provider"].authentication = {"spf": "pass", "dkim": "fail", "dmarc": "fail"}
+    rig["provider"].provider_from = "proveedor@example.test"
+    for _ in range(6):
+        rig["runtime"].enqueue_resend(str(uuid4()), (rig["route"].recipient,))
+        asyncio.run(rig["runtime"].next())
+
+
+def test_a_domain_rule_does_not_authorize_on_postgres(rig):
+    space = rig["route"].space_id
+    store = rig["store"]
+    store.upsert_sender(space, "domain", "tienda.test", "authorized")
+    shown = "Caja <Caja@Tienda.Test>"
+    assert store.sender_standing(space, shown) == "new"
+    assert store.claim_first_scan(space, "caja@tienda.test") is False
+    store.upsert_sender(space, "address", "caja@tienda.test", "authorized")
+    assert store.sender_standing(space, shown) == "authorized"
+    assert store.sender_standing(space, "otro@tienda.test") == "new"
+    assert store.claim_first_scan(space, shown) is True
+
+
+def test_a_forged_authorized_sender_is_charged_on_postgres(rig):
+    from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+
+    _spoof(rig, 100, 2 * SOURCE_MAX_BYTES)
+    assert rig["provider"].calls == 2
+    assert _daily(rig) == (2, 2 * SOURCE_MAX_BYTES)
+    with rig["pool"].connection() as db:
+        flags = db.execute(
+            "select cap_exempt from public.business_email_deliveries where route_id=%s",
+            (rig["route"].id,),
+        ).fetchall()
+    assert [flag[0] for flag in flags] == [False, False, False, False, False, False]
+
+
+def test_a_full_message_cap_does_not_fetch_spoofed_mail_on_postgres(rig):
+    from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+
+    _spoof(rig, 2, 100 * SOURCE_MAX_BYTES)
+    assert rig["provider"].calls == 2
+    with rig["pool"].connection() as db:
+        flags = db.execute(
+            "select cap_exempt from public.business_email_deliveries where route_id=%s",
+            (rig["route"].id,),
+        ).fetchall()
+    assert flags
+    assert all(flag[0] is False for flag in flags)
+
+
+def test_email_origin_commits_with_the_delivery_link_or_not_at_all(rig):
+    from psycopg.errors import ForeignKeyViolation
+
+    from tests.test_business_spaces_migration_postgres import connection, space
+
+    store = rig["store"]
+    delivery = rig["runtime"].enqueue_resend(str(uuid4()), (rig["route"].recipient,))
+    claimed = store.claim(delivery_id=delivery.id)
+    assert claimed is not None
+    with rig["pool"].connection() as db:
+        foreign_space = space(db, rig["users"]["other"])
+        foreign = connection(db, rig["users"]["other"], foreign_space)
+        own = connection(db, rig["users"]["owner"], rig["route"].space_id)
+    with pytest.raises(ForeignKeyViolation):
+        store.update(claimed, original_document_id=foreign)
+    with rig["pool"].connection() as db:
+        assert (
+            db.execute(
+                "select original_document_id from public.business_email_deliveries where id=%s",
+                (delivery.id,),
+            ).fetchone()[0]
+            is None
+        )
+        assert (
+            db.execute(
+                "select count(*) from public.business_sources where connection_id=%s",
+                (foreign,),
+            ).fetchone()[0]
+            == 0
+        )
+    store.update(claimed, original_document_id=own)
+    with rig["pool"].connection() as db:
+        linked = db.execute(
+            "select original_document_id::text from public.business_email_deliveries where id=%s",
+            (delivery.id,),
+        ).fetchone()[0]
+        origin = db.execute(
+            "select origin from public.business_sources"
+            " where space_id=%s and source_key=%s",
+            (rig["route"].space_id, f"attachment:{own}"),
+        ).fetchone()[0]
+    assert linked == own
+    assert origin == "email"
+
+
+def test_deleting_the_space_keeps_the_alias_taken(rig):
+    alias = fresh_alias()
+    store = rig["store"]
+    store.change_address(
+        rig["route"].id,
+        alias=alias,
+        alias_normalized=alias,
+        recipient=f"{alias}@recibos.example.test",
+        review_required=False,
+    )
+    with rig["pool"].connection() as db:
+        db.execute("delete from public.spaces where id=%s", (rig["route"].space_id,))
+    assert store.alias_taken(alias) is True
+
+
+FORGED = {"spf": "pass", "dkim": "fail", "dmarc": "fail"}
+ALIGNED = {"spf": "pass", "dkim": "pass", "dmarc": "pass"}
+
+
+@pytest.fixture
+def receipts(actions, users, monkeypatch):
+    """The owner's Business with reading on, a receiving address, the signed
+    webhook, and the owner's own prepare path. Only the reader is a fixture."""
+
+    from argus.api.business_drafts import bind_to_grant
+    from argus.api.routers import email_intake as api
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from tests.business.test_business_email_api import SECRET
+    from tests.business_reading_support import ROUTE, reading_setting, turn_reading
+    from tests.test_whatsapp_receipt_read_postgres import Extractor
+
+    monkeypatch.setattr(
+        "argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route",
+        lambda: ROUTE,
+    )
+
+    service, context, grant = actions
+    pool = service.authority.pool
+    owner, space = users["owner"], str(context.actor.space_id)
+    hub = IngestionHub(
+        PostgresConnectionRepository(pool),
+        box=None,
+        sink=service.imports,
+        clock=service.imports.clock,
+    )
+    documents = DocumentsService(
+        hub,
+        PostgresDocumentStore(pool, source_objects()),
+        Extractor(),
+        business_actions=service,
+        business_preparation_required=True,
+    )
+    documents.business_receipt_consent = reading_setting(pool)
+    turn_reading(documents.business_receipt_consent, space, owner)
+    store = PostgresEmailStore(pool)
+    recipient = f"recibos-{uuid4().hex[:8]}@recibos.example.test"
+    store.create_route(
+        recipient=recipient,
+        space_id=space,
+        principal_id=owner,
+        granted_by=owner,
+        grant_id=str(grant),
+    )
+    provider = Provider(message(), (recipient,))
+    runtime = EmailCapture(
+        store,
+        documents,
+        grant_route_authority(pool),
+        provider,
+        lambda: True,
+        lambda: True,
+    )
+    monkeypatch.setenv("ARGUS_RESEND_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setattr(api, "email_intake", lambda: runtime)
+    monkeypatch.setattr(api, "webhook_enabled", lambda: True)
+    app = FastAPI()
+    app.include_router(api.webhook_router)
+    owner_documents, _ = bind_to_grant(documents, hub, service, context, "prepare")
+    with TestClient(app) as webhook:
+        yield dict(
+            service=service,
+            context=context,
+            pool=pool,
+            store=store,
+            runtime=runtime,
+            provider=provider,
+            webhook=webhook,
+            documents=owner_documents,
+            owner=owner,
+            space=space,
+            recipient=recipient,
+        )
+
+
+def deliver(receipts, authentication) -> str:
+    """One email through the signed webhook and the worker; its receipt part."""
+
+    import json
+
+    from tests.business.test_business_email_api import signed
+
+    receipts["provider"].authentication = authentication
+    receipts["provider"].provider_from = receipts["provider"].sender
+    email_id = str(uuid4())
+    body = json.dumps(
+        {
+            "type": "email.received",
+            "data": {"email_id": email_id, "to": [receipts["recipient"]]},
+        }
+    ).encode()
+    accepted = receipts["webhook"].post(
+        "/webhooks/resend",
+        content=body,
+        headers={**signed(body), "Content-Type": "application/json"},
+    )
+    assert accepted.status_code == 202, accepted.text
+    assert asyncio.run(receipts["runtime"].next())
+    with receipts["pool"].connection() as db:
+        delivery_id, state = db.execute(
+            "select id::text, state from public.business_email_deliveries"
+            " where external_id=%s",
+            (email_id,),
+        ).fetchone()
+    assert state == "captured"
+    [part] = receipts["store"].parts(delivery_id)
+    assert part.state == "captured"
+    return part.document_id
+
+
+def prepare(receipts, connection_id: str):
+    """The owner's prepare click: queue, then the Business read and draft."""
+
+    from argus.api.documents import dispatch_preparation
+    from fastapi import BackgroundTasks
+
+    scope = BusinessSpace(receipts["space"])
+    documents = receipts["documents"]
+    documents.queue(
+        user_id=receipts["owner"], connection_id=connection_id, consent=True, scope=scope
+    )
+    tasks = BackgroundTasks()
+
+    async def run() -> None:
+        await dispatch_preparation(
+            documents, receipts["owner"], connection_id, tasks, scope=scope
+        )
+        await tasks()
+
+    asyncio.run(run())
+    with receipts["pool"].connection() as db:
+        draft_id, origin = db.execute(
+            "select l.draft_id, s.origin from public.business_draft_sources l"
+            " join public.business_sources s"
+            " on s.id=l.source_id and s.space_id=l.space_id"
+            " where s.connection_id=%s",
+            (connection_id,),
+        ).fetchone()
+    assert str(draft_id) != connection_id
+    return draft_id, origin
+
+
+def approve(receipts, draft_id):
+    from argus.api.business_drafts import DraftContext, require_drafts
+    from argus.api.email_intake import configure_email_intake, email_intake
+    from argus.api.routers.business_drafts import router
+    from argus.domain.business.contracts.actions import ReviewDraft
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    service, context = receipts["service"], receipts["context"]
+    reviewed = service.review(
+        context,
+        draft_id,
+        ReviewDraft(
+            version=service.dossier(context, draft_id).version,
+            facts={
+                "occurred_on": {"state": "known", "value": "2026-10-01"},
+                "funding": {"state": "known", "value": {"kind": "owner_funds"}},
+                "business_share": {"state": "known", "value": {"kind": "all"}},
+            },
+        ),
+        str(uuid4()),
+    )
+    assert reviewed.outcome == "applied", reviewed
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = str(uuid4())
+        return await call_next(request)
+
+    app.include_router(router)
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(
+        service, context.actor.actor_id, receipts["space"]
+    )
+    previous = email_intake()
+    configure_email_intake(receipts["runtime"])
+    try:
+        with TestClient(app) as drafts:
+            return drafts.post(
+                f"/business/drafts/{draft_id}/approve",
+                json={"version": reviewed.version, "action": "record_expense"},
+                headers={"Idempotency-Key": str(uuid4())},
+            )
+    finally:
+        configure_email_intake(previous)
+
+
+@pytest.mark.owner_acts
+@pytest.mark.parametrize(
+    ("authentication", "authorized", "status"),
+    [(FORGED, True, 403), (ALIGNED, False, 403), (ALIGNED, True, 200)],
+    ids=["forged-authorized", "aligned-new-sender", "aligned-authorized"],
+)
+def test_an_emailed_attachment_approves_only_from_an_authorized_aligned_sender(
+    receipts, authentication, authorized, status
+):
+    if authorized:
+        receipts["store"].upsert_sender(
+            receipts["space"], "address", receipts["provider"].sender, "authorized"
+        )
+    attachment = deliver(receipts, authentication)
+    draft_id, origin = prepare(receipts, attachment)
+    assert origin == "email"
+    response = approve(receipts, draft_id)
+    assert response.status_code == status, response.text
+    if status == 403:
+        assert response.json()["detail"]["code"] == "email_sender_unauthorized"
+
+
+@pytest.mark.owner_acts
+def test_an_upload_still_approves_after_a_forged_email_with_the_same_bytes(receipts):
+    receipts["store"].upsert_sender(
+        receipts["space"], "address", receipts["provider"].sender, "authorized"
+    )
+    uploaded = asyncio.run(
+        receipts["documents"].upload(
+            user_id=receipts["owner"],
+            content=receipt_png(),
+            filename="recibo.png",
+            media_type="image/png",
+            scope=BusinessSpace(receipts["space"]),
+        )
+    ).connection_id
+    draft_id, origin = prepare(receipts, uploaded)
+    assert origin == "direct"
+    assert deliver(receipts, FORGED) == uploaded
+    response = approve(receipts, draft_id)
+    assert response.status_code == 200, response.text
+
+
+MIGRATION = (
+    Path(__file__).parents[1]
+    / "supabase/migrations/20261019040000_business_receipt_address.sql"
+)
+
+
+def test_the_origin_backfill_marks_only_sources_an_email_links(rig):
+    from tests.test_business_spaces_migration_postgres import connection
+    from tests.test_financial_accounts_postgres import DSN
+
+    space, owner = rig["route"].space_id, rig["users"]["owner"]
+    delivery = rig["runtime"].enqueue_resend(str(uuid4()), (rig["route"].recipient,))
+    assert asyncio.run(rig["runtime"].next())
+    saved = rig["store"].get(delivery.id, space)
+    [part] = rig["store"].parts(delivery.id)
+    with rig["pool"].connection() as db:
+        upload = connection(db, owner, space)
+        db.execute(
+            "insert into public.business_sources"
+            " (space_id,kind,channel,source_key,connection_id,received_at)"
+            " values (%s,'attachment','web',%s,%s,now())",
+            (space, f"attachment:{upload}", upload),
+        )
+    step = (
+        "alter table public.business_sources"
+        + MIGRATION.read_text().split("alter table public.business_sources", 1)[1]
+    )
+    with psycopg.connect(DSN) as db:
+        db.execute("alter table public.business_sources drop column origin")
+        db.execute(step, prepare=False)
+        guard = db.execute(
+            "select tgenabled from pg_trigger where tgname='business_source_immutable'"
+        ).fetchone()[0]
+        origins = dict(
+            db.execute(
+                "select connection_id::text, origin from public.business_sources"
+                " where space_id=%s",
+                (space,),
+            ).fetchall()
+        )
+        db.rollback()
+    assert guard == "O"
+    assert origins == {
+        saved.original_document_id: "email",
+        part.document_id: "email",
+        upload: "direct",
+    }
