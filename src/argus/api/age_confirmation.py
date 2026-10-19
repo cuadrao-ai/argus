@@ -13,7 +13,9 @@ AGE_CONFIRMATION_REQUIRED = "age_confirmation_required"
 AGE_CONFIRMATION_INVALID = "age_confirmation_invalid"
 
 
-def parse_age_confirmation(value: object) -> datetime:
+def parse_age_confirmation(value: object) -> datetime | None:
+    if value is None:
+        return None
     if not isinstance(value, str) or _RFC3339.fullmatch(value) is None:
         raise ValueError(AGE_CONFIRMATION_INVALID)
     try:
@@ -41,4 +43,4 @@ def age_confirmation_response_code(errors: object) -> str | None:
     return AGE_CONFIRMATION_INVALID
 
 
-AgeConfirmation = Annotated[datetime, BeforeValidator(parse_age_confirmation)]
+AgeConfirmation = Annotated[datetime | None, BeforeValidator(parse_age_confirmation)]
