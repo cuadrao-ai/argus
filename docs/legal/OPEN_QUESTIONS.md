@@ -34,6 +34,7 @@ Every fact the drafts could not confirm. Owner: founder, lawyer, accountant or e
 | Q22 | Does counsel review before the beta, and which documents are mandatory first? | Founder | All |
 | Q23 | Firm-level accountant delegation (a later phase): the terms and data roles for a firm. | Founder, lawyer | Business B5 |
 | Q24 | The WhatsApp receipt-reading permission text in `ai_consent.py` (RECEIPT_SCOPE) says the model reads "merchant, amount and date", but the extractor also reads RNC, NCF, e-CF and ITBIS (`src/argus/domain/ingestion/documents/extractor.py`). The permission text needs a code change in a separate PR, and the consent re-asks after it. Standard 12 covers model-facing prompts and schema field descriptions; `RECEIPT_SCOPE` is consent copy shown to the person and is not sent to the model, so Standard 12 does not apply to it (unverified: check that no prompt reuses the string). Consent text rules and counsel review apply instead. This PR does not touch product code. The register and policy describe what is really read. | Engineering, founder | Register `business_whatsapp_receipt_reading`; Privacy 4 |
+| Q25 | Should accountants or firms be able to approve? Today only the owner approves; a grant to anyone else carries read and prepare only (`src/argus/domain/business/access.py:29-30`). An earlier draft statement that an accountant grant includes approve is superseded. | Founder (decision pending), lawyer | Privacy access section; Business B5 |
 
 ## Held draft reconciliation
 

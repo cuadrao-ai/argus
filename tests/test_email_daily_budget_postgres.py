@@ -26,9 +26,12 @@ def usage(rig):
 
 
 def enqueue(rig, external_id=None):
-    return rig["runtime"].enqueue_resend(
+    delivery = rig["runtime"].enqueue_resend(
         external_id or str(uuid4()), (rig["route"].recipient,)
     )
+    if delivery.route_id and delivery.state != "rejected":
+        delivery = rig["store"].gate_unauthorized(delivery)
+    return delivery
 
 
 def test_concurrent_last_message_slot_keeps_other_delivery_pending(rig):
@@ -121,6 +124,18 @@ def test_usage_is_private_and_route_deletion_cascades(rig):
             "delete from public.business_email_routes where id=%s", (rig["route"].id,)
         )
     assert usage(rig) is None
+
+
+def test_cap_exempt_still_reserves_the_ceiling(rig):
+    store = rig["store"]
+    held = store.claim(delivery_id=enqueue(rig).id)
+    with rig["pool"].connection() as db:
+        db.execute(
+            "update public.business_email_deliveries set cap_exempt=true where id=%s",
+            (held.id,),
+        )
+    store.reserve_fetch(held)
+    assert usage(rig)[1] == SOURCE_MAX_BYTES
 
 
 def test_metadata_and_raw_share_one_attempt_but_settle_each_fetch(rig):

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Protocol
+from zoneinfo import ZoneInfo
 
 from loguru import logger
 
@@ -43,19 +44,28 @@ class FetchBudget(Protocol):
     async def settle(self, reservation: FetchReservation, actual_bytes: int) -> None: ...
 
 
-def next_utc_day(now: datetime) -> datetime:
-    utc = now.astimezone(timezone.utc)
-    return datetime.combine(
-        utc.date() + timedelta(days=1), datetime.min.time(), timezone.utc
+BUSINESS_ZONE = ZoneInfo("America/Santo_Domingo")
+
+
+def business_day(now: datetime) -> date:
+    return now.astimezone(BUSINESS_ZONE).date()
+
+
+def next_business_day(now: datetime) -> datetime:
+    local = now.astimezone(BUSINESS_ZONE)
+    start = datetime.combine(
+        local.date() + timedelta(days=1), datetime.min.time(), tzinfo=BUSINESS_ZONE
     )
+    return start.astimezone(timezone.utc)
 
 
 def log_budget_wait(
     route_id: str, now: datetime, code: str, messages: int, bytes_used: int
 ) -> None:
-    day = now.astimezone(timezone.utc).date().isoformat()
+    day = business_day(now).isoformat()
     logger.info(
-        "Email receiving paused until next UTC day; route={} day={} reason={} messages={} bytes={}",
+        "Email receiving paused until the next business day; "
+        "route={} day={} reason={} messages={} bytes={}",
         route_id,
         day,
         code,

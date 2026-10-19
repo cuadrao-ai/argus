@@ -214,6 +214,4 @@ def require_business_document_write(
     _surface: None = Depends(require_business_surface),  # noqa: B008
     context: DocumentContext = Depends(require_document_context),  # noqa: B008
 ) -> BusinessContext:
-    """Uploads and preparation share the document surface's rate limits."""
-
     return _context(request, context.service, context.service.hub, context.user_id)

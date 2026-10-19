@@ -90,6 +90,16 @@ describe("logout on the first click", () => {
     await page.act(async () => page.root.unmount());
   });
 
+  test("a second click after a failed sign-out sends a new sign-out request", async () => {
+    const page = await mount({ businessBuild: true, revocation: "failed" });
+    await page.clickOnce();
+    assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
+    page.log.length = 0;
+    await page.clickOnce();
+    assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
+    await page.act(async () => page.root.unmount());
+  });
+
   test("a failed sign-out never navigates", async () => {
     const page = await mount({ businessBuild: true, revocation: "failed" });
     await page.clickOnce();
