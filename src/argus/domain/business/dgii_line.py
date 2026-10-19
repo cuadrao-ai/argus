@@ -18,7 +18,7 @@ COPY = {
         "en": "An RNC has 9 digits and a cédula has 11.",
     },
     "fiscal_identity_check_digit": {
-        "es": "El dígito verificador no coincide.",
+        "es": "El RNC debe tener 9 dígitos (empresa) u 11 (cédula). Revisa que esté bien escrito.",
         "en": "The check digit does not match.",
     },
     "fiscal_identity_type_mismatch": {
@@ -88,7 +88,7 @@ def _reject(record: FiscalRecord, code: str, field: str) -> dict:
     }
 
 
-def hard_rejects(record: FiscalRecord) -> list[dict]:
+def hard_rejects(record: FiscalRecord, registry: RncRegistry) -> list[dict]:
     declaration = confirmed_declaration(record)
     if not isinstance(declaration, PurchaseDeclaration):
         return []
@@ -98,7 +98,7 @@ def hard_rejects(record: FiscalRecord) -> list[dict]:
     issues = []
     if digits is None or len(digits) not in {9, 11}:
         issues.append(_reject(record, "fiscal_identity_length", "rnc"))
-    elif not (
+    elif registry.lookup(digits) is None and not (
         rnc_check_digit_ok(digits) if len(digits) == 9 else cedula_check_digit_ok(digits)
     ):
         issues.append(_reject(record, "fiscal_identity_check_digit", "rnc"))
